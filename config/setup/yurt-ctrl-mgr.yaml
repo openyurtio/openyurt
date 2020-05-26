@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yurt-ctrl-mgr
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yurt-ctrl-mgr
+  template:
+    metadata:
+      labels:
+        app: yurt-ctrl-mgr
+    spec:
+      affinity:
+        nodeAffinity:
+          # we prefer allocating ecm on cloud node
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: alibabacloud.com/is-edge-worker
+                operator: In
+                values:
+                - "false"
+      containers:
+      - name: yurt-ctrl-mgr
+        image: openyurt/yurt-ctrl-mgr:latest
+        command:
+        - edge-controller-manager
