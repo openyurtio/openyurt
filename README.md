@@ -6,8 +6,8 @@
 |------------------|
 |May 29th, 2020. OpenYurt v0.1.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
-OpenYurt is built based on native Kubernetes and targets to seamlessly extend it to support edge computing.
-Basically,  OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
+OpenYurt is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
+In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
 in the cloud infrastructure. 
 
 OpenYurt is suitable for common edge computing use cases whose requirements include:
@@ -18,10 +18,10 @@ OpenYurt is suitable for common edge computing use cases whose requirements incl
 
 OpenYurt has the following advantages in terms of compatibility and usability.
 - **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 
-  operators, CNI and CSI plugins are supported.
+  operators, CNI plugins, and CSI plugins are supported.
 - **Seamless conversion**. It provides a tool to easily convert a native Kubernative to be "edge" ready.
   The extra resource and maintenance costs of the OpenYurt components are very low.
-- **Node autonomy**. It provides mechanisms to tolerate an unstable or disconnected cloud-edge networking.
+- **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
   The applications run in the edge nodes are not affected even if the nodes are offline. 
 - **Cloud platform agnostic**. OpenYurt can be easily deployed in any public cloud Kubernetes services.
 
