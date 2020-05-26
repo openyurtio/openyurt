@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# This script can not be executed directly, it is baked in the 
+# openyurt/yurtctl-servant, before exeuction, context value (i.e., {{.VARIABLE}})
+# need to be replaced based on the environment variables set in the pod, 
+# and will be executed as a subprogram of the nsenter command.
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
+KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
+OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
+STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
+MINIKUBE_PKI_DIR=${MINIKUBE_PKI_DIR:-/var/lib/minikube/certs}
+
+declare -r YURTHUB_TEMPLATE='
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: yurt-hub
+  name: yurt-hub
+  namespace: kube-system
+spec:
+  volumes:
+  - name: pki
+    hostPath:
+      path: __pki_path__
+      path: /var/lib/minikube/certs
+      type: Directory
+  - name: kubernetes
+    hostPath:
+      path: /etc/kubernetes
+      type: Directory
+  - name: pem-dir
+    hostPath:
+      path: /var/lib/kubelet/pki
+      type: Directory
+  containers:
+  - name: yurt-hub
+    image: openyurt/yurt-hub:latest
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: kubernetes
+      mountPath:  /etc/kubernetes
+    - name: pki
+      mountPath: /etc/kubernetes/pki
+    - name: pem-dir
+      mountPath: /var/lib/kubelet/pki
+    command:
+    - edge-hub
+    - --v=2
+    - --server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)
+    - --node-name=$(NODE_NAME)
+    livenessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /v1/healthz
+        port: 10261
+      initialDelaySeconds: 300
+      periodSeconds: 5
+      failureThreshold: 3
+    resources:
+      requests:
+        cpu: 150m
+        memory: 150Mi
+      limits:
+        memory: 300Mi
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "NET_RAW"]
+    env:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  priority: 2000001000
+'
+
+# log outputs the log message with date and program prefix
+log() {
+    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] $@"
+}
+
+# setup_yurthub sets up the yurthub pod and wait for the its status to be Running
+setup_yurthub() {
+    provider=$1
+    # put yurt-hub yaml to /etc/kubernetes/manifests 
+    if [ "$provider" == "minikube" ]; then
+        yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
+            sed 's|__pki_path__|/var/lib/minikube/certs|')
+    else
+        yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
+            sed 's|__pki_path__|/etc/kubernetes/pki|')
+    fi 
+    echo "$yurthub_yaml" > ${STATIC_POD_PATH}/yurt-hub.yaml
+    log "create the ${STATIC_POD_PATH}/yurt-hub.yaml"
+    # wait yurthub pod to be ready
+    local retry=5
+    while [ $retry -ge 0 ] 
+    do
+        sleep 2
+        # NOTE: context variables need to be replaced before exeuction
+        local podStat=$(curl -s \
+            https://__kubernetes_service_host__:__kubernetes_service_port_https__\
+/api/v1/namespaces/kube-system/pods/yurt-hub-__node_name__ \
+            --cert /var/lib/kubelet/pki/kubelet-client-current.pem \
+            --key /var/lib/kubelet/pki/kubelet-client-current.pem \
+            --cacert ${MINIKUBE_PKI_DIR}/ca.crt)
+        # yurt-hub pod is not found
+        if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
+            retry=$((retry-1))
+	        log "yurt-hub-$NODE_NAME is not found, will retry $retry times"
+            continue
+        fi
+        
+        # yurt-hub pod is created, let's check if the phase is "running"
+        local podPhase=$(echo "$podStat" | 
+            grep '\"phase\":' | 
+            awk -F ':' '{print $2}' | 
+            tr -d '", ')
+        if [ "$podPhase" == "Running" ]; then 
+            log "yurt-hub-$NODE_NAME is $podPhase"
+            return 
+        else 
+            retry=$((retry-1))
+            [ $retry -ge 0 ] && 
+                log "yurt-hub-$NODE_NAME is $podPhase, will retry $retry times"
+            continue
+        fi
+    done
+}
+
+# reset_kubelet changes the configuration of the kubelet service and restart it
+reset_kubelet() {
+    # create a working dir to store revised kubelet.conf 
+    mkdir -p $OPENYURT_DIR
+    cp $KUBELET_CONF $OPENYURT_DIR/    
+    # revise the copy of the kubelet.conf
+    sed -i '/certificate-authority-data/d;
+    /client-key/d;
+    /client-certificate/d;
+    /user:/d;
+    s/ https.*/ http:\/\/127.0.0.1:10261/g' $OPENYURT_DIR/kubelet.conf
+    log "generated the revised kubeconfig $OPENYURT_DIR/kubelet.conf"
+    # revise the kubelet.service drop-in
+    sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
+    s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+    log "revised the kubelet.service drop-in file"
+    # reset the kubelete.service
+    systemctl daemon-reload
+    systemctl restart kubelet.service
+    log "kubelet has been restarted"
+}
+
+setup_yurthub $1
+reset_kubelet
+log "done"
