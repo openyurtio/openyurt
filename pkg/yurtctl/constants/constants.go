@@ -54,8 +54,6 @@ spec:
         hostPath:
           path: /var/tmp
           type: Directory
-      nodeSelector:
-        alibabacloud.com/is-edge-worker: "true"
       containers:
       - name: yurtctl-servant
         image: openyurt/yurtctl-servant:latest
