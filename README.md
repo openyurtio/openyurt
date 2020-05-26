@@ -58,27 +58,27 @@ The major OpenYurt components consist of:
 OpenYurt supports Kubernetes versions from 1.12 to 1.14. Please make sure your Kubernetes cluster version is within the supported version 
 range to avoid any compatibility issues. We will support higher Kubernetes versions shortly.
 
-### Install with `YurtCtl` [Recommended]
+You can convert an existing Kubernetes cluster to a yurt cluster manually or using command line tool `yurtctl`
 
-It is recommended that you install OpenYurt components via YurtCtl. You can iterally install everything in one cmd line.  
+### Install with `yurtctl` [Recommended]
 
-#### How to get `YurtCtl`
+It is recommended that you install OpenYurt components via `yurtctl`. You can iterally install everything in one cmd line.  
 
-You can get `YurtCtl` by either building the binary using the following command
+#### 1. How to get `yurtctl`
+
+You can get `yurtctl` by building the binary using the following command
 ```
-helm install kruise https://github.com/openkruise/kruise/releases/download/v0.5.0/kruise-chart.tgz
+make WHAT=cmd/yurtctl
 ```
-or downloading the binary from [here](path to binary)
 
-### Install with YAML files 
+#### 2. Convert a Kubernetes cluster
 
+After compiling, you can convert a Kubernetes cluster into a Yurt cluster by typing command  
 ```bash
-# Install X
-# Install Y
-kubectl apply -f https://raw.githubusercontent.com/kruiseio/kruise/master/config/manager/all_in_one.yaml
+# assume that the target cluster is a one-node minikube cluster
+_output/bin/yurtctl convert --provider minikube
 ```
-
-The official openyurt images are hosted under [docker hub](path to images).
+For further details regarding `yurtctl`, please refer to [**yurtctl tutorial**](./docs/tutorial/yurtctl.md)
 
 ## Usage
 
