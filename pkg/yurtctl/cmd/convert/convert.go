@@ -6,13 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -22,23 +19,16 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
 )
 
-const (
-	JobNameBase = "yurtctl-servant"
-)
-
-var (
-	WaitServantJobTimeout = time.Minute * 2
-	CheckServantJobPeriod = time.Second * 10
-)
-
+// Provider signifies the provider type
 type Provider string
 
 const (
+	// ProviderMinikube is used if the target kubernetes is run on minikube
 	ProviderMinikube Provider = "minikube"
-	ProviderACK      Provider = "ack"
+	// ProviderACK is used if the target kubernetes is run on ack
+	ProviderACK Provider = "ack"
 )
 
 // ConvertOptions has the information that required by convert operation
@@ -189,44 +179,22 @@ func (co *ConvertOptions) RunConvert() error {
 
 	// 4. delete the node-controller service account to disable node-controller
 	if err := co.clientSet.CoreV1().ServiceAccounts("kube-system").
-		Delete("node-controller", &metav1.DeleteOptions{}); err != nil {
+		Delete("node-controller", &metav1.DeleteOptions{
+			PropagationPolicy: &kubeutil.PropagationPolicy,
+		}); err != nil {
 		klog.Errorf("fail to delete ServiceAccount(node-controller): %s", err)
 		return err
 	}
-	klog.Info("delete the node-controller service account")
 
 	// 5. deploy yurt-hub and reset the kubelet service
-	var wg sync.WaitGroup
-	for _, nodeName := range edgeNodeNames {
-		tmplCtx := map[string]string{
-			"jobName":  JobNameBase + "-" + nodeName,
-			"nodeName": nodeName,
-			"provider": string(co.Provider),
-		}
-		jobYaml, err := tmplutil.SubsituteTemplate(constants.ServantJobTemplate, tmplCtx)
-		if err != nil {
-			return err
-		}
-		srvJobObj, err := kubeutil.YamlToObject([]byte(jobYaml))
-		if err != nil {
-			return err
-		}
-		srvJob, ok := srvJobObj.(*batchv1.Job)
-		if !ok {
-			return errors.New("fail to assert yurtctl-servant job")
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := kubeutil.RunJobAndCleanup(co.clientSet, srvJob,
-				WaitServantJobTimeout, CheckServantJobPeriod); err != nil {
-				klog.Errorf("fail to run servant job(%s): %s",
-					srvJob.GetName(), err)
-			}
-			klog.Infof("servant job(%s) has succeeded", srvJob.GetName())
-		}()
+	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
+	if err := kubeutil.RunServantJobs(co.clientSet, map[string]string{
+		"provider": string(co.Provider),
+		"action":   "convert",
+	}, edgeNodeNames); err != nil {
+		klog.Errorf("fail to run ServantJobs: %s", err)
+		return err
 	}
-	wg.Wait()
 
 	return nil
 }
