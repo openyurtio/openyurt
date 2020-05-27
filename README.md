@@ -48,7 +48,7 @@ The major OpenYurt components consist of:
   the node controller and the unit controller (not released yet) for different edge computing use cases. For example,
   the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the 
   node heartbeats are missing.
-- **Yurt tunnel server**: It connects with the `YurtTunnel` daemon running in each edge node via a
+- **Yurt tunnel server**: It connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
   that are connected to the intranet.
 
