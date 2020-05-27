@@ -41,7 +41,7 @@ spec:
       - name: yurt-ctrl-mgr
         image: openyurt/yurt-ctrl-mgr:latest
         command:
-        - edge-controller-manager	
+        - yurt-controller-manager	
 `
 	// ServantJobTemplate defines the servant job in yaml format
 	ServantJobTemplate = `
