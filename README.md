@@ -1,6 +1,7 @@
 # OpenYurt 
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 
 |![notification](img/bell-outline-badge.svg) What is NEW!|
 |------------------|
@@ -11,10 +12,10 @@ In a nutshell, OpenYurt enables users to manage applications that run in the edg
 in the cloud infrastructure. 
 
 OpenYurt is suitable for common edge computing use cases whose requirements include:
-- minimizing the network traffic over long distances between the devices and the workloads.
-- overcoming the network bandwidth or reliability limitations.
-- processing data remotely to reduce latency.
-- providing a better security model to handle sensitive data. 
+- Minimizing the network traffic over long distances between the devices and the workloads.
+- Overcoming the network bandwidth or reliability limitations.
+- Processing data remotely to reduce latency.
+- Providing a better security model to handle sensitive data.
 
 OpenYurt has the following advantages in terms of compatibility and usability.
 - **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 

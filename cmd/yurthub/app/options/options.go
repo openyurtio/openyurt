@@ -3,8 +3,8 @@ package options
 import (
 	"fmt"
 
-	"github.com/spf13/pflag"
 	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/spf13/pflag"
 )
 
 type YurtHubOptions struct {
@@ -43,7 +43,7 @@ func ValidateOptions(options *YurtHubOptions) error {
 	}
 
 	if len(options.ServerAddr) == 0 {
-		return fmt.Errorf("server-address is emtpy")
+		return fmt.Errorf("server-address is empty")
 	}
 
 	if !util.IsSupportedLBMode(options.LBMode) {

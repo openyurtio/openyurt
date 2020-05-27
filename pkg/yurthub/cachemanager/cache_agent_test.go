@@ -96,9 +96,8 @@ func compareAgents(gotAgents []string, expectedAgents []string) bool {
 		return false
 	}
 
-	notFound := true
 	for _, agent := range gotAgents {
-		notFound = true
+		notFound := true
 		for i := range expectedAgents {
 			if expectedAgents[i] == agent {
 				notFound = false

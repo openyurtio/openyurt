@@ -46,7 +46,7 @@ const (
 	YurtControllerManagerUserAgent = "yurt-controller-manager"
 )
 
-// KubeControllerManagerOptions is the main context object for the kube-controller manager.
+// YurtControllerManagerOptions is the main context object for the kube-controller manager.
 type YurtControllerManagerOptions struct {
 	Generic                 *GenericControllerManagerConfigurationOptions
 	NodeLifecycleController *NodeLifecycleControllerOptions

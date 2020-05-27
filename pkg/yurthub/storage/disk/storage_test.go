@@ -277,9 +277,8 @@ func TestListKeys(t *testing.T) {
 		t.Errorf("expect %d keys, but got %d keys", len(tempKeys), len(keys))
 	}
 
-	found := false
 	for _, key := range tempKeys {
-		found = false
+		found := false
 		for _, cachedKey := range keys {
 			if key == cachedKey {
 				found = true
@@ -369,9 +368,8 @@ func TestList(t *testing.T) {
 		t.Errorf("expect %d number of contents, but got %d number of contents", len(tempContents), len(contents))
 	}
 
-	found := false
 	for _, content := range tempContents {
-		found = false
+		found := false
 		for _, cachedContent := range contents {
 			if content == string(cachedContent) {
 				found = true
