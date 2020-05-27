@@ -3,7 +3,9 @@ module github.com/alibaba/openyurt
 go 1.13
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/Sirupsen/logrus v0.0.0-00010101000000-000000000000 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
@@ -22,7 +24,6 @@ require (
 	github.com/prometheus/client_golang v1.0.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
@@ -32,10 +33,10 @@ require (
 	k8s.io/apimachinery v0.17.3
 	k8s.io/apiserver v0.0.0-20191015220424-a5d070e3855f
 	k8s.io/client-go v11.0.1-0.20191004102930-01520b8320fc+incompatible
-	k8s.io/cloud-provider v0.0.0-20191015223304-f52880ae9401
+	k8s.io/cloud-provider v0.0.0-20191015223304-f52880ae9401 // indirect
 	k8s.io/component-base v0.17.3
 	k8s.io/klog v1.0.0
-	k8s.io/kube-controller-manager v1.14.8
+	k8s.io/kube-controller-manager v1.14.8 // indirect
 	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30 // indirect
 	k8s.io/kubernetes v1.18.3
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
@@ -44,6 +45,7 @@ require (
 )
 
 replace (
+	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.6.0
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	k8s.io/api => k8s.io/api v0.0.0-20191004102349-159aefb8556b
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191015221719-7d47edc353ef
