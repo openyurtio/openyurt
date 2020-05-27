@@ -1014,9 +1014,9 @@ func TestQueryCacheForList(t *testing.T) {
 			expectResult: expectData{
 				rv: "5",
 				data: map[string]struct{}{
-					"pod-default-mypod1-1": struct{}{},
-					"pod-default-mypod2-2": struct{}{},
-					"pod-default-mypod3-5": struct{}{},
+					"pod-default-mypod1-1": {},
+					"pod-default-mypod2-2": {},
+					"pod-default-mypod3-5": {},
 				},
 			},
 		},
@@ -1069,10 +1069,10 @@ func TestQueryCacheForList(t *testing.T) {
 			expectResult: expectData{
 				rv: "12",
 				data: map[string]struct{}{
-					"node-mynode1-6":  struct{}{},
-					"node-mynode2-8":  struct{}{},
-					"node-mynode3-10": struct{}{},
-					"node-mynode4-12": struct{}{},
+					"node-mynode1-6":  {},
+					"node-mynode2-8":  {},
+					"node-mynode3-10": {},
+					"node-mynode4-12": {},
 				},
 			},
 		},
