@@ -13,6 +13,8 @@ import (
 	"k8s.io/klog"
 )
 
+// StorageWrapper is wrapper for storage.Store interface
+// in order to handle serialize runtime object
 type StorageWrapper interface {
 	Create(key string, obj runtime.Object) error
 	Delete(key string) error
@@ -31,6 +33,7 @@ type storageWrapper struct {
 	cache             map[string]runtime.Object
 }
 
+// NewStorageWrapper create a StorageWrapper object
 func NewStorageWrapper(storage storage.Store) StorageWrapper {
 	return &storageWrapper{
 		store:             storage,
@@ -39,6 +42,7 @@ func NewStorageWrapper(storage storage.Store) StorageWrapper {
 	}
 }
 
+// Create store runtime object into backend storage
 func (sw *storageWrapper) Create(key string, obj runtime.Object) error {
 	var buf bytes.Buffer
 	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
@@ -59,6 +63,7 @@ func (sw *storageWrapper) Create(key string, obj runtime.Object) error {
 	return nil
 }
 
+// Delete remove runtime object that by specified key from backend storage
 func (sw *storageWrapper) Delete(key string) error {
 	if err := sw.store.Delete(key); err != nil {
 		return err
@@ -73,6 +78,7 @@ func (sw *storageWrapper) Delete(key string) error {
 	return nil
 }
 
+// Get get the runtime object that specified by key from backend storage
 func (sw *storageWrapper) Get(key string) (runtime.Object, error) {
 	cachedKey := isCacheKey(key)
 	if cachedKey {
@@ -106,10 +112,12 @@ func (sw *storageWrapper) Get(key string) (runtime.Object, error) {
 	return obj, nil
 }
 
+// ListKeys list all keys with key as prefix
 func (sw *storageWrapper) ListKeys(key string) ([]string, error) {
 	return sw.store.ListKeys(key)
 }
 
+// List get all of runtime objects that specified by key as prefix
 func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
 	objects := make([]runtime.Object, 0)
 	bb, err := sw.store.List(key)
@@ -132,6 +140,7 @@ func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
 	return objects, nil
 }
 
+// Update update runtime object in backend storage
 func (sw *storageWrapper) Update(key string, obj runtime.Object) error {
 	var buf bytes.Buffer
 	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
@@ -152,10 +161,12 @@ func (sw *storageWrapper) Update(key string, obj runtime.Object) error {
 	return nil
 }
 
+// GetRaw get byte data for specified key
 func (sw *storageWrapper) GetRaw(key string) ([]byte, error) {
 	return sw.store.Get(key)
 }
 
+// UpdateRaw update contents(byte date) for specified key
 func (sw *storageWrapper) UpdateRaw(key string, contents []byte) error {
 	return sw.store.Update(key, contents)
 }

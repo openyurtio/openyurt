@@ -1,8 +1,6 @@
 package app
 
 import (
-	_ "net/http/pprof"
-
 	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
 	"github.com/alibaba/openyurt/cmd/yurthub/app/options"
 	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
@@ -27,6 +25,7 @@ const (
 	componentYurtHub = "yurthub"
 )
 
+// NewCmdStartYurtHub creates a *cobra.Command object with default parameters
 func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 	yurtHubOptions := options.NewYurtHubOptions()
 
@@ -58,6 +57,7 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 	return cmd
 }
 
+// Run runs the YurtHubConfiguration. This should never exit
 func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace := 1
 	klog.Infof("%d. new transport manager for healthz client", trace)

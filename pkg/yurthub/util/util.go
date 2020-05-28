@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -13,17 +15,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
+	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog"
 )
 
+// ProxyKeyType represents the key in proxy request context
 type ProxyKeyType int
 
 const (
-	CanCacheHeader string = "Edge-Cache"
-
+	// ProxyReqContentType represents request content type context key
 	ProxyReqContentType ProxyKeyType = iota
+	// ProxyRespContentType represents response content type context key
 	ProxyRespContentType
+	// ProxyClientComponent represents client component context key
 	ProxyClientComponent
+	// ProxyReqCanCache represents request can cache context key
 	ProxyReqCanCache
 )
 
@@ -54,7 +61,7 @@ func RespContentTypeFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-// ClientComponentFrom returns a copy of parent in which the client component value is set
+// WithClientComponent returns a copy of parent in which the client component value is set
 func WithClientComponent(parent context.Context, component string) context.Context {
 	return WithValue(parent, ProxyClientComponent, component)
 }
@@ -65,17 +72,18 @@ func ClientComponentFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-// WithCanCacheAgent returns a copy of parent in which the request can cache value is set
+// WithReqCanCache returns a copy of parent in which the request can cache value is set
 func WithReqCanCache(parent context.Context, canCache bool) context.Context {
 	return WithValue(parent, ProxyReqCanCache, canCache)
 }
 
-// CanCacheAgentFrom returns the value of the request can cache key on the ctx
+// ReqCanCacheFrom returns the value of the request can cache key on the ctx
 func ReqCanCacheFrom(ctx context.Context) (bool, bool) {
 	info, ok := ctx.Value(ProxyReqCanCache).(bool)
 	return info, ok
 }
 
+// ReqString formats a string for request
 func ReqString(req *http.Request) string {
 	ctx := req.Context()
 	comp, _ := ClientComponentFrom(ctx)
@@ -86,6 +94,7 @@ func ReqString(req *http.Request) string {
 	return fmt.Sprintf("%s of %s", comp, req.URL.String())
 }
 
+// ReqInfoString formats a string for request info
 func ReqInfoString(info *apirequest.RequestInfo) string {
 	if info == nil {
 		return ""
@@ -94,6 +103,7 @@ func ReqInfoString(info *apirequest.RequestInfo) string {
 	return fmt.Sprintf("%s %s for %s", info.Verb, info.Resource, info.Path)
 }
 
+// WriteObject write object to response writer
 func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	gv := schema.GroupVersion{
@@ -108,6 +118,7 @@ func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req 
 	responsewriters.WriteObjectNegotiated(serializer.YurtHubSerializer.NegotiatedSerializer, gv, w, req, statusCode, obj)
 }
 
+// Err write err to response writer
 func Err(err error, w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	gv := schema.GroupVersion{
@@ -122,6 +133,7 @@ func Err(err error, w http.ResponseWriter, req *http.Request) {
 	responsewriters.ErrorNegotiated(err, serializer.YurtHubSerializer.NegotiatedSerializer, gv, w, req)
 }
 
+// NewDualReadCloser create an dualReadCloser object
 func NewDualReadCloser(rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser) {
 	pr, pw := io.Pipe()
 	dr := &dualReadCloser{
@@ -143,6 +155,7 @@ type dualReadCloser struct {
 	isRespBody bool
 }
 
+// Read read data into p and write into pipe
 func (dr *dualReadCloser) Read(p []byte) (n int, err error) {
 	n, err = dr.rc.Read(p)
 	if n > 0 {
@@ -155,6 +168,7 @@ func (dr *dualReadCloser) Read(p []byte) (n int, err error) {
 	return
 }
 
+// Close close two readers
 func (dr *dualReadCloser) Close() error {
 	errs := make([]error, 0)
 	if dr.isRespBody {
@@ -174,6 +188,7 @@ func (dr *dualReadCloser) Close() error {
 	return nil
 }
 
+// KeyFunc combine comp resource ns name into a key
 func KeyFunc(comp, resource, ns, name string) (string, error) {
 	if comp == "" || resource == "" {
 		return "", fmt.Errorf("createKey: comp, resource can not be empty")
@@ -182,6 +197,7 @@ func KeyFunc(comp, resource, ns, name string) (string, error) {
 	return filepath.Join(comp, resource, ns, name), nil
 }
 
+// SplitKey split key into comp, resource, ns, name
 func SplitKey(key string) (comp, resource, ns, name string) {
 	if len(key) == 0 {
 		return
@@ -208,6 +224,7 @@ func SplitKey(key string) (comp, resource, ns, name string) {
 	return
 }
 
+// IsSupportedLBMode check lb mode is supported or not
 func IsSupportedLBMode(lbMode string) bool {
 	switch lbMode {
 	case "rr", "priority":
@@ -217,6 +234,7 @@ func IsSupportedLBMode(lbMode string) bool {
 	return false
 }
 
+// IsSupportedCertMode check cert mode is supported or not
 func IsSupportedCertMode(certMode string) bool {
 	switch certMode {
 	case "kubelet":
@@ -224,4 +242,40 @@ func IsSupportedCertMode(certMode string) bool {
 	}
 
 	return false
+}
+
+// FileExists checks if specified file exists.
+func FileExists(filename string) (bool, error) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// LoadKubeletRestClientConfig load *rest.Config for accessing healthyServer
+func LoadKubeletRestClientConfig(healthyServer *url.URL) (*rest.Config, error) {
+	const (
+		pairFile   = "/var/lib/kubelet/pki/kubelet-client-current.pem"
+		rootCAFile = "/etc/kubernetes/pki/ca.crt"
+	)
+
+	tlsClientConfig := rest.TLSClientConfig{}
+	if _, err := certutil.NewPool(rootCAFile); err != nil {
+		klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+	} else {
+		tlsClientConfig.CAFile = rootCAFile
+	}
+
+	if can, _ := certutil.CanReadCertAndKey(pairFile, pairFile); !can {
+		return nil, fmt.Errorf("error reading %s, certificate and key must be supplied as a pair", pairFile)
+	}
+	tlsClientConfig.KeyFile = pairFile
+	tlsClientConfig.CertFile = pairFile
+
+	return &rest.Config{
+		Host:            healthyServer.String(),
+		TLSClientConfig: tlsClientConfig,
+	}, nil
 }

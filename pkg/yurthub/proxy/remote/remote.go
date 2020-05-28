@@ -17,6 +17,7 @@ import (
 	"k8s.io/klog"
 )
 
+// RemoteProxy is an reverse proxy for remote server
 type RemoteProxy struct {
 	checker      healthchecker.HealthChecker
 	reverseProxy *httputil.ReverseProxy
@@ -25,6 +26,7 @@ type RemoteProxy struct {
 	stopCh       <-chan struct{}
 }
 
+// NewRemoteProxy creates an *RemoteProxy object, and will be used by LoadBalancer
 func NewRemoteProxy(remoteServer *url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
@@ -50,6 +52,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 	return proxyBackend, nil
 }
 
+// Name represents the address of remote server
 func (rp *RemoteProxy) Name() string {
 	return rp.remoteServer.String()
 }
@@ -58,6 +61,7 @@ func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rp.reverseProxy.ServeHTTP(rw, req)
 }
 
+// IsHealthy returns healthy status of remote server
 func (rp *RemoteProxy) IsHealthy() bool {
 	return rp.checker.IsHealthy(rp.remoteServer)
 }

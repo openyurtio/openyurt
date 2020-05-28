@@ -23,13 +23,16 @@ const (
 	interval = 2 * time.Second
 )
 
+// IsHealthy is func for fetching healthy status of remote server
 type IsHealthy func() bool
 
+// LocalProxy is responsible for handling requests when remote servers are unhealthy
 type LocalProxy struct {
 	cacheMgr  manager.CacheManager
 	isHealthy IsHealthy
 }
 
+// NewLocalProxy creates a *LocalProxy
 func NewLocalProxy(cacheMgr manager.CacheManager, isHealthy IsHealthy) *LocalProxy {
 	return &LocalProxy{
 		cacheMgr:  cacheMgr,
@@ -37,7 +40,7 @@ func NewLocalProxy(cacheMgr manager.CacheManager, isHealthy IsHealthy) *LocalPro
 	}
 }
 
-//
+// ServeHTTP implements http.Handler for LocalProxy
 func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
 	ctx := req.Context()
@@ -45,13 +48,13 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		klog.V(3).Infof("go into local proxy for request %s", util.ReqString(req))
 		switch reqInfo.Verb {
 		case "watch":
-			err = lp.LocalWatch(w, req)
+			err = lp.localWatch(w, req)
 		case "create":
-			err = lp.LocalPost(w, req)
+			err = lp.localPost(w, req)
 		case "delete", "deletecollection":
 			err = localDelete(w, req)
 		default: // list., get, update
-			err = lp.LocalReqCache(w, req)
+			err = lp.localReqCache(w, req)
 		}
 
 		if err != nil {
@@ -67,6 +70,7 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	util.Err(errors.NewBadRequest(err.Error()), w, req)
 }
 
+// localDelete handles Delete requests when remote servers are unhealthy
 func localDelete(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
@@ -86,7 +90,8 @@ func localDelete(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
-func (lp *LocalProxy) LocalPost(w http.ResponseWriter, req *http.Request) error {
+// localPost handles Create requests when remote servers are unhealthy
+func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error {
 	var buf bytes.Buffer
 
 	ctx := req.Context()
@@ -125,7 +130,8 @@ func (lp *LocalProxy) LocalPost(w http.ResponseWriter, req *http.Request) error 
 	return nil
 }
 
-func (lp *LocalProxy) LocalWatch(w http.ResponseWriter, req *http.Request) error {
+// localWatch handles Watch requests when remote servers are unhealthy
+func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		err := fmt.Errorf("unable to start watch - can't get http.Flusher: %#v", w)
@@ -172,7 +178,8 @@ func (lp *LocalProxy) LocalWatch(w http.ResponseWriter, req *http.Request) error
 	}
 }
 
-func (lp *LocalProxy) LocalReqCache(w http.ResponseWriter, req *http.Request) error {
+// localReqCache handles Get/List/Update requests when remote servers are unhealthy
+func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) error {
 	if !lp.cacheMgr.CanCacheFor(req) {
 		err := fmt.Errorf("can not cache for %s", util.ReqString(req))
 		return err

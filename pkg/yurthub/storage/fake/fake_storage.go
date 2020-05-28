@@ -6,6 +6,7 @@ type fakeStorage struct {
 	data map[string]string
 }
 
+// NewFakeStorage creates a fake storage
 func NewFakeStorage() (storage.Store, error) {
 	return &fakeStorage{
 		data: make(map[string]string),

@@ -33,6 +33,7 @@ func NewDialer(name string) *Dialer {
 	}
 }
 
+// Name returns the name of dialer
 func (d *Dialer) Name() string {
 	return d.name
 }

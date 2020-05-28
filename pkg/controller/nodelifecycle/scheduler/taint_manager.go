@@ -52,7 +52,7 @@ const (
 	podUpdateChannelSize = 1
 	retries              = 5
 
-	// NodeAutonomyIdentify is an annotation key for node.
+	// AnnotationKeyNodeAutonomy is an annotation key for node autonomy.
 	AnnotationKeyNodeAutonomy = "node.beta.alibabacloud.com/autonomy"
 )
 

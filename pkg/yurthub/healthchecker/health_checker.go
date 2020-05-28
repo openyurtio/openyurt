@@ -20,6 +20,7 @@ const (
 	continuousHealthyCount = 2
 )
 
+// HealthChecker is an interface for checking healthy stats of server
 type HealthChecker interface {
 	IsHealthy(server *url.URL) bool
 }
@@ -29,6 +30,7 @@ type healthCheckerManager struct {
 	checkers map[string]*checker
 }
 
+// NewHealthChecker create an HealthChecker for servers
 func NewHealthChecker(remoteServers []*url.URL, tp transport.Interface, failedRetry, healthyThreshold int, stopCh <-chan struct{}) (HealthChecker, error) {
 	if len(remoteServers) == 0 {
 		return nil, fmt.Errorf("no remote servers")
@@ -50,6 +52,7 @@ func NewHealthChecker(remoteServers []*url.URL, tp transport.Interface, failedRe
 	return hcm, nil
 }
 
+// IsHealthy returns the healthy stats of specified server
 func (hcm *healthCheckerManager) IsHealthy(server *url.URL) bool {
 	hcm.RLock()
 	defer hcm.RUnlock()

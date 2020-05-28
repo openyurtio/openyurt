@@ -23,6 +23,7 @@ type diskStorage struct {
 	sync.RWMutex
 }
 
+// NewDiskStorage creates a storage.Store for caching data into local disk
 func NewDiskStorage() (storage.Store, error) {
 	if _, err := os.Stat(cacheBaseDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(cacheBaseDir, 0755); err != nil {
@@ -42,6 +43,7 @@ func NewDiskStorage() (storage.Store, error) {
 	return ds, nil
 }
 
+// Create new a file with key and contents
 func (ds *diskStorage) Create(key string, contents []byte) error {
 	if key == "" || len(contents) == 0 {
 		return nil
@@ -96,6 +98,7 @@ func (ds *diskStorage) Create(key string, contents []byte) error {
 	return nil
 }
 
+// Delete delete file that specified by key
 func (ds *diskStorage) Delete(key string) error {
 	if key == "" {
 		return nil
@@ -143,6 +146,7 @@ func (ds *diskStorage) delete(key string) error {
 	return nil
 }
 
+// Get get contents from the file that specified by key
 func (ds *diskStorage) Get(key string) ([]byte, error) {
 	return ds.get(filepath.Join(cacheBaseDir, key))
 }
@@ -176,6 +180,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 	return nil, fmt.Errorf("%s is exist, but not recognized, %v", key, info.Mode())
 }
 
+// ListKeys list all of keys for files
 func (ds *diskStorage) ListKeys(key string) ([]string, error) {
 	keys := make([]string, 0)
 	absPath := filepath.Join(cacheBaseDir, key)
@@ -209,6 +214,7 @@ func (ds *diskStorage) ListKeys(key string) ([]string, error) {
 	return keys, fmt.Errorf("failed to list keys because %s not recognized", key)
 }
 
+// List get all of contents for local files
 func (ds *diskStorage) List(key string) ([][]byte, error) {
 	if key == "" {
 		return nil, fmt.Errorf("key for list is empty")
@@ -260,6 +266,7 @@ func (ds *diskStorage) List(key string) ([][]byte, error) {
 	return nil, fmt.Errorf("%s is exist, but not recognized, %v", key, info.Mode())
 }
 
+// Update update local file that specified by key with contents
 func (ds *diskStorage) Update(key string, contents []byte) error {
 	if key == "" || len(contents) == 0 {
 		return nil
@@ -296,6 +303,7 @@ func (ds *diskStorage) Update(key string, contents []byte) error {
 	return os.Rename(tmpPath, absKey)
 }
 
+// Recover recover storage error
 func (ds *diskStorage) Recover(key string) error {
 	dir := filepath.Join(cacheBaseDir, key)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -332,11 +340,12 @@ func (ds *diskStorage) Recover(key string) error {
 func (ds *diskStorage) lockKey(key string) bool {
 	if ds.isKeyPending(key) {
 		return false
-	} else {
-		if !ds.setKeyPending(key) {
-			return false
-		}
 	}
+
+	if !ds.setKeyPending(key) {
+		return false
+	}
+
 	return true
 }
 

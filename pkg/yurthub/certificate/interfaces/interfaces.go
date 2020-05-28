@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 )
 
+// YurtCertificateManager is responsible for managing node certificate for yurthub
 type YurtCertificateManager interface {
 	certificate.Manager
 	Update(cfg *config.YurtHubConfiguration) error

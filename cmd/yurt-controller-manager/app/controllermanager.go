@@ -34,8 +34,6 @@ import (
 	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/options"
 	yurtctrlmgrconfig "github.com/alibaba/openyurt/pkg/controller/apis/config"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,9 +43,7 @@ import (
 	"k8s.io/apiserver/pkg/server/mux"
 	serveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/util/term"
-	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	cliflag "k8s.io/component-base/cli/flag"
@@ -61,7 +57,7 @@ import (
 )
 
 const (
-	// Jitter used when starting controller managers
+	// ControllerStartJitter used when starting controller managers
 	ControllerStartJitter = 1.0
 )
 
@@ -232,6 +228,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	panic("unreachable")
 }
 
+// ControllerContext is an context for all controllers
 type ControllerContext struct {
 	// ClientBuilder will provide a client for this controller to use
 	ClientBuilder controller.ControllerClientBuilder
@@ -241,14 +238,6 @@ type ControllerContext struct {
 
 	// ComponentConfig provides access to init options for a given controller
 	ComponentConfig yurtctrlmgrconfig.YurtControllerManagerConfiguration
-
-	// DeferredDiscoveryRESTMapper is a RESTMapper that will defer
-	// initialization of the RESTMapper until the first mapping is
-	// requested.
-	RESTMapper *restmapper.DeferredDiscoveryRESTMapper
-
-	// AvailableResources is a map listing currently available resources
-	AvailableResources map[schema.GroupVersionResource]bool
 
 	// Stop is the stop channel
 	Stop <-chan struct{}
@@ -263,6 +252,7 @@ type ControllerContext struct {
 	ResyncPeriod func() time.Duration
 }
 
+// IsControllerEnabled used for verifing specified controller is enabled or not
 func (c ControllerContext) IsControllerEnabled(name string) bool {
 	return genericcontrollermanager.IsControllerEnabled(name, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers)
 }
@@ -272,12 +262,14 @@ func (c ControllerContext) IsControllerEnabled(name string) bool {
 // The bool indicates whether the controller was enabled.
 type InitFunc func(ctx ControllerContext) (debuggingHandler http.Handler, enabled bool, err error)
 
+// KnownControllers returns all controllers name
 func KnownControllers() []string {
 	ret := sets.StringKeySet(NewControllerInitializers())
 
 	return ret.List()
 }
 
+// ControllersDisabledByDefault represents all of default disabled controller
 var ControllersDisabledByDefault = sets.NewString()
 
 //const (
@@ -293,34 +285,6 @@ func NewControllerInitializers() map[string]InitFunc {
 	return controllers
 }
 
-// TODO: In general, any controller checking this needs to be dynamic so
-//  users don't have to restart their controller manager if they change the apiserver.
-// Until we get there, the structure here needs to be exposed for the construction of a proper ControllerContext.
-func GetAvailableResources(clientBuilder controller.ControllerClientBuilder) (map[schema.GroupVersionResource]bool, error) {
-	client := clientBuilder.ClientOrDie("controller-discovery")
-	discoveryClient := client.Discovery()
-	resourceMap, err := discoveryClient.ServerResources()
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to get all supported resources from server: %v", err))
-	}
-	if len(resourceMap) == 0 {
-		return nil, fmt.Errorf("unable to get any supported resources from server")
-	}
-
-	allResources := map[schema.GroupVersionResource]bool{}
-	for _, apiResourceList := range resourceMap {
-		version, err := schema.ParseGroupVersion(apiResourceList.GroupVersion)
-		if err != nil {
-			return nil, err
-		}
-		for _, apiResource := range apiResourceList.APIResources {
-			allResources[version.WithResource(apiResource.Name)] = true
-		}
-	}
-
-	return allResources, nil
-}
-
 // CreateControllerContext creates a context struct containing references to resources needed by the
 // controllers such as the cloud provider and clientBuilder. rootClientBuilder is only used for
 // the shared-informers client and token controller.
@@ -334,32 +298,18 @@ func CreateControllerContext(s *config.CompletedConfig, rootClientBuilder, clien
 		return ControllerContext{}, fmt.Errorf("failed to wait for apiserver being healthy: %v", err)
 	}
 
-	// Use a discovery client capable of being refreshed.
-	discoveryClient := rootClientBuilder.ClientOrDie("controller-discovery")
-	cachedClient := cacheddiscovery.NewMemCacheClient(discoveryClient.Discovery())
-	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedClient)
-	go wait.Until(func() {
-		restMapper.Reset()
-	}, 30*time.Second, stop)
-
-	availableResources, err := GetAvailableResources(rootClientBuilder)
-	if err != nil {
-		return ControllerContext{}, err
-	}
-
 	ctx := ControllerContext{
-		ClientBuilder:      clientBuilder,
-		InformerFactory:    sharedInformers,
-		ComponentConfig:    s.ComponentConfig,
-		RESTMapper:         restMapper,
-		AvailableResources: availableResources,
-		Stop:               stop,
-		InformersStarted:   make(chan struct{}),
-		ResyncPeriod:       ResyncPeriod(s),
+		ClientBuilder:    clientBuilder,
+		InformerFactory:  sharedInformers,
+		ComponentConfig:  s.ComponentConfig,
+		Stop:             stop,
+		InformersStarted: make(chan struct{}),
+		ResyncPeriod:     ResyncPeriod(s),
 	}
 	return ctx, nil
 }
 
+// StartControllers starts all of enabled controllers
 func StartControllers(ctx ControllerContext, controllers map[string]InitFunc, unsecuredMux *mux.PathRecorderMux) error {
 	for controllerName, initFn := range controllers {
 		if !ctx.IsControllerEnabled(controllerName) {

@@ -11,7 +11,11 @@ import (
 	"k8s.io/klog"
 )
 
-// withRequestContentType add req-content-type in request context.
+const (
+	canCacheHeader string = "Edge-Cache"
+)
+
+// WithRequestContentType add req-content-type in request context.
 // if no Accept header is set, application/vnd.kubernetes.protobuf will be used
 func WithRequestContentType(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -40,7 +44,7 @@ func WithRequestContentType(handler http.Handler) http.Handler {
 	})
 }
 
-// withCacheHeaderCheck add cache agent for response cache
+// WithCacheHeaderCheck add cache agent for response cache
 // in default mode, only kubelet, kube-proxy, flanneld, coredns User-Agent
 // can be supported to cache response. and with Edge-Cache header is also supported.
 func WithCacheHeaderCheck(handler http.Handler) http.Handler {
@@ -48,12 +52,12 @@ func WithCacheHeaderCheck(handler http.Handler) http.Handler {
 		ctx := req.Context()
 		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
 			if info.IsResourceRequest {
-				needToCache := strings.ToLower(req.Header.Get(util.CanCacheHeader))
+				needToCache := strings.ToLower(req.Header.Get(canCacheHeader))
 				if needToCache == "true" {
 					ctx = util.WithReqCanCache(ctx, true)
 					req = req.WithContext(ctx)
 				}
-				req.Header.Del(util.CanCacheHeader)
+				req.Header.Del(canCacheHeader)
 			}
 		}
 
@@ -61,7 +65,7 @@ func WithCacheHeaderCheck(handler http.Handler) http.Handler {
 	})
 }
 
-// withRequestClientComponent add component field in request context.
+// WithRequestClientComponent add component field in request context.
 // component is extracted from User-Agent Header, and only the content
 // before the "/" when User-Agent include "/".
 func WithRequestClientComponent(handler http.Handler) http.Handler {
@@ -118,17 +122,16 @@ func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
 func (wrw *wrapperResponseWriter) CloseNotify() <-chan bool {
 	if cn, ok := wrw.ResponseWriter.(http.CloseNotifier); ok {
 		return cn.CloseNotify()
-	} else {
-		klog.Infof("can't get http.CloseNotifier from http.ResponseWriter")
-		go func() {
-			select {
-			case <-wrw.ctx.Done():
-				wrw.closeNotifyCh <- true
-			}
-		}()
-
-		return wrw.closeNotifyCh
 	}
+	klog.Infof("can't get http.CloseNotifier from http.ResponseWriter")
+	go func() {
+		select {
+		case <-wrw.ctx.Done():
+			wrw.closeNotifyCh <- true
+		}
+	}()
+
+	return wrw.closeNotifyCh
 }
 
 func (wrw *wrapperResponseWriter) Flush() {
@@ -139,6 +142,8 @@ func (wrw *wrapperResponseWriter) Flush() {
 	}
 }
 
+// WithRequestTrace used for tracing in flight requests. and when in flight
+// requests exceeds the threshold, the following incoming requests will be rejected.
 func WithRequestTrace(handler http.Handler, limit int) http.Handler {
 	var reqChan chan bool
 	if limit > 0 {

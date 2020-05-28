@@ -16,20 +16,24 @@ import (
 	"k8s.io/klog"
 )
 
+// YurtHubSerializer is a global serializer manager for yurthub
 var YurtHubSerializer = NewSerializerManager()
 
+// SerializerManager is responsible for managing *rest.Serializers
 type SerializerManager struct {
 	// NegotiatedSerializer is used for obtaining encoders and decoders for multiple
 	// supported media types.
 	NegotiatedSerializer runtime.NegotiatedSerializer
 }
 
+// NewSerializerManager creates a *SerializerManager object with no version conversion
 func NewSerializerManager() *SerializerManager {
 	return &SerializerManager{
 		NegotiatedSerializer: serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}, // do not need version conversion
 	}
 }
 
+// CreateSerializers create a *rest.Serializers for encoding or decoding runtime object
 func (sm *SerializerManager) CreateSerializers(contentType, group, version string) (*rest.Serializers, error) {
 	mediaTypes := sm.NegotiatedSerializer.SupportedMediaTypes()
 	mediaType, _, err := mime.ParseMediaType(contentType)
@@ -81,6 +85,7 @@ func (sm *SerializerManager) CreateSerializers(contentType, group, version strin
 	return s, nil
 }
 
+// DecodeResp decodes byte data into runtime object with specified serializers and content type
 func DecodeResp(serializers *rest.Serializers, b []byte, reqContentType, respContentType string) (runtime.Object, error) {
 	decoder := serializers.Decoder
 	if len(respContentType) > 0 && (decoder == nil || (len(reqContentType) > 0 && respContentType != reqContentType)) {
@@ -113,6 +118,7 @@ func DecodeResp(serializers *rest.Serializers, b []byte, reqContentType, respCon
 	return out, nil
 }
 
+// WatchDecoder generates a Decoder for watch response
 func WatchDecoder(serializers *rest.Serializers, body io.ReadCloser) (*restclientwatch.Decoder, error) {
 	framer := serializers.Framer.NewFrameReader(body)
 	streamingDecoder := streaming.NewDecoder(framer, serializers.StreamingSerializer)

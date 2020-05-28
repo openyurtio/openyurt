@@ -7,7 +7,7 @@ import (
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -75,7 +75,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 			job, err := cliSet.BatchV1().Jobs(job.GetNamespace()).
 				Get(job.GetName(), metav1.GetOptions{})
 			if err != nil {
-				klog.Error("fail to get job(%s) when waiting for it to be succeeded: %s",
+				klog.Errorf("fail to get job(%s) when waiting for it to be succeeded: %s",
 					job.GetName(), err)
 				return err
 			}
