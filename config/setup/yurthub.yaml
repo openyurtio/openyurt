@@ -22,7 +22,7 @@ spec:
       type: Directory
   containers:
   - name: yurt-hub
-    image: openyurt/yurt-hub:latest
+    image: openyurt/yurthub:latest
     imagePullPolicy: Always
     volumeMounts:
     - name: kubernetes
@@ -32,7 +32,7 @@ spec:
     - name: pem-dir
       mountPath: /var/lib/kubelet/pki
     command:
-    - edge-hub
+    - yurthub 
     - --v=2
     - --server-addr=https://__apiserver-addr__
     - --node-name=$(NODE_NAME)

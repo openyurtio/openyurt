@@ -101,7 +101,7 @@ func (ro *RevertOptions) RunRevert() error {
 
 	// 2. remove the yurt controller manager
 	if err := ro.clientSet.AppsV1().Deployments("kube-system").
-		Delete("yurt-ctrl-mgr", &metav1.DeleteOptions{
+		Delete("yurt-controller-manager", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove yurt controller manager: %s", err)
