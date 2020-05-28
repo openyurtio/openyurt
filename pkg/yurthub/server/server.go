@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Server is an interface for providing http service for yurthub
 type Server interface {
 	Run()
 }
@@ -21,6 +22,7 @@ type yurtHubServer struct {
 	cfg            *config.YurtHubConfiguration
 }
 
+// NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
 	proxyHandler http.Handler) Server {

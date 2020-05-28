@@ -14,7 +14,7 @@ import (
 	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/util"
+	"github.com/alibaba/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -22,15 +22,16 @@ import (
 )
 
 const (
-	CertificateManagerName = "kubelet"
+	certificateManagerName = "kubelet"
 	defaultPairDir         = "/var/lib/kubelet/pki"
 	defaultPairFile        = "kubelet-client-current.pem"
 	defaultCaFile          = "/etc/kubernetes/pki/ca.crt"
 	certVerifyDuration     = 30 * time.Minute
 )
 
+// Register registers a YurtCertificateManager
 func Register(cmr *certificate.CertificateManagerRegistry) {
-	cmr.Register(CertificateManagerName, func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
+	cmr.Register(certificateManagerName, func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
 		return NewKubeletCertManager(cfg, 0, "")
 	})
 }
@@ -47,6 +48,7 @@ type kubeletCertManager struct {
 	stopped            bool
 }
 
+// NewKubeletCertManager creates a YurtCertificateManager
 func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duration, certDir string) (interfaces.YurtCertificateManager, error) {
 	var cert *tls.Certificate
 	var pairFile string
@@ -83,10 +85,12 @@ func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duratio
 	}, nil
 }
 
+// SetHealthChecker set healthChecker
 func (kcm *kubeletCertManager) SetHealthChecker(checker healthchecker.HealthChecker) {
 	kcm.checker = checker
 }
 
+// Stop stop cert manager
 func (kcm *kubeletCertManager) Stop() {
 	kcm.certAccessLock.Lock()
 	defer kcm.certAccessLock.Unlock()
@@ -97,6 +101,7 @@ func (kcm *kubeletCertManager) Stop() {
 	kcm.stopped = true
 }
 
+// Start runs certificate reloading after rotation
 func (kcm *kubeletCertManager) Start() {
 	go wait.Until(func() {
 		newCert, err := loadFile(kcm.pairFile)
@@ -120,20 +125,24 @@ func (kcm *kubeletCertManager) Start() {
 	}, kcm.certVerifyDuration, kcm.stopCh)
 }
 
+// Current get the current certificate
 func (kcm *kubeletCertManager) Current() *tls.Certificate {
 	kcm.certAccessLock.RLock()
 	defer kcm.certAccessLock.RUnlock()
 	return kcm.cert
 }
 
+// ServerHealthy always returns true
 func (kcm *kubeletCertManager) ServerHealthy() bool {
 	return true
 }
 
+// GetCaFile get an ca file
 func (kcm *kubeletCertManager) GetCaFile() string {
 	return kcm.caFile
 }
 
+// GetRestConfig get *rest.Config from kubelet.conf
 func (kcm *kubeletCertManager) GetRestConfig() *rest.Config {
 	var s *url.URL
 	for _, server := range kcm.remoteServers {
@@ -169,7 +178,8 @@ func (kcm *kubeletCertManager) updateCert(c *tls.Certificate) {
 	kcm.cert = c
 }
 
-func (ecm *kubeletCertManager) Update(cfg *config.YurtHubConfiguration) error {
+// Update do nothing
+func (kcm *kubeletCertManager) Update(cfg *config.YurtHubConfiguration) error {
 	return nil
 }
 

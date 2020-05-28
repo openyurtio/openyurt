@@ -1155,3 +1155,159 @@ func TestQueryCacheForList(t *testing.T) {
 		})
 	}
 }
+
+func TestCanCacheFor(t *testing.T) {
+	s := NewFakeStorageWrapper()
+	m, _ := NewCacheManager(s, nil)
+
+	tests := []struct {
+		desc        string
+		userAgent   string
+		verb        string
+		path        string
+		header      map[string]string
+		expectCache bool
+	}{
+		{
+			desc:        "no user agent",
+			verb:        "GET",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: false,
+		},
+		{
+			desc:        "not default user agent",
+			userAgent:   "kubelet-test",
+			verb:        "GET",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: false,
+		},
+		{
+			desc:        "default user agent kubelet",
+			userAgent:   "kubelet",
+			verb:        "GET",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: true,
+		},
+		{
+			desc:        "default user agent flanneld",
+			userAgent:   "flanneld",
+			verb:        "POST",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: true,
+		},
+		{
+			desc:        "default user agent coredns",
+			userAgent:   "coredns",
+			verb:        "PUT",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: true,
+		},
+		{
+			desc:        "default user agent kube-proxy",
+			userAgent:   "kube-proxy",
+			verb:        "PATCH",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: true,
+		},
+		{
+			desc:        "default user agent edge-tunnel-agent",
+			userAgent:   "edge-tunnel-agent",
+			verb:        "HEAD",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: true,
+		},
+		{
+			desc:        "with cache header",
+			userAgent:   "test1",
+			verb:        "GET",
+			path:        "/api/v1/nodes/mynode",
+			header:      map[string]string{"Edge-Cache": "true"},
+			expectCache: true,
+		},
+		{
+			desc:        "with cache header false",
+			userAgent:   "test2",
+			verb:        "GET",
+			path:        "/api/v1/nodes/mynode",
+			header:      map[string]string{"Edge-Cache": "false"},
+			expectCache: false,
+		},
+		{
+			desc:        "not resource request",
+			userAgent:   "test2",
+			verb:        "GET",
+			path:        "/healthz",
+			header:      map[string]string{"Edge-Cache": "true"},
+			expectCache: false,
+		},
+		{
+			desc:        "delete request",
+			userAgent:   "kubelet",
+			verb:        "DELETE",
+			path:        "/api/v1/nodes/mynode",
+			expectCache: false,
+		},
+		{
+			desc:        "delete collection request",
+			userAgent:   "kubelet",
+			verb:        "DELETE",
+			path:        "/api/v1/namespaces/default/pods",
+			expectCache: false,
+		},
+		{
+			desc:        "proxy request",
+			userAgent:   "kubelet",
+			verb:        "GET",
+			path:        "/api/v1/proxy/namespaces/default/pods/test",
+			expectCache: false,
+		},
+		{
+			desc:        "get status sub resource request",
+			userAgent:   "kubelet",
+			verb:        "GET",
+			path:        "/api/v1/namespaces/default/pods/test/status",
+			expectCache: true,
+		},
+		{
+			desc:        "get not status sub resource request",
+			userAgent:   "kubelet",
+			verb:        "GET",
+			path:        "/api/v1/namespaces/default/pods/test/proxy",
+			expectCache: false,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+
+			req, _ := http.NewRequest(tt.verb, tt.path, nil)
+			if len(tt.userAgent) != 0 {
+				req.Header.Set("User-Agent", tt.userAgent)
+			}
+
+			if len(tt.header) != 0 {
+				for k, v := range tt.header {
+					req.Header.Set(k, v)
+				}
+			}
+
+			req.RemoteAddr = "127.0.0.1"
+
+			var reqCanCache bool
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				reqCanCache = m.CanCacheFor(req)
+
+			})
+
+			handler = proxyutil.WithCacheHeaderCheck(handler)
+			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if reqCanCache != tt.expectCache {
+				t.Errorf("Got request can cache %v, but expect request can cache %v", reqCanCache, tt.expectCache)
+			}
+		})
+	}
+}

@@ -27,6 +27,8 @@ type yurtReverseProxy struct {
 	stopCh              <-chan struct{}
 }
 
+// NewYurtReverseProxyHandler creates a http handler for proxying
+// all of incoming requests.
 func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	cacheMgr cachemanager.CacheManager,

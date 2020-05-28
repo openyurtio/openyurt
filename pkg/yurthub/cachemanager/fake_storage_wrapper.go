@@ -15,6 +15,7 @@ type fakeStorageWrapper struct {
 	data map[string]runtime.Object
 }
 
+// NewFakeStorageWrapper new fake storage wrapper
 func NewFakeStorageWrapper() StorageWrapper {
 	s, _ := fake.NewFakeStorage()
 	return &fakeStorageWrapper{

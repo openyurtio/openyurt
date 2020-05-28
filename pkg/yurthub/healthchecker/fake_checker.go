@@ -9,11 +9,7 @@ type fakeChecker struct {
 	settings map[string]int
 }
 
-type HealthyReverseSetting struct {
-	Server      string
-	RequestsCnt int
-}
-
+// IsHealthy returns healthy status of server
 func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
 	s := server.String()
 	if _, ok := fc.settings[s]; !ok {
@@ -32,6 +28,7 @@ func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
 	return fc.healthy
 }
 
+// NewFakeChecker creates a fake checker
 func NewFakeChecker(healthy bool, settings map[string]int) HealthChecker {
 	return &fakeChecker{
 		settings: settings,

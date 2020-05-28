@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// YurtHubOptions is the main settings for the yurthub
 type YurtHubOptions struct {
 	ServerAddr                string
 	YurtHubHost               string
@@ -21,6 +22,7 @@ type YurtHubOptions struct {
 	MaxRequestInFlight        int
 }
 
+// NewYurtHubOptions creates a new YurtHubOptions with a default config.
 func NewYurtHubOptions() *YurtHubOptions {
 	o := &YurtHubOptions{
 		YurtHubHost:               "127.0.0.1",
@@ -37,6 +39,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 	return o
 }
 
+// ValidateOptions validates YurtHubOptions
 func ValidateOptions(options *YurtHubOptions) error {
 	if len(options.NodeName) == 0 {
 		return fmt.Errorf("node name is empty")
@@ -57,6 +60,7 @@ func ValidateOptions(options *YurtHubOptions) error {
 	return nil
 }
 
+// AddFlags returns flags for a specific yurthub by section name
 func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubHost, "yurt-hub-host", o.YurtHubHost, "the host that used to connect yurthub.")
 	fs.IntVar(&o.YurtHubPort, "yurt-hub-port", o.YurtHubPort, "the port that used to connect yurthub.")

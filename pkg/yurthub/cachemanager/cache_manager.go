@@ -26,6 +26,41 @@ import (
 	"k8s.io/klog"
 )
 
+var (
+	resourceToKindMap = map[string]string{
+		"nodes":                  "Node",
+		"pods":                   "Pod",
+		"services":               "Service",
+		"namespaces":             "Namespace",
+		"endpoints":              "Endpoints",
+		"configmaps":             "ConfigMap",
+		"persistentvolumes":      "PersistentVolume",
+		"persistentvolumeclaims": "PersistentVolumeClaim",
+		"events":                 "Event",
+		"secrets":                "Secret",
+		"leases":                 "Lease",
+		"runtimeclasses":         "RuntimeClass",
+		"csidrivers":             "CSIDriver",
+	}
+
+	resourceToListKindMap = map[string]string{
+		"nodes":                  "NodeList",
+		"pods":                   "PodList",
+		"services":               "ServiceList",
+		"namespaces":             "NamespaceList",
+		"endpoints":              "EndpointsList",
+		"configmaps":             "ConfigMapList",
+		"persistentvolumes":      "PersistentVolumeList",
+		"persistentvolumeclaims": "PersistentVolumeClaimList",
+		"events":                 "EventList",
+		"secrets":                "SecretList",
+		"leases":                 "LeaseList",
+		"runtimeclasses":         "RuntimeClassList",
+		"csidrivers":             "CSIDriverList",
+	}
+)
+
+// CacheManager is an adaptor to cache runtime object data into backend storage
 type CacheManager interface {
 	CacheResponse(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) error
 	QueryCache(req *http.Request) (runtime.Object, error)
@@ -41,6 +76,7 @@ type cacheManager struct {
 	cacheAgents       map[string]bool
 }
 
+// NewCacheManager creates a new CacheManager
 func NewCacheManager(
 	storage StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
@@ -59,33 +95,35 @@ func NewCacheManager(
 	return cm, nil
 }
 
-func (em *cacheManager) CacheResponse(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) error {
+// CacheResponse cache response of request into backend storage
+func (cm *cacheManager) CacheResponse(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) error {
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	if isWatch(ctx) {
-		return em.saveWatchObject(ctx, info, prc, stopCh)
-	} else {
-		var buf bytes.Buffer
-		n, err := buf.ReadFrom(prc)
-		if err != nil {
-			klog.Errorf("failed to cache response, %v", err)
-			return err
-		} else if n == 0 {
-			err := fmt.Errorf("read 0-length data from response, %s", util.ReqInfoString(info))
-			klog.Errorf("failed to cache response, %v", err)
-			return err
-		} else {
-			klog.V(5).Infof("cache %d bytes from response for %s", n, util.ReqInfoString(info))
-		}
-
-		if isList(ctx) {
-			return em.saveListObject(ctx, info, buf.Bytes())
-		} else {
-			return em.saveOneObject(ctx, info, buf.Bytes())
-		}
+		return cm.saveWatchObject(ctx, info, prc, stopCh)
 	}
+
+	var buf bytes.Buffer
+	n, err := buf.ReadFrom(prc)
+	if err != nil {
+		klog.Errorf("failed to cache response, %v", err)
+		return err
+	} else if n == 0 {
+		err := fmt.Errorf("read 0-length data from response, %s", util.ReqInfoString(info))
+		klog.Errorf("failed to cache response, %v", err)
+		return err
+	} else {
+		klog.V(5).Infof("cache %d bytes from response for %s", n, util.ReqInfoString(info))
+	}
+
+	if isList(ctx) {
+		return cm.saveListObject(ctx, info, buf.Bytes())
+	}
+
+	return cm.saveOneObject(ctx, info, buf.Bytes())
 }
 
-func (em *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
+// QueryCache get runtime object from backend storage for request
+func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	ctx := req.Context()
 	info, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok || info == nil || info.Resource == "" {
@@ -98,24 +136,24 @@ func (em *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	}
 
 	if info.IsResourceRequest && info.Verb == "list" {
-		return em.queryListObject(req)
+		return cm.queryListObject(req)
 	} else if info.IsResourceRequest && (info.Verb == "get" || info.Verb == "patch" || info.Verb == "update") {
 		key, err := util.KeyFunc(comp, info.Resource, info.Namespace, info.Name)
 		if err != nil {
 			return nil, err
 		}
-		return em.storage.Get(key)
+		return cm.storage.Get(key)
 	}
 
 	return nil, fmt.Errorf("request(%#+v) is not supported", info)
 }
 
-func (em *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
+func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
 	ctx := req.Context()
 	comp, _ := util.ClientComponentFrom(ctx)
 	info, _ := apirequest.RequestInfoFrom(ctx)
 
-	listKind := ResourceToListKindMap[info.Resource]
+	listKind := resourceToListKindMap[info.Resource]
 	listGvk := schema.GroupVersionKind{
 		Group:   info.APIGroup,
 		Version: info.APIVersion,
@@ -133,7 +171,7 @@ func (em *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 
-	objs, err := em.storage.List(key)
+	objs, err := cm.storage.List(key)
 	if err != nil {
 		return nil, err
 	}
@@ -187,20 +225,20 @@ func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
 	return nil
 }
 
-func (em *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, stopCh <-chan struct{}) error {
+func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, stopCh <-chan struct{}) error {
 	delObjCnt := 0
 	updateObjCnt := 0
 	addObjCnt := 0
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	reqContentType, _ := util.ReqContentTypeFrom(ctx)
-	serializers, err := em.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
+	serializers, err := cm.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
 	if err != nil {
 		klog.Errorf("failed to create serializers in saveWatchObject, %v", err)
 		return err
 	}
 
-	kind := ResourceToKindMap[info.Resource]
+	kind := resourceToKindMap[info.Resource]
 	apiVersion := schema.GroupVersion{
 		Group:   info.APIGroup,
 		Version: info.APIVersion,
@@ -248,14 +286,14 @@ func (em *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			case watch.Added, watch.Modified:
 				accessor.SetAPIVersion(obj, apiVersion)
 				accessor.SetKind(obj, kind)
-				err = em.saveOneObjectWithValidation(key, obj)
+				err = cm.saveOneObjectWithValidation(key, obj)
 				if watchType == watch.Added {
 					addObjCnt++
 				} else {
 					updateObjCnt++
 				}
 			case watch.Deleted:
-				err = em.storage.Delete(key)
+				err = cm.storage.Delete(key)
 				delObjCnt++
 			default:
 				// impossible go to here
@@ -276,10 +314,10 @@ func (em *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	}
 }
 
-func (em *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
+func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
 	reqContentType, _ := util.ReqContentTypeFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
-	serializers, err := em.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
+	serializers, err := cm.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
 	if err != nil {
 		klog.Errorf("failed to create serializers in saveListObject, %v", err)
 		return err
@@ -289,13 +327,13 @@ func (em *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	if err != nil {
 		klog.Errorf("failed to decode response in saveOneObject %v", err)
 		return err
-	} else {
-		switch list.(type) {
-		case *metav1.Status:
-			// it's not need to cache for status
-			klog.Infof("it's not need to cache metav1.Status")
-			return nil
-		}
+	}
+
+	switch list.(type) {
+	case *metav1.Status:
+		// it's not need to cache for status
+		klog.Infof("it's not need to cache metav1.Status")
+		return nil
 	}
 
 	items, err := meta.ExtractList(list)
@@ -305,7 +343,7 @@ func (em *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	}
 	klog.V(5).Infof("list items for %s is: %d", util.ReqInfoString(info), len(items))
 
-	kind := ResourceToKindMap[info.Resource]
+	kind := resourceToKindMap[info.Resource]
 	apiVersion := schema.GroupVersion{
 		Group:   info.APIGroup,
 		Version: info.APIVersion,
@@ -338,7 +376,7 @@ func (em *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 
 		accessor.SetKind(items[i], kind)
 		accessor.SetAPIVersion(items[i], apiVersion)
-		err = em.saveOneObjectWithValidation(key, items[i])
+		err = cm.saveOneObjectWithValidation(key, items[i])
 		if err == storage.ErrStorageAccessConflict {
 			klog.V(2).Infof("skip to cache list object because key(%s) is under processing", key)
 		} else if err != nil {
@@ -353,12 +391,12 @@ func (em *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	return nil
 }
 
-func (em *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
+func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
 	comp, _ := util.ClientComponentFrom(ctx)
 	reqContentType, _ := util.ReqContentTypeFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 
-	serializers, err := em.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
+	serializers, err := cm.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion)
 	if err != nil {
 		klog.Errorf("failed to create serializers in saveOneObject: %s, %v", util.ReqInfoString(info), err)
 		return err
@@ -379,7 +417,7 @@ func (em *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 			return nil
 		}
 
-		kind := ResourceToKindMap[info.Resource]
+		kind := resourceToKindMap[info.Resource]
 		apiVersion := schema.GroupVersion{
 			Group:   info.APIGroup,
 			Version: info.APIVersion,
@@ -407,7 +445,7 @@ func (em *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		return err
 	}
 
-	if err := em.saveOneObjectWithValidation(key, obj); err != nil {
+	if err := cm.saveOneObjectWithValidation(key, obj); err != nil {
 		if err != storage.ErrStorageAccessConflict {
 			return err
 		}
@@ -417,8 +455,8 @@ func (em *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	return nil
 }
 
-func (em *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Object) error {
-	oldObj, err := em.storage.Get(key)
+func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Object) error {
+	oldObj, err := cm.storage.Get(key)
 	if err == nil && oldObj != nil {
 		accessor := meta.NewAccessor()
 
@@ -440,12 +478,12 @@ func (em *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Obje
 			return nil
 		}
 
-		return em.storage.Update(key, obj)
+		return cm.storage.Update(key, obj)
 	} else if os.IsNotExist(err) || oldObj == nil {
-		return em.storage.Create(key, obj)
+		return cm.storage.Create(key, obj)
 	} else {
 		if err != storage.ErrStorageAccessConflict {
-			return em.storage.Create(key, obj)
+			return cm.storage.Create(key, obj)
 		}
 		return err
 	}
@@ -473,4 +511,53 @@ func isCreate(ctx context.Context) bool {
 	}
 
 	return false
+}
+
+// CanCacheFor checks response of request can be cached or not
+// the following request is not supported to cache response
+// 1. component is not set
+// 2. delete/deletecollection/proxy request
+// 3. sub-resource request but is not status
+// 4. csr resource request
+func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
+	ctx := req.Context()
+	comp, ok := util.ClientComponentFrom(ctx)
+	if !ok || len(comp) == 0 {
+		return false
+	}
+
+	canCache, ok := util.ReqCanCacheFrom(ctx)
+	if ok && canCache {
+		// request with Edge-Cache header, continue verification
+	} else {
+		cm.RLock()
+		if _, found := cm.cacheAgents[comp]; !found {
+			cm.RUnlock()
+			return false
+		}
+		cm.RUnlock()
+	}
+
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil {
+		return false
+	}
+
+	if !info.IsResourceRequest {
+		return false
+	}
+
+	if info.Verb == "delete" || info.Verb == "deletecollection" || info.Verb == "proxy" {
+		return false
+	}
+
+	if info.Subresource != "" && info.Subresource != "status" {
+		return false
+	}
+
+	if _, ok := resourceToKindMap[info.Resource]; !ok {
+		return false
+	}
+
+	return true
 }

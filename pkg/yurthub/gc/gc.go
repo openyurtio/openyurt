@@ -22,6 +22,7 @@ var (
 	defaultEventGcInterval = 60
 )
 
+// GCManager is responsible for cleanup garbage of yurthub
 type GCManager struct {
 	store             storage.Store
 	transportManager  transport.Interface
@@ -31,6 +32,7 @@ type GCManager struct {
 	stopCh            <-chan struct{}
 }
 
+// NewGCManager creates a *GCManager object
 func NewGCManager(cfg *config.YurtHubConfiguration, store storage.Store, transportManager transport.Interface, stopCh <-chan struct{}) (*GCManager, error) {
 	gcFrequency := cfg.GCFrequency
 	if gcFrequency == 0 {
@@ -47,6 +49,7 @@ func NewGCManager(cfg *config.YurtHubConfiguration, store storage.Store, transpo
 	return mgr, nil
 }
 
+// Run starts GCManager
 func (m *GCManager) Run() {
 	// run gc events after a time duration between eventsGCFrequency and 3 * eventsGCFrequency
 	m.lastTime = time.Now()

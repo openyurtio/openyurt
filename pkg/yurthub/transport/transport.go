@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	certutil "github.com/alibaba/openyurt/pkg/yurthub/certificate/util"
 	"github.com/alibaba/openyurt/pkg/yurthub/util"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,6 +20,7 @@ const (
 	deaultHealthzTimeoutSeconds = 2
 )
 
+// Interface is an transport interface for managing clients that used to connecting kube-apiserver
 type Interface interface {
 	// HealthzHttpClient returns http client that used by health checker
 	HealthzHttpClient() *http.Client
@@ -45,6 +45,7 @@ type transportManager struct {
 	stopCh            <-chan struct{}
 }
 
+// NewTransportManager create an transport interface object.
 func NewTransportManager(heartbeatTimeoutSeconds int, stopCh <-chan struct{}) (Interface, error) {
 	d := util.NewDialer("transport manager")
 	t := utilnet.SetTransportDefaults(&http.Transport{
@@ -73,6 +74,7 @@ func NewTransportManager(heartbeatTimeoutSeconds int, stopCh <-chan struct{}) (I
 	return tm, nil
 }
 
+// UpdateTransport used to update ca file and tls config
 func (tm *transportManager) UpdateTransport(certMgr interfaces.YurtCertificateManager) error {
 	caFile := certMgr.GetCaFile()
 	if len(caFile) == 0 {
@@ -171,7 +173,7 @@ func tlsConfig(certMgr interfaces.YurtCertificateManager, caFile string) (*tls.C
 
 func rootCertPool(caFile string) (*x509.CertPool, error) {
 	if len(caFile) > 0 {
-		if caFileExists, err := certutil.FileExists(caFile); err != nil {
+		if caFileExists, err := util.FileExists(caFile); err != nil {
 			return nil, err
 		} else if caFileExists {
 			caData, err := ioutil.ReadFile(caFile)

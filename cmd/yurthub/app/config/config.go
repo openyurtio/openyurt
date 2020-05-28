@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog"
 )
 
+// YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
 	LBMode                    string
 	RemoteServers             []*url.URL
@@ -24,6 +25,7 @@ type YurtHubConfiguration struct {
 	MaxRequestInFlight        int
 }
 
+// Complete converts *options.YurtHubOptions to *YurtHubConfiguration
 func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {

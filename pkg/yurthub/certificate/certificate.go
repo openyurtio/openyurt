@@ -13,17 +13,22 @@ import (
 	"k8s.io/klog"
 )
 
+// Factory is a function that returns an YurtCertificateManager.
+// The cfg parameter provides the common info for certificate manager
 type Factory func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error)
 
+// CertificateManagerRegistry is a object for holding all of certificate managers
 type CertificateManagerRegistry struct {
 	sync.Mutex
 	registry map[string]Factory
 }
 
+// NewCertificateManagerRegistry creates an *CertificateManagerRegistry object
 func NewCertificateManagerRegistry() *CertificateManagerRegistry {
 	return &CertificateManagerRegistry{}
 }
 
+// Register register a Factory func for creating certificate manager
 func (cmr *CertificateManagerRegistry) Register(name string, cm Factory) {
 	cmr.Lock()
 	defer cmr.Unlock()
@@ -41,6 +46,7 @@ func (cmr *CertificateManagerRegistry) Register(name string, cm Factory) {
 	cmr.registry[name] = cm
 }
 
+// New creates a YurtCertificateManager with specified name of registered certificate manager
 func (cmr *CertificateManagerRegistry) New(name string, cfg *config.YurtHubConfiguration, cmInitializer *initializer.CertificateManagerInitializer) (interfaces.YurtCertificateManager, error) {
 	f, found := cmr.registry[name]
 	if !found {

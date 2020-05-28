@@ -90,6 +90,8 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *RemoteProxy {
 	}
 }
 
+// LoadBalancer is an interface for proxying http request to remote server
+// based on the load balance mode(round-robin or priority)
 type LoadBalancer interface {
 	IsHealthy() bool
 	ServeHTTP(rw http.ResponseWriter, req *http.Request)
@@ -101,6 +103,7 @@ type loadBalancer struct {
 	certManager interfaces.YurtCertificateManager
 }
 
+// NewLoadBalancer creates a loadbalancer for specified remote servers
 func NewLoadBalancer(
 	lbMode string,
 	remoteServers []*url.URL,
