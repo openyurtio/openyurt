@@ -1,11 +1,9 @@
-# OpenYurt 
+<img src="docs/img/OpenYurt.png" width="400" height="94" align="middle" /><br/>
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 
-<img src="img/OpenYurt.png" width="400" height="120" align="middle" /><br/>
-
-|![notification](img/bell-outline-badge.svg) What is NEW!|
+|![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
 |May 29th, 2020. OpenYurt v0.1.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
@@ -30,13 +28,13 @@ OpenYurt has the following advantages in terms of compatibility and usability.
 
 ## Architecture
 
-As shown in the figure, OpenYurt follows a classic edge application architecture design - 
+OpenYurt follows a classic edge application architecture design - 
 a centralized Kubernetes master resides in the cloud site, which
 manages multiple edge nodes reside in the edge site. Each edge node has moderate compute resources allowing
 running a number of edge applications plus the Kubernetes node daemons. The edge nodes in a cluster can span
 multiple physical regions. The terms `region` and `unit` are interchangeable in OpenYurt.
 <div align="left">
-  <img src="img/arch.png" width=70% title="OpenYurt architecture">
+  <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
 
 \
@@ -47,43 +45,56 @@ The major OpenYurt components consist of:
   might access in the edge node's local storage. In case the edge node is offline, those daemons can
   recover the states upon node restarts.
 - **Yurt controller manager**: It manages a few controllers such as 
-  the node controller and the unit controller (not released yet) for different edge computing use cases. For example,
+  the node controller and the unit controller (to be released) for different edge computing use cases. For example,
   the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the 
   node heartbeats are missing.
 - **Yurt tunnel server**: It connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
-  that are connected to the intranet.
+  that are connected to the intranet (to be released).
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions from 1.12 to 1.14. Please make sure your Kubernetes cluster version is within the supported version 
-range to avoid any compatibility issues. We will support higher Kubernetes versions shortly.
+OpenYurt supports Kubernetes versions up to 1.14. Using higher Kubernetes versions may cause
+compatibility issues. We will support Kubernetes 1.16 very soon.
 
-To get started with OpenYurt, clone the git repository and build it from source. You can build OpenYurt on any Unix/Linux system that 
-has golang 1.13+ and bash installed, as follows:
+We recommend to start OpenYurt with `yurtctl` command line tool. It can be built from the source code by doing
+the following, assuming the build system has golang 1.13+ and bash installed.
 
 ```bash
 $ git clone https://github.com/alibaba/openyurt.git
 $ cd openyurt
-$ make
+$ make WHAT=cmd/yurtctl
 hack/make-rules/build.sh
 Building cmd/yurtctl
-Building cmd/yurthub
-Building cmd/yurt-controller-manage
 ```
 
-The OpenYurt related binaries will be placed at `_output/bin`. You can convert an existing Kubernetes cluster to a Yurt cluster 
-[manually](./docs/tutorial/setup-manually.md) or using command line tool [yurtctl](./docs/tutorial/yurtctl.md).
+The `yurtctl` binary can be found at `_output/bin`. 
+Now you can easily convert an existing Kubernetes cluster to an OpenYurt cluster using `yurtctl` in one command line.
+
+```bash
+$ _output/bin/yurtctl convert --provider [minikube|ack]
+```
+
+Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details. You may also do the conversion
+[manually](./docs/tutorial/setup-manually.md). 
 
 ## Usage
 
-We provider a detailed [**tutorial**](./docs/tutorial/README.md) to demonstrate how to use OpenYurt to manage edge applications.
+We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate how to use OpenYurt to manage edge applications.
 
 ## Developer Guide
 
 There's a `Makefile` in the root folder which describes the options to build and install. Here are some common ones:
 
 ## Uninstall
+
+One can uninstall OpenYurt and revert back to the original Kubernetes cluster settings by using `yurtctl`:
+
+```bash
+$ _output/bin/yurtctl revert
+```
+
+Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 ## Community
 
@@ -95,10 +106,9 @@ Other active communication channels:
 - Dingtalk Group(钉钉讨论群)
 
 <div align="left">
-  <img src="img/ding.jpeg" width=25% title="dingtalk">
+  <img src="docs/img/ding.jpeg" width=25% title="dingtalk">
 </div>
 
 ## Copyright
 
 Certain implementations in OpenYurt rely on the existing code from Kubernetes and the credits go to the original Kubernetes authors.
-
