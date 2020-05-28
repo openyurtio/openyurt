@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 
+<img src="img/OpenYurt.png" width="400" height="120" align="middle" /><br/>
+
 |![notification](img/bell-outline-badge.svg) What is NEW!|
 |------------------|
 |May 29th, 2020. OpenYurt v0.1.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
