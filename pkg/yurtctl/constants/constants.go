@@ -14,17 +14,17 @@ const (
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: yurt-ctrl-mgr
+  name: yurt-controller-manager
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: yurt-ctrl-mgr
+      app: yurt-controller-manager
   template:
     metadata:
       labels:
-        app: yurt-ctrl-mgr
+        app: yurt-controller-manager
     spec:
       affinity:
         nodeAffinity:
@@ -38,10 +38,10 @@ spec:
                 values:
                 - "false"
       containers:
-      - name: yurt-ctrl-mgr
-        image: openyurt/yurt-ctrl-mgr:latest
+      - name: yurt-controller-manager
+        image: openyurt/yurt-controller-manager:latest
         command:
-        - edge-controller-manager	
+        - yurt-controller-manager	
 `
 	// ServantJobTemplate defines the servant job in yaml format
 	ServantJobTemplate = `
