@@ -54,32 +54,24 @@ The major OpenYurt components consist of:
 
 ## Getting started
 
-### Prerequisites 
-
 OpenYurt supports Kubernetes versions from 1.12 to 1.14. Please make sure your Kubernetes cluster version is within the supported version 
 range to avoid any compatibility issues. We will support higher Kubernetes versions shortly.
 
-You can convert an existing Kubernetes cluster to a yurt cluster manually or using command line tool `yurtctl`
+To get started with OpenYurt, clone the git repository and build it from source. You can build OpenYurt on any Unix/Linux system that 
+has golang 1.13+ and bash installed, as follows:
 
-### Install with `yurtctl` [Recommended]
-
-It is recommended that you install OpenYurt components via `yurtctl`. You can iterally install everything in one cmd line.  
-
-#### 1. How to get `yurtctl`
-
-You can get `yurtctl` by building the binary using the following command
-```
-make WHAT=cmd/yurtctl
-```
-
-#### 2. Convert a Kubernetes cluster
-
-After compiling, you can convert a Kubernetes cluster into a Yurt cluster by typing command  
 ```bash
-# assume that the target cluster is a one-node minikube cluster
-_output/bin/yurtctl convert --provider minikube
+$ git clone https://github.com/alibaba/openyurt.git
+$ cd openyurt
+$ make
+hack/make-rules/build.sh
+Building cmd/yurtctl
+Building cmd/yurthub
+Building cmd/yurt-controller-manage
 ```
-For further details regarding `yurtctl`, please refer to [**yurtctl tutorial**](./docs/tutorial/yurtctl.md)
+
+The OpenYurt related binaries will be placed at `_output/bin`. You can convert an existing Kubernetes cluster to a Yurt cluster 
+[manually](./docs/tutorial/setup-manually.md) or using command line tool [yurtctl](./docs/tutorial/yurtctl.md).
 
 ## Usage
 
@@ -90,7 +82,6 @@ We provider a detailed [**tutorial**](./docs/tutorial/README.md) to demonstrate 
 There's a `Makefile` in the root folder which describes the options to build and install. Here are some common ones:
 
 ## Uninstall
-
 
 ## Community
 
