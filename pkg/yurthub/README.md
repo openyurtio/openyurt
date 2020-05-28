@@ -8,7 +8,7 @@ in the node can access the cached APIServer object states, pretending the APISer
 ## Architecture
 
 <div align="left">
-  <img src="../../img/yurthub.png" width=70% title="YurtHub architecture">
+  <img src="../../docs/img/yurthub.png" width=70% title="YurtHub architecture">
 </div>
 
 \
