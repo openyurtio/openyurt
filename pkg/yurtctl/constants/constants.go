@@ -35,7 +35,7 @@ spec:
       - name: yurt-ctrl-mgr
         image: openyurt/yurt-ctrl-mgr:latest
         command:
-        - yurt-controller-manager	
+        - edge-controller-manager	
 `
 	ServantJobTemplate = `
 apiVersion: batch/v1
