@@ -14,9 +14,9 @@ import (
 
 func TestHealthyCheckerWithHealthyServers(t *testing.T) {
 	servers := []string{
-		"127.0.0.1:8080",
-		"127.0.0.1:8081",
-		"127.0.0.1:8082",
+		"127.0.0.1:18080",
+		"127.0.0.1:18081",
+		"127.0.0.1:18082",
 	}
 
 	// start local http server
@@ -77,9 +77,9 @@ func TestHealthyCheckerWithHealthyServers(t *testing.T) {
 
 func TestHealthyCheckerWithUnhealthyServers(t *testing.T) {
 	servers := []string{
-		"127.0.0.1:8080",
-		"127.0.0.1:8081",
-		"127.0.0.1:8082",
+		"127.0.0.1:18080",
+		"127.0.0.1:18081",
+		"127.0.0.1:18082",
 	}
 
 	// start local http server
@@ -137,7 +137,7 @@ func TestHealthyCheckerWithUnhealthyServers(t *testing.T) {
 
 func TestHealthyCheckerFromHealthyToUnhealthy(t *testing.T) {
 	servers := []string{
-		"127.0.0.1:8080",
+		"127.0.0.1:18080",
 	}
 
 	reqCnt := 0
@@ -217,7 +217,7 @@ func TestHealthyCheckerFromHealthyToUnhealthy(t *testing.T) {
 
 func TestHealthyCheckerFromUnHealthyToHealthy(t *testing.T) {
 	servers := []string{
-		"127.0.0.1:8080",
+		"127.0.0.1:18080",
 	}
 
 	reqCnt := 0
