@@ -4,7 +4,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/convert"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/revert"
 )
 
 // NewYurtctlCommand creates a new yurtctl command
@@ -18,7 +17,6 @@ func NewYurtctlCommand() *cobra.Command {
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
 	cmds.AddCommand(convert.NewConvertCmd())
-	cmds.AddCommand(revert.NewRevertCmd())
 
 	return cmds
 }

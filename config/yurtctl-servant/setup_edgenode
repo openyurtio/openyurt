@@ -6,18 +6,13 @@
 
 set -o errexit
 set -o pipefail
+set -o nounset
 
 KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
 KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
-BOOTSTRAP_KUBELET_CONF=${BOOTSTRAP_KUBELET_CONF:-/etc/kubernetes/bootstrap-kubelet.conf}
 OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
 STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
 MINIKUBE_PKI_DIR=${MINIKUBE_PKI_DIR:-/var/lib/minikube/certs}
-ACTION=$1
-PROVIDER=$2
-
-# PROVIDER can be nounset
-set -o nounset
 
 declare -r YURTHUB_TEMPLATE='
 apiVersion: v1
@@ -87,12 +82,7 @@ spec:
 
 # log outputs the log message with date and program prefix
 log() {
-    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [LOG] $@"
-}
-
-# error outputs the error message with data program prefix
-error() {
-    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [ERROR] $@"
+    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] $@"
 }
 
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
@@ -137,12 +127,8 @@ setup_yurthub() {
             return 
         else 
             retry=$((retry-1))
-            if [ $retry -ge 0 ]; then
+            [ $retry -ge 0 ] && 
                 log "yurt-hub-$NODE_NAME is $podPhase, will retry $retry times"
-            else 
-                error "yurt-hub-$NODE_NAME failed, after retry 5 times"
-                exit 1
-            fi
             continue
         fi
     done
@@ -160,15 +146,9 @@ reset_kubelet() {
     /user:/d;
     s/ https.*/ http:\/\/127.0.0.1:10261/g' $OPENYURT_DIR/kubelet.conf
     log "generated the revised kubeconfig $OPENYURT_DIR/kubelet.conf"
-    # revise the kubelet.service drop-in 
-    if [ -f $BOOTSTRAP_KUBELET_CONF ]; then
-        # /etc/kubernetes/bootstrap-kubelet.config exist, keep the 
-        # --bootstrap-kubeconfig option
-        sed -i "s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
-    else
-        sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
-        s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
-    fi
+    # revise the kubelet.service drop-in
+    sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
+    s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
     log "revised the kubelet.service drop-in file"
     # reset the kubelete.service
     systemctl daemon-reload
@@ -176,43 +156,6 @@ reset_kubelet() {
     log "kubelet has been restarted"
 }
 
-# remove_yurthub deletes the yurt-hub pod
-remove_yurthub() {
-    # remove the yurt-hub.yaml to delete the yurt-hub 
-    [ -f $STATIC_POD_PATH/yurt-hub.yaml ] &&
-        rm $STATIC_POD_PATH/yurt-hub.yaml
-    log "yurt-hub has been removed"
-}
-
-# revert_kubelet resets the kubelet service and makes it connect to the 
-# apiserver directly
-revert_kubelet() {
-    # remove openyurt's kubelet.conf if exist
-    [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
-    # revise the kubelet.service drop-in
-    sed -i "s|--kubeconfig=.*|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
-    log "revised the kubelet.service drop-in file back to the default"
-    # reset the kubelete.service
-    systemctl daemon-reload
-    systemctl restart kubelet.service
-    log "kubelet has been reset back to default"
-}
-
-case $ACTION in
-    convert)
-        setup_yurthub $PROVIDER
-        reset_kubelet
-        ;;
-    revert)
-        revert_kubelet 
-        remove_yurthub
-        ;;
-    *)
-        error "unknwon action $ACTION"
-        exit 1
-        ;;
-esac
-
-
-
+setup_yurthub $1
+reset_kubelet
 log "done"
