@@ -7,6 +7,5 @@ import (
 
 // CreateStorage create a storage.Store for backend storage
 func CreateStorage() (storage.Store, error) {
-
-	return disk.NewDiskStorage()
+	return disk.NewDiskStorage("")
 }
