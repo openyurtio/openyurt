@@ -1,56 +1,63 @@
-# Yurtctl
+# `Yurtctl` tutorial
 
-Assume that you are within the OpenYurt repository root directory, and has the `_output/bin/yurtctl` binary available. 
+This tutorial demonstrates how to use `yurtctl` to install/uninstall OpenYurt.
+We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0)) 
+is installed in the machine and `_output/bin/yurtctl` binary is built. 
 
-## Convert a single-node minikube cluster
+## Convert a minikube cluster
 
-You can use yurtctl to convert a standard Kubernetes cluster to a Yurt cluster. Let's use a minikube cluster as an example. 
+Let us use `yurtctl` to convert a standard Kubernetes cluster to an OpenYurt cluster.
 
-1. simply run the following command
+1. Run the following command
 ```bash
 $ _output/bin/yurtctl convert --provider minikube
 ```
 
-2. `yurtctl` will install all required components and reset the edge node. The output will look something like 
+2. `yurtctl` will install all required components and reset the kubelet in the edge node. The output looks like:
 ```bash
-I0527 14:39:24.633962   13385 convert.go:148] mark minikube as the edge-node
-I0527 14:39:24.640553   13385 convert.go:159] mark minikube as autonomous node
-I0527 14:39:24.654238   13385 convert.go:178] deploy the yurt controller manager
-I0527 14:39:24.681435   13385 convert.go:190] deploying the yurt-hub and resetting the kubelet service...
-I0527 14:40:44.774684   13385 util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
+ convert.go:148] mark minikube as the edge-node
+ convert.go:159] mark minikube as autonomous node
+ convert.go:178] deploy the yurt controller manager
+ convert.go:190] deploying the yurt-hub and resetting the kubelet service...
+ util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
 ```
 
-3. and yurt controller manager and yurt hub will be up and running in around one minutes
+3. yurt controller manager and yurthub Pods will be up and running in one minute. Let us verify them:
 ```bash
-$ kubectl get deploy -A
-NAMESPACE     NAME            READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS      IMAGES                          SELECTOR
-                                                            ......
-kube-system   yurt-ctrl-mgr   1/1     1            1           12m   yurt-ctrl-mgr   openyurt/yurt-ctrl-mgr:latest   app=yurt-ctrl-mgr
+ $ kubectl get deploy yurt-ctrl-mgr -n kube-system
+NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+yurt-ctrl-mgr   1/1     1            1           23h
 
-$ kubectl get po -A
-NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE   IP               NODE       NOMINATED NODE   READINESS GATES
-                                                            ......
-kube-system   yurt-hub-minikube                  1/1     Running   0          13m   192.168.64.193   minikube   <none>           <none>
+ $ kubectl get po yurt-hub-minikube -n kube-system
+NAME                READY   STATUS    RESTARTS   AGE
+yurt-hub-minikube   1/1     Running   0          23h
 ```
 
-4. As the cluster only contains one node, the node will be marked as an automous edge node, you can check this by inspecting the node's labels and annotations
-```bash
-# edge node will have label "alibabacloud.com/is-edge-worker" set as "true"
+4. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
+```
+ # edge node will have label "alibabacloud.com/is-edge-worker" set as "true"
 $ kubectl describe node | grep Labels -A 3
 Labels:             alibabacloud.com/is-edge-worker=true
-                    ... 
-                    ... 
-                    ... 
 
-# automous node will have annotation "node.beta.alibabacloud.com/autonomy" set as "true"
+ # aautonomou node will have annotation "node.beta.alibabacloud.com/autonomy" set as "true"
 $ kubectl describe node | grep Annotations -A 3
-Annotations:        ... 
-                    ... 
-                    node.beta.alibabacloud.com/autonomy: true
-                    ... 
+Annotations:        node.beta.alibabacloud.com/autonomy: true
 ```
 
-5. To check if the edge node works as expected when it is disconnected from apiserver, let's first create a sample pod
+By now, the OpenYurt cluster is ready. Users will not notice any differences when operating the cluster.
+If you login to the node, you will find local caches are populated:
+
+```
+$ minikube ssh
+$ ls /etc/kubernetes/cache/kubelet/
+configmaps  events  leases  nodes  pods  secrets  services
+```
+
+
+### Test Node Autonomy
+
+To test if edge node autonomy works as expected, we will simulate a node "offline" scenario. 
+1. Let's first create a sample pod:
 ```bash
 kubectl apply -f-<<EOF
 > apiVersion: v1
@@ -64,21 +71,15 @@ kubectl apply -f-<<EOF
 >     - top
 >     name: bbox
 > EOF
-pod/bbox created
-
-$ kc get po -A
-NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE
-default       bbox                               1/1     Running   0          19s
-                                        ...
 ```
 
-6. then login to the node and change the yurt-hub's server-addr to an unreachable address
+2. Make the edge node "offline" by changing the `yurthub`'s server-addr to an unreachable address:
 ```bash
 $ minikube ssh
 $ sudo sed -i 's|--server-addr=.*|--server-addr=https://1.1.1.1:1111|' /etc/kubernetes/manifests/yurt-hub.yaml 
 ```
 
-7. and the yurt-hub will be disconnected from the apiserver, to verify this, you can `curl` the yurt-hub from inside the node and will see something like
+3. Now `yurthub` is disconnected from the apiserver and works in offline mode. To verify this, we can do the following:
 ```bash
 $ minikube ssh
 $ curl -s http://127.0.0.1:10261
@@ -94,9 +95,9 @@ $ curl -s http://127.0.0.1:10261
 }
 ```
 
-8. after 40 seconds, the node status will become `NotReady`, but the pod/bbox won't be evicted and will keep running on the node
+4. After 40 seconds, the edge node status becomes `NotReady`, but the pod/bbox won't be evicted and keeps running on the node:
 ```bash
-$ kc get node && kc get po
+$ kubectl get node && kubectl get po
 NAME       STATUS     ROLES    AGE   VERSION
 minikube   NotReady   master   58m   v1.18.2
 NAME   READY   STATUS    RESTARTS   AGE
@@ -105,9 +106,9 @@ bbox   1/1     Running   0          19m
 
 ## Convert a multi-nodes Kubernetes cluster
 
-Sometimes, you may only want to convert part of the nodes to edge nodes, but leave the rest of the nodes as default. 
-`yurtctl convert` achieve this by allowing user to specify a list of cloud nodes that won't be converted through 
-option `-c, --cloud-nodes`. 
+In practice, an OpenYurt cluster may consist of some edge nodes and some nodes in the cloud site. 
+`yurtctl` allows users to specify a list of cloud nodes that won't be converted.
+
 
 1. Assume you have a [two-nodes minikube cluster](https://minikube.sigs.k8s.io/docs/tutorials/multi_node/), 
 ```bash
@@ -117,48 +118,47 @@ minikube       Ready    master   2m5s   v1.18.2
 minikube-m02   Ready    <none>   84s    v1.18.2
 ```
 
-2. you can converted it into a Yurt cluster that contains only one edge node~(i.e. minikube) by typing the following command 
+2. you can convert only one node to edge node(i.e., minikube-m02) by using the following command 
 ```bash
 $ _output/bin/yurtctl convert --cloud-nodes minikube --provider minikube
-I0527 15:55:32.254651   15210 convert.go:140] mark minikube as the cloud-node
-I0527 15:55:32.259656   15210 convert.go:148] mark minikube-m02 as the edge-node
-I0527 15:55:32.265289   15210 convert.go:159] mark minikube-m02 as autonomous node
-I0527 15:55:32.283366   15210 convert.go:178] deploy the yurt controller manager
-I0527 15:55:32.310913   15210 convert.go:190] deploying the yurt-hub and resetting the kubelet service...
-I0527 15:56:22.393261   15210 util.go:137] servant job(yurtctl-servant-convert-minikube-m02) has succeeded
+convert.go:140] mark minikube as the cloud-node
+convert.go:148] mark minikube-m02 as the edge-node
+convert.go:159] mark minikube-m02 as autonomous node
+convert.go:178] deploy the yurt controller manager
+convert.go:190] deploying the yurt-hub and resetting the kubelet service...
+util.go:137] servant job(yurtctl-servant-convert-minikube-m02) has succeeded
 ```
 
-3. as only the node `minikube-m02` is converted to an edge node, node `minikube` will be marked as a non-edge node, you can check this 
-by inspecting its labels
+3. Node `minikube` will be marked as a non-edge node. You can verify this by inspecting its labels:
 ```bash
 $ kubectl describe node minikube | grep Labels
 Labels:             alibabacloud.com/is-edge-worker=false
 ```
 
-4. also when the Yurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this case, the node `minikube`)
+4. When the OpenYurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this case, the node `minikube`):
 ```bash
 $ kubectl get po -A -o wide
-NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE     IP               NODE           NOMINATED NODE   READINESS GATES
-                                                           ......
-kube-system   yurt-ctrl-mgr-546489b484-78c2f     1/1     Running   0          5m49s   10.244.0.2       minikube       <none>           <none>
+NAMESPACE     NAME                               READY   STATUS    AGE     IP               NODE    
+kube-system   yurt-ctrl-mgr-546489b484-78c2f     1/1     Running   5m49s   10.244.0.2       minikube
 ```
 
-## Revert a Yurt cluster
+## Revert/Uninstall OpenYurt
 
-You can also use `yurtctl` to revert a Yurt cluster back to the original Kubernetes cluster by typing
+Using `yurtctl` to revert an OpenYurt cluster can be done by doing the following:
 ```
 $ _output/bin/yurtctl revert
-I0527 16:04:13.254555   17159 revert.go:100] label alibabacloud.com/is-edge-worker is removed
-I0527 16:04:13.259337   17159 revert.go:110] yurt controller manager is removed
-I0527 16:04:13.274970   17159 revert.go:124] ServiceAccount node-controller is created
-I0527 16:04:23.299404   17159 util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
-I0527 16:04:23.299441   17159 revert.go:133] yurt-hub is removed, kubelet service is reset
+revert.go:100] label alibabacloud.com/is-edge-worker is removed
+revert.go:110] yurt controller manager is removed
+revert.go:124] ServiceAccount node-controller is created
+util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
+revert.go:133] yurt-hub is removed, kubelet service is reset
 ```
-Before performing the reversion, please make sure all edge nodes are reachable from the apiserver. 
+Note that before performing the uninstall, please make sure all edge nodes are reachable from the apiserver. 
 
 ## Troubleshooting
 
 ### 1. Fail to convert due to pulling image timeout
 
-The default timeout value of the conversion is 2 minutes, sometimes, pulling the related images (i.e., `openyurt/yurt-hub`, `openyurt/yurtctl-servant`, and `openyurt/yurt-ctrl-mgr`) 
-can take more than 2 minutes. To avoid the conversion failure due to pulling images timeout, you can save images on the node in advance.
+The default timeout value of the conversion is 2 minutes. Sometimes pulling the related images 
+can take more than 2 minutes. To avoid the conversion failure due to pulling images timeout, you can pull images on the node manually
+or use automation tools such as the `broadcastjob`(from [Kruise](https://github.com/openkruise/kruise/blob/master/docs/concepts/broadcastJob/README.md)) in advance.
