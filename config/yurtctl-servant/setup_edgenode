@@ -164,10 +164,10 @@ reset_kubelet() {
     if [ -f $BOOTSTRAP_KUBELET_CONF ]; then
         # /etc/kubernetes/bootstrap-kubelet.config exist, keep the 
         # --bootstrap-kubeconfig option
-        sed -i "s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        sed -i "s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf\"|g" $KUBELET_SVC
     else
         sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
-        s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf\"|g" $KUBELET_SVC
     fi
     log "revised the kubelet.service drop-in file"
     # reset the kubelete.service
@@ -190,7 +190,7 @@ revert_kubelet() {
     # remove openyurt's kubelet.conf if exist
     [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
     # revise the kubelet.service drop-in
-    sed -i "s|--kubeconfig=.*|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
+    sed -i "s|--kubeconfig=.*|--kubeconfig=$KUBELET_CONF\"|g;" $KUBELET_SVC
     log "revised the kubelet.service drop-in file back to the default"
     # reset the kubelete.service
     systemctl daemon-reload
