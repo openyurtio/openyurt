@@ -5,7 +5,7 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-|May 29th, 2020. OpenYurt v0.1.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
+|May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
 OpenYurt is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
 In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
@@ -64,8 +64,6 @@ the following, assuming the build system has golang 1.13+ and bash installed.
 $ git clone https://github.com/alibaba/openyurt.git
 $ cd openyurt
 $ make WHAT=cmd/yurtctl
-hack/make-rules/build.sh
-Building cmd/yurtctl
 ```
 
 The `yurtctl` binary can be found at `_output/bin`. 
@@ -75,8 +73,7 @@ Now you can easily convert an existing Kubernetes cluster to an OpenYurt cluster
 $ _output/bin/yurtctl convert --provider [minikube|ack]
 ```
 
-Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details. You may also do the conversion
-[manually](./docs/tutorial/setup-manually.md). 
+Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 ## Usage
 
@@ -84,7 +81,18 @@ We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate h
 
 ## Developer Guide
 
-There's a `Makefile` in the root folder which describes the options to build and install. Here are some common ones:
+There's a `Makefile` in the root folder. Here are some common options:
+
+Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtctl`)
+```bash
+make build
+```
+
+Build all docker images 
+
+```bash
+make release
+```
 
 ## Uninstall
 
