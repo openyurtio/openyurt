@@ -8,7 +8,7 @@ YURT_IMAGE_DIR=${YURT_OUTPUT_DIR}/images
 DOCKER_BUILD_BASE_IDR=dockerbuild
 
 REPO="openyurt"
-TAG="v.0.1.0-beta1"
+TAG="v0.1.0-beta1"
 readonly YURT_BIN_TARGETS=(
     yurthub
     yurt-controller-manager
