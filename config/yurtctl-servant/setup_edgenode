@@ -48,7 +48,7 @@ spec:
     imagePullPolicy: Always
     volumeMounts:
     - name: kubernetes
-      mountPath:  /etc/kubernetes
+      mountPath: /etc/kubernetes
     - name: pki
       mountPath: /etc/kubernetes/pki
     - name: pem-dir
@@ -115,14 +115,13 @@ preset() {
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
 setup_yurthub() {
     provider=$1
-    declare pki_dir 
     # put yurt-hub yaml to /etc/kubernetes/manifests 
     if [ "$provider" == "minikube" ]; then
-        pki_dir=${MINIKUBE_PKI_DIR}
+        log "setting up yurthub on nodes of minikube"
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/var/lib/minikube/certs|')
     else
-        pki_dir=/etc/kubernetes/pki
+        log "setting up yurthub on nodes of ack"
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/etc/kubernetes/pki|')
     fi 
@@ -134,24 +133,35 @@ setup_yurthub() {
     do
         sleep 2
         # NOTE: context variables need to be replaced before exeuction
-        local podStat=$(curl -s \
-            https://__kubernetes_service_host__:__kubernetes_service_port_https__\
+        local podPhase
+
+        if [ "$provider" == "ack" ]; then
+            # the ack's apiserver doesn't support anonymous user visit, use 
+            # kubectl to check the pod status
+            podPhase=$(kubectl get po/yurt-hub-__node_name__\
+                --kubeconfig $KUBELET_CONF -n kube-system |
+                awk 'NR>1{print $3}') 
+        else
+            local podStat=$(curl -s \
+                https://__kubernetes_service_host__:__kubernetes_service_port_https__\
 /api/v1/namespaces/kube-system/pods/yurt-hub-__node_name__ \
-            --cert /var/lib/kubelet/pki/kubelet-client-current.pem \
-            --key /var/lib/kubelet/pki/kubelet-client-current.pem \
-            --cacert ${pki_dir}/ca.crt)
-        # yurt-hub pod is not found
-        if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
-            retry=$((retry-1))
-	        log "yurt-hub-$NODE_NAME is not found, will retry $retry times"
-            continue
+--cert /var/lib/kubelet/pki/kubelet-client-current.pem \
+--key /var/lib/kubelet/pki/kubelet-client-current.pem \
+--cacert ${MINIKUBE_PKI_DIR}/ca.crt)
+            # yurt-hub pod is not found
+            if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
+                retry=$((retry-1))
+	            log "yurt-hub-$NODE_NAME is not found, will retry $retry times"
+                continue
+            fi
+            # yurt-hub pod is created, let's check if the phase is "running"
+            podPhase=$(echo "$podStat" | 
+                grep '\"phase\":' | 
+                awk -F ':' '{print $2}' | 
+                tr -d '", ')
         fi
+
         
-        # yurt-hub pod is created, let's check if the phase is "running"
-        local podPhase=$(echo "$podStat" | 
-            grep '\"phase\":' | 
-            awk -F ':' '{print $2}' | 
-            tr -d '", ')
         if [ "$podPhase" == "Running" ]; then 
             log "yurt-hub-$NODE_NAME is $podPhase"
             return 

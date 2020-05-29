@@ -10,7 +10,6 @@ spec:
   - name: pki
     hostPath:
       path: __pki_path__
-      path: /var/lib/minikube/certs
       type: Directory
   - name: kubernetes
     hostPath:

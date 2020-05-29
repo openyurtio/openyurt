@@ -64,6 +64,7 @@ spec:
       containers:
       - name: yurtctl-servant
         image: openyurt/yurtctl-servant:latest
+        imagePullPolicy: Always
         command:
         - /bin/sh
         - -c
