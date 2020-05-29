@@ -3,3 +3,5 @@ _output
 .DS_Store
 gopath
 dockerbuild
+
+*.out
