@@ -78,7 +78,11 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 }
 
 func (ro *RevertOptions) RunRevert() error {
-	// 1. remove labels from nodes
+	// 1. check the server version
+	if err := kubeutil.ValidateServerVersion(ro.clientSet); err != nil {
+		return err
+	}
+	// 2. remove labels from nodes
 	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -99,7 +103,7 @@ func (ro *RevertOptions) RunRevert() error {
 	}
 	klog.Info("label alibabacloud.com/is-edge-worker is removed")
 
-	// 2. remove the yurt controller manager
+	// 3. remove the yurt controller manager
 	if err := ro.clientSet.AppsV1().Deployments("kube-system").
 		Delete("yurt-controller-manager", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -109,7 +113,7 @@ func (ro *RevertOptions) RunRevert() error {
 	}
 	klog.Info("yurt controller manager is removed")
 
-	// 3. recreate the node-controller service account
+	// 4. recreate the node-controller service account
 	ncSa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "node-controller",
@@ -123,7 +127,7 @@ func (ro *RevertOptions) RunRevert() error {
 	}
 	klog.Info("ServiceAccount node-controller is created")
 
-	// 4. remove yurt-hub and revert kubelet service
+	// 5. remove yurt-hub and revert kubelet service
 	if err := kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{"action": "revert"},
 		edgeNodeNames); err != nil {

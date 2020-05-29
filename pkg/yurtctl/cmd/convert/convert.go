@@ -128,7 +128,11 @@ func (co *ConvertOptions) Validate() error {
 
 // RunConvert performs the conversion
 func (co *ConvertOptions) RunConvert() error {
-	// 1. label nodes as cloud node or edge node
+	// 1. check the server version
+	if err := kubeutil.ValidateServerVersion(co.clientSet); err != nil {
+		return err
+	}
+	// 2. label nodes as cloud node or edge node
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -152,7 +156,7 @@ func (co *ConvertOptions) RunConvert() error {
 		if err != nil {
 			return err
 		}
-		// 2. annotate all edge nodes as autonomous
+		// 3. annotate all edge nodes as autonomous
 		// NOTE pods running on an non-autonomous will be evicted, even though
 		// the node is marked as an edge node.
 		// TODO should we allow user to decide if a node is autonomous or not ?
@@ -163,7 +167,7 @@ func (co *ConvertOptions) RunConvert() error {
 		}
 	}
 
-	// 3. deploy yurt controller manager
+	// 4. deploy yurt controller manager
 	dpObj, err := kubeutil.YamlToObject([]byte(constants.YurtControllerManagerDeployment))
 	if err != nil {
 		return err
@@ -177,7 +181,7 @@ func (co *ConvertOptions) RunConvert() error {
 	}
 	klog.Info("deploy the yurt controller manager")
 
-	// 4. delete the node-controller service account to disable node-controller
+	// 5. delete the node-controller service account to disable node-controller
 	if err := co.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete("node-controller", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -186,7 +190,7 @@ func (co *ConvertOptions) RunConvert() error {
 		return err
 	}
 
-	// 5. deploy yurt-hub and reset the kubelet service
+	// 6. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	if err := kubeutil.RunServantJobs(co.clientSet, map[string]string{
 		"provider": string(co.Provider),
