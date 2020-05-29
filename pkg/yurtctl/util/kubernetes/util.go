@@ -37,7 +37,7 @@ var (
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersion contains all compatable server version
 	// yurtctl only support Kubernetes 1.12 - 1.14 for now
-	ValidServerVersions = []string{"1.12", "1.13", "1.14"}
+	ValidServerVersions = []string{"1.12", "1.12+", "1.13", "1.13+", "1.14", "1.14+"}
 )
 
 // YamlToObject deserializes object in yaml format to a runtime.Object

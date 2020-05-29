@@ -33,7 +33,6 @@ spec:
   - name: pki
     hostPath:
       path: __pki_path__
-      path: /var/lib/minikube/certs
       type: Directory
   - name: kubernetes
     hostPath:
@@ -116,11 +115,14 @@ preset() {
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
 setup_yurthub() {
     provider=$1
+    declare pki_dir 
     # put yurt-hub yaml to /etc/kubernetes/manifests 
     if [ "$provider" == "minikube" ]; then
+        pki_dir=${MINIKUBE_PKI_DIR}
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/var/lib/minikube/certs|')
     else
+        pki_dir=/etc/kubernetes/pki
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/etc/kubernetes/pki|')
     fi 
@@ -137,7 +139,7 @@ setup_yurthub() {
 /api/v1/namespaces/kube-system/pods/yurt-hub-__node_name__ \
             --cert /var/lib/kubelet/pki/kubelet-client-current.pem \
             --key /var/lib/kubelet/pki/kubelet-client-current.pem \
-            --cacert ${MINIKUBE_PKI_DIR}/ca.crt)
+            --cacert ${pki_dir}/ca.crt)
         # yurt-hub pod is not found
         if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
             retry=$((retry-1))
@@ -208,7 +210,7 @@ revert_kubelet() {
     # remove openyurt's kubelet.conf if exist
     [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
     # revise the kubelet.service drop-in
-    sed -i "s|--kubeconfig=.*|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
+    sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
     log "revised the kubelet.service drop-in file back to the default"
     # reset the kubelete.service
     systemctl daemon-reload
