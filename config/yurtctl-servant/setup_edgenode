@@ -9,6 +9,7 @@ set -o pipefail
 
 KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
 KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
+KUBELET_CLI_PEM=${KUBELET_CLI_PEM:-/var/lib/kubelet/pki/kubelet-client-current.pem}
 BOOTSTRAP_KUBELET_CONF=${BOOTSTRAP_KUBELET_CONF:-/etc/kubernetes/bootstrap-kubelet.conf}
 OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
 STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
@@ -95,6 +96,23 @@ error() {
     echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [ERROR] $@"
 }
 
+# preset creates the /var/lib/kubelet/pki/kubelet-client-current.pem if 
+# it does not exist
+preset() {
+    # if $KUBELET_CLI_PEM doesn't exist, create one based on 'client-certificate-data'
+    # and 'client-key-data' of $KUBELET_CONF
+    if [ -f $KUBELET_CLI_PEM ]; then
+        log "$KUBELET_CLI_PEM exist"
+    else 
+        log "$KUBELET_CLI_PEM does not exist"
+        grep 'client-certificate-data' $KUBELET_CONF | awk '{print $2}' | 
+            base64 -d > $KUBELET_CLI_PEM 
+        grep 'client-key-data' $KUBELET_CONF | awk '{print $2}' | 
+            base64 -d >> $KUBELET_CLI_PEM
+        log "$KUBELET_CLI_PEM is created"
+    fi
+}
+
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
 setup_yurthub() {
     provider=$1
@@ -164,10 +182,10 @@ reset_kubelet() {
     if [ -f $BOOTSTRAP_KUBELET_CONF ]; then
         # /etc/kubernetes/bootstrap-kubelet.config exist, keep the 
         # --bootstrap-kubeconfig option
-        sed -i "s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
     else
         sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
-        s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
     fi
     log "revised the kubelet.service drop-in file"
     # reset the kubelete.service
@@ -200,6 +218,7 @@ revert_kubelet() {
 
 case $ACTION in
     convert)
+        preset
         setup_yurthub $PROVIDER
         reset_kubelet
         ;;

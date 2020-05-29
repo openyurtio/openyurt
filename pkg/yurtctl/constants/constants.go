@@ -63,7 +63,7 @@ spec:
           type: Directory
       containers:
       - name: yurtctl-servant
-        image: openyurt/yurtctl-servant:latest
+        image: openyurt/yurtctl-servant:edge
         command:
         - /bin/sh
         - -c

@@ -11,23 +11,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
+	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
 	tmplutil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
 )
 
 const (
+	// ConvertJobNameBase is the prefix of the convert ServantJob name
 	ConvertJobNameBase = "yurtctl-servant-convert"
-	RevertJobNameBase  = "yurtctl-servant-revert"
+	// RevertJobNameBase is the prefix of the revert ServantJob name
+	RevertJobNameBase = "yurtctl-servant-revert"
 )
 
 var (
-	PropagationPolicy     = metav1.DeletePropagationForeground
+	// PropagationPolicy defines the propogation policy used when deleting a resource
+	PropagationPolicy = metav1.DeletePropagationForeground
+	// WaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
 	WaitServantJobTimeout = time.Minute * 2
+	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
+	// ValidServerVersion contains all compatable server version
+	// yurtctl only support Kubernetes 1.12 - 1.14 for now
+	ValidServerVersions = []string{"1.12", "1.13", "1.14"}
 )
 
 // YamlToObject deserializes object in yaml format to a runtime.Object
@@ -139,5 +149,20 @@ func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edg
 		}()
 	}
 	wg.Wait()
+	return nil
+}
+
+// ValidateServerVersion checks if the target server's version is supported
+func ValidateServerVersion(cliSet *kubernetes.Clientset) error {
+	serverVersion, err := discovery.
+		NewDiscoveryClient(cliSet.RESTClient()).ServerVersion()
+	if err != nil {
+		return err
+	}
+	completeVersion := serverVersion.Major + "." + serverVersion.Minor
+	if !strutil.IsInStringLst(ValidServerVersions, completeVersion) {
+		return fmt.Errorf("server version(%s) is not supported, valid server versions are %v",
+			completeVersion, ValidServerVersions)
+	}
 	return nil
 }
