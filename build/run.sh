@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -xe
 
-readonly YURT_IMAGE_TARGETS=(
-    cmd/yurthub
-    cmd/yurt-controller-manager
-)
+goldflags="${GOLDFLAGS=-s -w}"
+gcflags="${GOGCFLAGS:-}"
+goflags=${GOFLAGS:-}
 
-if [ "$(uname)" == "Darwin" ]; then
-	export GOOS=linux
-fi
+readonly YURT_IMAGE_TARGETS=(
+    yurthub
+    yurt-controller-manager
+)
 
 ORG_PATH="github.com/alibaba"
 export REPO_PATH="${ORG_PATH}/openyurt"
@@ -20,11 +20,11 @@ fi
 
 export GO15VENDOREXPERIMENT=1
 export GOPATH=${PWD}/gopath
+export GOPROXY=https://goproxy.cn
 
-targets=("${YURT_ALL_TARGETS[@]}")
-for binary in "${targets[@]}"; do
-    mkdir -p "${PWD}/bin/${GOARCH}"
+for binary in "${YURT_IMAGE_TARGETS[@]}"; do
+    mkdir -p "${PWD}/_output/bin/"
     echo "Building ${binary}"
-    go build -pkgdir "${PWD}/bin/${GOARCH}/" "$@" "$REPO_PATH/${binary}"
+    go build -ldflags "${goldflags:-}" -gcflags "${gcflags:-}" ${goflags} -o "${PWD}/_output/bin/${binary}" "$REPO_PATH/cmd/${binary}"
 done
 
