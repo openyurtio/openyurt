@@ -44,7 +44,7 @@ spec:
       type: Directory
   containers:
   - name: yurt-hub
-    image: openyurt/yurthub:latest
+    image: __yurthub_image__
     imagePullPolicy: Always
     volumeMounts:
     - name: kubernetes

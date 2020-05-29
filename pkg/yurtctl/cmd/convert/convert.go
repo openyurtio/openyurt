@@ -20,6 +20,7 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
+	tmpltil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
 )
 
 // Provider signifies the provider type
@@ -34,9 +35,12 @@ const (
 
 // ConvertOptions has the information that required by convert operation
 type ConvertOptions struct {
-	clientSet  *kubernetes.Clientset
-	CloudNodes []string
-	Provider   Provider
+	clientSet                  *kubernetes.Clientset
+	CloudNodes                 []string
+	Provider                   Provider
+	YurhubImage                string
+	YurtControllerManagerImage string
+	YurctlServantImage         string
 }
 
 // NewConvertOptions creates a new ConvertOptions
@@ -67,6 +71,15 @@ func NewConvertCmd() *cobra.Command {
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
 	cmd.Flags().StringP("provider", "p", "ack",
 		"The provider of the original Kubernetes cluster.")
+	cmd.Flags().String("yurthub-image",
+		"openyurt/yurthub:latest",
+		"The yurthub image.")
+	cmd.Flags().String("yurt-controller-manager-image",
+		"openyurt/yurt-controller-manager:latest",
+		"The yurt-controller-manager image.")
+	cmd.Flags().String("yurtctl-servant-image",
+		"openyurt/yurtctl-servant:latest",
+		"The yurtctl-servant image.")
 
 	return cmd
 }
@@ -85,6 +98,24 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.Provider = Provider(pStr)
 
+	yhi, err := flags.GetString("yurthub-image")
+	if err != nil {
+		return err
+	}
+	co.YurhubImage = yhi
+
+	ycmi, err := flags.GetString("yurt-controller-manager-image")
+	if err != nil {
+		return err
+	}
+	co.YurtControllerManagerImage = ycmi
+
+	ycsi, err := flags.GetString("yurtctl-servant-image")
+	if err != nil {
+		return err
+	}
+	co.YurctlServantImage = ycsi
+
 	// parse kubeconfig and generate the clientset
 	kbCfgPath, err := flags.GetString("kubeconfig")
 	if err != nil {
@@ -92,13 +123,13 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 
 	if kbCfgPath == "" {
-		if home := homedir.HomeDir(); home != "" {
-			kbCfgPath = filepath.Join(home, ".kube", "config")
-		}
+		kbCfgPath = os.Getenv("KUBECONFIG")
 	}
 
 	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv("KUBECONFIG")
+		if home := homedir.HomeDir(); home != "" {
+			kbCfgPath = filepath.Join(home, ".kube", "config")
+		}
 	}
 
 	if kbCfgPath == "" {
@@ -169,7 +200,12 @@ func (co *ConvertOptions) RunConvert() error {
 	}
 
 	// 4. deploy yurt controller manager
-	dpObj, err := kubeutil.YamlToObject([]byte(constants.YurtControllerManagerDeployment))
+	ycmdp, err := tmpltil.SubsituteTemplate(constants.YurtControllerManagerDeployment,
+		map[string]string{"image": co.YurtControllerManagerImage})
+	if err != nil {
+		return err
+	}
+	dpObj, err := kubeutil.YamlToObject([]byte(ycmdp))
 	if err != nil {
 		return err
 	}
@@ -194,8 +230,10 @@ func (co *ConvertOptions) RunConvert() error {
 	// 6. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	if err := kubeutil.RunServantJobs(co.clientSet, map[string]string{
-		"provider": string(co.Provider),
-		"action":   "convert",
+		"provider":              string(co.Provider),
+		"action":                "convert",
+		"yurtctl_servant_image": co.YurctlServantImage,
+		"yurthub_image":         co.YurhubImage,
 	}, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return err
