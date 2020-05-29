@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -185,7 +186,7 @@ func (co *ConvertOptions) RunConvert() error {
 	if err := co.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete("node-controller", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
-		}); err != nil {
+		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to delete ServiceAccount(node-controller): %s", err)
 		return err
 	}
