@@ -1,4 +1,4 @@
-.PHONY: clean all release
+.PHONY: clean all release build
 
 all: build
 
@@ -10,3 +10,5 @@ release:
 
 clean: 
 	-rm -Rf _output
+	-rm -Rf dockerbuild
+

@@ -2,15 +2,18 @@
 set -xe
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-YURT_OUTPUT_DIR=${YURT_ROOT}/_output/
-YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin/
-YURT_IMAGE_DIR=${YURT_OUTPUT_DIR}/images/
-BUILDFLAGS="-a --ldflags '-extldflags \"-static\"'"
+YURT_OUTPUT_DIR=_output
+YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
+YURT_IMAGE_DIR=${YURT_OUTPUT_DIR}/images
+DOCKER_BUILD_BASE_IDR=dockerbuild
 
 REPO="openyurt"
-VERSION=$("v0.1.0":${YURT_VERSION})
+TAG="v.0.1.0-beta1"
+readonly YURT_BIN_TARGETS=(
+    yurthub
+    yurt-controller-manager
+)
 
-DOCKER_BUILD_BASE_IDR=dockerbuild
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 
@@ -18,41 +21,37 @@ GROUP_ID=$(id -g)
 rm -Rf ${YURT_OUTPUT_DIR}
 rm -Rf ${DOCKER_BUILD_BASE_IDR}
 mkdir -p ${YURT_BIN_DIR}
-mkdir -p ${YURT_IMAGES_DIR}
+mkdir -p ${YURT_IMAGE_DIR}
 mkdir -p ${DOCKER_BUILD_BASE_IDR}
 
-docker run -i -v ${YURT_ROOT}:/opt/src --rm golang:1.13-alpine \
+docker run -i -v ${YURT_ROOT}:/opt/src --network host --rm golang:1.13-alpine \
 /bin/sh -xe -c "\
-    apk --no-cache add bash tar;
-    cd /opt/src; umask 0022;
-    for arch in amd64; do \
-        rm -f ${YURT_OUTPUT_DIR}/\$arch/*; \
-        CGO_ENABLED=0 GOOS=linux GOARCH=\$arch ./build/run.sh ${BUILDFLAGS}; \
-    done; \
-    chown -R ${USER_ID}:${GROUP_ID} ${OUTPUT_DIR}"
+    apk --no-cache add bash tar; \
+    cd /opt/src; umask 0022; \
+    rm -f ${YURT_BIN_DIR}/*; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 ./build/run.sh; \
+    chown -R ${USER_ID}:${GROUP_ID} ${YURT_OUTPUT_DIR}"
 
 
 function build_docker_image() {
-    for arch in amd64; do
-       for binary in yurthub yurt-controller-manager; do
-	       if [ -f ${YURT_OUTPUT_DIR}/${arch}/${binary} ]; then
-	           local docker_build_path=${DOCKER_BUILD_BASE_IDR}/${arch}
-	           local docker_file_path="${docker_build_path}/Dockerfile"
-	           mkdir -p ${docker_build_path}
+   for binary in "${YURT_BIN_TARGETS[@]}"; do
+	   if [ -f ${YURT_BIN_DIR}/${binary} ]; then
+	       local docker_build_path=${DOCKER_BUILD_BASE_IDR}
+	       local docker_file_path="${docker_build_path}/Dockerfile.${binary}"
+	       mkdir -p ${docker_build_path}
 
-	           local yurt_component_image="${REPO}/${binary}:${VERSION}.${arch}"
-		       local base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
-	           cat <<EOF > "${docker_file_path}"
+	       local yurt_component_image="${REPO}/${binary}:${TAG}"
+		   local base_image="k8s.gcr.io/debian-iptables-amd64:v11.0.2"
+	       cat <<EOF > "${docker_file_path}"
 FROM ${base_image}
 COPY ${docker_build_path}/${binary} /usr/local/bin/${binary}
 ENTRYPOINT ["/usr/local/bin/${binary}"]
 EOF
 
-               ln "${YURT_OUTPUT_DIR}/${arch}/${binary}" "${docker_build_path}/${binary}"
-	           docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" .
-	           docker save ${yurt_component_image} > ${YURT_IMAGES_DIR}
-	        fi
-	   fi
+           ln "${YURT_BIN_DIR}/${binary}" "${docker_build_path}/${binary}"
+	       docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" .
+	       docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${binary}.tar
+	    fi
     done
 }
 
