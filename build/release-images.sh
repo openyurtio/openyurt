@@ -5,6 +5,7 @@ YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 YURT_OUTPUT_DIR=_output
 YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
 YURT_IMAGE_DIR=${YURT_OUTPUT_DIR}/images
+YURTCTL_SERVANT_DIR=${YURT_ROOT}/config/yurtctl-servant
 DOCKER_BUILD_BASE_IDR=dockerbuild
 
 REPO="openyurt"
@@ -55,4 +56,11 @@ EOF
     done
 }
 
+build_yurtctl_servant_image() {
+    cd ${YURTCTL_SERVANT_DIR} 
+    local yurtctl_servant_image=${REPO}/yurtctl-servant:$TAG
+    docker build -t ${yurtctl_servant_image} .
+}
+
 build_docker_image
+build_yurtctl_servant_image

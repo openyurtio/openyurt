@@ -20,7 +20,8 @@ import (
 )
 
 type RevertOptions struct {
-	clientSet *kubernetes.Clientset
+	clientSet           *kubernetes.Clientset
+	YurtctlServantImage string
 }
 
 func NewRevertOptions() *RevertOptions {
@@ -41,10 +42,20 @@ func NewRevertCmd() *cobra.Command {
 			}
 		},
 	}
+
+	cmd.Flags().String("yurtctl-servant-image",
+		"openyurt/yurtctl-servant:latest",
+		"The yurtctl-servant image.")
+
 	return cmd
 }
 
 func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
+	ycsi, err := flags.GetString("yurtctl-servant-image")
+	if err != nil {
+		return err
+	}
+	ro.YurtctlServantImage = ycsi
 	// parse kubeconfig and generate the clientset
 	kbCfgPath, err := flags.GetString("kubeconfig")
 	if err != nil {
@@ -52,13 +63,13 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 
 	if kbCfgPath == "" {
-		if home := homedir.HomeDir(); home != "" {
-			kbCfgPath = filepath.Join(home, ".kube", "config")
-		}
+		kbCfgPath = os.Getenv("KUBECONFIG")
 	}
 
 	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv("KUBECONFIG")
+		if home := homedir.HomeDir(); home != "" {
+			kbCfgPath = filepath.Join(home, ".kube", "config")
+		}
 	}
 
 	if kbCfgPath == "" {
@@ -121,7 +132,7 @@ func (ro *RevertOptions) RunRevert() error {
 		},
 	}
 	if _, err := ro.clientSet.CoreV1().
-		ServiceAccounts(ncSa.GetNamespace()).Create(ncSa); err != nil {
+		ServiceAccounts(ncSa.GetNamespace()).Create(ncSa); err != nil && !apierrors.IsAlreadyExists(err) {
 		klog.Errorf("fail to create node-controller service account: %s", err)
 		return err
 	}
@@ -129,7 +140,10 @@ func (ro *RevertOptions) RunRevert() error {
 
 	// 5. remove yurt-hub and revert kubelet service
 	if err := kubeutil.RunServantJobs(ro.clientSet,
-		map[string]string{"action": "revert"},
+		map[string]string{
+			"action":                "revert",
+			"yurtctl_servant_image": ro.YurtctlServantImage,
+		},
 		edgeNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
 		return err
