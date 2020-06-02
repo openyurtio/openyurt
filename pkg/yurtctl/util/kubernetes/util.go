@@ -19,9 +19,12 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/spf13/pflag"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +33,8 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -53,7 +58,7 @@ var (
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersion contains all compatable server version
 	// yurtctl only support Kubernetes 1.12 - 1.14 for now
-	ValidServerVersions = []string{"1.12", "1.12+", "1.13", "1.13+", "1.14", "1.14+"}
+	ValidServerVersions = []string{"1.12", "1.12+", "1.13", "1.13+", "1.14", "1.14+", "1.18"}
 )
 
 // YamlToObject deserializes object in yaml format to a runtime.Object
@@ -181,4 +186,34 @@ func ValidateServerVersion(cliSet *kubernetes.Clientset) error {
 			completeVersion, ValidServerVersions)
 	}
 	return nil
+}
+
+// GenClientSet generates the clientset based on command option, environment variable or
+// the default kubeconfig file
+func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
+	kbCfgPath, err := flags.GetString("kubeconfig")
+	if err != nil {
+		return nil, err
+	}
+
+	if kbCfgPath == "" {
+		kbCfgPath = os.Getenv("KUBECONFIG")
+	}
+
+	if kbCfgPath == "" {
+		if home := homedir.HomeDir(); home != "" {
+			kbCfgPath = filepath.Join(home, ".kube", "config")
+		}
+	}
+
+	if kbCfgPath == "" {
+		return nil, errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
+	}
+
+	restCfg, err := clientcmd.BuildConfigFromFlags("", kbCfgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(restCfg)
 }

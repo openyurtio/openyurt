@@ -17,33 +17,30 @@ limitations under the License.
 package revert
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
+// ConvertOptions has the information required by the revert operation
 type RevertOptions struct {
 	clientSet           *kubernetes.Clientset
 	YurtctlServantImage string
 }
 
+// NewConvertOptions creates a new RevertOptions
 func NewRevertOptions() *RevertOptions {
 	return &RevertOptions{}
 }
 
+// NewRevertCmd generates a new revert command
 func NewRevertCmd() *cobra.Command {
 	ro := NewRevertOptions()
 	cmd := &cobra.Command{
@@ -66,44 +63,22 @@ func NewRevertCmd() *cobra.Command {
 	return cmd
 }
 
+// Complete completes all the required options
 func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	ycsi, err := flags.GetString("yurtctl-servant-image")
 	if err != nil {
 		return err
 	}
 	ro.YurtctlServantImage = ycsi
-	// parse kubeconfig and generate the clientset
-	kbCfgPath, err := flags.GetString("kubeconfig")
-	if err != nil {
-		return err
-	}
 
-	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv("KUBECONFIG")
-	}
-
-	if kbCfgPath == "" {
-		if home := homedir.HomeDir(); home != "" {
-			kbCfgPath = filepath.Join(home, ".kube", "config")
-		}
-	}
-
-	if kbCfgPath == "" {
-		return errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
-	}
-
-	restCfg, err := clientcmd.BuildConfigFromFlags("", kbCfgPath)
-	if err != nil {
-		return err
-	}
-
-	ro.clientSet, err = kubernetes.NewForConfig(restCfg)
+	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// RunRevert reverts the target Yurt cluster back to a standard Kubernetes cluster
 func (ro *RevertOptions) RunRevert() error {
 	// 1. check the server version
 	if err := kubeutil.ValidateServerVersion(ro.clientSet); err != nil {
