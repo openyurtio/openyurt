@@ -19,8 +19,6 @@ package convert
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,8 +27,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -133,31 +129,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	co.YurctlServantImage = ycsi
 
 	// parse kubeconfig and generate the clientset
-	kbCfgPath, err := flags.GetString("kubeconfig")
-	if err != nil {
-		return err
-	}
-
-	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv("KUBECONFIG")
-	}
-
-	if kbCfgPath == "" {
-		if home := homedir.HomeDir(); home != "" {
-			kbCfgPath = filepath.Join(home, ".kube", "config")
-		}
-	}
-
-	if kbCfgPath == "" {
-		return errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
-	}
-
-	restCfg, err := clientcmd.BuildConfigFromFlags("", kbCfgPath)
-	if err != nil {
-		return err
-	}
-
-	co.clientSet, err = kubernetes.NewForConfig(restCfg)
+	co.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
 		return err
 	}
@@ -199,23 +171,14 @@ func (co *ConvertOptions) RunConvert() error {
 		// label node as edge node
 		klog.Infof("mark %s as the edge-node", node.GetName())
 		edgeNodeNames = append(edgeNodeNames, node.GetName())
-		edgeNode, err := kubeutil.LabelNode(co.clientSet,
+		_, err := kubeutil.LabelNode(co.clientSet,
 			&node, constants.LabelEdgeWorker, "true")
 		if err != nil {
 			return err
 		}
-		// 3. annotate all edge nodes as autonomous
-		// NOTE pods running on an non-autonomous will be evicted, even though
-		// the node is marked as an edge node.
-		// TODO should we allow user to decide if a node is autonomous or not ?
-		klog.Infof("mark %s as autonomous node", node.GetName())
-		if _, err := kubeutil.AnnotateNode(co.clientSet,
-			edgeNode, constants.AnnotationAutonomy, "true"); err != nil {
-			return err
-		}
 	}
 
-	// 4. deploy yurt controller manager
+	// 3. deploy yurt controller manager
 	ycmdp, err := tmpltil.SubsituteTemplate(constants.YurtControllerManagerDeployment,
 		map[string]string{"image": co.YurtControllerManagerImage})
 	if err != nil {
@@ -234,7 +197,7 @@ func (co *ConvertOptions) RunConvert() error {
 	}
 	klog.Info("deploy the yurt controller manager")
 
-	// 5. delete the node-controller service account to disable node-controller
+	// 4. delete the node-controller service account to disable node-controller
 	if err := co.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete("node-controller", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -243,7 +206,7 @@ func (co *ConvertOptions) RunConvert() error {
 		return err
 	}
 
-	// 6. deploy yurt-hub and reset the kubelet service
+	// 5. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	if err := kubeutil.RunServantJobs(co.clientSet, map[string]string{
 		"provider":              string(co.Provider),

@@ -15,11 +15,10 @@ $ _output/bin/yurtctl convert --provider minikube
 
 2. `yurtctl` will install all required components and reset the kubelet in the edge node. The output looks like:
 ```bash
- convert.go:148] mark minikube as the edge-node
- convert.go:159] mark minikube as autonomous node
- convert.go:178] deploy the yurt controller manager
- convert.go:190] deploying the yurt-hub and resetting the kubelet service...
- util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
+convert.go:148] mark minikube as the edge-node
+convert.go:178] deploy the yurt controller manager
+convert.go:190] deploying the yurt-hub and resetting the kubelet service...
+util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
 ```
 
 3. yurt controller manager and yurthub Pods will be up and running in one minute. Let us verify them:
@@ -32,7 +31,13 @@ NAME                READY   STATUS    RESTARTS   AGE
 yurt-hub-minikube   1/1     Running   0          23h
 ```
 
-4. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
+4. Next, we mark desired edge nodes as autonomous (only pods running on the autonomous edge nodes will be prevented from being evicted during disconnection):
+```bash
+$ _output/bin/yurtctl markautonomous
+I0602 14:11:08.610222   89160 markautonomous.go:149] mark minikube-m02 as autonomous
+```
+
+5. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
 ```
 $ kubectl describe node | grep Labels -A 3
 Labels:      alibabacloud.com/is-edge-worker=true
@@ -119,19 +124,24 @@ us-west-1.192.168.0.88   Ready    <none>   19h   v1.14.8-aliyun.1
 $ _output/bin/yurtctl convert --provider ack --cloud-nodes us-west-1.192.168.0.87
 I0529 11:21:05.835781    9231 convert.go:145] mark us-west-1.192.168.0.87 as the cloud-node
 I0529 11:21:05.861064    9231 convert.go:153] mark us-west-1.192.168.0.88 as the edge-node
-I0529 11:21:05.888271    9231 convert.go:164] mark us-west-1.192.168.0.88 as autonomous node
 I0529 11:21:05.951483    9231 convert.go:183] deploy the yurt controller manager
 I0529 11:21:05.974443    9231 convert.go:195] deploying the yurt-hub and resetting the kubelet service...
 I0529 11:21:26.075075    9231 util.go:147] servant job(yurtctl-servant-convert-us-west-1.192.168.0.88) has succeeded
 ```
 
-3. Node `minikube` will be marked as a non-edge node. You can verify this by inspecting its labels:
+3. Node `us-west-1.192.168.0.87` will be marked as a non-edge node. You can verify this by inspecting its labels:
 ```bash
 $ kubectl describe node us-west-1.192.168.0.87 | grep Labels
 Labels:             alibabacloud.com/is-edge-worker=false
 ```
 
-4. When the OpenYurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this case, the node `us-west-1.192.168.0.87`):
+4. Same as before, we make desired edge nodes autonomous:
+```bash
+$ _output/bin/yurtctl markautonomous
+I0602 11:22:05.610222   89160 markautonomous.go:149] mark us-west-1.192.168.0.88 as autonomous
+```
+
+5. When the OpenYurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this case, the node `us-west-1.192.168.0.87`):
 ```bash
 $ kubectl get pods -A -o=custom-columns='NAME:.metadata.name,NODE:.spec.nodeName'
 NAME                                               NODE
