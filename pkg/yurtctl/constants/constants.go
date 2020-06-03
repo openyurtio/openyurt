@@ -24,6 +24,8 @@ const (
 	// AnnotationAutonomy is used to identify if a node is automous
 	AnnotationAutonomy = "node.beta.alibabacloud.com/autonomy"
 
+	YurtctlLockConfigMapName = `yurtctl-lock`
+
 	// YurtControllerManagerDeployment defines the yurt controller manager
 	// deployment in yaml format
 	YurtControllerManagerDeployment = `

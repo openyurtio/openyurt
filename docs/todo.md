@@ -8,3 +8,4 @@
 - [ ] cluster-info subcommand that list edge/cloud nodes
 - [ ] add yurtctl-servant image to relase 
 - [ ] support user specified image
+- [ ] use yurt crd to manage the cluster

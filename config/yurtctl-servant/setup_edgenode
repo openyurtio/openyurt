@@ -131,7 +131,7 @@ setup_yurthub() {
     local retry=5
     while [ $retry -ge 0 ] 
     do
-        sleep 2
+        sleep 10
         # NOTE: context variables need to be replaced before exeuction
         local podPhase
 
