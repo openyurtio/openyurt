@@ -18,15 +18,26 @@ package lock
 
 import (
 	"errors"
+	"time"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
-const lockFinalizer = "kubernetes"
+const (
+	lockFinalizer         = "kubernetes"
+	AnnotationAcquireTime = "openyurt.io/yurtctllock.acquire.time"
+	AnnotationIsLocked    = "openyurt.io/yurtctllock.locked"
+)
+
+var (
+	AcquireLockErr error = errors.New("fail to acquire lock configmap/yurtctl-lock")
+	ReleaseLockErr error = errors.New("fail to release lock configmap/yurtctl-lock")
+)
 
 // AcquireLock tries to acquire the lock lock configmap/yurtctl-lock
 func AcquireLock(cli *kubernetes.Clientset) error {
@@ -40,33 +51,40 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 					Name:       constants.YurtctlLockConfigMapName,
 					Namespace:  "kube-system",
 					Finalizers: []string{lockFinalizer},
+					Annotations: map[string]string{
+						AnnotationAcquireTime: time.Now().UTC().String(),
+						AnnotationIsLocked:    "true",
+					},
 				},
-				Data: map[string]string{"locked": "true"},
 			}
 			if _, err := cli.CoreV1().ConfigMaps("kube-system").
 				Create(cm); err != nil {
-				if apierrors.IsAlreadyExists(err) {
-					return errors.New("fail to create the new lock")
-				}
-				return err
+				klog.Error("the lock configmap/yurtctl-lock is not found, " +
+					"but fail to create a new one")
+				return AcquireLockErr
 			}
 			return nil
 		}
 	}
 
-	if lockCm.Data["locked"] == "true" {
+	if lockCm.Annotations[AnnotationIsLocked] == "true" {
 		// lock has been acquired by others
-		return errors.New("the lock is held by others")
+		klog.Errorf("the lock is held by others, it was being acquired at %s",
+			lockCm.Annotations[AnnotationAcquireTime])
+		return AcquireLockErr
 	}
 
-	if lockCm.Data["locked"] == "false" {
-		lockCm.Data["locked"] = "true"
+	if lockCm.Annotations[AnnotationIsLocked] == "false" {
+		lockCm.Annotations[AnnotationIsLocked] = "true"
+		lockCm.Annotations[AnnotationAcquireTime] = time.Now().UTC().String()
 		if _, err := cli.CoreV1().ConfigMaps("kube-system").
 			Update(lockCm); err != nil {
 			if apierrors.IsResourceExpired(err) {
-				return errors.New("the lock is held by others")
+				klog.Error("the lock is held by others")
+				return AcquireLockErr
 			}
-			return err
+			klog.Error("successfully acquire the lock but fail to update it")
+			return AcquireLockErr
 		}
 	}
 
@@ -79,24 +97,38 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 		Get(constants.YurtctlLockConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return errors.New("lock not found")
+			klog.Error("lock is not found when try to release, " +
+				"please check if the configmap/yurtctl-lock " +
+				"is being deleted manually")
+			return ReleaseLockErr
 		}
-		return err
+		klog.Error("fail to get lock configmap/yurtctl-lock, " +
+			"when try to release it")
+		return ReleaseLockErr
 	}
-	if lockCm.Data["locked"] == "false" {
-		return errors.New("lock has already been released")
+	if lockCm.Annotations[AnnotationIsLocked] == "false" {
+		klog.Error("lock has already been released, " +
+			"please check if the configmap/yurtctl-lock " +
+			"is being updated manually")
+		return ReleaseLockErr
 	}
 
 	// release the lock
-	lockCm.Data["locked"] = "false"
+	lockCm.Annotations[AnnotationIsLocked] = "false"
+	delete(lockCm.Annotations, AnnotationAcquireTime)
 
 	_, err = cli.CoreV1().ConfigMaps("kube-system").Update(lockCm)
 	if err != nil {
 		if apierrors.IsResourceExpired(err) {
-			return errors.New("lock has been touched by" +
-				"others during release")
+			klog.Error("lock has been touched by others during release, " +
+				"which is not supposed to happen. " +
+				"Please check if lock is being updated manually.")
+			return ReleaseLockErr
+
 		}
-		return err
+		klog.Error("fail to update lock configmap/yurtctl-lock, " +
+			"when try to release it")
+		return ReleaseLockErr
 	}
 
 	return nil
