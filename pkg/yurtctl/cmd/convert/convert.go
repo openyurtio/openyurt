@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
+	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
 	tmpltil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
@@ -147,34 +148,41 @@ func (co *ConvertOptions) Validate() error {
 }
 
 // RunConvert performs the conversion
-func (co *ConvertOptions) RunConvert() error {
-	// 1. check the server version
-	if err := kubeutil.ValidateServerVersion(co.clientSet); err != nil {
-		return err
+func (co *ConvertOptions) RunConvert() (err error) {
+	if err = lock.AcquireLock(co.clientSet); err != nil {
+		return
 	}
+	defer func() {
+		err = lock.ReleaseLock(co.clientSet)
+	}()
+	// 1. check the server version
+	if err = kubeutil.ValidateServerVersion(co.clientSet); err != nil {
+		return
+	}
+
 	// 2. label nodes as cloud node or edge node
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
-		return err
+		return
 	}
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
 		if strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
 			// label node as cloud node
 			klog.Infof("mark %s as the cloud-node", node.GetName())
-			if _, err := kubeutil.LabelNode(co.clientSet,
+			if _, err = kubeutil.LabelNode(co.clientSet,
 				&node, constants.LabelEdgeWorker, "false"); err != nil {
-				return err
+				return
 			}
 			continue
 		}
 		// label node as edge node
 		klog.Infof("mark %s as the edge-node", node.GetName())
 		edgeNodeNames = append(edgeNodeNames, node.GetName())
-		_, err := kubeutil.LabelNode(co.clientSet,
+		_, err = kubeutil.LabelNode(co.clientSet,
 			&node, constants.LabelEdgeWorker, "true")
 		if err != nil {
-			return err
+			return
 		}
 	}
 
@@ -182,41 +190,42 @@ func (co *ConvertOptions) RunConvert() error {
 	ycmdp, err := tmpltil.SubsituteTemplate(constants.YurtControllerManagerDeployment,
 		map[string]string{"image": co.YurtControllerManagerImage})
 	if err != nil {
-		return err
+		return
 	}
 	dpObj, err := kubeutil.YamlToObject([]byte(ycmdp))
 	if err != nil {
-		return err
+		return
 	}
 	ecmDp, ok := dpObj.(*appsv1.Deployment)
 	if !ok {
-		return errors.New("fail to assert YurtControllerManagerDeployment")
+		err = errors.New("fail to assert YurtControllerManagerDeployment")
+		return
 	}
-	if _, err := co.clientSet.AppsV1().Deployments("kube-system").Create(ecmDp); err != nil {
-		return err
+	if _, err = co.clientSet.AppsV1().Deployments("kube-system").Create(ecmDp); err != nil {
+		return
 	}
 	klog.Info("deploy the yurt controller manager")
 
 	// 4. delete the node-controller service account to disable node-controller
-	if err := co.clientSet.CoreV1().ServiceAccounts("kube-system").
+	if err = co.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete("node-controller", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to delete ServiceAccount(node-controller): %s", err)
-		return err
+		return
 	}
 
 	// 5. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
-	if err := kubeutil.RunServantJobs(co.clientSet, map[string]string{
+	if err = kubeutil.RunServantJobs(co.clientSet, map[string]string{
 		"provider":              string(co.Provider),
 		"action":                "convert",
 		"yurtctl_servant_image": co.YurctlServantImage,
 		"yurthub_image":         co.YurhubImage,
 	}, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
-		return err
+		return
 	}
 
-	return nil
+	return
 }

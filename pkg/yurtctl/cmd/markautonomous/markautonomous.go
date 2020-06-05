@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
+	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
@@ -92,19 +93,28 @@ func (mao *MarkAutonomousOptions) Complete(flags *pflag.FlagSet) error {
 }
 
 // RunMarkAutonomous annotates specified edge nodes as autonomous
-func (mao *MarkAutonomousOptions) RunMarkAutonomous() error {
-	var autonomousNodes []*v1.Node
+func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
+	if err = lock.AcquireLock(mao.Clientset); err != nil {
+		return
+	}
+	defer func() {
+		err = lock.ReleaseLock(mao.Clientset)
+	}()
+	var (
+		autonomousNodes []*v1.Node
+		edgeNodeList    *v1.NodeList
+	)
 	if mao.MarkAllEdgeNodes {
 		// make all edge nodes autonomous
 		labelSelector := fmt.Sprintf("%s=true", constants.LabelEdgeWorker)
-		edgeNodeList, err := mao.CoreV1().Nodes().
+		edgeNodeList, err = mao.CoreV1().Nodes().
 			List(metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
-			return err
+			return
 		}
 		if len(edgeNodeList.Items) == 0 {
 			klog.Warning("there is no edge nodes, please label the edge node first")
-			return nil
+			return
 		}
 		for _, node := range edgeNodeList.Items {
 			autonomousNodes = append(autonomousNodes, &node)
@@ -112,13 +122,15 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() error {
 	} else {
 		// make only the specified edge nodes autonomous
 		for _, nodeName := range mao.AutonomousNodes {
-			node, err := mao.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			var node *v1.Node
+			node, err = mao.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 			if err != nil {
-				return err
+				return
 			}
 			if node.Labels[constants.LabelEdgeWorker] == "false" {
-				return fmt.Errorf("can't make cloud node(%s) autonomous",
+				err = fmt.Errorf("can't make cloud node(%s) autonomous",
 					node.GetName())
+				return
 			}
 			autonomousNodes = append(autonomousNodes, node)
 		}
@@ -126,11 +138,11 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() error {
 
 	for _, anode := range autonomousNodes {
 		klog.Infof("mark %s as autonomous", anode.GetName())
-		if _, err := kubeutil.AnnotateNode(mao.Clientset,
+		if _, err = kubeutil.AnnotateNode(mao.Clientset,
 			anode, constants.AnnotationAutonomy, "true"); err != nil {
-			return err
+			return
 		}
 	}
 
-	return nil
+	return
 }

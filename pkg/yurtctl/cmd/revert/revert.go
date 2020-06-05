@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
+	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
@@ -79,15 +80,21 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 }
 
 // RunRevert reverts the target Yurt cluster back to a standard Kubernetes cluster
-func (ro *RevertOptions) RunRevert() error {
+func (ro *RevertOptions) RunRevert() (err error) {
+	if err = lock.AcquireLock(ro.clientSet); err != nil {
+		return
+	}
+	defer func() {
+		err = lock.ReleaseLock(ro.clientSet)
+	}()
 	// 1. check the server version
-	if err := kubeutil.ValidateServerVersion(ro.clientSet); err != nil {
-		return err
+	if err = kubeutil.ValidateServerVersion(ro.clientSet); err != nil {
+		return
 	}
 	// 2. remove labels from nodes
 	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
-		return err
+		return
 	}
 
 	var edgeNodeNames []string
@@ -98,20 +105,20 @@ func (ro *RevertOptions) RunRevert() error {
 		}
 		if ok {
 			delete(node.Labels, constants.LabelEdgeWorker)
-			if _, err := ro.clientSet.CoreV1().Nodes().Update(&node); err != nil {
-				return err
+			if _, err = ro.clientSet.CoreV1().Nodes().Update(&node); err != nil {
+				return
 			}
 		}
 	}
 	klog.Info("label alibabacloud.com/is-edge-worker is removed")
 
 	// 3. remove the yurt controller manager
-	if err := ro.clientSet.AppsV1().Deployments("kube-system").
+	if err = ro.clientSet.AppsV1().Deployments("kube-system").
 		Delete("yurt-controller-manager", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove yurt controller manager: %s", err)
-		return err
+		return
 	}
 	klog.Info("yurt controller manager is removed")
 
@@ -122,24 +129,23 @@ func (ro *RevertOptions) RunRevert() error {
 			Namespace: "kube-system",
 		},
 	}
-	if _, err := ro.clientSet.CoreV1().
+	if _, err = ro.clientSet.CoreV1().
 		ServiceAccounts(ncSa.GetNamespace()).Create(ncSa); err != nil && !apierrors.IsAlreadyExists(err) {
 		klog.Errorf("fail to create node-controller service account: %s", err)
-		return err
+		return
 	}
 	klog.Info("ServiceAccount node-controller is created")
 
 	// 5. remove yurt-hub and revert kubelet service
-	if err := kubeutil.RunServantJobs(ro.clientSet,
+	if err = kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{
 			"action":                "revert",
 			"yurtctl_servant_image": ro.YurtctlServantImage,
 		},
 		edgeNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
-		return err
+		return
 	}
 	klog.Info("yurt-hub is removed, kubelet service is reset")
-
-	return nil
+	return
 }
