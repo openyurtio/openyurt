@@ -44,6 +44,17 @@ autonomous edge nodes during disconnection.
 $ kc ap -f config/setup/yurt-controller-manager.yaml
 deployment.apps/yurt-controller-manager created
 ```
+## Disable the default nodelifecycle controller
+
+To allow the yurt-controller-mamanger to work properly, we need to turn off the default nodelifecycle controller.
+The nodelifecycle controller can be disabled by restarting the kube-controller-manager with a proper `--controllers` 
+option. Assume that the original option looks like `--controllers=*,bootstrapsigner,tokencleaner`, to disable 
+the nodelifecycle controller, we change the option to `--controllers=*,bootstrapsigner,tokencleaner,-nodelifecycle`. 
+
+If the kube-controller-manager is deployed as a static pod on the master node, and you have the permission to log in 
+to the master node, then above operations can be done by revising the file 
+`/etc/kubernetes/manifests/kube-controller-manager.yaml`. After revision, the kube-controller-manager will be 
+restarted automatically.
 
 ## Setup Yurthub
 
