@@ -49,3 +49,14 @@ please do the following:
 2. Add `Edge-Cache: true` to the http request header. 
 3. Add `User-Agent: {component-name}` to the http request header. Please avoid using the built-in agent names such as kubelet/flannel/coredns/kube-proxy.
 4. Add `Accept: application/json` or `Accept: application/vnd.kubernetes.protobuf` to the http request header based on the required serialization format.
+
+## Trouble Shooting
+
+1. When you want to test the autonomy function of edge node by restarting the edge node. The yurt-hub maybe can't startup.
+
+   This is because the startup parameters of yurt-hub are configured to read the environment variables of apiserver, but kubelet cannot access apiserver through yurt-hub 
+   because yurt-hub is abnormal. So you may need to temporarily modify the startup parameters of yurt-hub `--server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)` to 
+   `--server-addr=https://{apiserver-service-cluster-ip}:{apiserver-service-cluster-port}` or `--server-addr=https://{master-node-ip}:{apiserver-port}` in `yurthub.yaml`. 
+  
+   **`apiserver-service-cluster-ip` and `apiserver-service-cluster-port` can find by `kubectl get svc -n default`, there is a named `kubernetes` service is what you want.
+   If you want to use this please make sure your kube-proxy is running properly**
