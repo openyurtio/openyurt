@@ -1,8 +1,9 @@
 # `Yurtctl` tutorial
 
 This tutorial demonstrates how to use `yurtctl` to install/uninstall OpenYurt.
+Please refer to the [Getting Started](https://github.com/alibaba/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl` .
 We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0)) 
-is installed in the machine and `_output/bin/yurtctl` binary is built. 
+is installed. 
 
 ## Convert a minikube cluster
 
@@ -23,7 +24,7 @@ util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
 
 3. yurt controller manager and yurthub Pods will be up and running in one minute. Let us verify them:
 ```bash
-$ kubectl get deploy yurt-ctrl-mgr -n kube-system
+$ kubectl get deploy yurt-controller-manager -n kube-system
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE
 yurt-ctrl-mgr   1/1     1            1           23h
 $ kubectl get po yurt-hub-minikube -n kube-system
