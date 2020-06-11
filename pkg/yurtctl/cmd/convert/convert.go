@@ -153,12 +153,17 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 	defer func() {
-		err = lock.ReleaseLock(co.clientSet)
+		if releaseLockErr := lock.ReleaseLock(co.clientSet); releaseLockErr != nil {
+			klog.Error(releaseLockErr)
+		}
 	}()
+	klog.V(4).Info("successfully acquire the lock")
+
 	// 1. check the server version
 	if err = kubeutil.ValidateServerVersion(co.clientSet); err != nil {
 		return
 	}
+	klog.V(4).Info("the server version is valid")
 
 	// 2. label nodes as cloud node or edge node
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})

@@ -17,7 +17,11 @@ limitations under the License.
 package cmd
 
 import (
+	goflag "flag"
+
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
+	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/convert"
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/markautonomous"
@@ -37,6 +41,10 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(convert.NewConvertCmd())
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
+
+	klog.InitFlags(nil)
+	goflag.Parse()
+	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
 	return cmds
 }
