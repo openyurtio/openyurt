@@ -52,11 +52,8 @@ please do the following:
 
 ## Trouble Shooting
 
-1. When you want to test the autonomy function of edge node by restarting the edge node. The yurt-hub maybe can't startup.
+1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub maybe can't startup.
 
-   This is because the startup parameters of yurt-hub are configured to read the environment variables of apiserver, but kubelet cannot access apiserver through yurt-hub 
-   because yurt-hub is abnormal. So you may need to temporarily modify the startup parameters of yurt-hub `--server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)` to 
-   `--server-addr=https://{apiserver-service-cluster-ip}:{apiserver-service-cluster-port}` or `--server-addr=https://{master-node-ip}:{apiserver-port}` in `yurthub.yaml`. 
+   This is because the startup parameters of yurthub are configured to read the environment variables of apiserver, but kubelet cannot access apiserver through yurthub because yurthub is abnormal. So you may need to temporarily modify the startup parameters of yurthub `--server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)` to `--server-addr=https://{apiserver-service-cluster-ip}:{apiserver-service-cluster-port}` or `--server-addr=https://{master-node-ip}:{apiserver-port}` in `yurthub.yaml`. 
   
-   **`apiserver-service-cluster-ip` and `apiserver-service-cluster-port` can find by `kubectl get svc -n default`, there is a named `kubernetes` service is what you want.
-   If you want to use this please make sure your kube-proxy is running properly**
+   **`apiserver-service-cluster-ip` and `apiserver-service-cluster-port` can find by `kubectl get svc -n default`, there is a named `kubernetes` service is what you want. If you want to use this please make sure your kube-proxy is running properly**
