@@ -1,8 +1,9 @@
 # `Yurtctl` tutorial
 
 This tutorial demonstrates how to use `yurtctl` to install/uninstall OpenYurt.
+Please refer to the [Getting Started](https://github.com/alibaba/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl` .
 We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0)) 
-is installed in the machine and `_output/bin/yurtctl` binary is built. 
+is installed. 
 
 ## Convert a minikube cluster
 
