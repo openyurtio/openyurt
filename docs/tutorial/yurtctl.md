@@ -24,7 +24,7 @@ util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
 
 3. yurt controller manager and yurthub Pods will be up and running in one minute. Let us verify them:
 ```bash
-$ kubectl get deploy yurt-ctrl-mgr -n kube-system
+$ kubectl get deploy yurt-controller-manager -n kube-system
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE
 yurt-ctrl-mgr   1/1     1            1           23h
 $ kubectl get po yurt-hub-minikube -n kube-system
