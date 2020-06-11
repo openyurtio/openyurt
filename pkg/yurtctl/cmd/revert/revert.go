@@ -85,12 +85,18 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 	defer func() {
-		err = lock.ReleaseLock(ro.clientSet)
+		if releaseLockErr := lock.ReleaseLock(ro.clientSet); releaseLockErr != nil {
+			klog.Error(releaseLockErr)
+		}
 	}()
+	klog.V(4).Info("successfully acquire the lock")
+
 	// 1. check the server version
 	if err = kubeutil.ValidateServerVersion(ro.clientSet); err != nil {
 		return
 	}
+	klog.V(4).Info("the server version is valid")
+
 	// 2. remove labels from nodes
 	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
