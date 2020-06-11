@@ -1,3 +1,19 @@
+/*
+Copyright 2020 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package disk
 
 import (
@@ -24,16 +40,19 @@ type diskStorage struct {
 }
 
 // NewDiskStorage creates a storage.Store for caching data into local disk
-func NewDiskStorage() (storage.Store, error) {
-	if _, err := os.Stat(cacheBaseDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(cacheBaseDir, 0755); err != nil {
+func NewDiskStorage(dir string) (storage.Store, error) {
+	if dir == "" {
+		dir = cacheBaseDir
+	}
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
 			return nil, err
 		}
 	}
 
 	ds := &diskStorage{
 		keyPendingStatus: make(map[string]struct{}, 0),
-		baseDir:          cacheBaseDir,
+		baseDir:          dir,
 	}
 
 	err := ds.Recover("")
@@ -54,7 +73,7 @@ func (ds *diskStorage) Create(key string, contents []byte) error {
 	}
 	defer ds.unLockKey(key)
 
-	absKey := filepath.Join(cacheBaseDir, key)
+	absKey := filepath.Join(ds.baseDir, key)
 	if info, err := os.Stat(absKey); err != nil {
 		if os.IsNotExist(err) {
 			dir, _ := filepath.Split(absKey)
@@ -130,7 +149,7 @@ func (ds *diskStorage) delete(key string) error {
 	}
 	defer ds.unLockKey(key)
 
-	absKey := filepath.Join(cacheBaseDir, key)
+	absKey := filepath.Join(ds.baseDir, key)
 	info, err := os.Stat(absKey)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -148,7 +167,7 @@ func (ds *diskStorage) delete(key string) error {
 
 // Get get contents from the file that specified by key
 func (ds *diskStorage) Get(key string) ([]byte, error) {
-	return ds.get(filepath.Join(cacheBaseDir, key))
+	return ds.get(filepath.Join(ds.baseDir, key))
 }
 
 func (ds *diskStorage) get(path string) ([]byte, error) {
@@ -156,7 +175,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 		return nil, nil
 	}
 
-	key := strings.TrimPrefix(path, cacheBaseDir)
+	key := strings.TrimPrefix(path, ds.baseDir)
 	if !ds.lockKey(key) {
 		return nil, storage.ErrStorageAccessConflict
 	}
@@ -183,7 +202,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 // ListKeys list all of keys for files
 func (ds *diskStorage) ListKeys(key string) ([]string, error) {
 	keys := make([]string, 0)
-	absPath := filepath.Join(cacheBaseDir, key)
+	absPath := filepath.Join(ds.baseDir, key)
 	if info, err := os.Stat(absPath); err != nil {
 		if os.IsNotExist(err) {
 			return keys, nil
@@ -198,7 +217,7 @@ func (ds *diskStorage) ListKeys(key string) ([]string, error) {
 			if info.Mode().IsRegular() {
 				_, file := filepath.Split(path)
 				if !strings.HasPrefix(file, tmpPrefix) {
-					keys = append(keys, strings.TrimPrefix(path, cacheBaseDir))
+					keys = append(keys, strings.TrimPrefix(path, ds.baseDir))
 				}
 			}
 
@@ -221,7 +240,7 @@ func (ds *diskStorage) List(key string) ([][]byte, error) {
 	}
 
 	bb := make([][]byte, 0)
-	absKey := filepath.Join(cacheBaseDir, key)
+	absKey := filepath.Join(ds.baseDir, key)
 	info, err := os.Stat(absKey)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -285,8 +304,8 @@ func (ds *diskStorage) Update(key string, contents []byte) error {
 		return err
 	}
 
-	tmpPath := filepath.Join(cacheBaseDir, tmpKey)
-	absKey := filepath.Join(cacheBaseDir, key)
+	tmpPath := filepath.Join(ds.baseDir, tmpKey)
+	absKey := filepath.Join(ds.baseDir, key)
 	info, err := os.Stat(absKey)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -305,7 +324,7 @@ func (ds *diskStorage) Update(key string, contents []byte) error {
 
 // Recover recover storage error
 func (ds *diskStorage) Recover(key string) error {
-	dir := filepath.Join(cacheBaseDir, key)
+	dir := filepath.Join(ds.baseDir, key)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -314,9 +333,9 @@ func (ds *diskStorage) Recover(key string) error {
 		if info.Mode().IsRegular() {
 			_, file := filepath.Split(path)
 			if strings.HasPrefix(file, tmpPrefix) {
-				tmpKey := strings.TrimPrefix(path, cacheBaseDir)
+				tmpKey := strings.TrimPrefix(path, ds.baseDir)
 				key := getKey(tmpKey)
-				keyPath := filepath.Join(cacheBaseDir, key)
+				keyPath := filepath.Join(ds.baseDir, key)
 				if !ds.lockKey(key) {
 					return nil
 				}

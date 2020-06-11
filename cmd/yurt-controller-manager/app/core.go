@@ -25,8 +25,8 @@ import (
 	"net/http"
 	"time"
 
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	lifecyclecontroller "github.com/alibaba/openyurt/pkg/controller/nodelifecycle"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/kubernetes/pkg/features"
 )
 

@@ -9,6 +9,7 @@ set -o pipefail
 
 KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
 KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
+KUBELET_CLI_PEM=${KUBELET_CLI_PEM:-/var/lib/kubelet/pki/kubelet-client-current.pem}
 BOOTSTRAP_KUBELET_CONF=${BOOTSTRAP_KUBELET_CONF:-/etc/kubernetes/bootstrap-kubelet.conf}
 OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
 STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
@@ -32,7 +33,6 @@ spec:
   - name: pki
     hostPath:
       path: __pki_path__
-      path: /var/lib/minikube/certs
       type: Directory
   - name: kubernetes
     hostPath:
@@ -44,17 +44,17 @@ spec:
       type: Directory
   containers:
   - name: yurt-hub
-    image: openyurt/yurt-hub:latest
+    image: __yurthub_image__
     imagePullPolicy: Always
     volumeMounts:
     - name: kubernetes
-      mountPath:  /etc/kubernetes
+      mountPath: /etc/kubernetes
     - name: pki
       mountPath: /etc/kubernetes/pki
     - name: pem-dir
       mountPath: /var/lib/kubelet/pki
     command:
-    - edge-hub
+    - yurthub
     - --v=2
     - --server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)
     - --node-name=$(NODE_NAME)
@@ -95,14 +95,33 @@ error() {
     echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [ERROR] $@"
 }
 
+# preset creates the /var/lib/kubelet/pki/kubelet-client-current.pem if 
+# it does not exist
+preset() {
+    # if $KUBELET_CLI_PEM doesn't exist, create one based on 'client-certificate-data'
+    # and 'client-key-data' of $KUBELET_CONF
+    if [ -f $KUBELET_CLI_PEM ]; then
+        log "$KUBELET_CLI_PEM exist"
+    else 
+        log "$KUBELET_CLI_PEM does not exist"
+        grep 'client-certificate-data' $KUBELET_CONF | awk '{print $2}' | 
+            base64 -d > $KUBELET_CLI_PEM 
+        grep 'client-key-data' $KUBELET_CONF | awk '{print $2}' | 
+            base64 -d >> $KUBELET_CLI_PEM
+        log "$KUBELET_CLI_PEM is created"
+    fi
+}
+
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
 setup_yurthub() {
     provider=$1
     # put yurt-hub yaml to /etc/kubernetes/manifests 
     if [ "$provider" == "minikube" ]; then
+        log "setting up yurthub on nodes of minikube"
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/var/lib/minikube/certs|')
     else
+        log "setting up yurthub on nodes of ack"
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
             sed 's|__pki_path__|/etc/kubernetes/pki|')
     fi 
@@ -112,26 +131,37 @@ setup_yurthub() {
     local retry=5
     while [ $retry -ge 0 ] 
     do
-        sleep 2
+        sleep 10
         # NOTE: context variables need to be replaced before exeuction
-        local podStat=$(curl -s \
-            https://__kubernetes_service_host__:__kubernetes_service_port_https__\
+        local podPhase
+
+        if [ "$provider" == "ack" ]; then
+            # the ack's apiserver doesn't support anonymous user visit, use 
+            # kubectl to check the pod status
+            podPhase=$(kubectl get po/yurt-hub-__node_name__\
+                --kubeconfig $KUBELET_CONF -n kube-system |
+                awk 'NR>1{print $3}') 
+        else
+            local podStat=$(curl -s \
+                https://__kubernetes_service_host__:__kubernetes_service_port_https__\
 /api/v1/namespaces/kube-system/pods/yurt-hub-__node_name__ \
-            --cert /var/lib/kubelet/pki/kubelet-client-current.pem \
-            --key /var/lib/kubelet/pki/kubelet-client-current.pem \
-            --cacert ${MINIKUBE_PKI_DIR}/ca.crt)
-        # yurt-hub pod is not found
-        if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
-            retry=$((retry-1))
-	        log "yurt-hub-$NODE_NAME is not found, will retry $retry times"
-            continue
+--cert /var/lib/kubelet/pki/kubelet-client-current.pem \
+--key /var/lib/kubelet/pki/kubelet-client-current.pem \
+--cacert ${MINIKUBE_PKI_DIR}/ca.crt)
+            # yurt-hub pod is not found
+            if [ -n "$(echo "$podStat" | grep NotFound)" ]; then                 
+                retry=$((retry-1))
+	            log "yurt-hub-$NODE_NAME is not found, will retry $retry times"
+                continue
+            fi
+            # yurt-hub pod is created, let's check if the phase is "running"
+            podPhase=$(echo "$podStat" | 
+                grep '\"phase\":' | 
+                awk -F ':' '{print $2}' | 
+                tr -d '", ')
         fi
+
         
-        # yurt-hub pod is created, let's check if the phase is "running"
-        local podPhase=$(echo "$podStat" | 
-            grep '\"phase\":' | 
-            awk -F ':' '{print $2}' | 
-            tr -d '", ')
         if [ "$podPhase" == "Running" ]; then 
             log "yurt-hub-$NODE_NAME is $podPhase"
             return 
@@ -164,10 +194,10 @@ reset_kubelet() {
     if [ -f $BOOTSTRAP_KUBELET_CONF ]; then
         # /etc/kubernetes/bootstrap-kubelet.config exist, keep the 
         # --bootstrap-kubeconfig option
-        sed -i "s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
     else
         sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
-        s|--kubeconfig=.*|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+        s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
     fi
     log "revised the kubelet.service drop-in file"
     # reset the kubelete.service
@@ -190,7 +220,7 @@ revert_kubelet() {
     # remove openyurt's kubelet.conf if exist
     [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
     # revise the kubelet.service drop-in
-    sed -i "s|--kubeconfig=.*|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
+    sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
     log "revised the kubelet.service drop-in file back to the default"
     # reset the kubelete.service
     systemctl daemon-reload
@@ -200,6 +230,7 @@ revert_kubelet() {
 
 case $ACTION in
     convert)
+        preset
         setup_yurthub $PROVIDER
         reset_kubelet
         ;;
