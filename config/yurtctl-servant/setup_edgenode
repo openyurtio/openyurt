@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # This script can not be executed directly, it is baked in the 
-# openyurt/yurtctl-servant, before exeuction, context value (i.e., {{.VARIABLE}})
+# openyurt/yurtctl-servant, before exeuction, context value (i.e., __variable__)
 # need to be replaced based on the environment variables set in the pod, 
 # and will be executed as a subprogram of the nsenter command.
 
@@ -56,7 +56,7 @@ spec:
     command:
     - yurthub
     - --v=2
-    - --server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)
+    - --server-addr=https://__kubernetes_service_host__:__kubernetes_service_port_https__
     - --node-name=$(NODE_NAME)
     livenessProbe:
       httpGet:
