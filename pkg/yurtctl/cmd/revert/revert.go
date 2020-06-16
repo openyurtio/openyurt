@@ -108,6 +108,11 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		isEdgeNode, ok := node.Labels[constants.LabelEdgeWorker]
 		if ok && isEdgeNode == "true" {
 			edgeNodeNames = append(edgeNodeNames, node.GetName())
+
+			_, found := node.Annotations[constants.AnnotationAutonomy]
+			if found {
+				delete(node.Annotations, constants.AnnotationAutonomy)
+			}
 		}
 		if ok {
 			delete(node.Labels, constants.LabelEdgeWorker)
