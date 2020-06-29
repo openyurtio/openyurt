@@ -3,9 +3,10 @@ module github.com/alibaba/openyurt
 go 1.13
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v1.13.1 // indirect
+	github.com/docker/docker v17.12.0-ce-rc1.0.20200531234253-77e06fda0c94+incompatible // indirect
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
 	github.com/evanphx/json-patch v0.0.0-20200326221011-78cf02996493 // indirect
 	github.com/go-openapi/spec v0.19.8 // indirect
@@ -17,6 +18,7 @@ require (
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/onsi/ginkgo v1.13.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/prometheus/client_golang v1.0.0
@@ -27,15 +29,15 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
+	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.0.0-20191004102349-159aefb8556b
 	k8s.io/apiextensions-apiserver v0.0.0-00010101000000-000000000000 // indirect
 	k8s.io/apimachinery v0.17.3
 	k8s.io/apiserver v0.0.0-20191015220424-a5d070e3855f
 	k8s.io/client-go v11.0.1-0.20191004102930-01520b8320fc+incompatible
-	k8s.io/cloud-provider v0.0.0-20191015223304-f52880ae9401
+	k8s.io/cloud-provider v0.0.0-20191015223304-f52880ae9401 // indirect
 	k8s.io/component-base v0.17.3
 	k8s.io/klog v1.0.0
-	k8s.io/kube-controller-manager v1.14.8
 	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30 // indirect
 	k8s.io/kubernetes v1.18.3
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
