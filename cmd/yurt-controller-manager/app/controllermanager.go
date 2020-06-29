@@ -24,6 +24,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"k8s.io/kubernetes/staging/src/k8s.io/apiserver/pkg/server"
 	"math/rand"
 	"net"
 	"net/http"
@@ -37,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/server"
 	apiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/server/mux"
@@ -146,7 +146,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// unsecuredMux is the handler for these controller *after* authn/authz filters have been applied
 	var unsecuredMux *mux.PathRecorderMux
 	unsecuredMux = genericcontrollermanager.NewBaseHandler(&c.ComponentConfig.Generic.Debugging, checks...)
-	insecureSuperuserAuthn := server.AuthenticationInfo{Authenticator: &server.InsecureSuperuser{}}
+	insecureSuperuserAuthn := apiserver.AuthenticationInfo{Authenticator: &server.InsecureSuperuser{}}
 	handler := genericcontrollermanager.BuildHandlerChain(unsecuredMux, nil, &insecureSuperuserAuthn)
 	addr := net.JoinHostPort(c.ComponentConfig.Generic.Address, fmt.Sprintf("%d", c.ComponentConfig.Generic.Port))
 	listener, _, err := serveroptions.CreateListener("tcp", addr)

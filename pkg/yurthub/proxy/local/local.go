@@ -141,7 +141,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 	if err != nil || nw != int(n) {
 		klog.Errorf("write resp for post request when cluster is unhealthy, expect %d bytes but write %d bytes with error, %v", n, nw, err)
 	}
-	klog.V(5).Infof("post request %s when cluster is unhealthy", string(buf.Bytes()))
+	klog.V(5).Infof("post request %s when cluster is unhealthy", buf.String())
 
 	return nil
 }

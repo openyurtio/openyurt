@@ -174,7 +174,7 @@ func WithRequestTrace(handler http.Handler, limit int) http.Handler {
 		case reqChan <- true:
 			defer func() {
 				<-reqChan
-				klog.Infof("%s with status code %d, spent %v, left %d requests in flight", util.ReqString(req), wrapperRW.statusCode, time.Now().Sub(start), len(reqChan))
+				klog.Infof("%s with status code %d, spent %v, left %d requests in flight", util.ReqString(req), wrapperRW.statusCode, time.Since(start), len(reqChan))
 			}()
 			handler.ServeHTTP(wrapperRW, req)
 		default:

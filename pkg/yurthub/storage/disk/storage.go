@@ -51,7 +51,7 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 	}
 
 	ds := &diskStorage{
-		keyPendingStatus: make(map[string]struct{}, 0),
+		keyPendingStatus: make(map[string]struct{}),
 		baseDir:          dir,
 	}
 

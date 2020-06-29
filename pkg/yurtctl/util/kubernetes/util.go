@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	// PropagationPolicy defines the propogation policy used when deleting a resource
+	// PropagationPolicy defines the propagation policy used when deleting a resource
 	PropagationPolicy = metav1.DeletePropagationForeground
 	// WaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
 	WaitServantJobTimeout = time.Minute * 2
