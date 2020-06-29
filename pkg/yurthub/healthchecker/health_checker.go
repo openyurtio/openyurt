@@ -128,7 +128,7 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 
 func (c *checker) isHealthy() bool {
 	c.RLock()
-	c.RUnlock()
+	defer c.RUnlock()
 	return c.clusterHealthy
 }
 

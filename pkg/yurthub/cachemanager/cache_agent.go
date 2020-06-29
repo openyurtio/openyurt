@@ -108,7 +108,7 @@ func (cm *cacheManager) UpdateCacheAgents(agents []string) error {
 // ListCacheAgents get all of cache agents
 func (cm *cacheManager) ListCacheAgents() []string {
 	cm.RLock()
-	cm.RUnlock()
+	defer cm.RUnlock()
 	agents := make([]string, 0)
 	for k := range cm.cacheAgents {
 		agents = append(agents, k)

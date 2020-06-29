@@ -940,7 +940,7 @@ func (nc *Controller) tryUpdateNodeHealth(node *v1.Node) (time.Duration, v1.Node
 				Type:               v1.NodeReady,
 				Status:             v1.ConditionUnknown,
 				Reason:             "NodeStatusNeverUpdated",
-				Message:            fmt.Sprintf("Kubelet never posted node status."),
+				Message:            "Kubelet never posted node status.",
 				LastHeartbeatTime:  node.CreationTimestamp,
 				LastTransitionTime: nc.now(),
 			})

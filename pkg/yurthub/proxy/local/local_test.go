@@ -139,10 +139,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	cnt := 0
 	fn := func() bool {
 		cnt++
-		if cnt > 2 { // after 6 seconds, become healthy
-			return true
-		}
-		return false
+		return cnt > 2 // after 6 seconds, become healthy
 	}
 
 	lp := NewLocalProxy(cacheM, fn)
