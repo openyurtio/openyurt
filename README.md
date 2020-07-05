@@ -4,7 +4,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
->>>>>>> upstream/master
 |------------------|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
