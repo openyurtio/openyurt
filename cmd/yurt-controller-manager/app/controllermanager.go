@@ -134,7 +134,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	klog.Infof("Version: %+v", version.Get())
 
 	// Setup any healthz checks we will want to use.
-	var checks []healthz.HealthzChecker
+	var checks []healthz.HealthChecker
 	var electionChecker *leaderelection.HealthzAdaptor
 	if c.ComponentConfig.Generic.LeaderElection.LeaderElect {
 		electionChecker = leaderelection.NewLeaderHealthzAdaptor(time.Second * 20)

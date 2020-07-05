@@ -262,7 +262,7 @@ func TestCacheResponse(t *testing.T) {
 
 func getEncoder() runtime.Encoder {
 	jsonSerializer := runtimejson.NewSerializer(runtimejson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, false)
-	directCodecFactory := runtimeserializer.DirectCodecFactory{
+	directCodecFactory := runtimeserializer.WithoutConversionCodecFactory{
 		CodecFactory: scheme.Codecs,
 	}
 	return directCodecFactory.EncoderForVersion(jsonSerializer, v1.SchemeGroupVersion)
