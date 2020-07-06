@@ -45,7 +45,7 @@ type SerializerManager struct {
 // NewSerializerManager creates a *SerializerManager object with no version conversion
 func NewSerializerManager() *SerializerManager {
 	return &SerializerManager{
-		NegotiatedSerializer: serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}, // do not need version conversion
+		NegotiatedSerializer: serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}, // do not need version conversion
 	}
 }
 
