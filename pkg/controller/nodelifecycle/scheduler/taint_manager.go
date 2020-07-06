@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"math"
 	"sync"
 	"time"
 
@@ -51,9 +52,6 @@ const (
 	UpdateWorkerSize     = 8
 	podUpdateChannelSize = 1
 	retries              = 5
-
-	// AnnotationKeyNodeAutonomy is an annotation key for node autonomy.
-	AnnotationKeyNodeAutonomy = "node.beta.alibabacloud.com/autonomy"
 )
 
 type nodeUpdateItem struct {
@@ -134,7 +132,7 @@ func getNoExecuteTaints(taints []v1.Taint) []v1.Taint {
 
 // getMinTolerationTime returns minimal toleration time from the given slice, or -1 if it's infinite.
 func getMinTolerationTime(tolerations []v1.Toleration) time.Duration {
-	minTolerationTime := int64(-1)
+	minTolerationTime := int64(math.MaxInt64)
 	if len(tolerations) == 0 {
 		return 0
 	}
@@ -144,12 +142,15 @@ func getMinTolerationTime(tolerations []v1.Toleration) time.Duration {
 			tolerationSeconds := *(tolerations[i].TolerationSeconds)
 			if tolerationSeconds <= 0 {
 				return 0
-			} else if tolerationSeconds < minTolerationTime || minTolerationTime == -1 {
+			} else if tolerationSeconds < minTolerationTime {
 				minTolerationTime = tolerationSeconds
 			}
 		}
 	}
 
+	if minTolerationTime == int64(math.MaxInt64) {
+		return -1
+	}
 	return time.Duration(minTolerationTime) * time.Second
 }
 
@@ -328,9 +329,9 @@ func (tc *NoExecuteTaintManager) NodeUpdated(oldNode *v1.Node, newNode *v1.Node)
 	// if node in autonomy status, skip evict pods from the node
 	if newNode != nil {
 		_, readyCondition := nodeutil.GetNodeCondition(&newNode.Status, v1.NodeReady)
-		if readyCondition != nil && readyCondition.Status != v1.ConditionTrue { // 断网状态
-			if newNode.Annotations != nil && newNode.Annotations[AnnotationKeyNodeAutonomy] == "true" {
-				klog.V(2).Infof("Node autonomy: skip evict pod from node(%s)", newNode.Name)
+		if readyCondition != nil && readyCondition.Status != v1.ConditionTrue { // node is not ready
+			if newNode.Annotations != nil && newNode.Annotations[nodeutil.AnnotationKeyNodeAutonomy] == "true" {
+				klog.V(2).Infof("node %s is in autonomy status, so skip pods eviction in no execute taint manager", newNode.Name)
 				tc.taintedNodesLock.Lock()
 				defer tc.taintedNodesLock.Unlock()
 				delete(tc.taintedNodes, newNode.Name)

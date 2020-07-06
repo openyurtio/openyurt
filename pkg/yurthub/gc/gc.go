@@ -70,7 +70,7 @@ func (m *GCManager) Run() {
 	// run gc events after a time duration between eventsGCFrequency and 3 * eventsGCFrequency
 	m.lastTime = time.Now()
 	go wait.JitterUntil(func() {
-		klog.V(2).Infof("start gc events after waiting %v from previous gc", time.Now().Sub(m.lastTime))
+		klog.V(2).Infof("start gc events after waiting %v from previous gc", time.Since(m.lastTime))
 		m.lastTime = time.Now()
 		cfg := m.transportManager.GetRestClientConfig()
 		if cfg == nil {
@@ -113,7 +113,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 		return err
 	}
 
-	currentPodKeys := make(map[string]struct{}, 0)
+	currentPodKeys := make(map[string]struct{})
 	for i := range podList.Items {
 		name := podList.Items[i].Name
 		ns := podList.Items[i].Namespace
@@ -185,6 +185,4 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 			klog.Infof("gc events %s successfully", key)
 		}
 	}
-
-	return
 }

@@ -49,3 +49,7 @@ please do the following:
 2. Add `Edge-Cache: true` to the http request header. 
 3. Add `User-Agent: {component-name}` to the http request header. Please avoid using the built-in agent names such as kubelet/flannel/coredns/kube-proxy.
 4. Add `Accept: application/json` or `Accept: application/vnd.kubernetes.protobuf` to the http request header based on the required serialization format.
+
+## Trouble Shooting
+
+1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub may not initiate properly. (**NOTE: this issue has been fixed by PR [#49](https://github.com/alibaba/openyurt/pull/49)**)

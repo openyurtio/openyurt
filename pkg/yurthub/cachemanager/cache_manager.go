@@ -324,6 +324,9 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			} else if err != nil {
 				klog.Errorf("failed to process watch object %s, %v", key, err)
 			}
+		case watch.Bookmark:
+			rv, _ := accessor.ResourceVersion(obj)
+			klog.Infof("get bookmark with rv %s for %s watch %s", rv, comp, info.Resource)
 		case watch.Error:
 			klog.Infof("unable to understand watch event %#v", obj)
 		}

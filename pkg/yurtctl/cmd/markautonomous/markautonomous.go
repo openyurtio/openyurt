@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -79,7 +79,7 @@ func (mao *MarkAutonomousOptions) Complete(flags *pflag.FlagSet) error {
 		mao.AutonomousNodes = strings.Split(anStr, ",")
 	}
 
-	// set mark-all-edge-node to false, as user has specifed autonomous nodes
+	// set mark-all-edge-node to false, as user has specified autonomous nodes
 	if len(mao.AutonomousNodes) == 0 {
 		mao.MarkAllEdgeNodes = true
 	}

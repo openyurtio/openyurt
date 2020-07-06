@@ -29,6 +29,7 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurthub/kubernetes/serializer"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
@@ -131,7 +132,7 @@ func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req 
 		gv.Version = info.APIVersion
 	}
 
-	responsewriters.WriteObjectNegotiated(serializer.YurtHubSerializer.NegotiatedSerializer, gv, w, req, statusCode, obj)
+	responsewriters.WriteObjectNegotiated(serializer.YurtHubSerializer.NegotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj)
 }
 
 // Err write err to response writer

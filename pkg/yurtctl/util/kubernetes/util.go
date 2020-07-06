@@ -50,15 +50,19 @@ const (
 )
 
 var (
-	// PropagationPolicy defines the propogation policy used when deleting a resource
+	// PropagationPolicy defines the propagation policy used when deleting a resource
 	PropagationPolicy = metav1.DeletePropagationForeground
 	// WaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
 	WaitServantJobTimeout = time.Minute * 2
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersion contains all compatable server version
-	// yurtctl only support Kubernetes 1.12 - 1.14 for now
-	ValidServerVersions = []string{"1.12", "1.12+", "1.13", "1.13+", "1.14", "1.14+", "1.18"}
+	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
+	ValidServerVersions = []string{
+		"1.12", "1.12+",
+		"1.13", "1.13+",
+		"1.14", "1.14+",
+		"1.16", "1.16+"}
 )
 
 // YamlToObject deserializes object in yaml format to a runtime.Object

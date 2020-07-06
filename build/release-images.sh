@@ -9,7 +9,7 @@ YURTCTL_SERVANT_DIR=${YURT_ROOT}/config/yurtctl-servant
 DOCKER_BUILD_BASE_IDR=dockerbuild
 
 REPO="openyurt"
-TAG="v0.1.0-beta1"
+TAG="v0.1.1"
 readonly YURT_BIN_TARGETS=(
     yurthub
     yurt-controller-manager

@@ -58,9 +58,14 @@ restarted automatically.
 
 ## Setup Yurthub
 
-After the Yurt controller manager is up and running, we will setup Yurthub as the static pod by typing the following command,
+After the Yurt controller manager is up and running, we will setup Yurthub as the static pod. Before proceeding, 
+please get the apiserver's address (i.e., ip:port), which will be used to replace the place holder in the template 
+file `config/setup/yurthub.yaml`. In the following command, we assume that the address of the apiserver is 1.2.3.4:5678
 ```bash
-$ cat config/setup/yurthub.yaml | sed 's|__pki_path__|/etc/kubernetes/pki|' > /tmp/yurthub-ack.yaml &&
+$ cat config/setup/yurthub.yaml | 
+sed 's|__pki_path__|/etc/kubernetes/pki|;
+s|__kubernetes_service_host__|1.2.3.4|;
+s|__kubernetes_service_port_https__|5678|' > /tmp/yurthub-ack.yaml &&
 scp -i <yourt-ssh-identity-file> /tmp/yurthub-ack.yaml root@us-west-1.192.168.0.88:/etc/kubernetes/manifests
 ```
 and the Yurthub will be ready in minutes.

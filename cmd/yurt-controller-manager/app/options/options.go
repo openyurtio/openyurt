@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	cliflag "k8s.io/component-base/cli/flag"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
+	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
 
 	// add the kubernetes feature gates
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +80,7 @@ func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
 	s := YurtControllerManagerOptions{
 		Generic: NewGenericControllerManagerConfigurationOptions(&generic),
 		NodeLifecycleController: &NodeLifecycleControllerOptions{
-			NodeLifecycleControllerConfiguration: &kubectrlmgrconfig.NodeLifecycleControllerConfiguration{
+			NodeLifecycleControllerConfiguration: &nodelifecycleconfig.NodeLifecycleControllerConfiguration{
 				EnableTaintManager:     true,
 				PodEvictionTimeout:     metav1.Duration{Duration: 5 * time.Minute},
 				NodeMonitorGracePeriod: metav1.Duration{Duration: 40 * time.Second},

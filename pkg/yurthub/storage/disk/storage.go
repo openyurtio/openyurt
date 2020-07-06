@@ -18,6 +18,7 @@ package disk
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 	}
 
 	ds := &diskStorage{
-		keyPendingStatus: make(map[string]struct{}, 0),
+		keyPendingStatus: make(map[string]struct{}),
 		baseDir:          dir,
 	}
 
@@ -73,48 +74,34 @@ func (ds *diskStorage) Create(key string, contents []byte) error {
 	}
 	defer ds.unLockKey(key)
 
-	absKey := filepath.Join(ds.baseDir, key)
-	if info, err := os.Stat(absKey); err != nil {
+	keyPath := filepath.Join(ds.baseDir, key)
+	dir, _ := filepath.Split(keyPath)
+	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
-			dir, _ := filepath.Split(absKey)
-			if _, err := os.Stat(dir); err != nil {
-				if os.IsNotExist(err) {
-					if err = os.MkdirAll(dir, 0755); err != nil {
-						return err
-					}
-				} else {
-					return err
-				}
-			} else {
-				// dir for key is already exist
+			if err = os.MkdirAll(dir, 0755); err != nil {
+				return err
 			}
 		} else {
 			return err
 		}
-	} else if info.Mode().IsRegular() {
-		file, err := os.OpenFile(absKey, os.O_RDWR, 0666)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		if err := file.Truncate(0); err != nil {
-			return err
-		}
-
-		if _, err := file.Seek(0, 0); err != nil {
-			return err
-		}
 	} else {
-		klog.Errorf("%s is exist, but not recognized, %v", key, info.Mode())
-		return nil
+		// dir for key is already exist
 	}
 
-	if err := ioutil.WriteFile(absKey, contents, 0600); err != nil {
+	// open file with synchronous I/O
+	f, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0600)
+	if err != nil {
 		return err
 	}
+	n, err := f.Write(contents)
+	if err == nil && n < len(contents) {
+		err = io.ErrShortWrite
+	}
 
-	return nil
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
 }
 
 // Delete delete file that specified by key

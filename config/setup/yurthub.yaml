@@ -33,7 +33,7 @@ spec:
     command:
     - yurthub 
     - --v=2
-    - --server-addr=https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT_HTTPS)
+    - --server-addr=https://__kubernetes_service_host__:__kubernetes_service_port_https__
     - --node-name=$(NODE_NAME)
     livenessProbe:
       httpGet:
