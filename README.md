@@ -21,7 +21,7 @@ OpenYurt is suitable for common edge computing use cases whose requirements incl
 OpenYurt has the following advantages in terms of compatibility and usability.
 - **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 
   operators, CNI plugins, and CSI plugins are supported.
-- **Seamless conversion**. It provides a tool to easily convert a native Kubernative to be "edge" ready.
+- **Seamless conversion**. It provides a tool to easily convert a native Kubernetes to be "edge" ready.
   The extra resource and maintenance costs of the OpenYurt components are very low.
 - **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
   The applications run in the edge nodes are not affected even if the nodes are offline. 
