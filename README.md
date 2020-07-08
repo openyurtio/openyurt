@@ -2,6 +2,7 @@
   
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
+[![Version](https://img.shields.io/badge/OpenYurt-v0.1.0--beta.1-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 [![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
