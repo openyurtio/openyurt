@@ -26,6 +26,6 @@ import (
 func RunServer(ctx context.Context,
 	interceptorServerUDSFile,
 	serverMasterAddr, serverAgentAddr string,
-	tlsCfg *tls.Config, nodeIP2Name map[string]string) error {
+	tlsCfg *tls.Config) error {
 	return errors.New("NOT IMPLEMENT YET")
 }

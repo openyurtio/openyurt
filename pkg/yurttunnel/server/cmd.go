@@ -23,14 +23,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/wait"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
+	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command
@@ -38,13 +39,19 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	o := NewYurttunnelServerOptions()
 
 	cmd := &cobra.Command{
-		Use:   "yurttunnel-server",
-		Short: "yurttunnel-server sends requests to yurttunnel-agents",
+		Use:   "Launch " + projectinfo.GetServerName(),
+		Short: projectinfo.GetServerName() + " sends requests to yurttunnel-agents",
 		RunE: func(c *cobra.Command, args []string) error {
+			if o.version {
+				fmt.Println(projectinfo.ShortServerVersion())
+				return nil
+			}
 			if err := o.validate(); err != nil {
 				return err
 			}
-			o.complete()
+			if err := o.complete(); err != nil {
+				return err
+			}
 			if err := o.run(stopCh); err != nil {
 				return err
 			}
@@ -53,15 +60,18 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	}
 
 	flags := cmd.Flags()
+	flags.BoolVar(&o.version, "version", o.version,
+		fmt.Sprintf("print the version information of the %s.",
+			projectinfo.GetServerName()))
 	flags.StringVar(&o.kubeConfig, "kube-config", o.kubeConfig,
 		"path to the kubeconfig file.")
 	flags.StringVar(&o.bindAddr, "bind-address", o.bindAddr,
-		"the ip address on which the server will listen.")
-	flags.StringVar(&o.caFile, "ca-file", o.caFile,
-		"CA file for connecting to edge tunnel agent and kubelet.")
+		fmt.Sprintf("the ip address on which the %s will listen.",
+			projectinfo.GetServerName()))
 	flags.BoolVar(&o.enableIptables, "enable-iptables", o.enableIptables,
 		"if allow iptable manager to set the dnat rule.")
-	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period", o.iptablesSyncPeriod,
+	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period",
+		o.iptablesSyncPeriod,
 		"the synchronization period of the iptable manager.")
 	return cmd
 }
@@ -71,7 +81,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 type YurttunnelServerOptions struct {
 	kubeConfig               string
 	bindAddr                 string
-	caFile                   string
+	version                  bool
 	enableIptables           bool
 	iptablesSyncPeriod       int
 	serverAgentPort          int
@@ -79,12 +89,12 @@ type YurttunnelServerOptions struct {
 	interceptorServerUDSFile string
 	serverAgentAddr          string
 	serverMasterAddr         string
+	clientset                kubernetes.Interface
 }
 
 // NewYurttunnelServerOptions creates a new YurtNewYurttunnelServerOptions
 func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 	o := &YurttunnelServerOptions{
-		caFile:                   "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		bindAddr:                 "0.0.0.0",
 		enableIptables:           true,
 		iptablesSyncPeriod:       60,
@@ -98,42 +108,35 @@ func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 // validate validates the YurttunnelServerOptions
 func (o *YurttunnelServerOptions) validate() error {
 	if len(o.bindAddr) == 0 {
-		return fmt.Errorf("tunnel server's bind address can't be empty")
+		return fmt.Errorf("%s's bind address can't be empty",
+			projectinfo.GetServerName())
 	}
 	return nil
 }
 
 // complete completes all the required options
-func (o *YurttunnelServerOptions) complete() {
+func (o *YurttunnelServerOptions) complete() error {
 	o.serverAgentAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverAgentPort)
 	o.serverMasterAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterPort)
-	klog.Infof("server will accept agent requests at: %s, "+
+	klog.Infof("server will accept %s requests at: %s, "+
 		"server will accept master requests at: %s",
-		o.serverAgentAddr, o.serverMasterAddr)
+		projectinfo.GetAgentName(), o.serverAgentAddr, o.serverMasterAddr)
+	var err error
+	// As yurttunnel-server will run on the cloud, we use the function
+	// 'kubeutil.CreateClientSet' to create the clientset, which will
+	// try to create the clientset based on the in-cluster config if
+	// the kubeconfig is empty.
+	o.clientset, err = kubeutil.CreateClientSet(o.kubeConfig)
+	return err
 }
 
 // run starts the yurttunel-server
 func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// 1. create the master's clientset
-	clientSet, csErr := kubernetes.CreateClientSet(o.kubeConfig)
-	if csErr != nil {
-		return fmt.Errorf("fail to create the clientset: %s", csErr)
-	}
-
-	// 2. start the IPNodename manager
-	nodeIP2Name := make(map[string]string)
-	nodeIndexer, ipNodeMgrErr :=
-		StartIPNodeNameManager(clientSet, nodeIP2Name, stopCh)
-	if ipNodeMgrErr != nil {
-		return fmt.Errorf("fail to start ip node manager: %s", ipNodeMgrErr)
-	}
-
-	// 3. start the IP table manager
+	// 1. start the IP table manager
 	if o.enableIptables {
-		iptablesMgr := iptables.NewIptablesManager(clientSet,
-			corelisters.NewNodeLister(nodeIndexer),
+		iptablesMgr := iptables.NewIptablesManager(o.clientset,
 			o.bindAddr,
 			o.iptablesSyncPeriod,
 			stopCh)
@@ -143,25 +146,30 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		iptablesMgr.Run()
 	}
 
-	// 4. start the certificate manager for the tunnel server
-	serverCertMgr, err := certmanager.NewServerCertManager(
-		clientSet, "", "proxy-server", stopCh)
+	// 2. create a certificate manager for the tunnel server and run the
+	// csr approver for both yurttunnel-server and yurttunnel-agent
+	serverCertMgr, err := certmanager.NewCertManager(
+		o.clientset, constants.YurttunneServerCSROrg,
+		constants.YurttunneServerCSRCN)
 	if err != nil {
 		return err
 	}
 	serverCertMgr.Start()
+	go certmanager.ApproveYurttunnelCSR(o.clientset)
 
-	// 5. get the latest certificate
+	// 3. get the latest certificate
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
 		if serverCertMgr.Current() != nil {
 			return true, nil
 		}
-		klog.Infof("waiting for the master to sign the server certificate")
+		klog.Infof("waiting for the master to sign the %s certificate",
+			projectinfo.GetServerName())
 		return false, nil
 	}, stopCh)
 
-	// 6. generate the TLS configuration based on the latest certificate
-	rootCertPool, err := pki.GenRootCertPool(o.kubeConfig, o.caFile)
+	// 4. generate the TLS configuration based on the latest certificate
+	rootCertPool, err := pki.GenRootCertPool(o.kubeConfig,
+		constants.YurttunnelCAFile)
 	if err != nil {
 		return fmt.Errorf("fail to generate the rootCertPool: %s", err)
 	}
@@ -171,9 +179,9 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// 7. start the server
+	// 5. start the server
 	if err := RunServer(ctx, o.interceptorServerUDSFile, o.serverMasterAddr,
-		o.serverAgentAddr, tlsCfg, nodeIP2Name); err != nil {
+		o.serverAgentAddr, tlsCfg); err != nil {
 		return err
 	}
 

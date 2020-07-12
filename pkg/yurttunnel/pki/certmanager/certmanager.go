@@ -19,24 +19,19 @@ package certmanager
 import (
 	"errors"
 
-	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/certificate"
 )
 
-// NewServerCertManager creates a certificate manager that will generates a
-// certificate for the yurttunnel-server by sending a csr to the apiserver.
-// This method will also runs a goroutine to approve all yurttunnel related csr
-func NewServerCertManager(
-	kubeClient clientset.Interface,
-	certDir, name string,
-	stopCh <-chan struct{}) (certificate.Manager, error) {
+// NewCertManager creates a certificate manager that will generates a
+// certificate by sending a csr to the apiserver
+func NewCertManager(
+	clientset kubernetes.Interface,
+	organization, commonName string) (certificate.Manager, error) {
 	return nil, errors.New("NOT IMPLEMENT YET")
 }
 
-// NewAgentCertManager creates a certificate manager that will generates a
-// certificate for the yurttunnel-agent by sending a csr to the apiserver
-func NewAgentCertManager(
-	client clientset.Interface,
-	name string) (certificate.Manager, error) {
-	return nil, errors.New("NOT IMPLEMENT YET")
+// ApprApproveYurttunnelCSR approves the yurttunel related CSR
+func ApproveYurttunnelCSR(clientset kubernetes.Interface) {
+	panic("NOT IMPLEMENT YET")
 }

@@ -25,5 +25,12 @@ const (
 	YurttunnelServerExternalAddrKey = "x-tunnel-server-external-addr"
 	YurttunnelEndpointsNs           = "kube-system"
 	YurttunnelEndpointsName         = "x-tunnel-server-svc"
-	YurttunnelAgentCAFile           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// yurttunnel PKI related constants
+	YurttunnelAgentCSROrg = "openyurt:yurttunnel"
+	YurttunnelAgentCSRCN  = "yurttunnel-agent"
+	YurttunneServerCSROrg = "system:masters"
+	YurttunneServerCSRCN  = "kube-apiserver-kubelete-client"
+	YurttunnelCAFile      = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	YurttunnelTokenFile   = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )

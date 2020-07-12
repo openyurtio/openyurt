@@ -21,30 +21,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"k8s.io/client-go/kubernetes"
 )
 
 // GetServerAddr gets the service address that exposes the yurttunnel-server
-func GetServerAddr(kubeConfig string) (string, error) {
-	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfig},
-		&clientcmd.ConfigOverrides{},
-	).ClientConfig()
-	if err != nil {
-		return "", err
-	}
-
-	cli, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return "", err
-	}
-
-	svc, err := cli.CoreV1().Services(constants.YurttunnelServiceNs).
+func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
+	svc, err := clientset.CoreV1().Services(constants.YurttunnelServiceNs).
 		Get(constants.YurttunnelServiceName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -52,11 +37,11 @@ func GetServerAddr(kubeConfig string) (string, error) {
 
 	switch svc.Spec.Type {
 	case corev1.ServiceTypeLoadBalancer:
-		return getServerAddrLoadBalancer(cli, svc)
+		return getServerAddrLoadBalancer(svc)
 	case corev1.ServiceTypeClusterIP:
-		return getServerAddrClusterIP(cli, svc)
+		return getServerAddrClusterIP(clientset, svc)
 	case corev1.ServiceTypeNodePort:
-		return getServerAddrNodePort(cli, svc)
+		return getServerAddrNodePort(clientset, svc)
 	default:
 		return "", fmt.Errorf("unupported service type: %s", svc.Spec.Type)
 	}
@@ -65,7 +50,6 @@ func GetServerAddr(kubeConfig string) (string, error) {
 // getServerAddrLoadBalancer gets the service address of the yurttunnel-server
 // if the service type is LoadBalancer
 func getServerAddrLoadBalancer(
-	cli *clientset.Clientset,
 	svc *corev1.Service) (string, error) {
 	var tcpPort int32
 	for _, port := range svc.Spec.Ports {
@@ -86,13 +70,13 @@ func getServerAddrLoadBalancer(
 // getServerAddrClusterIP gets the service address of the yurttunnel-server
 // if the service type is ClusterIP
 func getServerAddrClusterIP(
-	cli *clientset.Clientset,
+	clientset kubernetes.Interface,
 	svc *corev1.Service) (string, error) {
 	if addr, ok := svc.Annotations[constants.YurttunnelServerExternalAddrKey]; ok {
 		return addr, nil
 	}
 
-	eps, err := cli.CoreV1().Endpoints(constants.YurttunnelEndpointsNs).
+	eps, err := clientset.CoreV1().Endpoints(constants.YurttunnelEndpointsNs).
 		Get(constants.YurttunnelEndpointsName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -109,11 +93,11 @@ func getServerAddrClusterIP(
 // getServerAddrNodePort gets the service address of the yurttunnel-server
 // if the service type is NodePort
 func getServerAddrNodePort(
-	cli *clientset.Clientset,
+	clientset kubernetes.Interface,
 	svc *corev1.Service) (string, error) {
 	// get node ip
 	labelSelector := "alibabacloud.com/is-edge-worker=false"
-	nodeLst, err := cli.CoreV1().Nodes().List(metav1.ListOptions{
+	nodeLst, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: labelSelector,
 	})
 	if err != nil {

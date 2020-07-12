@@ -48,7 +48,6 @@ type iptablesManager struct {
 
 // NewIptablesManager returns an IptablesManager
 func NewIptablesManager(client clientset.Interface,
-	nodeLister corelisters.NodeLister,
 	nodeIP string,
 	syncPeriod int,
 	stopCh <-chan struct{}) IptablesManager {

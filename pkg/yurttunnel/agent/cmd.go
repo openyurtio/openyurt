@@ -18,6 +18,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
@@ -28,6 +29,7 @@ import (
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 // NewYurttunnelAgentCommand creates a new yurttunnel-agent command
@@ -35,8 +37,12 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 	o := &YurttunnelAgentOptions{}
 
 	cmd := &cobra.Command{
-		Short: "Launch yurttunnel-agent",
+		Short: fmt.Sprintf("Launch %s", projectinfo.GetAgentName()),
 		RunE: func(c *cobra.Command, args []string) error {
+			if o.version {
+				fmt.Println(projectinfo.ShortAgentVersion())
+				return nil
+			}
 			if err := o.validate(); err != nil {
 				return err
 			}
@@ -51,12 +57,16 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 	}
 
 	flags := cmd.Flags()
+	flags.BoolVar(&o.version, "version", o.version,
+		"print the version information.")
 	flags.StringVar(&o.nodeName, "node-name", o.nodeName,
 		"The name of the edge node.")
-	flags.StringVar(&o.serverAddr, "server-addr", o.serverAddr,
-		"The address of yurttunnel-server")
+	flags.StringVar(&o.tunnelServerAddr, "tunnelserver-addr", o.tunnelServerAddr,
+		fmt.Sprintf("The address of %s", projectinfo.GetServerName()))
+	flags.StringVar(&o.apiserverAddr, "apiserver-addr", o.tunnelServerAddr,
+		"A reachable address of the apiserver.")
 	flags.StringVar(&o.kubeConfig, "kube-config", o.kubeConfig,
-		"Path to the kubeconfig file")
+		"Path to the kubeconfig file.")
 
 	return cmd
 }
@@ -64,16 +74,18 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 // YurttunnelAgentOptions has the information that required by the
 // yurttunel-agent
 type YurttunnelAgentOptions struct {
-	nodeName   string
-	serverAddr string
-	kubeConfig string
-	clientset  kubernetes.Interface
+	nodeName         string
+	tunnelServerAddr string
+	apiserverAddr    string
+	kubeConfig       string
+	version          bool
+	clientset        kubernetes.Interface
 }
 
 // validate validates the YurttunnelServerOptions
 func (o *YurttunnelAgentOptions) validate() error {
-	if o.kubeConfig == "" {
-		return errors.New("--kube-config is not set")
+	if o.kubeConfig == "" && o.apiserverAddr == "" {
+		return errors.New("neither --kube-config nor --apiserver-addr is set")
 	}
 
 	if o.nodeName == "" {
@@ -86,33 +98,39 @@ func (o *YurttunnelAgentOptions) validate() error {
 // complete completes all the required options
 func (o *YurttunnelAgentOptions) complete() error {
 	var err error
-	klog.Infof("create clientset based on the kubeconfig(%s)", o.kubeConfig)
-	o.clientset, err = kubeutil.CreateClientSetKubeConfig(o.kubeConfig)
-	if err != nil {
+	if o.kubeConfig != "" {
+		klog.Infof("create the clientset based on the kubeconfig(%s).", o.kubeConfig)
+		o.clientset, err = kubeutil.CreateClientSetKubeConfig(o.kubeConfig)
 		return err
 	}
-	return nil
+
+	klog.Infof("create the clientset based on the apiserver address(%s).", o.apiserverAddr)
+	o.clientset, err = kubeutil.CreateClientSetApiserverAddr(o.apiserverAddr)
+	return err
 }
 
 // run starts the yurttunel-agent
 func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 	var (
-		serverAddr   string
-		err          error
-		agentCertMgr certificate.Manager
+		tunnelServerAddr string
+		err              error
+		agentCertMgr     certificate.Manager
 	)
+
 	// 1. get the address of the yurttunnel-server
-	serverAddr = o.serverAddr
-	if o.serverAddr == "" {
-		if serverAddr, err = GetServerAddr(o.kubeConfig); err != nil {
+	tunnelServerAddr = o.tunnelServerAddr
+	if o.tunnelServerAddr == "" {
+		if tunnelServerAddr, err = GetTunnelServerAddr(o.clientset); err != nil {
 			return err
 		}
 	}
-	klog.Infof("tunnel server address: %s", serverAddr)
+	klog.Infof("%s address: %s", projectinfo.GetServerName(), tunnelServerAddr)
 
 	// 2. create a certificate manager
 	agentCertMgr, err =
-		certmanager.NewAgentCertManager(o.clientset, "yurttunnel-agent")
+		certmanager.NewCertManager(o.clientset,
+			constants.YurttunnelAgentCSROrg,
+			constants.YurttunnelAgentCSRCN)
 	if err != nil {
 		return err
 	}
@@ -120,13 +138,13 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 
 	// 3. generate a TLS configuration for securing the connection to server
 	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCA(agentCertMgr,
-		serverAddr, constants.YurttunnelAgentCAFile)
+		tunnelServerAddr, constants.YurttunnelCAFile)
 	if err != nil {
 		return err
 	}
 
 	// 4. start the yurttunnel-agent
-	if err := RunAgent(tlsCfg, serverAddr, o.nodeName, stopCh); err != nil {
+	if err := RunAgent(tlsCfg, tunnelServerAddr, o.nodeName, stopCh); err != nil {
 		return err
 	}
 	<-stopCh

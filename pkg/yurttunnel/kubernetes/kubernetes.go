@@ -26,6 +26,18 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// CreateClientSet creates a clientset based on the given kubeConfig. If the
+// kubeConfig is empty, it will creates the clientset based on the in-cluster
+// config
+func CreateClientSet(kubeConfig string) (*kubernetes.Clientset, error) {
+
+	config, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
+}
+
 // CreateClientSet creates a clientset based on the given kubeconfig
 func CreateClientSetKubeConfig(kubeConfig string) (*kubernetes.Clientset, error) {
 	var (
@@ -48,4 +60,11 @@ func CreateClientSetKubeConfig(kubeConfig string) (*kubernetes.Clientset, error)
 		return nil, err
 	}
 	return cliSet, nil
+}
+
+// CreateClientSetApiserverAddr creates a clientset based on the given apiserverAddr.
+// The clientset uses the serviceaccount's CA and Token for authentication and
+// authorization.
+func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, error) {
+	return nil, errors.New("NOT IMPLEMENT YET")
 }

@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 
+	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/server"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
@@ -28,6 +29,6 @@ func main() {
 	cmd := server.NewYurttunnelServerCommand(wait.NeverStop)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {
-		klog.Fatalf("yurttunnel-server failed: %s", err)
+		klog.Fatalf("%s failed: %s", projectinfo.GetServerName(), err)
 	}
 }
