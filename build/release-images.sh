@@ -27,10 +27,10 @@ mkdir -p ${DOCKER_BUILD_BASE_IDR}
 
 docker run -i -v ${YURT_ROOT}:/opt/src --network host --rm golang:1.13-alpine \
 /bin/sh -xe -c "\
-    apk --no-cache add bash tar; \
+    apk --no-cache add bash git; \
     cd /opt/src; umask 0022; \
     rm -f ${YURT_BIN_DIR}/*; \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 ./build/run.sh; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOPROXY=https://goproxy.cn ./hack/make-rules/build.sh; \
     chown -R ${USER_ID}:${GROUP_ID} ${YURT_OUTPUT_DIR}"
 
 
@@ -57,7 +57,7 @@ EOF
 }
 
 build_yurtctl_servant_image() {
-    cd ${YURTCTL_SERVANT_DIR} 
+    cd ${YURTCTL_SERVANT_DIR}
     local yurtctl_servant_image=${REPO}/yurtctl-servant:$TAG
     docker build -t ${yurtctl_servant_image} .
 }
