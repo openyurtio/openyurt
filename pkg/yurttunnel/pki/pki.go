@@ -107,21 +107,7 @@ func GenRootCertPool(kubeConfig, caFile string) (*x509.CertPool, error) {
 	}
 
 	// kubeConfig is missing, generate the cluster root ca based on the given ca file
-	if caFile == "" {
-		return nil, errors.New("either a kubeconfig or a CA file must be given")
-	}
-	_, err := os.Stat(caFile)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("loading CA from %s fail: %s", caFile, err)
-	}
-	caPEM, err := ioutil.ReadFile(caFile)
-	if err != nil {
-		return nil, err
-	}
-
-	rootCertPool := x509.NewCertPool()
-	rootCertPool.AppendCertsFromPEM(caPEM)
-	return rootCertPool, nil
+	return GenCertPoolUseCA(caFile)
 }
 
 // GenTGenTLSConfigUseCertMgrAndCA generates a TLS configuration based on the
