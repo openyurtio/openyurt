@@ -19,18 +19,22 @@ package constants
 const (
 	YurttunnelServerAgentPort       = 10262
 	YurttunnelServerMasterPort      = 10263
-	YurttunnelServiceNs             = "kube-system"
-	YurttunnelServiceName           = "x-tunnel-server-svc"
+	YurttunnelServerServiceNs       = "kube-system"
+	YurttunnelServerServiceName     = "x-tunnel-server-svc"
 	YurttunnelServerAgentPortName   = "tcp"
 	YurttunnelServerExternalAddrKey = "x-tunnel-server-external-addr"
 	YurttunnelEndpointsNs           = "kube-system"
 	YurttunnelEndpointsName         = "x-tunnel-server-svc"
 
 	// yurttunnel PKI related constants
-	YurttunnelAgentCSROrg = "openyurt:yurttunnel"
-	YurttunnelAgentCSRCN  = "yurttunnel-agent"
-	YurttunneServerCSROrg = "system:masters"
-	YurttunneServerCSRCN  = "kube-apiserver-kubelete-client"
-	YurttunnelCAFile      = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	YurttunnelTokenFile   = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	YurttunnelCSROrg        = "openyurt:yurttunnel"
+	YurttunnelAgentCSRCN    = "yurttunnel-agent"
+	YurttunneServerCSROrg   = "system:masters"
+	YurttunneServerCSRCN    = "kube-apiserver-kubelete-client"
+	YurttunnelCAFile        = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	YurttunnelTokenFile     = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	YurttunnelServerCertDir = "/var/lib/yurttunnel-server/pki"
+	YurttunnelAgentCertDir  = "/var/lib/yurttunnel-agent/pki"
+
+	YurtEdgeNodeLabel = "alibabacloud.com/is-edge-worker"
 )

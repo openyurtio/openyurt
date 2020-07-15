@@ -29,8 +29,8 @@ import (
 
 // GetServerAddr gets the service address that exposes the yurttunnel-server
 func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
-	svc, err := clientset.CoreV1().Services(constants.YurttunnelServiceNs).
-		Get(constants.YurttunnelServiceName, metav1.GetOptions{})
+	svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).
+		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
