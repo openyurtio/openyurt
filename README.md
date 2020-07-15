@@ -94,10 +94,19 @@ Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtctl`)
 make build
 ```
 
-Build all docker images 
+Build specific binary for specific architecture. (`amd64`,`arm`,`arm64`)
+```mysql based
+GOOS=linux GOARCH=arm64 make build WHAT=cmd/yurtctl
+```
 
+Build all docker images for all supported architectures.
 ```bash
 make release
+```
+
+Build all docker images for specific architecture.
+```base
+make release ARCH=arm64
 ```
 
 ## Uninstall

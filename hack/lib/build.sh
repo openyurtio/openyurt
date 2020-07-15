@@ -47,6 +47,12 @@ get_output_name() {
     echo $oup_name
 }
 
+# get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
+# eg: ./_output/bin/darwin/arm64/
+get_binary_dir_with_arch(){
+    echo $1/$(go env GOOS)/$(go env GOARCH)/
+}
+
 build_binaries() {
     local goflags goldflags gcflags
     goldflags="${GOLDFLAGS:--s -w $(project_info)}"
@@ -69,8 +75,9 @@ build_binaries() {
       targets=("${YURT_ALL_TARGETS[@]}")
     fi
 
-    mkdir -p ${YURT_BIN_DIR}
-    cd ${YURT_BIN_DIR}
+    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_BIN_DIR})
+    mkdir -p ${target_bin_dir}
+    cd ${target_bin_dir}
     for binary in "${targets[@]}"; do
       echo "Building ${binary}"
       go build -o $(get_output_name $binary) -ldflags "${goldflags:-}" -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/${binary}

@@ -19,7 +19,7 @@ vet:
 	go vet ./pkg/... ./cmd/...
 
 release:
-	build/release-images.sh
+	build/release-images.sh $(ARCH)
 
 clean: 
 	-rm -Rf _output
