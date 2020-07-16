@@ -160,7 +160,8 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.ApproveYurttunnelCSR(o.clientset, stopCh)
+	go certmanager.NewCSRApprover(o.clientset, stopCh).
+		Run(constants.YurttunnelCSRApproverThreadiness)
 
 	// 3. get the latest certificate
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {

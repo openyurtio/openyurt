@@ -27,14 +27,16 @@ const (
 	YurttunnelEndpointsName         = "x-tunnel-server-svc"
 
 	// yurttunnel PKI related constants
-	YurttunnelCSROrg        = "openyurt:yurttunnel"
-	YurttunnelAgentCSRCN    = "yurttunnel-agent"
-	YurttunneServerCSROrg   = "system:masters"
-	YurttunneServerCSRCN    = "kube-apiserver-kubelete-client"
-	YurttunnelCAFile        = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	YurttunnelTokenFile     = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	YurttunnelServerCertDir = "/var/lib/yurttunnel-server/pki"
-	YurttunnelAgentCertDir  = "/var/lib/yurttunnel-agent/pki"
+	YurttunnelCSROrg                 = "openyurt:yurttunnel"
+	YurttunnelAgentCSRCN             = "yurttunnel-agent"
+	YurttunneServerCSROrg            = "system:masters"
+	YurttunneServerCSRCN             = "kube-apiserver-kubelete-client"
+	YurttunnelCAFile                 = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	YurttunnelTokenFile              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	YurttunnelServerCertDir          = "/var/lib/yurttunnel-server/pki"
+	YurttunnelAgentCertDir           = "/var/lib/yurttunnel-agent/pki"
+	YurttunnelCSRApproverThreadiness = 2
 
-	YurtEdgeNodeLabel = "alibabacloud.com/is-edge-worker"
+	YurtEdgeNodeLabel       = "alibabacloud.com/is-edge-worker"
+	YurttunnelAgentPodIPEnv = "POD_IP"
 )

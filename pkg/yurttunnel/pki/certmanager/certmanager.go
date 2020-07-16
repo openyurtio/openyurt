@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -32,10 +31,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog"
 
@@ -181,9 +178,12 @@ func getNodePortDNSandIP(
 // the yurttunel-agent
 func NewYurttunnelAgentCertManager(
 	clientset kubernetes.Interface) (certificate.Manager, error) {
-	nodeIP, err := getAgentNodeIP(clientset, os.Getenv("NODE_NAME"))
-	if err != nil {
-		return nil, err
+	// As yurttunnel-agent will run on the edge node with Host network mode,
+	// we can use the status.podIP as the node IP
+	nodeIP := os.Getenv(constants.YurttunnelAgentPodIPEnv)
+	if nodeIP == "" {
+		return nil, fmt.Errorf("env %s is not set",
+			constants.YurttunnelAgentPodIPEnv)
 	}
 
 	return newCertManager(
@@ -194,24 +194,6 @@ func NewYurttunnelAgentCertManager(
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
 		[]net.IP{net.ParseIP(nodeIP)})
-}
-
-// getAgentNodeIP returns the IP of the node whose name is nodeName
-func getAgentNodeIP(
-	clientset kubernetes.Interface,
-	nodeName string) (string, error) {
-	node, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	if err != nil {
-		klog.Errorf("fail to get node(%s): %s", nodeName, err)
-		return "", err
-	}
-	for _, addr := range node.Status.Addresses {
-		if addr.Type == corev1.NodeInternalIP {
-			return addr.Address, nil
-		}
-	}
-	klog.Errorf("node(%s) doesn't have internalIP", nodeName)
-	return "", fmt.Errorf("internalIP of node(%s) is not found", nodeName)
 }
 
 // NewCertManager creates a certificate manager that will generates a
@@ -232,7 +214,7 @@ func newCertManager(
 	getTemplate := func() *x509.CertificateRequest {
 		return &x509.CertificateRequest{
 			Subject: pkix.Name{
-				CommonName:   constants.YurttunneServerCSRCN,
+				CommonName:   commonName,
 				Organization: organizations,
 			},
 			DNSNames:    dnsNames,
@@ -240,7 +222,7 @@ func newCertManager(
 		}
 	}
 
-	serverCertManager, err := certificate.NewManager(&certificate.Config{
+	certManager, err := certificate.NewManager(&certificate.Config{
 		ClientFn: func(current *tls.Certificate) (clicert.CertificateSigningRequestInterface, error) {
 			return clientset.CertificatesV1beta1().CertificateSigningRequests(), nil
 		},
@@ -254,108 +236,5 @@ func newCertManager(
 		return nil, fmt.Errorf("failed to initialize server certificate manager: %v", err)
 	}
 
-	return serverCertManager, nil
-}
-
-// ApprApproveYurttunnelCSR starts a csr controller that automatically approves
-// the yurttunel related csr
-func ApproveYurttunnelCSR(
-	clientset kubernetes.Interface,
-	stopCh <-chan struct{}) {
-	informerFactory := informers.
-		NewSharedInformerFactory(clientset, 10*time.Minute)
-	csrInformer := informerFactory.Certificates().V1beta1().
-		CertificateSigningRequests().Informer()
-	csrInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			approveYurttunnelCSR(obj, clientset)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			approveYurttunnelCSR(new, clientset)
-		},
-	})
-	go csrInformer.Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh, csrInformer.HasSynced) {
-		klog.Error("sync csr timeout")
-	}
-	<-stopCh
-}
-
-// approveYurttunnelCSR checks the csr status, if it is neither approved nor
-// denied, it will try to approve the csr.
-func approveYurttunnelCSR(obj interface{}, clientset kubernetes.Interface) {
-	csr := obj.(*certificates.CertificateSigningRequest)
-	if !isYurttunelCSR(csr) {
-		klog.Infof("csr(%s) is not Yurttunnel csr", csr.GetName())
-		return
-	}
-
-	approved, denied := checkCertApprovalCondition(&csr.Status)
-	if approved {
-		klog.Infof("csr(%s) is approved", csr.GetName())
-		return
-	}
-
-	if denied {
-		klog.Infof("csr(%s) is denied", csr.GetName())
-		return
-	}
-
-	// approve the edge tunnel server csr
-	csr.Status.Conditions = append(csr.Status.Conditions,
-		certificates.CertificateSigningRequestCondition{
-			Type:    certificates.CertificateApproved,
-			Reason:  "AutoApproved",
-			Message: "Auto approving edge tunnel server csr by edge tunnel server itself.",
-		})
-
-	csrClient := clientset.CertificatesV1beta1().CertificateSigningRequests()
-	result, err := csrClient.UpdateApproval(csr)
-	if err != nil {
-		if result == nil {
-			klog.Errorf("failed to approve yurttunnel csr, %v", err)
-		} else {
-			klog.Errorf("failed to approve yurttunnel csr(%s), %v", result.Name, err)
-		}
-	}
-	klog.Infof("successfully approve yurttunnel csr(%s)", result.Name)
-}
-
-// isYurttunelCSR checks if given csr is a yurtunnel related csr, i.e.,
-// the organizations' list contains "openyurt:yurttunnel"
-func isYurttunelCSR(csr *certificates.CertificateSigningRequest) bool {
-	pemBytes := csr.Spec.Request
-	block, _ := pem.Decode(pemBytes)
-	if block == nil || block.Type != "CERTIFICATE REQUEST" {
-		return false
-	}
-	x509cr, err := x509.ParseCertificateRequest(block.Bytes)
-	if err != nil {
-		return false
-	}
-	for i, org := range x509cr.Subject.Organization {
-		if org == constants.YurttunnelCSROrg {
-			break
-		}
-		if i == len(x509cr.Subject.Organization)-1 {
-			return false
-		}
-	}
-	return true
-}
-
-// checkCertApprovalCondition checks if the given csr's status is
-// approved or denied
-func checkCertApprovalCondition(
-	status *certificates.CertificateSigningRequestStatus) (
-	approved bool, denied bool) {
-	for _, c := range status.Conditions {
-		if c.Type == certificates.CertificateApproved {
-			approved = true
-		}
-		if c.Type == certificates.CertificateDenied {
-			denied = true
-		}
-	}
-	return
+	return certManager, nil
 }
