@@ -53,7 +53,7 @@ func NewYurttunnelServerCertManager(
 		err      error
 	)
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		dnsNames, ips, err = getYurttunelServerDNSandIP(clientset)
+		dnsNames, ips, err = GetYurttunelServerDNSandIP(clientset)
 		if err == nil {
 			return true, nil
 		}
@@ -75,9 +75,9 @@ func NewYurttunnelServerCertManager(
 		dnsNames, ips)
 }
 
-// getYurttunelServerDNSandIP gets DNS names and IPS that will be added into
+// GetYurttunelServerDNSandIP gets DNS names and IPS that will be added into
 // the yurttunnel-server certificate
-func getYurttunelServerDNSandIP(
+func GetYurttunelServerDNSandIP(
 	clientset kubernetes.Interface) ([]string, []net.IP, error) {
 	var (
 		dnsNames = make([]string, 0)
