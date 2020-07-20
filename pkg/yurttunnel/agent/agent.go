@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
@@ -41,7 +42,7 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 		return "", err
 	}
 
-	if len(ips) <= 0 {
+	if len(ips) <= 1 {
 		return "", errors.New("there is no available ip")
 	}
 
@@ -61,7 +62,15 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 		return "", errors.New("fail to get the port number")
 	}
 
-	return fmt.Sprintf("%s:%d", ips[0].String(), tcpPort), nil
+	var ip net.IP
+	for _, tmpIP := range ips {
+		// we use the first non-loopback IP address.
+		if tmpIP.String() != "127.0.0.1" {
+			ip = tmpIP
+		}
+	}
+
+	return fmt.Sprintf("%s:%d", ip.String(), tcpPort), nil
 }
 
 // RunAgent runs the yurttunnel-agent

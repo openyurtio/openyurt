@@ -30,7 +30,7 @@ const (
 	YurttunnelCSROrg                 = "openyurt:yurttunnel"
 	YurttunnelAgentCSRCN             = "yurttunnel-agent"
 	YurttunneServerCSROrg            = "system:masters"
-	YurttunneServerCSRCN             = "kube-apiserver-kubelete-client"
+	YurttunneServerCSRCN             = "kube-apiserver-kubelet-client"
 	YurttunnelCAFile                 = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	YurttunnelTokenFile              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	YurttunnelServerCertDir          = "/var/lib/yurttunnel-server/pki"
