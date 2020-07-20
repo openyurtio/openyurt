@@ -128,9 +128,7 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 
 	// 2. create a certificate manager
 	agentCertMgr, err =
-		certmanager.NewCertManager(o.clientset,
-			constants.YurttunnelAgentCSROrg,
-			constants.YurttunnelAgentCSRCN)
+		certmanager.NewYurttunnelAgentCertManager(o.clientset)
 	if err != nil {
 		return err
 	}

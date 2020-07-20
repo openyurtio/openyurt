@@ -68,10 +68,13 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.bindAddr, "bind-address", o.bindAddr,
 		fmt.Sprintf("the ip address on which the %s will listen.",
 			projectinfo.GetServerName()))
+	flags.StringVar(&o.certDNSNames, "cert-dns-names", o.certDNSNames,
+		"DNS names that will be added into server's certificate. (e.g., dns1,dns2)")
+	flags.StringVar(&o.certIPs, "cert-ips", o.certIPs,
+		"IPs that will be added into server's certificate. (e.g., ip1,ip2)")
 	flags.BoolVar(&o.enableIptables, "enable-iptables", o.enableIptables,
 		"if allow iptable manager to set the dnat rule.")
-	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period",
-		o.iptablesSyncPeriod,
+	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period", o.iptablesSyncPeriod,
 		"the synchronization period of the iptable manager.")
 	return cmd
 }
@@ -81,6 +84,8 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 type YurttunnelServerOptions struct {
 	kubeConfig               string
 	bindAddr                 string
+	certDNSNames             string
+	certIPs                  string
 	version                  bool
 	enableIptables           bool
 	iptablesSyncPeriod       int
@@ -122,10 +127,10 @@ func (o *YurttunnelServerOptions) complete() error {
 		"server will accept master requests at: %s",
 		projectinfo.GetAgentName(), o.serverAgentAddr, o.serverMasterAddr)
 	var err error
-	// As yurttunnel-server will run on the cloud, we use the function
-	// 'kubeutil.CreateClientSet' to create the clientset, which will
-	// try to create the clientset based on the in-cluster config if
-	// the kubeconfig is empty.
+	// function 'kubeutil.CreateClientSet' will try to create the clientset
+	// based on the in-cluster config if the kubeconfig is empty. As
+	// yurttunnel-server will run on the cloud, the in-cluster config should
+	// be available.
 	o.clientset, err = kubeutil.CreateClientSet(o.kubeConfig)
 	return err
 }
@@ -148,17 +153,19 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 
 	// 2. create a certificate manager for the tunnel server and run the
 	// csr approver for both yurttunnel-server and yurttunnel-agent
-	serverCertMgr, err := certmanager.NewCertManager(
-		o.clientset, constants.YurttunneServerCSROrg,
-		constants.YurttunneServerCSRCN)
+	serverCertMgr, err :=
+		certmanager.NewYurttunnelServerCertManager(
+			o.clientset, o.certDNSNames, o.certIPs, stopCh)
 	if err != nil {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.ApproveYurttunnelCSR(o.clientset)
+	go certmanager.NewCSRApprover(o.clientset, stopCh).
+		Run(constants.YurttunnelCSRApproverThreadiness)
 
 	// 3. get the latest certificate
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+		// keep polling until the certificate is signed
 		if serverCertMgr.Current() != nil {
 			return true, nil
 		}
