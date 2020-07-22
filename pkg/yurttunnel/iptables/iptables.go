@@ -364,7 +364,7 @@ func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIP
 			iptables.Prepend,
 			iptables.TableNAT, portChain, reqReturnPortIptablesArgs...)
 		if err != nil {
-			klog.Errorf("could not ensure -j RETURN iptables rule for %s:%d: %v", ip, port, err)
+			klog.Errorf("could not ensure -j RETURN iptables rule for %s:%s: %v", ip, port, err)
 			return err
 		}
 	}
@@ -385,7 +385,7 @@ func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIP
 		err = im.iptables.DeleteRule(iptables.TableNAT,
 			portChain, deletedIPIptablesArgs...)
 		if err != nil {
-			klog.Errorf("could not delete old iptables rules for %s:%d: %v", ip, port, err)
+			klog.Errorf("could not delete old iptables rules for %s:%s: %v", ip, port, err)
 			return err
 		}
 	}
