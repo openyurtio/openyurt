@@ -107,10 +107,9 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 // NewCSRApprover creates a new YurttunnelCSRApprover
 func NewCSRApprover(
 	clientset kubernetes.Interface,
+	sharedInformerFactory informers.SharedInformerFactory,
 	stopCh <-chan struct{}) *YurttunnelCSRApprover {
-	informerFactory := informers.
-		NewSharedInformerFactory(clientset, 10*time.Minute)
-	csrInformer := informerFactory.Certificates().V1beta1().
+	csrInformer := sharedInformerFactory.Certificates().V1beta1().
 		CertificateSigningRequests()
 	csrClient := clientset.CertificatesV1beta1().CertificateSigningRequests()
 	wq := workqueue.

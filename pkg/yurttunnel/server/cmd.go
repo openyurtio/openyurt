@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
@@ -95,6 +96,7 @@ type YurttunnelServerOptions struct {
 	serverAgentAddr          string
 	serverMasterAddr         string
 	clientset                kubernetes.Interface
+	sharedInformerFactory    informers.SharedInformerFactory
 }
 
 // NewYurttunnelServerOptions creates a new YurtNewYurttunnelServerOptions
@@ -132,7 +134,12 @@ func (o *YurttunnelServerOptions) complete() error {
 	// yurttunnel-server will run on the cloud, the in-cluster config should
 	// be available.
 	o.clientset, err = kubeutil.CreateClientSet(o.kubeConfig)
-	return err
+	if err != nil {
+		return err
+	}
+	o.sharedInformerFactory =
+		informers.NewSharedInformerFactory(o.clientset, 10*time.Second)
+	return nil
 }
 
 // run starts the yurttunel-server
@@ -142,13 +149,14 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	// 1. start the IP table manager
 	if o.enableIptables {
 		iptablesMgr := iptables.NewIptablesManager(o.clientset,
+			o.sharedInformerFactory,
 			o.bindAddr,
 			o.iptablesSyncPeriod,
 			stopCh)
 		if iptablesMgr == nil {
 			return fmt.Errorf("fail to create a new IptableManager")
 		}
-		iptablesMgr.Run()
+		go iptablesMgr.Run()
 	}
 
 	// 2. create a certificate manager for the tunnel server and run the
@@ -160,7 +168,7 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.NewCSRApprover(o.clientset, stopCh).
+	go certmanager.NewCSRApprover(o.clientset, o.sharedInformerFactory, stopCh).
 		Run(constants.YurttunnelCSRApproverThreadiness)
 
 	// 3. get the latest certificate

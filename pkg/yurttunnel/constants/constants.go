@@ -17,14 +17,15 @@ limitations under the License.
 package constants
 
 const (
-	YurttunnelServerAgentPort       = 10262
-	YurttunnelServerMasterPort      = 10263
-	YurttunnelServerServiceNs       = "kube-system"
-	YurttunnelServerServiceName     = "x-tunnel-server-svc"
-	YurttunnelServerAgentPortName   = "tcp"
-	YurttunnelServerExternalAddrKey = "x-tunnel-server-external-addr"
-	YurttunnelEndpointsNs           = "kube-system"
-	YurttunnelEndpointsName         = "x-tunnel-server-svc"
+	YurttunnelServerAgentPort          = 10262
+	YurttunnelServerMasterPort         = 10263
+	YurttunnelServerMasterInsecurePort = 10264
+	YurttunnelServerServiceNs          = "kube-system"
+	YurttunnelServerServiceName        = "x-tunnel-server-svc"
+	YurttunnelServerAgentPortName      = "tcp"
+	YurttunnelServerExternalAddrKey    = "x-tunnel-server-external-addr"
+	YurttunnelEndpointsNs              = "kube-system"
+	YurttunnelEndpointsName            = "x-tunnel-server-svc"
 
 	// yurttunnel PKI related constants
 	YurttunnelCSROrg                 = "openyurt:yurttunnel"
@@ -37,6 +38,7 @@ const (
 	YurttunnelAgentCertDir           = "/var/lib/yurttunnel-agent/pki"
 	YurttunnelCSRApproverThreadiness = 2
 
-	YurtEdgeNodeLabel       = "alibabacloud.com/is-edge-worker"
-	YurttunnelAgentPodIPEnv = "POD_IP"
+	YurtEdgeNodeLabel          = "alibabacloud.com/is-edge-worker"
+	YurttunnelEnableAgentLabel = "alibabacloud.com/edge-enable-reverseTunnel-client"
+	YurttunnelAgentPodIPEnv    = "POD_IP"
 )
