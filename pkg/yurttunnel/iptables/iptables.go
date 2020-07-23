@@ -37,11 +37,12 @@ import (
 	utilnet "k8s.io/utils/net"
 
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 const (
-	kubeletSecurePort         = "10255"
-	kubeletInsecurePort       = "10250"
+	kubeletSecurePort         = "10250"
+	kubeletInsecurePort       = "10255"
 	loopbackAddr              = "127.0.0.1"
 	reqReturnComment          = "return request to access node directly"
 	dnatToTunnelComment       = "dnat to tunnel for access node"
@@ -50,9 +51,12 @@ const (
 	defaultSyncPeriod         = 15
 
 	// constants related dnat rules configmap
-	yurttunnelServerDnatConfigMapName = "kube-system"
-	yurttunnelServerDnatConfigMapNs   = "yurttunnel-server-dnat-cfg"
-	yurttunnelServerDnatDataKey       = "dnat-ports-pair"
+	yurttunnelServerDnatConfigMapNs = "kube-system"
+	yurttunnelServerDnatDataKey     = "dnat-ports-pair"
+)
+
+var (
+	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%stunnel-server-cfg", projectinfo.Get().ProjectPrefix)
 )
 
 type iptablesJumpChain struct {

@@ -39,6 +39,6 @@ const (
 	YurttunnelCSRApproverThreadiness = 2
 
 	YurtEdgeNodeLabel          = "alibabacloud.com/is-edge-worker"
-	YurttunnelEnableAgentLabel = "alibabacloud.com/enable-yurttunnel-agent"
+	YurttunnelEnableAgentLabel = "alibabacloud.com/edge-enable-reverseTunnel-client"
 	YurttunnelAgentPodIPEnv    = "POD_IP"
 )
