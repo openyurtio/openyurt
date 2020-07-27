@@ -109,6 +109,12 @@ Build all docker images for specific architecture.
 make release ARCH=arm64
 ```
 
+Build yurt-e2e-test binary to test Openyurt.
+```
+$ make e2e 
+```
+Please check [ yurt-e2e-test tutorial](./docs/tutorial/yurt-e2e-test.md) for more details.
+
 ## Uninstall
 
 One can uninstall OpenYurt and revert back to the original Kubernetes cluster settings by using `yurtctl`:
