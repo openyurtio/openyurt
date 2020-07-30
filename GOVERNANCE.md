@@ -30,19 +30,16 @@ They normally take the following responsibilities:
 
 ## Process of becoming a maintainer
 
-* Express interest to any of the project [maintainers](MAINTAINERS.md) that you are interested in becoming a
-  maintainer. Becoming a maintainer generally means that you are going to be spending substantial
-  time on OpenYurt  for the foreseeable future. You are expected to have domain expertise and be extremely
-  proficient in golang. 
+* Talk to one of the existing project [maintainers](MAINTAINERS.md) that you are interested in becoming a
+  maintainer and he will nominate you as a new maintainer. After nomination, you will need to
+  create a PR to update the list in [MAINTAINERS.md](MAINTAINERS.md). 
 * We will expect you to start contributing increasingly complicated PRs, under the guidance
   of the existing maintainers.
 * We may ask you to do some PRs from our backlog. As you gain experience with the code base and our standards, 
   we will ask you to do code reviews for incoming PRs.
-* After a period of approximately two months of working together and making sure we see eye to eye,
-  the existing maintainers will confer and decide whether to grant maintainer status or not.
-  We make no guarantees on the length of time this will take, but two months is an approximate
-  goal.
-
+* Once the existing maintainers have made a consensus that the nominating maintainer has deep understanding
+  about the project and is able to independently take the maintainer responsibilities, 
+  the PR will be approved and the new maintainer becomes active.
 
 ## When does a maintainer lose maintainer status
 
@@ -61,7 +58,7 @@ or by sending an email to `openyurt@googlegroups.com`.
 
 In general, we prefer that technical issues and maintainer membership are amicably worked out between the persons involved.
 If a dispute cannot be decided independently, get a third-party maintainer (e.g. a mutual contact with some background
-on the issue, but not involved in the conflict) to intercede and the final descion will be made.
+on the issue, but not involved in the conflict) to intercede and the final decision will be made.
 Decision making process should be transparent to adhere to the principles of OpenYurt project.
 
 ## Code of Conduct
