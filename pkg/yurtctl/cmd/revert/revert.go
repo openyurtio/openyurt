@@ -49,10 +49,10 @@ func NewRevertCmd() *cobra.Command {
 		Short: "Reverts the yurt cluster back to a Kubernetes cluster",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if err := ro.Complete(cmd.Flags()); err != nil {
-				klog.Fatalf("fail to complete the convert option: %s", err)
+				klog.Fatalf("fail to complete the revert option: %s", err)
 			}
 			if err := ro.RunRevert(); err != nil {
-				klog.Fatalf("fail to convert kubernetes to yurt: %s", err)
+				klog.Fatalf("fail to revert yurt to kubernetes: %s", err)
 			}
 		},
 	}
