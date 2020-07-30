@@ -24,3 +24,6 @@ release:
 clean: 
 	-rm -Rf _output
 	-rm -Rf dockerbuild
+
+e2e: 
+	hack/make-rules/build-e2e.sh
