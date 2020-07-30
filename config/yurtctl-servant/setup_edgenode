@@ -10,7 +10,6 @@ set -o pipefail
 KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
 KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
 KUBELET_CLI_PEM=${KUBELET_CLI_PEM:-/var/lib/kubelet/pki/kubelet-client-current.pem}
-BOOTSTRAP_KUBELET_CONF=${BOOTSTRAP_KUBELET_CONF:-/etc/kubernetes/bootstrap-kubelet.conf}
 OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
 STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
 MINIKUBE_PKI_DIR=${MINIKUBE_PKI_DIR:-/var/lib/minikube/certs}
