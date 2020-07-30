@@ -60,8 +60,8 @@ The major OpenYurt components consist of:
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions up to 1.14. Using higher Kubernetes versions may cause
-compatibility issues. We will support Kubernetes 1.16 very soon.
+OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
+compatibility issues. We will support Kubernetes 1.18 very soon.
 
 You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start OpenYurt with `yurtctl` command line tool. It can be built from the source code by doing
 the following, assuming the build system has golang 1.13+ and bash installed.
