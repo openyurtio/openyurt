@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -213,9 +214,15 @@ func (im *iptablesManager) getConfiguredDnatPorts() []string {
 		ConfigMaps(yurttunnelServerDnatConfigMapNs).
 		Get(yurttunnelServerDnatConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		klog.Infof("failed to get %s/%s configmap: %v",
-			yurttunnelServerDnatConfigMapNs,
-			yurttunnelServerDnatConfigMapName, err)
+		if apierrors.IsNotFound(err) {
+			klog.V(4).Infof("configmap %s/%s is not found",
+				yurttunnelServerDnatConfigMapNs,
+				yurttunnelServerDnatConfigMapName)
+		} else {
+			klog.Errorf("fail to get configmap %s/%s: %v",
+				yurttunnelServerDnatConfigMapNs,
+				yurttunnelServerDnatConfigMapName, err)
+		}
 		return ports
 	}
 
@@ -258,7 +265,7 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 		}
 	}
 
-	klog.Infof("nodes without yurttunnel-agent: %s", strings.Join(nodesIP, ","))
+	klog.V(4).Infof("nodes without yurttunnel-agent: %s", strings.Join(nodesIP, ","))
 	return nodesIP
 }
 

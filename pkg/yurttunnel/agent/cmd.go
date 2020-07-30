@@ -18,6 +18,7 @@ package agent
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -31,6 +32,8 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
+
+const defaultKubeconfig = "/etc/kubernetes/kubelet.conf"
 
 // NewYurttunnelAgentCommand creates a new yurttunnel-agent command
 func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
@@ -68,6 +71,9 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.kubeConfig, "kube-config", o.kubeConfig,
 		"Path to the kubeconfig file.")
 
+	// add klog flags as the global flagsets
+	klog.InitFlags(nil)
+	flags.AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 
@@ -84,10 +90,6 @@ type YurttunnelAgentOptions struct {
 
 // validate validates the YurttunnelServerOptions
 func (o *YurttunnelAgentOptions) validate() error {
-	if o.kubeConfig == "" && o.apiserverAddr == "" {
-		return errors.New("neither --kube-config nor --apiserver-addr is set")
-	}
-
 	if o.nodeName == "" {
 		return errors.New("--node-name is not set")
 	}
@@ -98,6 +100,12 @@ func (o *YurttunnelAgentOptions) validate() error {
 // complete completes all the required options
 func (o *YurttunnelAgentOptions) complete() error {
 	var err error
+
+	if o.kubeConfig == "" && o.apiserverAddr == "" {
+		o.kubeConfig = defaultKubeconfig
+		klog.Infof("neither --kube-config nor --apiserver-addr is set, will use %s as the kubeconfig", o.kubeConfig)
+	}
+
 	if o.kubeConfig != "" {
 		klog.Infof("create the clientset based on the kubeconfig(%s).", o.kubeConfig)
 		o.clientset, err = kubeutil.CreateClientSetKubeConfig(o.kubeConfig)
@@ -142,9 +150,8 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 	}
 
 	// 4. start the yurttunnel-agent
-	if err := RunAgent(tlsCfg, tunnelServerAddr, o.nodeName, stopCh); err != nil {
-		return err
-	}
+	RunAgent(tlsCfg, tunnelServerAddr, o.nodeName, stopCh)
+
 	<-stopCh
 	return nil
 }

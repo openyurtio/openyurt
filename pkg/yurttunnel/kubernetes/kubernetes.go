@@ -19,11 +19,16 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/klog"
+
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 )
 
 // CreateClientSet creates a clientset based on the given kubeConfig. If the
@@ -66,5 +71,30 @@ func CreateClientSetKubeConfig(kubeConfig string) (*kubernetes.Clientset, error)
 // The clientset uses the serviceaccount's CA and Token for authentication and
 // authorization.
 func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, error) {
-	return nil, errors.New("NOT IMPLEMENT YET")
+	if apiserverAddr == "" {
+		return nil, errors.New("apiserver addr can't be empty")
+	}
+
+	token, err := ioutil.ReadFile(constants.YurttunnelTokenFile)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsClientConfig := rest.TLSClientConfig{}
+
+	if _, err := certutil.NewPool(constants.YurttunnelCAFile); err != nil {
+		klog.Errorf("Expected to load root CA config from %s, but got err: %v",
+			constants.YurttunnelCAFile, err)
+	} else {
+		tlsClientConfig.CAFile = constants.YurttunnelCAFile
+	}
+
+	restConfig := rest.Config{
+		Host:            "https://" + apiserverAddr,
+		TLSClientConfig: tlsClientConfig,
+		BearerToken:     string(token),
+		BearerTokenFile: constants.YurttunnelTokenFile,
+	}
+
+	return kubernetes.NewForConfig(&restConfig)
 }
