@@ -21,12 +21,18 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
+	anpagent "sigs.k8s.io/apiserver-network-proxy/pkg/agent"
+
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
 )
 
 // GetServerAddr gets the service address that exposes the yurttunnel-server
@@ -73,11 +79,25 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 	return fmt.Sprintf("%s:%d", ip.String(), tcpPort), nil
 }
 
-// RunAgent runs the yurttunnel-agent
+// RunAgent runs the yurttunnel-agent which will try to connect yurttunnel-server
 func RunAgent(
 	tlsCfg *tls.Config,
-	serverAddr,
+	tunnelServerAddr,
 	nodeName string,
-	stopChan <-chan struct{}) error {
-	return errors.New("NOT IMPLEMENT YET")
+	stopChan <-chan struct{}) {
+	dialOption := grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg))
+	cc := &anpagent.ClientSetConfig{
+		Address:                 tunnelServerAddr,
+		AgentID:                 nodeName,
+		SyncInterval:            5 * time.Second,
+		ProbeInterval:           5 * time.Second,
+		ReconnectInterval:       5 * time.Second,
+		DialOption:              dialOption,
+		ServiceAccountTokenPath: "",
+	}
+
+	cs := cc.NewAgentClientSet(stopChan)
+	cs.Serve()
+	klog.Infof("start serving grpc request redirected from yurttunel-server: %s",
+		tunnelServerAddr)
 }

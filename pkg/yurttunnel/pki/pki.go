@@ -156,7 +156,7 @@ func GenTLSConfigUseCertMgrAndCA(
 
 // GenCertPoolUseCA generates a x509 CertPool based on the given CA file
 func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
-	if caFile != "" {
+	if caFile == "" {
 		return nil, errors.New("CA file is not set")
 	}
 

@@ -135,8 +135,8 @@ func (sw *storageWrapper) ListKeys(key string) ([]string, error) {
 
 // List get all of runtime objects that specified by key as prefix
 func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
-	objects := make([]runtime.Object, 0)
 	bb, err := sw.store.List(key)
+	objects := make([]runtime.Object, 0, len(bb))
 	if err != nil {
 		klog.Errorf("could not list objects for %s, %v", key, err)
 		return nil, err

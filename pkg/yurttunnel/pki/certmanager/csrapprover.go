@@ -143,12 +143,12 @@ func approveYurttunnelCSR(
 
 	approved, denied := checkCertApprovalCondition(&csr.Status)
 	if approved {
-		klog.Infof("csr(%s) is approved", csr.GetName())
+		klog.V(4).Infof("csr(%s) is approved", csr.GetName())
 		return nil
 	}
 
 	if denied {
-		klog.Infof("csr(%s) is denied", csr.GetName())
+		klog.V(4).Infof("csr(%s) is denied", csr.GetName())
 		return nil
 	}
 

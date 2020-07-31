@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"time"
 
@@ -75,8 +76,14 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 		"IPs that will be added into server's certificate. (e.g., ip1,ip2)")
 	flags.BoolVar(&o.enableIptables, "enable-iptables", o.enableIptables,
 		"if allow iptable manager to set the dnat rule.")
+	flags.BoolVar(&o.egressSelectorEnabled, "egress-selector-enable", o.egressSelectorEnabled,
+		"if the apiserver egress selector has been enabled.")
 	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period", o.iptablesSyncPeriod,
 		"the synchronization period of the iptable manager.")
+
+	// add klog flags as the global flagsets
+	klog.InitFlags(nil)
+	flags.AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 
@@ -89,12 +96,15 @@ type YurttunnelServerOptions struct {
 	certIPs                  string
 	version                  bool
 	enableIptables           bool
+	egressSelectorEnabled    bool
 	iptablesSyncPeriod       int
 	serverAgentPort          int
 	serverMasterPort         int
+	serverMasterInsecurePort int
 	interceptorServerUDSFile string
 	serverAgentAddr          string
 	serverMasterAddr         string
+	serverMasterInsecureAddr string
 	clientset                kubernetes.Interface
 	sharedInformerFactory    informers.SharedInformerFactory
 }
@@ -107,6 +117,7 @@ func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 		iptablesSyncPeriod:       60,
 		serverAgentPort:          constants.YurttunnelServerAgentPort,
 		serverMasterPort:         constants.YurttunnelServerMasterPort,
+		serverMasterInsecurePort: constants.YurttunnelServerMasterInsecurePort,
 		interceptorServerUDSFile: "/tmp/interceptor-proxier.sock",
 	}
 	return o
@@ -125,9 +136,12 @@ func (o *YurttunnelServerOptions) validate() error {
 func (o *YurttunnelServerOptions) complete() error {
 	o.serverAgentAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverAgentPort)
 	o.serverMasterAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterPort)
+	o.serverMasterInsecureAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterInsecurePort)
 	klog.Infof("server will accept %s requests at: %s, "+
-		"server will accept master requests at: %s",
-		projectinfo.GetAgentName(), o.serverAgentAddr, o.serverMasterAddr)
+		"server will accept master https requests at: %s"+
+		"server will accept master http request at: %s",
+		projectinfo.GetAgentName(), o.serverAgentAddr,
+		o.serverMasterAddr, o.serverMasterInsecureAddr)
 	var err error
 	// function 'kubeutil.CreateClientSet' will try to create the clientset
 	// based on the in-cluster config if the kubeconfig is empty. As
@@ -195,8 +209,13 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	}
 
 	// 5. start the server
-	if err := RunServer(ctx, o.interceptorServerUDSFile, o.serverMasterAddr,
-		o.serverAgentAddr, tlsCfg); err != nil {
+	if err := RunServer(ctx,
+		o.egressSelectorEnabled,
+		o.interceptorServerUDSFile,
+		o.serverMasterAddr,
+		o.serverMasterInsecureAddr,
+		o.serverAgentAddr,
+		tlsCfg); err != nil {
 		return err
 	}
 

@@ -61,10 +61,11 @@ The major OpenYurt components consist of:
 ## Getting started
 
 OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
-compatibility issues. We will support Kubernetes 1.18 very soon.
+compatibility issues.
 
-You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start OpenYurt with `yurtctl` command line tool. It can be built from the source code by doing
-the following, assuming the build system has golang 1.13+ and bash installed.
+You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start
+OpenYurt by using the `yurtctl` command line tool. To quickly build and install `yurtctl`,
+assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
 
 ```bash
 $ git clone https://github.com/alibaba/openyurt.git
@@ -72,11 +73,17 @@ $ cd openyurt
 $ make WHAT=cmd/yurtctl
 ```
 
-The `yurtctl` binary can be found at `_output/bin`. 
-Now you can easily convert an existing Kubernetes cluster to an OpenYurt cluster using `yurtctl` in one command line.
+The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
+the following simple command line can be used:
 
 ```bash
 $ _output/bin/yurtctl convert --provider [minikube|ack]
+```
+
+To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:
+
+```bash
+$ _output/bin/yurtctl revert
 ```
 
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
@@ -85,59 +92,28 @@ Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate how to use OpenYurt to manage edge applications.
 
-## Developer Guide
+## Roadmap
 
-There's a `Makefile` in the root folder. Here are some common options:
+- [2020 Q3 roadmap](docs/roadmap.md)
 
-Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtctl`)
-```bash
-make build
-```
+## Contributing
 
-Build specific binary for specific architecture. (`amd64`,`arm`,`arm64`)
-```mysql based
-GOOS=linux GOARCH=arm64 make build WHAT=cmd/yurtctl
-```
-
-Build all docker images for all supported architectures.
-```bash
-make release
-```
-
-Build all docker images for specific architecture.
-```base
-make release ARCH=arm64
-```
-
-Build yurt-e2e-test binary to test Openyurt.
-```
-$ make e2e 
-```
-Please check [ yurt-e2e-test tutorial](./docs/tutorial/yurt-e2e-test.md) for more details.
-
-## Uninstall
-
-One can uninstall OpenYurt and revert back to the original Kubernetes cluster settings by using `yurtctl`:
-
-```bash
-$ _output/bin/yurtctl revert
-```
-
-Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
+If you are willing to be a contributor for OpenYurt project, please refer to our [CONTRIBUTING](CONTRIBUTING.md) document for details.
+We have also prepared a developer [guide](./docs/developer-guide.md) to help the code contributors.
 
 ## Community
 
 If you have any questions or want to contribute, you are welcome to communicate most things via GitHub issues or pull requests.
-
 Other active communication channels:
 
-- Mailing List: TODO
+- Mailing List: openyurt@googlegroups.com
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
   <img src="docs/img/ding.jpeg" width=25% title="dingtalk">
 </div>
 
-## Copyright
+## License
 
+OpenYurt is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
 Certain implementations in OpenYurt rely on the existing code from Kubernetes and the credits go to the original Kubernetes authors.

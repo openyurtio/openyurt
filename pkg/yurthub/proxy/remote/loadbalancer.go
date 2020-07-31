@@ -128,7 +128,7 @@ func NewLoadBalancer(
 	healthChecker healthchecker.HealthChecker,
 	certManager interfaces.YurtCertificateManager,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
-	backends := make([]*RemoteProxy, 0)
+	backends := make([]*RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
 		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, healthChecker, stopCh)
 		if err != nil {

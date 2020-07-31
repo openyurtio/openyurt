@@ -61,11 +61,14 @@ func NewYurttunnelServerCertManager(
 		return false, nil
 	}, stopCh)
 	// add user specified DNS anems and IP addresses
-	dnsNames = append(dnsNames, strings.Split(clCertNames, ",")...)
-	for _, ipstr := range strings.Split(clIPs, ",") {
-		ips = append(ips, net.ParseIP(ipstr))
+	if clCertNames != "" {
+		dnsNames = append(dnsNames, strings.Split(clCertNames, ",")...)
 	}
-
+	if clIPs != "" {
+		for _, ipstr := range strings.Split(clIPs, ",") {
+			ips = append(ips, net.ParseIP(ipstr))
+		}
+	}
 	return newCertManager(
 		clientset,
 		"yurttunnel-server",
@@ -162,14 +165,16 @@ func getNodePortDNSandIP(
 	if len(nodeLst.Items) == 0 {
 		return dnsNames, ips, errors.New("there is no cloud node")
 	}
-	for i, addr := range nodeLst.Items[0].Status.Addresses {
+	var ipFound bool
+	for _, addr := range nodeLst.Items[0].Status.Addresses {
 		if addr.Type == corev1.NodeInternalIP {
+			ipFound = true
 			ips = append(ips, net.ParseIP(addr.Address))
 		}
+	}
+	if !ipFound {
 		// there is no qualified address (i.e. NodeInternalIP)
-		if i == len(nodeLst.Items[0].Status.Addresses)-1 {
-			return dnsNames, ips, errors.New("can't find node IP")
-		}
+		return dnsNames, ips, errors.New("can't find node IP")
 	}
 	return dnsNames, ips, nil
 }

@@ -1,0 +1,134 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: yurt-tunnel-server
+rules:
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - patch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  resourceNames:
+  - "kubernetes.io/legacy-unknown"
+  verbs:
+  - approve
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - endpoints
+  - configmaps
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: yurt-tunnel-server
+subjects:
+  - kind: ServiceAccount
+    name: yurt-tunnel-server
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: yurt-tunnel-server
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-tunnel-server
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-svc
+  namespace: kube-system
+  labels:
+    name: yurt-tunnel-server
+spec:
+  type: NodePort 
+  ports:
+  - port: 10263
+    targetPort: 10263
+    name: https
+  - port: 10262
+    targetPort: 10262
+    name: tcp
+  selector:
+    k8s-app: yurt-tunnel-server
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yurt-tunnel-server-cfg
+  namespace: kube-system
+data:
+  dnat-ports-pair: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yurt-tunnel-server
+  namespace: kube-system
+  labels:
+    k8s-app: yurt-tunnel-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: yurt-tunnel-server
+  template:
+    metadata:
+      labels:
+        k8s-app: yurt-tunnel-server
+    spec:
+      hostNetwork: true
+      serviceAccountName: yurt-tunnel-server
+      restartPolicy: Always
+      tolerations:
+      - key: "node-role.alibabacloud.com/addon"
+        operator: "Exists"
+        effect: "NoSchedule"
+      nodeSelector:
+        beta.kubernetes.io/arch: amd64
+        beta.kubernetes.io/os: linux
+        alibabacloud.com/is-edge-worker: "false"
+      containers:
+      - name: yurt-tunnel-server
+        image: openyurt/yurt-tunnel-server:latest
+        imagePullPolicy: Always
+        command:
+        - yurt-tunnel-server
+        args:
+        - --bind-address=$(NODE_IP)
+        env:
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
