@@ -48,7 +48,7 @@ func (fs *fakeStorage) Get(key string) ([]byte, error) {
 }
 
 func (fs *fakeStorage) ListKeys(key string) ([]string, error) {
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(fs.data))
 	for k := range fs.data {
 		keys = append(keys, k)
 	}
@@ -56,7 +56,7 @@ func (fs *fakeStorage) ListKeys(key string) ([]string, error) {
 }
 
 func (fs *fakeStorage) List(key string) ([][]byte, error) {
-	bb := make([][]byte, 0)
+	bb := make([][]byte, 0, len(fs.data))
 	for _, v := range fs.data {
 		bb = append(bb, []byte(v))
 	}
