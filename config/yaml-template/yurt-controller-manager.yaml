@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __project_prefix__-controller-manager
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: __project_prefix__-controller-manager
+  template:
+    metadata:
+      labels:
+        app: __project_prefix__-controller-manager
+    spec:
+      affinity:
+        nodeAffinity:
+          # we prefer allocating ecm on cloud node
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: __label_prefix__/is-edge-worker
+                operator: In
+                values:
+                - "false"
+      containers:
+      - name: __project_prefix__-controller-manager
+        image: __repo__/__project_prefix__-controller-manager:__tag__
+        command:
+        - __project_prefix__-controller-manager
