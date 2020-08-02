@@ -22,6 +22,7 @@ import (
 
 var (
 	projectPrefix = "yurt"
+	labelPrefix   = "openyurt.io"
 	gitVersion    = "v0.0.0"
 	gitCommit     = "unknown"
 	buildDate     = "1970-01-01T00:00:00Z"
@@ -29,6 +30,7 @@ var (
 
 type ProjectInfo struct {
 	ProjectPrefix string
+	LabelPrefix   string
 	GitVersion    string
 	GitCommit     string
 	BuildDate     string
@@ -39,6 +41,7 @@ type ProjectInfo struct {
 func Get() ProjectInfo {
 	return ProjectInfo{
 		ProjectPrefix: projectPrefix,
+		LabelPrefix:   labelPrefix,
 		GitVersion:    gitVersion,
 		GitCommit:     gitCommit,
 		BuildDate:     buildDate,

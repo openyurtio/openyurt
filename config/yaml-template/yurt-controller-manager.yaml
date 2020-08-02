@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: yurt-controller-manager
+  name: __project_prefix__-controller-manager
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: yurt-controller-manager
+      app: __project_prefix__-controller-manager
   template:
     metadata:
       labels:
-        app: yurt-controller-manager
+        app: __project_prefix__-controller-manager
     spec:
       affinity:
         nodeAffinity:
@@ -20,12 +20,12 @@ spec:
           - weight: 1
             preference:
               matchExpressions:
-              - key: alibabacloud.com/is-edge-worker
+              - key: __label_prefix__/is-edge-worker
                 operator: In
                 values:
                 - "false"
       containers:
-      - name: yurt-controller-manager
-        image: openyurt/yurt-controller-manager:latest
+      - name: __project_prefix__-controller-manager
+        image: __repo__/__project_prefix__-controller-manager:__tag__
         command:
-        - yurt-controller-manager
+        - __project_prefix__-controller-manager

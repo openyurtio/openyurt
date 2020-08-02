@@ -14,6 +14,8 @@ TAG="v0.1.1"
 readonly YURT_BIN_TARGETS=(
     yurthub
     yurt-controller-manager
+    yurt-tunnel-server
+    yurt-tunnel-agent
 )
 
 readonly SUPPORTED_ARCH=(
