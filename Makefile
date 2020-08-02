@@ -6,6 +6,10 @@ all: test build
 build: 
 	hack/make-rules/build.sh $(WHAT)
 
+# generate yaml files 
+gen-yaml:
+	hack/make-rules/genyaml.sh $(WHAT)
+
 # Run test
 test: fmt vet
 	go test ./pkg/... ./cmd/... -coverprofile cover.out

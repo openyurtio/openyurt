@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: yurt-tunnel-agent
+  name: __project_prefix__-tunnel-agent
 rules:
 - apiGroups:
   - ""
@@ -25,44 +25,44 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: yurt-tunnel-agent
+  name: __project_prefix__-tunnel-agent
 subjects:
 - kind: Group
   name: system:nodes
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
-  name: yurt-tunnel-agent
+  name: __project_prefix__-tunnel-agent
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    k8s-app: yurt-tunnel-agent
-  name: yurt-tunnel-agent
+    k8s-app: __project_prefix__-tunnel-agent
+  name: __project_prefix__-tunnel-agent
   namespace: kube-system
 spec:
   selector:
     matchLabels:
-      k8s-app: yurt-tunnel-agent
+      k8s-app: __project_prefix__-tunnel-agent
   template:
     metadata:
       labels:
-        k8s-app: yurt-tunnel-agent
+        k8s-app: __project_prefix__-tunnel-agent
     spec:
       nodeSelector:
         beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
-        alibabacloud.com/edge-enable-reverseTunnel-client: "true"
+        __label_prefix__/edge-enable-reverseTunnel-client: "true"
       containers:
       - command:
-        - yurt-tunnel-agent
+        - __project_prefix__-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
-        image: openyurt/yurt-tunnel-agent:latest
+        image: __repo__/__project_prefix__-tunnel-agent:__tag__
         imagePullPolicy: Always
-        name: yurt-tunnel-agent
+        name: __project_prefix__-tunnel-agent
         volumeMounts:
         - name: k8s-dir
           mountPath: /etc/kubernetes
