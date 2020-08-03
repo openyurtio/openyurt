@@ -21,7 +21,6 @@ type YurtE2eConfig struct {
 	RegionId           string
 	AccessKeyId        string
 	AccessKeySecret    string
-	AllowOperateNode   bool
 	EnableYurtAutonomy bool
 }
 
