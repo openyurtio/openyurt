@@ -16,46 +16,59 @@ limitations under the License.
 
 package user
 
-/*
-TODO
-*/
-
 import (
-	"fmt"
-	"github.com/alibaba/openyurt/test/e2e/common/node/types"
+    "fmt"
+    "github.com/alibaba/openyurt/test/e2e/common/node/types"
+    "github.com/onsi/ginkgo"
+    "strings"
 )
 
 type UserController struct {
-	RegionId string
+    RegionId string
 }
 
 func NewUserController(regionId, accessKeyId, accessKeySecret string) (*UserController, error) {
-	return &UserController{
-		RegionId: regionId,
-	}, nil
+    return &UserController{
+        RegionId: regionId,
+    }, nil
 }
 
 func (u *UserController) CreateNode(instanceType, imageId, vswitchId, userData string) (string, error) {
-	return "", nil
+    return "", nil
 }
 
 func (u *UserController) StartNode(instanceId string) error {
-	return nil
+    var Start string
+    for {
+        ginkgo.By("You should start local machine. Yurt-e2e-test will wait for starting after your input. Please input y or Y to make sure you have started node.")
+        fmt.Scan(&Start)
+        if strings.ToLower(Start) == "y" {
+            break
+        }
+    }
+    return nil
 }
 
 func (u *UserController) DeleteNode(instanceId string) error {
-	return nil
+    return nil
 }
 
 func (u *UserController) GetNodeInfo(instanceId string) (*types.NodeAttribute, error) {
-	return nil, nil
+    return nil, nil
 }
 
 func (u *UserController) RebootNode(instanceId string) error {
-	return nil
+    return nil
 }
 
 func (u *UserController) StopNode(instanceId string) error {
-	fmt.Println("user should restart user_self_mac")
-	return nil
+    var Stop string
+    for {
+        ginkgo.By("You should stop local machine. Yurt-e2e-test will wait for stopping after your input. Please input y or Y to make sure you have stopped node.")
+        fmt.Scan(&Stop)
+        if strings.ToLower(Stop) == "y" {
+            break
+        }
+    }
+    return nil
 }

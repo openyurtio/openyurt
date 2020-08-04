@@ -39,12 +39,11 @@ func IsEmptyString(s string) bool {
 	return s == ""
 }
 
-var AllowOperateNode = flag.Bool("allow-operate-node", false, "If set to true, yurt test will operate node by aliyun.such as ecs/ens")
+var EnableYurtAutonomy = flag.Bool("enable-yurt-autonomy", false, "switch of yurt node autonomy. If set to true, yurt node autonomy test can be run normally")
 var RegionId = flag.String("region-id", "", "aliyun region id for ailunyun:ecs/ens")
 var NodeType = flag.String("node-type", "minikube", "node type such as ailunyun:ecs/ens, minikube and user_self")
 var AccessKeyId = flag.String("access-key-id", "", "aliyun AccessKeyId  for ailunyun:ecs/ens")
 var AccessKeySecret = flag.String("access-key-secret", "", "aliyun AccessKeySecret  for ailunyun:ecs/ens")
-var EnableYurtAutonomy = flag.Bool("enable-yurt-autonomy", false, "If set to true, yurt test will execute yurt autonomy")
 
 func handleFlags() {
 	config.CopyFlags(config.Flags, flag.CommandLine)
@@ -54,18 +53,24 @@ func handleFlags() {
 }
 
 func IsvalidYurtArg() bool {
+	//enable-yurt-autonomy and node-type arg will decide whether enable node autonomy test or not.
+	//because one of node autonomy feature is depend on node restart.
+	//After node restarts, it can get data from localdisk and ensure business can run normally.
 	if !*EnableYurtAutonomy {
 		return true
 	}
 
+	//if node type is not aliyun related, then node autonomy test will depend on userself to operate node
 	nodeType := strings.ToLower(*NodeType)
 	if nodeType != nd.NODE_TYPE_ALIYUN_ECS && nodeType != nd.NODE_TYPE_ALIYUN_ENS {
 		klog.Infof("now,your node type is not aliyun_ecs and aliyun_ens, so yurt-autonomy test,will depend on you operationg your node")
 		return true
 	}
 
+	//if aliyun ecs or ens is used, then must provide ak/sk and regionid
+	//so yurt-e2e-test can operate node through aliyun sdk
 	if IsEmptyString(*RegionId) || IsEmptyString(*AccessKeyId) || IsEmptyString(*AccessKeySecret) {
-		klog.Errorf("if allow-operate-node is set true, regionId && accessKeyId && accessKeySecret must not be empty")
+		klog.Errorf("if enable-yurt-autonomy is set true and node type is aliyun related, region-id && access-key-id && access-key-secret must not be empty")
 		return false
 	}
 	return true
@@ -97,10 +102,9 @@ func PreCheckOk() bool {
 func SetYurtE2eCfg() {
 	yurtconfig.YurtE2eCfg.NodeType = strings.ToLower(*NodeType)
 	yurtconfig.YurtE2eCfg.RegionId = *RegionId
-	yurtconfig.YurtE2eCfg.AllowOperateNode = *AllowOperateNode
+	yurtconfig.YurtE2eCfg.EnableYurtAutonomy = *EnableYurtAutonomy
 	yurtconfig.YurtE2eCfg.AccessKeyId = *AccessKeyId
 	yurtconfig.YurtE2eCfg.AccessKeySecret = *AccessKeySecret
-	yurtconfig.YurtE2eCfg.EnableYurtAutonomy = *EnableYurtAutonomy
 }
 
 func TestMain(m *testing.M) {
