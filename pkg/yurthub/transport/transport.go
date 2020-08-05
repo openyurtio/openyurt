@@ -155,10 +155,12 @@ func (tm *transportManager) start() {
 				tm.closeAll()
 				lastCert = curr
 			}
-		} else {
+		}
+		/*else {
 			// lastCet != nil && curr == nil
 			// certificate expired or deleted unintentionally, just wait for cert updated by bootstrap config, do nothing
 		}
+		*/
 	}, 10*time.Second, tm.stopCh)
 }
 
