@@ -27,4 +27,4 @@ Build yurt-e2e-test binary to test Openyurt.
 make e2e
 ```
 
-Please check [ yurt-e2e-test tutorial](./yurt-e2e-test.md) for more details.
+Please check [ yurt-e2e-test tutorial](./tutorial/yurt-e2e-test.md) for more details.
