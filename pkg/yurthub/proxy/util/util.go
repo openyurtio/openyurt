@@ -141,10 +141,8 @@ func (wrw *wrapperResponseWriter) CloseNotify() <-chan bool {
 	}
 	klog.Infof("can't get http.CloseNotifier from http.ResponseWriter")
 	go func() {
-		select {
-		case <-wrw.ctx.Done():
-			wrw.closeNotifyCh <- true
-		}
+		<-wrw.ctx.Done()
+		wrw.closeNotifyCh <- true
 	}()
 
 	return wrw.closeNotifyCh

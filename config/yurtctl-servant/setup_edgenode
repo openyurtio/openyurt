@@ -242,7 +242,7 @@ case $ACTION in
         remove_yurthub
         ;;
     *)
-        error "unknwon action $ACTION"
+        error "unknown action $ACTION"
         exit 1
         ;;
 esac
