@@ -150,7 +150,8 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 	}
 
 	// 4. start the yurttunnel-agent
-	RunAgent(tlsCfg, tunnelServerAddr, o.nodeName, stopCh)
+	ta := NewTunnelAgent(tlsCfg, tunnelServerAddr, o.nodeName)
+	ta.Run(stopCh)
 
 	<-stopCh
 	return nil
