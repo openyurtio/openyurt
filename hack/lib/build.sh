@@ -123,7 +123,7 @@ gen_yamls() {
             yaml_targets+=("$target")        
         fi
     done
-    # if not specified, generate yaml for defualt yaml targets
+    # if not specified, generate yaml for default yaml targets
     if [ ${#yaml_targets[@]} -eq 0 ]; then
         yaml_targets=("${YURT_YAML_TARGETS[@]}")
     fi
