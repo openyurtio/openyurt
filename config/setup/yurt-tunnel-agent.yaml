@@ -54,7 +54,7 @@ spec:
       nodeSelector:
         beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
-        alibabacloud.com/edge-enable-reverseTunnel-client: "true"
+        openyurt.io/edge-enable-reverseTunnel-client: "true"
       containers:
       - command:
         - yurt-tunnel-agent

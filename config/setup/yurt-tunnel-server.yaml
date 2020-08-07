@@ -115,7 +115,7 @@ spec:
       nodeSelector:
         beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
-        alibabacloud.com/is-edge-worker: "false"
+        openyurt.io/is-edge-worker: "false"
       containers:
       - name: yurt-tunnel-server
         image: openyurt/yurt-tunnel-server:latest

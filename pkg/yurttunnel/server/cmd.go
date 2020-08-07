@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"time"
@@ -158,8 +157,6 @@ func (o *YurttunnelServerOptions) complete() error {
 
 // run starts the yurttunel-server
 func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	// 1. start the IP table manager
 	if o.enableIptables {
 		iptablesMgr := iptables.NewIptablesManager(o.clientset,
@@ -209,13 +206,14 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	}
 
 	// 5. start the server
-	if err := RunServer(ctx,
+	ts := NewTunnelServer(
 		o.egressSelectorEnabled,
 		o.interceptorServerUDSFile,
 		o.serverMasterAddr,
 		o.serverMasterInsecureAddr,
 		o.serverAgentAddr,
-		tlsCfg); err != nil {
+		tlsCfg)
+	if err := ts.Run(); err != nil {
 		return err
 	}
 
