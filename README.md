@@ -1,8 +1,13 @@
-<img src="docs/img/OpenYurt.png" width="400" height="94" align="middle" /><br/>
+<div align="center">
+  
+<img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
+[![Version](https://img.shields.io/badge/OpenYurt-v0.1.0--beta.1-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 [![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
+
+</div>
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 >>>>>>> upstream/master
@@ -22,7 +27,7 @@ OpenYurt is suitable for common edge computing use cases whose requirements incl
 OpenYurt has the following advantages in terms of compatibility and usability.
 - **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 
   operators, CNI plugins, and CSI plugins are supported.
-- **Seamless conversion**. It provides a tool to easily convert a native Kubernative to be "edge" ready.
+- **Seamless conversion**. It provides a tool to easily convert a native Kubernetes to be "edge" ready.
   The extra resource and maintenance costs of the OpenYurt components are very low.
 - **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
   The applications run in the edge nodes are not affected even if the nodes are offline. 
@@ -56,11 +61,12 @@ The major OpenYurt components consist of:
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions up to 1.14. Using higher Kubernetes versions may cause
-compatibility issues. We will support Kubernetes 1.16 very soon.
+OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
+compatibility issues.
 
-You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start OpenYurt with `yurtctl` command line tool. It can be built from the source code by doing
-the following, assuming the build system has golang 1.13+ and bash installed.
+You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start
+OpenYurt by using the `yurtctl` command line tool. To quickly build and install `yurtctl`,
+assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
 
 ```bash
 $ git clone https://github.com/alibaba/openyurt.git
@@ -68,11 +74,17 @@ $ cd openyurt
 $ make WHAT=cmd/yurtctl
 ```
 
-The `yurtctl` binary can be found at `_output/bin`. 
-Now you can easily convert an existing Kubernetes cluster to an OpenYurt cluster using `yurtctl` in one command line.
+The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
+the following simple command line can be used:
 
 ```bash
 $ _output/bin/yurtctl convert --provider [minikube|ack]
+```
+
+To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:
+
+```bash
+$ _output/bin/yurtctl revert
 ```
 
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
@@ -81,44 +93,28 @@ Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate how to use OpenYurt to manage edge applications.
 
-## Developer Guide
+## Roadmap
 
-There's a `Makefile` in the root folder. Here are some common options:
+- [2020 Q3 roadmap](docs/roadmap.md)
 
-Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtctl`)
-```bash
-make build
-```
+## Contributing
 
-Build all docker images 
-
-```bash
-make release
-```
-
-## Uninstall
-
-One can uninstall OpenYurt and revert back to the original Kubernetes cluster settings by using `yurtctl`:
-
-```bash
-$ _output/bin/yurtctl revert
-```
-
-Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
+If you are willing to be a contributor for OpenYurt project, please refer to our [CONTRIBUTING](CONTRIBUTING.md) document for details.
+We have also prepared a developer [guide](./docs/developer-guide.md) to help the code contributors.
 
 ## Community
 
 If you have any questions or want to contribute, you are welcome to communicate most things via GitHub issues or pull requests.
-
 Other active communication channels:
 
-- Mailing List: TODO
-- Dingtalk Group(钉钉讨论群)
+- Mailing List: openyurt@googlegroups.com
+- Dingtalk Group (钉钉讨论群)
 
 <div align="left">
   <img src="docs/img/ding.jpeg" width=25% title="dingtalk">
 </div>
 
-## Copyright
+## License
 
+OpenYurt is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
 Certain implementations in OpenYurt rely on the existing code from Kubernetes and the credits go to the original Kubernetes authors.

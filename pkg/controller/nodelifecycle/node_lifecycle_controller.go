@@ -55,7 +55,6 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/features"
 	kubefeatures "k8s.io/kubernetes/pkg/features"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
@@ -548,7 +547,7 @@ func NewNodeLifecycleController(
 	}
 
 	nc.leaseLister = leaseInformer.Lister()
-	if utilfeature.DefaultFeatureGate.Enabled(features.NodeLease) {
+	if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.NodeLease) {
 		nc.leaseInformerSynced = leaseInformer.Informer().HasSynced
 	} else {
 		// Always indicate that lease is synced to prevent syncing lease.
@@ -1117,7 +1116,7 @@ func (nc *Controller) tryUpdateNodeHealth(node *v1.Node) (time.Duration, v1.Node
 		}
 	}
 	var observedLease *coordv1beta1.Lease
-	if utilfeature.DefaultFeatureGate.Enabled(features.NodeLease) {
+	if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.NodeLease) {
 		// Always update the probe time if node lease is renewed.
 		// Note: If kubelet never posted the node status, but continues renewing the
 		// heartbeat leases, the node controller will assume the node is healthy and

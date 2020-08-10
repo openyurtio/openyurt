@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: __project_prefix__-hub
+  name: __project_prefix__-hub
+  namespace: kube-system
+spec:
+  volumes:
+  - name: pki
+    hostPath:
+      path: __pki_path__
+      type: Directory
+  - name: kubernetes
+    hostPath:
+      path: /etc/kubernetes
+      type: Directory
+  - name: pem-dir
+    hostPath:
+      path: /var/lib/kubelet/pki
+      type: Directory
+  containers:
+  - name: __project_prefix__-hub
+    image: __repo__/__project_prefix__hub:__tag__
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: kubernetes
+      mountPath: /etc/kubernetes
+    - name: pki
+      mountPath: /etc/kubernetes/pki
+    - name: pem-dir
+      mountPath: /var/lib/kubelet/pki
+    command:
+    - __project_prefix__hub 
+    - --v=2
+    - --server-addr=__server_addr__
+    - --node-name=$(NODE_NAME)
+    livenessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /v1/healthz
+        port: 10261
+      initialDelaySeconds: 300
+      periodSeconds: 5
+      failureThreshold: 3
+    resources:
+      requests:
+        cpu: 150m
+        memory: 150Mi
+      limits:
+        memory: 300Mi
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "NET_RAW"]
+    env:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  priority: 2000001000

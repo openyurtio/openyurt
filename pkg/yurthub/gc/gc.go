@@ -113,7 +113,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 		return err
 	}
 
-	currentPodKeys := make(map[string]struct{})
+	currentPodKeys := make(map[string]struct{}, len(podList.Items))
 	for i := range podList.Items {
 		name := podList.Items[i].Name
 		ns := podList.Items[i].Namespace

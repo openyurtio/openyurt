@@ -10,7 +10,6 @@ set -o pipefail
 KUBELET_CONF=${KUBELET_CONF:-/etc/kubernetes/kubelet.conf}
 KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
 KUBELET_CLI_PEM=${KUBELET_CLI_PEM:-/var/lib/kubelet/pki/kubelet-client-current.pem}
-BOOTSTRAP_KUBELET_CONF=${BOOTSTRAP_KUBELET_CONF:-/etc/kubernetes/bootstrap-kubelet.conf}
 OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
 STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
 MINIKUBE_PKI_DIR=${MINIKUBE_PKI_DIR:-/var/lib/minikube/certs}
@@ -115,7 +114,7 @@ preset() {
 # setup_yurthub sets up the yurthub pod and wait for the its status to be Running
 setup_yurthub() {
     provider=$1
-    # put yurt-hub yaml to /etc/kubernetes/manifests 
+    # 1. put yurt-hub yaml into /etc/kubernetes/manifests 
     if [ "$provider" == "minikube" ]; then
         log "setting up yurthub on nodes of minikube"
         yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" | 
@@ -127,7 +126,7 @@ setup_yurthub() {
     fi 
     echo "$yurthub_yaml" > ${STATIC_POD_PATH}/yurt-hub.yaml
     log "create the ${STATIC_POD_PATH}/yurt-hub.yaml"
-    # wait yurthub pod to be ready
+    # 2. wait yurthub pod to be ready
     local retry=5
     while [ $retry -ge 0 ] 
     do
@@ -180,27 +179,24 @@ setup_yurthub() {
 
 # reset_kubelet changes the configuration of the kubelet service and restart it
 reset_kubelet() {
-    # create a working dir to store revised kubelet.conf 
+    # 1. create a working dir to store revised kubelet.conf 
     mkdir -p $OPENYURT_DIR
     cp $KUBELET_CONF $OPENYURT_DIR/    
-    # revise the copy of the kubelet.conf
+    # 2. revise the copy of the kubelet.conf
     sed -i '/certificate-authority-data/d;
     /client-key/d;
     /client-certificate/d;
     /user:/d;
     s/ https.*/ http:\/\/127.0.0.1:10261/g' $OPENYURT_DIR/kubelet.conf
-    log "generated the revised kubeconfig $OPENYURT_DIR/kubelet.conf"
-    # revise the kubelet.service drop-in 
-    if [ -f $BOOTSTRAP_KUBELET_CONF ]; then
-        # /etc/kubernetes/bootstrap-kubelet.config exist, keep the 
-        # --bootstrap-kubeconfig option
-        sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
-    else
-        sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
+    log "revised kubeconfig $OPENYURT_DIR/kubelet.conf is generated"
+    # 3. revise the kubelet.service drop-in 
+    # 3.1 make a backup for the origin kubelet.service
+    cp $KUBELET_SVC ${KUBELET_SVC}.bk
+    # 3.2 revise the drop-in, point it to the $OPENYURT_DIR/kubelet.conf
+    sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
         s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
-    fi
-    log "revised the kubelet.service drop-in file"
-    # reset the kubelete.service
+    log "kubelet.service drop-in file is revised"
+    # 4. reset the kubelete.service
     systemctl daemon-reload
     systemctl restart kubelet.service
     log "kubelet has been restarted"
@@ -217,12 +213,19 @@ remove_yurthub() {
 # revert_kubelet resets the kubelet service and makes it connect to the 
 # apiserver directly
 revert_kubelet() {
-    # remove openyurt's kubelet.conf if exist
+    # 1. remove openyurt's kubelet.conf if exist
     [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
-    # revise the kubelet.service drop-in
-    sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
-    log "revised the kubelet.service drop-in file back to the default"
-    # reset the kubelete.service
+    if [ -f ${KUBELET_SVC}.bk ]; then
+        # if found, use the backup file 
+        log "found backup file ${KUBELET_SVC}.bk, will use it to revert the node"
+        mv ${KUBELET_SVC}.bk $KUBELET_SVC
+    else
+        # if the backup file doesn't not exist, revise the kubelet.service drop-in
+        log "didn't find the ${KUBELET_SVC}.bk, will revise the $KUBELE_SVC directly"
+        sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
+        log "revised the kubelet.service drop-in file back to the default"
+    fi
+    # 2. reset the kubelete.service
     systemctl daemon-reload
     systemctl restart kubelet.service
     log "kubelet has been reset back to default"
@@ -239,7 +242,7 @@ case $ACTION in
         remove_yurthub
         ;;
     *)
-        error "unknwon action $ACTION"
+        error "unknown action $ACTION"
         exit 1
         ;;
 esac
