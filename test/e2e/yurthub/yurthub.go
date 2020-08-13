@@ -18,6 +18,7 @@ package yurthub
 
 import (
 	"encoding/json"
+	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	nd "github.com/alibaba/openyurt/test/e2e/common/node"
 	"github.com/alibaba/openyurt/test/e2e/common/ns"
 	p "github.com/alibaba/openyurt/test/e2e/common/pod"
@@ -38,8 +39,6 @@ const (
 	YURTHUB_NAMESPACE_NAME = "yurthub-test"
 	STOP_NODE_WAIT_MINITE  = 1
 	START_NODE_WAIT_MINITE = 1
-	YURT_NODE_LABEL        = "alibabacloud.com/is-edge-worker"
-	YURT_NODE_ANNOTATION   = "node.beta.alibabacloud.com/autonomy"
 )
 
 func Register() {
@@ -82,7 +81,7 @@ func Register() {
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
 				spec.HostNetwork = true
-				spec.NodeSelector = map[string]string{YURT_NODE_LABEL: "true"}
+				spec.NodeSelector = map[string]string{constants.LabelEdgeWorker: "true"}
 				container.Name = "busybox"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}
@@ -104,7 +103,7 @@ func Register() {
 				ginkgo.By("set node " + pod.Spec.NodeName + " autonomy")
 				patchNode := apiv1.Node{
 					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{YURT_NODE_ANNOTATION: "true"},
+						Annotations: map[string]string{constants.AnnotationAutonomy: "true"},
 					},
 				}
 				patchData, err := json.Marshal(patchNode)
