@@ -22,6 +22,7 @@ import (
 	"github.com/alibaba/openyurt/test/e2e/yurt"
 	"github.com/alibaba/openyurt/test/e2e/yurtconfig"
 	"github.com/alibaba/openyurt/test/e2e/yurthub"
+	"github.com/alibaba/openyurt/test/e2e/yurttunnel"
 	"github.com/onsi/ginkgo"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,6 +128,7 @@ func TestMain(m *testing.M) {
 
 	yurt.Register()
 	yurthub.Register()
+	yurttunnel.Register()
 
 	os.Exit(m.Run())
 }
