@@ -1,4 +1,5 @@
 /*
+Copyright 2014 The Kubernetes Authors.
 Copyright 2020 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,18 +18,24 @@ limitations under the License.
 package yurttunnel
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"github.com/alibaba/openyurt/test/e2e/common/ns"
 	p "github.com/alibaba/openyurt/test/e2e/common/pod"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"io"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/ginkgowrapper"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -89,9 +96,48 @@ func PreCheckTunnelPod(c clientset.Interface) error {
 	return nil
 }
 
-//TODO
-func RunExecWithOutPut(c clientset.Interface, ns, podName, containerName string) (stdOut, stdErr string, err error) {
-	return
+func RunExecWithOutPut(c clientset.Interface, ns, podName, containerName string) (string, string, error) {
+	config, err := framework.LoadConfig()
+	if err != nil {
+		klog.Infof("load_config_failed:%v", err)
+		return "", "", err
+	}
+
+	const tty = false
+	req := c.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(ns).
+		SubResource("exec").
+		Param("container", containerName)
+	req.VersionedParams(&apiv1.PodExecOptions{
+		Container: containerName,
+		Command:   []string{"date"},
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       tty,
+	}, scheme.ParameterCodec)
+
+	var buffStdout, buffStderr bytes.Buffer
+	err = execute("POST", req.URL(), config, nil, &buffStdout, &buffStderr, tty)
+	if err != nil {
+		return "", "", err
+	}
+	return buffStdout.String(), buffStderr.String(), nil
+}
+
+func execute(method string, url *url.URL, config *restclient.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
+	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
+	if err != nil {
+		return err
+	}
+	return exec.Stream(remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+		Tty:    tty,
+	})
 }
 
 func Register() {
@@ -118,10 +164,11 @@ func Register() {
 		_, err = ns.CreateNameSpace(c, YURTTUNNEL_E2E_NAMESPACE_NAME)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-		framework.KubeDescribe(YURTTUNNEL_E2E_TEST_DESC+": pod_operate_test", func() {
-			ginkgo.It("yurttunnel_e2e_test_pod_create", func() {
+
+		framework.KubeDescribe(YURTTUNNEL_E2E_TEST_DESC+": pod_operate_test_on_edge", func() {
+			ginkgo.It("yurttunnel_e2e_test_pod_run_on_edge", func() {
 				cs := c
-				podName := "test-po"
+				podName := "test-po-on-edge"
 				objectMeta := metav1.ObjectMeta{}
 				objectMeta.Name = podName
 				objectMeta.Namespace = YURTTUNNEL_E2E_NAMESPACE_NAME
@@ -130,7 +177,7 @@ func Register() {
 				container := apiv1.Container{}
 				spec.HostNetwork = true
 				spec.NodeSelector = map[string]string{constants.LabelEdgeWorker: "true"}
-				container.Name = "test-po-yurttunnel"
+				container.Name = "test-po-yurttunnel-on-edge"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}
 				spec.Containers = []apiv1.Container{container}
@@ -151,19 +198,19 @@ func Register() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get status pod:"+podName)
 				gomega.Expect(pod.Name).Should(gomega.Equal(podName), podName+" get_pod_name:"+pod.Name+" not equal created pod:"+podName)
 
-				_, _, err = RunExecWithOutPut(c, YURTTUNNEL_E2E_NAMESPACE_NAME, pod.Name, container.Name)
+				stdOut, _, err := RunExecWithOutPut(c, YURTTUNNEL_E2E_NAMESPACE_NAME, pod.Name, container.Name)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail run exec:"+podName)
+				gomega.Expect(stdOut).ShouldNot(gomega.Equal(""), "exec edge pod return empty")
 
 				err = p.DeletePod(cs, YURTTUNNEL_E2E_NAMESPACE_NAME, podName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail remove pod:"+podName)
-
 				ginkgo.By("delete namespace: " + YURTTUNNEL_E2E_NAMESPACE_NAME)
 				err = ns.DeleteNameSpace(cs, YURTTUNNEL_E2E_NAMESPACE_NAME)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YURTTUNNEL_E2E_NAMESPACE_NAME)
 				framework.ExpectNoError(err)
 			})
-
 		})
+
 	})
 
 }
