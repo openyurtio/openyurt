@@ -18,6 +18,7 @@ package lock
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -32,6 +33,8 @@ const (
 	lockFinalizer         = "kubernetes"
 	AnnotationAcquireTime = "openyurt.io/yurtctllock.acquire.time"
 	AnnotationIsLocked    = "openyurt.io/yurtctllock.locked"
+
+	LockTimeoutMin = 5
 )
 
 var (
@@ -52,7 +55,7 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 					Namespace:  "kube-system",
 					Finalizers: []string{lockFinalizer},
 					Annotations: map[string]string{
-						AnnotationAcquireTime: time.Now().UTC().String(),
+						AnnotationAcquireTime: strconv.FormatInt(time.Now().Unix(), 10),
 						AnnotationIsLocked:    "true",
 					},
 				},
@@ -65,9 +68,27 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 			}
 			return nil
 		}
+		return AcquireLockErr
 	}
 
 	if lockCm.Annotations[AnnotationIsLocked] == "true" {
+		// check if the lock expired
+		//
+		// TODO The timeout mechanism is just a short-term workaround, in the
+		// future version, we will use a CRD and controller to manage the
+		// openyurt cluster, which also prevents the contention between users.
+		old, err := strconv.ParseInt(lockCm.Annotations[AnnotationAcquireTime], 10, 64)
+		if err != nil {
+			return AcquireLockErr
+		}
+		if isTimeout(old) {
+			// if the lock is expired, acquire it
+			if err := acquireLockAndUpdateCm(cli, lockCm); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		// lock has been acquired by others
 		klog.Errorf("the lock is held by others, it was being acquired at %s",
 			lockCm.Annotations[AnnotationAcquireTime])
@@ -75,19 +96,31 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 	}
 
 	if lockCm.Annotations[AnnotationIsLocked] == "false" {
-		lockCm.Annotations[AnnotationIsLocked] = "true"
-		lockCm.Annotations[AnnotationAcquireTime] = time.Now().UTC().String()
-		if _, err := cli.CoreV1().ConfigMaps("kube-system").
-			Update(lockCm); err != nil {
-			if apierrors.IsResourceExpired(err) {
-				klog.Error("the lock is held by others")
-				return AcquireLockErr
-			}
-			klog.Error("successfully acquire the lock but fail to update it")
-			return AcquireLockErr
+		if err := acquireLockAndUpdateCm(cli, lockCm); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func isTimeout(old int64) bool {
+	deadline := old + LockTimeoutMin*60
+	return time.Now().Unix() > deadline
+}
+
+func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) error {
+	lockCm.Annotations[AnnotationIsLocked] = "true"
+	lockCm.Annotations[AnnotationAcquireTime] = strconv.FormatInt(time.Now().Unix(), 10)
+	if _, err := cli.CoreV1().ConfigMaps("kube-system").
+		Update(lockCm); err != nil {
+		if apierrors.IsResourceExpired(err) {
+			klog.Error("the lock is held by others")
+			return AcquireLockErr
+		}
+		klog.Error("successfully acquire the lock but fail to update it")
+		return AcquireLockErr
+	}
 	return nil
 }
 
