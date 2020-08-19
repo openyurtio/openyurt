@@ -93,7 +93,7 @@ sed -i '/certificate-authority-data/d;
 In order to let kubelet to use the revised kubeconfig, we edit the drop-in file of the kubelet 
 service (i.e., `/etc/systemd/system/kubelet.service.d/10-kubeadm.conf`)
 ```bash
-sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" \
+sed -i "s|KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=\/etc\/kubernetes\/bootstrap-kubelet.conf\ --kubeconfig=\/etc\/kubernetes\/kubelet.conf|KUBELET_KUBECONFIG_ARGS=--kubeconfig=\/var\/lib\/openyurt\/kubelet.conf|g" \
     /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
