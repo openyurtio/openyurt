@@ -221,7 +221,7 @@ revert_kubelet() {
         mv ${KUBELET_SVC}.bk $KUBELET_SVC
     else
         # if the backup file doesn't not exist, revise the kubelet.service drop-in
-        log "didn't find the ${KUBELET_SVC}.bk, will revise the $KUBELE_SVC directly"
+        log "didn't find the ${KUBELET_SVC}.bk, will revise the $KUBELET_SVC directly"
         sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=$KUBELET_CONF|g;" $KUBELET_SVC
         log "revised the kubelet.service drop-in file back to the default"
     fi

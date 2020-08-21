@@ -33,6 +33,7 @@ func NewTunnelServer(
 	serverMasterAddr,
 	serverMasterInsecureAddr,
 	serverAgentAddr string,
+	serverCount int,
 	tlsCfg *tls.Config) TunnelServer {
 	ats := anpTunnelServer{
 		egressSelectorEnabled:    egressSelectorEnabled,
@@ -40,6 +41,7 @@ func NewTunnelServer(
 		serverMasterAddr:         serverMasterAddr,
 		serverMasterInsecureAddr: serverMasterInsecureAddr,
 		serverAgentAddr:          serverAgentAddr,
+		serverCount:              serverCount,
 		tlsCfg:                   tlsCfg,
 	}
 	return &ats

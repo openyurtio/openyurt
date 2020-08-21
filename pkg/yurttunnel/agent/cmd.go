@@ -26,11 +26,11 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 const defaultKubeconfig = "/etc/kubernetes/kubelet.conf"

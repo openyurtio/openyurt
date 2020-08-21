@@ -18,6 +18,7 @@ package yurthub
 
 import (
 	"encoding/json"
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	nd "github.com/alibaba/openyurt/test/e2e/common/node"
 	"github.com/alibaba/openyurt/test/e2e/common/ns"
@@ -81,7 +82,7 @@ func Register() {
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
 				spec.HostNetwork = true
-				spec.NodeSelector = map[string]string{constants.LabelEdgeWorker: "true"}
+				spec.NodeSelector = map[string]string{projectinfo.GetEdgeWorkerLabelKey(): "true"}
 				container.Name = "busybox"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}

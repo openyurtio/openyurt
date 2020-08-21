@@ -62,7 +62,8 @@ var (
 		"1.12", "1.12+",
 		"1.13", "1.13+",
 		"1.14", "1.14+",
-		"1.16", "1.16+"}
+		"1.16", "1.16+",
+		"1.18", "1.18+"}
 )
 
 // YamlToObject deserializes object in yaml format to a runtime.Object

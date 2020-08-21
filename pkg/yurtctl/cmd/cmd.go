@@ -43,7 +43,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 
 	klog.InitFlags(nil)
-	goflag.Parse()
+	// goflag.Parse()
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
 	return cmds

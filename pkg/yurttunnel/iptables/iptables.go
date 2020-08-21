@@ -37,8 +37,8 @@ import (
 	"k8s.io/utils/exec"
 	utilnet "k8s.io/utils/net"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 const (
@@ -57,7 +57,7 @@ const (
 )
 
 var (
-	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%stunnel-server-cfg", projectinfo.Get().ProjectPrefix)
+	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%stunnel-server-cfg", projectinfo.GetProjectPrefix())
 )
 
 type iptablesJumpChain struct {
@@ -270,8 +270,8 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 }
 
 func withoutAgent(node *corev1.Node) bool {
-	enableAgent, ok := node.Labels[constants.YurttunnelEnableAgentLabel]
-	if !ok || enableAgent != "true" {
+	edgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+	if !ok || edgeNode != "true" {
 		return true
 	}
 	return false

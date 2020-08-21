@@ -16,10 +16,6 @@ limitations under the License.
 
 package constants
 
-import (
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
-)
-
 const (
 	YurttunnelServerAgentPort          = 10262
 	YurttunnelServerMasterPort         = 10263
@@ -55,9 +51,4 @@ const (
 	YurttunnelANPGrpcKeepAliveTimeSec = 10
 	// wait 5 seconds for the probe ack before cutting the connection
 	YurttunnelANPGrpcKeepAliveTimeoutSec = 5
-)
-
-var (
-	YurtEdgeNodeLabel          = projectinfo.Get().LabelPrefix + "/is-edge-worker"
-	YurttunnelEnableAgentLabel = projectinfo.Get().LabelPrefix + "/edge-enable-reverseTunnel-client"
 )

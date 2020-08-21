@@ -44,6 +44,7 @@ type anpTunnelServer struct {
 	serverMasterAddr         string
 	serverMasterInsecureAddr string
 	serverAgentAddr          string
+	serverCount              int
 	tlsCfg                   *tls.Config
 }
 
@@ -51,7 +52,8 @@ var _ TunnelServer = &anpTunnelServer{}
 
 // Run runs the yurttunnel-server
 func (ats *anpTunnelServer) Run() error {
-	proxyServer := anpserver.NewProxyServer(uuid.New().String(), 1,
+	proxyServer := anpserver.NewProxyServer(uuid.New().String(),
+		ats.serverCount,
 		&anpserver.AgentTokenAuthenticationOptions{})
 	// 1. start the proxier
 	proxierErr := runProxier(

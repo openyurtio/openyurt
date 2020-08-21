@@ -27,12 +27,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command
@@ -74,11 +74,13 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.certIPs, "cert-ips", o.certIPs,
 		"IPs that will be added into server's certificate. (e.g., ip1,ip2)")
 	flags.BoolVar(&o.enableIptables, "enable-iptables", o.enableIptables,
-		"if allow iptable manager to set the dnat rule.")
+		"If allow iptable manager to set the dnat rule.")
 	flags.BoolVar(&o.egressSelectorEnabled, "egress-selector-enable", o.egressSelectorEnabled,
-		"if the apiserver egress selector has been enabled.")
+		"If the apiserver egress selector has been enabled.")
 	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period", o.iptablesSyncPeriod,
-		"the synchronization period of the iptable manager.")
+		"The synchronization period of the iptable manager.")
+	flags.IntVar(&o.serverCount, "server-count", o.serverCount,
+		"The number of proxy server instances, should be 1 unless it is an HA server.")
 
 	// add klog flags as the global flagsets
 	klog.InitFlags(nil)
@@ -100,6 +102,7 @@ type YurttunnelServerOptions struct {
 	serverAgentPort          int
 	serverMasterPort         int
 	serverMasterInsecurePort int
+	serverCount              int
 	interceptorServerUDSFile string
 	serverAgentAddr          string
 	serverMasterAddr         string
@@ -114,6 +117,7 @@ func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 		bindAddr:                 "0.0.0.0",
 		enableIptables:           true,
 		iptablesSyncPeriod:       60,
+		serverCount:              1,
 		serverAgentPort:          constants.YurttunnelServerAgentPort,
 		serverMasterPort:         constants.YurttunnelServerMasterPort,
 		serverMasterInsecurePort: constants.YurttunnelServerMasterInsecurePort,
@@ -212,6 +216,7 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		o.serverMasterAddr,
 		o.serverMasterInsecureAddr,
 		o.serverAgentAddr,
+		o.serverCount,
 		tlsCfg)
 	if err := ts.Run(); err != nil {
 		return err

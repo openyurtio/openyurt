@@ -20,6 +20,7 @@ package yurttunnel
 import (
 	"bytes"
 	"fmt"
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"github.com/alibaba/openyurt/test/e2e/common/ns"
 	p "github.com/alibaba/openyurt/test/e2e/common/pod"
@@ -164,7 +165,6 @@ func Register() {
 		_, err = ns.CreateNameSpace(c, YURTTUNNEL_E2E_NAMESPACE_NAME)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-
 		framework.KubeDescribe(YURTTUNNEL_E2E_TEST_DESC+": pod_operate_test_on_edge", func() {
 			ginkgo.It("yurttunnel_e2e_test_pod_run_on_edge", func() {
 				cs := c
@@ -176,7 +176,7 @@ func Register() {
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
 				spec.HostNetwork = true
-				spec.NodeSelector = map[string]string{constants.LabelEdgeWorker: "true"}
+				spec.NodeSelector = map[string]string{projectinfo.GetEdgeWorkerLabelKey(): "true"}
 				container.Name = "test-po-yurttunnel-on-edge"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}
