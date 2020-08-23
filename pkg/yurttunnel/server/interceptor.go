@@ -24,10 +24,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/klog"
+
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 )
 
 // RequRequestInterceptor intercepts http/https requests sent from the master,
@@ -60,6 +63,12 @@ func cloneRequest(req *http.Request, scheme, host, path string) *http.Request {
 	return r
 }
 
+func klogAndHttpError(w http.ResponseWriter, errCode int, format string, i ...interface{}) {
+	errMsg := fmt.Sprintf(format, i...)
+	klog.Error(errMsg)
+	http.Error(w, errMsg, errCode)
+}
+
 // setupTunnel sets up proxy tunnels from interceptor to kubelet
 // i.e., interceptor <-> proxier <-> agent <-> kubelet
 func setupTunnel(reqScheme, proxyAddr, destAddr string, tlsConfig *tls.Config) (net.Conn, error) {
@@ -71,6 +80,7 @@ func setupTunnel(reqScheme, proxyAddr, destAddr string, tlsConfig *tls.Config) (
 		klog.Error(errMsg)
 		return nil, errors.New(errMsg)
 	}
+
 	// 2. sends CONNECT to proxier
 	fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", destAddr, "127.0.0.1")
 	br := bufio.NewReader(proxyConn)
@@ -122,15 +132,15 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	// 1. setup the tunnel
 	tlsTunnelConn, err := setupTunnel(scheme, ri.UDSSockFile, r.Host, ri.TLSConfig)
 	if err != nil {
-		klog.Errorf("fail to setup the tunnel: %s", err)
-		http.Error(w, fmt.Sprintf("fail to setup the tunnel: %s",
-			err.Error()), http.StatusServiceUnavailable)
+		klogAndHttpError(w, http.StatusServiceUnavailable,
+			"fail to setup the tunnel: %s", err)
 		return
 	}
 
 	if err := r.Write(tlsTunnelConn); err != nil {
 		tlsTunnelConn.Close()
-		klog.Errorf("fail to write request to tls connection: %s", err)
+		klogAndHttpError(w, http.StatusServiceUnavailable,
+			"fail to write request to tls connection: %s", err)
 		return
 	}
 
@@ -149,18 +159,31 @@ func serveUpgradeRequest(tlsTunnelConn net.Conn, w http.ResponseWriter, r *http.
 	klog.Infof("start serving streaming request\n Headers: %v", r.Header)
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
-		klog.Error("can't assert response to http.Hijacker")
-		http.Error(w, fmt.Sprintf("fail to hijack response"),
-			http.StatusServiceUnavailable)
+		klogAndHttpError(w, http.StatusServiceUnavailable,
+			"can't assert response to http.Hijacker")
 		return
 	}
 	masterConn, _, err := hijacker.Hijack()
 	if err != nil {
-		errMsg := fmt.Sprintf("fail to hijack response: %s", err)
-		klog.Error(errMsg)
-		http.Error(w, errMsg, http.StatusServiceUnavailable)
+		klogAndHttpError(w, http.StatusServiceUnavailable,
+			"fail to hijack response: %s", err)
 		return
 	}
+	// As we hijack the ResponseWriter, enable the keepalive mechanism for the
+	// hijacked TCP connection.
+	if tc, ok := masterConn.(*net.TCPConn); ok {
+		if err := tc.SetKeepAlive(true); err != nil {
+			klogAndHttpError(w, http.StatusServiceUnavailable,
+				"fail to enable keepalive: %s", err)
+		}
+
+		keepalivePeriod := constants.YurttunnelANPInterceptorKeepAlivePeriodSec * time.Second
+		if err := tc.SetKeepAlivePeriod(keepalivePeriod); err != nil {
+			klogAndHttpError(w, http.StatusServiceUnavailable,
+				"fail to set keepalive period: %s", err)
+		}
+	}
+
 	readerComplete, writerComplete :=
 		make(chan struct{}), make(chan struct{})
 
@@ -177,34 +200,36 @@ func serveUpgradeRequest(tlsTunnelConn net.Conn, w http.ResponseWriter, r *http.
 	case <-writerComplete:
 	case <-readerComplete:
 	}
-	klog.Infof("stop serving streaming request\n"+
-		"Headers: %v", r.Header)
+	klog.Infof("stop serving streaming request\n Headers: %v", r.Header)
 	return
 }
 
 // serverRequest serves the normal requests, e.g., kubectl logs
 func serveRequest(tlsTunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
-	repFromTunnel, err := http.ReadResponse(bufio.NewReader(tlsTunnelConn), nil)
-	if err != nil {
-		klog.Errorf("fail to read response from the tunnel: %v", err)
-		http.Error(w, fmt.Sprintf("fail to read response from the tunnel %v", err),
-			http.StatusServiceUnavailable)
+	select {
+	case <-r.Context().Done():
+		klog.Error("connection closed by apiserver")
 		return
+	default:
+		repFromTunnel, err := http.ReadResponse(bufio.NewReader(tlsTunnelConn), nil)
+		if err != nil {
+			klogAndHttpError(w, http.StatusServiceUnavailable,
+				"fail to read response from the tunnel: %v", err)
+			return
+		}
+		klog.Info("successfully read the http response from the proxy tunnel")
+		defer repFromTunnel.Body.Close()
+
+		copyHeader(w.Header(), repFromTunnel.Header)
+		w.WriteHeader(repFromTunnel.StatusCode)
+
+		if _, err := io.Copy(w, repFromTunnel.Body); err != nil {
+			klogAndHttpError(w, http.StatusServiceUnavailable,
+				"fail to copy response from the tunnel back to the client: %s", err)
+			return
+		}
+
+		klog.Infof("stop serving request\n"+
+			"Headers: %v", r.Header)
 	}
-	klog.Info("successfully read the http response from the proxy tunnel")
-	defer repFromTunnel.Body.Close()
-
-	copyHeader(w.Header(), repFromTunnel.Header)
-	w.WriteHeader(repFromTunnel.StatusCode)
-
-	if _, err := io.Copy(w, repFromTunnel.Body); err != nil {
-		errMsg := fmt.Sprintf("fail to copy response from the tunnel "+
-			"back to the client: %s", err)
-		klog.Error(errMsg)
-		http.Error(w, errMsg, http.StatusServiceUnavailable)
-		return
-	}
-
-	klog.Infof("stop serving request\n"+
-		"Headers: %v", r.Header)
 }

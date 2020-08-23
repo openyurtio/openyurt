@@ -22,14 +22,17 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"k8s.io/klog"
 	anpserver "sigs.k8s.io/apiserver-network-proxy/pkg/server"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/proto/agent"
 
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	wh "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 )
 
@@ -103,7 +106,8 @@ func runProxier(handler http.Handler,
 	// network stack.
 	go func() {
 		server := &http.Server{
-			Handler: handler,
+			Handler:     handler,
+			ReadTimeout: constants.YurttunnelANPProxierReadTimeoutSec * time.Second,
 		}
 		unixListener, err := net.Listen("unix", udsSockFile)
 		if err != nil {
@@ -132,6 +136,7 @@ func runMasterServer(handler http.Handler,
 		server := http.Server{
 			Addr:         masterServerAddr,
 			Handler:      handler,
+			ReadTimeout:  constants.YurttunnelANPInterceptorReadTimeoutSec * time.Second,
 			TLSConfig:    tlsCfg,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		}
@@ -144,6 +149,7 @@ func runMasterServer(handler http.Handler,
 		klog.Infof("start handling http request from master at %s", masterServerInsecureAddr)
 		server := http.Server{
 			Addr:         masterServerInsecureAddr,
+			ReadTimeout:  constants.YurttunnelANPInterceptorReadTimeoutSec * time.Second,
 			Handler:      handler,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		}
@@ -163,7 +169,19 @@ func runAgentServer(tlsCfg *tls.Config,
 	agentServerAddr string,
 	proxyServer *anpserver.ProxyServer) error {
 	serverOption := grpc.Creds(credentials.NewTLS(tlsCfg))
-	grpcServer := grpc.NewServer(serverOption)
+
+	ka := keepalive.ServerParameters{
+		// Ping the client if it is idle for `Time` seconds to ensure the
+		// connection is still active
+		Time: constants.YurttunnelANPGrpcKeepAliveTimeSec * time.Second,
+		// Wait `Timeout` second for the ping ack before assuming the
+		// connection is dead
+		Timeout: constants.YurttunnelANPGrpcKeepAliveTimeoutSec * time.Second,
+	}
+
+	grpcServer := grpc.NewServer(serverOption,
+		grpc.KeepaliveParams(ka))
+
 	anpagent.RegisterAgentServiceServer(grpcServer, proxyServer)
 	listener, err := net.Listen("tcp", agentServerAddr)
 	klog.Info("start handling connection from agents")

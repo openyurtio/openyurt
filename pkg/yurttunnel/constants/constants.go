@@ -44,6 +44,17 @@ const (
 
 	// name of the environment variables used in pod
 	YurttunnelAgentPodIPEnv = "POD_IP"
+
+	// The timeout seconds of reading a complete request from the apiserver
+	YurttunnelANPInterceptorReadTimeoutSec = 10
+	// The period between two keep-alive probes
+	YurttunnelANPInterceptorKeepAlivePeriodSec = 10
+	// The timeout seconds for the interceptor to proceed a complete read from the proxier
+	YurttunnelANPProxierReadTimeoutSec = 10
+	// probe the client every 10 seconds to ensure the connection is still active
+	YurttunnelANPGrpcKeepAliveTimeSec = 10
+	// wait 5 seconds for the probe ack before cutting the connection
+	YurttunnelANPGrpcKeepAliveTimeoutSec = 5
 )
 
 var (
