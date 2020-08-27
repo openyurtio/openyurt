@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -155,7 +156,7 @@ func getNodePortDNSandIP(
 	clientset kubernetes.Interface,
 	dnsNames []string,
 	ips []net.IP) ([]string, []net.IP, error) {
-	labelSelector := fmt.Sprintf("%s=false", constants.YurtEdgeNodeLabel)
+	labelSelector := fmt.Sprintf("%s=false", projectinfo.GetEdgeWorkerLabelKey())
 	// yurttunnel-server will be deployed on one of the cloud nodes
 	nodeLst, err := clientset.CoreV1().Nodes().List(
 		metav1.ListOptions{LabelSelector: labelSelector})

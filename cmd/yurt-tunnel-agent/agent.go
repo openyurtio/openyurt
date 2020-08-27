@@ -22,8 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/agent"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
 )
 
 func main() {

@@ -17,6 +17,8 @@ limitations under the License.
 package revert
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/api/core/v1"
@@ -25,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
@@ -105,17 +108,19 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
-		isEdgeNode, ok := node.Labels[constants.LabelEdgeWorker]
+		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
 		if ok && isEdgeNode == "true" {
+			// cache edge nodes, we need to run servant job on each edge node later
 			edgeNodeNames = append(edgeNodeNames, node.GetName())
-
-			_, found := node.Annotations[constants.AnnotationAutonomy]
-			if found {
+			// remove the autonomy annotation, if found
+			_, foundAutonomy := node.Annotations[constants.AnnotationAutonomy]
+			if foundAutonomy {
 				delete(node.Annotations, constants.AnnotationAutonomy)
 			}
 		}
 		if ok {
-			delete(node.Labels, constants.LabelEdgeWorker)
+			// remove the label for both the cloud node and the edge node
+			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
 			if _, err = ro.clientSet.CoreV1().Nodes().Update(&node); err != nil {
 				return
 			}
@@ -133,7 +138,19 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("yurt controller manager is removed")
 
-	// 4. recreate the node-controller service account
+	// 5. remove the yurt-tunnel agent
+	if err = removeYurtTunnelAgent(ro.clientSet); err != nil {
+		klog.Errorf("fail to remove the yurt tunnel agent: %s", err)
+		return
+	}
+
+	// 6. remove the yurt-tunnel server
+	if err = removeYurtTunnelServer(ro.clientSet); err != nil {
+		klog.Errorf("fail to remove the yurt tunnel server: %s", err)
+		return
+	}
+
+	// 7. recreate the node-controller service account
 	ncSa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "node-controller",
@@ -147,7 +164,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("ServiceAccount node-controller is created")
 
-	// 5. remove yurt-hub and revert kubelet service
+	// 8. remove yurt-hub and revert kubelet service
 	if err = kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{
 			"action":                "revert",
@@ -159,4 +176,84 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("yurt-hub is removed, kubelet service is reset")
 	return
+}
+
+func removeYurtTunnelServer(client *kubernetes.Clientset) error {
+	// 1. remove the DaemonSet
+	if err := client.AppsV1().
+		DaemonSets(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelServerComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the daemonset/%s: %s",
+			constants.YurttunnelServerComponentName, err)
+	}
+	klog.V(4).Infof("daemonset/%s is deleted", constants.YurttunnelServerComponentName)
+
+	// 2. remove the Service
+	if err := client.CoreV1().Services(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelServerSvcName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the service/%s: %s",
+			constants.YurttunnelServerSvcName, err)
+	}
+	klog.V(4).Infof("service/%s is deleted", constants.YurttunnelServerSvcName)
+
+	// 3. remove the ClusterRoleBinding
+	if err := client.RbacV1().ClusterRoleBindings().
+		Delete(constants.YurttunnelServerComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
+			constants.YurttunnelServerComponentName, err)
+	}
+	klog.V(4).Infof("clusterrolebinding/%s is deleted", constants.YurttunnelServerComponentName)
+
+	// 4. remove the SerivceAccount
+	if err := client.CoreV1().ServiceAccounts(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelServerComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the serviceaccount/%s: %s",
+			constants.YurttunnelServerComponentName, err)
+	}
+	klog.V(4).Infof("serviceaccount/%s is deleted", constants.YurttunnelServerComponentName)
+
+	// 5. remove the ClusterRole
+	if err := client.RbacV1().ClusterRoles().
+		Delete(constants.YurttunnelServerComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
+			constants.YurttunnelServerComponentName, err)
+	}
+	klog.V(4).Infof("clusterrole/%s is deleted", constants.YurttunnelServerComponentName)
+	return nil
+}
+
+func removeYurtTunnelAgent(client *kubernetes.Clientset) error {
+	// 1. remove the DaemonSet
+	if err := client.AppsV1().
+		DaemonSets(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelAgentComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the daemonset/%s: %s",
+			constants.YurttunnelAgentComponentName, err)
+	}
+	klog.V(4).Infof("daemonset/%s is deleted", constants.YurttunnelAgentComponentName)
+
+	// 2. remove the ClusterRoleBinding
+	if err := client.RbacV1().ClusterRoleBindings().
+		Delete(constants.YurttunnelAgentComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
+			constants.YurttunnelAgentComponentName, err)
+	}
+	klog.V(4).Infof("clusterrolebinding/%s is deleted", constants.YurttunnelAgentComponentName)
+
+	// 3. remove the ClusterRole
+	if err := client.RbacV1().ClusterRoles().
+		Delete(constants.YurttunnelAgentComponentName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
+			constants.YurttunnelAgentComponentName, err)
+	}
+	klog.V(4).Infof("clusterrole/%s is deleted", constants.YurttunnelAgentComponentName)
+	return nil
 }

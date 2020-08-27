@@ -17,14 +17,15 @@ limitations under the License.
 package constants
 
 const (
-	// LabelEdgeWorker is used to identify if a node is a edge node ("true")
-	// or a cloud node ("false")
-	LabelEdgeWorker = "alibabacloud.com/is-edge-worker"
-
 	// AnnotationAutonomy is used to identify if a node is automous
 	AnnotationAutonomy = "node.beta.alibabacloud.com/autonomy"
 
-	YurtctlLockConfigMapName = `yurtctl-lock`
+	YurtctlLockConfigMapName = "yurtctl-lock"
+
+	YurttunnelServerComponentName = "yurt-tunnel-server"
+	YurttunnelServerSvcName       = "x-tunnel-server-svc"
+	YurttunnelAgentComponentName  = "yurt-tunnel-agent"
+	YurttunnelNamespace           = "kube-system"
 
 	// YurtControllerManagerDeployment defines the yurt controller manager
 	// deployment in yaml format
@@ -51,7 +52,7 @@ spec:
           - weight: 1
             preference:
               matchExpressions:
-              - key: alibabacloud.com/is-edge-worker
+              - key: {{.edgeNodeLabel}}
                 operator: In
                 values:
                 - "false"

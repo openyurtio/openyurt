@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
@@ -106,7 +107,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 	)
 	if mao.MarkAllEdgeNodes {
 		// make all edge nodes autonomous
-		labelSelector := fmt.Sprintf("%s=true", constants.LabelEdgeWorker)
+		labelSelector := fmt.Sprintf("%s=true", projectinfo.GetEdgeWorkerLabelKey())
 		edgeNodeList, err = mao.CoreV1().Nodes().
 			List(metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
@@ -127,7 +128,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 			if err != nil {
 				return
 			}
-			if node.Labels[constants.LabelEdgeWorker] == "false" {
+			if node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
 				err = fmt.Errorf("can't make cloud node(%s) autonomous",
 					node.GetName())
 				return
