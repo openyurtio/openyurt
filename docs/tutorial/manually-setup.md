@@ -70,6 +70,10 @@ scp -i <yourt-ssh-identity-file> /tmp/yurthub-ack.yaml root@us-west-1.192.168.0.
 ```
 and the Yurthub will be ready in minutes.
 
+## Setup Yurt-tunnel (Optional)
+
+Please refer to this [document](.//yurt-tunnel.md#5-setup-the-yurt-tunnel-manually) to setup Yurttunnel manually. 
+
 ## Reset the Kubelet 
 
 By now, we have setup all required components for the OpenYurt cluster, next, we only need to reset the 
