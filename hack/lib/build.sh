@@ -14,12 +14,14 @@
 
 #!/usr/bin/env bash
 
+set -x
+
 readonly YURT_ALL_TARGETS=(
-    cmd/yurtctl
-    cmd/yurthub
-    cmd/yurt-controller-manager
-    cmd/yurt-tunnel-server
-    cmd/yurt-tunnel-agent
+    yurtctl
+    yurthub
+    yurt-controller-manager
+    yurt-tunnel-server
+    yurt-tunnel-agent
 )
 
 # we will generates setup yaml files for following components
@@ -51,7 +53,7 @@ project_info() {
 # is set, it subsitutes the prefix of the executable's name with the env, 
 # otherwise the basename of the target is used
 get_output_name() {
-    local oup_name=$(basename $1)
+    local oup_name=$1
     PROJECT_PREFIX=${PROJECT_PREFIX:-}
     if [ ! -z $PROJECT_PREFIX ]; then
         oup_name=${oup_name/yurt/$PROJECT_PREFIX}
@@ -94,7 +96,7 @@ build_binaries() {
       echo "Building ${binary}"
       go build -o $(get_output_name $binary) \
           -ldflags "${goldflags:-}" \
-          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/${binary}
+          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/${binary}
     done
 }
 

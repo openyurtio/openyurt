@@ -20,7 +20,8 @@ set -o pipefail
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 YURT_MOD="$(head -1 $YURT_ROOT/go.mod | awk '{print $2}')"
-YURT_OUTPUT_DIR=${YURT_ROOT}/_output/
-YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin/
+YURT_OUTPUT_DIR=${YURT_ROOT}/_output
+YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
 
 source "${YURT_ROOT}/hack/lib/build.sh"
+source "${YURT_ROOT}/hack/lib/release-images.sh"
