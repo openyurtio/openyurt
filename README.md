@@ -11,11 +11,12 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
+|August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
 OpenYurt is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
 In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
-in the cloud infrastructure. 
+in the cloud infrastructure. Our official website is [https://openyurt.io](https://openyurt.io).
 
 OpenYurt is suitable for common edge computing use cases whose requirements include:
 - Minimizing the network traffic over long distances between the devices and the workloads.

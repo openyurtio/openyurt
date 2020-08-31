@@ -1,4 +1,4 @@
-# Try out Yurt-tunnel
+# Use Yurt-tunnel to connect apiserver and edge node
 
 In this tutorial, we will show how the yurt-tunnel helps the apiserver send 
 request to nodes when the network traffic from apiserver to the node is 
@@ -83,7 +83,16 @@ $ sudo iptables -A OUTPUT -p tcp -d 192.168.64.9 --dport 10250 -j DROP
 Now, if we try to execute the `date` command in `test-po` again, the command 
 will hang.
 
-### 5. Setup the yurt-tunnel
+### 5. Setup the yurt-tunnel manually
+
+It is recommended to use `yurtctl` tool to deploy yurt-tunnel components by
+adding the `--deploy-yurttunnel` option when coverting a Kubernetes cluster. For example,
+```bash
+yurtctl convert --cloud-nodes minikube --provider minikube --deploy-yurttunnel
+```
+
+You may also setup the yurt-tunnel manually by deploying yurt-tunnel-server
+and yurt-tunnel-agent separately.
 
 To set up the yurt-tunnel-server, let's first add a label to the cloud node
 ```bash
