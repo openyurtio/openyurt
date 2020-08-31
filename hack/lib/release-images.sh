@@ -19,7 +19,7 @@ YURTCTL_SERVANT_DIR=${YURT_ROOT}/config/yurtctl-servant
 DOCKER_BUILD_BASE_IDR=$YURT_ROOT/dockerbuild
 YURT_BUILD_IMAGE="golang:1.13-alpine"
 REPO="openyurt"
-TAG="v0.1.1"
+TAG="v0.2.0"
 
 readonly -a YURT_BIN_TARGETS=(
     yurthub
@@ -38,7 +38,7 @@ readonly -a SUPPORTED_ARCH=(
 readonly SUPPORTED_OS=linux
 
 readonly -a bin_targets=(${WHAT:-${YURT_BIN_TARGETS[@]}})
-readonly -a bin_targets_without_servant=(${bin_targets[@]/yurtctl-servant})
+readonly -a bin_targets_without_servant=("${bin_targets[@]/yurtctl-servant}")
 readonly -a target_arch=(${ARCH:-${SUPPORTED_ARCH[@]}})
 readonly region=${REGION:-us}
 

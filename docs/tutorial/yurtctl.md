@@ -149,6 +149,37 @@ NAME                                               NODE
 yurt-controller-manager-6947f6f748-lxfdx           us-west-1.192.168.0.87
 ```
 
+## Setup Yurttunnel
+
+Since version v0.2.0, users can setup the yurttunnel using `yurtctl convert`. 
+
+Assume that the origin cluster is a two-nodes minikube cluster:
+
+```bash
+$ kubectl get node -o wide
+NAME           STATUS   ROLES    AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE           KERNEL-VERSION     CONTAINER-RUNTIME
+minikube       Ready    master   72m   v1.18.3   172.17.0.3    <none>        Ubuntu 20.04 LTS   4.19.76-linuxkit   docker://19.3.8
+minikube-m02   Ready    <none>   71m   v1.18.3   172.17.0.4    <none>        Ubuntu 20.04 LTS   4.19.76-linuxkit   docker://19.3.8
+```
+
+Then, by simply running the `yurtctl convert` command with the enabling of the option `--deploy-yurttunnel`, 
+yurttunnel servers will be deployed on cloud nodes, and an yurttunnel agent will be deployed on every edge node.
+
+```bash
+$ yurtctl convert --deploy-yurttunnel --cloud-nodes minikube --provider minikube
+I0831 12:35:51.719391   77322 convert.go:214] mark minikube as the cloud-node
+I0831 12:35:51.728246   77322 convert.go:222] mark minikube-m02 as the edge-node
+I0831 12:35:51.753830   77322 convert.go:251] the yurt-controller-manager is deployed
+I0831 12:35:51.910440   77322 convert.go:270] yurt-tunnel-server is deployed
+I0831 12:35:51.999384   77322 convert.go:278] yurt-tunnel-agent is deployed
+I0831 12:35:51.999409   77322 convert.go:282] deploying the yurt-hub and resetting the kubelet service...
+I0831 12:36:22.109338   77322 util.go:173] servant job(yurtctl-servant-convert-minikube-m02) has succeeded
+I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
+```
+
+To verify that the yurttunnel works as expected, please refer to 
+the [yurttunnel tutorial](https://github.com/alibaba/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
+
 ## Revert/Uninstall OpenYurt
 
 Using `yurtctl` to revert an OpenYurt cluster can be done by doing the following:
