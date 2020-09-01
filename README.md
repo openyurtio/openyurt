@@ -97,12 +97,22 @@ We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate h
 
 - [2020 Q3 roadmap](docs/roadmap.md)
 
-## Contributing
+## Community
+
+### Contributing
 
 If you are willing to be a contributor for OpenYurt project, please refer to our [CONTRIBUTING](CONTRIBUTING.md) document for details.
 We have also prepared a developer [guide](./docs/developer-guide.md) to help the code contributors.
 
-## Community
+### Meeting
+
+| Item        | Value  |
+|---------------------|---|
+| APAC Friendly Community meeting | [Bi-weekly APAC (Starting Sep 2, 2020), Wednesday 10:00AM GMT+8](https://calendar.google.com/calendar?cid=a3Y3aWQ4MWczcWliMjhkNGFqcXJmMjNwMXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
+| Meeting link APAC Friendly meeting | https://zoom.us/j/99639193252 |
+| Meeting notes| [Notes and agenda](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
+
+### Contact
 
 If you have any questions or want to contribute, you are welcome to communicate most things via GitHub issues or pull requests.
 Other active communication channels:
