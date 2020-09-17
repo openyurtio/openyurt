@@ -32,33 +32,21 @@ readonly YURT_YAML_TARGETS=(
     yurt-tunnel-agent
 )
 
-PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
-LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION="v0.1.1"
-GIT_COMMIT=$(git rev-parse HEAD)
-BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+#PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
+#LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
+#GIT_VERSION="v0.1.1"
+#GIT_COMMIT=$(git rev-parse HEAD)
+#BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 # project_info generates the project information and the corresponding valuse 
 # for 'ldflags -X' option
 project_info() {
-    PROJECT_INFO_PKG=${YURT_MOD}/pkg/yurttunnel/projectinfo
+    PROJECT_INFO_PKG=${YURT_MOD}/pkg/projectinfo
     echo "-X ${PROJECT_INFO_PKG}.projectPrefix=${PROJECT_PREFIX}"
     echo "-X ${PROJECT_INFO_PKG}.labelPrefix=${LABEL_PREFIX}"
     echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
     echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
     echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
-}
-
-# get_output_name generates the executable's name. If the $PROJECT_PREFIX
-# is set, it subsitutes the prefix of the executable's name with the env, 
-# otherwise the basename of the target is used
-get_output_name() {
-    local oup_name=$1
-    PROJECT_PREFIX=${PROJECT_PREFIX:-}
-    if [ ! -z $PROJECT_PREFIX ]; then
-        oup_name=${oup_name/yurt/$PROJECT_PREFIX}
-    fi
-    echo $oup_name
 }
 
 # get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
@@ -96,7 +84,7 @@ build_binaries() {
       echo "Building ${binary}"
       go build -o $(get_output_name $binary) \
           -ldflags "${goldflags:-}" \
-          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/${binary}
+          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
 }
 
