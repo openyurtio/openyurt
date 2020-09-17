@@ -62,12 +62,12 @@ func ValidateOptions(options *YurtHubOptions) error {
 
 // AddFlags returns flags for a specific yurthub by section name
 func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.YurtHubHost, "yurt-hub-host", o.YurtHubHost, "the host that used to connect yurthub.")
-	fs.IntVar(&o.YurtHubPort, "yurt-hub-port", o.YurtHubPort, "the port that used to connect yurthub.")
+	fs.StringVar(&o.YurtHubHost, "bind-address", o.YurtHubHost, "the IP address on which to listen for the --serve-port port.")
+	fs.IntVar(&o.YurtHubPort, "serve-port", o.YurtHubPort, "the port on which to serve HTTP.")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringVar(&o.CertMgrMode, "cert-mgr-mode", o.CertMgrMode, "the cert manager mode, kubelet: use certificates that belongs to kubelet")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
-	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs yurthub")
+	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs hub agent")
 	fs.StringVar(&o.LBMode, "lb-mode", o.LBMode, "the mode of load balancer to connect remote servers(rr, priority)")
 	fs.IntVar(&o.HeartbeatFailedRetry, "heartbeat-failed-retry", o.HeartbeatFailedRetry, "number of heartbeat request retry after having failed.")
 	fs.IntVar(&o.HeartbeatHealthyThreshold, "heartbeat-healthy-threshold", o.HeartbeatHealthyThreshold, "minimum consecutive successes for the heartbeat to be considered healthy after having failed.")

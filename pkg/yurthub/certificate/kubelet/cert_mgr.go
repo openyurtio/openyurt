@@ -69,7 +69,7 @@ func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duratio
 	var cert *tls.Certificate
 	var pairFile string
 	if cfg == nil || len(cfg.RemoteServers) == 0 {
-		return nil, fmt.Errorf("yurthub configuration is invalid")
+		return nil, fmt.Errorf("hub configuration is invalid")
 	}
 
 	if period == time.Duration(0) {
