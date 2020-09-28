@@ -63,3 +63,8 @@ func GetAgentName() string {
 func GetEdgeWorkerLabelKey() string {
 	return labelPrefix + "/is-edge-worker"
 }
+
+// GetHubName returns name of yurthub agent
+func GetHubName() string {
+	return projectPrefix + "hub"
+}
