@@ -6,6 +6,7 @@ import (
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate"
+	"github.com/alibaba/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate/initializer"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/alibaba/openyurt/pkg/yurthub/gc"
@@ -79,6 +80,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. register cert managers", trace)
 	cmr := certificate.NewCertificateManagerRegistry()
 	kubelet.Register(cmr)
+	hubself.Register(cmr)
 	trace++
 
 	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)

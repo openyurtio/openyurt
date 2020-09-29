@@ -31,7 +31,7 @@ type CertificateManagerInitializer struct {
 	checker healthchecker.HealthChecker
 }
 
-// NewCMInitializer creates an *CertificateManagerInitializer object
+// NewCMInitializer creates an CertificateManagerInitializer object
 func NewCMInitializer(checker healthchecker.HealthChecker) *CertificateManagerInitializer {
 	return &CertificateManagerInitializer{
 		checker: checker,
