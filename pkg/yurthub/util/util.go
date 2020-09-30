@@ -33,6 +33,8 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog"
 )
@@ -254,7 +256,7 @@ func IsSupportedLBMode(lbMode string) bool {
 // IsSupportedCertMode check cert mode is supported or not
 func IsSupportedCertMode(certMode string) bool {
 	switch certMode {
-	case "kubelet":
+	case "kubelet", "hubself":
 		return true
 	}
 
@@ -295,4 +297,64 @@ func LoadKubeletRestClientConfig(healthyServer *url.URL) (*rest.Config, error) {
 		Host:            healthyServer.String(),
 		TLSClientConfig: tlsClientConfig,
 	}, nil
+}
+
+func LoadRESTClientConfig(kubeconfig string) (*rest.Config, error) {
+	// Load structured kubeconfig data from the given path.
+	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
+	loadedConfig, err := loader.Load()
+	if err != nil {
+		return nil, err
+	}
+	// Flatten the loaded data to a particular restclient.Config based on the current context.
+	return clientcmd.NewNonInteractiveClientConfig(
+		*loadedConfig,
+		loadedConfig.CurrentContext,
+		&clientcmd.ConfigOverrides{},
+		loader,
+	).ClientConfig()
+}
+
+func LoadKubeConfig(kubeconfig string) (*clientcmdapi.Config, error) {
+	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
+	loadedConfig, err := loader.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return loadedConfig, nil
+}
+
+func CreateKubeConfigFile(kubeClientConfig *rest.Config, kubeconfigPath string) error {
+	// Get the CA data from the bootstrap client config.
+	caFile, caData := kubeClientConfig.CAFile, []byte{}
+	if len(caFile) == 0 {
+		caData = kubeClientConfig.CAData
+	}
+
+	// Build resulting kubeconfig.
+	kubeconfigData := clientcmdapi.Config{
+		// Define a cluster stanza based on the bootstrap kubeconfig.
+		Clusters: map[string]*clientcmdapi.Cluster{"default-cluster": {
+			Server:                   kubeClientConfig.Host,
+			InsecureSkipTLSVerify:    kubeClientConfig.Insecure,
+			CertificateAuthority:     caFile,
+			CertificateAuthorityData: caData,
+		}},
+		// Define auth based on the obtained client cert.
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{"default-auth": {
+			ClientCertificate: kubeClientConfig.CertFile,
+			ClientKey:         kubeClientConfig.KeyFile,
+		}},
+		// Define a context that connects the auth info and cluster, and set it as the default
+		Contexts: map[string]*clientcmdapi.Context{"default-context": {
+			Cluster:   "default-cluster",
+			AuthInfo:  "default-auth",
+			Namespace: "default",
+		}},
+		CurrentContext: "default-context",
+	}
+
+	// Marshal to disk
+	return clientcmd.WriteToFile(kubeconfigData, kubeconfigPath)
 }

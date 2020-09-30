@@ -25,11 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-
 	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate"
 	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
 	"github.com/alibaba/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/util/wait"

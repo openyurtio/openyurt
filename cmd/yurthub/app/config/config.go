@@ -24,6 +24,8 @@ type YurtHubConfiguration struct {
 	HeartbeatHealthyThreshold int
 	HeartbeatTimeoutSeconds   int
 	MaxRequestInFlight        int
+	JoinToken                 string
+	RootDir                   string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -45,6 +47,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HeartbeatHealthyThreshold: options.HeartbeatHealthyThreshold,
 		HeartbeatTimeoutSeconds:   options.HeartbeatTimeoutSeconds,
 		MaxRequestInFlight:        options.MaxRequestInFlight,
+		JoinToken:                 options.JoinToken,
+		RootDir:                   options.RootDir,
 	}
 
 	return cfg, nil
