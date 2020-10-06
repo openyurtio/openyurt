@@ -65,6 +65,9 @@ func (s *yurtHubServer) Run() {
 }
 
 func (s *yurtHubServer) registerHandler() {
+	// register handlers for update join token
+	s.mux.HandleFunc("/v1/token", s.updateToken).Methods("POST", "PUT")
+
 	// register handler for health check
 	s.mux.HandleFunc("/v1/healthz", s.healthz).Methods("GET")
 
