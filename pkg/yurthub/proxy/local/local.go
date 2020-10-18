@@ -183,6 +183,9 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 
 	for {
 		select {
+		case <-ctx.Done():
+			klog.Infof("exit request %s for context: %v", util.ReqString(req), ctx.Err())
+			return nil
 		case <-watchTimer.C:
 			return nil
 		case <-intervalTicker.C:
