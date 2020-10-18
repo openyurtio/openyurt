@@ -25,6 +25,28 @@ import (
 	"k8s.io/klog"
 )
 
+// closableConn is used to remove reference in dialer
+// when conn is closed by http transport
+type closableConn struct {
+	net.Conn
+	dialer *Dialer
+	addr   string
+}
+
+// Close is called by http transport, so remove the conn reference in dialer
+// and close conn.
+func (c *closableConn) Close() error {
+	c.dialer.mu.Lock()
+	remain := len(c.dialer.addrConns[c.addr])
+	if remain >= 1 {
+		delete(c.dialer.addrConns[c.addr], c)
+		remain--
+	}
+	c.dialer.mu.Unlock()
+	klog.Infof("close connection from %s to %s for %s dialer, remain %d connections", c.Conn.LocalAddr().String(), c.addr, c.dialer.name, remain)
+	return c.Conn.Close()
+}
+
 // DialFunc is a shorthand for signature of net.DialContext.
 type DialFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
@@ -34,7 +56,7 @@ type Dialer struct {
 	name string
 
 	mu        sync.Mutex
-	addrConns map[string]map[net.Conn]struct{}
+	addrConns map[string]map[*closableConn]struct{}
 }
 
 // NewDialer creates a new Dialer instance.
@@ -45,7 +67,7 @@ func NewDialer(name string) *Dialer {
 	return &Dialer{
 		name:      name,
 		dial:      (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		addrConns: make(map[string]map[net.Conn]struct{}),
+		addrConns: make(map[string]map[*closableConn]struct{}),
 	}
 }
 
@@ -60,12 +82,12 @@ func (d *Dialer) Name() string {
 func (d *Dialer) CloseAll() {
 	d.mu.Lock()
 	addrConns := d.addrConns
-	d.addrConns = make(map[string]map[net.Conn]struct{})
+	d.addrConns = make(map[string]map[*closableConn]struct{})
 	d.mu.Unlock()
 
 	for addr, conns := range addrConns {
 		for conn := range conns {
-			conn.Close()
+			conn.Conn.Close()
 			delete(conns, conn)
 		}
 		delete(addrConns, addr)
@@ -81,9 +103,9 @@ func (d *Dialer) Close(address string) {
 	delete(d.addrConns, address)
 	d.mu.Unlock()
 
-	klog.Infof("%s dialer forcibly close %d connections on %s", d.name, len(conns), address)
+	klog.Infof("forcibly close %d connections on %s for %s dialer", len(conns), address, d.name)
 	for conn := range conns {
-		conn.Close()
+		conn.Conn.Close()
 		delete(conns, conn)
 	}
 }
@@ -101,16 +123,20 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 		return nil, err
 	}
 
+	closable := &closableConn{
+		Conn:   conn,
+		dialer: d,
+		addr:   address,
+	}
+
 	// Start tracking the connection
-	cnt := 0
 	d.mu.Lock()
 	if d.addrConns[address] == nil {
-		d.addrConns[address] = make(map[net.Conn]struct{})
+		d.addrConns[address] = make(map[*closableConn]struct{})
 	}
-	d.addrConns[address][conn] = struct{}{}
-	cnt = len(d.addrConns[address])
+	d.addrConns[address][closable] = struct{}{}
 	d.mu.Unlock()
 
-	klog.Infof("%s dialer create a new connection from %s to %s, total connections: %d", d.name, conn.LocalAddr().String(), address, cnt)
-	return conn, nil
+	klog.Infof("create a connection from %s to %s, total %d connections in %s dialer", conn.LocalAddr().String(), address, len(d.addrConns[address]), d.name)
+	return closable, nil
 }
