@@ -228,7 +228,20 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		}
 	}
 
-	// 3. deploy yurt controller manager
+	// 3. bind the cluster-admin role to the kube-system:default serviceaccount
+	obj, err := kubeutil.YamlToObject([]byte(constants.AddOnClusterAdminRoleBinding))
+	if err != nil {
+		klog.Errorf("fail to convert clusterrolebinding/add-to-cluster-admin from yaml: %s", err)
+	}
+	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
+	if !ok {
+		return fmt.Errorf("fail to convert runtime.Object to clusterrolebinding/add-on-cluster-admin: %s", err)
+	}
+	if _, err := co.clientSet.RbacV1().ClusterRoleBindings().Create(crb); err != nil {
+		return fmt.Errorf("fail to create the clusterrolebinding/add-on-cluster-admin: %s", err)
+	}
+
+	// 4. deploy yurt controller manager
 	ycmdp, err := tmpltil.SubsituteTemplate(constants.YurtControllerManagerDeployment,
 		map[string]string{
 			"image":         co.YurtControllerManagerImage,
@@ -250,7 +263,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 	klog.Info("the yurt-controller-manager is deployed")
 
-	// 4. delete the node-controller service account to disable node-controller
+	// 5. delete the node-controller service account to disable node-controller
 	if err = co.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete("node-controller", &metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -259,7 +272,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 5. deploy the yurttunnel if required
+	// 6. deploy the yurttunnel if required
 	if co.DeployTunnel {
 		if err = deployYurttunnelServer(co.clientSet,
 			co.CloudNodes,
@@ -278,7 +291,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		klog.Info("yurt-tunnel-agent is deployed")
 	}
 
-	// 6. deploy yurt-hub and reset the kubelet service
+	// 7. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	if err = kubeutil.RunServantJobs(co.clientSet, map[string]string{
 		"provider":              string(co.Provider),
