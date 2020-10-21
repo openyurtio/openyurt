@@ -17,20 +17,6 @@ limitations under the License.
 package constants
 
 const (
-	AddOnClusterAdminRoleBinding = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: add-on-cluster-admin 
-subjects:
-  - kind: ServiceAccount
-    name: default
-    namespace: kube-system
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-`
 	YurttunnelServerClusterRole = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -25,8 +25,11 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -65,6 +68,121 @@ var (
 		"1.16", "1.16+",
 		"1.18", "1.18+"}
 )
+
+// CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
+func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
+	obj, err := YamlToObject([]byte(saTmpl))
+	if err != nil {
+		return err
+	}
+	sa, ok := obj.(*corev1.ServiceAccount)
+	if !ok {
+		return fmt.Errorf("fail to assert serviceaccount: %v", err)
+	}
+	_, err = cliSet.CoreV1().ServiceAccounts(ns).Create(sa)
+	if err != nil {
+		return fmt.Errorf("fail to create the serviceaccount/%s: %v", sa.Name, err)
+	}
+	klog.V(4).Infof("serviceaccount/%s is created", sa.Name)
+	return nil
+}
+
+// CreateClusterRoleFromYaml creates the ClusterRole from the yaml template.
+func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) error {
+	obj, err := YamlToObject([]byte(crTmpl))
+	if err != nil {
+		return err
+	}
+	cr, ok := obj.(*rbacv1.ClusterRole)
+	if !ok {
+		return fmt.Errorf("fail to assert clusterrole: %v", err)
+	}
+	_, err = cliSet.RbacV1().ClusterRoles().Create(cr)
+	if err != nil {
+		return fmt.Errorf("fail to create the clusterrole/%s: %v", cr.Name, err)
+	}
+	klog.V(4).Infof("clusterrole/%s is created", cr.Name)
+	return nil
+}
+
+// CreateClusterRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
+func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl string) error {
+	obj, err := YamlToObject([]byte(crbTmpl))
+	if err != nil {
+		return err
+	}
+	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
+	if !ok {
+		return fmt.Errorf("fail to assert clusterrolebinding: %v", err)
+	}
+	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(crb)
+	if err != nil {
+		return fmt.Errorf("fail to create the clusterrolebinding/%s: %v", crb.Name, err)
+	}
+	klog.V(4).Info("clusterrolebinding/%s is created", crb.Name)
+	return nil
+}
+
+// CreateDeployFromYaml creates the Deployment from the yaml template.
+func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, context interface{}) error {
+	ycmdp, err := tmplutil.SubsituteTemplate(dplyTmpl, context)
+	if err != nil {
+		return err
+	}
+	dpObj, err := YamlToObject([]byte(ycmdp))
+	if err != nil {
+		return err
+	}
+	dply, ok := dpObj.(*appsv1.Deployment)
+	if !ok {
+		return errors.New("fail to assert Deployment")
+	}
+	if _, err = cliSet.AppsV1().Deployments(ns).Create(dply); err != nil {
+		return err
+	}
+	klog.V(4).Infof("the deployment/%s is deployed", dply.Name)
+	return nil
+}
+
+// CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
+func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, context interface{}) error {
+	ytadstmp, err := tmplutil.SubsituteTemplate(dsTmpl, context)
+	if err != nil {
+		return err
+	}
+	obj, err := YamlToObject([]byte(ytadstmp))
+	if err != nil {
+		return err
+	}
+	ds, ok := obj.(*appsv1.DaemonSet)
+	if !ok {
+		return fmt.Errorf("fail to assert daemonset: %v", err)
+	}
+	_, err = cliSet.AppsV1().DaemonSets("kube-system").Create(ds)
+	if err != nil {
+		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
+	}
+	klog.V(4).Infof("daemonset/%s is created", ds.Name)
+	return nil
+}
+
+// CreateServiceFromYaml creates the Service from the yaml template.
+func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+	obj, err := YamlToObject([]byte(svcTmpl))
+	if err != nil {
+		return err
+	}
+	svc, ok := obj.(*corev1.Service)
+	if !ok {
+		return fmt.Errorf("fail to assert service: %v", err)
+	}
+	_, err = cliSet.CoreV1().Services("kube-system").Create(svc)
+	if err != nil {
+		return fmt.Errorf("fail to create the service/%s: %s", svc.Name, err)
+	}
+	klog.V(4).Infof("service/%s is created", svc.Name)
+	return nil
+}
 
 // YamlToObject deserializes object in yaml format to a runtime.Object
 func YamlToObject(yamlContent []byte) (runtime.Object, error) {
