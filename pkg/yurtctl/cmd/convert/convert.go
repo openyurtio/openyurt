@@ -17,15 +17,11 @@ limitations under the License.
 package convert
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -36,7 +32,6 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	tmpltil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
 )
 
 // Provider signifies the provider type
@@ -229,26 +224,34 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 
 	// 3. deploy yurt controller manager
-	ycmdp, err := tmpltil.SubsituteTemplate(constants.YurtControllerManagerDeployment,
+	// create a service account for yurt-controller-manager
+	err = kubeutil.CreateServiceAccountFromYaml(co.clientSet,
+		"kube-system", constants.YurtControllerManagerServiceAccount)
+	if err != nil {
+		return
+	}
+	// create the clusterrole
+	err = kubeutil.CreateClusterRoleFromYaml(co.clientSet,
+		constants.YurtControllerManagerClusterRole)
+	if err != nil {
+		return err
+	}
+	// bind the clusterrole
+	err = kubeutil.CreateClusterRoleBindingFromYaml(co.clientSet,
+		constants.YurtControllerManagerClusterRoleBinding)
+	if err != nil {
+		return
+	}
+	// create the yurt-controller-manager deployment
+	err = kubeutil.CreateDeployFromYaml(co.clientSet,
+		"kube-system",
+		constants.YurtControllerManagerDeployment,
 		map[string]string{
 			"image":         co.YurtControllerManagerImage,
 			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()})
 	if err != nil {
 		return
 	}
-	dpObj, err := kubeutil.YamlToObject([]byte(ycmdp))
-	if err != nil {
-		return
-	}
-	ecmDp, ok := dpObj.(*appsv1.Deployment)
-	if !ok {
-		err = errors.New("fail to assert YurtControllerManagerDeployment")
-		return
-	}
-	if _, err = co.clientSet.AppsV1().Deployments("kube-system").Create(ecmDp); err != nil {
-		return
-	}
-	klog.Info("the yurt-controller-manager is deployed")
 
 	// 4. delete the node-controller service account to disable node-controller
 	if err = co.clientSet.CoreV1().ServiceAccounts("kube-system").
@@ -299,87 +302,39 @@ func deployYurttunnelServer(
 	cloudNodes []string,
 	yurttunnelServerImage string) error {
 	// 1. create the ClusterRole
-	obj, err := kubeutil.YamlToObject([]byte(constants.YurttunnelServerClusterRole))
-	if err != nil {
-		return fmt.Errorf("fail to convert clusterrole/yurt-tunnel-server from yaml: %s", err)
-	}
-	ytscr, ok := obj.(*rbacv1.ClusterRole)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to clusterrole/yurt-tunnel-server: %s", err)
+	if err := kubeutil.CreateClusterRoleFromYaml(client,
+		constants.YurttunnelServerClusterRole); err != nil {
+		return err
 	}
 
-	_, err = client.RbacV1().ClusterRoles().Create(ytscr)
-	if err != nil {
-		return fmt.Errorf("fail to create the clusterrole/yurt-tunnel-server: %s", err)
+	// 2. create the ServiceAccount
+	if err := kubeutil.CreateServiceAccountFromYaml(client, "kube-system",
+		constants.YurttunnelServerServiceAccount); err != nil {
+		return err
 	}
-	klog.V(4).Info("clusterrole/yurt-tunnel-server is created")
 
-	// 2 create the ServiceAccount
-	obj, err = kubeutil.YamlToObject([]byte(constants.YurttunnelServerServiceAccount))
-	if err != nil {
-		return fmt.Errorf("fail to convert serviceaccount/yurt-tunnel-server from yaml: %s", err)
+	// 3. create the ClusterRoleBinding
+	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
+		constants.YurttunnelServerClusterRolebinding); err != nil {
+		return err
 	}
-	ytsa, ok := obj.(*corev1.ServiceAccount)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to serviceaccount/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.CoreV1().ServiceAccounts("kube-system").Create(ytsa)
-	if err != nil {
-		return fmt.Errorf("fail to create the serviceaccount/yurt-tunnel-server: %s", err)
-	}
-	klog.V(4).Info("serviceaccount/yurt-tunnel-server is created")
 
-	// 3 create the ClusterRoleBinding
-	obj, err = kubeutil.YamlToObject([]byte(constants.YurttunnelServerClusterRolebinding))
-	if err != nil {
-		return fmt.Errorf("fail to convert clusterrolebinding/yurt-tunnel-server from yaml: %s", err)
+	// 4. create the Service
+	if err := kubeutil.CreateServiceFromYaml(client,
+		constants.YurttunnelServerService); err != nil {
+		return err
 	}
-	ytcrb, ok := obj.(*rbacv1.ClusterRoleBinding)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to clusterrolebinding/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.RbacV1().ClusterRoleBindings().Create(ytcrb)
-	if err != nil {
-		return fmt.Errorf("fail to create the clusterrolebinding/yurt-tunnel-server: %s", err)
-	}
-	klog.V(4).Info("clusterrolebinding/yurt-tunnel-server is created")
 
-	// 4 create the Service
-	obj, err = kubeutil.YamlToObject([]byte(constants.YurttunnelServerService))
-	if err != nil {
-		return fmt.Errorf("fail to convert service/x-tunnel-server-svc from yaml: %s", err)
-	}
-	yts, ok := obj.(*corev1.Service)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to service/x-tunnel-server-svc: %s", err)
-	}
-	_, err = client.CoreV1().Services("kube-system").Create(yts)
-	if err != nil {
-		return fmt.Errorf("fail to create the service/x-tunnel-server-svc: %s", err)
-	}
-	klog.V(4).Info("service/yurt-tunnel-server is created")
-
-	// 5 create the Deployment
-	ytsdstmp, err := tmpltil.SubsituteTemplate(constants.YurttunnelServerDeployment,
+	// 5. create the Deployment
+	if err := kubeutil.CreateDeployFromYaml(client,
+		"kube-system",
+		constants.YurttunnelServerDeployment,
 		map[string]string{
 			"image":           yurttunnelServerImage,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()})
-	if err != nil {
-		return fmt.Errorf("fail to subsitute the deployment/yurt-tunnel-server yaml template: %s", err)
+			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+		return err
 	}
-	obj, err = kubeutil.YamlToObject([]byte(ytsdstmp))
-	if err != nil {
-		return fmt.Errorf("fail to convert deployment/yurt-tunnel-server from yaml: %s", err)
-	}
-	ytds, ok := obj.(*appsv1.Deployment)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to deployment/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.AppsV1().Deployments("kube-system").Create(ytds)
-	if err != nil {
-		return fmt.Errorf("fail to create the deployment/yurt-tunnel-server: %s", err)
-	}
-	klog.V(4).Info("deployment/yurt-tunnel-server is created")
+
 	return nil
 }
 
@@ -388,56 +343,24 @@ func deployYurttunnelAgent(
 	tunnelAgentNodes []string,
 	yurttunnelAgentImage string) error {
 	// 1. Deploy the yurt-tunnel-agent ClusterRole
-	obj, err := kubeutil.YamlToObject([]byte(constants.YurttunnelAgentClusterRole))
-	if err != nil {
-		return fmt.Errorf("fail to convert clusterrole/yurt-tunnel-agent from yaml: %s", err)
+	if err := kubeutil.CreateClusterRoleFromYaml(client,
+		constants.YurttunnelAgentClusterRole); err != nil {
+		return err
 	}
-	cr, ok := obj.(*rbacv1.ClusterRole)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to clusterrole/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.RbacV1().ClusterRoles().Create(cr)
-	if err != nil {
-		return fmt.Errorf("fail to create the daemonset/yurt-tunnel-agent: %s", err)
-	}
-	klog.V(4).Info("clusterrole/yurt-tunnel-agent is created")
 
 	// 2. Deploy the yurt-tunnel-agent ClusterRoleBinding
-	obj, err = kubeutil.YamlToObject([]byte(constants.YurttunnelAgentClusterRoleBinding))
-	if err != nil {
-		return fmt.Errorf("fail to convert clusterrolebinding/yurt-tunnel-agent from yaml: %s", err)
+	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
+		constants.YurttunnelAgentClusterRoleBinding); err != nil {
+		return err
 	}
-	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to clusterrolebinding/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.RbacV1().ClusterRoleBindings().Create(crb)
-	if err != nil {
-		return fmt.Errorf("fail to create the clusterrolebinding/yurt-tunnel-agent: %s", err)
-	}
-	klog.V(4).Info("clusterrolebinding/yurt-tunnel-agent is created")
 
 	// 3. Deploy the yurt-tunnel-agent DaemonSet
-	ytadstmp, err := tmpltil.SubsituteTemplate(constants.YurttunnelAgentDaemonSet,
+	if err := kubeutil.CreateDaemonSetFromYaml(client,
+		constants.YurttunnelAgentDaemonSet,
 		map[string]string{
 			"image":           yurttunnelAgentImage,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()})
-	if err != nil {
-		return fmt.Errorf("fail to subsitute the daemonset/yurt-tunnel-agent yaml template: %s", err)
+			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+		return err
 	}
-	obj, err = kubeutil.YamlToObject([]byte(ytadstmp))
-	if err != nil {
-		return fmt.Errorf("fail to convert daemonset/yurt-tunnel-agent from yaml: %s", err)
-	}
-	ytds, ok := obj.(*appsv1.DaemonSet)
-	if !ok {
-		return fmt.Errorf("fail to convert runtime.Object to daemonset/yurt-tunnel-server: %s", err)
-	}
-	_, err = client.AppsV1().DaemonSets("kube-system").Create(ytds)
-	if err != nil {
-		return fmt.Errorf("fail to create the daemonset/yurt-tunnel-agent: %s", err)
-	}
-	klog.V(4).Info("daemonset/yurt-tunnel-agent is created")
-
 	return nil
 }

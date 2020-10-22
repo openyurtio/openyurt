@@ -27,6 +27,88 @@ const (
 	YurttunnelAgentComponentName  = "yurt-tunnel-agent"
 	YurttunnelNamespace           = "kube-system"
 
+	YurtControllerManagerServiceAccount = `
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-controller-manager
+  namespace: kube-system
+`
+	// YurtControllerManagerClusterRole has the same privilege as the
+	// system:controller:node-controller and has the right to manipulate
+	// the leases resource
+	YurtControllerManagerClusterRole = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: yurt-controller-manager 
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - list
+- apiGroups:
+  - ""
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+`
+	YurtControllerManagerClusterRoleBinding = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-controller-manager 
+subjects:
+  - kind: ServiceAccount
+    name: yurt-controller-manager
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: yurt-controller-manager 
+  apiGroup: rbac.authorization.k8s.io
+`
 	// YurtControllerManagerDeployment defines the yurt controller manager
 	// deployment in yaml format
 	YurtControllerManagerDeployment = `
@@ -45,6 +127,7 @@ spec:
       labels:
         app: yurt-controller-manager
     spec:
+      serviceAccountName: yurt-controller-manager
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node
