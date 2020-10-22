@@ -119,7 +119,7 @@ func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl stri
 	if err != nil {
 		return fmt.Errorf("fail to create the clusterrolebinding/%s: %v", crb.Name, err)
 	}
-	klog.V(4).Info("clusterrolebinding/%s is created", crb.Name)
+	klog.V(4).Infof("clusterrolebinding/%s is created", crb.Name)
 	return nil
 }
 
