@@ -69,6 +69,9 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.bindAddr, "bind-address", o.bindAddr,
 		fmt.Sprintf("the ip address on which the %s will listen.",
 			projectinfo.GetServerName()))
+	flags.StringVar(&o.insecureBindAddr, "insecure-bind-address", o.insecureBindAddr,
+		fmt.Sprintf("the ip address on which the %s will listen without tls.",
+			projectinfo.GetServerName()))
 	flags.StringVar(&o.certDNSNames, "cert-dns-names", o.certDNSNames,
 		"DNS names that will be added into server's certificate. (e.g., dns1,dns2)")
 	flags.StringVar(&o.certIPs, "cert-ips", o.certIPs,
@@ -93,6 +96,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 type YurttunnelServerOptions struct {
 	kubeConfig               string
 	bindAddr                 string
+	insecureBindAddr         string
 	certDNSNames             string
 	certIPs                  string
 	version                  bool
@@ -115,6 +119,7 @@ type YurttunnelServerOptions struct {
 func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 	o := &YurttunnelServerOptions{
 		bindAddr:                 "0.0.0.0",
+		insecureBindAddr:         "127.0.0.1",
 		enableIptables:           true,
 		iptablesSyncPeriod:       60,
 		serverCount:              1,
@@ -139,7 +144,7 @@ func (o *YurttunnelServerOptions) validate() error {
 func (o *YurttunnelServerOptions) complete() error {
 	o.serverAgentAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverAgentPort)
 	o.serverMasterAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterPort)
-	o.serverMasterInsecureAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterInsecurePort)
+	o.serverMasterInsecureAddr = fmt.Sprintf("%s:%d", o.insecureBindAddr, o.serverMasterInsecurePort)
 	klog.Infof("server will accept %s requests at: %s, "+
 		"server will accept master https requests at: %s"+
 		"server will accept master http request at: %s",

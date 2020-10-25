@@ -269,12 +269,18 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 	return nodesIP
 }
 
+// withoutAgent used to determine whether the node is running an tunnel agent
 func withoutAgent(node *corev1.Node) bool {
-	edgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
-	if !ok || edgeNode != "true" {
-		return true
+	tunnelAgentNode, ok := node.Labels[projectinfo.GetEdgeEnableTunnelLabelKey()]
+	if ok && tunnelAgentNode == "true" {
+		return false
 	}
-	return false
+
+	edgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+	if ok && edgeNode == "true" {
+		return false
+	}
+	return true
 }
 
 func isNodeReady(node *corev1.Node) bool {
@@ -358,7 +364,7 @@ func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIP
 
 	// ensure chains for dnat ports
 	if _, err := im.iptables.EnsureChain(iptables.TableNAT, portChain); err != nil {
-		klog.Errorf("could not ensure chain for edge tunnel port(%s), %v", port, err)
+		klog.Errorf("could not ensure chain for tunnel server port(%s), %v", port, err)
 		return err
 	}
 

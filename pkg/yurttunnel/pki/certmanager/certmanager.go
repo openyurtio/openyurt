@@ -72,8 +72,8 @@ func NewYurttunnelServerCertManager(
 	}
 	return newCertManager(
 		clientset,
-		"yurttunnel-server",
-		constants.YurttunnelServerCertDir,
+		projectinfo.GetServerName(),
+		fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName()),
 		constants.YurttunneServerCSRCN,
 		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
 		dnsNames, ips)
@@ -194,8 +194,8 @@ func NewYurttunnelAgentCertManager(
 
 	return newCertManager(
 		clientset,
-		"yurttunnel-agent",
-		constants.YurttunnelAgentCertDir,
+		projectinfo.GetAgentName(),
+		fmt.Sprintf(constants.YurttunnelAgentCertDir, projectinfo.GetAgentName()),
 		constants.YurttunnelAgentCSRCN,
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
