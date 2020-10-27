@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +31,7 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 )
 
 // ConvertOptions has the information required by the revert operation
@@ -100,12 +101,25 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	// 2. remove labels from nodes
+	// 1.1. check the state of worker nodes
 	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return
 	}
 
+	for _, node := range nodeLst.Items {
+		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+		if ok && isEdgeNode == "true" {
+			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
+			if condition == nil || condition.Status != v1.ConditionTrue {
+				klog.Errorf("Cannot do the revert, the status of worker node: %s is not 'Ready'.", node.Name)
+				return
+			}
+		}
+	}
+	klog.V(4).Info("the status of worker nodes are satisfied")
+
+	// 2. remove labels from nodes
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
 		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
