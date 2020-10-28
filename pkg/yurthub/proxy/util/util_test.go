@@ -154,7 +154,7 @@ func TestWithRequestClientComponent(t *testing.T) {
 	}
 }
 
-func TestWithRequestTrace(t *testing.T) {
+func TestWithMaxInFlightLimit(t *testing.T) {
 	testcases := map[int]struct {
 		Verb            string
 		Path            string
@@ -187,7 +187,7 @@ func TestWithRequestTrace(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		handler = WithRequestTrace(handler, 10)
+		handler = WithMaxInFlightLimit(handler, 10)
 		handler = filters.WithRequestInfo(handler, resolver)
 
 		respCodes := make([]int, k)
