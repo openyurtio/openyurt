@@ -81,12 +81,13 @@ func NewYurtReverseProxyHandler(
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
 }
 
-func (p *yurtReverseProxy) buildHandlerChain(apiHandler http.Handler) http.Handler {
-	handler := util.WithRequestContentType(apiHandler)
+func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
+	handler = util.WithRequestTrace(handler)
+	handler = util.WithRequestContentType(handler)
 	handler = util.WithCacheHeaderCheck(handler)
-	handler = util.WithRequestTrace(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
 	handler = filters.WithRequestInfo(handler, p.resolver)
+	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	return handler
 }
 
