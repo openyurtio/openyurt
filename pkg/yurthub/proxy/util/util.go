@@ -17,17 +17,22 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 )
 
 const (
-	canCacheHeader string = "Edge-Cache"
+	canCacheHeader     string = "Edge-Cache"
+	watchTimeoutMargin int64  = 15
 )
 
 // WithRequestContentType add req-content-type in request context.
@@ -46,7 +51,7 @@ func WithRequestContentType(handler http.Handler) http.Handler {
 
 				if len(contentType) == 0 {
 					klog.Errorf("no accept content type for request: %s", util.ReqString(req))
-					http.Error(w, "no accept content type is set.", http.StatusBadRequest)
+					util.Err(errors.NewBadRequest("no accept content type is set."), w, req)
 					return
 				}
 
@@ -162,8 +167,37 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 			klog.Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
 		default:
 			// Return a 429 status indicating "Too Many Requests"
+			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
 			w.Header().Set("Retry-After", "1")
-			http.Error(w, "Too many requests, please try again later.", http.StatusTooManyRequests)
+			util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
 		}
+	})
+}
+
+// WithRequestTimeout add timeout context for watch request, and
+// timeout is TimeoutSeconds plus a margin(15 seconds). the timeout
+// context is used to cancel the request for hub missed disconnect
+// signal from kube-apiserver when watch request is ended.
+func WithRequestTimeout(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {
+			if info.IsResourceRequest && info.Verb == "watch" {
+				opts := metainternalversion.ListOptions{}
+				if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
+					klog.Errorf("failed to decode parameter for watch request: %s", util.ReqString(req))
+					util.Err(errors.NewBadRequest(err.Error()), w, req)
+					return
+				}
+
+				if opts.TimeoutSeconds != nil {
+					timeout := time.Duration(*opts.TimeoutSeconds+watchTimeoutMargin) * time.Second
+					ctx, cancel := context.WithTimeout(req.Context(), timeout)
+					defer cancel()
+					req = req.WithContext(ctx)
+				}
+			}
+		}
+
+		handler.ServeHTTP(w, req)
 	})
 }

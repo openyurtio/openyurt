@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -213,6 +214,58 @@ func TestWithMaxInFlightLimit(t *testing.T) {
 		}
 		if execssRequests != tc.TwoManyRequests {
 			t.Errorf("%d requests: expect %d requests overflow, but got %d", k, tc.TwoManyRequests, execssRequests)
+		}
+	}
+}
+
+func TestWithRequestTimeout(t *testing.T) {
+	testcases := map[string]struct {
+		Verb    string
+		Path    string
+		Timeout int
+		Err     error
+	}{
+		"no timeout": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods?resourceVersion=1494416105&timeout=5s&timeoutSeconds=5&watch=true",
+			Timeout: 19,
+			Err:     nil,
+		},
+
+		"timeout cancel": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods?resourceVersion=1494416105&timeout=5s&timeoutSeconds=5&watch=true",
+			Timeout: 21,
+			Err:     context.DeadlineExceeded,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tc := range testcases {
+		req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+		req.RemoteAddr = "127.0.0.1"
+
+		var ctxErr error
+		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ctx := req.Context()
+			ticker := time.NewTicker(time.Duration(tc.Timeout) * time.Second)
+			defer ticker.Stop()
+
+			select {
+			case <-ctx.Done():
+				ctxErr = ctx.Err()
+			case <-ticker.C:
+
+			}
+		})
+
+		handler = WithRequestTimeout(handler)
+		handler = filters.WithRequestInfo(handler, resolver)
+		handler.ServeHTTP(httptest.NewRecorder(), req)
+
+		if ctxErr != tc.Err {
+			t.Errorf("%s: expect context cancel error %v, but got %v", k, tc.Err, ctxErr)
 		}
 	}
 }

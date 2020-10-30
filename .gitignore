@@ -5,3 +5,4 @@ gopath
 dockerbuild
 
 *.out
+logs
