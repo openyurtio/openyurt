@@ -164,7 +164,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 		case reqChan <- true:
 			handler.ServeHTTP(w, req)
 			<-reqChan
-			klog.Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
+			klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
 		default:
 			// Return a 429 status indicating "Too Many Requests"
 			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
