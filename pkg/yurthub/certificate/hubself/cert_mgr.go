@@ -153,17 +153,27 @@ func (ycm *yurtHubCertManager) Start() {
 
 // Stop the cert manager loop
 func (ycm *yurtHubCertManager) Stop() {
-	ycm.hubClientCertManager.Stop()
+	if ycm.hubClientCertManager != nil {
+		ycm.hubClientCertManager.Stop()
+	}
 }
 
 // Current returns the currently selected certificate from the certificate manager
 func (ycm *yurtHubCertManager) Current() *tls.Certificate {
-	return ycm.hubClientCertManager.Current()
+	if ycm.hubClientCertManager != nil {
+		return ycm.hubClientCertManager.Current()
+	}
+
+	return nil
 }
 
 // ServerHealthy returns true if the cert manager believes the server is currently alive.
 func (ycm *yurtHubCertManager) ServerHealthy() bool {
-	return ycm.hubClientCertManager.ServerHealthy()
+	if ycm.hubClientCertManager != nil {
+		return ycm.hubClientCertManager.ServerHealthy()
+	}
+
+	return false
 }
 
 // Update update bootstrap conf file by new bearer token.
@@ -223,7 +233,7 @@ func (ycm *yurtHubCertManager) GetCaFile() string {
 // True: not expired
 // False: expired
 func (ycm *yurtHubCertManager) NotExpired() bool {
-	return ycm.hubClientCertManager.Current() != nil
+	return ycm.Current() != nil
 }
 
 // initCaCert create ca file for hub certificate manager
@@ -297,7 +307,10 @@ func (ycm *yurtHubCertManager) initBootstrap() error {
 	ycm.bootstrapConfStore = bootstrapConfStore
 
 	contents, err := ycm.bootstrapConfStore.Get(BootstrapConfigFileName)
-	if err != nil {
+	if err == storage.ErrStorageNotFound {
+		klog.Infof("%s bootstrap conf file does not exist, so create it", ycm.hubName)
+		return ycm.createBootstrapConfFile(ycm.joinToken)
+	} else if err != nil {
 		klog.Infof("could not get bootstrap conf file, %v", err)
 		return err
 	} else if len(contents) == 0 {
@@ -315,6 +328,7 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	if err != nil {
 		klog.Errorf("failed to init %s client cert store, %v", ycm.hubName, err)
 		return err
+
 	}
 	ycm.hubClientCertPath = s.CurrentPath()
 

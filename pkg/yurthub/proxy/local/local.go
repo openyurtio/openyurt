@@ -26,11 +26,13 @@ import (
 	"time"
 
 	manager "github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
+	"github.com/alibaba/openyurt/pkg/yurthub/storage"
 	"github.com/alibaba/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 )
@@ -75,15 +77,12 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		if err != nil {
 			klog.Errorf("could not proxy local for %s, %v", util.ReqString(req), err)
-			util.Err(errors.NewBadRequest(err.Error()), w, req)
-			return
+			util.Err(err, w, req)
 		}
-		return
+	} else {
+		klog.Errorf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))
+		util.Err(errors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))), w, req)
 	}
-
-	err = fmt.Errorf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))
-	klog.Errorf("%v", err)
-	util.Err(errors.NewBadRequest(err.Error()), w, req)
 }
 
 // localDelete handles Delete requests when remote servers are unhealthy
@@ -151,15 +150,12 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		err := fmt.Errorf("unable to start watch - can't get http.Flusher: %#v", w)
-		util.Err(errors.NewInternalError(err), w, req)
-		return err
+		return errors.NewInternalError(err)
 	}
 
 	opts := metainternalversion.ListOptions{}
 	if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
-		err = errors.NewBadRequest(err.Error())
-		util.Err(err, w, req)
-		return err
+		return errors.NewBadRequest(err.Error())
 	}
 
 	ctx := req.Context()
@@ -200,16 +196,20 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 // localReqCache handles Get/List/Update requests when remote servers are unhealthy
 func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) error {
 	if !lp.cacheMgr.CanCacheFor(req) {
-		err := fmt.Errorf("can not cache for %s", util.ReqString(req))
-		return err
+		klog.Errorf("can not cache for %s", util.ReqString(req))
+		return errors.NewBadRequest(fmt.Sprintf("can not cache for %s", util.ReqString(req)))
 	}
 
 	obj, err := lp.cacheMgr.QueryCache(req)
-	if err != nil || obj == nil {
+	if err == storage.ErrStorageNotFound {
+		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
+		return errors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
+	} else if err != nil {
 		klog.Errorf("failed to query cache for %s, %v", util.ReqString(req), err)
-		err = fmt.Errorf("failed to query cache for %s, %v", util.ReqString(req), err)
-		util.Err(errors.NewBadRequest(err.Error()), w, req)
-		return err
+		return errors.NewInternalError(err)
+	} else if obj == nil {
+		klog.Errorf("no cache object for %s", util.ReqString(req))
+		return errors.NewInternalError(fmt.Errorf("no cache object for %s", util.ReqString(req)))
 	}
 
 	util.WriteObject(http.StatusOK, obj, w, req)

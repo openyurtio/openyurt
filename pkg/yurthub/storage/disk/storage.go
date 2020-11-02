@@ -171,7 +171,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []byte{}, nil
+			return []byte{}, storage.ErrStorageNotFound
 		}
 		return nil, fmt.Errorf("failed to get bytes for %s, %v", key, err)
 	} else if info.Mode().IsRegular() {
@@ -231,7 +231,7 @@ func (ds *diskStorage) List(key string) ([][]byte, error) {
 	info, err := os.Stat(absKey)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return bb, nil
+			return bb, storage.ErrStorageNotFound
 		}
 		klog.Errorf("filed to list bytes for (%s), %v", key, err)
 		return nil, err
