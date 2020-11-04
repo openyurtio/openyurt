@@ -37,7 +37,8 @@ func NewTunnelServer(
 	serverAgentAddr string,
 	serverCount int,
 	tlsCfg *tls.Config,
-	initializer initializer.MiddlewareInitializer) TunnelServer {
+	initializer initializer.MiddlewareInitializer,
+	proxyStrategy string) TunnelServer {
 	ats := anpTunnelServer{
 		egressSelectorEnabled:    egressSelectorEnabled,
 		interceptorServerUDSFile: interceptorServerUDSFile,
@@ -47,6 +48,7 @@ func NewTunnelServer(
 		serverCount:              serverCount,
 		tlsCfg:                   tlsCfg,
 		initializer:              initializer,
+		proxyStrategy:            proxyStrategy,
 	}
 	return &ats
 }

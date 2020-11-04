@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command
@@ -85,6 +86,8 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 		"The synchronization period of the iptable manager.")
 	flags.IntVar(&o.serverCount, "server-count", o.serverCount,
 		"The number of proxy server instances, should be 1 unless it is an HA server.")
+	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy,
+		"The strategy of proxying requests from tunnel server to agent.")
 
 	// add klog flags as the global flagsets
 	klog.InitFlags(nil)
@@ -114,6 +117,7 @@ type YurttunnelServerOptions struct {
 	serverMasterInsecureAddr string
 	clientset                kubernetes.Interface
 	sharedInformerFactory    informers.SharedInformerFactory
+	proxyStrategy            string
 }
 
 // NewYurttunnelServerOptions creates a new YurtNewYurttunnelServerOptions
@@ -128,6 +132,7 @@ func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 		serverMasterPort:         constants.YurttunnelServerMasterPort,
 		serverMasterInsecurePort: constants.YurttunnelServerMasterInsecurePort,
 		interceptorServerUDSFile: "/tmp/interceptor-proxier.sock",
+		proxyStrategy:            string(server.ProxyStrategyDestHost),
 	}
 	return o
 }
@@ -227,7 +232,8 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		o.serverAgentAddr,
 		o.serverCount,
 		tlsCfg,
-		mInitializer)
+		mInitializer,
+		o.proxyStrategy)
 	if err := ts.Run(); err != nil {
 		return err
 	}

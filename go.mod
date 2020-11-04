@@ -14,13 +14,12 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
-	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
@@ -64,6 +63,7 @@ replace (
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.16.9
 	k8s.io/metrics => k8s.io/metrics v0.16.9
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.9
+	sigs.k8s.io/apiserver-network-proxy => github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201110063318-28588a8062a4
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.11-0.20200612204355-b202c6e0d790
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )
