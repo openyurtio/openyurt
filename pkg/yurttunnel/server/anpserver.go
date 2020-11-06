@@ -24,6 +24,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	wh "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
+
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -31,9 +35,6 @@ import (
 	"k8s.io/klog"
 	anpserver "sigs.k8s.io/apiserver-network-proxy/pkg/server"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/proto/agent"
-
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	wh "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 )
 
 // anpTunnelServer implements the TunnelServer interface using the
@@ -46,6 +47,7 @@ type anpTunnelServer struct {
 	serverAgentAddr          string
 	serverCount              int
 	tlsCfg                   *tls.Config
+	initializer              initializer.MiddlewareInitializer
 }
 
 var _ TunnelServer = &anpTunnelServer{}
@@ -65,12 +67,16 @@ func (ats *anpTunnelServer) Run() error {
 		return fmt.Errorf("fail to run the proxier: %s", proxierErr)
 	}
 
-	wrappedHandler := wh.WrapHandler(
+	wrappedHandler, err := wh.WrapHandler(
 		&RequestInterceptor{
 			UDSSockFile: ats.interceptorServerUDSFile,
 			TLSConfig:   ats.tlsCfg,
 		},
+		ats.initializer,
 	)
+	if err != nil {
+		return fmt.Errorf("fail to wrap handler: %v", err)
+	}
 
 	// 2. start the master server
 	masterServerErr := runMasterServer(

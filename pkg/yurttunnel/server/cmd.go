@@ -21,18 +21,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
+	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
+
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command
@@ -209,7 +210,10 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// 5. start the server
+	// 5. create middleware initializer
+	mInitializer := initializer.NewMiddlewareInitializer(o.sharedInformerFactory)
+
+	// 6. start the server
 	ts := NewTunnelServer(
 		o.egressSelectorEnabled,
 		o.interceptorServerUDSFile,
@@ -217,7 +221,8 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		o.serverMasterInsecureAddr,
 		o.serverAgentAddr,
 		o.serverCount,
-		tlsCfg)
+		tlsCfg,
+		mInitializer)
 	if err := ts.Run(); err != nil {
 		return err
 	}

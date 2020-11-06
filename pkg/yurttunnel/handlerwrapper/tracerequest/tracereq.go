@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package printreqinfo
+package tracerequest
 
 import (
 	"net/http"
@@ -25,19 +25,26 @@ import (
 	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
 )
 
-func init() {
-	hw.Middlewares = append(hw.Middlewares, PrintReqInfoMiddleware)
+// TraceReqMiddleware prints request information when start/stop
+// handling the request
+type traceReqMiddleware struct{}
+
+// NewTraceReqMiddleware returns an middleware object
+func NewTraceReqMiddleware() hw.Middleware {
+	return &traceReqMiddleware{}
 }
 
-// PrintReqInfoMiddleware prints request information when start/stop
-// handling the request
-var PrintReqInfoMiddleware = func(handler http.Handler) http.Handler {
+func (trm *traceReqMiddleware) Name() string {
+	return "TraceReqMiddleware"
+}
+
+func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		klog.V(4).Infof("start handling request %s %s, from %s to %s",
+		klog.V(2).Infof("start handling request %s %s, from %s to %s",
 			req.Method, req.URL.String(), req.Host, req.RemoteAddr)
 		start := time.Now()
 		handler.ServeHTTP(w, req)
-		klog.V(4).Infof("stop handling request %s %s, request handling lasts %v",
+		klog.V(2).Infof("stop handling request %s %s, request handling lasts %v",
 			req.Method, req.URL.String(), time.Now().Sub(start))
 	})
 }
