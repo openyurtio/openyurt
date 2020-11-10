@@ -21,6 +21,8 @@ const (
 	// constants related dnat rules configmap
 	YurttunnelServerDnatConfigMapNs = "kube-system"
 	yurttunnelServerDnatDataKey     = "dnat-ports-pair"
+	YurtTunnelLocalHostProxyPorts   = "localhost-proxy-ports"
+	PortsSeparator                  = ","
 )
 
 var (

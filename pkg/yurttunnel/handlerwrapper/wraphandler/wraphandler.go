@@ -23,6 +23,7 @@ import (
 
 	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/localhostproxy"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
 )
 
@@ -41,6 +42,7 @@ func InitHandlerWrappers(mi initializer.MiddlewareInitializer) (hw.HandlerWrappe
 	//
 	// then the middleware m2 will be called before the mw1
 	wrappers = append(wrappers, tracerequest.NewTraceReqMiddleware())
+	wrappers = append(wrappers, localhostproxy.NewLocalHostProxyMiddleware())
 
 	// init all of wrappers
 	for i := range wrappers {
