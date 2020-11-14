@@ -24,6 +24,7 @@ const (
 
 	YurttunnelServerComponentName = "yurt-tunnel-server"
 	YurttunnelServerSvcName       = "x-tunnel-server-svc"
+	YurttunnelServerCmName        = "yurt-tunnel-server-cfg"
 	YurttunnelAgentComponentName  = "yurt-tunnel-agent"
 	YurttunnelNamespace           = "kube-system"
 

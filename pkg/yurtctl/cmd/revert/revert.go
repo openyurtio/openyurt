@@ -237,6 +237,14 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
+
+	// 6. remove the ConfigMap
+	if err := client.CoreV1().ConfigMaps(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelServerCmName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the configmap/%s: %s",
+			constants.YurttunnelServerCmName, err)
+	}
 	klog.V(4).Infof("clusterrole/%s is deleted", constants.YurttunnelServerComponentName)
 	return nil
 }
