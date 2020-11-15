@@ -34,8 +34,8 @@ const (
 	YurttunneServerCSRCN             = "kube-apiserver-kubelet-client"
 	YurttunnelCAFile                 = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	YurttunnelTokenFile              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	YurttunnelServerCertDir          = "/var/lib/yurt-tunnel-server/pki"
-	YurttunnelAgentCertDir           = "/var/lib/yurt-tunnel-agent/pki"
+	YurttunnelServerCertDir          = "/var/lib/%s/pki"
+	YurttunnelAgentCertDir           = "/var/lib/%s/pki"
 	YurttunnelCSRApproverThreadiness = 2
 
 	// name of the environment variables used in pod

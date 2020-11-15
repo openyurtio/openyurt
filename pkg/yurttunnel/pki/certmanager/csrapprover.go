@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
+
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	certificates "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -137,7 +139,7 @@ func approveYurttunnelCSR(
 	csrClient typev1beta1.CertificateSigningRequestInterface) error {
 	csr := obj.(*certificates.CertificateSigningRequest)
 	if !isYurttunelCSR(csr) {
-		klog.Infof("csr(%s) is not Yurttunnel csr", csr.GetName())
+		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetTunnelName())
 		return nil
 	}
 
@@ -157,25 +159,25 @@ func approveYurttunnelCSR(
 		certificates.CertificateSigningRequestCondition{
 			Type:    certificates.CertificateApproved,
 			Reason:  "AutoApproved",
-			Message: "self-approving yurttunnel csr",
+			Message: fmt.Sprintf("self-approving %s csr", projectinfo.GetTunnelName()),
 		})
 
 	result, err := csrClient.UpdateApproval(csr)
 	if err != nil {
 		if result == nil {
-			klog.Errorf("failed to approve yurttunnel csr, %v", err)
+			klog.Errorf("failed to approve %s csr, %v", projectinfo.GetTunnelName(), err)
 			return err
 		} else {
-			klog.Errorf("failed to approve yurttunnel csr(%s), %v",
-				result.Name, err)
+			klog.Errorf("failed to approve %s csr(%s), %v",
+				projectinfo.GetTunnelName(), result.Name, err)
 			return err
 		}
 	}
-	klog.Infof("successfully approve yurttunnel csr(%s)", result.Name)
+	klog.Infof("successfully approve %s csr(%s)", projectinfo.GetTunnelName(), result.Name)
 	return nil
 }
 
-// isYurttunelCSR checks if given csr is a yurtunnel related csr, i.e.,
+// isYurttunelCSR checks if given csr is a yurttunnel related csr, i.e.,
 // the organizations' list contains "openyurt:yurttunnel"
 func isYurttunelCSR(csr *certificates.CertificateSigningRequest) bool {
 	pemBytes := csr.Spec.Request

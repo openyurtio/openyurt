@@ -20,6 +20,8 @@ import (
 	"crypto/tls"
 	"time"
 
+	"github.com/alibaba/openyurt/pkg/projectinfo"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/klog"
@@ -51,6 +53,6 @@ func (ata *anpTunnelAgent) Run(stopChan <-chan struct{}) {
 
 	cs := cc.NewAgentClientSet(stopChan)
 	cs.Serve()
-	klog.Infof("start serving grpc request redirected from yurttunel-server: %s",
-		ata.tunnelServerAddr)
+	klog.Infof("start serving grpc request redirected from %s: %s",
+		projectinfo.GetServerName(), ata.tunnelServerAddr)
 }

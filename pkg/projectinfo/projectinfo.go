@@ -68,3 +68,14 @@ func GetEdgeWorkerLabelKey() string {
 func GetHubName() string {
 	return projectPrefix + "hub"
 }
+
+// GetEdgeEnableTunnelLabelKey returns the tunnel agent label, which is used
+// to identify if tunnel agent is running on the node or not.
+func GetEdgeEnableTunnelLabelKey() string {
+	return labelPrefix + "/edge-enable-reverseTunnel-client"
+}
+
+// GetTunnelName returns name of tunnel
+func GetTunnelName() string {
+	return projectPrefix + "tunnel"
+}
