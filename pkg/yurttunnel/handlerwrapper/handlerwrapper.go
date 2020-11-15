@@ -19,7 +19,7 @@ package handlerwrapper
 import (
 	"net/http"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // Middleware takes in one Handler and wrap it within another
@@ -32,6 +32,6 @@ var Middlewares []Middleware
 
 // Register an middleware
 func Register(m Middleware) {
-	klog.Infof("register middleware: %s", m.Name())
+	klog.V(4).Infof("register middleware: %s", m.Name())
 	Middlewares = append(Middlewares, m)
 }

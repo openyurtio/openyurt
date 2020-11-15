@@ -31,7 +31,7 @@ import (
 	typev1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"

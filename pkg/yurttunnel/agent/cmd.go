@@ -18,14 +18,13 @@ package agent
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/certificate"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
@@ -78,9 +77,6 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.agentIdentifiers, "agent-identifiers", o.agentIdentifiers,
 		"The identifiers of the agent, which will be used by the server when choosing agent.")
 
-	// add klog flags as the global flagsets
-	klog.InitFlags(nil)
-	flags.AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 

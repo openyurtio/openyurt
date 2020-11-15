@@ -19,11 +19,11 @@ package wraphandler
 import (
 	"net/http"
 
+	"k8s.io/klog/v2"
+
 	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
-
-	"k8s.io/klog"
 )
 
 func init() {

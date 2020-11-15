@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
 )

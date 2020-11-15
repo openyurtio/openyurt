@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -33,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 )
 
@@ -91,9 +90,6 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy,
 		"The strategy of proxying requests from tunnel server to agent.")
 
-	// add klog flags as the global flagsets
-	klog.InitFlags(nil)
-	flags.AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 

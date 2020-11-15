@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/certificate"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
