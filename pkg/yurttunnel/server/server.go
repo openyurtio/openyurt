@@ -18,6 +18,8 @@ package server
 
 import (
 	"crypto/tls"
+
+	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 )
 
 // TunnelServermanages tunnels between itself and agents, receives requests
@@ -34,7 +36,8 @@ func NewTunnelServer(
 	serverMasterInsecureAddr,
 	serverAgentAddr string,
 	serverCount int,
-	tlsCfg *tls.Config) TunnelServer {
+	tlsCfg *tls.Config,
+	initializer initializer.MiddlewareInitializer) TunnelServer {
 	ats := anpTunnelServer{
 		egressSelectorEnabled:    egressSelectorEnabled,
 		interceptorServerUDSFile: interceptorServerUDSFile,
@@ -43,6 +46,7 @@ func NewTunnelServer(
 		serverAgentAddr:          serverAgentAddr,
 		serverCount:              serverCount,
 		tlsCfg:                   tlsCfg,
+		initializer:              initializer,
 	}
 	return &ats
 }
