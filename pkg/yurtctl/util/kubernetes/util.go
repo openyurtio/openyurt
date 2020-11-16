@@ -123,6 +123,24 @@ func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl stri
 	return nil
 }
 
+// CreateConfigMapFromYaml creates the ConfigMap from the yaml template.
+func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) error {
+	obj, err := YamlToObject([]byte(cmTmpl))
+	if err != nil {
+		return err
+	}
+	cm, ok := obj.(*v1.ConfigMap)
+	if !ok {
+		return fmt.Errorf("fail to assert configmap: %v", err)
+	}
+	_, err = cliSet.CoreV1().ConfigMaps(ns).Create(cm)
+	if err != nil {
+		return fmt.Errorf("fail to create the configmap/%s: %v", cm.Name, err)
+	}
+	klog.V(4).Infof("configmap/%s is created", cm.Name)
+	return nil
+}
+
 // CreateDeployFromYaml creates the Deployment from the yaml template.
 func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, context interface{}) error {
 	ycmdp, err := tmplutil.SubsituteTemplate(dplyTmpl, context)

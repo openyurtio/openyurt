@@ -324,8 +324,14 @@ func deployYurttunnelServer(
 		constants.YurttunnelServerService); err != nil {
 		return err
 	}
+	// 5. create the Configmap
+	if err := kubeutil.CreateConfigMapFromYaml(client,
+		"kube-system",
+		constants.YurttunnelServerConfigMap); err != nil {
+		return err
+	}
 
-	// 5. create the Deployment
+	// 6. create the Deployment
 	if err := kubeutil.CreateDeployFromYaml(client,
 		"kube-system",
 		constants.YurttunnelServerDeployment,
