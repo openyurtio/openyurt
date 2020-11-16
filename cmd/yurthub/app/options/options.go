@@ -24,6 +24,7 @@ type YurtHubOptions struct {
 	MaxRequestInFlight        int
 	JoinToken                 string
 	RootDir                   string
+	Version                   bool
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -80,4 +81,5 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.MaxRequestInFlight, "max-requests-in-flight", o.MaxRequestInFlight, "the maximum number of parallel requests.")
 	fs.StringVar(&o.JoinToken, "join-token", o.JoinToken, "the Join token for bootstrapping hub agent when --cert-mgr-mode=hubself.")
 	fs.StringVar(&o.RootDir, "root-dir", o.RootDir, "directory path for managing hub agent files(pki, cache etc).")
+	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")
 }

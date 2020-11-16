@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
 	"github.com/alibaba/openyurt/cmd/yurthub/app/options"
 	"github.com/alibaba/openyurt/pkg/projectinfo"
@@ -31,6 +33,12 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 		Short: "Launch " + projectinfo.GetHubName(),
 		Long:  "Launch " + projectinfo.GetHubName(),
 		Run: func(cmd *cobra.Command, args []string) {
+			if yurtHubOptions.Version {
+				fmt.Printf("%s: %#v\n", projectinfo.GetHubName(), projectinfo.Get())
+				return
+			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetHubName(), projectinfo.Get())
+
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})

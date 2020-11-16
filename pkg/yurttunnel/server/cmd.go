@@ -46,9 +46,11 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 		Short: projectinfo.GetServerName() + " sends requests to yurttunnel-agents",
 		RunE: func(c *cobra.Command, args []string) error {
 			if o.version {
-				fmt.Println(projectinfo.ShortServerVersion())
+				fmt.Printf("%s: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
 				return nil
 			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
+
 			if err := o.validate(); err != nil {
 				return err
 			}
