@@ -53,6 +53,7 @@ type YurtControllerManagerOptions struct {
 	NodeLifecycleController *NodeLifecycleControllerOptions
 	Master                  string
 	Kubeconfig              string
+	Version                 bool
 }
 
 // NewYurtControllerManagerOptions creates a new YurtControllerManagerOptions with a default config.
@@ -102,6 +103,7 @@ func (s *YurtControllerManagerOptions) Flags(allControllers []string, disabledBy
 	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig).")
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
 	//utilfeature.DefaultMutableFeatureGate.AddFlag(fss.FlagSet("generic"))
+	fs.BoolVar(&s.Version, "version", s.Version, "print the version information.")
 
 	return fss
 }

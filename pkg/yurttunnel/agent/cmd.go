@@ -46,9 +46,11 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 		Short: fmt.Sprintf("Launch %s", projectinfo.GetAgentName()),
 		RunE: func(c *cobra.Command, args []string) error {
 			if o.version {
-				fmt.Println(projectinfo.ShortAgentVersion())
+				fmt.Printf("%s: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
 				return nil
 			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
+
 			if err := o.validate(); err != nil {
 				return err
 			}
