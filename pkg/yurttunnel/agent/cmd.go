@@ -33,6 +33,7 @@ import (
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/server/serveraddr"
 )
 
 const defaultKubeconfig = "/etc/kubernetes/kubelet.conf"
@@ -142,7 +143,7 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 	// 1. get the address of the yurttunnel-server
 	tunnelServerAddr = o.tunnelServerAddr
 	if o.tunnelServerAddr == "" {
-		if tunnelServerAddr, err = GetTunnelServerAddr(o.clientset); err != nil {
+		if tunnelServerAddr, err = serveraddr.GetTunnelServerAddr(o.clientset); err != nil {
 			return err
 		}
 	}
