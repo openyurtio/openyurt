@@ -48,6 +48,7 @@ type anpTunnelServer struct {
 	serverCount              int
 	tlsCfg                   *tls.Config
 	initializer              initializer.MiddlewareInitializer
+	proxyStrategy            string
 }
 
 var _ TunnelServer = &anpTunnelServer{}
@@ -55,6 +56,7 @@ var _ TunnelServer = &anpTunnelServer{}
 // Run runs the yurttunnel-server
 func (ats *anpTunnelServer) Run() error {
 	proxyServer := anpserver.NewProxyServer(uuid.New().String(),
+		[]anpserver.ProxyStrategy{anpserver.ProxyStrategy(ats.proxyStrategy)},
 		ats.serverCount,
 		&anpserver.AgentTokenAuthenticationOptions{})
 	// 1. start the proxier

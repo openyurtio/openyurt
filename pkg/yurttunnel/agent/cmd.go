@@ -20,11 +20,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog"
+	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
@@ -70,6 +72,8 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 		"A reachable address of the apiserver.")
 	flags.StringVar(&o.kubeConfig, "kube-config", o.kubeConfig,
 		"Path to the kubeconfig file.")
+	flags.StringVar(&o.agentIdentifiers, "agent-identifiers", o.agentIdentifiers,
+		"The identifiers of the agent, which will be used by the server when choosing agent.")
 
 	// add klog flags as the global flagsets
 	klog.InitFlags(nil)
@@ -86,6 +90,7 @@ type YurttunnelAgentOptions struct {
 	kubeConfig       string
 	version          bool
 	clientset        kubernetes.Interface
+	agentIdentifiers string
 }
 
 // validate validates the YurttunnelServerOptions
@@ -94,12 +99,21 @@ func (o *YurttunnelAgentOptions) validate() error {
 		return errors.New("--node-name is not set")
 	}
 
+	if !agentIdentifiersAreValid(o.agentIdentifiers) {
+		return errors.New("--agent-identifiers are invalid, format should be host={node-name}")
+	}
+
 	return nil
 }
 
 // complete completes all the required options
 func (o *YurttunnelAgentOptions) complete() error {
 	var err error
+
+	if len(o.agentIdentifiers) == 0 {
+		o.agentIdentifiers = fmt.Sprintf("host=%s", o.nodeName)
+	}
+	klog.Infof("%s is set for agent identifies", o.agentIdentifiers)
 
 	if o.kubeConfig == "" && o.apiserverAddr == "" {
 		o.kubeConfig = defaultKubeconfig
@@ -150,9 +164,34 @@ func (o *YurttunnelAgentOptions) run(stopCh <-chan struct{}) error {
 	}
 
 	// 4. start the yurttunnel-agent
-	ta := NewTunnelAgent(tlsCfg, tunnelServerAddr, o.nodeName)
+	ta := NewTunnelAgent(tlsCfg, tunnelServerAddr, o.nodeName, o.agentIdentifiers)
 	ta.Run(stopCh)
 
 	<-stopCh
 	return nil
+}
+
+// agentIdentifiersIsValid verify agent identifiers are valid or not.
+// and agentIdentifiers can be empty because default value will be set in complete() func.
+func agentIdentifiersAreValid(agentIdentifiers string) bool {
+	if len(agentIdentifiers) == 0 {
+		return true
+	}
+
+	entries := strings.Split(agentIdentifiers, ",")
+	for i := range entries {
+		parts := strings.Split(entries[i], "=")
+		if len(parts) != 2 {
+			return false
+		}
+
+		switch agent.IdentifierType(parts[0]) {
+		case agent.Host, agent.CIDR, agent.IPv4, agent.IPv6, agent.UID:
+			// valid agent identifier
+		default:
+			return false
+		}
+	}
+
+	return true
 }

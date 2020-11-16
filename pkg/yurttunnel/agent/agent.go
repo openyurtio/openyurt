@@ -38,11 +38,12 @@ type TunnelAgent interface {
 
 // NewTunnelAgent generates a new TunnelAgent
 func NewTunnelAgent(tlsCfg *tls.Config,
-	tunnelServerAddr, nodeName string) TunnelAgent {
+	tunnelServerAddr, nodeName, agentIdentifiers string) TunnelAgent {
 	ata := anpTunnelAgent{
 		tlsCfg:           tlsCfg,
 		tunnelServerAddr: tunnelServerAddr,
 		nodeName:         nodeName,
+		agentIdentifiers: agentIdentifiers,
 	}
 
 	return &ata
