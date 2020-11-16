@@ -152,19 +152,49 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("yurt controller manager is removed")
 
-	// 5. remove the yurt-tunnel agent
+	// 3.1 remove the serviceaccount for yurt-controller-manager
+	if err = ro.clientSet.CoreV1().ServiceAccounts("kube-system").
+		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+			PropagationPolicy: &kubeutil.PropagationPolicy,
+		}); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("fail to remove serviceaccount for yurt controller manager: %s", err)
+		return
+	}
+	klog.Info("serviceaccount for yurt controller manager is removed")
+
+	// 3.2 remove the clusterrole for yurt-controller-manager
+	if err = ro.clientSet.RbacV1().ClusterRoles().
+		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+			PropagationPolicy: &kubeutil.PropagationPolicy,
+		}); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("fail to remove clusterrole for yurt controller manager: %s", err)
+		return
+	}
+	klog.Info("clusterrole for yurt controller manager is removed")
+
+	// 3.3 remove the clusterrolebinding for yurt-controller-manager
+	if err = ro.clientSet.RbacV1().ClusterRoleBindings().
+		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+			PropagationPolicy: &kubeutil.PropagationPolicy,
+		}); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("fail to remove clusterrolebinding for yurt controller manager: %s", err)
+		return
+	}
+	klog.Info("clusterrolebinding for yurt controller manager is removed")
+
+	// 4. remove the yurt-tunnel agent
 	if err = removeYurtTunnelAgent(ro.clientSet); err != nil {
 		klog.Errorf("fail to remove the yurt tunnel agent: %s", err)
 		return
 	}
 
-	// 6. remove the yurt-tunnel server
+	// 5. remove the yurt-tunnel server
 	if err = removeYurtTunnelServer(ro.clientSet); err != nil {
 		klog.Errorf("fail to remove the yurt tunnel server: %s", err)
 		return
 	}
 
-	// 7. recreate the node-controller service account
+	// 6. recreate the node-controller service account
 	ncSa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "node-controller",
@@ -178,7 +208,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("ServiceAccount node-controller is created")
 
-	// 8. remove yurt-hub and revert kubelet service
+	// 7. remove yurt-hub and revert kubelet service
 	if err = kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{
 			"action":                "revert",
