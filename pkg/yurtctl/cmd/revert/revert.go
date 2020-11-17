@@ -225,7 +225,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 	// 1. remove the DaemonSet
 	if err := client.AppsV1().
-		DaemonSets(constants.YurttunnelNamespace).
+		Deployments(constants.YurttunnelNamespace).
 		Delete(constants.YurttunnelServerComponentName,
 			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the daemonset/%s: %s",
