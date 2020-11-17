@@ -25,10 +25,10 @@ YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
 
 PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
 LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION="v0.2.0"
+GIT_VERSION=${GIT_VERSION:-v0.2.0}
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-REPO="openyurt"
+REPO=${REPO:-openyurt}
 TAG=$GIT_VERSION
 
 source "${YURT_ROOT}/hack/lib/common.sh"
