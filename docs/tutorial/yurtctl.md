@@ -40,9 +40,9 @@ I0602 14:11:08.610222   89160 markautonomous.go:149] mark minikube-m02 as autono
 
 5. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
 ```
-$ kubectl describe node | grep Labels -A 3
+$ kubectl describe node | grep Labels -A 5
 Labels:      alibabacloud.com/is-edge-worker=true
-$ kubectl describe node | grep Annotations -A 3
+$ kubectl describe node | grep Annotations -A 5
 Annotations: node.beta.alibabacloud.com/autonomy: true
 ```
 

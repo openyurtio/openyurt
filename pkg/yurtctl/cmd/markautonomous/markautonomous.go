@@ -117,8 +117,8 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 			klog.Warning("there is no edge nodes, please label the edge node first")
 			return
 		}
-		for _, node := range edgeNodeList.Items {
-			autonomousNodes = append(autonomousNodes, &node)
+		for i := range edgeNodeList.Items {
+			autonomousNodes = append(autonomousNodes, &edgeNodeList.Items[i])
 		}
 	} else {
 		// make only the specified edge nodes autonomous
