@@ -22,10 +22,13 @@ import (
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/server"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func main() {
+	klog.InitFlags(nil)
+	defer klog.Flush()
+
 	cmd := server.NewYurttunnelServerCommand(wait.NeverStop)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {

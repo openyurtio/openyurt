@@ -24,7 +24,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 )
 
