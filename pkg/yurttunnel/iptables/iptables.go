@@ -57,7 +57,7 @@ const (
 )
 
 var (
-	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%stunnel-server-cfg", projectinfo.GetProjectPrefix())
+	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%s-tunnel-server-cfg", projectinfo.GetProjectPrefix())
 )
 
 type iptablesJumpChain struct {
