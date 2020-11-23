@@ -53,7 +53,7 @@ vet:
 #   # compile all components with all architectures (i.e., amd64, arm64, arm)
 #   make relase 
 release:
-	hack/make-rules/release-images.sh
+	bash hack/make-rules/release-images.sh
 
 clean: 
 	-rm -Rf _output
