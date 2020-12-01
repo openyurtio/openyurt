@@ -9,6 +9,8 @@
 
 </div>
 
+English | [简体中文](./README.zh.md)
+
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
 |August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
@@ -55,9 +57,9 @@ The major OpenYurt components consist of:
   the node controller and the unit controller (to be released) for different edge computing use cases. For example,
   the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the 
   node heartbeats are missing.
-- **Yurt tunnel server**: It connects with the `TunnelAgent` daemon running in each edge node via a
+- **Yurt tunnel (server/agent)**: It connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
-  that are connected to the intranet (to be released).
+  that are connected to the intranet.
 
 ## Getting started
 
@@ -111,6 +113,7 @@ We have also prepared a developer [guide](./docs/developer-guide.md) to help the
 | APAC Friendly Community meeting | [Bi-weekly APAC (Starting Sep 2, 2020), Wednesday 10:00AM GMT+8](https://calendar.google.com/calendar?cid=a3Y3aWQ4MWczcWliMjhkNGFqcXJmMjNwMXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
 | Meeting link APAC Friendly meeting | https://zoom.us/j/99639193252 |
 | Meeting notes| [Notes and agenda](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
+| Meeting recordings| [OpenYurt bilibili Channel](https://space.bilibili.com/484245424/video) |
 
 ### Contact
 
@@ -118,7 +121,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: openyurt@googlegroups.com
-- Slack:[channel](https://join.slack.com/t/openyurt/shared_invite/zt-iw2lvjzm-MxLcBHWm01y1t2fiTD15Gw)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-iw2lvjzm-MxLcBHWm01y1t2fiTD15Gw)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
