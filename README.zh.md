@@ -9,6 +9,8 @@
 
 </div>
 
+[English](./README.md) | 简体中文
+
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
 | 2020-05-29  OpenYurt v0.1.0-beta.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
@@ -40,7 +42,7 @@ OpenYurt 遵循经典的边缘应用程序架构设计 ：Kubernetes 集群 的 
 OpenYurt 的主要组件包括：
 - **YurtHub**：Kubernetes 集群中节点上运行的守护程序，它的作用是作为（Kubelet，Kubeproxy，CNI 插件等）的出站流量的代理。它在边缘节点的本地存储中缓存     Kubernetes 节点守护进程可能访问的所有资源的状态。如果边缘节点离线，则这些守护程序可以帮助节点在重新启动后恢复状态。
 - **Yurt Controller Manager**：在各种不同的边缘计算用例中 Yurt Controller Manager 负责管理许多Controller，比如节点控制器（ Node Controller ）和单元控制器（ Unit Controller 即将开源）。举例来说即使节点心跳丢失，处于自治模式的节点中的Pod也不会从 API Server 中被驱逐（ evicted ）。
-- **Yurt Tunnel server**：它通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问，Yurt Tunnel Server 即将开源。
+- **Yurt Tunnel (server/agent)**：它通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
 
 
 
@@ -76,14 +78,24 @@ $ _output/bin/yurtctl revert
 [2020 Q3 roadmap](docs/roadmap.md)
 
 
-## 贡献
+## 社区
+### 贡献
 如果您愿意为 OpenYurt 项目做贡献，请参阅我们的 [CONTRIBUTING](CONTRIBUTING.md) 文档以获取详细信息。我们还准备了开发人员指南来帮助代码贡献者。
 
+### 周会
 
-## 社区
+| Item        | Value  |
+|---------------------|---|
+| 社区会议 | [从2020.9.2开始双周会议，周三上午10:00～11：00(北京时间)](https://calendar.google.com/calendar?cid=a3Y3aWQ4MWczcWliMjhkNGFqcXJmMjNwMXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
+| 会议链接 | https://zoom.us/j/99639193252 |
+| 会议纪要| [会议议程及纪要](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
+| 会议视频| [B站 OpenYurt](https://space.bilibili.com/484245424/video) |
+
+### 联络方式
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - Mailing List: [openyurt@googlegroups.com](mailto:openyurt@googlegroups.com)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-iw2lvjzm-MxLcBHWm01y1t2fiTD15Gw)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
