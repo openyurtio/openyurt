@@ -198,8 +198,18 @@ Note that before performing the uninstall, please make sure all edge nodes are r
 ### 1. Failure due to pulling image timeout
 
 The default timeout value of cluster conversion is 2 minutes. Sometimes pulling the related images 
-might take more than 2 minutes. To avoid the conversion failure due to pulling images timeout, you can pull all images on the node manually
-or use automation tools such as `broadcastjob`(from [Kruise](https://github.com/openkruise/kruise/blob/master/docs/concepts/broadcastJob/README.md)) in advance.
+might take more than 2 minutes. To avoid the conversion failure due to pulling images timeout, you can:
+  - use mirrored image from aliyun container registry(ACR)
+```bash
+$ _output/bin/yurtctl convert --provider minikube \
+  --yurt-controller-manager-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-controller-manager:latest \
+  --yurt-tunnel-agent-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-tunnel-agent:latest \
+  --yurt-tunnel-server-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-tunnel-server:latest \
+  --yurtctl-servant-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurtctl-servant:latest \
+  --yurthub-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:latest
+```
+  - or pull all images on the node manually
+  or use automation tools such as `broadcastjob`(from [Kruise](https://github.com/openkruise/kruise/blob/master/docs/concepts/broadcastJob/README.md)) in advance.
 
 ### 2. Adhoc failure recovery
 
