@@ -23,6 +23,7 @@ import (
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
@@ -218,8 +219,12 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// 5. create middleware initializer
+	// 5. create handler wrappers
 	mInitializer := initializer.NewMiddlewareInitializer(o.sharedInformerFactory)
+	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
+	if err != nil {
+		return err
+	}
 
 	// 6. start the server
 	ts := NewTunnelServer(
@@ -230,7 +235,7 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		o.serverAgentAddr,
 		o.serverCount,
 		tlsCfg,
-		mInitializer,
+		wrappers,
 		o.proxyStrategy)
 	if err := ts.Run(); err != nil {
 		return err

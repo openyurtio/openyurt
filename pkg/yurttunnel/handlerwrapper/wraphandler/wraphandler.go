@@ -26,7 +26,8 @@ import (
 	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
 )
 
-func init() {
+func InitHandlerWrappers(mi initializer.MiddlewareInitializer) (hw.HandlerWrappers, error) {
+	wrappers := make(hw.HandlerWrappers, 0)
 	// register all of middleware here
 	//
 	// NOTE the register order decide the order in which
@@ -35,28 +36,33 @@ func init() {
 	// e.g. there are two middleware mw1 and mw2
 	// if the middlewares are registered in the following order,
 	//
-	// hw.Register(mw2)
-	// hw.Register(mw1)
+	// wrappers = append(wrappers, m2)
+	// wrappers = append(wrappers, m1)
 	//
 	// then the middleware m2 will be called before the mw1
-	hw.Register(tracerequest.NewTraceReqMiddleware())
+	wrappers = append(wrappers, tracerequest.NewTraceReqMiddleware())
+
+	// init all of wrappers
+	for i := range wrappers {
+		if err := mi.Initialize(wrappers[i]); err != nil {
+			return wrappers, err
+		}
+	}
+
+	return wrappers, nil
 }
 
 // WrapWrapHandler wraps the coreHandler with all of registered middleware
 // and middleware will be initialized before wrap.
-func WrapHandler(coreHandler http.Handler, mi initializer.MiddlewareInitializer) (http.Handler, error) {
+func WrapHandler(coreHandler http.Handler, wrappers hw.HandlerWrappers) (http.Handler, error) {
 	handler := coreHandler
-	klog.V(4).Infof("%d middlewares will be added into wrap handler", len(hw.Middlewares))
-	if len(hw.Middlewares) == 0 {
+	klog.V(4).Infof("%d middlewares will be added into wrap handler", len(wrappers))
+	if len(wrappers) == 0 {
 		return handler, nil
 	}
-	for i := len(hw.Middlewares) - 1; i >= 0; i-- {
-		if err := mi.Initialize(hw.Middlewares[i]); err != nil {
-			return handler, err
-		}
-
-		handler = hw.Middlewares[i].WrapHandler(handler)
-		klog.V(2).Infof("add %s into wrap handler", hw.Middlewares[i].Name())
+	for i := len(wrappers) - 1; i >= 0; i-- {
+		handler = wrappers[i].WrapHandler(handler)
+		klog.V(2).Infof("add %s into wrap handler", wrappers[i].Name())
 	}
 	return handler, nil
 }
