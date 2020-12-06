@@ -26,7 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
+	certinformer "k8s.io/client-go/informers/certificates/v1beta1"
 	certv1beta1 "k8s.io/client-go/informers/certificates/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	typev1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
@@ -44,24 +44,22 @@ type YurttunnelCSRApprover struct {
 	csrInformer certv1beta1.CertificateSigningRequestInformer
 	csrClient   typev1beta1.CertificateSigningRequestInterface
 	workqueue   workqueue.RateLimitingInterface
-	stopCh      <-chan struct{}
 }
 
 // Run starts the YurttunnelCSRApprover
-func (yca *YurttunnelCSRApprover) Run(threadiness int) {
+func (yca *YurttunnelCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer yca.workqueue.ShutDown()
-	go yca.csrInformer.Informer().Run(yca.stopCh)
 	klog.Info("starting the crsapprover")
-	if !cache.WaitForCacheSync(yca.stopCh,
+	if !cache.WaitForCacheSync(stopCh,
 		yca.csrInformer.Informer().HasSynced) {
 		klog.Error("sync csr timeout")
 		return
 	}
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(yca.runWorker, time.Second, yca.stopCh)
+		go wait.Until(yca.runWorker, time.Second, stopCh)
 	}
-	<-yca.stopCh
+	<-stopCh
 	klog.Info("stoping the csrapprover")
 }
 
@@ -114,13 +112,9 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 // NewCSRApprover creates a new YurttunnelCSRApprover
 func NewCSRApprover(
 	clientset kubernetes.Interface,
-	sharedInformerFactory informers.SharedInformerFactory,
-	stopCh <-chan struct{}) *YurttunnelCSRApprover {
-	csrInformer := sharedInformerFactory.Certificates().V1beta1().
-		CertificateSigningRequests()
-	csrClient := clientset.CertificatesV1beta1().CertificateSigningRequests()
-	wq := workqueue.
-		NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	csrInformer certinformer.CertificateSigningRequestInformer) *YurttunnelCSRApprover {
+
+	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			enqueueObj(wq, obj)
@@ -131,9 +125,8 @@ func NewCSRApprover(
 	})
 	return &YurttunnelCSRApprover{
 		csrInformer: csrInformer,
-		csrClient:   csrClient,
+		csrClient:   clientset.CertificatesV1beta1().CertificateSigningRequests(),
 		workqueue:   wq,
-		stopCh:      stopCh,
 	}
 }
 

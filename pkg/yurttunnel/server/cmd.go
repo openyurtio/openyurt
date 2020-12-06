@@ -28,8 +28,8 @@ import (
 	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
 	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
-
 	"github.com/spf13/cobra"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -174,15 +174,14 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	// 1. start the IP table manager
 	if o.enableIptables {
 		iptablesMgr := iptables.NewIptablesManager(o.clientset,
-			o.sharedInformerFactory,
+			o.sharedInformerFactory.Core().V1().Nodes(),
 			o.bindAddr,
 			o.insecureBindAddr,
-			o.iptablesSyncPeriod,
-			stopCh)
+			o.iptablesSyncPeriod)
 		if iptablesMgr == nil {
 			return fmt.Errorf("fail to create a new IptableManager")
 		}
-		go iptablesMgr.Run()
+		go iptablesMgr.Run(stopCh)
 	}
 
 	// 2. create a certificate manager for the tunnel server and run the
@@ -194,21 +193,10 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.NewCSRApprover(o.clientset, o.sharedInformerFactory, stopCh).
-		Run(constants.YurttunnelCSRApproverThreadiness)
+	go certmanager.NewCSRApprover(o.clientset, o.sharedInformerFactory.Certificates().V1beta1().CertificateSigningRequests()).
+		Run(constants.YurttunnelCSRApproverThreadiness, stopCh)
 
-	// 3. get the latest certificate
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		// keep polling until the certificate is signed
-		if serverCertMgr.Current() != nil {
-			return true, nil
-		}
-		klog.Infof("waiting for the master to sign the %s certificate",
-			projectinfo.GetServerName())
-		return false, nil
-	}, stopCh)
-
-	// 4. generate the TLS configuration based on the latest certificate
+	// 3. generate the TLS configuration based on the latest certificate
 	rootCertPool, err := pki.GenRootCertPool(o.kubeConfig,
 		constants.YurttunnelCAFile)
 	if err != nil {
@@ -220,12 +208,26 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// 5. create handler wrappers
+	// 4. create handler wrappers
 	mInitializer := initializer.NewMiddlewareInitializer(o.sharedInformerFactory)
 	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
 	if err != nil {
 		return err
 	}
+
+	// after all of informers are configured completed, start the shared index informer
+	o.sharedInformerFactory.Start(stopCh)
+
+	// 5. waiting for the certificate is generated
+	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+		// keep polling until the certificate is signed
+		if serverCertMgr.Current() != nil {
+			return true, nil
+		}
+		klog.Infof("waiting for the master to sign the %s certificate",
+			projectinfo.GetServerName())
+		return false, nil
+	}, stopCh)
 
 	// 6. start the server
 	ts := NewTunnelServer(
