@@ -23,6 +23,7 @@ import (
 	"time"
 
 	certificates "k8s.io/api/certificates/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -86,12 +87,16 @@ func (yca *YurttunnelCSRApprover) processNextItem() bool {
 	csr, err := yca.csrInformer.Lister().Get(csrName)
 	if err != nil {
 		runtime.HandleError(err)
-		yca.workqueue.AddRateLimited(key)
+		if !apierrors.IsNotFound(err) {
+			yca.workqueue.AddRateLimited(key)
+		}
+		return true
 	}
 
 	if err := approveYurttunnelCSR(csr, yca.csrClient); err != nil {
 		runtime.HandleError(err)
 		enqueueObj(yca.workqueue, csr)
+		return true
 	}
 
 	return true
@@ -137,7 +142,11 @@ func NewCSRApprover(
 func approveYurttunnelCSR(
 	obj interface{},
 	csrClient typev1beta1.CertificateSigningRequestInterface) error {
-	csr := obj.(*certificates.CertificateSigningRequest)
+	csr, ok := obj.(*certificates.CertificateSigningRequest)
+	if !ok {
+		return nil
+	}
+
 	if !isYurttunelCSR(csr) {
 		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetTunnelName())
 		return nil
@@ -164,14 +173,8 @@ func approveYurttunnelCSR(
 
 	result, err := csrClient.UpdateApproval(csr)
 	if err != nil {
-		if result == nil {
-			klog.Errorf("failed to approve %s csr, %v", projectinfo.GetTunnelName(), err)
-			return err
-		} else {
-			klog.Errorf("failed to approve %s csr(%s), %v",
-				projectinfo.GetTunnelName(), result.Name, err)
-			return err
-		}
+		klog.Errorf("failed to approve %s csr(%s), %v", projectinfo.GetTunnelName(), csr.GetName(), err)
+		return err
 	}
 	klog.Infof("successfully approve %s csr(%s)", projectinfo.GetTunnelName(), result.Name)
 	return nil
