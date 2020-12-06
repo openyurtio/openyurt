@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
 	wh "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 
 	"github.com/google/uuid"
@@ -47,7 +47,7 @@ type anpTunnelServer struct {
 	serverAgentAddr          string
 	serverCount              int
 	tlsCfg                   *tls.Config
-	initializer              initializer.MiddlewareInitializer
+	wrappers                 hw.HandlerWrappers
 	proxyStrategy            string
 }
 
@@ -74,7 +74,7 @@ func (ats *anpTunnelServer) Run() error {
 			UDSSockFile: ats.interceptorServerUDSFile,
 			TLSConfig:   ats.tlsCfg,
 		},
-		ats.initializer,
+		ats.wrappers,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to wrap handler: %v", err)
