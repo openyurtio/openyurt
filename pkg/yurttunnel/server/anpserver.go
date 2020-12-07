@@ -20,8 +20,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -146,6 +148,7 @@ func runMasterServer(handler http.Handler,
 			ReadTimeout:  constants.YurttunnelANPInterceptorReadTimeoutSec * time.Second,
 			TLSConfig:    tlsCfg,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+			ErrorLog:     log.New(NewHandshakeFilterWriter(os.Stderr), "", log.LstdFlags),
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			klog.Errorf("failed to serve https request from master: %v", err)

@@ -22,7 +22,7 @@ import (
 	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 )
 
-// TunnelServermanages tunnels between itself and agents, receives requests
+// TunnelServer manages tunnels between itself and agents, receives requests
 // from apiserver, and forwards requests to corresponding agents
 type TunnelServer interface {
 	Run() error
