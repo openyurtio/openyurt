@@ -176,6 +176,7 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		iptablesMgr := iptables.NewIptablesManager(o.clientset,
 			o.sharedInformerFactory,
 			o.bindAddr,
+			o.insecureBindAddr,
 			o.iptablesSyncPeriod,
 			stopCh)
 		if iptablesMgr == nil {
