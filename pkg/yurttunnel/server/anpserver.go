@@ -70,10 +70,7 @@ func (ats *anpTunnelServer) Run() error {
 	}
 
 	wrappedHandler, err := wh.WrapHandler(
-		&RequestInterceptor{
-			UDSSockFile: ats.interceptorServerUDSFile,
-			TLSConfig:   ats.tlsCfg,
-		},
+		NewRequestInterceptor(ats.interceptorServerUDSFile, ats.tlsCfg),
 		ats.wrappers,
 	)
 	if err != nil {

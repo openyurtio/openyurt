@@ -40,8 +40,15 @@ func (trm *traceReqMiddleware) Name() string {
 
 func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		scheme := "https"
+		if req.TLS == nil {
+			scheme = "http"
+		}
+
+		req.URL.Scheme = scheme
+		req.URL.Host = req.Host
 		klog.V(2).Infof("start handling request %s %s, from %s to %s",
-			req.Method, req.URL.String(), req.Host, req.RemoteAddr)
+			req.Method, req.URL.String(), req.RemoteAddr, req.Host)
 		start := time.Now()
 		handler.ServeHTTP(w, req)
 		klog.V(2).Infof("stop handling request %s %s, request handling lasts %v",
