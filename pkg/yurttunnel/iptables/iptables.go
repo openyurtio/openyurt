@@ -27,7 +27,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -81,7 +80,7 @@ type iptablesJumpChain struct {
 // IptableManager interface defines the method for adding dnat rules to host
 // that needs to send network packages to kubelets
 type IptablesManager interface {
-	Run()
+	Run(stopCh <-chan struct{})
 }
 
 // iptablesManager implements the IptablesManager
@@ -96,18 +95,16 @@ type iptablesManager struct {
 	lastNodesIP      []string
 	lastDnatPorts    []string
 	syncPeriod       int
-	stopCh           <-chan struct{}
 }
 
 // NewIptablesManager creates an IptablesManager; deletes old chains, if any;
 // generates new dnat rules based on IPs of current active nodes; and
 // appends the rules to the iptable.
 func NewIptablesManager(client clientset.Interface,
-	sharedInformerFactory informers.SharedInformerFactory,
+	nodeInformer coreinformer.NodeInformer,
 	nodeIP string,
 	insecureBindIP string,
-	syncPeriod int,
-	stopCh <-chan struct{}) IptablesManager {
+	syncPeriod int) IptablesManager {
 
 	protocol := iptables.ProtocolIpv4
 	execer := exec.New()
@@ -123,14 +120,6 @@ func NewIptablesManager(client clientset.Interface,
 	insecureDnatDest := fmt.Sprintf("%s:%d", insecureBindIP,
 		constants.YurttunnelServerMasterInsecurePort)
 
-	// start and sync the nodeInformer
-	nodeInformer := sharedInformerFactory.Core().V1().Nodes()
-	go nodeInformer.Informer().Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh,
-		nodeInformer.Informer().HasSynced) {
-		klog.Error("sync node cache timeout")
-		return nil
-	}
 	im := &iptablesManager{
 		kubeClient:       client,
 		iptables:         iptInterface,
@@ -141,7 +130,6 @@ func NewIptablesManager(client clientset.Interface,
 		lastNodesIP:      make([]string, 0),
 		lastDnatPorts:    make([]string, 0),
 		syncPeriod:       syncPeriod,
-		stopCh:           stopCh,
 	}
 
 	// conntrack setting
@@ -158,6 +146,29 @@ func NewIptablesManager(client clientset.Interface,
 	// 2. sync iptables setting when tunnel server startup
 	im.syncIptableSetting()
 	return im
+}
+
+// Run starts the iptablesManager that will updates dnat rules periodically
+func (im *iptablesManager) Run(stopCh <-chan struct{}) {
+	// wait the nodeInformer has synced
+	if !cache.WaitForCacheSync(stopCh,
+		im.nodeInformer.Informer().HasSynced) {
+		klog.Error("sync node cache timeout")
+		return
+	}
+
+	ticker := time.NewTicker(time.Duration(im.syncPeriod) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			klog.Info("stop the iptablesManager")
+			return
+		case <-ticker.C:
+			im.syncIptableSetting()
+		}
+	}
 }
 
 func (im *iptablesManager) deleteJumpChains(jumpChains []iptablesJumpChain) error {
@@ -487,23 +498,6 @@ func parametersWithFamily(isIPv6 bool, parameters ...string) []string {
 		parameters = append(parameters, "-f", "ipv6")
 	}
 	return parameters
-}
-
-// Run starts the iptablesManager that will updates dnat rules periodically
-func (im *iptablesManager) Run() {
-
-	ticker := time.NewTicker(time.Duration(im.syncPeriod) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-im.stopCh:
-			klog.Info("stop the iptablesManager")
-			return
-		case <-ticker.C:
-			im.syncIptableSetting()
-		}
-	}
 }
 
 // syncIptableSetting update all of iptables chains and rules.
