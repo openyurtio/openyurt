@@ -43,7 +43,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "Launch " + projectinfo.GetServerName(),
-		Short: projectinfo.GetServerName() + " sends requests to yurttunnel-agents",
+		Short: projectinfo.GetServerName() + " sends requests to " + projectinfo.GetAgentName(),
 		RunE: func(c *cobra.Command, args []string) error {
 			if o.version {
 				fmt.Printf("%s: %#v\n", projectinfo.GetServerName(), projectinfo.Get())

@@ -19,6 +19,8 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"net"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -111,6 +113,11 @@ func (o *YurttunnelAgentOptions) complete() error {
 
 	if len(o.agentIdentifiers) == 0 {
 		o.agentIdentifiers = fmt.Sprintf("host=%s", o.nodeName)
+
+		podIP := os.Getenv("POD_IP")
+		if len(podIP) != 0 && net.ParseIP(podIP).To4() != nil {
+			o.agentIdentifiers = fmt.Sprintf("%s,ipv4=%s", o.agentIdentifiers, podIP)
+		}
 	}
 	klog.Infof("%s is set for agent identifies", o.agentIdentifiers)
 

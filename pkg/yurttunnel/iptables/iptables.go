@@ -143,8 +143,6 @@ func NewIptablesManager(client clientset.Interface,
 	// 1. if there exist any old jump chain, delete them
 	_ = im.deleteJumpChains(iptablesJumpChains)
 
-	// 2. sync iptables setting when tunnel server startup
-	im.syncIptableSetting()
 	return im
 }
 
@@ -156,6 +154,8 @@ func (im *iptablesManager) Run(stopCh <-chan struct{}) {
 		klog.Error("sync node cache timeout")
 		return
 	}
+	// sync iptables setting when tunnel server startup
+	im.syncIptableSetting()
 
 	ticker := time.NewTicker(time.Duration(im.syncPeriod) * time.Second)
 	defer ticker.Stop()
@@ -256,7 +256,7 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 		}
 	}
 
-	klog.V(4).Infof("nodes without yurttunnel-agent: %s", strings.Join(nodesIP, ","))
+	klog.V(4).Infof("nodes without %s: %s", projectinfo.GetAgentName(), strings.Join(nodesIP, ","))
 	return nodesIP
 }
 

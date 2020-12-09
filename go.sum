@@ -67,6 +67,9 @@ github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201103040352-663d5113
 github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201103040352-663d51139e6b/go.mod h1:9/9TjgHy6ORJtVUvPVDGLcc6M9Ki2WAfE8xlighdSaw=
 github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201110063318-28588a8062a4 h1:xb8uhxtF0vgzmBMMOpNKGqCOLiQYPPjaHce4KZoSP4M=
 github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201110063318-28588a8062a4/go.mod h1:bbEdVQBZkjofXjOFC+LZ5KCF5QwTuV8xqCoeG8rDGB4=
+github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201208065946-83839cba72cf h1:TcwGGq9qoMraFClnm2Mbq2Z9Xv68KSebPNAkLyxv4eE=
+github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201208065946-83839cba72cf/go.mod h1:bbEdVQBZkjofXjOFC+LZ5KCF5QwTuV8xqCoeG8rDGB4=
+github.com/charleszheng44/apiserver-network-proxy v0.0.11-0.20201208021138-628a0cd1301d/go.mod h1:bbEdVQBZkjofXjOFC+LZ5KCF5QwTuV8xqCoeG8rDGB4=
 github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b/go.mod h1:TrMrLQfeENAPYPRsJuq3jsqdlRh3lvi6trTZJG8+tho=
 github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9/go.mod h1:+tQajlRqAUrPI7DOSpB0XAqZYtQakVtB7wXkRAgjxjQ=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

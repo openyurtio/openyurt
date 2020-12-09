@@ -64,7 +64,7 @@ replace (
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.16.9
 	k8s.io/metrics => k8s.io/metrics v0.16.9
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.9
-	sigs.k8s.io/apiserver-network-proxy => github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201110063318-28588a8062a4
+	sigs.k8s.io/apiserver-network-proxy => github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201208065946-83839cba72cf
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.11-0.20200612204355-b202c6e0d790
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )
