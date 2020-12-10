@@ -56,9 +56,10 @@ const (
 )
 
 var (
-	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%s-tunnel-server-cfg", projectinfo.GetProjectPrefix())
-	tunnelCommentStr                  = strings.ReplaceAll(projectinfo.GetTunnelName(), "-", " ")
-	iptablesJumpChains                = []iptablesJumpChain{
+	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%s-tunnel-server-cfg",
+		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+	tunnelCommentStr   = strings.ReplaceAll(projectinfo.GetTunnelName(), "-", " ")
+	iptablesJumpChains = []iptablesJumpChain{
 		{
 			table:     iptables.TableNAT,
 			dstChain:  yurttunnelServerPortChain,
