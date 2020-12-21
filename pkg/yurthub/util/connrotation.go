@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+
 	"k8s.io/klog"
 )
 
@@ -44,6 +46,7 @@ func (c *closableConn) Close() error {
 	}
 	c.dialer.mu.Unlock()
 	klog.Infof("close connection from %s to %s for %s dialer, remain %d connections", c.Conn.LocalAddr().String(), c.addr, c.dialer.name, remain)
+	metrics.Metrics.SetClosableConns(c.addr, remain)
 	return c.Conn.Close()
 }
 
@@ -89,6 +92,7 @@ func (d *Dialer) CloseAll() {
 		for conn := range conns {
 			conn.Conn.Close()
 			delete(conns, conn)
+			metrics.Metrics.DecClosableConns(addr)
 		}
 		delete(addrConns, addr)
 	}
@@ -107,6 +111,7 @@ func (d *Dialer) Close(address string) {
 	for conn := range conns {
 		conn.Conn.Close()
 		delete(conns, conn)
+		metrics.Metrics.DecClosableConns(address)
 	}
 }
 
@@ -138,5 +143,6 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	d.mu.Unlock()
 
 	klog.Infof("create a connection from %s to %s, total %d connections in %s dialer", conn.LocalAddr().String(), address, len(d.addrConns[address]), d.name)
+	metrics.Metrics.IncClosableConns(address)
 	return closable, nil
 }

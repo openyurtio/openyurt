@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/profile"
+
+	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server is an interface for providing http service for yurthub
@@ -90,6 +92,9 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 	if cfg.EnableProfiling {
 		profile.Install(c)
 	}
+
+	// register handler for metrics
+	c.Handle("/metrics", promhttp.Handler())
 }
 
 // healthz returns ok for healthz request
