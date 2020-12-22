@@ -10,11 +10,7 @@ require (
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/uuid v1.1.1
-	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.4
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/imdario/mergo v0.3.9 // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
@@ -26,16 +22,17 @@ require (
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
-	k8s.io/api v0.17.1
-	k8s.io/apimachinery v0.17.3
+	k8s.io/api v0.17.7
+	k8s.io/apimachinery v0.17.7
 	k8s.io/apiserver v0.16.9
-	k8s.io/client-go v0.17.3
+	k8s.io/client-go v0.17.7
 	k8s.io/component-base v0.16.9
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.0.0
 	k8s.io/kubernetes v1.18.3
-	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
+	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
 	sigs.k8s.io/apiserver-network-proxy v0.0.10
+	sigs.k8s.io/controller-runtime v0.5.7
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
@@ -66,5 +63,6 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.9
 	sigs.k8s.io/apiserver-network-proxy => github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201110063318-28588a8062a4
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.11-0.20200612204355-b202c6e0d790
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.7
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )
