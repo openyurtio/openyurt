@@ -41,7 +41,8 @@ const (
 	// ProviderMinikube is used if the target kubernetes is run on minikube
 	ProviderMinikube Provider = "minikube"
 	// ProviderACK is used if the target kubernetes is run on ack
-	ProviderACK Provider = "ack"
+	ProviderACK     Provider = "ack"
+	ProviderKubeadm Provider = "kubeadm"
 )
 
 // ConvertOptions has the information that required by convert operation
@@ -54,6 +55,7 @@ type ConvertOptions struct {
 	YurctlServantImage         string
 	YurttunnelServerImage      string
 	YurttunnelAgentImage       string
+	PodMainfestPath            string
 	DeployTunnel               bool
 }
 
@@ -85,7 +87,7 @@ func NewConvertCmd() *cobra.Command {
 
 	cmd.Flags().StringP("cloud-nodes", "c", "",
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
-	cmd.Flags().StringP("provider", "p", "ack",
+	cmd.Flags().StringP("provider", "p", "minikube",
 		"The provider of the original Kubernetes cluster.")
 	cmd.Flags().String("yurthub-image",
 		"openyurt/yurthub:latest",
@@ -104,6 +106,9 @@ func NewConvertCmd() *cobra.Command {
 		"The yurt-tunnel-agent image.")
 	cmd.Flags().BoolP("deploy-yurttunnel", "t", false,
 		"if set, yurttunnel will be deployed.")
+	cmd.Flags().String("pod-manifest-path",
+		"/etc/kubernetes/manifests",
+		"Path to the directory on edge node containing static pod files.")
 
 	return cmd
 }
@@ -160,6 +165,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.YurttunnelAgentImage = ytai
 
+	pmp, err := flags.GetString("pod-manifest-path")
+	if err != nil {
+		return err
+	}
+	co.PodMainfestPath = pmp
+
 	// parse kubeconfig and generate the clientset
 	co.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -171,7 +182,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 // Validate makes sure provided values for ConvertOptions are valid
 func (co *ConvertOptions) Validate() error {
 	if co.Provider != ProviderMinikube &&
-		co.Provider != ProviderACK {
+		co.Provider != ProviderACK && co.Provider != ProviderKubeadm {
 		return fmt.Errorf("unknown provider: %s, valid providers are: minikube, ack",
 			co.Provider)
 	}
@@ -283,11 +294,17 @@ func (co *ConvertOptions) RunConvert() (err error) {
 
 	// 6. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
+	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
+	if err != nil {
+		return err
+	}
 	if err = kubeutil.RunServantJobs(co.clientSet, map[string]string{
 		"provider":              string(co.Provider),
 		"action":                "convert",
 		"yurtctl_servant_image": co.YurctlServantImage,
 		"yurthub_image":         co.YurhubImage,
+		"joinToken":             joinToken,
+		"pod_manifest_path":     co.PodMainfestPath,
 	}, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return

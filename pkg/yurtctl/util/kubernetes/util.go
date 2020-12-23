@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
@@ -38,7 +39,11 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
+	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog"
+	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
 	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
@@ -357,4 +362,50 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(restCfg)
+}
+
+func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
+	tokenSelector := fields.SelectorFromSet(
+		map[string]string{
+			// TODO: We hard-code "type" here until `field_constants.go` that is
+			// currently in `pkg/apis/core/` exists in the external API, i.e.
+			// k8s.io/api/v1. Should be v1.SecretTypeField
+			"type": string(bootstrapapi.SecretTypeBootstrapToken),
+		},
+	)
+	listOptions := metav1.ListOptions{
+		FieldSelector: tokenSelector.String(),
+	}
+	klog.V(1).Infoln("[token] retrieving list of bootstrap tokens")
+	secrets, err := cliSet.CoreV1().Secrets(metav1.NamespaceSystem).List(listOptions)
+	if err != nil {
+		return "", fmt.Errorf("%v%s", err, "failed to list bootstrap tokens")
+	}
+
+	for _, secret := range secrets.Items {
+
+		// Get the BootstrapToken struct representation from the Secret object
+		token, err := kubeadmapi.BootstrapTokenFromSecret(&secret)
+		if err != nil {
+			klog.Warningf("%v", err)
+			continue
+		}
+		return token.Token.String(), nil
+		// Get the human-friendly string representation for the token
+	}
+
+	tokenStr, err := bootstraputil.GenerateBootstrapToken()
+	if err != nil {
+		return "", fmt.Errorf("couldn't generate random token, %v", err)
+	}
+	token, err := kubeadmapi.NewBootstrapTokenString(tokenStr)
+	if err != nil {
+		return "", err
+	}
+
+	klog.V(1).Infoln("[token] creating token")
+	if err := tokenphase.CreateNewTokens(cliSet, []kubeadmapi.BootstrapToken{{Token: token}}); err != nil {
+		return "", err
+	}
+	return tokenStr, nil
 }
