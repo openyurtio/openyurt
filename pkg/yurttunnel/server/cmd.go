@@ -49,7 +49,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 				fmt.Printf("%s: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
 				return nil
 			}
-			fmt.Printf("%s version: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
+			fmt.Printf("%s version: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
 
 			if err := o.validate(); err != nil {
 				return err
