@@ -34,6 +34,7 @@ type Config struct {
 	ListenAddrForAgent          string
 	ListenAddrForMaster         string
 	ListenInsecureAddrForMaster string
+	ListenMetaAddr              string
 	RootCert                    *x509.CertPool
 	Client                      kubernetes.Interface
 	SharedInformerFactory       informers.SharedInformerFactory

@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/metrics"
 )
 
 // TraceReqMiddleware prints request information when start/stop
@@ -47,6 +48,11 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 
 		req.URL.Scheme = scheme
 		req.URL.Host = req.Host
+
+		// observe metrics
+		metrics.Metrics.IncInFlightRequests(req.Method, req.URL.Path)
+		defer metrics.Metrics.DecInFlightRequests(req.Method, req.URL.Path)
+
 		klog.V(2).Infof("start handling request %s %s, from %s to %s",
 			req.Method, req.URL.String(), req.RemoteAddr, req.Host)
 		start := time.Now()

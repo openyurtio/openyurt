@@ -19,11 +19,13 @@ package options
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
 
 	"github.com/spf13/pflag"
@@ -42,11 +44,16 @@ type AgentOptions struct {
 	KubeConfig       string
 	Version          bool
 	AgentIdentifiers string
+	MetaHost         string
+	MetaPort         string
 }
 
 // NewAgentOptions creates a new AgentOptions with a default config.
 func NewAgentOptions() *AgentOptions {
-	o := &AgentOptions{}
+	o := &AgentOptions{
+		MetaHost: "127.0.0.1",
+		MetaPort: constants.YurttunnelAgentMetaPort,
+	}
 
 	return o
 }
@@ -83,6 +90,8 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ApiserverAddr, "apiserver-addr", o.ApiserverAddr, "A reachable address of the apiserver.")
 	fs.StringVar(&o.KubeConfig, "kube-config", o.KubeConfig, "Path to the kubeconfig file.")
 	fs.StringVar(&o.AgentIdentifiers, "agent-identifiers", o.AgentIdentifiers, "The identifiers of the agent, which will be used by the server when choosing agent.")
+	fs.StringVar(&o.MetaHost, "meta-host", o.MetaHost, "The ip address on which listen for --meta-port port.")
+	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profling, metrics")
 }
 
 // agentIdentifiersIsValid verify agent identifiers are valid or not.
@@ -118,6 +127,7 @@ func (o *AgentOptions) Config() (*config.Config, error) {
 		NodeIP:           o.NodeIP,
 		TunnelServerAddr: o.TunnelServerAddr,
 		AgentIdentifiers: o.AgentIdentifiers,
+		AgentMetaAddr:    net.JoinHostPort(o.MetaHost, o.MetaPort),
 	}
 
 	if len(c.AgentIdentifiers) == 0 {

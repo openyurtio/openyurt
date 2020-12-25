@@ -34,7 +34,8 @@ import (
 )
 
 var (
-	supportedHeaders       = []string{"X-Tunnel-Proxy-Host", "User-Agent"}
+	proxyHostHeaderKey     = "X-Tunnel-Proxy-Host"
+	supportedHeaders       = []string{proxyHostHeaderKey, "User-Agent"}
 	HeaderTransferEncoding = "Transfer-Encoding"
 	HeaderChunked          = "chunked"
 )
@@ -275,9 +276,9 @@ func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			select {
 			case <-stopCh:
-				klog.V(2).Infof("chunked request(%s) normally exit", r.URL.String())
+				klog.V(3).Infof("chunked request(%s) normally exit", r.URL.String())
 			case <-ctx.Done():
-				klog.Errorf("chunked request(%s) closed by cloud client, %v", r.URL.String(), ctx.Err())
+				klog.V(2).Infof("chunked request(%s) to agent(%s) closed by cloud client, %v", r.URL.String(), r.Header.Get(proxyHostHeaderKey), ctx.Err())
 				// close connection with tunnel
 				conn.Close()
 			}
