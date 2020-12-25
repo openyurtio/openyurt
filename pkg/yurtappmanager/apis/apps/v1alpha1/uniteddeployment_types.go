@@ -91,29 +91,6 @@ type DeploymentTemplateSpec struct {
 	Spec              appsv1.DeploymentSpec `json:"spec"`
 }
 
-// UnitedDeploymentUpdateStrategy defines the update performance
-// when template of UnitedDeployment is changed.
-// Only one of its members may be specified.
-type UnitedDeploymentUpdateStrategy struct {
-	// Includes all of the parameters a statefulset update strategy needs.
-	// +optional
-}
-
-// StatefulSetUpdateStrategy is a update strategy which allows users to control the update progress
-// by providing the partition of each pool.
-type StatefulSetUpdateStrategy struct {
-	// Indicates strategy of statefulset for each pool.
-	// +optional
-	Strategies map[string]appsv1.StatefulSetUpdateStrategy `json:"strategies,omitempty"`
-}
-
-// DeploymentUpdateStrategy is a update strategy
-type DeploymentUpdateStrategy struct {
-	// Indicates strategy of deployment for each pool.
-	// +optional
-	Strategies map[string]appsv1.DeploymentStrategy `json:"strategies,omitempty"`
-}
-
 // Topology defines the spread detail of each pool under UnitedDeployment.
 // A UnitedDeployment manages multiple homogeneous workloads which are called pool.
 // Each of pools under the UnitedDeployment is described in Topology.

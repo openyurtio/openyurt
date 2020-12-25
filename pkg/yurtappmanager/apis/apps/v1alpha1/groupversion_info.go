@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the apps v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=unit.openyurt.io
+// +groupName=apps.openyurt.io
 package v1alpha1
 
 import (
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "unit.openyurt.io", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "apps.openyurt.io", Version: "v1alpha1"}
 
 	SchemeGroupVersion = GroupVersion
 

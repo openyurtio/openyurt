@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2019 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurtunit-manager/apis/unit/v1alpha1"
+	"github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 func init() {
