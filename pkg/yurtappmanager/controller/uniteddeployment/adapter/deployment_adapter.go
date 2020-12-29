@@ -17,18 +17,15 @@ limitations under the License.
 package adapter
 
 import (
-	"context"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/refmanager"
 )
 
 type DeploymentAdapter struct {
@@ -152,35 +149,4 @@ func (a *DeploymentAdapter) PostUpdate(ud *alpha1.UnitedDeployment, obj runtime.
 // The revision label can tell the current pool revision.
 func (a *DeploymentAdapter) IsExpected(obj metav1.Object, revision string) bool {
 	return obj.GetLabels()[alpha1.ControllerRevisionHashLabelKey] != revision
-}
-
-func (a *DeploymentAdapter) getDeploymentPods(set *appsv1.Deployment) ([]*corev1.Pod, error) {
-	selector, err := metav1.LabelSelectorAsSelector(set.Spec.Selector)
-	if err != nil {
-		return nil, err
-	}
-	podList := &corev1.PodList{}
-	err = a.Client.List(context.TODO(), podList, &client.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return nil, err
-	}
-
-	manager, err := refmanager.New(a.Client, set.Spec.Selector, set, a.Scheme)
-	if err != nil {
-		return nil, err
-	}
-	selected := make([]metav1.Object, len(podList.Items))
-	for i, pod := range podList.Items {
-		selected[i] = pod.DeepCopy()
-	}
-	claimed, err := manager.ClaimOwnedObjects(selected)
-	if err != nil {
-		return nil, err
-	}
-
-	claimedPods := make([]*corev1.Pod, len(claimed))
-	for i, pod := range claimed {
-		claimedPods[i] = pod.(*corev1.Pod)
-	}
-	return claimedPods, nil
 }

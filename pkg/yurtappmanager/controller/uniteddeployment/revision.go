@@ -1,4 +1,5 @@
 /*
+Copyright 2020 The OpenYurt Authors.
 Copyright 2019 The Kruise Authors.
 Copyright 2017 The Kubernetes Authors.
 

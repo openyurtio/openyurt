@@ -1,4 +1,5 @@
 /*
+Copyright 2020 The OpenYurt Authors.
 Copyright 2019 The Kruise Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,4 +1,5 @@
 /*
+Copyright 2020 The OpenYurt Authors.
 Copyright 2019 The Kruise Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +17,7 @@ limitations under the License.
 
 package uniteddeployment
 
+/*
 import (
 	stdlog "log"
 	"os"
@@ -74,3 +76,4 @@ func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}
 	}()
 	return stop, wg
 }
+*/
