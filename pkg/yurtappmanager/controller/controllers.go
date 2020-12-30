@@ -24,13 +24,14 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/nodepool"
 	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/uniteddeployment"
 )
 
 var controllerAddFuncs []func(manager.Manager, context.Context) error
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, uniteddeployment.Add)
+	controllerAddFuncs = append(controllerAddFuncs, uniteddeployment.Add, nodepool.Add)
 }
 
 func SetupWithManager(m manager.Manager, ctx context.Context) error {
