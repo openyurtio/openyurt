@@ -84,6 +84,11 @@ func GetYurtControllerManagerName() string {
 	return projectPrefix + "controller-manager"
 }
 
+// GetYurtAppManagerName returns name of tunnel
+func GetYurtAppManagerName() string {
+	return projectPrefix + "app-manager"
+}
+
 // normalizeGitCommit reserve 7 characters for gitCommit
 func normalizeGitCommit(commit string) string {
 	if len(commit) > 7 {
