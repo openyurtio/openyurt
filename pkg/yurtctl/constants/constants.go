@@ -129,6 +129,7 @@ spec:
         app: yurt-controller-manager
     spec:
       serviceAccountName: yurt-controller-manager
+      hostNetwork: true
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node
@@ -157,6 +158,7 @@ spec:
   template:
     spec:
       hostPID: true
+      hostNetwork: true
       restartPolicy: OnFailure
       nodeName: {{.nodeName}}
       volumes:
