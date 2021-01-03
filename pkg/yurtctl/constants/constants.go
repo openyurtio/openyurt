@@ -56,6 +56,7 @@ rules:
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -76,6 +77,7 @@ rules:
   verbs:
   - delete
   - list
+  - watch
 - apiGroups:
   - ""
   - events.k8s.io
@@ -95,6 +97,16 @@ rules:
   - get
   - patch
   - update
+  - list
+  - watch
+- apiGroups:
+  - ""
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - list
+  - watch
 `
 	YurtControllerManagerClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1
