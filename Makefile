@@ -61,4 +61,33 @@ clean:
 	-rm -Rf dockerbuild
 
 e2e: 
-	hack/make-rules/build-e2e.sh
+	hack/make-rules/build-e2e.sh 
+
+
+# Generate manifests e.g. CRD, RBAC etc.
+gen-app-manager-manifests: app-manager-controller-gen
+	$(CONTROLLER_GEN) crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./pkg/yurtappmanager/..." output:crd:artifacts:config=config/yurt-app-manager/crd/bases  output:rbac:artifacts:config=config/yurt-app-manager/rbac output:webhook:artifacts:config=config/yurt-app-manager/webhook
+
+# Generate code
+gen-app-manager-client: app-manager-controller-gen
+	hack/make-rules/generate_client.sh
+	$(CONTROLLER_GEN) object:headerFile="./pkg/yurtappmanager/hack/boilerplate.go.txt" paths="./pkg/yurtappmanager/apis/..."
+
+# find or download controller-gen
+# download controller-gen if necessary
+app-manager-controller-gen:
+ifeq (, $(shell which controller-gen-openyurt))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	echo "replace sigs.k8s.io/controller-tools => github.com/openkruise/controller-tools v0.2.9-kruise" >> go.mod ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.9 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	mv $(GOPATH)/bin/controller-gen $(GOPATH)/bin/controller-gen-openyurt ;\
+	}
+CONTROLLER_GEN=$(GOPATH)/bin/controller-gen-openyurt
+else
+CONTROLLER_GEN=$(shell which controller-gen-openyurt)
+endif

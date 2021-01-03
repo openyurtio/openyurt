@@ -22,6 +22,7 @@ readonly YURT_ALL_TARGETS=(
     yurt-controller-manager
     yurt-tunnel-server
     yurt-tunnel-agent
+    yurt-app-manager
 )
 
 # we will generates setup yaml files for following components
@@ -30,6 +31,7 @@ readonly YURT_YAML_TARGETS=(
     yurt-controller-manager
     yurt-tunnel-server
     yurt-tunnel-agent
+    yurt-app-manager
 )
 
 #PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
@@ -122,6 +124,10 @@ gen_yamls() {
     local yaml_dir=$YURT_OUTPUT_DIR/setup/
     mkdir -p $yaml_dir
     for yaml_target in "${yaml_targets[@]}"; do
+        if [ "$yaml_target" == "yurt-app-manager" ]; then
+            gen_yurtappmanager_yaml 
+            continue
+        fi 
         oup_file=${yaml_target/yurt/$PROJECT_PREFIX}
         echo "generating yaml file for $oup_file"
         sed "s|__project_prefix__|${PROJECT_PREFIX}|g;
@@ -133,4 +139,11 @@ gen_yamls() {
             $YURT_ROOT/config/yaml-template/$yaml_target.yaml > \
             $yaml_dir/$oup_file.yaml
     done
+}
+
+gen_yurtappmanager_yaml() {
+    set +x
+    echo "==== yurt app manager yaml ===="
+    echo ""
+    kustomize build $YURT_ROOT/config/yurt-app-manager/default
 }

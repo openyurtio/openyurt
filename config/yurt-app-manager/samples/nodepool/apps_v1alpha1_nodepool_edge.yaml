@@ -1,0 +1,14 @@
+apiVersion: apps.openyurt.io/v1alpha1
+kind: NodePool
+metadata:
+  name: hangzhou 
+spec:
+  type: Edge 
+  annotations:
+    test.openyurt.io: test-hangzhou 
+  labels:
+    test.openyurt.io: test-hangzhou 
+  taints:
+  - key: test.openyurt.io
+    value: test-hangzhou 
+    effect: NoSchedule
