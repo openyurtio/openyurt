@@ -1,0 +1,10 @@
+resources:
+- manager.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: registry.cn-hangzhou.aliyuncs.com/edge-kubernetes/yurt-app-manager
+  newTag: test-e0768f3
+patchesStrategicMerge:
+- patches.yaml
