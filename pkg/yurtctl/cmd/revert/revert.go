@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -194,19 +195,29 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 
-	// 6. recreate the node-controller service account
-	ncSa := &v1.ServiceAccount{
+	// 6. recreate the system:controller:node-controller clustrrolebinding
+	ncClusterrolebinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "node-controller",
-			Namespace: "kube-system",
+			Name: "system:controller:node-controller",
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "system:controller:node-controller",
+		},
+		Subjects: []rbacv1.Subject{
+			rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      "node-controller",
+				Namespace: "kube-system",
+			},
 		},
 	}
-	if _, err = ro.clientSet.CoreV1().
-		ServiceAccounts(ncSa.GetNamespace()).Create(ncSa); err != nil && !apierrors.IsAlreadyExists(err) {
-		klog.Errorf("fail to create node-controller service account: %s", err)
+	if _, err = ro.clientSet.RbacV1().ClusterRoleBindings().Create(ncClusterrolebinding); err != nil && !apierrors.IsAlreadyExists(err) {
+		klog.Errorf("fail to create clusterrolebinding system:controller:node-controller: %v", err)
 		return
 	}
-	klog.Info("ServiceAccount node-controller is created")
+	klog.Info("clusterrolebinding system:controller:node-controller is created")
 
 	// 7. remove yurt-hub and revert kubelet service
 	if err = kubeutil.RunServantJobs(ro.clientSet,

@@ -264,12 +264,11 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 4. delete the node-controller service account to disable node-controller
-	if err = co.clientSet.CoreV1().ServiceAccounts("kube-system").
-		Delete("node-controller", &metav1.DeleteOptions{
-			PropagationPolicy: &kubeutil.PropagationPolicy,
-		}); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("fail to delete ServiceAccount(node-controller): %s", err)
+	// 4. delete the system:controller:node-controller clusterrolebinding to disable node-controller
+	if err = co.clientSet.RbacV1().ClusterRoleBindings().Delete("system:controller:node-controller", &metav1.DeleteOptions{
+		PropagationPolicy: &kubeutil.PropagationPolicy,
+	}); err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("fail to delete clusterrolebinding system:controller:node-controller: %v", err)
 		return
 	}
 
