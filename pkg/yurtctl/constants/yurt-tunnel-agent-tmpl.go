@@ -74,7 +74,6 @@ spec:
         k8s-app: yurt-tunnel-agent
     spec:
       nodeSelector:
-        beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
         {{.edgeWorkerLabel}}: "true"
       containers:
@@ -83,13 +82,15 @@ spec:
         args:
         - --node-name=$(NODE_NAME)
         image: {{.image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: yurt-tunnel-agent
         volumeMounts:
         - name: k8s-dir
           mountPath: /etc/kubernetes
         - name: kubelet-pki
           mountPath: /var/lib/kubelet/pki
+        - name: tunnel-agent-dir
+          mountPath: /var/lib/yurt-tunnel-agent
         env:
         - name: NODE_NAME
           valueFrom:
@@ -110,5 +111,9 @@ spec:
         hostPath:
           path: /var/lib/kubelet/pki
           type: Directory
+      - name: tunnel-agent-dir
+        hostPath:
+          path: /var/lib/yurt-tunnel-agent
+          type: DirectoryOrCreate
 `
 )

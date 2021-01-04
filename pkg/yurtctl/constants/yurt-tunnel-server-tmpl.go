@@ -133,6 +133,11 @@ spec:
       hostNetwork: true
       serviceAccountName: yurt-tunnel-server
       restartPolicy: Always
+      volumes:
+      - name: tunnel-server-dir
+        hostPath:
+          path: /var/lib/edge-tunnel-server
+          type: DirectoryOrCreate
       tolerations:
       - key: "node-role.alibabacloud.com/addon"
         operator: "Exists"
@@ -158,5 +163,8 @@ spec:
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW"]
+        volumeMounts:
+        - name: tunnel-server-dir
+          mountPath: /var/lib/edge-tunnel-server
 `
 )
