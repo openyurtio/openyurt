@@ -136,7 +136,7 @@ spec:
       volumes:
       - name: tunnel-server-dir
         hostPath:
-          path: /var/lib/edge-tunnel-server
+          path: /var/lib/yurttunnel-server
           type: DirectoryOrCreate
       tolerations:
       - key: "node-role.alibabacloud.com/addon"
@@ -165,6 +165,6 @@ spec:
             add: ["NET_ADMIN", "NET_RAW"]
         volumeMounts:
         - name: tunnel-server-dir
-          mountPath: /var/lib/edge-tunnel-server
+          mountPath: /var/lib/yurttunnel-server
 `
 )

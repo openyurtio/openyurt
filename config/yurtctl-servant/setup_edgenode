@@ -29,6 +29,10 @@ spec:
     hostPath:
       path: /var/lib/yurthub
       type: DirectoryOrCreate
+  - name: kubernetes
+    hostPath:
+      path: /etc/kubernetes
+      type: Directory
   containers:
   - name: yurt-hub
     image: __yurthub_image__
@@ -36,6 +40,8 @@ spec:
     volumeMounts:
     - name: hub-dir
       mountPath: /var/lib/yurthub
+    - name: kubernetes
+      mountPath: /etc/kubernetes
     command:
     - yurthub
     - --v=2

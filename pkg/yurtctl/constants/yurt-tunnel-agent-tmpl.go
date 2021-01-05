@@ -90,7 +90,7 @@ spec:
         - name: kubelet-pki
           mountPath: /var/lib/kubelet/pki
         - name: tunnel-agent-dir
-          mountPath: /var/lib/yurt-tunnel-agent
+          mountPath: /var/lib/yurttunnel-agent
         env:
         - name: NODE_NAME
           valueFrom:
@@ -113,7 +113,7 @@ spec:
           type: Directory
       - name: tunnel-agent-dir
         hostPath:
-          path: /var/lib/yurt-tunnel-agent
+          path: /var/lib/yurttunnel-agent
           type: DirectoryOrCreate
 `
 )
