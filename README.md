@@ -61,6 +61,12 @@ The major OpenYurt components consist of:
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
   that are connected to the intranet.
 
+## Addons
+   Openyurt plans to offer a variety of addons specifically for edge computing scenarios in the future. The major Openyurt addons consist of:
+- **[Yurt-App-Manager](docs/tutorial/yurt-app-manager.md)** : A kubernetes Operator. It includes two Kubernetes CRD resources: *NodePool* and *UnitedDeployment*
+    - **[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)**:  Users can quickly learn which node pools or regions are in their cluster. User can also quickly see which nodes are in the node pool. User can uniformly type label, annotation, and taints on nodes under the node pool. This simplifies the operation and maintenance management of nodes. The nodes in the NodePool are ideally accessible to each other through the intranet.
+    - **[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)**: User can use a template to deploy an application in different node pools. This template can support one of Kubernetes deployment, Statefulset.
+  
 ## Getting started
 
 OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
