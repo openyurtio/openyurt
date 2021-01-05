@@ -25,7 +25,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog"
+	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -57,6 +59,7 @@ type ConvertOptions struct {
 	YurttunnelAgentImage       string
 	PodMainfestPath            string
 	DeployTunnel               bool
+	kubeConfigPath             string
 }
 
 // NewConvertOptions creates a new ConvertOptions
@@ -176,6 +179,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	if err != nil {
 		return err
 	}
+
+	// prepare path of cluster kubeconfig file
+	co.kubeConfigPath, err = kubeutil.PrepareKubeConfigPath(flags)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -291,7 +300,14 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		klog.Info("yurt-tunnel-agent is deployed")
 	}
 
-	// 6. deploy yurt-hub and reset the kubelet service
+	// 6. prepare kube-public/cluster-info configmap before convert
+	err = prepareClusterInfoConfigMap(co.clientSet, co.kubeConfigPath)
+	if err != nil {
+		klog.Errorf("fail to prepre cluster-info configmap, %v", err)
+		return
+	}
+
+	// 7. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
 	if err != nil {
@@ -384,5 +400,26 @@ func deployYurttunnelAgent(
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
+	return nil
+}
+
+// prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist
+func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) error {
+	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
+	if err != nil && apierrors.IsNotFound(err) {
+		// Create the cluster-info ConfigMap with the associated RBAC rules
+		if err := clusterinfophase.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
+			return fmt.Errorf("error creating bootstrap ConfigMap, %v", err)
+		}
+		if err := clusterinfophase.CreateClusterInfoRBACRules(client); err != nil {
+			return fmt.Errorf("error creating clusterinfo RBAC rules, %v", err)
+		}
+	} else if err != nil || info == nil {
+		klog.Errorf("fail to get configmap, %v", err)
+		return fmt.Errorf("fail to get configmap, %v", err)
+	} else {
+		klog.Infof("%s/%s configmap already exists, skip to prepare it", info.Namespace, info.Name)
+	}
+
 	return nil
 }

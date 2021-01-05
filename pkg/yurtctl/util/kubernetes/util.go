@@ -337,9 +337,24 @@ func ValidateServerVersion(cliSet *kubernetes.Clientset) error {
 // GenClientSet generates the clientset based on command option, environment variable or
 // the default kubeconfig file
 func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
-	kbCfgPath, err := flags.GetString("kubeconfig")
+	kubeconfigPath, err := PrepareKubeConfigPath(flags)
 	if err != nil {
 		return nil, err
+	}
+
+	restCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(restCfg)
+}
+
+// PrepareKubeConfigPath returns the path of cluster kubeconfig file
+func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
+	kbCfgPath, err := flags.GetString("kubeconfig")
+	if err != nil {
+		return "", err
 	}
 
 	if kbCfgPath == "" {
@@ -353,15 +368,10 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 	}
 
 	if kbCfgPath == "" {
-		return nil, errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
+		return "", errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
 	}
 
-	restCfg, err := clientcmd.BuildConfigFromFlags("", kbCfgPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(restCfg)
+	return kbCfgPath, nil
 }
 
 func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
