@@ -46,8 +46,8 @@ import (
 )
 
 var (
-	mutatingWebhookConfigurationName   = "yurtapp-mutating-webhook-configuration"
-	validatingWebhookConfigurationName = "yurtapp-validating-webhook-configuration"
+	mutatingWebhookConfigurationName   = "yurt-app-mutating-webhook-configuration"
+	validatingWebhookConfigurationName = "yurt-app-validating-webhook-configuration"
 
 	namespace  = webhookutil.GetNamespace()
 	secretName = webhookutil.GetSecretName()

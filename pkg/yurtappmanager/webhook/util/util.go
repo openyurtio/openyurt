@@ -39,14 +39,14 @@ func GetSecretName() string {
 	if name := os.Getenv("SECRET_NAME"); len(name) > 0 {
 		return name
 	}
-	return "yurtapp-webhook-certs"
+	return "yurt-app-webhook-certs"
 }
 
 func GetServiceName() string {
 	if name := os.Getenv("SERVICE_NAME"); len(name) > 0 {
 		return name
 	}
-	return "yurtapp-webhook-service"
+	return "yurt-app-webhook-service"
 }
 
 func GetPort() int {
@@ -65,5 +65,5 @@ func GetCertDir() string {
 	if p := os.Getenv("WEBHOOK_CERT_DIR"); len(p) > 0 {
 		return p
 	}
-	return "/tmp/yurtapp-webhook-certs"
+	return "/tmp/yurt-app-webhook-certs"
 }

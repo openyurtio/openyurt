@@ -9,4 +9,4 @@ spec:
     - port: 443
       targetPort: 9876 
   selector:
-    control-plane: controller-manager
+    control-plane: yurt-app-manager
