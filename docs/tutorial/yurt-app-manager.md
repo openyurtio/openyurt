@@ -1,5 +1,5 @@
 
-# Use yurt-app-manager to manage your edge node and workload
+# Use yurt-app-manager to manage edge nodes and workloads 
 
 In this tutorial, we will show how the yurt-app-manager helps users manage 
 there edge nodes and workload.
