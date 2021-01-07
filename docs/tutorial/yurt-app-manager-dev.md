@@ -1,5 +1,5 @@
 
-# Use yurt-app-manager to manage your edge node and workload
+# Build and deploy yurt-app-manager
 
 In this tutorial, we will show how the yurt-app-manager helps developers to build yurt-app-manager using the source code.
  
