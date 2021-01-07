@@ -4,8 +4,8 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    control-plane: controller-manager
-  name: controller-manager-metrics-monitor
+    control-plane: yurt-app-manager
+  name: manager-metrics-monitor
   namespace: system
 spec:
   endpoints:
@@ -13,4 +13,4 @@ spec:
       port: https
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: yurt-app-manager

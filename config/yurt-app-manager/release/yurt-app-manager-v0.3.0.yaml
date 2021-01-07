@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: controller-manager
+    control-plane: yurt-app-manager
   name: system
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -350,7 +350,7 @@ status:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: yurtapp-leader-election-role
+  name: yurt-app-leader-election-role
   namespace: kube-system
 rules:
 - apiGroups:
@@ -384,7 +384,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: yurtapp-manager-role
+  name: yurt-app-manager-role
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
@@ -564,12 +564,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: yurtapp-leader-election-rolebinding
+  name: yurt-app-leader-election-rolebinding
   namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: yurtapp-leader-election-role
+  name: yurt-app-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: default
@@ -578,11 +578,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: yurtapp-manager-rolebinding
+  name: yurt-app-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: yurtapp-manager-role
+  name: yurt-app-manager-role
 subjects:
 - kind: ServiceAccount
   name: default
@@ -591,37 +591,37 @@ subjects:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: yurtapp-webhook-certs
+  name: yurt-app-webhook-certs
   namespace: kube-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: yurtapp-webhook-service
+  name: yurt-app-webhook-service
   namespace: kube-system
 spec:
   ports:
   - port: 443
     targetPort: 9876
   selector:
-    control-plane: controller-manager
+    control-plane: yurt-app-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: controller-manager
-  name: yurtapp-controller-manager
+    control-plane: yurt-app-manager
+  name: yurt-app-manager
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: yurt-app-manager
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        control-plane: yurt-app-manager
     spec:
       containers:
       - args:
@@ -645,18 +645,18 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: yurtapp-webhook-certs
+          secretName: yurt-app-webhook-certs
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: yurtapp-mutating-webhook-configuration
+  name: yurt-app-mutating-webhook-configuration
 webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: yurtapp-webhook-service
+      name: yurt-app-webhook-service
       namespace: kube-system
       path: /mutate-apps-openyurt-io-v1alpha1-nodepool
   failurePolicy: Fail
@@ -674,7 +674,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: yurtapp-webhook-service
+      name: yurt-app-webhook-service
       namespace: kube-system
       path: /mutate-apps-openyurt-io-v1alpha1-uniteddeployment
   failurePolicy: Fail
@@ -694,12 +694,12 @@ apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: yurtapp-validating-webhook-configuration
+  name: yurt-app-validating-webhook-configuration
 webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: yurtapp-webhook-service
+      name: yurt-app-webhook-service
       namespace: kube-system
       path: /validate-apps-openyurt-io-v1alpha1-nodepool
   failurePolicy: Fail
@@ -718,7 +718,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: yurtapp-webhook-service
+      name: yurt-app-webhook-service
       namespace: kube-system
       path: /validate-apps-openyurt-io-v1alpha1-uniteddeployment
   failurePolicy: Fail

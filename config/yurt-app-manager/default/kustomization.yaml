@@ -6,7 +6,7 @@ namespace: kube-system
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: yurtapp-
+namePrefix: yurt-app-
 
 # Labels to add to all resources and selectors.
 #commonLabels:
@@ -26,7 +26,7 @@ bases:
 
 patchesStrategicMerge:
   # Protect the /metrics endpoint by putting it behind auth.
-  # If you want your controller-manager to expose the /metrics
+  # If you want your yurt-app-manager to expose the /metrics
   # endpoint w/o any authn/z, please comment the following line.
 # - manager_auth_proxy_patch.yaml
 
