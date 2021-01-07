@@ -28,3 +28,4 @@ make e2e
 ```
 
 Please check [ yurt-e2e-test tutorial](./tutorial/yurt-e2e-test.md) for more details.
+Please check [ yurt-app-manager dev tutorial](./tutorial/yurt-app-manager-dev.md) for more details.

@@ -142,8 +142,16 @@ gen_yamls() {
 }
 
 gen_yurtappmanager_yaml() {
+    local OUT_YAML_DIR=$YURT_ROOT/_output/yamls/
+    local BUILD_YAML_DIR=${OUT_YAML_DIR}/build/
+    mkdir -p ${BUILD_YAML_DIR}
+    (
+        rm -rf ${BUILD_YAML_DIR}/yurt-app-manager
+        cp -rf $YURT_ROOT/config/yurt-app-manager ${BUILD_YAML_DIR}
+        cd ${BUILD_YAML_DIR}/yurt-app-manager/manager
+        kustomize edit set image controller=$REPO/yurt-app-manager:${TAG}
+	)
     set +x
-    echo "==== yurt app manager yaml ===="
-    echo ""
-    kustomize build $YURT_ROOT/config/yurt-app-manager/default
+    echo "==== create yurt-app-manager.yaml in $OUT_YAML_DIR ===="
+    kustomize build ${BUILD_YAML_DIR}/yurt-app-manager/default > ${OUT_YAML_DIR}/yurt-app-manager.yaml
 }

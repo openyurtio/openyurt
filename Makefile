@@ -63,7 +63,6 @@ clean:
 e2e: 
 	hack/make-rules/build-e2e.sh 
 
-
 # Generate manifests e.g. CRD, RBAC etc.
 gen-app-manager-manifests: app-manager-controller-gen
 	$(CONTROLLER_GEN) crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./pkg/yurtappmanager/..." output:crd:artifacts:config=config/yurt-app-manager/crd/bases  output:rbac:artifacts:config=config/yurt-app-manager/rbac output:webhook:artifacts:config=config/yurt-app-manager/webhook
