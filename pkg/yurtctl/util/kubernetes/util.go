@@ -43,6 +43,7 @@ import (
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -414,7 +415,7 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	}
 
 	klog.V(1).Infoln("[token] creating token")
-	if err := tokenphase.CreateNewTokens(cliSet, []kubeadmapi.BootstrapToken{{Token: token}}); err != nil {
+	if err := tokenphase.CreateNewTokens(cliSet, []kubeadmapi.BootstrapToken{{Token: token, Usages: kubeadmcontants.DefaultTokenUsages, Groups: kubeadmcontants.DefaultTokenGroups}}); err != nil {
 		return "", err
 	}
 	return tokenStr, nil
