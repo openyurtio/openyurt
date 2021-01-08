@@ -13,6 +13,8 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
+| 2021-01-08  OpenYurt v0.3.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 2020-08-30  OpenYurt v0.2.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 2020-05-29  OpenYurt v0.1.0-beta.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 
 OpenYurt 是基于原生 Kubernetes 构建的，目标是扩展 Kubernetes 以无缝支持边缘计算场景。简而言之，OpenYurt 使客户可以像在公共云基础设施上运行应用一样管理在边缘基础设施之上运行的应用。
@@ -41,8 +43,10 @@ OpenYurt 遵循经典的边缘应用程序架构设计 ：Kubernetes 集群 的 
 \
 OpenYurt 的主要组件包括：
 - **YurtHub**：Kubernetes 集群中节点上运行的守护程序，它的作用是作为（Kubelet，Kubeproxy，CNI 插件等）的出站流量的代理。它在边缘节点的本地存储中缓存     Kubernetes 节点守护进程可能访问的所有资源的状态。如果边缘节点离线，则这些守护程序可以帮助节点在重新启动后恢复状态。
-- **Yurt Controller Manager**：在各种不同的边缘计算用例中 Yurt Controller Manager 负责管理许多Controller，比如节点控制器（ Node Controller ）和单元控制器（ Unit Controller 即将开源）。举例来说即使节点心跳丢失，处于自治模式的节点中的Pod也不会从 API Server 中被驱逐（ evicted ）。
-- **Yurt Tunnel (server/agent)**：它通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
+- **Yurt Controller Manager**：在各种不同的边缘计算用例中 Yurt Controller Manager 负责管理一个节点控制器（ Node Controller ）。举例来说即使节点心跳丢失，处于自治模式的节点中的Pod也不会从 API Server 中被驱逐（ evicted ）。
+- **Yurt App Manager**：它管理OpenYurt中引入的两个CRD资源。*[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)* 和 *[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)*. 前者为位于同一区域的节点池提供了便利的管理方法。
+后者定义了一种新的边缘应用模型以节点池为单位来管理工作负载。
+- **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
 
 
 
@@ -56,10 +60,10 @@ $ cd openyurt
 $ make WHAT=cmd/yurtctl
 ```
 
-`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令：
+`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, ack三种工具安装的kubernetes集群)：
 
 ```bash
-$ _output/bin/yurtctl convert --provider [minikube|ack]
+$ _output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
 ```
 
 要卸载 OpenYurt 并恢复为原始的 Kubernetes 集群设置，请运行以下命令：
