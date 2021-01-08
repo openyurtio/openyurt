@@ -2,7 +2,7 @@
   
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.1.0--beta.1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 [![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
@@ -42,7 +42,7 @@ OpenYurt follows a classic edge application architecture design -
 a centralized Kubernetes master resides in the cloud site, which
 manages multiple edge nodes reside in the edge site. Each edge node has moderate compute resources allowing
 running a number of edge applications plus the Kubernetes node daemons. The edge nodes in a cluster can span
-multiple physical regions. The terms `region` and `unit` are interchangeable in OpenYurt.
+multiple physical regions. The terms `region` and `Pool` are interchangeable in OpenYurt.
 <div align="left">
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
