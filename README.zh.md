@@ -2,7 +2,7 @@
   
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.1.0--beta.1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
 [![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
@@ -34,7 +34,7 @@ OpenYurt 适合如下这些常见的边缘计算用户场景：
 
 ## 架构
 
-OpenYurt 遵循经典的边缘应用程序架构设计 ：Kubernetes 集群 的 master 节点集中部署于公共云中，由这些 master 节点管理位于边缘站点的多个边缘节点。每个边缘节点具有适度的计算资源，从而允许运行大量边缘应用以及 Kubernetes 节点守护进程。集群中的边缘节点可以分处于在多个物理区域中（region）。在OpenYurt 的概念中  区域（region）这个概念 和 单位（unit）这个概念 是可以相互转换的。
+OpenYurt 遵循经典的边缘应用程序架构设计 ：Kubernetes 集群 的 master 节点集中部署于公共云中，由这些 master 节点管理位于边缘站点的多个边缘节点。每个边缘节点具有适度的计算资源，从而允许运行大量边缘应用以及 Kubernetes 节点守护进程。集群中的边缘节点可以分处于在多个物理区域中（region）。在OpenYurt 的概念中  区域（region）这个概念 和 池（Pool）这个概念 是可以相互转换的。
 <div align="left">
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
