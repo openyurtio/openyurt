@@ -13,6 +13,7 @@ English | [简体中文](./README.zh.md)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
+|January 8th, 2021. OpenYurt v0.3.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
@@ -60,7 +61,7 @@ The major OpenYurt components consist of:
   and *[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)*. The former provides a convenient
   management experience for a pool of nodes within the same region or site. The latter defines a new edge application management 
   methodology of using per node pool workload.
-- **Yurt tunnel (server/agent)**: It connects with the `TunnelAgent` daemon running in each edge node via a
+- **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
   that are connected to the intranet.
 
@@ -80,10 +81,10 @@ $ make WHAT=cmd/yurtctl
 ```
 
 The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
-the following simple command line can be used:
+the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm and ACK):
 
 ```bash
-$ _output/bin/yurtctl convert --provider [minikube|ack]
+$ _output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
 ```
 
 To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:

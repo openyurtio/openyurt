@@ -1,3 +1,39 @@
+# v0.3.0
+
+## Project
+
+- Add new component Yurt App Manager that runs on cloud nodes
+- Add new provider=kubeadm for yurtctl
+- Add hubself certificate mode for yurthub
+- Support log flush for yurt-tunnel
+- New tutorials for Yurt App Manager
+
+## yurt-app-manager
+
+- Implement NodePool CRD that provides a convenient management experience for a pool of nodes within the same region or site
+- Implement UnitedDeployment CRD by defining a new edge application management methodology of using per node pool workload
+- Add tutorials to use Yurt App Manager
+
+## yurthub
+
+- Add hubself certificate mode for generating and rotating certificate that used to connect with kube-apiserver as default mode
+- Add timeout mechanism for proxying watch request
+- Optimize the response when cache data is not found
+
+## yurt-tunnel
+
+- Add integration test
+- Support log flush request from kube-apiserver
+- Optimize tunnel interceptor for separating context dailer and proxy request
+- Optimize the usage of sharedIndexInformer
+
+
+## yurtctl
+
+- Add new provider=kubeadm that kubernetes cluster installed by kubeadm can be converted to openyurt cluster
+- Adapt new certificate mode of yurthub when convert edge node
+- Fix image pull policy from `Always` to `IfNotPresent` for all components deployment setting
+
 # v0.2.0
 
 ## Project
