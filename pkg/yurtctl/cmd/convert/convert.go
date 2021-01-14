@@ -22,12 +22,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
@@ -88,6 +90,8 @@ func NewConvertCmd() *cobra.Command {
 			}
 		},
 	}
+
+	cmd.AddCommand(NewConvertEdgeNodeCmd())
 
 	cmd.Flags().StringP("cloud-nodes", "c", "",
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
@@ -227,11 +231,23 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	// 2. label nodes as cloud node or edge node
+	// 1.1. check the state of worker nodes
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return
 	}
+	for _, node := range nodeLst.Items {
+		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
+			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
+			if condition == nil || condition.Status != v1.ConditionTrue {
+				klog.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
+				return
+			}
+		}
+	}
+	klog.V(4).Info("the status of worker nodes are satisfied")
+
+	// 2. label nodes as cloud node or edge node
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
 		if strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
@@ -243,14 +259,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 			}
 			continue
 		}
-		// label node as edge node
-		klog.Infof("mark %s as the edge-node", node.GetName())
 		edgeNodeNames = append(edgeNodeNames, node.GetName())
-		_, err = kubeutil.LabelNode(co.clientSet,
-			&node, projectinfo.GetEdgeWorkerLabelKey(), "true")
-		if err != nil {
-			return
-		}
 	}
 
 	// 3. deploy yurt controller manager
@@ -331,7 +340,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		"joinToken":             joinToken,
 		"pod_manifest_path":     co.PodMainfestPath,
 		"kubeadm_conf_path":     co.KubeadmConfPath,
-	}, edgeNodeNames); err != nil {
+	}, edgeNodeNames, true); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
 	}

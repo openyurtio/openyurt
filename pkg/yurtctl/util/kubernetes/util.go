@@ -274,8 +274,12 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 }
 
 // RunServantJobs launchs servant jobs on specified edge nodes
-func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string) error {
+func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string, convert bool) error {
 	var wg sync.WaitGroup
+	servantJobTemplate := constants.ConvertServantJobTemplate
+	if !convert {
+		servantJobTemplate = constants.RevertServantJobTemplate
+	}
 	for _, nodeName := range edgeNodeNames {
 		action, exist := tmplCtx["action"]
 		if !exist {
@@ -292,7 +296,7 @@ func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edg
 		}
 		tmplCtx["nodeName"] = nodeName
 
-		jobYaml, err := tmplutil.SubsituteTemplate(constants.ServantJobTemplate, tmplCtx)
+		jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
 		if err != nil {
 			return err
 		}

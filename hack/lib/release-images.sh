@@ -133,8 +133,6 @@ function build_yurtctl_servant_image() {
         esac
         cat << EOF > $docker_file_path
 FROM $base_image
-RUN mkdir -p /var/lib/openyurt
-ADD setup_edgenode /var/lib/openyurt
 EOF
         ln $servant_script_path $docker_build_path/setup_edgenode
         docker build --no-cache -t $yurtctl_servant_image -f $docker_file_path $docker_build_path
