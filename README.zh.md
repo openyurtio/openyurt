@@ -90,8 +90,8 @@ $ _output/bin/yurtctl revert
 
 | Item        | Value  |
 |---------------------|---|
-| 社区会议 | [从2020.9.2开始双周会议，周三上午10:00～11：00(北京时间)](https://calendar.google.com/calendar?cid=a3Y3aWQ4MWczcWliMjhkNGFqcXJmMjNwMXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
-| 会议链接 | https://zoom.us/j/99639193252 |
+| 社区会议 | [从2020.9.2开始双周会议，周三上午11:00～12：00(北京时间)](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
+| 会议链接 | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09 |
 | 会议纪要| [会议议程及纪要](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
 | 会议视频| [B站 OpenYurt](https://space.bilibili.com/484245424/video) |
 
