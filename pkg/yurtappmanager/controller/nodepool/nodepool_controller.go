@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2021 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -385,7 +385,11 @@ func conciliateTaints(node *corev1.Node, oldTaints, newTaints []corev1.Taint) {
 	}
 
 	// 2. update the node taints based on the latest node pool taints
-	node.Spec.Taints = mergeTaints(node.Spec.Taints, oldTaints, newTaints)
+	for _, nt := range newTaints {
+		if _, exist := containTaint(nt, oldTaints); !exist {
+			node.Spec.Taints = append(node.Spec.Taints, nt)
+		}
+	}
 }
 
 // conciliateNodePoolStatus will update the nodepool status
@@ -457,21 +461,6 @@ func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 		}
 	}
 	return taints
-}
-
-// mergeTaints updates node's taints based on `new` and `pre`
-func mergeTaints(base, pre, new []corev1.Taint) []corev1.Taint {
-	for _, pt := range pre {
-		if _, exist := containTaint(pt, new); !exist {
-			base = removeTaint(pt, base)
-		}
-	}
-	for _, nt := range new {
-		if _, exist := containTaint(nt, pre); !exist {
-			base = append(base, nt)
-		}
-	}
-	return base
 }
 
 // cachePrevPoolAttrs caches the nodepool-related attributes to the
