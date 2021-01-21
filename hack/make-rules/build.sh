@@ -19,4 +19,6 @@ set -x
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 source "${YURT_ROOT}/hack/lib/init.sh" 
 
+HOST_PLATFORM=${HOST_PLATFORM:-"$(host_platform)"}
+
 build_binaries "$@"

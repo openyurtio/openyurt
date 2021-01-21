@@ -12,7 +12,7 @@ function build_e2e() {
     goflags=${GOFLAGS:-}
 
 
-    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_BIN_DIR})
+    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
     mkdir -p ${target_bin_dir}
     cd ${target_bin_dir}
     echo "Building ${YURT_E2E_TARGETS}"
