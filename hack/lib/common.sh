@@ -43,3 +43,8 @@ canonicalize_target() {
 
     echo $target
 }
+
+# host_platform returns the host platform determined by golang
+host_platform() {
+  echo "$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
+}

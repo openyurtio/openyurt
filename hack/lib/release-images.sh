@@ -58,6 +58,7 @@ function build_multi_arch_binaries() {
         "--env GIT_VERSION=${GIT_VERSION}"
         "--env GIT_COMMIT=${GIT_COMMIT}"
         "--env BUILD_DATE=${BUILD_DATE}"
+        "--env HOST_PLATFORM=$(host_platform)"
     )
     # use goproxy if build from inside mainland China
     [[ $region == "cn" ]] && docker_run_opts+=("--env GOPROXY=https://goproxy.cn")
@@ -71,7 +72,7 @@ function build_multi_arch_binaries() {
     local sub_commands="sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories; \
         apk --no-cache add bash git; \
         cd /opt/src; umask 0022; \
-        rm -rf ${YURT_BIN_DIR}/* ;"
+        rm -rf ${YURT_LOCAL_BIN_DIR}/* ;"
     for arch in ${target_arch[@]}; do
         sub_commands+="GOARCH=$arch bash ./hack/make-rules/build.sh $(echo ${bin_targets_without_servant[@]}); "
     done
@@ -84,7 +85,7 @@ function build_docker_image() {
     for arch in ${target_arch[@]}; do
         for binary in "${bin_targets_without_servant[@]}"; do
            local binary_name=$(get_output_name $binary)
-           local binary_path=${YURT_BIN_DIR}/${SUPPORTED_OS}/${arch}/${binary_name}
+           local binary_path=${YURT_LOCAL_BIN_DIR}/${SUPPORTED_OS}/${arch}/${binary_name}
            if [ -f ${binary_path} ]; then
                local docker_build_path=${DOCKER_BUILD_BASE_IDR}/${SUPPORTED_OS}/${arch}
                local docker_file_path=${docker_build_path}/Dockerfile.${binary_name}-${arch}
@@ -146,7 +147,7 @@ build_images() {
     # Always clean first
     rm -Rf ${YURT_OUTPUT_DIR}
     rm -Rf ${DOCKER_BUILD_BASE_IDR}
-    mkdir -p ${YURT_BIN_DIR}
+    mkdir -p ${YURT_LOCAL_BIN_DIR}
     mkdir -p ${YURT_IMAGE_DIR}
     mkdir -p ${DOCKER_BUILD_BASE_IDR}
     
