@@ -104,5 +104,5 @@ sed -i "s|KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=\/etc\/kubernetes\/boot
 Finally, we restart the kubelet service
 ```bash
 # assume we are logged in to the edge node already 
-$ systemctl daemon-reload && systemctl restart
+$ systemctl daemon-reload && systemctl restart kubelet
 ```
