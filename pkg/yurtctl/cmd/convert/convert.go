@@ -58,6 +58,7 @@ type ConvertOptions struct {
 	YurttunnelServerImage      string
 	YurttunnelAgentImage       string
 	PodMainfestPath            string
+	KubeadmConfPath            string
 	DeployTunnel               bool
 	kubeConfigPath             string
 }
@@ -101,6 +102,9 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
+	cmd.Flags().String("kubeadm-conf-path",
+		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
+		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 	cmd.Flags().String("yurt-tunnel-server-image",
 		"openyurt/yurt-tunnel-server:latest",
 		"The yurt-tunnel-server image.")
@@ -173,6 +177,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.PodMainfestPath = pmp
+
+	kcp, err := flags.GetString("kubeadm-conf-path")
+	if err != nil {
+		return err
+	}
+	co.KubeadmConfPath = kcp
 
 	// parse kubeconfig and generate the clientset
 	co.clientSet, err = kubeutil.GenClientSet(flags)
@@ -320,6 +330,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		"yurthub_image":         co.YurhubImage,
 		"joinToken":             joinToken,
 		"pod_manifest_path":     co.PodMainfestPath,
+		"kubeadm_conf_path":     co.KubeadmConfPath,
 	}, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
