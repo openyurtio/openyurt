@@ -234,7 +234,6 @@ func getClusterIPDNSandIP(svc *corev1.Service) ([]string, []net.IP, error) {
 				constants.YurttunnelServerExternalAddrKey, host, constants.YurttunnelServerServiceName)
 			dnsNames = append(dnsNames, host)
 		}
-		ips = append(ips, ip)
 	}
 
 	return dnsNames, ips, nil
