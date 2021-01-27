@@ -25,6 +25,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
+	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/clusterinfo"
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/convert"
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/markautonomous"
 	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/revert"
@@ -53,6 +54,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(convert.NewConvertCmd())
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
+	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
