@@ -39,6 +39,7 @@ import (
 type RevertOptions struct {
 	clientSet           *kubernetes.Clientset
 	YurtctlServantImage string
+	KubeadmConfPath     string
 }
 
 // NewConvertOptions creates a new RevertOptions
@@ -65,6 +66,9 @@ func NewRevertCmd() *cobra.Command {
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
+	cmd.Flags().String("kubeadm-conf-path",
+		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
+		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 
 	return cmd
 }
@@ -76,6 +80,12 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	ro.YurtctlServantImage = ycsi
+
+	kcp, err := flags.GetString("kubeadm-conf-path")
+	if err != nil {
+		return err
+	}
+	ro.KubeadmConfPath = kcp
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -224,6 +234,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		map[string]string{
 			"action":                "revert",
 			"yurtctl_servant_image": ro.YurtctlServantImage,
+			"kubeadm_conf_path":     ro.KubeadmConfPath,
 		},
 		edgeNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)

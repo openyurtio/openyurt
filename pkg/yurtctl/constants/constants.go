@@ -199,5 +199,9 @@ spec:
               fieldPath: spec.nodeName
         - name: STATIC_POD_PATH
           value: {{.pod_manifest_path}}
+          {{if  .kubeadm_conf_path }}
+        - name: KUBELET_SVC
+          value: {{.kubeadm_conf_path}}
+          {{end}}
 `
 )
