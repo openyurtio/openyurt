@@ -90,7 +90,7 @@ build_binaries() {
     done
     
     if [[ $(host_platform) == ${HOST_PLATFORM} ]]; then
-      rm -f "${YURT_BIN_DIR}"
+      rm -rf "${YURT_BIN_DIR}"
       ln -s "${target_bin_dir}" "${YURT_BIN_DIR}"
     fi
 }
