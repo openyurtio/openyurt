@@ -17,13 +17,14 @@
 | 2020-08-30  OpenYurt v0.2.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 2020-05-29  OpenYurt v0.1.0-beta.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 
-OpenYurt 是基于原生 Kubernetes 构建的，目标是扩展 Kubernetes 以无缝支持边缘计算场景。简而言之，OpenYurt 使客户可以像在公共云基础设施上运行应用一样管理在边缘基础设施之上运行的应用。
+OpenYurt (官网: https://openyurt.io) 是托管在 Cloud Native Computing Foundation (CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/). 它是基于原生 Kubernetes 构建的，目标是扩展 Kubernetes 以无缝支持边缘计算场景。简而言之，OpenYurt 使客户可以像在公共云基础设施上运行应用一样管理在边缘基础设施之上运行的应用。
 
 OpenYurt 适合如下这些常见的边缘计算用户场景：
 - 使设备和负载之间的长途通信网络通讯流量最小化；
 - 克服网络带宽限制及可靠性限制；
 - 在边缘节点处理数据以减少延迟；
 - 为敏感数据的处理提供了一个更好的安全模型；
+- 在单个集群中管理分散在不同地域的边缘资源和边缘应用；
 
 
 就兼容性和可用性而言，OpenYurt 具有以下优点：
@@ -78,8 +79,8 @@ $ _output/bin/yurtctl revert
 ## 使用方法
 我们提供详细的[教程](./docs/tutorial/README.md)来演示如何使用 OpenYurt 管理部署在边缘节点上的应用。
 
-## 线路图
-[2020 Q3 roadmap](docs/roadmap.md)
+## 发展规划
+[2021年 发展规划](docs/roadmap.md)
 
 
 ## 社区
