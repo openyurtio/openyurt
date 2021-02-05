@@ -17,15 +17,16 @@ English | [简体中文](./README.zh.md)
 |August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
-OpenYurt is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
+OpenYurt(official website: https://openyurt.io) is now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/). It is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
 In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
-in the cloud infrastructure. Our official website is [https://openyurt.io](https://openyurt.io).
+in the cloud infrastructure.
 
 OpenYurt is suitable for common edge computing use cases whose requirements include:
 - Minimizing the network traffic over long distances between the devices and the workloads.
 - Overcoming the network bandwidth or reliability limitations.
 - Processing data remotely to reduce latency.
 - Providing a better security model to handle sensitive data.
+- Manage edge resources and edge applications in a single cluster.
 
 OpenYurt has the following advantages in terms of compatibility and usability.
 - **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 
@@ -101,7 +102,7 @@ We provider detailed [**tutorials**](./docs/tutorial/README.md) to demonstrate h
 
 ## Roadmap
 
-- [2020 Q3 roadmap](docs/roadmap.md)
+- [2021 roadmap](docs/roadmap.md)
 
 ## Community
 
