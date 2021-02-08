@@ -116,7 +116,7 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 		healthyThreshold:  healthyThreshold,
 	}
 
-	initHealthyStatus, err := pingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
+	initHealthyStatus, err := PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
 	if err != nil {
 		klog.Errorf("cluster(%s) init status: unhealthy, %v", c.serverHealthzAddr, err)
 	}
@@ -146,7 +146,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 			return
 		case <-intervalTicker.C:
 			for i := 0; i < c.failedRetry; i++ {
-				isHealthy, err = pingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
+				isHealthy, err = PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
 				if err != nil {
 					klog.V(2).Infof("ping cluster healthz with result, %v", err)
 					if !c.clusterHealthy {
@@ -189,7 +189,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 	}
 }
 
-func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
+func PingClusterHealthz(client *http.Client, addr string) (bool, error) {
 	if client == nil {
 		return false, fmt.Errorf("http client is invalid")
 	}
