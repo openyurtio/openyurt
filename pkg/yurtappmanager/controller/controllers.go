@@ -24,8 +24,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/nodepool"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/uniteddeployment"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/uniteddeployment"
 )
 
 var controllerAddFuncs []func(manager.Manager, context.Context) error

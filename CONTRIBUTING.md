@@ -20,7 +20,7 @@ We take security issues seriously and discourage anyone to spread security issue
 
 ## Reporting general issues
 
-Any OpenYurt user can potentially be a contributor. If you have any feedback for the project, feel free to open an issue via [NEW ISSUE](https://github.com/alibaba/openyurt/issues/new).
+Any OpenYurt user can potentially be a contributor. If you have any feedback for the project, feel free to open an issue via [NEW ISSUE](https://github.com/openyurtio/openyurt/issues/new).
 
 Since OpenYurt development will be collaborated in a distributed manner, we appreciate **WELL-WRITTEN**, **DETAILED**, **EXPLICIT** issue reports. To make communication more efficient, we suggest everyone to search if your issue is an existing one before filing a new issue. If you find it to be existing, please append your details in the issue comments.
 
@@ -63,12 +63,12 @@ Before submitting a PR, we suggest you could take a look at the PR rules here.
 
 We assume you have a GitHub ID already, then you could finish the preparation in the following steps:
 
-1. **FORK** OpenYurt to your repository. To make this work, you just need to click the button `Fork` in top-right corner of [openyurt](https://github.com/alibaba/openyurt) main page. Then you will end up with your repository in `https://github.com/<username>/openyurt`, in which `username` is your GitHub ID.
+1. **FORK** OpenYurt to your repository. To make this work, you just need to click the button `Fork` in top-right corner of [openyurt](https://github.com/openyurtio/openyurt) main page. Then you will end up with your repository in `https://github.com/<username>/openyurt`, in which `username` is your GitHub ID.
 1. **CLONE** your own repository to develop locally. Use `git clone https://github.com/<username>/openyurt.git` to clone repository to your local machine. Then you can create new branches to finish the change you wish to make.
 1. **Set Remote** upstream to be openyurt using the following two commands:
 
 ```
-git remote add upstream https://github.com/alibaba/openyurt.git
+git remote add upstream https://github.com/openyurtio/openyurt.git
 git remote set-url --push upstream no-pushing
 ```
 
@@ -78,7 +78,7 @@ With this remote setting, you can check your git remote configuration like this:
 $ git remote -v
 origin     https://github.com/<username>/openyurt.git (fetch)
 origin     https://github.com/<username>/openyurt.git (push)
-upstream   https://github.com/alibaba/openyurt.git (fetch)
+upstream   https://github.com/openyurtio/openyurt.git (fetch)
 upstream   no-pushing (push)
 ```
 

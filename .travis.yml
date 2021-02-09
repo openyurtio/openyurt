@@ -3,7 +3,7 @@ language: go
 go:
   - "1.13"
 
-go_import_path: github.com/alibaba/openyurt
+go_import_path: github.com/openyurtio/openyurt
 
 script:
   - make all

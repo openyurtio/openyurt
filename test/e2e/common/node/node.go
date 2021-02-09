@@ -17,10 +17,10 @@ limitations under the License.
 package node
 
 import (
-	"github.com/alibaba/openyurt/test/e2e/common/node/ecs"
-	"github.com/alibaba/openyurt/test/e2e/common/node/ens"
-	"github.com/alibaba/openyurt/test/e2e/common/node/types"
-	"github.com/alibaba/openyurt/test/e2e/common/node/user"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/ecs"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/ens"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/user"
 )
 
 const (

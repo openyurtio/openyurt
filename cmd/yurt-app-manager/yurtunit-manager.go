@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurt-app-manager/app"
+	"github.com/openyurtio/openyurt/cmd/yurt-app-manager/app"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 )

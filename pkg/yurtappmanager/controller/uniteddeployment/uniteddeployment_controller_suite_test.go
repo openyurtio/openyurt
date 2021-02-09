@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/apis"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/apis"
 )
 
 var cfg *rest.Config

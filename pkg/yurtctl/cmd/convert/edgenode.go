@@ -35,11 +35,11 @@ import (
 	"k8s.io/klog"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	enutil "github.com/alibaba/openyurt/pkg/yurtctl/util/edgenode"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 const (

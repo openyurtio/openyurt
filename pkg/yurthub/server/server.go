@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/profile"
 	"github.com/gorilla/mux"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/profile"
 )
 
 // Server is an interface for providing http service for yurthub

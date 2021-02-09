@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 )
 
 const (

@@ -28,9 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/kubernetes/serializer"
-	proxyutil "github.com/alibaba/openyurt/pkg/yurthub/proxy/util"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -27,9 +27,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/kubernetes/serializer"
-	"github.com/alibaba/openyurt/pkg/yurthub/storage"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

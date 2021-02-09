@@ -1,4 +1,4 @@
-module github.com/alibaba/openyurt
+module github.com/openyurtio/openyurt
 
 go 1.13
 

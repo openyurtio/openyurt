@@ -20,7 +20,7 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"

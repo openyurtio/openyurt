@@ -27,9 +27,9 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/uniteddeployment/adapter"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/refmanager"
+	alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/uniteddeployment/adapter"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/refmanager"
 )
 
 // PoolControl provides pool operations of MutableSet.

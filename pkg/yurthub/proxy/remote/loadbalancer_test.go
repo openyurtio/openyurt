@@ -20,7 +20,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 type PickBackend struct {

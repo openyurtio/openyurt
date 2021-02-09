@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/pkg/yurthub/storage"
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

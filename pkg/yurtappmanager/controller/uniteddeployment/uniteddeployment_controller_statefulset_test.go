@@ -37,8 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	unitv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	yurtctlutil "github.com/alibaba/openyurt/pkg/yurtappmanager/pkg/controller/util"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	yurtctlutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/pkg/controller/util"
 )
 
 var c client.Client

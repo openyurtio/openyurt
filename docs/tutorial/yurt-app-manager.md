@@ -11,7 +11,7 @@ Suppose you have a Kubernetes cluster in an Openyurt environment, or a native Ku
 
 Go to OpenYurt root directory:
 ```bash
-$ cd $GOPATH/src/github.com/alibaba/openyurt
+$ cd $GOPATH/src/github.com/openyurtio/openyurt
 ```
 
 ```bash

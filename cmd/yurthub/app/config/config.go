@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/options"
-	"github.com/alibaba/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 
 	"k8s.io/klog"
 )

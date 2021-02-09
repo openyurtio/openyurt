@@ -22,7 +22,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 )
 
 // TraceReqMiddleware prints request information when start/stop

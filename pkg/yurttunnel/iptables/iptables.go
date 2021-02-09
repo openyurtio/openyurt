@@ -36,8 +36,8 @@ import (
 	"k8s.io/utils/exec"
 	utilnet "k8s.io/utils/net"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 const (

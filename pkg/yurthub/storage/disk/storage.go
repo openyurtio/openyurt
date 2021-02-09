@@ -25,7 +25,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"k8s.io/klog"
 )
 

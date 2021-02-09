@@ -25,8 +25,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/generator"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/writer/atomic"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/generator"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/writer/atomic"
 	"k8s.io/klog"
 )
 

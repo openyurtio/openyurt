@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"

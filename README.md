@@ -4,8 +4,8 @@
 
 [![Version](https://img.shields.io/badge/OpenYurt-v0.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
-[![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
+[![Build Status](https://travis-ci.org/openyurtio/openyurt.svg?branch=master)](https://travis-ci.org/openyurtio/openyurt)
 
 </div>
 
@@ -76,7 +76,7 @@ OpenYurt by using the `yurtctl` command line tool. To quickly build and install 
 assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
 
 ```bash
-$ git clone https://github.com/alibaba/openyurt.git
+$ git clone https://github.com/openyurtio/openyurt.git
 $ cd openyurt
 $ make WHAT=cmd/yurtctl
 ```

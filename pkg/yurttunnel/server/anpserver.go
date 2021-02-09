@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
-	wh "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	wh "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"

@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/generator"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/generator"
 )
 
 // CertGenerator is a certGenerator for testing.
