@@ -18,11 +18,11 @@ package e2e
 
 import (
 	"flag"
-	nd "github.com/alibaba/openyurt/test/e2e/common/node"
-	"github.com/alibaba/openyurt/test/e2e/yurt"
-	"github.com/alibaba/openyurt/test/e2e/yurtconfig"
-	"github.com/alibaba/openyurt/test/e2e/yurthub"
-	"github.com/alibaba/openyurt/test/e2e/yurttunnel"
+	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/yurt"
+	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
+	"github.com/openyurtio/openyurt/test/e2e/yurthub"
+	"github.com/openyurtio/openyurt/test/e2e/yurttunnel"
 	"github.com/onsi/ginkgo"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

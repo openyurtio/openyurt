@@ -17,10 +17,10 @@ limitations under the License.
 package webhook
 
 import (
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/gate"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/nodepool/mutating"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/nodepool/validating"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/gate"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/nodepool/mutating"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/nodepool/validating"
 )
 
 func init() {

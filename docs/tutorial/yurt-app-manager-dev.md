@@ -7,7 +7,7 @@ In this tutorial, we will show how the yurt-app-manager helps developers to buil
 
 Go to OpenYurt root directory:
 ```bash
-$ cd $GOPATH/src/github.com/alibaba/openyurt
+$ cd $GOPATH/src/github.com/openyurtio/openyurt
 ```
 
 You shoud first set global linux environment variables:

@@ -18,7 +18,7 @@ package user
 
 import (
     "fmt"
-    "github.com/alibaba/openyurt/test/e2e/common/node/types"
+    "github.com/openyurtio/openyurt/test/e2e/common/node/types"
     "github.com/onsi/ginkgo"
     "strings"
 )

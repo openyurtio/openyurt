@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 )
 
 var storeCertData = newCertificateData(`-----BEGIN CERTIFICATE-----

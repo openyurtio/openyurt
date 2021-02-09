@@ -21,7 +21,7 @@ package versioned
 import (
 	"fmt"
 
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/client/clientset/versioned/typed/apps/v1alpha1"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/clientset/versioned/typed/apps/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

@@ -41,9 +41,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/constant"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/gate"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/constant"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/gate"
 )
 
 const controllerName = "nodepool-controller"

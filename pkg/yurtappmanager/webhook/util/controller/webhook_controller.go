@@ -38,11 +38,11 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	extclient "github.com/alibaba/openyurt/pkg/yurtappmanager/client"
-	webhookutil "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/configuration"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/generator"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/writer"
+	extclient "github.com/openyurtio/openyurt/pkg/yurtappmanager/client"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/configuration"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/generator"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/writer"
 )
 
 var (

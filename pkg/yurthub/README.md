@@ -52,4 +52,4 @@ please do the following:
 
 ## Trouble Shooting
 
-1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub may not initiate properly. (**NOTE: this issue has been fixed by PR [#49](https://github.com/alibaba/openyurt/pull/49)**)
+1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub may not initiate properly. (**NOTE: this issue has been fixed by PR [#49](https://github.com/openyurtio/openyurt/pull/49)**)

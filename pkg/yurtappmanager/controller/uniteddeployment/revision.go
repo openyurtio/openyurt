@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	appsalphav1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/refmanager"
+	appsalphav1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/refmanager"
 )
 
 // ControllerRevisionHashLabel is the label used to indicate the hash value of a ControllerRevision's Data.

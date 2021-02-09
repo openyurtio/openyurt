@@ -22,7 +22,7 @@ package options
 import (
 	"time"
 
-	yurtcontrollerconfig "github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/config"
+	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	clientset "k8s.io/client-go/kubernetes"

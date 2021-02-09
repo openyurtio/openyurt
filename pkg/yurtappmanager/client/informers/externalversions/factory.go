@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/alibaba/openyurt/pkg/yurtappmanager/client/clientset/versioned"
-	apps "github.com/alibaba/openyurt/pkg/yurtappmanager/client/informers/externalversions/apps"
-	internalinterfaces "github.com/alibaba/openyurt/pkg/yurtappmanager/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/clientset/versioned"
+	apps "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/informers/externalversions/apps"
+	internalinterfaces "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

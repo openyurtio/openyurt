@@ -26,7 +26,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app"
 	"k8s.io/component-base/logs"
 	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugin
 	_ "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration

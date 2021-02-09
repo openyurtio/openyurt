@@ -31,11 +31,11 @@ import (
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
 
 // Provider signifies the provider type

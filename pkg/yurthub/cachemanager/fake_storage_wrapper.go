@@ -20,8 +20,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/storage"
-	"github.com/alibaba/openyurt/pkg/yurthub/storage/fake"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/fake"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )

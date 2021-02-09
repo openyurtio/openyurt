@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	unitv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	webhookutil "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util"
 )
 
 // UnitedDeploymentCreateUpdateHandler handles UnitedDeployment

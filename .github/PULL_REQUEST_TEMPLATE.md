@@ -1,6 +1,6 @@
 <!-- 
 Please make sure you have read and understood the contributing guidelines;
-https://github.com/alibaba/openyurt/blob/master/CONTRIBUTING.md -->
+https://github.com/openyurtio/openyurt/blob/master/CONTRIBUTING.md -->
 
 ### Ⅰ. Describe what this PR does
 

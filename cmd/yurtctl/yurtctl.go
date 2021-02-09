@@ -19,7 +19,7 @@ package main
 import (
 	"os"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd"
 )
 
 func main() {

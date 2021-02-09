@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/spf13/pflag"
 )
 

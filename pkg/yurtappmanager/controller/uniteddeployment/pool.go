@@ -18,10 +18,10 @@ limitations under the License.
 package uniteddeployment
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/uniteddeployment/adapter"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/uniteddeployment/adapter"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	unitv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 // Pool stores the details of a pool resource owned by one UnitedDeployment.

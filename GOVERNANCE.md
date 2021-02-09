@@ -4,7 +4,7 @@ The governance model adopted in OpenYurt is influenced by many CNCF projects.
 
 ## Principles
 
-- **Open**: OpenYurt is open source community. See [Contributor License Agreement](https://cla-assistant.io/alibaba/openyurt).
+- **Open**: OpenYurt is open source community. See [Contributor License Agreement](https://cla-assistant.io/openyurtio/openyurt).
 - **Welcoming and respectful**: See [Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
 - **Transparent and accessible**: Work and collaboration should be done in public.
 - **Merit**: Ideas and contributions are accepted according to their technical merit
@@ -17,7 +17,7 @@ They normally take the following responsibilities:
 
 * Classify GitHub issues and perform pull request reviews for other maintainers and the community.
 
-* During GitHub issue classification, apply all applicable [labels](https://github.com/alibaba/openyurt/labels)
+* During GitHub issue classification, apply all applicable [labels](https://github.com/openyurtio/openyurt/labels)
   to each new issue. Labels are extremely useful for follow-up of future issues. Which labels to apply
   is somewhat subjective so just use your best judgment. 
 

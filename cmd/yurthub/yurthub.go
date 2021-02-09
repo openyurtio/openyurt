@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 

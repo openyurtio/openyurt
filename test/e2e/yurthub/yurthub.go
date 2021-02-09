@@ -18,12 +18,12 @@ package yurthub
 
 import (
 	"encoding/json"
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	nd "github.com/alibaba/openyurt/test/e2e/common/node"
-	"github.com/alibaba/openyurt/test/e2e/common/ns"
-	p "github.com/alibaba/openyurt/test/e2e/common/pod"
-	ycfg "github.com/alibaba/openyurt/test/e2e/yurtconfig"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	apiv1 "k8s.io/api/core/v1"

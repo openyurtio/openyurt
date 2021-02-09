@@ -31,11 +31,11 @@ import (
 	"k8s.io/klog"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	enutil "github.com/alibaba/openyurt/pkg/yurtctl/util/edgenode"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
 
 // RevertEdgeNodeOptions has the information required by sub command revert edgenode

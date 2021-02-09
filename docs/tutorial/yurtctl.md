@@ -1,7 +1,7 @@
 # `Yurtctl` tutorial
 
 This tutorial demonstrates how to use `yurtctl` to install/uninstall OpenYurt.
-Please refer to the [Getting Started](https://github.com/alibaba/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl` .
+Please refer to the [Getting Started](https://github.com/openyurtio/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl` .
 We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0)) 
 is installed. 
 
@@ -178,7 +178,7 @@ I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
 ```
 
 To verify that the yurttunnel works as expected, please refer to 
-the [yurttunnel tutorial](https://github.com/alibaba/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
+the [yurttunnel tutorial](https://github.com/openyurtio/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
 
 ## Revert/Uninstall OpenYurt
 

@@ -21,8 +21,8 @@ TODO
 */
 
 import (
-	"github.com/alibaba/openyurt/test/e2e/common/node/types"
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
+	"github.com/aliyun/openyurtio-cloud-sdk-go/services/ecs"
 )
 
 type EcsController struct {

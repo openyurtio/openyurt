@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

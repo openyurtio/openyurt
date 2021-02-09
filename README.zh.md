@@ -4,8 +4,8 @@
 
 [![Version](https://img.shields.io/badge/OpenYurt-v0.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[![Go Report Card](https://goreportcard.com/badge/github.com/alibaba/openyurt)](https://goreportcard.com/report/github.com/alibaba/openyurt)
-[![Build Status](https://travis-ci.org/alibaba/openyurt.svg?branch=master)](https://travis-ci.org/alibaba/openyurt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
+[![Build Status](https://travis-ci.org/openyurtio/openyurt.svg?branch=master)](https://travis-ci.org/openyurtio/openyurt)
 
 </div>
 
@@ -56,7 +56,7 @@ OpenYurt 支持最高版本为1.16的 Kubernetes 。使用更高版本的 Kubern
 您可以[手动](docs/tutorial/manually-setup.md)设置 OpenYurt 集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
 
 ```bash
-$ git clone https://github.com/alibaba/openyurt.git
+$ git clone https://github.com/openyurtio/openyurt.git
 $ cd openyurt
 $ make WHAT=cmd/yurtctl
 ```

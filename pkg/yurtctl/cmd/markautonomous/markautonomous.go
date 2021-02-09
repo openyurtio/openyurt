@@ -27,10 +27,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
 // MarkAutonomousOptions has the information that required by convert operation

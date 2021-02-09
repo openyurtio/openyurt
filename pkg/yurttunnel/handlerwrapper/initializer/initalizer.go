@@ -17,7 +17,7 @@ limitations under the License.
 package initializer
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 	"k8s.io/client-go/informers"
 )
 

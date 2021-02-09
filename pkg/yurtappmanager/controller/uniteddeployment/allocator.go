@@ -18,7 +18,7 @@ limitations under the License.
 package uniteddeployment
 
 import (
-	unitv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 func GetNextReplicas(ud *unitv1alpha1.UnitedDeployment) map[string]int32 {

@@ -21,10 +21,10 @@ package v1alpha1
 import (
 	time "time"
 
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	versioned "github.com/alibaba/openyurt/pkg/yurtappmanager/client/clientset/versioned"
-	internalinterfaces "github.com/alibaba/openyurt/pkg/yurtappmanager/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/client/listers/apps/v1alpha1"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	versioned "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/clientset/versioned"
+	internalinterfaces "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/listers/apps/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

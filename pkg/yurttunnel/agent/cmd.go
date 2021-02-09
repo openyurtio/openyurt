@@ -29,12 +29,12 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/server/serveraddr"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 )
 
 const defaultKubeconfig = "/etc/kubernetes/kubelet.conf"

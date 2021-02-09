@@ -22,11 +22,11 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"k8s.io/klog"
 )
 

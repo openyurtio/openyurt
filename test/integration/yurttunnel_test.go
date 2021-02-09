@@ -33,10 +33,10 @@ import (
 	"k8s.io/klog"
 	anpserver "sigs.k8s.io/apiserver-network-proxy/pkg/server"
 
-	ta "github.com/alibaba/openyurt/pkg/yurttunnel/agent"
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
-	tr "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
-	ts "github.com/alibaba/openyurt/pkg/yurttunnel/server"
+	ta "github.com/openyurtio/openyurt/pkg/yurttunnel/agent"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	tr "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
+	ts "github.com/openyurtio/openyurt/pkg/yurttunnel/server"
 )
 
 const (

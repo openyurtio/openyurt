@@ -17,8 +17,8 @@ limitations under the License.
 package yurt
 
 import (
-	"github.com/alibaba/openyurt/test/e2e/common/ns"
-	p "github.com/alibaba/openyurt/test/e2e/common/pod"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	apiv1 "k8s.io/api/core/v1"

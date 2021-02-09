@@ -24,11 +24,11 @@ import (
 	flag "github.com/spf13/pflag"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/clusterinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/convert"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/markautonomous"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/revert"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/clusterinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/convert"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 )
 
 // NewYurtctlCommand creates a new yurtctl command

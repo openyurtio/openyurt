@@ -28,17 +28,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
 // ClusterInfoOptions has the information that required by cluster-info operation
 type ClusterInfoOptions struct {
-	clientSet             *kubernetes.Clientset
-	CloudNodes            []string
-	EdgeNodes             []string
-	ClusterNodes	      []string
-	OtherNodes		      []string
+	clientSet    *kubernetes.Clientset
+	CloudNodes   []string
+	EdgeNodes    []string
+	ClusterNodes []string
+	OtherNodes   []string
 }
 
 // NewClusterInfoOptions creates a new ClusterInfoOptions

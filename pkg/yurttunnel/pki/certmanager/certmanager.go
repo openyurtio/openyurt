@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/server/serveraddr"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 
 	certificates "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/util/wait"

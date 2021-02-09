@@ -1,7 +1,7 @@
 package client
 
 import (
-	yurtappclientset "github.com/alibaba/openyurt/pkg/yurtappmanager/client/clientset/versioned"
+	yurtappclientset "github.com/openyurtio/openyurt/pkg/yurtappmanager/client/clientset/versioned"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )

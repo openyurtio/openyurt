@@ -17,8 +17,8 @@ limitations under the License.
 package initializer
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 // WantsHealthChecker is an interface for setting health checker

@@ -46,9 +46,9 @@ import (
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 )
 
 const (
