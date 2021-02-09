@@ -6,6 +6,6 @@
 - [x] revert subcommand that revert a yurt cluster back to kubernetes
 - [ ] specify edge nodes for upgrading yurthub
 - [ ] cluster-info subcommand that list edge/cloud nodes
-- [ ] add yurtctl-servant image to relase 
+- [ ] add yurtctl-servant image to relase
 - [ ] support user specified image
 - [ ] use yurt crd to manage the cluster

@@ -1,5 +1,7 @@
+# openyurtio/openyurt
+
 <div align="center">
-  
+
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
 [![Version](https://img.shields.io/badge/OpenYurt-v0.3.0-orange)](CHANGELOG.md)
@@ -17,7 +19,7 @@ English | [简体中文](./README.zh.md)
 |August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
-OpenYurt(official website: https://openyurt.io) is now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/). It is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
+OpenYurt(official website: <https://openyurt.io>) is now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/). It is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
 In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
 in the cloud infrastructure.
 
@@ -29,17 +31,17 @@ OpenYurt is suitable for common edge computing use cases whose requirements incl
 - Manage edge resources and edge applications in a single cluster.
 
 OpenYurt has the following advantages in terms of compatibility and usability.
-- **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services, 
+- **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services,
   operators, CNI plugins, and CSI plugins are supported.
 - **Seamless conversion**. It provides a tool to easily convert a native Kubernetes to be "edge" ready.
   The extra resource and maintenance costs of the OpenYurt components are very low.
 - **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
-  The applications run in the edge nodes are not affected even if the nodes are offline. 
+  The applications run in the edge nodes are not affected even if the nodes are offline.
 - **Cloud platform agnostic**. OpenYurt can be easily deployed in any public cloud Kubernetes services.
 
 ## Architecture
 
-OpenYurt follows a classic edge application architecture design - 
+OpenYurt follows a classic edge application architecture design -
 a centralized Kubernetes master resides in the cloud site, which
 manages multiple edge nodes reside in the edge site. Each edge node has moderate compute resources allowing
 running a number of edge applications plus the Kubernetes node daemons. The edge nodes in a cluster can span
@@ -50,20 +52,20 @@ multiple physical regions. The terms `region` and `Pool` are interchangeable in 
 
 \
 The major OpenYurt components consist of:
-- **YurtHub**: A node daemon that serves as a proxy for the outbound traffic from the 
-  Kubernetes node daemons (Kubelet, Kubeproxy, CNI plugins and so on). It caches the 
+- **YurtHub**: A node daemon that serves as a proxy for the outbound traffic from the
+  Kubernetes node daemons (Kubelet, Kubeproxy, CNI plugins and so on). It caches the
   states of all the resources that the Kubernetes node daemons
   might access in the edge node's local storage. In case the edge node is offline, those daemons can
   recover the states upon node restarts.
 - **Yurt controller manager**: It manages a node controller for different edge computing use cases. For example,
-  the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the 
+  the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the
   node heartbeats are missing.
 - **Yurt app manager**: It manages two CRD resources introduced in OpenYurt: *[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)*
   and *[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)*. The former provides a convenient
-  management experience for a pool of nodes within the same region or site. The latter defines a new edge application management 
+  management experience for a pool of nodes within the same region or site. The latter defines a new edge application management
   methodology of using per node pool workload.
 - **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
-  reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes 
+  reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
 
 ## Getting started
@@ -76,22 +78,22 @@ OpenYurt by using the `yurtctl` command line tool. To quickly build and install 
 assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
 
 ```bash
-$ git clone https://github.com/openyurtio/openyurt.git
-$ cd openyurt
-$ make WHAT=cmd/yurtctl
+git clone https://github.com/openyurtio/openyurt.git
+cd openyurt
+make WHAT=cmd/yurtctl
 ```
 
 The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
 the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm and ACK):
 
 ```bash
-$ _output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
+_output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
 ```
 
 To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:
 
 ```bash
-$ _output/bin/yurtctl revert
+_output/bin/yurtctl revert
 ```
 
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.

@@ -92,9 +92,9 @@ type checker struct {
 }
 
 func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThreshold int, stopCh <-chan struct{}) (*checker, error) {
-	serverHealthzUrl := *url
-	if serverHealthzUrl.Path == "" || serverHealthzUrl.Path == "/" {
-		serverHealthzUrl.Path = "/healthz"
+	serverHealthzURL := *url
+	if serverHealthzURL.Path == "" || serverHealthzURL.Path == "/" {
+		serverHealthzURL.Path = "/healthz"
 	}
 
 	if failedRetry == 0 {
@@ -106,8 +106,8 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 	}
 
 	c := &checker{
-		serverHealthzAddr: serverHealthzUrl.String(),
-		healthzClient:     tp.HealthzHttpClient(),
+		serverHealthzAddr: serverHealthzURL.String(),
+		healthzClient:     tp.HealthzHTTPClient(),
 		clusterHealthy:    false,
 		lastTime:          time.Now(),
 		onFailureFunc:     tp.Close,

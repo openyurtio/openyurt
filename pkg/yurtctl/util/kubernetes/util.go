@@ -65,7 +65,7 @@ var (
 	WaitServantJobTimeout = time.Minute * 2
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
-	// ValidServerVersion contains all compatable server version
+	// ValidServerVersions contains all compatable server version
 	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",

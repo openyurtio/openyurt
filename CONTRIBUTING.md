@@ -6,7 +6,6 @@ Welcome to join OpenYurt project. Here is the contributing guide for you.
 
 Please do check our [Code of Conduct](CODE_OF_CONDUCT.md) before making contributions.
 
-
 ## Topics
 
 * [Reporting security issues](#reporting-security-issues)
@@ -51,7 +50,7 @@ Any action that may make OpenYurt better is encouraged. The action can be realiz
 * If you find tech debts, try to refactor them!
 * If you find document incorrect, please fix that!
 
-It is impossible to list them completely, we are looking forward to your pull requests. 
+It is impossible to list them completely, we are looking forward to your pull requests.
 Before submitting a PR, we suggest you could take a look at the PR rules here.
 
 * [Workspace Preparation](#workspace-preparation)
@@ -90,7 +89,7 @@ Right now we assume every contribution via pull request is for the `master` bran
 There are several other branches such as rc branches, release branches and backport branches.
 Before officially releasing a version, we may checkout a rc (release candidate) branch for more testings.
 When officially releasing a version, there may be a release branch before tagging which will be deleted after tagging.
-When backporting some fixes to existing released version, we will checkout backport branches. 
+When backporting some fixes to existing released version, we will checkout backport branches.
 
 ### Commit Rules
 
@@ -123,7 +122,6 @@ Commit content represents all content changes included in one commit. We had bet
 
 * Avoid very large change in a commit;
 * Be complete and reviewable for each commit.
-
 
 ### PR Description
 

@@ -16,7 +16,7 @@ limitations under the License.
 
 @CHANGELOG
 OpenYurt Authors:
-change UnitedDeployment API Defination
+change UnitedDeployment API Definition
 */
 
 package v1alpha1

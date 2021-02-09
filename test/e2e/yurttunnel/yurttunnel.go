@@ -20,13 +20,16 @@ package yurttunnel
 import (
 	"bytes"
 	"fmt"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	"github.com/openyurtio/openyurt/test/e2e/common/ns"
-	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	"io"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"io"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -36,15 +39,12 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/ginkgowrapper"
-	"net/url"
-	"strings"
-	"time"
 )
 
 const (
-	YURTTUNNEL_E2E_NAMESPACE_NAME = "yurttunnel-e2e-test"
-	YURTTUNNEL_E2E_TEST_DESC      = "[yurttunnel-e2e-test]"
-	YURTTUNNEL_E2E_MIN_NODE_NUM   = 2
+	YurttunnelE2eNamespaceName = "yurttunnel-e2e-test"
+	YurttunnelE2eTestDesc      = "[yurttunnel-e2e-test]"
+	YurttunnelE2eMinNodeNum    = 2
 )
 
 const (
@@ -57,7 +57,7 @@ func PreCheckNode(c clientset.Interface) error {
 		klog.Errorf("pre_check_get_nodes failed errmsg:%v", err)
 		return err
 	}
-	if len(nodes.Items) < YURTTUNNEL_E2E_MIN_NODE_NUM {
+	if len(nodes.Items) < YurttunnelE2eMinNodeNum {
 		err = fmt.Errorf("yurttunnel e2e test need 2 nodes at least")
 		return err
 	}
@@ -142,7 +142,7 @@ func execute(method string, url *url.URL, config *restclient.Config, stdin io.Re
 }
 
 func Register() {
-	var _ = framework.KubeDescribe(YURTTUNNEL_E2E_NAMESPACE_NAME, func() {
+	var _ = framework.KubeDescribe(YurttunnelE2eNamespaceName, func() {
 		gomega.RegisterFailHandler(ginkgowrapper.Fail)
 		defer ginkgo.GinkgoRecover()
 		var (
@@ -158,20 +158,20 @@ func Register() {
 		err = PreCheckTunnelPod(c)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_pod_not_ok")
 
-		err = ns.DeleteNameSpace(c, YURTTUNNEL_E2E_NAMESPACE_NAME)
+		err = ns.DeleteNameSpace(c, YurttunnelE2eNamespaceName)
 		framework.ExpectNoError(err)
 
-		ginkgo.By(YURTTUNNEL_E2E_TEST_DESC + "yurttunnel_test_create namespace")
-		_, err = ns.CreateNameSpace(c, YURTTUNNEL_E2E_NAMESPACE_NAME)
+		ginkgo.By(YurttunnelE2eTestDesc + "yurttunnel_test_create namespace")
+		_, err = ns.CreateNameSpace(c, YurttunnelE2eNamespaceName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-		framework.KubeDescribe(YURTTUNNEL_E2E_TEST_DESC+": pod_operate_test_on_edge", func() {
+		framework.KubeDescribe(YurttunnelE2eTestDesc+": pod_operate_test_on_edge", func() {
 			ginkgo.It("yurttunnel_e2e_test_pod_run_on_edge", func() {
 				cs := c
 				podName := "test-po-on-edge"
 				objectMeta := metav1.ObjectMeta{}
 				objectMeta.Name = podName
-				objectMeta.Namespace = YURTTUNNEL_E2E_NAMESPACE_NAME
+				objectMeta.Namespace = YurttunnelE2eNamespaceName
 				objectMeta.Labels = map[string]string{"name": podName}
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
@@ -183,30 +183,30 @@ func Register() {
 				spec.Containers = []apiv1.Container{container}
 
 				ginkgo.By("create pod:" + podName)
-				_, err := p.CreatePod(cs, YURTTUNNEL_E2E_NAMESPACE_NAME, objectMeta, spec)
+				_, err := p.CreatePod(cs, YurttunnelE2eNamespaceName, objectMeta, spec)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail create pod:"+podName)
 
-				err = p.WaitTimeoutForPodRunning(cs, podName, YURTTUNNEL_E2E_NAMESPACE_NAME, PodStartShortTimeout)
+				err = p.WaitTimeoutForPodRunning(cs, podName, YurttunnelE2eNamespaceName, PodStartShortTimeout)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "wait create timeout pod:"+podName)
 
 				ginkgo.By("waiting pod running:" + podName)
-				err = p.VerifyPodsRunning(cs, YURTTUNNEL_E2E_NAMESPACE_NAME, podName, false, 1)
+				err = p.VerifyPodsRunning(cs, YurttunnelE2eNamespaceName, podName, false, 1)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "wait running failed pod: "+podName)
 
 				ginkgo.By("get pod info:" + podName)
-				pod, err := p.GetPod(cs, YURTTUNNEL_E2E_NAMESPACE_NAME, podName)
+				pod, err := p.GetPod(cs, YurttunnelE2eNamespaceName, podName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get status pod:"+podName)
 				gomega.Expect(pod.Name).Should(gomega.Equal(podName), podName+" get_pod_name:"+pod.Name+" not equal created pod:"+podName)
 
-				stdOut, _, err := RunExecWithOutPut(c, YURTTUNNEL_E2E_NAMESPACE_NAME, pod.Name, container.Name)
+				stdOut, _, err := RunExecWithOutPut(c, YurttunnelE2eNamespaceName, pod.Name, container.Name)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail run exec:"+podName)
 				gomega.Expect(stdOut).ShouldNot(gomega.Equal(""), "exec edge pod return empty")
 
-				err = p.DeletePod(cs, YURTTUNNEL_E2E_NAMESPACE_NAME, podName)
+				err = p.DeletePod(cs, YurttunnelE2eNamespaceName, podName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail remove pod:"+podName)
-				ginkgo.By("delete namespace: " + YURTTUNNEL_E2E_NAMESPACE_NAME)
-				err = ns.DeleteNameSpace(cs, YURTTUNNEL_E2E_NAMESPACE_NAME)
-				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YURTTUNNEL_E2E_NAMESPACE_NAME)
+				ginkgo.By("delete namespace: " + YurttunnelE2eNamespaceName)
+				err = ns.DeleteNameSpace(cs, YurttunnelE2eNamespaceName)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YurttunnelE2eNamespaceName)
 				framework.ExpectNoError(err)
 			})
 		})

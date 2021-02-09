@@ -16,7 +16,9 @@ limitations under the License.
 
 package constant
 
+type contextKey int
+
 const (
 	// ContextKeyCreateDefaultPool indicate whether creating the default nodepools
-	ContextKeyCreateDefaultPool = "CreateDefaultPool"
+	ContextKeyCreateDefaultPool contextKey = iota
 )

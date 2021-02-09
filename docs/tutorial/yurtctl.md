@@ -1,9 +1,9 @@
 # `Yurtctl` tutorial
 
 This tutorial demonstrates how to use `yurtctl` to install/uninstall OpenYurt.
-Please refer to the [Getting Started](https://github.com/openyurtio/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl` .
-We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0)) 
-is installed. 
+Please refer to the [Getting Started](https://github.com/openyurtio/openyurt#getting-started) section on the README page to prepare and build binary to `_output/bin/yurtctl`.
+We assume a minikube cluster ([version 1.14 or less](https://github.com/kubernetes/minikube/releases/tag/v1.0.0))
+is installed.
 
 ## Convert a minikube cluster
 
@@ -55,11 +55,9 @@ $ ls /etc/kubernetes/cache/kubelet/
 configmaps  events  leases  nodes  pods  secrets  services
 ```
 
-
 ### Test node autonomy
 
-To test if edge node autonomy works as expected, we will simulate a node "offline" scenario. 
-1. Let's first create a sample pod:
+To test if edge node autonomy works as expected, we will simulate a node "offline" scenario.
 ```bash
 kubectl apply -f-<<EOF
 apiVersion: v1
@@ -78,13 +76,13 @@ EOF
 2. Make the edge node "offline" by changing the `yurthub`'s server-addr to an unreachable address:
 ```bash
 $ minikube ssh
-$ sudo sed -i 's|--server-addr=.*|--server-addr=https://1.1.1.1:1111|' /etc/kubernetes/manifests/yurt-hub.yaml 
+$ sudo sed -i 's|--server-addr=.*|--server-addr=https://1.1.1.1:1111|' /etc/kubernetes/manifests/yurt-hub.yaml
 ```
 
 3. Now `yurthub` is disconnected from the apiserver and works in offline mode. To verify this, we can do the following:
 ```bash
 $ minikube ssh
-$ curl -s http://127.0.0.1:10261
+$ curl -s <http://127.0.0.1:10261>
 {
   "kind": "Status",
   "metadata": {
@@ -108,13 +106,12 @@ bbox   1/1     Running   0          19m
 
 ## Convert a multi-nodes Kubernetes cluster
 
-An OpenYurt cluster may consist of some edge nodes and some nodes in the cloud site. 
+An OpenYurt cluster may consist of some edge nodes and some nodes in the cloud site.
 `yurtctl` allows users to specify a list of cloud nodes that won't be converted.
 
-
-1. Start with a [two-nodes ack cluster](https://cn.aliyun.com/product/kubernetes), 
+1. Start with a [two-nodes ack cluster](https://cn.aliyun.com/product/kubernetes),
 ```bash
-$ kubectl get node 
+$ kubectl get node
 NAME                     STATUS   ROLES    AGE   VERSION
 us-west-1.192.168.0.87   Ready    <none>   19h   v1.14.8-aliyun.1
 us-west-1.192.168.0.88   Ready    <none>   19h   v1.14.8-aliyun.1
@@ -151,7 +148,7 @@ yurt-controller-manager-6947f6f748-lxfdx           us-west-1.192.168.0.87
 
 ## Setup Yurttunnel
 
-Since version v0.2.0, users can setup the yurttunnel using `yurtctl convert`. 
+Since version v0.2.0, users can setup the yurttunnel using `yurtctl convert`.
 
 Assume that the origin cluster is a two-nodes minikube cluster:
 
@@ -162,7 +159,7 @@ minikube       Ready    master   72m   v1.18.3   172.17.0.3    <none>        Ubu
 minikube-m02   Ready    <none>   71m   v1.18.3   172.17.0.4    <none>        Ubuntu 20.04 LTS   4.19.76-linuxkit   docker://19.3.8
 ```
 
-Then, by simply running the `yurtctl convert` command with the enabling of the option `--deploy-yurttunnel`, 
+Then, by simply running the `yurtctl convert` command with the enabling of the option `--deploy-yurttunnel`,
 yurttunnel servers will be deployed on cloud nodes, and an yurttunnel agent will be deployed on every edge node.
 
 ```bash
@@ -177,16 +174,16 @@ I0831 12:36:22.109338   77322 util.go:173] servant job(yurtctl-servant-convert-m
 I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
 ```
 
-To verify that the yurttunnel works as expected, please refer to 
+To verify that the yurttunnel works as expected, please refer to
 the [yurttunnel tutorial](https://github.com/openyurtio/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
 
 ## Set the path of configuration
-Sometimes the configuration of the node may be different. Users can set the path of the kubelet service configuration 
+Sometimes the configuration of the node may be different. Users can set the path of the kubelet service configuration
 by the option `--kubeadm-conf-path`, which is used by kubelet component to join the cluster on the edge node.
 ```
 $ _output/bin/yurtctl convert --kubeadm-conf-path /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
-The path of the directory on edge node containing static pod files can be set by the 
+The path of the directory on edge node containing static pod files can be set by the
 option `--pod-manifest-path`.
 ```
 $ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
@@ -203,17 +200,17 @@ revert.go:124] ServiceAccount node-controller is created
 util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
 revert.go:133] yurt-hub is removed, kubelet service is reset
 ```
-Note that before performing the uninstall, please make sure all edge nodes are reachable from the apiserver. 
+Note that before performing the uninstall, please make sure all edge nodes are reachable from the apiserver.
 
-In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`, 
+In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`,
 and the path of the directory on edge node containing static pod files can be set by the option `--pod-manifest-path`.
 
 ## Subcommand
 ### Convert a Kubernetes node to Yurt edge node
 
-You can use the subcommand `yurtctl convert edgenode` to convert a Kubernetes node to Yurt edge node separately. 
+You can use the subcommand `yurtctl convert edgenode` to convert a Kubernetes node to Yurt edge node separately.
 
-This command can convert the node locally or remotely. One or more nodes that need to be converted can be specified 
+This command can convert the node locally or remotely. One or more nodes that need to be converted can be specified
 by the option `--edge-nodes`. If this option is not used, the local node will be converted.
 
 Convert the Kubernetes node n80 to an Yurt edge node:
@@ -234,8 +231,8 @@ You can verify this by inspecting its labels and getting the status of pod yurt-
 
 ### Revert an Yurt edge node to Kubernetes node
 
-The subcommand `yurtctl revert edgenode` can revert a Yurt edge node. The option `--edge-nodes` of command can be used 
-to specify one or more nodes to be reverted which is the same as the `yurtctl convert edgenode`. 
+The subcommand `yurtctl revert edgenode` can revert a Yurt edge node. The option `--edge-nodes` of command can be used
+to specify one or more nodes to be reverted which is the same as the `yurtctl convert edgenode`.
 
 Assume that the cluster is an OpenYurt cluster and has an Yurt edge node n80:
 ```
@@ -260,7 +257,7 @@ You can verify this by inspecting its labels and getting the status of pod yurt-
 
 ### 1. Failure due to pulling image timeout
 
-The default timeout value of cluster conversion is 2 minutes. Sometimes pulling the related images 
+The default timeout value of cluster conversion is 2 minutes. Sometimes pulling the related images
 might take more than 2 minutes. To avoid the conversion failure due to pulling images timeout, you can:
   - use mirrored image from aliyun container registry(ACR)
 ```bash
@@ -272,7 +269,7 @@ $ _output/bin/yurtctl convert --provider minikube \
   --yurthub-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:latest
 ```
   - or pull all images on the node manually
-  or use automation tools such as `broadcastjob`(from [Kruise](https://github.com/openkruise/kruise/blob/master/docs/concepts/broadcastJob/README.md)) in advance.
+  or use automation tools such as `broadcastjob`(from [Kruise](https://github.com/openkruise/kruise/blob/master/docs/tutorial/broadcastjob.md)) in advance.
 
 ### 2. Adhoc failure recovery
 

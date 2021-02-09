@@ -38,8 +38,8 @@ const (
 
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver
 type Interface interface {
-	// HealthzHttpClient returns http client that used by health checker
-	HealthzHttpClient() *http.Client
+	// HealthzHTTPClient returns http client that used by health checker
+	HealthzHTTPClient() *http.Client
 	// concurrent use by multiple goroutines
 	// CurrentTransport get transport that used by load balancer
 	CurrentTransport() *http.Transport
@@ -53,7 +53,7 @@ type Interface interface {
 
 type transportManager struct {
 	dialer            *util.Dialer
-	healthzHttpClient *http.Client
+	healthzHTTPClient *http.Client
 	currentTransport  *http.Transport
 	certManager       interfaces.YurtCertificateManager
 	closeAll          func()
@@ -77,7 +77,7 @@ func NewTransportManager(heartbeatTimeoutSeconds int, stopCh <-chan struct{}) (I
 	}
 
 	tm := &transportManager{
-		healthzHttpClient: &http.Client{
+		healthzHTTPClient: &http.Client{
 			Transport: t,
 			Timeout:   time.Duration(heartbeatTimeoutSeconds) * time.Second,
 		},
@@ -117,8 +117,8 @@ func (tm *transportManager) UpdateTransport(certMgr interfaces.YurtCertificateMa
 	return nil
 }
 
-func (tm *transportManager) HealthzHttpClient() *http.Client {
-	return tm.healthzHttpClient
+func (tm *transportManager) HealthzHTTPClient() *http.Client {
+	return tm.healthzHTTPClient
 }
 
 func (tm *transportManager) GetRestClientConfig() *rest.Config {

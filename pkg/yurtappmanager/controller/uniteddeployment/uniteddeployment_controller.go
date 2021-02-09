@@ -68,7 +68,7 @@ const (
 
 // Add creates a new UnitedDeployment Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, _ context.Context) error {
+func Add(_ context.Context, mgr manager.Manager) error {
 	if !gate.ResourceEnabled(&unitv1alpha1.UnitedDeployment{}) {
 		return nil
 	}

@@ -21,20 +21,20 @@ TODO
 */
 
 import (
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ens"
 	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
-	"github.com/aliyun/openyurtio-cloud-sdk-go/services/ens"
 )
 
 type EnsController struct {
-	RegionId string
+	RegionID string
 	Client   *ens.Client
 }
 
-func NewEnsController(regionId, accessKeyId, accessKeySecret string) (*EnsController, error) {
+func NewEnsController(regionID, accessKeyID, accessKeySecret string) (*EnsController, error) {
 	var e EnsController
 	var err error
-	e.RegionId = regionId
-	e.Client, err = ens.NewClientWithAccessKey(regionId, accessKeyId, accessKeySecret)
+	e.RegionID = regionID
+	e.Client, err = ens.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
 	return &e, err
 }
 
@@ -42,22 +42,22 @@ func (u *EnsController) RebootNode(nodeName string) error {
 	return nil
 }
 
-func (u *EnsController) CreateNode(instanceType, imageId, vswitchId, userData string) (string, error) {
+func (u *EnsController) CreateNode(instanceType, imageID, vswitchID, userData string) (string, error) {
 	return "", nil
 }
 
-func (u *EnsController) StartNode(instanceId string) error {
+func (u *EnsController) StartNode(instanceID string) error {
 	return nil
 }
 
-func (u *EnsController) DeleteNode(instanceId string) error {
+func (u *EnsController) DeleteNode(instanceID string) error {
 	return nil
 }
 
-func (u *EnsController) GetNodeInfo(instanceId string) (*types.NodeAttribute, error) {
+func (u *EnsController) GetNodeInfo(instanceID string) (*types.NodeAttribute, error) {
 	return nil, nil
 }
 
-func (u *EnsController) StopNode(instanceId string) error {
+func (u *EnsController) StopNode(instanceID string) error {
 	return nil
 }
