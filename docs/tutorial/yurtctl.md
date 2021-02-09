@@ -133,7 +133,7 @@ I0529 11:21:26.075075    9231 util.go:147] servant job(yurtctl-servant-convert-u
 3. Node `us-west-1.192.168.0.87` will be marked as a non-edge node. You can verify this by inspecting its labels:
 ```bash
 $ kubectl describe node us-west-1.192.168.0.87 | grep Labels
-Labels:             alibabacloud.com/is-edge-worker=false
+Labels:             openyurt.io/is-edge-worker=false
 ```
 
 4. Same as before, we make desired edge nodes autonomous:
@@ -180,6 +180,18 @@ I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
 To verify that the yurttunnel works as expected, please refer to 
 the [yurttunnel tutorial](https://github.com/openyurtio/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
 
+## Set the path of configuration
+Sometimes the configuration of the node may be different. Users can set the path of the kubelet service configuration 
+by the option `--kubeadm-conf-path`, which is used by kubelet component to join the cluster on the edge node.
+```
+$ _output/bin/yurtctl convert --kubeadm-conf-path /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+```
+The path of the directory on edge node containing static pod files can be set by the 
+option `--pod-manifest-path`.
+```
+$ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
+```
+
 ## Revert/Uninstall OpenYurt
 
 Using `yurtctl` to revert an OpenYurt cluster can be done by doing the following:
@@ -192,6 +204,57 @@ util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
 revert.go:133] yurt-hub is removed, kubelet service is reset
 ```
 Note that before performing the uninstall, please make sure all edge nodes are reachable from the apiserver. 
+
+In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`, 
+and the path of the directory on edge node containing static pod files can be set by the option `--pod-manifest-path`.
+
+## Subcommand
+### Convert a Kubernetes node to Yurt edge node
+
+You can use the subcommand `yurtctl convert edgenode` to convert a Kubernetes node to Yurt edge node separately. 
+
+This command can convert the node locally or remotely. One or more nodes that need to be converted can be specified 
+by the option `--edge-nodes`. If this option is not used, the local node will be converted.
+
+Convert the Kubernetes node n80 to an Yurt edge node:
+```
+$ _output/bin/yurtctl convert edgenode --edge-nodes n80
+I0209 11:03:30.101308   13729 edgenode.go:251] mark n80 as the edge-node
+I0209 11:03:30.136313   13729 edgenode.go:279] setting up yurthub on node
+I0209 11:03:30.137013   13729 edgenode.go:294] setting up yurthub apiserver addr
+I0209 11:03:30.137500   13729 edgenode.go:311] create the /etc/kubernetes/manifests/yurt-hub.yaml
+I0209 11:03:40.140073   13729 edgenode.go:403] yurt-hub healthz is OK
+I0209 11:03:40.140555   13729 edgenode.go:330] revised kubeconfig /var/lib/openyurt/kubelet.conf is generated
+I0209 11:03:40.141592   13729 edgenode.go:351] kubelet.service drop-in file is revised
+I0209 11:03:40.141634   13729 edgenode.go:354] systemctl daemon-reload
+I0209 11:03:40.403453   13729 edgenode.go:359] systemctl restart kubelet
+I0209 11:03:40.469911   13729 edgenode.go:364] kubelet has been restarted
+```
+You can verify this by inspecting its labels and getting the status of pod yurt-hub.
+
+### Revert an Yurt edge node to Kubernetes node
+
+The subcommand `yurtctl revert edgenode` can revert a Yurt edge node. The option `--edge-nodes` of command can be used 
+to specify one or more nodes to be reverted which is the same as the `yurtctl convert edgenode`. 
+
+Assume that the cluster is an OpenYurt cluster and has an Yurt edge node n80:
+```
+$ kubectl describe node n80 | grep Labels
+Labels:             openyurt.io/is-edge-worker=true
+$ kubectl get pod -A | grep yurt-hub
+kube-system   yurt-hub-n80               1/1     Running   0          7m32s
+```
+Using `yurtctl revert edgenode` to revert:
+```
+$ _output/bin/yurtctl revert edgenode --edge-nodes n80
+I0209 11:01:46.837812   12217 edgenode.go:225] label alibabacloud.com/is-edge-worker is removed
+I0209 11:01:46.838454   12217 edgenode.go:252] found backup file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf.bk, will use it to revert the node
+I0209 11:01:46.838689   12217 edgenode.go:259] systemctl daemon-reload
+I0209 11:01:47.085554   12217 edgenode.go:265] systemctl restart kubelet
+I0209 11:01:47.153388   12217 edgenode.go:270] kubelet has been reset back to default
+I0209 11:01:47.153680   12217 edgenode.go:282] yurt-hub has been removed
+```
+You can verify this by inspecting its labels and getting the status of pod yurt-hub.
 
 ## Troubleshooting
 
