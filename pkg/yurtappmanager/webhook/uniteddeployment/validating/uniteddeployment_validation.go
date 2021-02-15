@@ -117,14 +117,6 @@ func ValidateUnitedDeploymentUpdate(unitedDeployment, oldUnitedDeployment *unitv
 	return allErrs
 }
 
-func convertPodSpec(spec *v1.PodSpec) (*core.PodSpec, error) {
-	coreSpec := &core.PodSpec{}
-	if err := corev1.Convert_v1_PodSpec_To_core_PodSpec(spec.DeepCopy(), coreSpec, nil); err != nil {
-		return nil, err
-	}
-	return coreSpec, nil
-}
-
 func convertPodTemplateSpec(template *v1.PodTemplateSpec) (*core.PodTemplateSpec, error) {
 	coreTemplate := &core.PodTemplateSpec{}
 	if err := corev1.Convert_v1_PodTemplateSpec_To_core_PodTemplateSpec(template.DeepCopy(), coreTemplate, nil); err != nil {

@@ -33,7 +33,7 @@ const (
 	RestartKubeletSvc = "systemctl restart kubelet"
 
 	ServerHealthzServer  = "127.0.0.1:10261"
-	ServerHealthzUrlPath = "/v1/healthz"
+	ServerHealthzURLPath = "/v1/healthz"
 	OpenyurtKubeletConf  = `
 apiVersion: v1
 clusters:

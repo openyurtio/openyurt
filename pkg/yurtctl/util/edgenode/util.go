@@ -114,7 +114,9 @@ func GetNodeName() (string, error) {
 
 	//2. find --hostname-override in 10-kubeadm.conf
 	nodeName, err := GetSingleContentFromFile(KubeletSvcPath, KubeletHostname)
-	if nodeName != "" {
+	if err != nil {
+		return "", err
+	} else if nodeName != "" {
 		nodeName = strings.Split(nodeName, "=")[1]
 		return nodeName, nil
 	}
@@ -127,7 +129,9 @@ func GetNodeName() (string, error) {
 	for _, ef := range environmentFiles {
 		ef = strings.Split(ef, "-")[1]
 		nodeName, err = GetSingleContentFromFile(ef, KubeletHostname)
-		if nodeName != "" {
+		if err != nil {
+			return "", err
+		} else if nodeName != "" {
 			nodeName = strings.Split(nodeName, "=")[1]
 			return nodeName, nil
 		}

@@ -24,10 +24,9 @@ import (
 )
 
 const (
-	NODE_TYPE_ALIYUN_ECS = "aliyun_ecs"
-	NODE_TYPE_USER_SELF  = "user_self"
-	NODE_TYPE_ALIYUN_ENS = "aliyun_ens"
-	NODE_TYPE_LOCAL      = "minikube"
+	NodeTypeAliyunECS = "aliyun_ecs"
+	NodeTypeUserSelf  = "user_self"
+	NodeTypeAliyunENS = "aliyun_ens"
 )
 
 type NodeController interface {
@@ -39,18 +38,18 @@ type NodeController interface {
 	StopNode(string) error
 }
 
-func NewNodeController(nodeType, regionId, accessKeyId, accessKeySecret string) (NodeController, error) {
+func NewNodeController(nodeType, regionID, accessKeyID, accessKeySecret string) (NodeController, error) {
 	var t NodeController
 	var err error
 	switch nodeType {
-	case NODE_TYPE_ALIYUN_ECS:
-		t, err = ecs.NewEcsController(regionId, accessKeyId, accessKeySecret)
-	case NODE_TYPE_USER_SELF:
-		t, err = user.NewUserController(regionId, accessKeyId, accessKeySecret)
-	case NODE_TYPE_ALIYUN_ENS:
-		t, err = ens.NewEnsController(regionId, accessKeyId, accessKeySecret)
+	case NodeTypeAliyunECS:
+		t, err = ecs.NewEcsController(regionID, accessKeyID, accessKeySecret)
+	case NodeTypeUserSelf:
+		t, err = user.NewUserController(regionID, accessKeyID, accessKeySecret)
+	case NodeTypeAliyunENS:
+		t, err = ens.NewEnsController(regionID, accessKeyID, accessKeySecret)
 	default:
-		t, err = user.NewUserController(regionId, accessKeyId, accessKeySecret)
+		t, err = user.NewUserController(regionID, accessKeyID, accessKeySecret)
 	}
 	return t, err
 }

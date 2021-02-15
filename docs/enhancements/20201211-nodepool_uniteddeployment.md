@@ -3,60 +3,62 @@ title: Proposal about nodepool and uniteddeployment
 authors:
   - "@kadisi"
 reviewers:
-  - "@huangyuqi" 
-  - "@Fei-Guo" 
+  - "@huangyuqi"
+  - "@Fei-Guo"
   - "@charleszheng44"
 creation-date: 2020-12-11
 last-updated: 2020-12-11
 status: implementable
 ---
 
-   * [Proposal about nodepool and uniteddeployment](#proposal-about-nodepool-and-uniteddeployment)
-      * [Glossary](#glossary)
-      * [Summary](#summary)
-      * [Motivation](#motivation)
-         * [Goals](#goals)
-      * [Proposal](#proposal)
-         * [NodePool API](#nodepool-api)
-         * [UnitedDeployment API](#uniteddeployment-api)
-      * [Implementation History](#implementation-history)
-
+- [Proposal about nodepool and uniteddeployment](#proposal-about-nodepool-and-uniteddeployment)
+  - [Glossary](#glossary)
+    - [NodePool](#NodePool)
+    - [UnitedDeployment](#UnitedDeployment)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+  - [Proposal](#proposal)
+    - [NodePool API](#nodepool-api)
+    - [UnitedDeployment API](#uniteddeployment-api)
+  - [Implementation History](#implementation-history)
 
 # Proposal about NodePool and UnitedDeployment
 
 ## Glossary
 
-NodePool:
-    NodePool is a new CRD resource used to represent a group of nodes. Nodes under the NodePool have the same attributes, such as geography, operating system, CPU architecture, and so on. 
+### NodePool:
+- NodePool is a new CRD resource used to represent a group of nodes. Nodes under the NodePool have the same attributes, such as geography, operating system, CPU architecture, and so on.
 
-UnitedDeployment:
-    UnitedDeployment provides a new way to manage pods in multi-nodepools by using multiple workloads. it provides an alternative to achieve high availability in a cluster that consists of multiple nodepool - that is, managing multiple homogeneous workloads, and each workload is dedicated to a single pool. Pod distribution across nodepools is determined by the replica number of each workload. Since each Pool is associated with a workload, UnitedDeployment can support finer-grained rollout and deployment strategies.
-   UnitedDeployment is a new CRD resource that makes sure the right number of the right kind of Pod are running and match the state you specified on a specific NodePool. This means all the pods of the workload can only be deployed and managed on the nodes within the same NodePool. Since the deployment of the workload pods is restrained on the same NodePool, UnitedDeployment can support finer-grained rollout and deployment strategies basing on the same attributes of the nodes like the same location.    
-   
+### UnitedDeployment:
+- UnitedDeployment provides a new way to manage pods in multi-nodepools by using multiple workloads. it provides an alternative to achieve high availability in a cluster that consists of multiple nodepool - that is, managing multiple homogeneous workloads, and each workload is dedicated to a single pool. Pod distribution across nodepools is determined by the replica number of each workload. Since each Pool is associated with a workload, UnitedDeployment can support finer-grained rollout and deployment strategies.
+- UnitedDeployment is a new CRD resource that makes sure the right number of the right kind of Pod are running and match the state you specified on a specific NodePool. This means all the pods of the workload can only be deployed and managed on the nodes within the same NodePool. Since the deployment of the workload pods is restrained on the same NodePool, UnitedDeployment can support finer-grained rollout and deployment strategies basing on the same attributes of the nodes like the same location.
+
 ## Summary
 
 In the edge scenario, user intend to deploy the workloads to the computing nodes close to the consumers. There may only be one computing node in the same physical location, and there may also be multiple computing nodes in the same physical location. Therefore, from the computing node resource perspective of edge nodes, they need to be divided into different NodePool to represent the same set of features. After dividing nodes pool, there will be a demand for application of grouping management, users need to be deployed application according to the nodepool, combined with the concept of nodepool, to deploy applications on different nodes in the pool, pool dimensions at the nodes to expansion of application, upgrade, such as operation, at the same time, network access is also carried out in accordance with the node pool dimensions of network communication.
 
 ## Motivation
 
-- NodePool
-    Users can quickly learn which node pools or regions are in their cluster. You can also quickly see which nodes are in the node pool.
-    User can uniformly type label, annotation, and TAINts on nodes under the node pool.
-    This simplifies the operation and maintenance management of nodes.
-    The nodes in the NodePool are ideally accessible to each other through the Intranet.
-    
-- UnitedDeployment
-    User can use a template to deploy the application in a different node pool. This template can support one of Kubernetes deployment, Daemonset, Statefulset.
-    
+### NodePool
+- Users can quickly learn which node pools or regions are in their cluster. You can also quickly see which nodes are in the node pool.
+- User can uniformly type label, annotation, and TAINts on nodes under the node pool.
+- This simplifies the operation and maintenance management of nodes.
+- The nodes in the NodePool are ideally accessible to each other through the Intranet.
+ 
+### UnitedDeployment
+- User can use a template to deploy the application in a different node pool. This template can support one of Kubernetes deployment, Daemonset, Statefulset.
+ 
 ### Goals
 - Define the API of NodePool
 - Define the API of UnitedDeployment
 - Provide yurtunit-manager controller
+
 ## Proposal
 
 - What is the plan for implementing this feature?
 
-  Provide yurtunit-manager operator to manage NodePool and UnitedDeployment CRD 
+  Provide yurtunit-manager operator to manage NodePool and UnitedDeployment CRD
 
 ### NodePool API
 
@@ -138,7 +140,6 @@ type NodePoolList struct {
 }
 
 ```
-
 
 ### UnitedDeployment API
 
@@ -327,7 +328,7 @@ type UnitedDeploymentList struct {
 
 ## Implementation History
 
-- [ ] 12/13/2020: nodepool and uniteddeployment crd 
-- [ ] 12/15/2020: yurtunit-manager controller 
-- [ ] 12/20/2020: yurtunit-manager release 
++ [ ] 12/13/2020: nodepool and uniteddeployment crd
++ [ ] 12/15/2020: yurtunit-manager controller
++ [ ] 12/20/2020: yurtunit-manager release
 

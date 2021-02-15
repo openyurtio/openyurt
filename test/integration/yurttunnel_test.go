@@ -163,15 +163,15 @@ func startTunnelServer(t *testing.T) {
 	}
 
 	tunnelServer := ts.NewTunnelServer(
-		false, /*egressSelectorEnabled*/
-		InterceptorServerUDSFile,                     /* interceptorServerUDSFile*/
-		fmt.Sprintf(":%d", ServerMasterPort),         /* serverMasterAddr */
+		false,                                /*egressSelectorEnabled*/
+		InterceptorServerUDSFile,             /* interceptorServerUDSFile*/
+		fmt.Sprintf(":%d", ServerMasterPort), /* serverMasterAddr */
 		fmt.Sprintf(":%d", ServerMasterInsecurePort), /* serverMasterInsecureAddr */
 		fmt.Sprintf(":%d", ServerAgentPort),          /* serverAgentAddr */
-		1,        /* serverCount */
-		&tlsCfg,  /* tlsCfg */
-		wrappers, /* hw.HandlerWrappers */
-		string(anpserver.ProxyStrategyDestHost), /* proxyStrategy */
+		1,                                            /* serverCount */
+		&tlsCfg,                                      /* tlsCfg */
+		wrappers,                                     /* hw.HandlerWrappers */
+		string(anpserver.ProxyStrategyDestHost),      /* proxyStrategy */
 	)
 	tunnelServer.Run()
 	klog.Info("[TEST] Yurttunnel Server is running")
@@ -186,7 +186,7 @@ func startTunnelAgent(t *testing.T) {
 		ServerName: "127.0.0.1",
 	}
 	tunnelAgent := ta.NewTunnelAgent(
-		&tlsCfg, /* tlsCfg */
+		&tlsCfg,                             /* tlsCfg */
 		fmt.Sprintf(":%d", ServerAgentPort), /* tunnelServerAddr */
 		"dummy-agent",                       /* nodeName */
 		"ipv4=127.0.0.1,host=localhost",     /* agentIdentifiers */

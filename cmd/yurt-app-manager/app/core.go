@@ -136,7 +136,7 @@ func Run(opts *options.YurtAppOptions) {
 	setupLog.Info("setup controllers")
 
 	ctx := genOptCtx(opts.CreateDefaultPool)
-	if err = controller.SetupWithManager(mgr, ctx); err != nil {
+	if err = controller.SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to setup controllers")
 		os.Exit(1)
 	}

@@ -68,7 +68,7 @@ type NodePoolRelatedAttributes struct {
 // Add creates a new NodePool Controller and adds it to the Manager with default RBAC.
 // The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, ctx context.Context) error {
+func Add(ctx context.Context, mgr manager.Manager) error {
 	if !gate.ResourceEnabled(&appsv1alpha1.NodePool{}) {
 		return nil
 	}
@@ -153,7 +153,7 @@ func createNodePool(c client.Client, name string,
 		klog.Errorf("fail to create the node pool(%s): %s", name, err)
 		time.Sleep(2 * time.Second)
 	}
-	klog.V(4).Info("fail to create the defualt nodepool after trying for 5 times")
+	klog.V(4).Info("fail to create the default nodepool after trying for 5 times")
 }
 
 // createDefaultNodePool creates the default NodePool if not exist
@@ -228,9 +228,9 @@ func (r *NodePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	for _, node := range desiredNodeList.Items {
 		nodes = append(nodes, node.GetName())
 		if isNodeReady(node) {
-			readyNode += 1
+			readyNode++
 		} else {
-			notReadyNode += 1
+			notReadyNode++
 		}
 
 		attrUpdated, err := conciliatePoolRelatedAttrs(&node,
@@ -467,14 +467,14 @@ func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 // node's annotation
 func cachePrevPoolAttrs(node *corev1.Node,
 	npra NodePoolRelatedAttributes) error {
-	npraJson, err := json.Marshal(npra)
+	npraJSON, err := json.Marshal(npra)
 	if err != nil {
 		return err
 	}
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	node.Annotations[appsv1alpha1.AnnotationPrevAttrs] = string(npraJson)
+	node.Annotations[appsv1alpha1.AnnotationPrevAttrs] = string(npraJSON)
 	return nil
 }
 

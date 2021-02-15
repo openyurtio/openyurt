@@ -19,6 +19,10 @@ package e2e
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"testing"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
@@ -26,9 +30,6 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/ginkgowrapper"
-	"os"
-	"path"
-	"testing"
 )
 
 func RunE2ETests(t *testing.T) {

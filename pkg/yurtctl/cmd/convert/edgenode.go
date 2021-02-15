@@ -333,6 +333,9 @@ func (c *ConvertEdgeNodeOptions) ResetKubelet() error {
 	// 2.1 make a backup for the origin kubelet.service
 	bkfile := c.getKubeletSvcBackup()
 	err = enutil.CopyFile(c.KubeadmConfPath, bkfile)
+	if err != nil {
+		return err
+	}
 
 	// 2.2 revise the drop-in, point it to the $OPENYURT_DIR/kubelet.conf
 	contentbyte, err := ioutil.ReadFile(c.KubeadmConfPath)
@@ -379,11 +382,11 @@ func (c *ConvertEdgeNodeOptions) getKubeletSvcBackup() string {
 
 // hubHealthcheck will check the status of yurthub pod
 func hubHealthcheck() error {
-	serverHealthzUrl, err := url.Parse(fmt.Sprintf("http://%s", enutil.ServerHealthzServer))
+	serverHealthzURL, err := url.Parse(fmt.Sprintf("http://%s", enutil.ServerHealthzServer))
 	if err != nil {
 		return err
 	}
-	serverHealthzUrl.Path = enutil.ServerHealthzUrlPath
+	serverHealthzURL.Path = enutil.ServerHealthzURLPath
 
 	intervalTicker := time.NewTicker(hubHealthzCheckFrequency)
 	defer intervalTicker.Stop()
@@ -391,7 +394,7 @@ func hubHealthcheck() error {
 	for {
 		select {
 		case <-intervalTicker.C:
-			_, err := healthchecker.PingClusterHealthz(http.DefaultClient, serverHealthzUrl.String())
+			_, err := healthchecker.PingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
 			retry--
 			if err != nil {
 				if retry > 0 {

@@ -223,7 +223,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			Name:     "system:controller:node-controller",
 		},
 		Subjects: []rbacv1.Subject{
-			rbacv1.Subject{
+			{
 				Kind:      "ServiceAccount",
 				Name:      "node-controller",
 				Namespace: "kube-system",
