@@ -22,24 +22,26 @@ package options
 import (
 	"time"
 
-	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	clientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	cliflag "k8s.io/component-base/cli/flag"
+	componentbaseconfig "k8s.io/component-base/config"
+	"k8s.io/klog"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
 	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
 
+	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	// add the kubernetes feature gates
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	componentbaseconfig "k8s.io/component-base/config"
-	"k8s.io/klog"
+	_ "k8s.io/kubernetes/pkg/features"
 )
 
 const (
@@ -102,7 +104,7 @@ func (s *YurtControllerManagerOptions) Flags(allControllers []string, disabledBy
 	fs := fss.FlagSet("misc")
 	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig).")
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
-	//utilfeature.DefaultMutableFeatureGate.AddFlag(fss.FlagSet("generic"))
+	utilfeature.DefaultMutableFeatureGate.AddFlag(fss.FlagSet("generic"))
 	fs.BoolVar(&s.Version, "version", s.Version, "print the version information.")
 
 	return fss
