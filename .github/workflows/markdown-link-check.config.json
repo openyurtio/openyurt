@@ -5,6 +5,9 @@
     },
     {
       "pattern": "^https://openyurt.io"
+    },
+    {
+      "pattern": "^https://shimo.im"
     }
   ]
 }
