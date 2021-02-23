@@ -44,6 +44,22 @@ autonomous edge nodes during disconnection.
 $ kc ap -f config/setup/yurt-controller-manager.yaml
 deployment.apps/yurt-controller-manager created
 ```
+### Note
+Since Docker turn on pull rate limit on anonymous request. You may encouter error message like "You have reached your pull rate limit. xxxx". In that case you will need to create a docker-registry secret to pull the image.
+```
+$kc create secret docker-registry dockerpass --docker-username=your-docker-username --docker-password='your-docker-password' --docker-email='your-email-address' -n kube-system
+```
+Then edit the config/setup/yurt-controller-manager.yaml
+```yaml
+...
+      containers:
+      - name: yurt-controller-manager
+        image: openyurt/yurt-controller-manager:latest
+        command:
+        - yurt-controller-manager
+      imagePullSecrets:
+      - name: dockerpass
+```
 ## Disable the default nodelifecycle controller
 
 To allow the yurt-controller-mamanger to work properly, we need to turn off the default nodelifecycle controller.
