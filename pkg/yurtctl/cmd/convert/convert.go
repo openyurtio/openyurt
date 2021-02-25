@@ -47,6 +47,8 @@ const (
 	// ProviderACK is used if the target kubernetes is run on ack
 	ProviderACK     Provider = "ack"
 	ProviderKubeadm Provider = "kubeadm"
+	// ProviderKind is used if the target kubernetes is run on kind
+	ProviderKind Provider = "kind"
 )
 
 // ConvertOptions has the information that required by convert operation
@@ -204,9 +206,9 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 
 // Validate makes sure provided values for ConvertOptions are valid
 func (co *ConvertOptions) Validate() error {
-	if co.Provider != ProviderMinikube &&
-		co.Provider != ProviderACK && co.Provider != ProviderKubeadm {
-		return fmt.Errorf("unknown provider: %s, valid providers are: minikube, ack",
+	if co.Provider != ProviderMinikube && co.Provider != ProviderACK &&
+		co.Provider != ProviderKubeadm && co.Provider != ProviderKind {
+		return fmt.Errorf("unknown provider: %s, valid providers are: minikube, ack, kubeadm, kind",
 			co.Provider)
 	}
 

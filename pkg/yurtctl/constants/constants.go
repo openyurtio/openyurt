@@ -186,7 +186,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "nsenter -t 1 -m -u -n -i -- /bin/yurtctl convert edgenode --yurthub-image {{.yurthub_image}} --join-token {{.joinToken}}"
+        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl convert edgenode --yurthub-image {{.yurthub_image}} --join-token {{.joinToken}} && rm /tmp/yurtctl"
         securityContext:
           privileged: true
         volumeMounts:
@@ -231,7 +231,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "nsenter -t 1 -m -u -n -i -- /bin/yurtctl revert edgenode"
+        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl revert edgenode && rm /tmp/yurtctl"
         securityContext:
           privileged: true
         volumeMounts:

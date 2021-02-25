@@ -44,7 +44,7 @@ import (
 
 const (
 	kubeletConfigRegularExpression = "\\-\\-kubeconfig=.*kubelet.conf"
-	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][\\w]{0,62}(\\.[\\w][-\\w]{0,62})+(:[\\d]{1,5})?"
+	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][-\\w]{0,62}(\\.[\\w][-\\w]{0,62})*(:[\\d]{1,5})?"
 	hubHealthzCheckFrequency       = 10 * time.Second
 	failedRetry                    = 5
 	filemode                       = 0666
