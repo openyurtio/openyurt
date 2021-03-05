@@ -33,7 +33,7 @@ require (
 	k8s.io/klog/v2 v2.0.0
 	k8s.io/kubernetes v1.18.3
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	sigs.k8s.io/apiserver-network-proxy v0.0.10
+	sigs.k8s.io/apiserver-network-proxy v0.0.15
 	sigs.k8s.io/controller-runtime v0.5.7
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
@@ -63,8 +63,7 @@ replace (
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.16.9
 	k8s.io/metrics => k8s.io/metrics v0.16.9
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.9
-	sigs.k8s.io/apiserver-network-proxy => github.com/charleszheng44/apiserver-network-proxy v0.0.0-20201208065946-83839cba72cf
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.11-0.20200612204355-b202c6e0d790
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.15
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.7
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )

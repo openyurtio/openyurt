@@ -59,6 +59,7 @@ spec:
         - yurt-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+        - --node-ip=$(NODE_IP)
         image: openyurt/yurt-tunnel-agent:latest
         imagePullPolicy: IfNotPresent
         name: yurt-tunnel-agent
@@ -74,10 +75,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: POD_IP
+        - name: NODE_IP
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.hostIP
       hostNetwork: true
       restartPolicy: Always
       volumes:

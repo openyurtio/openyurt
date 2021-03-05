@@ -129,6 +129,7 @@ spec:
         - yurt-tunnel-server
         args:
         - --bind-address=$(NODE_IP)
+        - --proxy-strategy=destHost
         env:
         - name: NODE_IP
           valueFrom:
