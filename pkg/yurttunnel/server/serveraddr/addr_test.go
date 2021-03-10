@@ -17,13 +17,14 @@ package serveraddr
 
 import (
 	"fmt"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetDefaultDomainsForSvcInputParamEmptyChar(t *testing.T) {
