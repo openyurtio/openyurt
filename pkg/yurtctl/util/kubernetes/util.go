@@ -46,9 +46,9 @@ import (
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 )
 
 const (
@@ -65,7 +65,7 @@ var (
 	WaitServantJobTimeout = time.Minute * 2
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
-	// ValidServerVersion contains all compatable server version
+	// ValidServerVersions contains all compatable server version
 	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",
@@ -274,8 +274,12 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 }
 
 // RunServantJobs launchs servant jobs on specified edge nodes
-func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string) error {
+func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string, convert bool) error {
 	var wg sync.WaitGroup
+	servantJobTemplate := constants.ConvertServantJobTemplate
+	if !convert {
+		servantJobTemplate = constants.RevertServantJobTemplate
+	}
 	for _, nodeName := range edgeNodeNames {
 		action, exist := tmplCtx["action"]
 		if !exist {
@@ -292,7 +296,7 @@ func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edg
 		}
 		tmplCtx["nodeName"] = nodeName
 
-		jobYaml, err := tmplutil.SubsituteTemplate(constants.ServantJobTemplate, tmplCtx)
+		jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
 		if err != nil {
 			return err
 		}

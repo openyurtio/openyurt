@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
 	"k8s.io/klog"
 )
@@ -92,9 +92,9 @@ type checker struct {
 }
 
 func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThreshold int, stopCh <-chan struct{}) (*checker, error) {
-	serverHealthzUrl := *url
-	if serverHealthzUrl.Path == "" || serverHealthzUrl.Path == "/" {
-		serverHealthzUrl.Path = "/healthz"
+	serverHealthzURL := *url
+	if serverHealthzURL.Path == "" || serverHealthzURL.Path == "/" {
+		serverHealthzURL.Path = "/healthz"
 	}
 
 	if failedRetry == 0 {
@@ -106,8 +106,8 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 	}
 
 	c := &checker{
-		serverHealthzAddr: serverHealthzUrl.String(),
-		healthzClient:     tp.HealthzHttpClient(),
+		serverHealthzAddr: serverHealthzURL.String(),
+		healthzClient:     tp.HealthzHTTPClient(),
 		clusterHealthy:    false,
 		lastTime:          time.Now(),
 		onFailureFunc:     tp.Close,
@@ -116,7 +116,7 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 		healthyThreshold:  healthyThreshold,
 	}
 
-	initHealthyStatus, err := pingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
+	initHealthyStatus, err := PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
 	if err != nil {
 		klog.Errorf("cluster(%s) init status: unhealthy, %v", c.serverHealthzAddr, err)
 	}
@@ -146,7 +146,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 			return
 		case <-intervalTicker.C:
 			for i := 0; i < c.failedRetry; i++ {
-				isHealthy, err = pingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
+				isHealthy, err = PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
 				if err != nil {
 					klog.V(2).Infof("ping cluster healthz with result, %v", err)
 					if !c.clusterHealthy {
@@ -189,7 +189,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 	}
 }
 
-func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
+func PingClusterHealthz(client *http.Client, addr string) (bool, error) {
 	if client == nil {
 		return false, fmt.Errorf("http client is invalid")
 	}

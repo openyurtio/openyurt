@@ -22,10 +22,11 @@ YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 YURT_MOD="$(head -1 $YURT_ROOT/go.mod | awk '{print $2}')"
 YURT_OUTPUT_DIR=${YURT_ROOT}/_output
 YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
+YURT_LOCAL_BIN_DIR=${YURT_OUTPUT_DIR}/local/bin
 
 PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
 LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION=${GIT_VERSION:-v0.2.0}
+GIT_VERSION=${GIT_VERSION:-v0.3.0}
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 REPO=${REPO:-openyurt}

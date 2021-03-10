@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2021 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,9 +41,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/constant"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/util/gate"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/constant"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/gate"
 )
 
 const controllerName = "nodepool-controller"
@@ -68,7 +68,7 @@ type NodePoolRelatedAttributes struct {
 // Add creates a new NodePool Controller and adds it to the Manager with default RBAC.
 // The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, ctx context.Context) error {
+func Add(ctx context.Context, mgr manager.Manager) error {
 	if !gate.ResourceEnabled(&appsv1alpha1.NodePool{}) {
 		return nil
 	}
@@ -153,7 +153,7 @@ func createNodePool(c client.Client, name string,
 		klog.Errorf("fail to create the node pool(%s): %s", name, err)
 		time.Sleep(2 * time.Second)
 	}
-	klog.V(4).Info("fail to create the defualt nodepool after trying for 5 times")
+	klog.V(4).Info("fail to create the default nodepool after trying for 5 times")
 }
 
 // createDefaultNodePool creates the default NodePool if not exist
@@ -228,9 +228,9 @@ func (r *NodePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	for _, node := range desiredNodeList.Items {
 		nodes = append(nodes, node.GetName())
 		if isNodeReady(node) {
-			readyNode += 1
+			readyNode++
 		} else {
-			notReadyNode += 1
+			notReadyNode++
 		}
 
 		attrUpdated, err := conciliatePoolRelatedAttrs(&node,
@@ -253,6 +253,7 @@ func (r *NodePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		if attrUpdated || ownerLabelUpdated {
 			if err := r.Update(ctx, &node); err != nil {
+				klog.Errorf("Update Node %s error %v", node.Name, err)
 				return ctrl.Result{}, err
 			}
 		}
@@ -311,7 +312,16 @@ func conciliatePoolRelatedAttrs(node *corev1.Node,
 	if !exist {
 		node.Labels = mergeMap(node.Labels, npra.Labels)
 		node.Annotations = mergeMap(node.Annotations, npra.Annotations)
-		node.Spec.Taints = append(node.Spec.Taints, npra.Taints...)
+		for _, npt := range npra.Taints {
+			for i, nt := range node.Spec.Taints {
+				if npt.Effect == nt.Effect && npt.Key == nt.Key {
+					node.Spec.Taints = append(node.Spec.Taints[:i], node.Spec.Taints[i+1:]...)
+					break
+				}
+			}
+			node.Spec.Taints = append(node.Spec.Taints, npt)
+		}
+
 		if err := cachePrevPoolAttrs(node, npra); err != nil {
 			return attrUpdated, err
 		}
@@ -375,7 +385,11 @@ func conciliateTaints(node *corev1.Node, oldTaints, newTaints []corev1.Taint) {
 	}
 
 	// 2. update the node taints based on the latest node pool taints
-	node.Spec.Taints = mergeTaints(node.Spec.Taints, oldTaints, newTaints)
+	for _, nt := range newTaints {
+		if _, exist := containTaint(nt, oldTaints); !exist {
+			node.Spec.Taints = append(node.Spec.Taints, nt)
+		}
+	}
 }
 
 // conciliateNodePoolStatus will update the nodepool status
@@ -409,14 +423,12 @@ func conciliateNodePoolStatus(cli client.Client,
 	return ctrl.Result{}, nil
 }
 
-/*********************** util functions ***********************/
-
 // containTaint checks if `taint` is in `taints`, if yes it will return
 // the index of the taint and true, otherwise, it will return 0 and false.
 // N.B. the uniqueness of the taint is based on both key and effect pair
 func containTaint(taint corev1.Taint, taints []corev1.Taint) (int, bool) {
 	for i, t := range taints {
-		if reflect.DeepEqual(taint, t) {
+		if taint.Effect == t.Effect && taint.Key == t.Key {
 			return i, true
 		}
 	}
@@ -443,7 +455,7 @@ func mergeMap(m1, m2 map[string]string) map[string]string {
 // removeTaint removes `taint` from `taints` if exist
 func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 	for i := 0; i < len(taints); i++ {
-		if reflect.DeepEqual(taint, taints[i]) {
+		if taint.Key == taints[i].Key && taint.Effect == taints[i].Effect {
 			taints = append(taints[:i], taints[i+1:]...)
 			break
 		}
@@ -451,33 +463,18 @@ func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 	return taints
 }
 
-// mergeTaints updates node's taints based on `new` and `pre`
-func mergeTaints(base, pre, new []corev1.Taint) []corev1.Taint {
-	for _, pt := range pre {
-		if _, exist := containTaint(pt, new); !exist {
-			base = removeTaint(pt, base)
-		}
-	}
-	for _, nt := range new {
-		if _, exist := containTaint(nt, pre); !exist {
-			base = append(base, nt)
-		}
-	}
-	return base
-}
-
 // cachePrevPoolAttrs caches the nodepool-related attributes to the
 // node's annotation
 func cachePrevPoolAttrs(node *corev1.Node,
 	npra NodePoolRelatedAttributes) error {
-	npraJson, err := json.Marshal(npra)
+	npraJSON, err := json.Marshal(npra)
 	if err != nil {
 		return err
 	}
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	node.Annotations[appsv1alpha1.AnnotationPrevAttrs] = string(npraJson)
+	node.Annotations[appsv1alpha1.AnnotationPrevAttrs] = string(npraJSON)
 	return nil
 }
 

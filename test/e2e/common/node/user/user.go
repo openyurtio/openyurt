@@ -17,58 +17,59 @@ limitations under the License.
 package user
 
 import (
-    "fmt"
-    "github.com/alibaba/openyurt/test/e2e/common/node/types"
-    "github.com/onsi/ginkgo"
-    "strings"
+	"fmt"
+	"strings"
+
+	"github.com/onsi/ginkgo"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
 )
 
 type UserController struct {
-    RegionId string
+	RegionID string
 }
 
-func NewUserController(regionId, accessKeyId, accessKeySecret string) (*UserController, error) {
-    return &UserController{
-        RegionId: regionId,
-    }, nil
+func NewUserController(regionID, accessKeyID, accessKeySecret string) (*UserController, error) {
+	return &UserController{
+		RegionID: regionID,
+	}, nil
 }
 
-func (u *UserController) CreateNode(instanceType, imageId, vswitchId, userData string) (string, error) {
-    return "", nil
+func (u *UserController) CreateNode(instanceType, imageID, vswitchID, userData string) (string, error) {
+	return "", nil
 }
 
-func (u *UserController) StartNode(instanceId string) error {
-    var Start string
-    for {
-        ginkgo.By("You should start local machine. Yurt-e2e-test will wait for starting after your input. Please input y or Y to make sure you have started node.")
-        fmt.Scan(&Start)
-        if strings.ToLower(Start) == "y" {
-            break
-        }
-    }
-    return nil
+func (u *UserController) StartNode(instanceID string) error {
+	var Start string
+	for {
+		ginkgo.By("You should start local machine. Yurt-e2e-test will wait for starting after your input. Please input y or Y to make sure you have started node.")
+		fmt.Scan(&Start)
+		if strings.ToLower(Start) == "y" {
+			break
+		}
+	}
+	return nil
 }
 
-func (u *UserController) DeleteNode(instanceId string) error {
-    return nil
+func (u *UserController) DeleteNode(instanceID string) error {
+	return nil
 }
 
-func (u *UserController) GetNodeInfo(instanceId string) (*types.NodeAttribute, error) {
-    return nil, nil
+func (u *UserController) GetNodeInfo(instanceID string) (*types.NodeAttribute, error) {
+	return nil, nil
 }
 
-func (u *UserController) RebootNode(instanceId string) error {
-    return nil
+func (u *UserController) RebootNode(instanceID string) error {
+	return nil
 }
 
-func (u *UserController) StopNode(instanceId string) error {
-    var Stop string
-    for {
-        ginkgo.By("You should stop local machine. Yurt-e2e-test will wait for stopping after your input. Please input y or Y to make sure you have stopped node.")
-        fmt.Scan(&Stop)
-        if strings.ToLower(Stop) == "y" {
-            break
-        }
-    }
-    return nil
+func (u *UserController) StopNode(instanceID string) error {
+	var Stop string
+	for {
+		ginkgo.By("You should stop local machine. Yurt-e2e-test will wait for stopping after your input. Please input y or Y to make sure you have stopped node.")
+		fmt.Scan(&Stop)
+		if strings.ToLower(Stop) == "y" {
+			break
+		}
+	}
+	return nil
 }

@@ -18,7 +18,7 @@ limitations under the License.
 package mutating
 
 import (
-	webhookutil "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util"
 )
 
 // +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-uniteddeployment,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=uniteddeployments,verbs=create;update,versions=v1alpha1,name=muniteddeployment.kb.io

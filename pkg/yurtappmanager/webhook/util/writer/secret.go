@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/generator"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/generator"
 )
 
 // secretCertWriter provisions the certificate by reading and writing to the k8s secrets.

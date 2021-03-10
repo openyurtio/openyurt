@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	webhookutil "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util"
-	webhookcontroller "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/controller"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util/health"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util"
+	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/controller"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util/health"
 )
 
 var (

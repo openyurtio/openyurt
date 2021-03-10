@@ -17,7 +17,7 @@ limitations under the License.
 package apis
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 func init() {

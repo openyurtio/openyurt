@@ -108,8 +108,8 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-// klogAndHttpError logs the error message and write back to client
-func klogAndHttpError(w http.ResponseWriter, errCode int, format string, i ...interface{}) {
+// klogAndHTTPError logs the error message and write back to client
+func klogAndHTTPError(w http.ResponseWriter, errCode int, format string, i ...interface{}) {
 	errMsg := fmt.Sprintf(format, i...)
 	klog.Error(errMsg)
 	http.Error(w, errMsg, errCode)
@@ -121,7 +121,7 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	// 1. setup the tunnel
 	tunnelConn, err := ri.contextDialer(r.Host, r.Header, r.TLS != nil)
 	if err != nil {
-		klogAndHttpError(w, http.StatusServiceUnavailable,
+		klogAndHTTPError(w, http.StatusServiceUnavailable,
 			"fail to setup the tunnel: %s", err)
 		return
 	}
@@ -129,7 +129,7 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// 2. proxy the request to tunnel
 	if err := r.Write(tunnelConn); err != nil {
-		klogAndHttpError(w, http.StatusServiceUnavailable,
+		klogAndHTTPError(w, http.StatusServiceUnavailable,
 			"fail to write request to tls connection: %s", err)
 		return
 	}
@@ -163,19 +163,19 @@ func serveUpgradeRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Req
 	klog.V(4).Infof("interceptor: start serving streaming request %s with Headers: %v", r.URL.String(), r.Header)
 	tunnelHTTPResp, rawResponse, err := getResponse(tunnelConn)
 	if err != nil {
-		klogAndHttpError(w, http.StatusServiceUnavailable, "tunnel connection error: %v", err)
+		klogAndHTTPError(w, http.StatusServiceUnavailable, "tunnel connection error: %v", err)
 		return
 	}
 
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
-		klogAndHttpError(w, http.StatusServiceUnavailable,
+		klogAndHTTPError(w, http.StatusServiceUnavailable,
 			"can't assert response to http.Hijacker")
 		return
 	}
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
-		klogAndHttpError(w, http.StatusServiceUnavailable,
+		klogAndHTTPError(w, http.StatusServiceUnavailable,
 			"fail to hijack response: %s", err)
 		return
 	}
@@ -250,7 +250,7 @@ func isChunked(response *http.Response) bool {
 func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
 	tunnelHTTPResp, err := http.ReadResponse(bufio.NewReader(tunnelConn), r)
 	if err != nil {
-		klogAndHttpError(w, http.StatusServiceUnavailable, "fail to read response from the tunnel: %v", err)
+		klogAndHTTPError(w, http.StatusServiceUnavailable, "fail to read response from the tunnel: %v", err)
 		return
 	}
 	klog.V(4).Infof("interceptor: successfully read the http response from the proxy tunnel for request %s", r.URL.String())

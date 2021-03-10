@@ -24,10 +24,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"

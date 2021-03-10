@@ -1,0 +1,13 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https://codecov.io"
+    },
+    {
+      "pattern": "^https://openyurt.io"
+    },
+    {
+      "pattern": "^https://shimo.im"
+    }
+  ]
+}

@@ -18,22 +18,23 @@ package e2e
 
 import (
 	"flag"
-	nd "github.com/alibaba/openyurt/test/e2e/common/node"
-	"github.com/alibaba/openyurt/test/e2e/yurt"
-	"github.com/alibaba/openyurt/test/e2e/yurtconfig"
-	"github.com/alibaba/openyurt/test/e2e/yurthub"
-	"github.com/alibaba/openyurt/test/e2e/yurttunnel"
-	"github.com/onsi/ginkgo"
-	apiv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
-	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/kubernetes/test/e2e/framework/config"
 	"math/rand"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo"
+	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/yurt"
+	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
+	"github.com/openyurtio/openyurt/test/e2e/yurthub"
+	"github.com/openyurtio/openyurt/test/e2e/yurttunnel"
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
+	"k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/framework/config"
 )
 
 func IsEmptyString(s string) bool {
@@ -41,9 +42,9 @@ func IsEmptyString(s string) bool {
 }
 
 var EnableYurtAutonomy = flag.Bool("enable-yurt-autonomy", false, "switch of yurt node autonomy. If set to true, yurt node autonomy test can be run normally")
-var RegionId = flag.String("region-id", "", "aliyun region id for ailunyun:ecs/ens")
+var RegionID = flag.String("region-id", "", "aliyun region id for ailunyun:ecs/ens")
 var NodeType = flag.String("node-type", "minikube", "node type such as ailunyun:ecs/ens, minikube and user_self")
-var AccessKeyId = flag.String("access-key-id", "", "aliyun AccessKeyId  for ailunyun:ecs/ens")
+var AccessKeyID = flag.String("access-key-id", "", "aliyun AccessKeyId  for ailunyun:ecs/ens")
 var AccessKeySecret = flag.String("access-key-secret", "", "aliyun AccessKeySecret  for ailunyun:ecs/ens")
 
 func handleFlags() {
@@ -63,14 +64,14 @@ func IsvalidYurtArg() bool {
 
 	//if node type is not aliyun related, then node autonomy test will depend on userself to operate node
 	nodeType := strings.ToLower(*NodeType)
-	if nodeType != nd.NODE_TYPE_ALIYUN_ECS && nodeType != nd.NODE_TYPE_ALIYUN_ENS {
+	if nodeType != nd.NodeTypeAliyunECS && nodeType != nd.NodeTypeAliyunENS {
 		klog.Infof("now,your node type is not aliyun_ecs and aliyun_ens, so yurt-autonomy test,will depend on you operationg your node")
 		return true
 	}
 
 	//if aliyun ecs or ens is used, then must provide ak/sk and regionid
 	//so yurt-e2e-test can operate node through aliyun sdk
-	if IsEmptyString(*RegionId) || IsEmptyString(*AccessKeyId) || IsEmptyString(*AccessKeySecret) {
+	if IsEmptyString(*RegionID) || IsEmptyString(*AccessKeyID) || IsEmptyString(*AccessKeySecret) {
 		klog.Errorf("if enable-yurt-autonomy is set true and node type is aliyun related, region-id && access-key-id && access-key-secret must not be empty")
 		return false
 	}
@@ -102,9 +103,9 @@ func PreCheckOk() bool {
 
 func SetYurtE2eCfg() {
 	yurtconfig.YurtE2eCfg.NodeType = strings.ToLower(*NodeType)
-	yurtconfig.YurtE2eCfg.RegionId = *RegionId
+	yurtconfig.YurtE2eCfg.RegionID = *RegionID
 	yurtconfig.YurtE2eCfg.EnableYurtAutonomy = *EnableYurtAutonomy
-	yurtconfig.YurtE2eCfg.AccessKeyId = *AccessKeyId
+	yurtconfig.YurtE2eCfg.AccessKeyID = *AccessKeyID
 	yurtconfig.YurtE2eCfg.AccessKeySecret = *AccessKeySecret
 }
 

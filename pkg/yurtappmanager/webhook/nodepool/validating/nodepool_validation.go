@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appsv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 // annotationValidator validates the NodePool.Spec.Annotations
@@ -77,7 +77,7 @@ func validateNodePoolDeletion(cli client.Client, np *appsv1alpha1.NodePool) fiel
 	if np.Name == appsv1alpha1.DefaultCloudNodePoolName || np.Name == appsv1alpha1.DefaultEdgeNodePoolName {
 		return field.ErrorList([]*field.Error{
 			field.Forbidden(field.NewPath("metadata").Child("name"),
-				fmt.Sprintf("default nodepool %s forbiden to delete", np.Name))})
+				fmt.Sprintf("default nodepool %s forbidden to delete", np.Name))})
 	}
 
 	if err := cli.List(context.TODO(), &nodes,

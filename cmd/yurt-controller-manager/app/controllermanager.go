@@ -30,10 +30,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/config"
-	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/options"
-	yurtctrlmgrconfig "github.com/alibaba/openyurt/pkg/controller/apis/config"
-	"github.com/alibaba/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/sets"

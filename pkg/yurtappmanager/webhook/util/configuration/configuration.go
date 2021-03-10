@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net/url"
 
-	webhookutil "github.com/alibaba/openyurt/pkg/yurtappmanager/webhook/util"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtappmanager/webhook/util"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"

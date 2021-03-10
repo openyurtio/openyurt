@@ -30,8 +30,8 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/controller/nodelifecycle/scheduler"
-	nodeutil "github.com/alibaba/openyurt/pkg/controller/util/node"
+	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	coordv1beta1 "k8s.io/api/coordination/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"

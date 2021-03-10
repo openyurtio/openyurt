@@ -28,17 +28,19 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 )
 
-// ConvertOptions has the information required by the revert operation
+// RevertOptions has the information required by the revert operation
 type RevertOptions struct {
 	clientSet           *kubernetes.Clientset
 	YurtctlServantImage string
+	PodMainfestPath     string
+	KubeadmConfPath     string
 }
 
 // NewConvertOptions creates a new RevertOptions
@@ -62,9 +64,17 @@ func NewRevertCmd() *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(NewRevertEdgeNodeCmd())
+
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
+	cmd.Flags().String("pod-manifest-path",
+		"/etc/kubernetes/manifests",
+		"Path to the directory on edge node containing static pod files.")
+	cmd.Flags().String("kubeadm-conf-path",
+		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
+		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 
 	return cmd
 }
@@ -76,6 +86,18 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	ro.YurtctlServantImage = ycsi
+
+	pmp, err := flags.GetString("pod-manifest-path")
+	if err != nil {
+		return err
+	}
+	ro.PodMainfestPath = pmp
+
+	kcp, err := flags.GetString("kubeadm-conf-path")
+	if err != nil {
+		return err
+	}
+	ro.KubeadmConfPath = kcp
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -127,14 +149,9 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		if ok && isEdgeNode == "true" {
 			// cache edge nodes, we need to run servant job on each edge node later
 			edgeNodeNames = append(edgeNodeNames, node.GetName())
-			// remove the autonomy annotation, if found
-			_, foundAutonomy := node.Annotations[constants.AnnotationAutonomy]
-			if foundAutonomy {
-				delete(node.Annotations, constants.AnnotationAutonomy)
-			}
 		}
-		if ok {
-			// remove the label for both the cloud node and the edge node
+		if ok && isEdgeNode == "false" {
+			// remove the label for both the cloud node
 			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
 			if _, err = ro.clientSet.CoreV1().Nodes().Update(&node); err != nil {
 				return
@@ -206,7 +223,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			Name:     "system:controller:node-controller",
 		},
 		Subjects: []rbacv1.Subject{
-			rbacv1.Subject{
+			{
 				Kind:      "ServiceAccount",
 				Name:      "node-controller",
 				Namespace: "kube-system",
@@ -224,8 +241,10 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		map[string]string{
 			"action":                "revert",
 			"yurtctl_servant_image": ro.YurtctlServantImage,
+			"pod_manifest_path":     ro.PodMainfestPath,
+			"kubeadm_conf_path":     ro.KubeadmConfPath,
 		},
-		edgeNodeNames); err != nil {
+		edgeNodeNames, false); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
 		return
 	}

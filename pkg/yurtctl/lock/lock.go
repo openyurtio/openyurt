@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"k8s.io/api/core/v1"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -38,8 +38,8 @@ const (
 )
 
 var (
-	AcquireLockErr error = errors.New("fail to acquire lock configmap/yurtctl-lock")
-	ReleaseLockErr error = errors.New("fail to release lock configmap/yurtctl-lock")
+	ErrAcquireLock error = errors.New("fail to acquire lock configmap/yurtctl-lock")
+	ErrReleaseLock error = errors.New("fail to release lock configmap/yurtctl-lock")
 )
 
 // AcquireLock tries to acquire the lock lock configmap/yurtctl-lock
@@ -64,11 +64,11 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 				Create(cm); err != nil {
 				klog.Error("the lock configmap/yurtctl-lock is not found, " +
 					"but fail to create a new one")
-				return AcquireLockErr
+				return ErrAcquireLock
 			}
 			return nil
 		}
-		return AcquireLockErr
+		return ErrAcquireLock
 	}
 
 	if lockCm.Annotations[AnnotationIsLocked] == "true" {
@@ -79,7 +79,7 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 		// openyurt cluster, which also prevents the contention between users.
 		old, err := strconv.ParseInt(lockCm.Annotations[AnnotationAcquireTime], 10, 64)
 		if err != nil {
-			return AcquireLockErr
+			return ErrAcquireLock
 		}
 		if isTimeout(old) {
 			// if the lock is expired, acquire it
@@ -92,7 +92,7 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 		// lock has been acquired by others
 		klog.Errorf("the lock is held by others, it was being acquired at %s",
 			lockCm.Annotations[AnnotationAcquireTime])
-		return AcquireLockErr
+		return ErrAcquireLock
 	}
 
 	if lockCm.Annotations[AnnotationIsLocked] == "false" {
@@ -116,10 +116,10 @@ func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) erro
 		Update(lockCm); err != nil {
 		if apierrors.IsResourceExpired(err) {
 			klog.Error("the lock is held by others")
-			return AcquireLockErr
+			return ErrAcquireLock
 		}
 		klog.Error("successfully acquire the lock but fail to update it")
-		return AcquireLockErr
+		return ErrAcquireLock
 	}
 	return nil
 }
@@ -133,17 +133,17 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 			klog.Error("lock is not found when try to release, " +
 				"please check if the configmap/yurtctl-lock " +
 				"is being deleted manually")
-			return ReleaseLockErr
+			return ErrReleaseLock
 		}
 		klog.Error("fail to get lock configmap/yurtctl-lock, " +
 			"when try to release it")
-		return ReleaseLockErr
+		return ErrReleaseLock
 	}
 	if lockCm.Annotations[AnnotationIsLocked] == "false" {
 		klog.Error("lock has already been released, " +
 			"please check if the configmap/yurtctl-lock " +
 			"is being updated manually")
-		return ReleaseLockErr
+		return ErrReleaseLock
 	}
 
 	// release the lock
@@ -156,12 +156,12 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 			klog.Error("lock has been touched by others during release, " +
 				"which is not supposed to happen. " +
 				"Please check if lock is being updated manually.")
-			return ReleaseLockErr
+			return ErrReleaseLock
 
 		}
 		klog.Error("fail to update lock configmap/yurtctl-lock, " +
 			"when try to release it")
-		return ReleaseLockErr
+		return ErrReleaseLock
 	}
 
 	return nil

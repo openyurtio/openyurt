@@ -22,18 +22,20 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
-	"github.com/alibaba/openyurt/pkg/projectinfo"
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
 
 // Provider signifies the provider type
@@ -58,6 +60,7 @@ type ConvertOptions struct {
 	YurttunnelServerImage      string
 	YurttunnelAgentImage       string
 	PodMainfestPath            string
+	KubeadmConfPath            string
 	DeployTunnel               bool
 	kubeConfigPath             string
 }
@@ -88,6 +91,8 @@ func NewConvertCmd() *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(NewConvertEdgeNodeCmd())
+
 	cmd.Flags().StringP("cloud-nodes", "c", "",
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
 	cmd.Flags().StringP("provider", "p", "minikube",
@@ -101,6 +106,9 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
+	cmd.Flags().String("kubeadm-conf-path",
+		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
+		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 	cmd.Flags().String("yurt-tunnel-server-image",
 		"openyurt/yurt-tunnel-server:latest",
 		"The yurt-tunnel-server image.")
@@ -174,6 +182,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.PodMainfestPath = pmp
 
+	kcp, err := flags.GetString("kubeadm-conf-path")
+	if err != nil {
+		return err
+	}
+	co.KubeadmConfPath = kcp
+
 	// parse kubeconfig and generate the clientset
 	co.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -217,11 +231,23 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	// 2. label nodes as cloud node or edge node
+	// 1.1. check the state of worker nodes
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return
 	}
+	for _, node := range nodeLst.Items {
+		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
+			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
+			if condition == nil || condition.Status != v1.ConditionTrue {
+				klog.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
+				return
+			}
+		}
+	}
+	klog.V(4).Info("the status of worker nodes are satisfied")
+
+	// 2. label nodes as cloud node or edge node
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
 		if strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
@@ -233,14 +259,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 			}
 			continue
 		}
-		// label node as edge node
-		klog.Infof("mark %s as the edge-node", node.GetName())
 		edgeNodeNames = append(edgeNodeNames, node.GetName())
-		_, err = kubeutil.LabelNode(co.clientSet,
-			&node, projectinfo.GetEdgeWorkerLabelKey(), "true")
-		if err != nil {
-			return
-		}
 	}
 
 	// 3. deploy yurt controller manager
@@ -320,7 +339,8 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		"yurthub_image":         co.YurhubImage,
 		"joinToken":             joinToken,
 		"pod_manifest_path":     co.PodMainfestPath,
-	}, edgeNodeNames); err != nil {
+		"kubeadm_conf_path":     co.KubeadmConfPath,
+	}, edgeNodeNames, true); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
 	}

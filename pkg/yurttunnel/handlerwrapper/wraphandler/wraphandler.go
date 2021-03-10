@@ -21,9 +21,9 @@ import (
 
 	"k8s.io/klog/v2"
 
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
 )
 
 func InitHandlerWrappers(mi initializer.MiddlewareInitializer) (hw.HandlerWrappers, error) {

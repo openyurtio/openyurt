@@ -79,7 +79,7 @@ build_binaries() {
       targets=("${YURT_ALL_TARGETS[@]}")
     fi
 
-    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_BIN_DIR})
+    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
     mkdir -p ${target_bin_dir}
     cd ${target_bin_dir}
     for binary in "${targets[@]}"; do
@@ -88,6 +88,11 @@ build_binaries() {
           -ldflags "${goldflags:-}" \
           -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
+    
+    if [[ $(host_platform) == ${HOST_PLATFORM} ]]; then
+      rm -f "${YURT_BIN_DIR}"
+      ln -s "${target_bin_dir}" "${YURT_BIN_DIR}"
+    fi
 }
 
 # gen_yamls generates yaml files for user specified components by 

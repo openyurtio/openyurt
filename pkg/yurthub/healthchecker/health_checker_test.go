@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
 func TestHealthyCheckerWithHealthyServers(t *testing.T) {

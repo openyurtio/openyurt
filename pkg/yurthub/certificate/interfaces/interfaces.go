@@ -17,7 +17,7 @@ limitations under the License.
 package interfaces
 
 import (
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/certificate"

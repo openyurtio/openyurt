@@ -36,7 +36,7 @@ import (
 	apivalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	unitv1alpha1 "github.com/alibaba/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 // ValidateUnitedDeploymentSpec tests if required fields in the UnitedDeployment spec are set.
@@ -115,14 +115,6 @@ func ValidateUnitedDeploymentUpdate(unitedDeployment, oldUnitedDeployment *unitv
 	allErrs := apivalidation.ValidateObjectMetaUpdate(&unitedDeployment.ObjectMeta, &oldUnitedDeployment.ObjectMeta, field.NewPath("metadata"))
 	allErrs = append(allErrs, validateUnitedDeploymentSpecUpdate(&unitedDeployment.Spec, &oldUnitedDeployment.Spec, field.NewPath("spec"))...)
 	return allErrs
-}
-
-func convertPodSpec(spec *v1.PodSpec) (*core.PodSpec, error) {
-	coreSpec := &core.PodSpec{}
-	if err := corev1.Convert_v1_PodSpec_To_core_PodSpec(spec.DeepCopy(), coreSpec, nil); err != nil {
-		return nil, err
-	}
-	return coreSpec, nil
 }
 
 func convertPodTemplateSpec(template *v1.PodTemplateSpec) (*core.PodTemplateSpec, error) {

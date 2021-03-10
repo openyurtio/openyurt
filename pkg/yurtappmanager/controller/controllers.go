@@ -24,19 +24,19 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/nodepool"
-	"github.com/alibaba/openyurt/pkg/yurtappmanager/controller/uniteddeployment"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/controller/uniteddeployment"
 )
 
-var controllerAddFuncs []func(manager.Manager, context.Context) error
+var controllerAddFuncs []func(context.Context, manager.Manager) error
 
 func init() {
 	controllerAddFuncs = append(controllerAddFuncs, uniteddeployment.Add, nodepool.Add)
 }
 
-func SetupWithManager(m manager.Manager, ctx context.Context) error {
+func SetupWithManager(ctx context.Context, m manager.Manager) error {
 	for _, f := range controllerAddFuncs {
-		if err := f(m, ctx); err != nil {
+		if err := f(ctx, m); err != nil {
 			if kindMatchErr, ok := err.(*meta.NoKindMatchError); ok {
 				klog.Infof("CRD %v is not installed, its controller will perform noops!", kindMatchErr.GroupKind)
 				continue

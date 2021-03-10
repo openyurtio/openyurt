@@ -19,7 +19,7 @@ package server
 import (
 	"crypto/tls"
 
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 )
 
 // TunnelServermanages tunnels between itself and agents, receives requests

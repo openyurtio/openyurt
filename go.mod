@@ -1,10 +1,11 @@
-module github.com/alibaba/openyurt
+module github.com/openyurtio/openyurt
 
 go 1.13
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.355
+	github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200531234253-77e06fda0c94+incompatible // indirect
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
 	github.com/go-openapi/spec v0.19.8 // indirect

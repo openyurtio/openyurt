@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	manager "github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
-	"github.com/alibaba/openyurt/pkg/yurthub/storage"
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
