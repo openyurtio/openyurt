@@ -20,7 +20,6 @@ The node that runs on the cloud. The control-plane and other cluster management 
 
 The node that is accessible to the edge device. The EdgeNodes are usually located in a sub-optimal network environment. They may be disconnected from the cloud node at any time.
 
-
 ### End User
 
 Represents a user of the OpenYurt cluster.
