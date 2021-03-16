@@ -1,0 +1,30 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager
+  namespace: system
+  labels:
+    control-plane: yurt-app-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: yurt-app-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: yurt-app-manager
+    spec:
+      tolerations:
+      nodeSelector:
+      containers:
+      - command:
+        - /usr/local/bin/yurt-app-manager
+        args:
+        - --enable-leader-election
+        - --v=5
+        image: controller:latest
+        imagePullPolicy: Always 
+        name: manager
+      terminationGracePeriodSeconds: 10

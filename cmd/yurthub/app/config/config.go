@@ -5,7 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 
 	"k8s.io/klog"
 )
@@ -23,6 +24,8 @@ type YurtHubConfiguration struct {
 	HeartbeatHealthyThreshold int
 	HeartbeatTimeoutSeconds   int
 	MaxRequestInFlight        int
+	JoinToken                 string
+	RootDir                   string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -44,6 +47,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HeartbeatHealthyThreshold: options.HeartbeatHealthyThreshold,
 		HeartbeatTimeoutSeconds:   options.HeartbeatTimeoutSeconds,
 		MaxRequestInFlight:        options.MaxRequestInFlight,
+		JoinToken:                 options.JoinToken,
+		RootDir:                   options.RootDir,
 	}
 
 	return cfg, nil
@@ -71,7 +76,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	if len(us) < 1 {
 		return us, fmt.Errorf("no server address is set, can not connect remote server")
 	}
-	klog.Infof("yurthub would connect remote servers: %s", strings.Join(remoteServers, ","))
+	klog.Infof("%s would connect remote servers: %s", projectinfo.GetHubName(), strings.Join(remoteServers, ","))
 
 	return us, nil
 }

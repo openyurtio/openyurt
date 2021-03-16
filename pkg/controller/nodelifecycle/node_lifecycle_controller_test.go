@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/controller/nodelifecycle/scheduler"
+	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 	apps "k8s.io/api/apps/v1"
 	coordv1beta1 "k8s.io/api/coordination/v1beta1"
 	v1 "k8s.io/api/core/v1"

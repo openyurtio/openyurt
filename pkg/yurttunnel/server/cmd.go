@@ -17,22 +17,24 @@ limitations under the License.
 package server
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/iptables"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/spf13/cobra"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
-
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/iptables"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurttunnel/kubernetes"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/pki/certmanager"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command
@@ -41,12 +43,14 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "Launch " + projectinfo.GetServerName(),
-		Short: projectinfo.GetServerName() + " sends requests to yurttunnel-agents",
+		Short: projectinfo.GetServerName() + " sends requests to " + projectinfo.GetAgentName(),
 		RunE: func(c *cobra.Command, args []string) error {
 			if o.version {
-				fmt.Println(projectinfo.ShortServerVersion())
+				fmt.Printf("%s: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
 				return nil
 			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
+
 			if err := o.validate(); err != nil {
 				return err
 			}
@@ -69,20 +73,24 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	flags.StringVar(&o.bindAddr, "bind-address", o.bindAddr,
 		fmt.Sprintf("the ip address on which the %s will listen.",
 			projectinfo.GetServerName()))
+	flags.StringVar(&o.insecureBindAddr, "insecure-bind-address", o.insecureBindAddr,
+		fmt.Sprintf("the ip address on which the %s will listen without tls.",
+			projectinfo.GetServerName()))
 	flags.StringVar(&o.certDNSNames, "cert-dns-names", o.certDNSNames,
 		"DNS names that will be added into server's certificate. (e.g., dns1,dns2)")
 	flags.StringVar(&o.certIPs, "cert-ips", o.certIPs,
 		"IPs that will be added into server's certificate. (e.g., ip1,ip2)")
 	flags.BoolVar(&o.enableIptables, "enable-iptables", o.enableIptables,
-		"if allow iptable manager to set the dnat rule.")
+		"If allow iptable manager to set the dnat rule.")
 	flags.BoolVar(&o.egressSelectorEnabled, "egress-selector-enable", o.egressSelectorEnabled,
-		"if the apiserver egress selector has been enabled.")
+		"If the apiserver egress selector has been enabled.")
 	flags.IntVar(&o.iptablesSyncPeriod, "iptables-sync-period", o.iptablesSyncPeriod,
-		"the synchronization period of the iptable manager.")
+		"The synchronization period of the iptable manager.")
+	flags.IntVar(&o.serverCount, "server-count", o.serverCount,
+		"The number of proxy server instances, should be 1 unless it is an HA server.")
+	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy,
+		"The strategy of proxying requests from tunnel server to agent.")
 
-	// add klog flags as the global flagsets
-	klog.InitFlags(nil)
-	flags.AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 
@@ -91,6 +99,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 type YurttunnelServerOptions struct {
 	kubeConfig               string
 	bindAddr                 string
+	insecureBindAddr         string
 	certDNSNames             string
 	certIPs                  string
 	version                  bool
@@ -100,24 +109,29 @@ type YurttunnelServerOptions struct {
 	serverAgentPort          int
 	serverMasterPort         int
 	serverMasterInsecurePort int
+	serverCount              int
 	interceptorServerUDSFile string
 	serverAgentAddr          string
 	serverMasterAddr         string
 	serverMasterInsecureAddr string
 	clientset                kubernetes.Interface
 	sharedInformerFactory    informers.SharedInformerFactory
+	proxyStrategy            string
 }
 
 // NewYurttunnelServerOptions creates a new YurtNewYurttunnelServerOptions
 func NewYurttunnelServerOptions() *YurttunnelServerOptions {
 	o := &YurttunnelServerOptions{
 		bindAddr:                 "0.0.0.0",
+		insecureBindAddr:         "127.0.0.1",
 		enableIptables:           true,
 		iptablesSyncPeriod:       60,
+		serverCount:              1,
 		serverAgentPort:          constants.YurttunnelServerAgentPort,
 		serverMasterPort:         constants.YurttunnelServerMasterPort,
 		serverMasterInsecurePort: constants.YurttunnelServerMasterInsecurePort,
 		interceptorServerUDSFile: "/tmp/interceptor-proxier.sock",
+		proxyStrategy:            string(server.ProxyStrategyDestHost),
 	}
 	return o
 }
@@ -135,7 +149,7 @@ func (o *YurttunnelServerOptions) validate() error {
 func (o *YurttunnelServerOptions) complete() error {
 	o.serverAgentAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverAgentPort)
 	o.serverMasterAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterPort)
-	o.serverMasterInsecureAddr = fmt.Sprintf("%s:%d", o.bindAddr, o.serverMasterInsecurePort)
+	o.serverMasterInsecureAddr = fmt.Sprintf("%s:%d", o.insecureBindAddr, o.serverMasterInsecurePort)
 	klog.Infof("server will accept %s requests at: %s, "+
 		"server will accept master https requests at: %s"+
 		"server will accept master http request at: %s",
@@ -160,14 +174,14 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 	// 1. start the IP table manager
 	if o.enableIptables {
 		iptablesMgr := iptables.NewIptablesManager(o.clientset,
-			o.sharedInformerFactory,
+			o.sharedInformerFactory.Core().V1().Nodes(),
 			o.bindAddr,
-			o.iptablesSyncPeriod,
-			stopCh)
+			o.insecureBindAddr,
+			o.iptablesSyncPeriod)
 		if iptablesMgr == nil {
 			return fmt.Errorf("fail to create a new IptableManager")
 		}
-		go iptablesMgr.Run()
+		go iptablesMgr.Run(stopCh)
 	}
 
 	// 2. create a certificate manager for the tunnel server and run the
@@ -179,21 +193,10 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.NewCSRApprover(o.clientset, o.sharedInformerFactory, stopCh).
-		Run(constants.YurttunnelCSRApproverThreadiness)
+	go certmanager.NewCSRApprover(o.clientset, o.sharedInformerFactory.Certificates().V1beta1().CertificateSigningRequests()).
+		Run(constants.YurttunnelCSRApproverThreadiness, stopCh)
 
-	// 3. get the latest certificate
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		// keep polling until the certificate is signed
-		if serverCertMgr.Current() != nil {
-			return true, nil
-		}
-		klog.Infof("waiting for the master to sign the %s certificate",
-			projectinfo.GetServerName())
-		return false, nil
-	}, stopCh)
-
-	// 4. generate the TLS configuration based on the latest certificate
+	// 3. generate the TLS configuration based on the latest certificate
 	rootCertPool, err := pki.GenRootCertPool(o.kubeConfig,
 		constants.YurttunnelCAFile)
 	if err != nil {
@@ -205,14 +208,38 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// 5. start the server
+	// 4. create handler wrappers
+	mInitializer := initializer.NewMiddlewareInitializer(o.sharedInformerFactory)
+	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
+	if err != nil {
+		return err
+	}
+
+	// after all of informers are configured completed, start the shared index informer
+	o.sharedInformerFactory.Start(stopCh)
+
+	// 5. waiting for the certificate is generated
+	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+		// keep polling until the certificate is signed
+		if serverCertMgr.Current() != nil {
+			return true, nil
+		}
+		klog.Infof("waiting for the master to sign the %s certificate",
+			projectinfo.GetServerName())
+		return false, nil
+	}, stopCh)
+
+	// 6. start the server
 	ts := NewTunnelServer(
 		o.egressSelectorEnabled,
 		o.interceptorServerUDSFile,
 		o.serverMasterAddr,
 		o.serverMasterInsecureAddr,
 		o.serverAgentAddr,
-		tlsCfg)
+		o.serverCount,
+		tlsCfg,
+		wrappers,
+		o.proxyStrategy)
 	if err := ts.Run(); err != nil {
 		return err
 	}

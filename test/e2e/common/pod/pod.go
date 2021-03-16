@@ -17,11 +17,12 @@ limitations under the License.
 package pod
 
 import (
+	"time"
+
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	framepod "k8s.io/kubernetes/test/e2e/framework/pod"
-	"time"
 )
 
 func ListPods(c clientset.Interface, ns string) (pods *apiv1.PodList, err error) {

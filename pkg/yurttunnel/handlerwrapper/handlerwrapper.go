@@ -21,6 +21,9 @@ import (
 )
 
 // Middleware takes in one Handler and wrap it within another
-type Middleware func(http.Handler) http.Handler
+type Middleware interface {
+	WrapHandler(http.Handler) http.Handler
+	Name() string
+}
 
-var Middlewares []Middleware
+type HandlerWrappers []Middleware

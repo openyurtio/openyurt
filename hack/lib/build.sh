@@ -14,12 +14,15 @@
 
 #!/usr/bin/env bash
 
+set -x
+
 readonly YURT_ALL_TARGETS=(
-    cmd/yurtctl
-    cmd/yurthub
-    cmd/yurt-controller-manager
-    cmd/yurt-tunnel-server
-    cmd/yurt-tunnel-agent
+    yurtctl
+    yurthub
+    yurt-controller-manager
+    yurt-tunnel-server
+    yurt-tunnel-agent
+    yurt-app-manager
 )
 
 # we will generates setup yaml files for following components
@@ -28,35 +31,24 @@ readonly YURT_YAML_TARGETS=(
     yurt-controller-manager
     yurt-tunnel-server
     yurt-tunnel-agent
+    yurt-app-manager
 )
 
-PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
-LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION="v0.1.1"
-GIT_COMMIT=$(git rev-parse HEAD)
-BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+#PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
+#LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
+#GIT_VERSION="v0.1.1"
+#GIT_COMMIT=$(git rev-parse HEAD)
+#BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 # project_info generates the project information and the corresponding valuse 
 # for 'ldflags -X' option
 project_info() {
-    PROJECT_INFO_PKG=${YURT_MOD}/pkg/yurttunnel/projectinfo
+    PROJECT_INFO_PKG=${YURT_MOD}/pkg/projectinfo
     echo "-X ${PROJECT_INFO_PKG}.projectPrefix=${PROJECT_PREFIX}"
     echo "-X ${PROJECT_INFO_PKG}.labelPrefix=${LABEL_PREFIX}"
     echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
     echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
     echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
-}
-
-# get_output_name generates the executable's name. If the $PROJECT_PREFIX
-# is set, it subsitutes the prefix of the executable's name with the env, 
-# otherwise the basename of the target is used
-get_output_name() {
-    local oup_name=$(basename $1)
-    PROJECT_PREFIX=${PROJECT_PREFIX:-}
-    if [ ! -z $PROJECT_PREFIX ]; then
-        oup_name=${oup_name/yurt/$PROJECT_PREFIX}
-    fi
-    echo $oup_name
 }
 
 # get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
@@ -87,15 +79,20 @@ build_binaries() {
       targets=("${YURT_ALL_TARGETS[@]}")
     fi
 
-    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_BIN_DIR})
+    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
     mkdir -p ${target_bin_dir}
     cd ${target_bin_dir}
     for binary in "${targets[@]}"; do
       echo "Building ${binary}"
       go build -o $(get_output_name $binary) \
           -ldflags "${goldflags:-}" \
-          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/${binary}
+          -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
+    
+    if [[ $(host_platform) == ${HOST_PLATFORM} ]]; then
+      rm -f "${YURT_BIN_DIR}"
+      ln -s "${target_bin_dir}" "${YURT_BIN_DIR}"
+    fi
 }
 
 # gen_yamls generates yaml files for user specified components by 
@@ -132,6 +129,10 @@ gen_yamls() {
     local yaml_dir=$YURT_OUTPUT_DIR/setup/
     mkdir -p $yaml_dir
     for yaml_target in "${yaml_targets[@]}"; do
+        if [ "$yaml_target" == "yurt-app-manager" ]; then
+            gen_yurtappmanager_yaml 
+            continue
+        fi 
         oup_file=${yaml_target/yurt/$PROJECT_PREFIX}
         echo "generating yaml file for $oup_file"
         sed "s|__project_prefix__|${PROJECT_PREFIX}|g;
@@ -143,4 +144,19 @@ gen_yamls() {
             $YURT_ROOT/config/yaml-template/$yaml_target.yaml > \
             $yaml_dir/$oup_file.yaml
     done
+}
+
+gen_yurtappmanager_yaml() {
+    local OUT_YAML_DIR=$YURT_ROOT/_output/yamls/
+    local BUILD_YAML_DIR=${OUT_YAML_DIR}/build/
+    mkdir -p ${BUILD_YAML_DIR}
+    (
+        rm -rf ${BUILD_YAML_DIR}/yurt-app-manager
+        cp -rf $YURT_ROOT/config/yurt-app-manager ${BUILD_YAML_DIR}
+        cd ${BUILD_YAML_DIR}/yurt-app-manager/manager
+        kustomize edit set image controller=$REPO/yurt-app-manager:${TAG}
+	)
+    set +x
+    echo "==== create yurt-app-manager.yaml in $OUT_YAML_DIR ===="
+    kustomize build ${BUILD_YAML_DIR}/yurt-app-manager/default > ${OUT_YAML_DIR}/yurt-app-manager.yaml
 }

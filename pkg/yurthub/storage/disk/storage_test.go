@@ -23,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 var (
@@ -238,8 +240,8 @@ func TestGetFileNotExist(t *testing.T) {
 	}
 
 	b, err := s.Get(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, get key %q", err, tempKey)
+	if err != storage.ErrStorageNotFound {
+		t.Errorf("Got error %v, expect error %v", err, storage.ErrStorageNotFound)
 	} else if len(b) != 0 {
 		t.Errorf("Wanted empty string got %s", string(b))
 	}
@@ -410,8 +412,8 @@ func TestListEmptyDir(t *testing.T) {
 	}
 
 	contents, err := s.List(tempDir)
-	if err != nil {
-		t.Errorf("Got error %v, unable list for %s", err, tempDir)
+	if err != storage.ErrStorageNotFound {
+		t.Errorf("Got error %v, expect error %v", err, storage.ErrStorageNotFound)
 	}
 
 	if len(contents) != 0 {

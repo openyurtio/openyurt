@@ -1,8 +1,8 @@
 # YurtHub
 
-YurtHub is a node daemon that supports node autonomy in each edge node. 
+YurtHub is a node daemon that supports node autonomy in each edge node.
 It caches the states of necessary APIServer objects in the local storage when cluster-edge networking is established.
-In case an edge node is offline, YurtHub guarantees that all the registered components 
+In case an edge node is offline, YurtHub guarantees that all the registered components
 in the node can access the cached APIServer object states, pretending the APIServer is still alive.
 
 ## Architecture
@@ -43,13 +43,13 @@ The cached data are saved in the following node disk location
 
 ## Register Customize Components
 
-To leverage the autonomy capability of Yurthub for customize node components that need to access cloud site APIserver, 
+To leverage the autonomy capability of Yurthub for customize node components that need to access cloud site APIserver,
 please do the following:
 1. Use the Yurthub listener address. For example, localhost:10261.
-2. Add `Edge-Cache: true` to the http request header. 
+2. Add `Edge-Cache: true` to the http request header.
 3. Add `User-Agent: {component-name}` to the http request header. Please avoid using the built-in agent names such as kubelet/flannel/coredns/kube-proxy.
 4. Add `Accept: application/json` or `Accept: application/vnd.kubernetes.protobuf` to the http request header based on the required serialization format.
 
 ## Trouble Shooting
 
-1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub may not initiate properly. (**NOTE: this issue has been fixed by PR [#49](https://github.com/alibaba/openyurt/pull/49)**)
+1. When you want to test the autonomy function of edge node by rebooting the edge node. The yurthub may not initiate properly. (**NOTE: this issue has been fixed by PR [#49](https://github.com/openyurtio/openyurt/pull/49)**)

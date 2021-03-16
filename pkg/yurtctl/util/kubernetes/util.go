@@ -25,9 +25,13 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
@@ -35,11 +39,16 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
+	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog"
+	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
+	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	strutil "github.com/alibaba/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/alibaba/openyurt/pkg/yurtctl/util/templates"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 )
 
 const (
@@ -56,14 +65,148 @@ var (
 	WaitServantJobTimeout = time.Minute * 2
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
-	// ValidServerVersion contains all compatable server version
+	// ValidServerVersions contains all compatable server version
 	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",
 		"1.13", "1.13+",
 		"1.14", "1.14+",
-		"1.16", "1.16+"}
+		"1.16", "1.16+",
+		"1.18", "1.18+"}
 )
+
+// CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
+func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
+	obj, err := YamlToObject([]byte(saTmpl))
+	if err != nil {
+		return err
+	}
+	sa, ok := obj.(*corev1.ServiceAccount)
+	if !ok {
+		return fmt.Errorf("fail to assert serviceaccount: %v", err)
+	}
+	_, err = cliSet.CoreV1().ServiceAccounts(ns).Create(sa)
+	if err != nil {
+		return fmt.Errorf("fail to create the serviceaccount/%s: %v", sa.Name, err)
+	}
+	klog.V(4).Infof("serviceaccount/%s is created", sa.Name)
+	return nil
+}
+
+// CreateClusterRoleFromYaml creates the ClusterRole from the yaml template.
+func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) error {
+	obj, err := YamlToObject([]byte(crTmpl))
+	if err != nil {
+		return err
+	}
+	cr, ok := obj.(*rbacv1.ClusterRole)
+	if !ok {
+		return fmt.Errorf("fail to assert clusterrole: %v", err)
+	}
+	_, err = cliSet.RbacV1().ClusterRoles().Create(cr)
+	if err != nil {
+		return fmt.Errorf("fail to create the clusterrole/%s: %v", cr.Name, err)
+	}
+	klog.V(4).Infof("clusterrole/%s is created", cr.Name)
+	return nil
+}
+
+// CreateClusterRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
+func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl string) error {
+	obj, err := YamlToObject([]byte(crbTmpl))
+	if err != nil {
+		return err
+	}
+	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
+	if !ok {
+		return fmt.Errorf("fail to assert clusterrolebinding: %v", err)
+	}
+	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(crb)
+	if err != nil {
+		return fmt.Errorf("fail to create the clusterrolebinding/%s: %v", crb.Name, err)
+	}
+	klog.V(4).Infof("clusterrolebinding/%s is created", crb.Name)
+	return nil
+}
+
+// CreateConfigMapFromYaml creates the ConfigMap from the yaml template.
+func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) error {
+	obj, err := YamlToObject([]byte(cmTmpl))
+	if err != nil {
+		return err
+	}
+	cm, ok := obj.(*v1.ConfigMap)
+	if !ok {
+		return fmt.Errorf("fail to assert configmap: %v", err)
+	}
+	_, err = cliSet.CoreV1().ConfigMaps(ns).Create(cm)
+	if err != nil {
+		return fmt.Errorf("fail to create the configmap/%s: %v", cm.Name, err)
+	}
+	klog.V(4).Infof("configmap/%s is created", cm.Name)
+	return nil
+}
+
+// CreateDeployFromYaml creates the Deployment from the yaml template.
+func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, context interface{}) error {
+	ycmdp, err := tmplutil.SubsituteTemplate(dplyTmpl, context)
+	if err != nil {
+		return err
+	}
+	dpObj, err := YamlToObject([]byte(ycmdp))
+	if err != nil {
+		return err
+	}
+	dply, ok := dpObj.(*appsv1.Deployment)
+	if !ok {
+		return errors.New("fail to assert Deployment")
+	}
+	if _, err = cliSet.AppsV1().Deployments(ns).Create(dply); err != nil {
+		return err
+	}
+	klog.V(4).Infof("the deployment/%s is deployed", dply.Name)
+	return nil
+}
+
+// CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
+func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, context interface{}) error {
+	ytadstmp, err := tmplutil.SubsituteTemplate(dsTmpl, context)
+	if err != nil {
+		return err
+	}
+	obj, err := YamlToObject([]byte(ytadstmp))
+	if err != nil {
+		return err
+	}
+	ds, ok := obj.(*appsv1.DaemonSet)
+	if !ok {
+		return fmt.Errorf("fail to assert daemonset: %v", err)
+	}
+	_, err = cliSet.AppsV1().DaemonSets("kube-system").Create(ds)
+	if err != nil {
+		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
+	}
+	klog.V(4).Infof("daemonset/%s is created", ds.Name)
+	return nil
+}
+
+// CreateServiceFromYaml creates the Service from the yaml template.
+func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+	obj, err := YamlToObject([]byte(svcTmpl))
+	if err != nil {
+		return err
+	}
+	svc, ok := obj.(*corev1.Service)
+	if !ok {
+		return fmt.Errorf("fail to assert service: %v", err)
+	}
+	_, err = cliSet.CoreV1().Services("kube-system").Create(svc)
+	if err != nil {
+		return fmt.Errorf("fail to create the service/%s: %s", svc.Name, err)
+	}
+	klog.V(4).Infof("service/%s is created", svc.Name)
+	return nil
+}
 
 // YamlToObject deserializes object in yaml format to a runtime.Object
 func YamlToObject(yamlContent []byte) (runtime.Object, error) {
@@ -131,8 +274,12 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 }
 
 // RunServantJobs launchs servant jobs on specified edge nodes
-func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string) error {
+func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string, convert bool) error {
 	var wg sync.WaitGroup
+	servantJobTemplate := constants.ConvertServantJobTemplate
+	if !convert {
+		servantJobTemplate = constants.RevertServantJobTemplate
+	}
 	for _, nodeName := range edgeNodeNames {
 		action, exist := tmplCtx["action"]
 		if !exist {
@@ -149,7 +296,7 @@ func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edg
 		}
 		tmplCtx["nodeName"] = nodeName
 
-		jobYaml, err := tmplutil.SubsituteTemplate(constants.ServantJobTemplate, tmplCtx)
+		jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
 		if err != nil {
 			return err
 		}
@@ -195,9 +342,24 @@ func ValidateServerVersion(cliSet *kubernetes.Clientset) error {
 // GenClientSet generates the clientset based on command option, environment variable or
 // the default kubeconfig file
 func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
-	kbCfgPath, err := flags.GetString("kubeconfig")
+	kubeconfigPath, err := PrepareKubeConfigPath(flags)
 	if err != nil {
 		return nil, err
+	}
+
+	restCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(restCfg)
+}
+
+// PrepareKubeConfigPath returns the path of cluster kubeconfig file
+func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
+	kbCfgPath, err := flags.GetString("kubeconfig")
+	if err != nil {
+		return "", err
 	}
 
 	if kbCfgPath == "" {
@@ -211,13 +373,54 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 	}
 
 	if kbCfgPath == "" {
-		return nil, errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
+		return "", errors.New("either '--kubeconfig', '$HOME/.kube/config' or '$KUBECONFIG' need to be set")
 	}
 
-	restCfg, err := clientcmd.BuildConfigFromFlags("", kbCfgPath)
+	return kbCfgPath, nil
+}
+
+func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
+	tokenSelector := fields.SelectorFromSet(
+		map[string]string{
+			// TODO: We hard-code "type" here until `field_constants.go` that is
+			// currently in `pkg/apis/core/` exists in the external API, i.e.
+			// k8s.io/api/v1. Should be v1.SecretTypeField
+			"type": string(bootstrapapi.SecretTypeBootstrapToken),
+		},
+	)
+	listOptions := metav1.ListOptions{
+		FieldSelector: tokenSelector.String(),
+	}
+	klog.V(1).Infoln("[token] retrieving list of bootstrap tokens")
+	secrets, err := cliSet.CoreV1().Secrets(metav1.NamespaceSystem).List(listOptions)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("%v%s", err, "failed to list bootstrap tokens")
 	}
 
-	return kubernetes.NewForConfig(restCfg)
+	for _, secret := range secrets.Items {
+
+		// Get the BootstrapToken struct representation from the Secret object
+		token, err := kubeadmapi.BootstrapTokenFromSecret(&secret)
+		if err != nil {
+			klog.Warningf("%v", err)
+			continue
+		}
+		return token.Token.String(), nil
+		// Get the human-friendly string representation for the token
+	}
+
+	tokenStr, err := bootstraputil.GenerateBootstrapToken()
+	if err != nil {
+		return "", fmt.Errorf("couldn't generate random token, %v", err)
+	}
+	token, err := kubeadmapi.NewBootstrapTokenString(tokenStr)
+	if err != nil {
+		return "", err
+	}
+
+	klog.V(1).Infoln("[token] creating token")
+	if err := tokenphase.CreateNewTokens(cliSet, []kubeadmapi.BootstrapToken{{Token: token, Usages: kubeadmcontants.DefaultTokenUsages, Groups: kubeadmcontants.DefaultTokenGroups}}); err != nil {
+		return "", err
+	}
+	return tokenStr, nil
 }

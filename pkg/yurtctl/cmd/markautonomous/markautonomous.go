@@ -27,9 +27,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/constants"
-	"github.com/alibaba/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/alibaba/openyurt/pkg/yurtctl/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
 // MarkAutonomousOptions has the information that required by convert operation
@@ -106,7 +107,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 	)
 	if mao.MarkAllEdgeNodes {
 		// make all edge nodes autonomous
-		labelSelector := fmt.Sprintf("%s=true", constants.LabelEdgeWorker)
+		labelSelector := fmt.Sprintf("%s=true", projectinfo.GetEdgeWorkerLabelKey())
 		edgeNodeList, err = mao.CoreV1().Nodes().
 			List(metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
@@ -116,8 +117,8 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 			klog.Warning("there is no edge nodes, please label the edge node first")
 			return
 		}
-		for _, node := range edgeNodeList.Items {
-			autonomousNodes = append(autonomousNodes, &node)
+		for i := range edgeNodeList.Items {
+			autonomousNodes = append(autonomousNodes, &edgeNodeList.Items[i])
 		}
 	} else {
 		// make only the specified edge nodes autonomous
@@ -127,7 +128,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 			if err != nil {
 				return
 			}
-			if node.Labels[constants.LabelEdgeWorker] == "false" {
+			if node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
 				err = fmt.Errorf("can't make cloud node(%s) autonomous",
 					node.GetName())
 				return

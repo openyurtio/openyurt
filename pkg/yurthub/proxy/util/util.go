@@ -22,13 +22,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 )
 
 const (
-	canCacheHeader string = "Edge-Cache"
+	canCacheHeader     string = "Edge-Cache"
+	watchTimeoutMargin int64  = 15
 )
 
 // WithRequestContentType add req-content-type in request context.
@@ -47,7 +51,7 @@ func WithRequestContentType(handler http.Handler) http.Handler {
 
 				if len(contentType) == 0 {
 					klog.Errorf("no accept content type for request: %s", util.ReqString(req))
-					http.Error(w, "no accept content type is set.", http.StatusBadRequest)
+					util.Err(errors.NewBadRequest("no accept content type is set."), w, req)
 					return
 				}
 
@@ -109,25 +113,27 @@ func WithRequestClientComponent(handler http.Handler) http.Handler {
 
 type wrapperResponseWriter struct {
 	http.ResponseWriter
-	statusCode    int
-	closeNotifyCh chan bool
-	ctx           context.Context
+	http.Flusher
+	http.CloseNotifier
+	statusCode int
 }
 
-func newWrapperResponseWriter(ctx context.Context, rw http.ResponseWriter) *wrapperResponseWriter {
-	return &wrapperResponseWriter{
-		ResponseWriter: rw,
-		closeNotifyCh:  make(chan bool, 1),
-		ctx:            ctx,
+func newWrapperResponseWriter(w http.ResponseWriter) *wrapperResponseWriter {
+	cn, ok := w.(http.CloseNotifier)
+	if !ok {
+		klog.Error("can not get http.CloseNotifier")
 	}
-}
 
-func (wrw *wrapperResponseWriter) Write(b []byte) (int, error) {
-	return wrw.ResponseWriter.Write(b)
-}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		klog.Error("can not get http.Flusher")
+	}
 
-func (wrw *wrapperResponseWriter) Header() http.Header {
-	return wrw.ResponseWriter.Header()
+	return &wrapperResponseWriter{
+		ResponseWriter: w,
+		Flusher:        flusher,
+		CloseNotifier:  cn,
+	}
 }
 
 func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
@@ -135,50 +141,65 @@ func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
 	wrw.ResponseWriter.WriteHeader(statusCode)
 }
 
-func (wrw *wrapperResponseWriter) CloseNotify() <-chan bool {
-	if cn, ok := wrw.ResponseWriter.(http.CloseNotifier); ok {
-		return cn.CloseNotify()
-	}
-	klog.Infof("can't get http.CloseNotifier from http.ResponseWriter")
-	go func() {
-		<-wrw.ctx.Done()
-		wrw.closeNotifyCh <- true
-	}()
-
-	return wrw.closeNotifyCh
+// WithRequestTrace used to trace status code and handle time for request.
+func WithRequestTrace(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		wrapperRW := newWrapperResponseWriter(w)
+		start := time.Now()
+		handler.ServeHTTP(wrapperRW, req)
+		klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, time.Since(start))
+	})
 }
 
-func (wrw *wrapperResponseWriter) Flush() {
-	if flusher, ok := wrw.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	} else {
-		klog.Errorf("can't get http.Flusher from http.ResponseWriter")
-	}
-}
-
-// WithRequestTrace used for tracing in flight requests. and when in flight
+// WithMaxInFlightLimit limits the number of in-flight requests. and when in flight
 // requests exceeds the threshold, the following incoming requests will be rejected.
-func WithRequestTrace(handler http.Handler, limit int) http.Handler {
+func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 	var reqChan chan bool
 	if limit > 0 {
 		reqChan = make(chan bool, limit)
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		wrapperRW := newWrapperResponseWriter(req.Context(), w)
-		start := time.Now()
-
 		select {
 		case reqChan <- true:
 			defer func() {
 				<-reqChan
-				klog.Infof("%s with status code %d, spent %v, left %d requests in flight", util.ReqString(req), wrapperRW.statusCode, time.Since(start), len(reqChan))
+				klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
 			}()
-			handler.ServeHTTP(wrapperRW, req)
+			handler.ServeHTTP(w, req)
 		default:
 			// Return a 429 status indicating "Too Many Requests"
+			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
 			w.Header().Set("Retry-After", "1")
-			http.Error(w, "Too many requests, please try again later.", http.StatusTooManyRequests)
+			util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
 		}
+	})
+}
+
+// WithRequestTimeout add timeout context for watch request, and
+// timeout is TimeoutSeconds plus a margin(15 seconds). the timeout
+// context is used to cancel the request for hub missed disconnect
+// signal from kube-apiserver when watch request is ended.
+func WithRequestTimeout(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {
+			if info.IsResourceRequest && info.Verb == "watch" {
+				opts := metainternalversion.ListOptions{}
+				if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
+					klog.Errorf("failed to decode parameter for watch request: %s", util.ReqString(req))
+					util.Err(errors.NewBadRequest(err.Error()), w, req)
+					return
+				}
+
+				if opts.TimeoutSeconds != nil {
+					timeout := time.Duration(*opts.TimeoutSeconds+watchTimeoutMargin) * time.Second
+					ctx, cancel := context.WithTimeout(req.Context(), timeout)
+					defer cancel()
+					req = req.WithContext(ctx)
+				}
+			}
+		}
+
+		handler.ServeHTTP(w, req)
 	})
 }

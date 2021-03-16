@@ -22,17 +22,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
 	certificates "k8s.io/api/certificates/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
+	certinformer "k8s.io/client-go/informers/certificates/v1beta1"
 	certv1beta1 "k8s.io/client-go/informers/certificates/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	typev1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 // YurttunnelCSRApprover is the controller that auto approve all
@@ -41,24 +44,22 @@ type YurttunnelCSRApprover struct {
 	csrInformer certv1beta1.CertificateSigningRequestInformer
 	csrClient   typev1beta1.CertificateSigningRequestInterface
 	workqueue   workqueue.RateLimitingInterface
-	stopCh      <-chan struct{}
 }
 
 // Run starts the YurttunnelCSRApprover
-func (yca *YurttunnelCSRApprover) Run(threadiness int) {
+func (yca *YurttunnelCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer yca.workqueue.ShutDown()
-	go yca.csrInformer.Informer().Run(yca.stopCh)
 	klog.Info("starting the crsapprover")
-	if !cache.WaitForCacheSync(yca.stopCh,
+	if !cache.WaitForCacheSync(stopCh,
 		yca.csrInformer.Informer().HasSynced) {
 		klog.Error("sync csr timeout")
 		return
 	}
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(yca.runWorker, time.Second, yca.stopCh)
+		go wait.Until(yca.runWorker, time.Second, stopCh)
 	}
-	<-yca.stopCh
+	<-stopCh
 	klog.Info("stoping the csrapprover")
 }
 
@@ -84,12 +85,16 @@ func (yca *YurttunnelCSRApprover) processNextItem() bool {
 	csr, err := yca.csrInformer.Lister().Get(csrName)
 	if err != nil {
 		runtime.HandleError(err)
-		enqueueObj(yca.workqueue, csr)
+		if !apierrors.IsNotFound(err) {
+			yca.workqueue.AddRateLimited(key)
+		}
+		return true
 	}
 
 	if err := approveYurttunnelCSR(csr, yca.csrClient); err != nil {
 		runtime.HandleError(err)
 		enqueueObj(yca.workqueue, csr)
+		return true
 	}
 
 	return true
@@ -107,13 +112,9 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 // NewCSRApprover creates a new YurttunnelCSRApprover
 func NewCSRApprover(
 	clientset kubernetes.Interface,
-	sharedInformerFactory informers.SharedInformerFactory,
-	stopCh <-chan struct{}) *YurttunnelCSRApprover {
-	csrInformer := sharedInformerFactory.Certificates().V1beta1().
-		CertificateSigningRequests()
-	csrClient := clientset.CertificatesV1beta1().CertificateSigningRequests()
-	wq := workqueue.
-		NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	csrInformer certinformer.CertificateSigningRequestInformer) *YurttunnelCSRApprover {
+
+	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			enqueueObj(wq, obj)
@@ -124,9 +125,8 @@ func NewCSRApprover(
 	})
 	return &YurttunnelCSRApprover{
 		csrInformer: csrInformer,
-		csrClient:   csrClient,
+		csrClient:   clientset.CertificatesV1beta1().CertificateSigningRequests(),
 		workqueue:   wq,
-		stopCh:      stopCh,
 	}
 }
 
@@ -135,9 +135,13 @@ func NewCSRApprover(
 func approveYurttunnelCSR(
 	obj interface{},
 	csrClient typev1beta1.CertificateSigningRequestInterface) error {
-	csr := obj.(*certificates.CertificateSigningRequest)
+	csr, ok := obj.(*certificates.CertificateSigningRequest)
+	if !ok {
+		return nil
+	}
+
 	if !isYurttunelCSR(csr) {
-		klog.Infof("csr(%s) is not Yurttunnel csr", csr.GetName())
+		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetTunnelName())
 		return nil
 	}
 
@@ -157,25 +161,19 @@ func approveYurttunnelCSR(
 		certificates.CertificateSigningRequestCondition{
 			Type:    certificates.CertificateApproved,
 			Reason:  "AutoApproved",
-			Message: "self-approving yurttunnel csr",
+			Message: fmt.Sprintf("self-approving %s csr", projectinfo.GetTunnelName()),
 		})
 
 	result, err := csrClient.UpdateApproval(csr)
 	if err != nil {
-		if result == nil {
-			klog.Errorf("failed to approve yurttunnel csr, %v", err)
-			return err
-		} else {
-			klog.Errorf("failed to approve yurttunnel csr(%s), %v",
-				result.Name, err)
-			return err
-		}
+		klog.Errorf("failed to approve %s csr(%s), %v", projectinfo.GetTunnelName(), csr.GetName(), err)
+		return err
 	}
-	klog.Infof("successfully approve yurttunnel csr(%s)", result.Name)
+	klog.Infof("successfully approve %s csr(%s)", projectinfo.GetTunnelName(), result.Name)
 	return nil
 }
 
-// isYurttunelCSR checks if given csr is a yurtunnel related csr, i.e.,
+// isYurttunelCSR checks if given csr is a yurttunnel related csr, i.e.,
 // the organizations' list contains "openyurt:yurttunnel"
 func isYurttunelCSR(csr *certificates.CertificateSigningRequest) bool {
 	pemBytes := csr.Spec.Request

@@ -19,32 +19,50 @@ package wraphandler
 import (
 	"net/http"
 
-	hw "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper"
+	"k8s.io/klog/v2"
 
-	// followings are the middleware packages
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/tracerequest"
+)
+
+func InitHandlerWrappers(mi initializer.MiddlewareInitializer) (hw.HandlerWrappers, error) {
+	wrappers := make(hw.HandlerWrappers, 0)
+	// register all of middleware here
 	//
-	// NOTE the package importing order decide the order in which
+	// NOTE the register order decide the order in which
 	// the middleware will be called
 	//
 	// e.g. there are two middleware mw1 and mw2
-	// if the packages are imported in the following order,
+	// if the middlewares are registered in the following order,
 	//
-	// _ "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/mw2"
-	// _ "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/mw1"
+	// wrappers = append(wrappers, m2)
+	// wrappers = append(wrappers, m1)
 	//
 	// then the middleware m2 will be called before the mw1
+	wrappers = append(wrappers, tracerequest.NewTraceReqMiddleware())
 
-	_ "github.com/alibaba/openyurt/pkg/yurttunnel/handlerwrapper/printreqinfo"
-)
+	// init all of wrappers
+	for i := range wrappers {
+		if err := mi.Initialize(wrappers[i]); err != nil {
+			return wrappers, err
+		}
+	}
 
-// WrapWrapHandler wraps the coreHandler with handlerwrapper.Middlewares
-func WrapHandler(coreHandler http.Handler) http.Handler {
+	return wrappers, nil
+}
+
+// WrapWrapHandler wraps the coreHandler with all of registered middleware
+// and middleware will be initialized before wrap.
+func WrapHandler(coreHandler http.Handler, wrappers hw.HandlerWrappers) (http.Handler, error) {
 	handler := coreHandler
-	if len(hw.Middlewares) == 0 {
-		return handler
+	klog.V(4).Infof("%d middlewares will be added into wrap handler", len(wrappers))
+	if len(wrappers) == 0 {
+		return handler, nil
 	}
-	for i := len(hw.Middlewares) - 1; i >= 0; i-- {
-		handler = hw.Middlewares[i](handler)
+	for i := len(wrappers) - 1; i >= 0; i-- {
+		handler = wrappers[i].WrapHandler(handler)
+		klog.V(2).Infof("add %s into wrap handler", wrappers[i].Name())
 	}
-	return handler
+	return handler, nil
 }

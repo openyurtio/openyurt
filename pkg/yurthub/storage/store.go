@@ -23,6 +23,9 @@ import (
 // ErrStorageAccessConflict is an error for accessing key conflict
 var ErrStorageAccessConflict = errors.New("specified key is under accessing")
 
+// ErrStorageNotFound is an error for not found accessing key
+var ErrStorageNotFound = errors.New("specified key is not found")
+
 // Store is an interface for caching data into backend storage
 type Store interface {
 	Create(key string, contents []byte) error

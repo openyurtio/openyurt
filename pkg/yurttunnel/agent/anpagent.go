@@ -20,9 +20,11 @@ import (
 	"crypto/tls"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 )
 
@@ -32,6 +34,7 @@ type anpTunnelAgent struct {
 	tlsCfg           *tls.Config
 	tunnelServerAddr string
 	nodeName         string
+	agentIdentifiers string
 }
 
 var _ TunnelAgent = &anpTunnelAgent{}
@@ -42,15 +45,15 @@ func (ata *anpTunnelAgent) Run(stopChan <-chan struct{}) {
 	cc := &anpagent.ClientSetConfig{
 		Address:                 ata.tunnelServerAddr,
 		AgentID:                 ata.nodeName,
+		AgentIdentifiers:        ata.agentIdentifiers,
 		SyncInterval:            5 * time.Second,
 		ProbeInterval:           5 * time.Second,
-		ReconnectInterval:       5 * time.Second,
-		DialOption:              dialOption,
+		DialOptions:             []grpc.DialOption{dialOption},
 		ServiceAccountTokenPath: "",
 	}
 
 	cs := cc.NewAgentClientSet(stopChan)
 	cs.Serve()
-	klog.Infof("start serving grpc request redirected from yurttunel-server: %s",
-		ata.tunnelServerAddr)
+	klog.Infof("start serving grpc request redirected from %s: %s",
+		projectinfo.GetServerName(), ata.tunnelServerAddr)
 }

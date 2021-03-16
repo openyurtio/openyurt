@@ -16,7 +16,7 @@ limitations under the License.
 
 package fake
 
-import "github.com/alibaba/openyurt/pkg/yurthub/storage"
+import "github.com/openyurtio/openyurt/pkg/yurthub/storage"
 
 type fakeStorage struct {
 	data map[string]string

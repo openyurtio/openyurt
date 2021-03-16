@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/initializer"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"

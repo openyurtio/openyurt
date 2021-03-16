@@ -1,28 +1,27 @@
 package app
 
 import (
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/cmd/yurthub/app/options"
-	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/initializer"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/kubelet"
-	"github.com/alibaba/openyurt/pkg/yurthub/gc"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-	"github.com/alibaba/openyurt/pkg/yurthub/kubernetes/serializer"
-	"github.com/alibaba/openyurt/pkg/yurthub/proxy"
-	"github.com/alibaba/openyurt/pkg/yurthub/server"
-	"github.com/alibaba/openyurt/pkg/yurthub/storage/factory"
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
+	"fmt"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
+	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
+	"github.com/openyurtio/openyurt/pkg/yurthub/server"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
-)
-
-const (
-	// yurthub component name
-	componentYurtHub = "yurthub"
 )
 
 // NewCmdStartYurtHub creates a *cobra.Command object with default parameters
@@ -30,10 +29,16 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 	yurtHubOptions := options.NewYurtHubOptions()
 
 	cmd := &cobra.Command{
-		Use:   componentYurtHub,
-		Short: "Launch yurthub",
-		Long:  "Launch yurthub",
+		Use:   projectinfo.GetHubName(),
+		Short: "Launch " + projectinfo.GetHubName(),
+		Long:  "Launch " + projectinfo.GetHubName(),
 		Run: func(cmd *cobra.Command, args []string) {
+			if yurtHubOptions.Version {
+				fmt.Printf("%s: %#v\n", projectinfo.GetHubName(), projectinfo.Get())
+				return
+			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetHubName(), projectinfo.Get())
+
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
@@ -43,12 +48,12 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 
 			yurtHubCfg, err := config.Complete(yurtHubOptions)
 			if err != nil {
-				klog.Fatalf("complete yurthub configuration error, %v", err)
+				klog.Fatalf("complete %s configuration error, %v", projectinfo.GetHubName(), err)
 			}
-			klog.Infof("yurthub cfg: %#+v", yurtHubCfg)
+			klog.Infof("%s cfg: %#+v", projectinfo.GetHubName(), yurtHubCfg)
 
 			if err := Run(yurtHubCfg, stopCh); err != nil {
-				klog.Fatalf("run yurthub failed, %v", err)
+				klog.Fatalf("run %s failed, %v", projectinfo.GetHubName(), err)
 			}
 		},
 	}
@@ -83,6 +88,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. register cert managers", trace)
 	cmr := certificate.NewCertificateManagerRegistry()
 	kubelet.Register(cmr)
+	hubself.Register(cmr)
 	trace++
 
 	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)
@@ -114,7 +120,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	serializerManager := serializer.NewSerializerManager()
 	trace++
 
-	klog.Infof("%d. new yurt cache manager with storage wrapper and serializer manager", trace)
+	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
 	cacheMgr, err := cachemanager.NewCacheManager(storageWrapper, serializerManager)
 	if err != nil {
 		klog.Errorf("could not new cache manager, %v", err)
@@ -131,15 +137,15 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	gcMgr.Run()
 	trace++
 
-	klog.Infof("%d. new yurt reverse proxy handler for remote servers", trace)
+	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
 	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, stopCh)
 	if err != nil {
-		klog.Errorf("could not create yurt reverse proxy handler, %v", err)
+		klog.Errorf("could not create reverse proxy handler, %v", err)
 		return err
 	}
 	trace++
 
-	klog.Infof("%d. new yurthub server and begin to serve", trace)
+	klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
 	s := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	s.Run()
 	<-stopCh

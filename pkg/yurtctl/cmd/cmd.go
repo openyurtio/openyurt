@@ -18,14 +18,17 @@ package cmd
 
 import (
 	goflag "flag"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	"k8s.io/klog"
 
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/convert"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/markautonomous"
-	"github.com/alibaba/openyurt/pkg/yurtctl/cmd/revert"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/clusterinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/convert"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 )
 
 // NewYurtctlCommand creates a new yurtctl command
@@ -33,17 +36,28 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds := &cobra.Command{
 		Use:   "yurtctl",
 		Short: "yurtctl controls the yurt cluster",
-		Run:   showHelp,
+		Run: func(cmd *cobra.Command, args []string) {
+			printV, _ := cmd.Flags().GetBool("version")
+			if printV {
+				fmt.Printf("yurtctl: %#v\n", projectinfo.Get())
+				return
+			}
+			fmt.Printf("yurtctl version: %#v\n", projectinfo.Get())
+
+			showHelp(cmd, args)
+		},
 	}
 
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
+	cmds.PersistentFlags().Bool("version", false, "print  the version information.")
 	cmds.AddCommand(convert.NewConvertCmd())
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
+	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
 
 	klog.InitFlags(nil)
-	goflag.Parse()
+	// goflag.Parse()
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
 	return cmds

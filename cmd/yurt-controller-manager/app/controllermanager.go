@@ -30,10 +30,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/config"
-	"github.com/alibaba/openyurt/cmd/yurt-controller-manager/app/options"
-	yurtctrlmgrconfig "github.com/alibaba/openyurt/pkg/controller/apis/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/spf13/cobra"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,7 +54,6 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 	utilflag "k8s.io/kubernetes/pkg/util/flag"
 	"k8s.io/kubernetes/pkg/version"
-	"k8s.io/kubernetes/pkg/version/verflag"
 )
 
 const (
@@ -76,7 +77,13 @@ the system. In openyurt, a controller is a control loop that watches the shared
 state of the cluster through the apiserver and makes changes attempting to move the
 current state towards the desired state. now only nodelifecycle controller is present.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			verflag.PrintAndExitIfRequested()
+			//verflag.PrintAndExitIfRequested()
+			if s.Version {
+				fmt.Printf("%s: %#v\n", projectinfo.GetYurtControllerManagerName(), projectinfo.Get())
+				return
+			}
+			fmt.Printf("%s version: %#v\n", projectinfo.GetYurtControllerManagerName(), projectinfo.Get())
+
 			utilflag.PrintFlags(cmd.Flags())
 
 			c, err := s.Config(KnownControllers(), ControllersDisabledByDefault.List())
@@ -94,7 +101,7 @@ current state towards the desired state. now only nodelifecycle controller is pr
 
 	fs := cmd.Flags()
 	namedFlagSets := s.Flags(KnownControllers(), ControllersDisabledByDefault.List())
-	verflag.AddFlags(namedFlagSets.FlagSet("global"))
+	//verflag.AddFlags(namedFlagSets.FlagSet("global"))
 	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global"), cmd.Name())
 	// hoist this flag from the global flagset to preserve the commandline until
 	// the gce cloudprovider is removed.

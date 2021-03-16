@@ -18,8 +18,8 @@ package yurtconfig
 
 type YurtE2eConfig struct {
 	NodeType           string
-	RegionId           string
-	AccessKeyId        string
+	RegionID           string
+	AccessKeyID        string
 	AccessKeySecret    string
 	EnableYurtAutonomy bool
 }

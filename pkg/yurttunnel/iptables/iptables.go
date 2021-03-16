@@ -27,18 +27,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
 	utilnet "k8s.io/utils/net"
 
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
-	"github.com/alibaba/openyurt/pkg/yurttunnel/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 const (
@@ -57,7 +56,18 @@ const (
 )
 
 var (
-	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%stunnel-server-cfg", projectinfo.Get().ProjectPrefix)
+	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%s-tunnel-server-cfg",
+		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+	tunnelCommentStr   = strings.ReplaceAll(projectinfo.GetTunnelName(), "-", " ")
+	iptablesJumpChains = []iptablesJumpChain{
+		{
+			table:     iptables.TableNAT,
+			dstChain:  yurttunnelServerPortChain,
+			srcChain:  iptables.ChainOutput,
+			comment:   fmt.Sprintf("%s server port", tunnelCommentStr),
+			extraArgs: []string{"-p", "tcp"},
+		},
+	}
 )
 
 type iptablesJumpChain struct {
@@ -68,20 +78,10 @@ type iptablesJumpChain struct {
 	extraArgs []string
 }
 
-var iptablesJumpChains = []iptablesJumpChain{
-	{
-		table:     iptables.TableNAT,
-		dstChain:  yurttunnelServerPortChain,
-		srcChain:  iptables.ChainOutput,
-		comment:   "yurttunnel server port",
-		extraArgs: []string{"-p", "tcp"},
-	},
-}
-
 // IptableManager interface defines the method for adding dnat rules to host
 // that needs to send network packages to kubelets
 type IptablesManager interface {
-	Run()
+	Run(stopCh <-chan struct{})
 }
 
 // iptablesManager implements the IptablesManager
@@ -96,17 +96,16 @@ type iptablesManager struct {
 	lastNodesIP      []string
 	lastDnatPorts    []string
 	syncPeriod       int
-	stopCh           <-chan struct{}
 }
 
 // NewIptablesManager creates an IptablesManager; deletes old chains, if any;
 // generates new dnat rules based on IPs of current active nodes; and
 // appends the rules to the iptable.
 func NewIptablesManager(client clientset.Interface,
-	sharedInformerFactory informers.SharedInformerFactory,
+	nodeInformer coreinformer.NodeInformer,
 	nodeIP string,
-	syncPeriod int,
-	stopCh <-chan struct{}) IptablesManager {
+	insecureBindIP string,
+	syncPeriod int) IptablesManager {
 
 	protocol := iptables.ProtocolIpv4
 	execer := exec.New()
@@ -119,17 +118,9 @@ func NewIptablesManager(client clientset.Interface,
 
 	secureDnatDest := fmt.Sprintf("%s:%d", nodeIP,
 		constants.YurttunnelServerMasterPort)
-	insecureDnatDest := fmt.Sprintf("%s:%d", nodeIP,
+	insecureDnatDest := fmt.Sprintf("%s:%d", insecureBindIP,
 		constants.YurttunnelServerMasterInsecurePort)
 
-	// start and sync the nodeInformer
-	nodeInformer := sharedInformerFactory.Core().V1().Nodes()
-	go nodeInformer.Informer().Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh,
-		nodeInformer.Informer().HasSynced) {
-		klog.Error("sync node cache timeout")
-		return nil
-	}
 	im := &iptablesManager{
 		kubeClient:       client,
 		iptables:         iptInterface,
@@ -140,7 +131,6 @@ func NewIptablesManager(client clientset.Interface,
 		lastNodesIP:      make([]string, 0),
 		lastDnatPorts:    make([]string, 0),
 		syncPeriod:       syncPeriod,
-		stopCh:           stopCh,
 	}
 
 	// conntrack setting
@@ -154,30 +144,32 @@ func NewIptablesManager(client clientset.Interface,
 	// 1. if there exist any old jump chain, delete them
 	_ = im.deleteJumpChains(iptablesJumpChains)
 
-	// 2. get user specified dnat ports through the configmap
-	dnatPorts := im.getConfiguredDnatPorts()
-	im.lastDnatPorts = dnatPorts
-	dnatPorts = append(dnatPorts, kubeletSecurePort, kubeletInsecurePort)
-
-	// 3. get ips of nodes not running yurttunnel agent, as we need to
-	// set rules in the corresponding jump chains to ignore them.
-	nodesIP := im.getIPOfNodesWithoutAgent()
-	if len(nodesIP) == 0 {
-		klog.Info("no cloud nodes found, tunnel server is running outside of the cluster")
-	}
-	im.lastNodesIP = nodesIP
-	nodesIP = append(nodesIP, loopbackAddr)
-
-	// 3. ensure the rules in the iptable
-	err = im.ensurePortsIptables(dnatPorts, []string{}, nodesIP, []string{})
-	if err != nil {
-		klog.Errorf("failed to initialize the iptables: %v", err)
-	}
-
-	// 4. to ensure the iptable rules for cloud nodes can kick in, delete
-	// all related conntrack entries
-	im.clearConnTrackEntries(nodesIP, dnatPorts)
 	return im
+}
+
+// Run starts the iptablesManager that will updates dnat rules periodically
+func (im *iptablesManager) Run(stopCh <-chan struct{}) {
+	// wait the nodeInformer has synced
+	if !cache.WaitForCacheSync(stopCh,
+		im.nodeInformer.Informer().HasSynced) {
+		klog.Error("sync node cache timeout")
+		return
+	}
+	// sync iptables setting when tunnel server startup
+	im.syncIptableSetting()
+
+	ticker := time.NewTicker(time.Duration(im.syncPeriod) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			klog.Info("stop the iptablesManager")
+			return
+		case <-ticker.C:
+			im.syncIptableSetting()
+		}
+	}
 }
 
 func (im *iptablesManager) deleteJumpChains(jumpChains []iptablesJumpChain) error {
@@ -265,16 +257,22 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 		}
 	}
 
-	klog.V(4).Infof("nodes without yurttunnel-agent: %s", strings.Join(nodesIP, ","))
+	klog.V(4).Infof("nodes without %s: %s", projectinfo.GetAgentName(), strings.Join(nodesIP, ","))
 	return nodesIP
 }
 
+// withoutAgent used to determine whether the node is running an tunnel agent
 func withoutAgent(node *corev1.Node) bool {
-	enableAgent, ok := node.Labels[constants.YurttunnelEnableAgentLabel]
-	if !ok || enableAgent != "true" {
-		return true
+	tunnelAgentNode, ok := node.Labels[projectinfo.GetEdgeEnableTunnelLabelKey()]
+	if ok && tunnelAgentNode == "true" {
+		return false
 	}
-	return false
+
+	edgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+	if ok && edgeNode == "true" {
+		return false
+	}
+	return true
 }
 
 func isNodeReady(node *corev1.Node) bool {
@@ -358,7 +356,7 @@ func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIP
 
 	// ensure chains for dnat ports
 	if _, err := im.iptables.EnsureChain(iptables.TableNAT, portChain); err != nil {
-		klog.Errorf("could not ensure chain for edge tunnel port(%s), %v", port, err)
+		klog.Errorf("could not ensure chain for tunnel server port(%s), %v", port, err)
 		return err
 	}
 
@@ -503,51 +501,40 @@ func parametersWithFamily(isIPv6 bool, parameters ...string) []string {
 	return parameters
 }
 
-// Run starts the iptablesManager that will updates dnat rules periodically
-func (im *iptablesManager) Run() {
+// syncIptableSetting update all of iptables chains and rules.
+// the request to access the edge node is forwarded to the tunnel server
+// while the request to access the cloud node is returned
+func (im *iptablesManager) syncIptableSetting() {
+	// check if there are new dnat ports
+	dnatPorts := im.getConfiguredDnatPorts()
+	portsChanged, deletedDnatPorts := im.getDeletedPorts(dnatPorts)
+	currentDnatPorts := append(dnatPorts, kubeletSecurePort, kubeletInsecurePort)
 
-	ticker := time.NewTicker(time.Duration(im.syncPeriod) * time.Second)
-	defer ticker.Stop()
+	// check if there are new nodes
+	nodesIP := im.getIPOfNodesWithoutAgent()
+	nodesChanged, addedNodesIP, deletedNodesIP := im.getAddedAndDeletedNodes(nodesIP)
+	currentNodesIP := append(nodesIP, loopbackAddr)
 
-	for {
-		select {
-		case <-im.stopCh:
-			klog.Info("stop the iptablesManager")
-			return
-		case <-ticker.C:
-			// check if there are new dnat ports
-			dnatPorts := im.getConfiguredDnatPorts()
-			portsChanged, deletedDnatPorts := im.getDeletedPorts(dnatPorts)
-			currentDnatPorts := append(dnatPorts, kubeletSecurePort, kubeletInsecurePort)
+	// update the iptable setting if necessary
+	err := im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP)
+	if err != nil {
+		klog.Errorf("failed to ensurePortsIptables: %v", err)
+		return
+	}
 
-			// check if there are new nodes
-			nodesIP := im.getIPOfNodesWithoutAgent()
-			nodesChanged, addedNodesIP, deletedNodesIP := im.getAddedAndDeletedNodes(nodesIP)
-			currentNodesIP := append(nodesIP, loopbackAddr)
-
-			// update the iptable if necessary
-			err := im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts,
-				currentNodesIP, deletedNodesIP)
-			if err != nil {
-				klog.Errorf("loop ensurePortsIptables: %v", err)
-				break
-			}
-
-			if portsChanged {
-				im.lastDnatPorts = dnatPorts
-				// we don't need to clear conntrack entries for newly added dnat ports,
-				if len(deletedDnatPorts) != 0 {
-					im.clearConnTrackEntries(currentNodesIP, deletedDnatPorts)
-				}
-				klog.Infof("dnat ports changed, %v", dnatPorts)
-			}
-
-			if nodesChanged {
-				im.lastNodesIP = nodesIP
-				im.clearConnTrackEntries(append(addedNodesIP, deletedNodesIP...), currentDnatPorts)
-				klog.Infof("directly access nodes changed, %v", nodesIP)
-			}
+	if portsChanged {
+		im.lastDnatPorts = dnatPorts
+		// we don't need to clear conntrack entries for newly added dnat ports,
+		if len(deletedDnatPorts) != 0 {
+			im.clearConnTrackEntries(currentNodesIP, deletedDnatPorts)
 		}
+		klog.Infof("dnat ports changed, %v", dnatPorts)
+	}
+
+	if nodesChanged {
+		im.lastNodesIP = nodesIP
+		im.clearConnTrackEntries(append(addedNodesIP, deletedNodesIP...), currentDnatPorts)
+		klog.Infof("directly access nodes changed, %v for ports %v", nodesIP, currentDnatPorts)
 	}
 }
 

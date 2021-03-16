@@ -21,47 +21,47 @@ TODO
 */
 
 import (
-	"github.com/alibaba/openyurt/test/e2e/common/node/types"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
 )
 
 type EcsController struct {
-	RegionId string
+	RegionID string
 	Client   *ecs.Client
 }
 
-func NewEcsController(regionId, accessKeyId, accessKeySecret string) (*EcsController, error) {
+func NewEcsController(regionID, accessKeyID, accessKeySecret string) (*EcsController, error) {
 	var e EcsController
 	var err error
-	e.RegionId = regionId
-	e.Client, err = ecs.NewClientWithAccessKey(regionId, accessKeyId, accessKeySecret)
+	e.RegionID = regionID
+	e.Client, err = ecs.NewClientWithAccessKey(regionID, accessKeyID, accessKeySecret)
 	return &e, err
 }
 
-func (e *EcsController) RebootNode(instanceId string) error {
+func (e *EcsController) RebootNode(instanceID string) error {
 	return nil
 }
 
-func (e *EcsController) CreateNode(instanceType, imageId, vswitchId, userData string) (string, error) {
+func (e *EcsController) CreateNode(instanceType, imageID, vswitchID, userData string) (string, error) {
 	return "", nil
 }
 
-func (e *EcsController) StopNode(instanceId string) error {
+func (e *EcsController) StopNode(instanceID string) error {
 	return nil
 }
 
-func (e *EcsController) StartNode(instanceId string) error {
+func (e *EcsController) StartNode(instanceID string) error {
 	return nil
 }
 
-func (e *EcsController) GetNodeInfo(instanceId string) (*types.NodeAttribute, error) {
+func (e *EcsController) GetNodeInfo(instanceID string) (*types.NodeAttribute, error) {
 	return nil, nil
 }
 
-func (e *EcsController) DeleteNode(instanceId string) error {
+func (e *EcsController) DeleteNode(instanceID string) error {
 	return nil
 }
 
-func (e *EcsController) CheckEcsInstanceStatus(instanceId string, expectStatus string) (bool, error) {
+func (e *EcsController) CheckEcsInstanceStatus(instanceID string, expectStatus string) (bool, error) {
 	return false, nil
 }

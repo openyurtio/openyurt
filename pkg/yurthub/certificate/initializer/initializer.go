@@ -17,8 +17,8 @@ limitations under the License.
 package initializer
 
 import (
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 // WantsHealthChecker is an interface for setting health checker
@@ -31,7 +31,7 @@ type CertificateManagerInitializer struct {
 	checker healthchecker.HealthChecker
 }
 
-// NewCMInitializer creates an *CertificateManagerInitializer object
+// NewCMInitializer creates an CertificateManagerInitializer object
 func NewCMInitializer(checker healthchecker.HealthChecker) *CertificateManagerInitializer {
 	return &CertificateManagerInitializer{
 		checker: checker,

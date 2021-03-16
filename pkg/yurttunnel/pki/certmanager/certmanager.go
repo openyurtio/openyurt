@@ -20,23 +20,22 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
+
 	certificates "k8s.io/api/certificates/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/certificate"
-	"k8s.io/klog"
-
-	"github.com/alibaba/openyurt/pkg/yurttunnel/constants"
+	"k8s.io/klog/v2"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
@@ -53,7 +52,7 @@ func NewYurttunnelServerCertManager(
 		err      error
 	)
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		dnsNames, ips, err = GetYurttunelServerDNSandIP(clientset)
+		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
 		if err == nil {
 			return true, nil
 		}
@@ -71,112 +70,11 @@ func NewYurttunnelServerCertManager(
 	}
 	return newCertManager(
 		clientset,
-		"yurttunnel-server",
-		constants.YurttunnelServerCertDir,
+		projectinfo.GetServerName(),
+		fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName()),
 		constants.YurttunneServerCSRCN,
 		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
 		dnsNames, ips)
-}
-
-// GetYurttunelServerDNSandIP gets DNS names and IPS that will be added into
-// the yurttunnel-server certificate
-func GetYurttunelServerDNSandIP(
-	clientset kubernetes.Interface) ([]string, []net.IP, error) {
-	var (
-		dnsNames = make([]string, 0)
-		ips      = make([]net.IP, 0)
-		err      error
-	)
-	s, err := clientset.CoreV1().
-		Services(constants.YurttunnelServerServiceNs).
-		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
-	if err != nil {
-		return dnsNames, ips, err
-	}
-
-	// extract dns and ip from the service info
-	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", s.Name, s.Namespace))
-	if s.Spec.ClusterIP != "None" {
-		ips = append(ips, net.ParseIP(s.Spec.ClusterIP))
-	}
-	ips = append(ips, net.ParseIP("127.0.0.1"))
-
-	switch s.Spec.Type {
-	case corev1.ServiceTypeLoadBalancer:
-		return getLoadBalancerDNSandIP(s, dnsNames, ips)
-	case corev1.ServiceTypeClusterIP:
-		return getClusterIPDNSandIP(s, dnsNames, ips)
-	case corev1.ServiceTypeNodePort:
-		return getNodePortDNSandIP(clientset, dnsNames, ips)
-	default:
-		return dnsNames, ips,
-			fmt.Errorf("unsupported service type: %s", string(s.Spec.Type))
-	}
-}
-
-// getLoadBalancerDNSandIP gets the DNS names and IPs from the
-// LoadBalancer service
-func getLoadBalancerDNSandIP(
-	svc *corev1.Service,
-	dnsNames []string,
-	ips []net.IP) ([]string, []net.IP, error) {
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		return dnsNames, ips, errors.New("load balancer is not ready")
-	}
-	for _, ingress := range svc.Status.LoadBalancer.Ingress {
-		if ingress.IP != "" {
-			ips = append(ips, net.ParseIP(ingress.IP))
-		}
-
-		if ingress.Hostname != "" {
-			dnsNames = append(dnsNames, ingress.Hostname)
-		}
-	}
-	return dnsNames, ips, nil
-}
-
-// getClusterIPDNSandIP gets the DNS names and IPs from the ClusterIP service
-func getClusterIPDNSandIP(
-	svc *corev1.Service,
-	dnsNames []string,
-	ips []net.IP) ([]string, []net.IP, error) {
-	if addr, ok := svc.Annotations[constants.YurttunnelServerExternalAddrKey]; ok {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return dnsNames, ips, err
-		}
-		ips = append(ips, net.ParseIP(host))
-	}
-	return dnsNames, ips, nil
-}
-
-// getClusterIPDNSandIP gets the DNS names and IPs from the NodePort service
-func getNodePortDNSandIP(
-	clientset kubernetes.Interface,
-	dnsNames []string,
-	ips []net.IP) ([]string, []net.IP, error) {
-	labelSelector := fmt.Sprintf("%s=false", constants.YurtEdgeNodeLabel)
-	// yurttunnel-server will be deployed on one of the cloud nodes
-	nodeLst, err := clientset.CoreV1().Nodes().List(
-		metav1.ListOptions{LabelSelector: labelSelector})
-	if err != nil {
-		return dnsNames, ips, err
-	}
-	if len(nodeLst.Items) == 0 {
-		return dnsNames, ips, errors.New("there is no cloud node")
-	}
-	var ipFound bool
-	for _, addr := range nodeLst.Items[0].Status.Addresses {
-		if addr.Type == corev1.NodeInternalIP {
-			ipFound = true
-			ips = append(ips, net.ParseIP(addr.Address))
-		}
-	}
-	if !ipFound {
-		// there is no qualified address (i.e. NodeInternalIP)
-		return dnsNames, ips, errors.New("can't find node IP")
-	}
-	return dnsNames, ips, nil
 }
 
 // NewYurttunnelAgentCertManager creates a certificate manager for
@@ -193,8 +91,8 @@ func NewYurttunnelAgentCertManager(
 
 	return newCertManager(
 		clientset,
-		"yurttunnel-agent",
-		constants.YurttunnelAgentCertDir,
+		projectinfo.GetAgentName(),
+		fmt.Sprintf(constants.YurttunnelAgentCertDir, projectinfo.GetAgentName()),
 		constants.YurttunnelAgentCSRCN,
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},

@@ -19,14 +19,14 @@ package proxy
 import (
 	"net/http"
 
-	"github.com/alibaba/openyurt/cmd/yurthub/app/config"
-	"github.com/alibaba/openyurt/pkg/yurthub/cachemanager"
-	"github.com/alibaba/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/alibaba/openyurt/pkg/yurthub/healthchecker"
-	"github.com/alibaba/openyurt/pkg/yurthub/proxy/local"
-	"github.com/alibaba/openyurt/pkg/yurthub/proxy/remote"
-	"github.com/alibaba/openyurt/pkg/yurthub/proxy/util"
-	"github.com/alibaba/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -81,12 +81,14 @@ func NewYurtReverseProxyHandler(
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
 }
 
-func (p *yurtReverseProxy) buildHandlerChain(apiHandler http.Handler) http.Handler {
-	handler := util.WithRequestContentType(apiHandler)
+func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
+	handler = util.WithRequestTrace(handler)
+	handler = util.WithRequestContentType(handler)
 	handler = util.WithCacheHeaderCheck(handler)
-	handler = util.WithRequestTrace(handler, p.maxRequestsInFlight)
+	handler = util.WithRequestTimeout(handler)
 	handler = util.WithRequestClientComponent(handler)
 	handler = filters.WithRequestInfo(handler, p.resolver)
+	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	return handler
 }
 

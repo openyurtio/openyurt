@@ -18,28 +18,29 @@ package yurthub
 
 import (
 	"encoding/json"
-	nd "github.com/alibaba/openyurt/test/e2e/common/node"
-	"github.com/alibaba/openyurt/test/e2e/common/ns"
-	p "github.com/alibaba/openyurt/test/e2e/common/pod"
-	ycfg "github.com/alibaba/openyurt/test/e2e/yurtconfig"
+	"strconv"
+	"time"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/test/e2e/framework"
-	"strconv"
-	"time"
 )
 
 const (
-	YURTHUB_NAMESPACE_NAME = "yurthub-test"
-	STOP_NODE_WAIT_MINITE  = 1
-	START_NODE_WAIT_MINITE = 1
-	YURT_NODE_LABEL        = "alibabacloud.com/is-edge-worker"
-	YURT_NODE_ANNOTATION   = "node.beta.alibabacloud.com/autonomy"
+	YurtHubNamespaceName = "yurthub-test"
+	StopNodeWaitMinite   = 1
+	StartNodeWaitMinite  = 1
 )
 
 func Register() {
@@ -47,7 +48,7 @@ func Register() {
 		klog.Infof("not enable yurt node autonomy test, so yurt-node-autonomy will not run, and will return.")
 		return
 	}
-	var _ = framework.KubeDescribe(YURTHUB_NAMESPACE_NAME, func() {
+	var _ = framework.KubeDescribe(YurtHubNamespaceName, func() {
 		var (
 			c   clientset.Interface
 			err error
@@ -56,55 +57,55 @@ func Register() {
 		c, err = framework.LoadClientset()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get client set")
 
-		err = ns.DeleteNameSpace(c, YURTHUB_NAMESPACE_NAME)
+		err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
 		framework.ExpectNoError(err)
 
 		ginkgo.By("yurthub create namespace")
-		_, err = ns.CreateNameSpace(c, YURTHUB_NAMESPACE_NAME)
+		_, err = ns.CreateNameSpace(c, YurtHubNamespaceName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespaces")
 
 		ginkgo.AfterEach(func() {
-			ginkgo.By("delete namespace:" + YURTHUB_NAMESPACE_NAME)
-			err = ns.DeleteNameSpace(c, YURTHUB_NAMESPACE_NAME)
+			ginkgo.By("delete namespace:" + YurtHubNamespaceName)
+			err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
 		})
 
 		framework.KubeDescribe("node autonomy", func() {
 			ginkgo.It("yurt node autonomy", func() {
-				NodeManager, err := nd.NewNodeController(ycfg.YurtE2eCfg.NodeType, ycfg.YurtE2eCfg.RegionId, ycfg.YurtE2eCfg.AccessKeyId, ycfg.YurtE2eCfg.AccessKeySecret)
+				NodeManager, err := nd.NewNodeController(ycfg.YurtE2eCfg.NodeType, ycfg.YurtE2eCfg.RegionID, ycfg.YurtE2eCfg.AccessKeyID, ycfg.YurtE2eCfg.AccessKeySecret)
 				framework.ExpectNoError(err)
 
 				podName := "test-yurthub-busybox"
 				objectMeta := metav1.ObjectMeta{}
 				objectMeta.Name = podName
-				objectMeta.Namespace = YURTHUB_NAMESPACE_NAME
+				objectMeta.Namespace = YurtHubNamespaceName
 				objectMeta.Labels = map[string]string{"name": podName}
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
 				spec.HostNetwork = true
-				spec.NodeSelector = map[string]string{YURT_NODE_LABEL: "true"}
+				spec.NodeSelector = map[string]string{projectinfo.GetEdgeWorkerLabelKey(): "true"}
 				container.Name = "busybox"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}
 				spec.Containers = []apiv1.Container{container}
 
 				ginkgo.By("create pod:" + podName)
-				pod, err := p.CreatePod(c, YURTHUB_NAMESPACE_NAME, objectMeta, spec)
+				pod, err := p.CreatePod(c, YurtHubNamespaceName, objectMeta, spec)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail create busybox deployment")
 
 				ginkgo.By("waiting running pod:" + podName)
-				err = p.VerifyPodsRunning(c, YURTHUB_NAMESPACE_NAME, podName, false, 1)
+				err = p.VerifyPodsRunning(c, YurtHubNamespaceName, podName, false, 1)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail wait pod running")
 				klog.Infof("check pod status running Successful")
 
 				ginkgo.By("get pod info")
-				pod, err = p.GetPod(c, YURTHUB_NAMESPACE_NAME, pod.Name)
+				pod, err = p.GetPod(c, YurtHubNamespaceName, pod.Name)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get pod status:"+podName)
 
 				ginkgo.By("set node " + pod.Spec.NodeName + " autonomy")
 				patchNode := apiv1.Node{
 					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{YURT_NODE_ANNOTATION: "true"},
+						Annotations: map[string]string{constants.AnnotationAutonomy: "true"},
 					},
 				}
 				patchData, err := json.Marshal(patchNode)
@@ -114,21 +115,21 @@ func Register() {
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail patch node autonomy")
 
 				ginkgo.By("next will stop node")
-				err = NodeManager.StopNode(GetNodeId(node))
+				err = NodeManager.StopNode(GetNodeID(node))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail stop node")
 
-				ginkgo.By("will wait for the shudown finish in " + strconv.FormatInt(STOP_NODE_WAIT_MINITE, 10) + " minute ")
-				time.Sleep(time.Minute * STOP_NODE_WAIT_MINITE)
+				ginkgo.By("will wait for the shudown finish in " + strconv.FormatInt(StopNodeWaitMinite, 10) + " minute ")
+				time.Sleep(time.Minute * StopNodeWaitMinite)
 
 				ginkgo.By("next will start node")
-				err = NodeManager.StartNode(GetNodeId(node))
+				err = NodeManager.StartNode(GetNodeID(node))
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail start node")
 
-				ginkgo.By("will wait for power on finish in " + strconv.FormatInt(START_NODE_WAIT_MINITE, 10) + " minute ")
-				time.Sleep(time.Minute * START_NODE_WAIT_MINITE)
+				ginkgo.By("will wait for power on finish in " + strconv.FormatInt(StartNodeWaitMinite, 10) + " minute ")
+				time.Sleep(time.Minute * StartNodeWaitMinite)
 
 				ginkgo.By("will get pod status:" + podName)
-				pod, err = p.GetPod(c, YURTHUB_NAMESPACE_NAME, podName)
+				pod, err = p.GetPod(c, YurtHubNamespaceName, podName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get pod:"+podName)
 				gomega.Expect(pod.Status.Phase).Should(gomega.Equal(apiv1.PodRunning), podName+" pod status is not running")
 
@@ -136,7 +137,7 @@ func Register() {
 				gomega.Expect(pod.Status.ContainerStatuses[0].RestartCount).Should(gomega.Equal(int32(1)), "container restart count is not 1 container:"+podName)
 
 				ginkgo.By("will remove pod:" + podName)
-				err = p.DeletePod(c, YURTHUB_NAMESPACE_NAME, podName)
+				err = p.DeletePod(c, YurtHubNamespaceName, podName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail remove pod:"+podName)
 
 			})
@@ -148,6 +149,6 @@ func Register() {
 /*
 TODO
 */
-func GetNodeId(node *apiv1.Node) string {
+func GetNodeID(node *apiv1.Node) string {
 	return node.Name
 }
