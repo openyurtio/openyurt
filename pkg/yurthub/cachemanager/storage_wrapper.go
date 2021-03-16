@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"sync"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -53,7 +54,7 @@ type storageWrapper struct {
 func NewStorageWrapper(storage storage.Store) StorageWrapper {
 	return &storageWrapper{
 		store:             storage,
-		backendSerializer: json.NewSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, false),
+		backendSerializer: json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 		cache:             make(map[string]runtime.Object),
 	}
 }
@@ -118,8 +119,18 @@ func (sw *storageWrapper) Get(key string) (runtime.Object, error) {
 	} else if len(b) == 0 {
 		return nil, nil
 	}
-
-	obj, gvk, err := sw.backendSerializer.Decode(b, nil, nil)
+	//get the gvk from json data
+	gvk, err := json.DefaultMetaFactory.Interpret(b)
+	if err != nil {
+		return nil, err
+	}
+	var UnstructuredObj runtime.Object
+	if scheme.Scheme.Recognizes(*gvk) {
+		UnstructuredObj = nil
+	} else {
+		UnstructuredObj = new(unstructured.Unstructured)
+	}
+	obj, gvk, err := sw.backendSerializer.Decode(b, nil, UnstructuredObj)
 	if err != nil {
 		klog.Errorf("could not decode %v for %s, %v", gvk, key, err)
 		return nil, err
@@ -156,9 +167,19 @@ func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
 		}
 		return objects, nil
 	}
-
+	//get the gvk from json data
+	gvk, err := json.DefaultMetaFactory.Interpret(bb[0])
+	if err != nil {
+		return nil, err
+	}
+	var UnstructuredObj runtime.Object
+	if scheme.Scheme.Recognizes(*gvk) {
+		UnstructuredObj = nil
+	} else {
+		UnstructuredObj = new(unstructured.Unstructured)
+	}
 	for i := range bb {
-		obj, gvk, err := sw.backendSerializer.Decode(bb[i], nil, nil)
+		obj, gvk, err := sw.backendSerializer.Decode(bb[i], nil, UnstructuredObj)
 		if err != nil {
 			klog.Errorf("could not decode %v for %s, %v", gvk, key, err)
 			continue
