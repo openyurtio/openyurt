@@ -15,7 +15,7 @@ status: provisional
 ---
 # Managing Edge Devices using EdgeX Foundry
 
-## Table of Contents
+# Table of Contents
 
 - [Managing Edge Devices using EdgeX Foundry](#managing-edge-devices-using-edgex-foundry)
   * [Table of Contents](#table-of-contents)
