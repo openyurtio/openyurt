@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -15,8 +16,8 @@ import (
 type YurtHubConfiguration struct {
 	LBMode                    string
 	RemoteServers             []*url.URL
-	YurtHubHost               string
-	YurtHubPort               int
+	YurtHubServerAddr         string
+	YurtHubProxyServerAddr    string
 	GCFrequency               int
 	CertMgrMode               string
 	NodeName                  string
@@ -26,6 +27,7 @@ type YurtHubConfiguration struct {
 	MaxRequestInFlight        int
 	JoinToken                 string
 	RootDir                   string
+	EnableProfiling           bool
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -35,11 +37,13 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
+	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
+	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
 	cfg := &YurtHubConfiguration{
 		LBMode:                    options.LBMode,
 		RemoteServers:             us,
-		YurtHubHost:               options.YurtHubHost,
-		YurtHubPort:               options.YurtHubPort,
+		YurtHubServerAddr:         hubServerAddr,
+		YurtHubProxyServerAddr:    proxyServerAddr,
 		GCFrequency:               options.GCFrequency,
 		CertMgrMode:               options.CertMgrMode,
 		NodeName:                  options.NodeName,
@@ -49,6 +53,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MaxRequestInFlight:        options.MaxRequestInFlight,
 		JoinToken:                 options.JoinToken,
 		RootDir:                   options.RootDir,
+		EnableProfiling:           options.EnableProfiling,
 	}
 
 	return cfg, nil

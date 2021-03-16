@@ -31,55 +31,69 @@ type Server interface {
 	Run()
 }
 
+// yutHubServer includes hubServer and proxyServer,
+// and hubServer handles requests by hub agent itself, like profiling, metrics, healthz
+// and proxyServer does not handle requests locally and proxy requests to kube-apiserver
 type yurtHubServer struct {
-	mux            *mux.Router
-	certificateMgr interfaces.YurtCertificateManager
-	proxyHandler   http.Handler
-	cfg            *config.YurtHubConfiguration
+	hubServer   *http.Server
+	proxyServer *http.Server
 }
 
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
 	proxyHandler http.Handler) Server {
+	hubMux := mux.NewRouter()
+	registerHandlers(hubMux, cfg, certificateMgr)
+	hubServer := &http.Server{
+		Addr:           cfg.YurtHubServerAddr,
+		Handler:        hubMux,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	proxyServer := &http.Server{
+		Addr:           cfg.YurtHubProxyServerAddr,
+		Handler:        proxyHandler,
+		MaxHeaderBytes: 1 << 20,
+	}
+
 	return &yurtHubServer{
-		mux:            mux.NewRouter(),
-		certificateMgr: certificateMgr,
-		proxyHandler:   proxyHandler,
-		cfg:            cfg,
+		hubServer:   hubServer,
+		proxyServer: proxyServer,
 	}
 }
 
+// Run will start hub server and proxy server
 func (s *yurtHubServer) Run() {
-	s.registerHandler()
+	go func() {
+		err := s.hubServer.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
-	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", s.cfg.YurtHubHost, s.cfg.YurtHubPort),
-		Handler: s.mux,
-	}
-
-	err := server.ListenAndServe()
+	err := s.proxyServer.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (s *yurtHubServer) registerHandler() {
+// registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager) {
 	// register handlers for update join token
-	s.mux.HandleFunc("/v1/token", s.updateToken).Methods("POST", "PUT")
+	c.Handle("/v1/token", updateTokenHandler(certificateMgr)).Methods("POST", "PUT")
 
 	// register handler for health check
-	s.mux.HandleFunc("/v1/healthz", s.healthz).Methods("GET")
+	c.HandleFunc("/v1/healthz", healthz).Methods("GET")
 
 	// register handler for profile
-	profile.Install(s.mux)
-
-	// attention: "/" route must be put at the end of registerHandler
-	// register handlers for proxy to kube-apiserver
-	s.mux.PathPrefix("/").Handler(s.proxyHandler)
+	if cfg.EnableProfiling {
+		profile.Install(c)
+	}
 }
 
-func (s *yurtHubServer) healthz(w http.ResponseWriter, r *http.Request) {
+// healthz returns ok for healthz request
+func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "OK")
 }

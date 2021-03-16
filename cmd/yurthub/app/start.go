@@ -145,7 +145,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
+	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubServerAddr)
 	s := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	s.Run()
 	<-stopCh

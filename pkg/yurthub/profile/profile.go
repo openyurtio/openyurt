@@ -25,11 +25,11 @@ import (
 
 // Install adds the Profiling webservice to the given mux.
 func Install(c *mux.Router) {
-	c.HandleFunc("/debug/pprof", redirectTo("/debug/pprof/"))
-	c.HandleFunc("/debug/pprof/", http.HandlerFunc(pprof.Index))
 	c.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	c.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	c.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	c.HandleFunc("/debug/pprof", redirectTo("/debug/pprof/"))
+	c.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 }
 
 // redirectTo redirects request to a certain destination.
