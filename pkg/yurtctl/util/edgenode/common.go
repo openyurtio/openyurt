@@ -87,7 +87,7 @@ spec:
       httpGet:
         host: 127.0.0.1
         path: /v1/healthz
-        port: 10261
+        port: 10267
       initialDelaySeconds: 300
       periodSeconds: 5
       failureThreshold: 3

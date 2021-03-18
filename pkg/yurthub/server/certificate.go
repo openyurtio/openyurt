@@ -22,42 +22,43 @@ import (
 	"net/http"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
 const (
 	tokenKey = "jointoken"
 )
 
-// updateToken update bootstrap token in the bootstrap-hub.conf file
-// in order to update node certificate when both node certificate and
-// old join token expires
-func (s *yurtHubServer) updateToken(w http.ResponseWriter, r *http.Request) {
-	tokens := make(map[string]string)
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&tokens)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintf(w, "could not decode tokens, %v", err)
+// updateTokenHandler returns a http handler that update bootstrap token in the bootstrap-hub.conf file
+// in order to update node certificate when both node certificate and old join token expires
+func updateTokenHandler(certificateMgr interfaces.YurtCertificateManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokens := make(map[string]string)
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&tokens)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "could not decode tokens, %v", err)
+			return
+		}
+
+		joinToken := tokens[tokenKey]
+		if len(joinToken) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "no join token is set")
+			return
+		}
+
+		err = certificateMgr.Update(&config.YurtHubConfiguration{JoinToken: joinToken})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "could not update bootstrap token, %v", err)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, "update bootstrap token successfully")
 		return
-	}
-
-	joinToken := tokens[tokenKey]
-	if len(joinToken) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "no join token is set")
-		return
-	}
-
-	err = s.certificateMgr.Update(&config.YurtHubConfiguration{JoinToken: joinToken})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "could not update bootstrap token, %v", err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, "update bootstrap token successfully")
-	return
-
+	})
 }

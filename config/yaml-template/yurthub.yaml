@@ -31,7 +31,7 @@ spec:
     - name: pem-dir
       mountPath: /var/lib/kubelet/pki
     command:
-    - __project_prefix__hub 
+    - __project_prefix__hub
     - --v=2
     - --server-addr=__server_addr__
     - --node-name=$(NODE_NAME)
@@ -39,7 +39,7 @@ spec:
       httpGet:
         host: 127.0.0.1
         path: /v1/healthz
-        port: 10261
+        port: 10267
       initialDelaySeconds: 300
       periodSeconds: 5
       failureThreshold: 3
