@@ -189,7 +189,7 @@ func startTunnelAgent(t *testing.T) {
 		&tlsCfg,                             /* tlsCfg */
 		fmt.Sprintf(":%d", ServerAgentPort), /* tunnelServerAddr */
 		"dummy-agent",                       /* nodeName */
-		"ipv4=127.0.0.1,host=localhost",     /* agentIdentifiers */
+		"ipv4=127.0.0.1&host=localhost",     /* agentIdentifiers */
 	)
 	tunnelAgent.Run(wait.NeverStop)
 	klog.Info("[TEST] Yurttunnel Agent is running")
