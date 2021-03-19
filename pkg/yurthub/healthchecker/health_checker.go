@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
 	"k8s.io/klog"
@@ -121,6 +122,11 @@ func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThresh
 		klog.Errorf("cluster(%s) init status: unhealthy, %v", c.serverHealthzAddr, err)
 	}
 	c.clusterHealthy = initHealthyStatus
+	if c.clusterHealthy {
+		metrics.Metrics.ObserveServerHealthy(c.netAddress, 1)
+	} else {
+		metrics.Metrics.ObserveServerHealthy(c.netAddress, 0)
+	}
 
 	go c.healthyCheckLoop(stopCh)
 	return c, nil
@@ -172,6 +178,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 					klog.Infof("cluster becomes unhealthy from %v, healthy status lasts %v", now, now.Sub(c.lastTime))
 					c.onFailureFunc(c.netAddress)
 					c.lastTime = now
+					metrics.Metrics.ObserveServerHealthy(c.netAddress, 0)
 				}
 			} else {
 				//  with continuous 2 times cluster healthy, unhealthy will changed to healthy
@@ -183,6 +190,7 @@ func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
 					now := time.Now()
 					klog.Infof("cluster becomes healthy from %v, unhealthy status lasts %v", now, now.Sub(c.lastTime))
 					c.lastTime = now
+					metrics.Metrics.ObserveServerHealthy(c.netAddress, 1)
 				}
 			}
 		}

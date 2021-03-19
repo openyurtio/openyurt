@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,10 +146,18 @@ func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
 // WithRequestTrace used to trace status code and handle time for request.
 func WithRequestTrace(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		info, ok := apirequest.RequestInfoFrom(req.Context())
+		client, _ := util.ClientComponentFrom(req.Context())
+		if ok && info.IsResourceRequest {
+			metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+			defer metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+		}
 		wrapperRW := newWrapperResponseWriter(w)
 		start := time.Now()
+		defer func() {
+			klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, time.Since(start))
+		}()
 		handler.ServeHTTP(wrapperRW, req)
-		klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, time.Since(start))
 	})
 }
 
@@ -162,6 +172,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		select {
 		case reqChan <- true:
+			klog.V(2).Infof("start proxying: %s %s, in flight requests: %d", strings.ToLower(req.Method), req.URL.String(), len(reqChan))
 			defer func() {
 				<-reqChan
 				klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
@@ -170,6 +181,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 		default:
 			// Return a 429 status indicating "Too Many Requests"
 			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
+			metrics.Metrics.IncRejectedRequestCounter()
 			w.Header().Set("Retry-After", "1")
 			util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
 		}
