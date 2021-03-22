@@ -94,8 +94,8 @@ _output/bin/yurtctl revert
 ### 联络方式
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
-- Mailing List: [openyurt@googlegroups.com](mailto:openyurt@googlegroups.com)
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-iw2lvjzm-MxLcBHWm01y1t2fiTD15Gw)
+- 邮件组: https://groups.google.com/g/openyurt/
+- Slack: [channel](https://openyurt.slack.com/)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
