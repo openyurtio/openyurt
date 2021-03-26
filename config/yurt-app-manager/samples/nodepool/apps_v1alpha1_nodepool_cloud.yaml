@@ -1,6 +1,0 @@
-apiVersion: apps.openyurt.io/v1alpha1
-kind: NodePool
-metadata:
-  name: beijing 
-spec:
-  type: Cloud 
