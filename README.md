@@ -127,8 +127,8 @@ We have also prepared a developer [guide](./docs/developer-guide.md) to help the
 If you have any questions or want to contribute, you are welcome to communicate most things via GitHub issues or pull requests.
 Other active communication channels:
 
-- Mailing List: openyurt@googlegroups.com
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-iw2lvjzm-MxLcBHWm01y1t2fiTD15Gw)
+- Mailing List: https://groups.google.com/g/openyurt/
+- Slack: [channel](https://openyurt.slack.com/)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
