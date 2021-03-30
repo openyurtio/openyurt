@@ -84,10 +84,10 @@ make WHAT=cmd/yurtctl
 ```
 
 The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
-the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm and ACK):
+the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm, ACK and kind):
 
 ```bash
-_output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
+_output/bin/yurtctl convert --provider [minikube|kubeadm|ack|kind]
 ```
 
 To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:

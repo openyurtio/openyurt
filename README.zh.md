@@ -58,10 +58,10 @@ cd openyurt
 make WHAT=cmd/yurtctl
 ```
 
-`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, ack三种工具安装的kubernetes集群)：
+`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, ack, kind 四种工具安装的kubernetes集群)：
 
 ```bash
-_output/bin/yurtctl convert --provider [minikube|kubeadm|ack]
+_output/bin/yurtctl convert --provider [minikube|kubeadm|ack|kind]
 ```
 
 要卸载 OpenYurt 并恢复为原始的 Kubernetes 集群设置，请运行以下命令：

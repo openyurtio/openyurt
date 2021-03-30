@@ -1,11 +1,11 @@
 # Copyright 2020 The OpenYurt Authors.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +26,7 @@ YURT_BUILD_IMAGE="golang:1.13-alpine"
 readonly -a YURT_BIN_TARGETS=(
     yurthub
     yurt-controller-manager
-    yurtctl-servant
+    yurtctl
     yurt-tunnel-server
     yurt-tunnel-agent
     yurt-app-manager
@@ -41,7 +41,7 @@ readonly -a SUPPORTED_ARCH=(
 readonly SUPPORTED_OS=linux
 
 readonly -a bin_targets=(${WHAT:-${YURT_BIN_TARGETS[@]}})
-readonly -a bin_targets_without_servant=("${bin_targets[@]/yurtctl-servant}")
+readonly -a bin_targets_process_servant=("${bin_targets[@]/yurtctl-servant/yurtctl}")
 readonly -a target_arch=(${ARCH:-${SUPPORTED_ARCH[@]}})
 readonly region=${REGION:-us}
 
@@ -74,7 +74,7 @@ function build_multi_arch_binaries() {
         cd /opt/src; umask 0022; \
         rm -rf ${YURT_LOCAL_BIN_DIR}/* ;"
     for arch in ${target_arch[@]}; do
-        sub_commands+="GOARCH=$arch bash ./hack/make-rules/build.sh $(echo ${bin_targets_without_servant[@]}); "
+        sub_commands+="GOARCH=$arch bash ./hack/make-rules/build.sh $(echo ${bin_targets_process_servant[@]}); "
     done
     sub_commands+="chown -R $(id -u):$(id -g) /opt/src/_output"
 
@@ -83,7 +83,7 @@ function build_multi_arch_binaries() {
 
 function build_docker_image() {
     for arch in ${target_arch[@]}; do
-        for binary in "${bin_targets_without_servant[@]}"; do
+        for binary in "${bin_targets_process_servant[@]}"; do
            local binary_name=$(get_output_name $binary)
            local binary_path=${YURT_LOCAL_BIN_DIR}/${SUPPORTED_OS}/${arch}/${binary_name}
            if [ -f ${binary_path} ]; then
@@ -91,13 +91,38 @@ function build_docker_image() {
                local docker_file_path=${docker_build_path}/Dockerfile.${binary_name}-${arch}
                mkdir -p ${docker_build_path}
 
-               local yurt_component_image="${REPO}/${binary_name}:${TAG}-${arch}"
-               local base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
-               cat <<EOF > "${docker_file_path}"
+               local yurt_component_image
+               local base_image
+               if [[ ${binary} =~ yurtctl ]]
+               then
+                 yurt_component_image=$REPO/yurtctl-servant:$TAG-$arch
+                 case $arch in
+                  amd64)
+                      base_image="amd64/alpine:3.9"
+                      ;;
+                  arm64)
+                      base_image="arm64v8/alpine:3.9"
+                      ;;
+                  arm)
+                      base_image="arm32v7/alpine:3.9"
+                      ;;
+                  *)
+                      echo unknown arch $arch
+                      exit 1
+                 esac
+                 cat << EOF > $docker_file_path
+FROM ${base_image}
+ADD ${binary_name} /usr/local/bin/yurtctl
+EOF
+               else
+                 yurt_component_image="${REPO}/${binary_name}:${TAG}-${arch}"
+                 base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
+                 cat <<EOF > "${docker_file_path}"
 FROM ${base_image}
 COPY ${binary_name} /usr/local/bin/${binary_name}
 ENTRYPOINT ["/usr/local/bin/${binary_name}"]
 EOF
+               fi
 
                ln "${binary_path}" "${docker_build_path}/${binary_name}"
                docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" ${docker_build_path}
@@ -108,39 +133,6 @@ EOF
     done
 }
 
-function build_yurtctl_servant_image() {
-    servant_script_path=$YURTCTL_SERVANT_DIR/setup_edgenode
-    for arch in ${target_arch[@]}; do
-        local docker_build_path=$DOCKER_BUILD_BASE_IDR/$SUPPORTED_OS/$arch
-        local docker_file_path=$docker_build_path/Dockerfile.yurtctl-servant-$arch
-        mkdir -p $docker_build_path
-
-        local yurtctl_servant_image=$REPO/yurtctl-servant:$TAG-$arch
-        local base_image
-        case $arch in
-            amd64)
-                base_image="amd64/alpine:3.9"
-                ;;
-            arm64)
-                base_image="arm64v8/alpine:3.9"
-                ;;
-            arm)
-                base_image="arm32v7/alpine:3.9"
-                ;;
-            *)
-                echo unknown arch $arch
-                exit 1
-        esac
-        cat << EOF > $docker_file_path
-FROM $base_image
-EOF
-        ln $servant_script_path $docker_build_path/setup_edgenode
-        docker build --no-cache -t $yurtctl_servant_image -f $docker_file_path $docker_build_path
-        docker save $yurtctl_servant_image > $YURT_IMAGE_DIR/yurtctl-servant-$SUPPORTED_OS-$arch.tar
-        rm -rf $docker_build_path
-    done
-}
-
 build_images() {
     # Always clean first
     rm -Rf ${YURT_OUTPUT_DIR}
@@ -148,10 +140,7 @@ build_images() {
     mkdir -p ${YURT_LOCAL_BIN_DIR}
     mkdir -p ${YURT_IMAGE_DIR}
     mkdir -p ${DOCKER_BUILD_BASE_IDR}
-    
+
     build_multi_arch_binaries
     build_docker_image
-    if [[ ${bin_targets[@]} =~ yurtctl-servant ]]; then
-        build_yurtctl_servant_image
-    fi
 }
