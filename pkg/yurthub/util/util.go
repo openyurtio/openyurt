@@ -135,6 +135,18 @@ func ReqInfoString(info *apirequest.RequestInfo) string {
 	return fmt.Sprintf("%s %s for %s", info.Verb, info.Resource, info.Path)
 }
 
+// IsKubeletLeaseReq judge whether the request is a lease request from kubelet
+func IsKubeletLeaseReq(req *http.Request) bool {
+	ctx := req.Context()
+	if comp, ok := ClientComponentFrom(ctx); !ok || comp != "kubelet" {
+		return false
+	}
+	if info, ok := apirequest.RequestInfoFrom(ctx); !ok || info.Resource != "leases" {
+		return false
+	}
+	return true
+}
+
 // WriteObject write object to response writer
 func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()

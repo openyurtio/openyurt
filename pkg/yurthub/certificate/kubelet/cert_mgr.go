@@ -163,6 +163,7 @@ func (kcm *kubeletCertManager) GetRestConfig() *rest.Config {
 	for _, server := range kcm.remoteServers {
 		if kcm.checker.IsHealthy(server) {
 			s = server
+			break
 		}
 	}
 	if s == nil {

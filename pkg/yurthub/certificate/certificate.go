@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -63,7 +62,7 @@ func (cmr *CertificateManagerRegistry) Register(name string, cm Factory) {
 }
 
 // New creates a YurtCertificateManager with specified name of registered certificate manager
-func (cmr *CertificateManagerRegistry) New(name string, cfg *config.YurtHubConfiguration, cmInitializer *initializer.CertificateManagerInitializer) (interfaces.YurtCertificateManager, error) {
+func (cmr *CertificateManagerRegistry) New(name string, cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
 	f, found := cmr.registry[name]
 	if !found {
 		return nil, fmt.Errorf("certificate manager %s is not registered", name)
@@ -73,8 +72,6 @@ func (cmr *CertificateManagerRegistry) New(name string, cfg *config.YurtHubConfi
 	if err != nil {
 		return nil, err
 	}
-
-	cmInitializer.Initialize(cm)
 
 	cm.Start()
 	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {

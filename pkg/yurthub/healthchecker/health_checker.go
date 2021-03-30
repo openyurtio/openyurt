@@ -18,118 +18,213 @@ package healthchecker
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
+	coordinationv1 "k8s.io/api/coordination/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 )
 
 const (
-	heartbeatFrequency     = 10 * time.Second
-	heartbeatRetry         = 3
-	continuousHealthyCount = 2
+	heartbeatFrequency = 10 * time.Second
 )
 
 // HealthChecker is an interface for checking healthy stats of server
 type HealthChecker interface {
 	IsHealthy(server *url.URL) bool
+	Run()
 }
+
+type setNodeLease func(*coordinationv1.Lease) error
+type getNodeLease func() *coordinationv1.Lease
 
 type healthCheckerManager struct {
-	sync.RWMutex
-	checkers map[string]*checker
-}
-
-// NewHealthChecker create an HealthChecker for servers
-func NewHealthChecker(remoteServers []*url.URL, tp transport.Interface, failedRetry, healthyThreshold int, stopCh <-chan struct{}) (HealthChecker, error) {
-	if len(remoteServers) == 0 {
-		return nil, fmt.Errorf("no remote servers")
-	}
-
-	hcm := &healthCheckerManager{
-		checkers: make(map[string]*checker),
-	}
-
-	for _, server := range remoteServers {
-		checker, err := newChecker(server, tp, failedRetry, healthyThreshold, stopCh)
-		if err != nil {
-			klog.Errorf("new health checker for %s err, %v", server.String(), err)
-			return nil, err
-		}
-		hcm.checkers[server.String()] = checker
-	}
-
-	return hcm, nil
-}
-
-// IsHealthy returns the healthy stats of specified server
-func (hcm *healthCheckerManager) IsHealthy(server *url.URL) bool {
-	hcm.RLock()
-	defer hcm.RUnlock()
-	if checker, ok := hcm.checkers[server.String()]; ok {
-		return checker.isHealthy()
-	}
-
-	return false
+	remoteServers     []*url.URL
+	checkers          map[string]*checker
+	latestLease       *coordinationv1.Lease
+	sw                cachemanager.StorageWrapper
+	remoteServerIndex int
+	stopCh            <-chan struct{}
 }
 
 type checker struct {
 	sync.RWMutex
-	serverHealthzAddr string
-	healthzClient     *http.Client
-	clusterHealthy    bool
-	lastTime          time.Time
-	onFailureFunc     func(string)
-	netAddress        string
-	failedRetry       int
-	healthyThreshold  int
+	remoteServer     *url.URL
+	clusterHealthy   bool
+	healthyThreshold int
+	healthyCnt       int
+	lastTime         time.Time
+	nodeLease        NodeLease
+	getLastNodeLease getNodeLease
+	setLastNodeLease setNodeLease
+	onFailureFunc    func(string)
 }
 
-func newChecker(url *url.URL, tp transport.Interface, failedRetry, healthyThreshold int, stopCh <-chan struct{}) (*checker, error) {
-	serverHealthzURL := *url
-	if serverHealthzURL.Path == "" || serverHealthzURL.Path == "/" {
-		serverHealthzURL.Path = "/healthz"
+// NewHealthChecker create an HealthChecker for servers
+func NewHealthChecker(cfg *config.YurtHubConfiguration, tp transport.Interface, sw cachemanager.StorageWrapper, stopCh <-chan struct{}) (HealthChecker, error) {
+	if len(cfg.RemoteServers) == 0 {
+		return nil, fmt.Errorf("no remote servers")
 	}
 
-	if failedRetry == 0 {
-		failedRetry = heartbeatRetry
+	hcm := &healthCheckerManager{
+		checkers:          make(map[string]*checker),
+		remoteServers:     cfg.RemoteServers,
+		remoteServerIndex: 0,
+		sw:                sw,
+		stopCh:            stopCh,
 	}
 
-	if healthyThreshold == 0 {
-		healthyThreshold = continuousHealthyCount
+	for _, remoteServer := range cfg.RemoteServers {
+		c, err := newChecker(cfg, tp, remoteServer, hcm.setLastNodeLease, hcm.getLastNodeLease)
+		if err != nil {
+			return nil, err
+		}
+		hcm.checkers[remoteServer.String()] = c
+		if c.check() {
+			c.setHealthy(true)
+		} else {
+			c.setHealthy(false)
+			klog.Warningf("cluster remote server %v is unhealthy.", remoteServer.String())
+		}
 	}
+	return hcm, nil
+}
 
-	c := &checker{
-		serverHealthzAddr: serverHealthzURL.String(),
-		healthzClient:     tp.HealthzHTTPClient(),
-		clusterHealthy:    false,
-		lastTime:          time.Now(),
-		onFailureFunc:     tp.Close,
-		netAddress:        url.Host,
-		failedRetry:       failedRetry,
-		healthyThreshold:  healthyThreshold,
+func (hcm *healthCheckerManager) Run() {
+	go hcm.healthzCheckLoop(hcm.stopCh)
+	return
+}
+
+func (hcm *healthCheckerManager) healthzCheckLoop(stopCh <-chan struct{}) {
+	intervalTicker := time.NewTicker(heartbeatFrequency)
+	defer intervalTicker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			klog.Infof("exit normally in health check loop.")
+			return
+		case <-intervalTicker.C:
+			hcm.sync()
+		}
 	}
+}
 
-	initHealthyStatus, err := PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
+func (hcm *healthCheckerManager) sync() {
+	// Ensure that the node heartbeat can be reported when there is a healthy remote server.
+	//try detect all remote server in a loop, if there is an remote server can update nodeLease, exit the loop.
+	for i := 0; i < len(hcm.remoteServers); i++ {
+		c := hcm.getChecker()
+		if c.check() {
+			break
+		}
+	}
+}
+
+func (hcm *healthCheckerManager) setLastNodeLease(lease *coordinationv1.Lease) error {
+	if lease == nil {
+		return nil
+	}
+	hcm.latestLease = lease
+
+	accessor := meta.NewAccessor()
+	accessor.SetKind(lease, coordinationv1.SchemeGroupVersion.WithKind("Lease").Kind)
+	accessor.SetAPIVersion(lease, coordinationv1.SchemeGroupVersion.String())
+	cacheLeaseKey := fmt.Sprintf(cacheLeaseKeyFormat, lease.Name)
+	return hcm.sw.Update(cacheLeaseKey, lease)
+}
+
+func (hcm *healthCheckerManager) getLastNodeLease() *coordinationv1.Lease {
+	return hcm.latestLease
+}
+
+func (hcm *healthCheckerManager) getChecker() *checker {
+	checker := hcm.checkers[hcm.remoteServers[hcm.remoteServerIndex].String()]
+	hcm.remoteServerIndex = (hcm.remoteServerIndex + 1) % len(hcm.remoteServers)
+	return checker
+}
+
+// IsHealthy returns the healthy stats of specified server
+func (hcm *healthCheckerManager) IsHealthy(server *url.URL) bool {
+	if checker, ok := hcm.checkers[server.String()]; ok {
+		return checker.isHealthy()
+	}
+	//if there is not checker for server, default unhealthy.
+	return false
+}
+
+func newChecker(
+	cfg *config.YurtHubConfiguration,
+	tp transport.Interface,
+	url *url.URL,
+	setLastNodeLease setNodeLease,
+	getLastNodeLease getNodeLease,
+) (*checker, error) {
+	restConf := &rest.Config{
+		Host:      url.String(),
+		Transport: tp.CurrentTransport(),
+		Timeout:   time.Duration(cfg.HeartbeatTimeoutSeconds) * time.Second,
+	}
+	kubeClient, err := clientset.NewForConfig(restConf)
 	if err != nil {
-		klog.Errorf("cluster(%s) init status: unhealthy, %v", c.serverHealthzAddr, err)
-	}
-	c.clusterHealthy = initHealthyStatus
-	if c.clusterHealthy {
-		metrics.Metrics.ObserveServerHealthy(c.netAddress, 1)
-	} else {
-		metrics.Metrics.ObserveServerHealthy(c.netAddress, 0)
+		return nil, err
 	}
 
-	go c.healthyCheckLoop(stopCh)
+	nl := NewNodeLease(kubeClient, cfg.NodeName, defaultLeaseDurationSeconds, cfg.HeartbeatFailedRetry)
+	c := &checker{
+		nodeLease:        nl,
+		lastTime:         time.Now(),
+		clusterHealthy:   false,
+		healthyThreshold: cfg.HeartbeatHealthyThreshold,
+		healthyCnt:       0,
+		remoteServer:     url,
+		onFailureFunc:    tp.Close,
+		setLastNodeLease: setLastNodeLease,
+		getLastNodeLease: getLastNodeLease,
+	}
 	return c, nil
+}
+
+func (c *checker) check() bool {
+	baseLease := c.getLastNodeLease()
+	lease, err := c.nodeLease.Update(baseLease)
+	if err == nil {
+		if err := c.setLastNodeLease(lease); err != nil {
+			klog.Errorf("set last node lease fail: %v", err)
+		}
+		c.healthyCnt++
+		if !c.isHealthy() && c.healthyCnt >= c.healthyThreshold {
+			c.setHealthy(true)
+			now := time.Now()
+			c.lastTime = now
+			klog.Infof("cluster becomes healthy from %v, unhealthy status lasts %v, remote server: %v", now, now.Sub(c.lastTime), c.remoteServer.String())
+			metrics.Metrics.ObserveServerHealthy(c.remoteServer.Host, 1)
+		}
+		return true
+	}
+
+	klog.Infof("failed to update lease: %v, remote server %s", err, c.remoteServer.String())
+	c.healthyCnt = 0
+	if c.isHealthy() {
+		c.setHealthy(false)
+		now := time.Now()
+		c.lastTime = now
+		klog.Infof("cluster becomes unhealthy from %v, healthy status lasts %v, remote server: %v", time.Now(), now.Sub(c.lastTime), c.remoteServer.String())
+		if c.onFailureFunc != nil {
+			c.onFailureFunc(c.remoteServer.Host)
+		}
+		metrics.Metrics.ObserveServerHealthy(c.remoteServer.Host, 0)
+	}
+	return false
 }
 
 func (c *checker) isHealthy() bool {
@@ -138,88 +233,8 @@ func (c *checker) isHealthy() bool {
 	return c.clusterHealthy
 }
 
-func (c *checker) healthyCheckLoop(stopCh <-chan struct{}) {
-	intervalTicker := time.NewTicker(heartbeatFrequency)
-	defer intervalTicker.Stop()
-	healthyCnt := 0
-	isHealthy := false
-	var err error
-
-	for {
-		select {
-		case <-stopCh:
-			klog.Infof("exit normally in health check loop for %s", c.netAddress)
-			return
-		case <-intervalTicker.C:
-			for i := 0; i < c.failedRetry; i++ {
-				isHealthy, err = PingClusterHealthz(c.healthzClient, c.serverHealthzAddr)
-				if err != nil {
-					klog.V(2).Infof("ping cluster healthz with result, %v", err)
-					if !c.clusterHealthy {
-						// cluster is unhealthy, no need ping more times to check unhealthy
-						break
-					}
-				} else {
-					if c.clusterHealthy {
-						// cluster is healthy, no need ping more times to check healthy
-						break
-					}
-				}
-			}
-
-			if !isHealthy {
-				// cluster is unhealthy
-				healthyCnt = 0
-				if c.clusterHealthy {
-					c.Lock()
-					c.clusterHealthy = false
-					c.Unlock()
-					now := time.Now()
-					klog.Infof("cluster becomes unhealthy from %v, healthy status lasts %v", now, now.Sub(c.lastTime))
-					c.onFailureFunc(c.netAddress)
-					c.lastTime = now
-					metrics.Metrics.ObserveServerHealthy(c.netAddress, 0)
-				}
-			} else {
-				//  with continuous 2 times cluster healthy, unhealthy will changed to healthy
-				healthyCnt++
-				if !c.clusterHealthy && healthyCnt >= c.healthyThreshold {
-					c.Lock()
-					c.clusterHealthy = true
-					c.Unlock()
-					now := time.Now()
-					klog.Infof("cluster becomes healthy from %v, unhealthy status lasts %v", now, now.Sub(c.lastTime))
-					c.lastTime = now
-					metrics.Metrics.ObserveServerHealthy(c.netAddress, 1)
-				}
-			}
-		}
-	}
-}
-
-func PingClusterHealthz(client *http.Client, addr string) (bool, error) {
-	if client == nil {
-		return false, fmt.Errorf("http client is invalid")
-	}
-
-	resp, err := client.Get(addr)
-	if err != nil {
-		return false, err
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if err != nil {
-		return false, fmt.Errorf("failed to read response of cluster healthz, %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("response status code is %d", resp.StatusCode)
-	}
-
-	if strings.ToLower(string(b)) != "ok" {
-		return false, fmt.Errorf("cluster healthz is %s", string(b))
-	}
-
-	return true, nil
+func (c *checker) setHealthy(healthy bool) {
+	c.Lock()
+	defer c.Unlock()
+	c.clusterHealthy = healthy
 }

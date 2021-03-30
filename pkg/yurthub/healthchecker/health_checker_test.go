@@ -17,296 +17,274 @@ limitations under the License.
 package healthchecker
 
 import (
-	"fmt"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	clientfake "k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
-func TestHealthyCheckerWithHealthyServers(t *testing.T) {
-	servers := []string{
-		"127.0.0.1:18080",
-		"127.0.0.1:18081",
-		"127.0.0.1:18082",
+func TestHealthyCheckrWithHealthyServer(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+			UID:  types.UID("foo-uid"),
+		},
 	}
 
-	// start local http server
-	testServers := make([]*httptest.Server, len(servers))
-	for i, server := range servers {
-		testServers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			if req.URL.Path == "/healthz" {
-				rw.Write([]byte("OK"))
+	lease := &coordinationv1.Lease{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "coordination.k8s.io/v1",
+			Kind:       "Lease",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo",
+			Namespace:       "kube-node-lease",
+			ResourceVersion: "115883910",
+		},
+	}
+
+	gr := schema.GroupResource{Group: "v1", Resource: "lease"}
+	noConnectionUpdateErr := apierrors.NewServerTimeout(gr, "put", 1)
+	cases := []struct {
+		desc          string
+		remoteServers []*url.URL
+		updateReactor []func(action clienttesting.Action) (bool, runtime.Object, error)
+		getReactor    []func(action clienttesting.Action) (bool, runtime.Object, error)
+		isHealthy     [][]bool
+	}{
+		{
+			desc: "healthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){func(action clienttesting.Action) (bool, runtime.Object, error) {
+				return true, lease, nil
+			}},
+			isHealthy: [][]bool{{true}},
+		},
+		{
+			desc: "unhealthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+			},
+			isHealthy: [][]bool{{false}},
+		},
+		{
+			desc: "two-healthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+				{Host: "127.0.0.1:18081"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+			},
+			isHealthy: [][]bool{{true, true}},
+		},
+		{
+			desc: "two-unhealthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+				{Host: "127.0.0.1:18081"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+			},
+			isHealthy: [][]bool{{false, false}},
+		},
+		{
+			desc: "one-healthy one-unhealthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+				{Host: "127.0.0.1:18081"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, nil, noConnectionUpdateErr
+				},
+				func(action clienttesting.Action) (bool, runtime.Object, error) {
+					return true, lease, nil
+				},
+			},
+			isHealthy: [][]bool{{false, true}},
+		},
+		{
+			desc: "healthy to unhealthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func() func(action clienttesting.Action) (bool, runtime.Object, error) {
+					i := 0
+					return func(action clienttesting.Action) (bool, runtime.Object, error) {
+						i++
+						switch i {
+						case 1:
+							return true, lease, nil
+						default:
+							return true, nil, noConnectionUpdateErr
+						}
+					}
+				}(),
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func() func(action clienttesting.Action) (bool, runtime.Object, error) {
+					i := 0
+					return func(action clienttesting.Action) (bool, runtime.Object, error) {
+						i++
+						switch i {
+						case 1:
+							return true, lease, nil
+						default:
+							return true, nil, noConnectionUpdateErr
+						}
+					}
+				}(),
+			},
+			isHealthy: [][]bool{{true}, {false}},
+		},
+		{
+			desc: "unhealthy to healthy",
+			remoteServers: []*url.URL{
+				{Host: "127.0.0.1:18080"},
+			},
+			updateReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func() func(action clienttesting.Action) (bool, runtime.Object, error) {
+					i := 0
+					return func(action clienttesting.Action) (bool, runtime.Object, error) {
+						i++
+						switch i {
+						case 1:
+							return true, nil, noConnectionUpdateErr
+						default:
+							return true, lease, nil
+						}
+					}
+				}(),
+			},
+			getReactor: []func(action clienttesting.Action) (bool, runtime.Object, error){
+				func() func(action clienttesting.Action) (bool, runtime.Object, error) {
+					i := 0
+					return func(action clienttesting.Action) (bool, runtime.Object, error) {
+						i++
+						switch i {
+						case 1:
+							return true, nil, noConnectionUpdateErr
+						default:
+							return true, lease, nil
+						}
+					}
+				}(),
+			},
+			isHealthy: [][]bool{{false}, {true}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			store, _ := disk.NewDiskStorage("/tmp/healthz")
+			stopCh := make(chan struct{})
+			hcm := &healthCheckerManager{
+				checkers:          make(map[string]*checker),
+				remoteServers:     tc.remoteServers,
+				remoteServerIndex: 0,
+				sw:                cachemanager.NewStorageWrapper(store),
+				stopCh:            stopCh,
 			}
-		}))
 
-		l, err := net.Listen("tcp", server)
-		if err != nil {
-			t.Fatalf("new listener failed, %v", err)
-		}
-
-		testServers[i].Listener.Close()
-		testServers[i].Listener = l
-		testServers[i].Start()
-		defer testServers[i].Close()
-	}
-
-	stopCh := make(chan struct{})
-	// new transport manager
-	transportManager, err := transport.NewTransportManager(2, stopCh)
-	if err != nil {
-		t.Fatalf("new transport manager failed, %v", err)
-	}
-
-	// create urls
-	remoteServers := make([]*url.URL, len(servers))
-	for i := range servers {
-		remoteServers[i], _ = url.Parse(fmt.Sprintf("http://%s", servers[i]))
-	}
-
-	// new health checker
-	healthChecker, err := NewHealthChecker(remoteServers, transportManager, 3, 2, stopCh)
-	if err != nil {
-		t.Errorf("new health checker failed, %v", err)
-	}
-
-	// wait 10s
-	time.Sleep(10 * time.Second)
-
-	// check healthy of all servers
-	for i := range remoteServers {
-		healthy := healthChecker.IsHealthy(remoteServers[i])
-		if !healthy {
-			t.Errorf("server: %s is not healthy", remoteServers[i].String())
-		}
-	}
-
-	close(stopCh)
-
-	// wait some for goroutine exit
-	time.Sleep(time.Second)
-}
-
-func TestHealthyCheckerWithUnhealthyServers(t *testing.T) {
-	servers := []string{
-		"127.0.0.1:18080",
-		"127.0.0.1:18081",
-		"127.0.0.1:18082",
-	}
-
-	// start local http server
-	testServers := make([]*httptest.Server, len(servers))
-	for i, server := range servers {
-		testServers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			rw.WriteHeader(http.StatusInternalServerError)
-		}))
-
-		l, err := net.Listen("tcp", server)
-		if err != nil {
-			t.Fatalf("new listener failed, %v", err)
-		}
-
-		testServers[i].Listener.Close()
-		testServers[i].Listener = l
-		testServers[i].Start()
-		defer testServers[i].Close()
-	}
-
-	stopCh := make(chan struct{})
-	// new transport manager
-	transportManager, err := transport.NewTransportManager(2, stopCh)
-	if err != nil {
-		t.Fatalf("new transport manager failed, %v", err)
-	}
-
-	// create urls
-	remoteServers := make([]*url.URL, len(servers))
-	for i := range servers {
-		remoteServers[i], _ = url.Parse(fmt.Sprintf("http://%s", servers[i]))
-	}
-
-	// new health checker
-	healthChecker, err := NewHealthChecker(remoteServers, transportManager, 3, 2, stopCh)
-	if err != nil {
-		t.Errorf("new health checker failed, %v", err)
-	}
-
-	// wait 10s
-	time.Sleep(10 * time.Second)
-
-	// check healthy of all servers
-	for i := range remoteServers {
-		healthy := healthChecker.IsHealthy(remoteServers[i])
-		if healthy {
-			t.Errorf("server: %s is healthy", remoteServers[i].String())
-		}
-	}
-	close(stopCh)
-
-	// wait some for goroutine exit
-	time.Sleep(time.Second)
-}
-
-func TestHealthyCheckerFromHealthyToUnhealthy(t *testing.T) {
-	servers := []string{
-		"127.0.0.1:18080",
-	}
-
-	reqCnt := 0
-	// start local http server
-	testServers := make([]*httptest.Server, len(servers))
-	for i, server := range servers {
-		testServers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			reqCnt++
-
-			// after startup 20s, healthy status changed to unhealthy
-			if reqCnt < 3 {
-				if req.URL.Path == "/healthz" {
-					rw.Write([]byte("OK"))
+			for i, server := range tc.remoteServers {
+				cl := clientfake.NewSimpleClientset(node)
+				cl.PrependReactor("update", "leases", tc.updateReactor[i])
+				cl.PrependReactor("get", "leases", tc.getReactor[i])
+				cl.PrependReactor("create", "leases", tc.updateReactor[i])
+				nl := NewNodeLease(cl, "foo", defaultLeaseDurationSeconds, 3)
+				c := &checker{
+					remoteServer:     server,
+					clusterHealthy:   tc.isHealthy[0][i],
+					healthyThreshold: 2,
+					healthyCnt:       0,
+					nodeLease:        nl,
+					lastTime:         time.Now(),
+					getLastNodeLease: hcm.getLastNodeLease,
+					setLastNodeLease: hcm.setLastNodeLease,
 				}
-			} else {
-				rw.WriteHeader(http.StatusInternalServerError)
+				hcm.checkers[server.String()] = c
 			}
-		}))
 
-		l, err := net.Listen("tcp", server)
-		if err != nil {
-			t.Fatalf("new listener failed, %v", err)
-		}
+			hcm.Run()
 
-		testServers[i].Listener.Close()
-		testServers[i].Listener = l
-		testServers[i].Start()
-		defer testServers[i].Close()
-	}
-
-	stopCh := make(chan struct{})
-	// new transport manager
-	transportManager, err := transport.NewTransportManager(2, stopCh)
-	if err != nil {
-		t.Fatalf("new transport manager failed, %v", err)
-	}
-
-	// create urls
-	remoteServers := make([]*url.URL, len(servers))
-	for i := range servers {
-		remoteServers[i], _ = url.Parse(fmt.Sprintf("http://%s", servers[i]))
-	}
-
-	// new health checker
-	healthChecker, err := NewHealthChecker(remoteServers, transportManager, 3, 2, stopCh)
-	if err != nil {
-		t.Errorf("new health checker failed, %v", err)
-	}
-
-	// check healthy status lasts 18seconds
-	for k := 0; k < 6; k++ {
-		time.Sleep(3 * time.Second)
-		// check healthy of all servers
-		for i := range remoteServers {
-			healthy := healthChecker.IsHealthy(remoteServers[i])
-			if !healthy {
-				t.Errorf("server: %s is unhealthy", remoteServers[i].String())
-			}
-		}
-	}
-
-	// wait 5seconds again
-	time.Sleep(5 * time.Second)
-	// check healthy of all servers
-	for i := range remoteServers {
-		healthy := healthChecker.IsHealthy(remoteServers[i])
-		if healthy {
-			t.Errorf("server: %s is healthy", remoteServers[i].String())
-		}
-	}
-
-	close(stopCh)
-
-	// wait some for goroutine exit
-	time.Sleep(time.Second)
-}
-
-func TestHealthyCheckerFromUnHealthyToHealthy(t *testing.T) {
-	servers := []string{
-		"127.0.0.1:18080",
-	}
-
-	reqCnt := 0
-	// start local http server
-	testServers := make([]*httptest.Server, len(servers))
-	for i, server := range servers {
-		testServers[i] = httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			reqCnt++
-
-			// after startup 30s, healthy status changed to unhealthy
-			if reqCnt > 2 {
-				if req.URL.Path == "/healthz" {
-					rw.Write([]byte("OK"))
+			for i := range tc.isHealthy {
+				klog.Infof("begin sleep 16s: %v", time.Now())
+				time.Sleep(16 * time.Second)
+				for j, server := range tc.remoteServers {
+					if hcm.IsHealthy(server) != tc.isHealthy[i][j] {
+						t.Fatalf("got %v, expected %v", hcm.IsHealthy(server), tc.isHealthy[i][j])
+					}
 				}
-			} else {
-				rw.WriteHeader(http.StatusInternalServerError)
 			}
-		}))
 
-		l, err := net.Listen("tcp", server)
-		if err != nil {
-			t.Fatalf("new listener failed, %v", err)
-		}
-
-		testServers[i].Listener.Close()
-		testServers[i].Listener = l
-		testServers[i].Start()
-		defer testServers[i].Close()
+			close(stopCh)
+		})
 	}
-
-	stopCh := make(chan struct{})
-	// new transport manager
-	transportManager, err := transport.NewTransportManager(2, stopCh)
-	if err != nil {
-		t.Fatalf("new transport manager failed, %v", err)
-	}
-
-	// create urls
-	remoteServers := make([]*url.URL, len(servers))
-	for i := range servers {
-		remoteServers[i], _ = url.Parse(fmt.Sprintf("http://%s", servers[i]))
-	}
-
-	// new health checker
-	healthChecker, err := NewHealthChecker(remoteServers, transportManager, 3, 2, stopCh)
-	if err != nil {
-		t.Errorf("new health checker failed, %v", err)
-	}
-
-	// check healthy status lasts 28seconds
-	for k := 0; k < 7; k++ {
-		time.Sleep(4 * time.Second)
-		// check healthy of all servers
-		for i := range remoteServers {
-			healthy := healthChecker.IsHealthy(remoteServers[i])
-			if healthy {
-				t.Errorf("server: %s is healthy", remoteServers[i].String())
-			}
-		}
-	}
-
-	// wait 5seconds
-	time.Sleep(5 * time.Second)
-	// check healthy of all servers
-	for i := range remoteServers {
-		healthy := healthChecker.IsHealthy(remoteServers[i])
-		if !healthy {
-			t.Errorf("server: %s is unhealthy", remoteServers[i].String())
-		}
-	}
-
-	close(stopCh)
-
-	// wait some for goroutine exit
-	time.Sleep(time.Second)
 }

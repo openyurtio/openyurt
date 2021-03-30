@@ -25,7 +25,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
@@ -89,40 +88,6 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. create health checker for remote servers ", trace)
-	healthChecker, err := healthchecker.NewHealthChecker(cfg.RemoteServers, transportManager, cfg.HeartbeatFailedRetry, cfg.HeartbeatHealthyThreshold, stopCh)
-	if err != nil {
-		klog.Errorf("could not new health checker, %v", err)
-		return err
-	}
-	trace++
-
-	klog.Infof("%d. init cert initializer", trace)
-	cmInitializer := initializer.NewCMInitializer(healthChecker)
-	trace++
-
-	klog.Infof("%d. register cert managers", trace)
-	cmr := certificate.NewCertificateManagerRegistry()
-	kubelet.Register(cmr)
-	hubself.Register(cmr)
-	trace++
-
-	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)
-	certManager, err := cmr.New(cfg.CertMgrMode, cfg, cmInitializer)
-	if err != nil {
-		klog.Errorf("could not create certificate manager, %v", err)
-		return err
-	}
-	trace++
-
-	klog.Infof("%d. update transport manager", trace)
-	err = transportManager.UpdateTransport(certManager)
-	if err != nil {
-		klog.Errorf("could not update transport manager, %v", err)
-		return err
-	}
-	trace++
-
 	klog.Infof("%d. create storage manager", trace)
 	storageManager, err := factory.CreateStorage()
 	if err != nil {
@@ -142,6 +107,37 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		klog.Errorf("could not new cache manager, %v", err)
 		return err
 	}
+	trace++
+
+	klog.Infof("%d. register cert managers", trace)
+	cmr := certificate.NewCertificateManagerRegistry()
+	kubelet.Register(cmr)
+	hubself.Register(cmr)
+	trace++
+
+	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)
+	certManager, err := cmr.New(cfg.CertMgrMode, cfg)
+	if err != nil {
+		klog.Errorf("could not create certificate manager, %v", err)
+		return err
+	}
+	trace++
+
+	klog.Infof("%d. update transport manager", trace)
+	err = transportManager.UpdateTransport(certManager)
+	if err != nil {
+		klog.Errorf("could not update transport manager, %v", err)
+		return err
+	}
+	trace++
+
+	klog.Infof("%d. create health checker for remote servers ", trace)
+	healthChecker, err := healthchecker.NewHealthChecker(cfg, transportManager, storageWrapper, stopCh)
+	if err != nil {
+		klog.Errorf("could not new health checker, %v", err)
+		return err
+	}
+	healthChecker.Run()
 	trace++
 
 	klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
@@ -164,6 +160,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubServerAddr)
 	s := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	s.Run()
+
 	<-stopCh
 	return nil
 }

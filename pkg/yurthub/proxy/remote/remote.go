@@ -64,6 +64,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 	proxyBackend.reverseProxy.Transport = currentTransport
 	proxyBackend.reverseProxy.ModifyResponse = proxyBackend.modifyResponse
 	proxyBackend.reverseProxy.FlushInterval = -1
+	proxyBackend.reverseProxy.ErrorHandler = proxyBackend.errorHandler
 
 	return proxyBackend, nil
 }
@@ -124,4 +125,23 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 		}
 	}
 	return nil
+}
+
+func (rp *RemoteProxy) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
+	klog.V(2).Infof("remote proxy error handler: %s, %v", util.ReqString(req), err)
+	if !rp.cacheMgr.CanCacheFor(req) {
+		rw.WriteHeader(http.StatusBadGateway)
+		return
+	}
+
+	ctx := req.Context()
+	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+		if info.Verb == "get" || info.Verb == "list" {
+			if obj, err := rp.cacheMgr.QueryCache(req); err == nil {
+				util.WriteObject(http.StatusOK, obj, rw, req)
+				return
+			}
+		}
+	}
+	rw.WriteHeader(http.StatusBadGateway)
 }

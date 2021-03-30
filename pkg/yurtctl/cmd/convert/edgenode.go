@@ -39,7 +39,6 @@ import (
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 const (
@@ -394,7 +393,7 @@ func hubHealthcheck() error {
 	for {
 		select {
 		case <-intervalTicker.C:
-			_, err := healthchecker.PingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
+			_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
 			retry--
 			if err != nil {
 				if retry > 0 {
@@ -408,4 +407,31 @@ func hubHealthcheck() error {
 			}
 		}
 	}
+}
+
+func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
+	if client == nil {
+		return false, fmt.Errorf("http client is invalid")
+	}
+
+	resp, err := client.Get(addr)
+	if err != nil {
+		return false, err
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if err != nil {
+		return false, fmt.Errorf("failed to read response of cluster healthz, %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("response status code is %d", resp.StatusCode)
+	}
+
+	if strings.ToLower(string(b)) != "ok" {
+		return false, fmt.Errorf("cluster healthz is %s", string(b))
+	}
+
+	return true, nil
 }

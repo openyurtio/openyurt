@@ -31,7 +31,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -72,7 +71,6 @@ func Register(cmr *hubcert.CertificateManagerRegistry) {
 
 type yurtHubCertManager struct {
 	remoteServers        []*url.URL
-	checker              healthchecker.HealthChecker
 	bootstrapConfStore   storage.Store
 	hubClientCertManager certificate.Manager
 	hubClientCertPath    string
@@ -112,11 +110,6 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 	}
 
 	return ycm, nil
-}
-
-// SetHealthChecker set healthChecker for yurthub Certificate Manager
-func (ycm *yurtHubCertManager) SetHealthChecker(checker healthchecker.HealthChecker) {
-	ycm.checker = checker
 }
 
 // Start init certificate manager and certs for hub agent
@@ -193,7 +186,7 @@ func (ycm *yurtHubCertManager) Update(cfg *config.YurtHubConfiguration) error {
 
 // GetRestConfig get rest client config from hub agent conf file.
 func (ycm *yurtHubCertManager) GetRestConfig() *restclient.Config {
-	healthyServer := ycm.getHealthyServer()
+	healthyServer := ycm.remoteServers[0]
 	if healthyServer == nil {
 		klog.Infof("all of remote servers are unhealthy, so return nil for rest config")
 		return nil
@@ -251,7 +244,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 		klog.Infof("%s file not exists, so create it", caFile)
 	}
 
-	insecureRestConfig, err := createInsecureRestClientConfig(ycm.getHealthyServer())
+	insecureRestConfig, err := createInsecureRestClientConfig(ycm.remoteServers[0])
 	if err != nil {
 		klog.Errorf("could not create insecure rest config, %v", err)
 		return err
@@ -384,7 +377,7 @@ func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (c
 	hubConfFile := ycm.getHubConfFile()
 
 	_ = wait.PollInfinite(30*time.Second, func() (bool, error) {
-		healthyServer = ycm.getHealthyServer()
+		healthyServer = ycm.remoteServers[0]
 		if healthyServer == nil {
 			klog.V(3).Infof("all of remote servers are unhealthy, just wait")
 			return false, nil
@@ -460,17 +453,6 @@ func (ycm *yurtHubCertManager) initHubConf() error {
 	if err != nil {
 		klog.Errorf("could not create %s config file, %v", ycm.hubName, err)
 		return err
-	}
-
-	return nil
-}
-
-// getHealthyServer returns the healthy server url
-func (ycm *yurtHubCertManager) getHealthyServer() *url.URL {
-	for _, server := range ycm.remoteServers {
-		if ycm.checker.IsHealthy(server) {
-			return server
-		}
 	}
 
 	return nil
@@ -559,7 +541,7 @@ func createBootstrapConf(apiServerAddr, caFile, joinToken string) *clientcmdapi.
 
 // createBootstrapConfFile create bootstrap conf file
 func (ycm *yurtHubCertManager) createBootstrapConfFile(joinToken string) error {
-	remoteServer := ycm.getHealthyServer()
+	remoteServer := ycm.remoteServers[0]
 	if remoteServer == nil || len(remoteServer.Host) == 0 {
 		return fmt.Errorf("no healthy server for create bootstrap conf file")
 	}
