@@ -148,33 +148,35 @@ func IsKubeletLeaseReq(req *http.Request) bool {
 }
 
 // WriteObject write object to response writer
-func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) {
+func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
-	gv := schema.GroupVersion{
-		Group:   "",
-		Version: runtime.APIVersionInternal,
-	}
 	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
-		gv.Group = info.APIGroup
-		gv.Version = info.APIVersion
+		gv := schema.GroupVersion{
+			Group:   info.APIGroup,
+			Version: info.APIVersion,
+		}
+		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
+		responsewriters.WriteObjectNegotiated(negotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj)
+		return nil
 	}
 
-	responsewriters.WriteObjectNegotiated(serializer.YurtHubSerializer.NegotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj)
+	return fmt.Errorf("request info is not found when write object, %s", ReqString(req))
 }
 
 // Err write err to response writer
 func Err(err error, w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	gv := schema.GroupVersion{
-		Group:   "",
-		Version: runtime.APIVersionInternal,
-	}
 	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
-		gv.Group = info.APIGroup
-		gv.Version = info.APIVersion
+		gv := schema.GroupVersion{
+			Group:   info.APIGroup,
+			Version: info.APIVersion,
+		}
+		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
+		responsewriters.ErrorNegotiated(err, negotiatedSerializer, gv, w, req)
+		return
 	}
 
-	responsewriters.ErrorNegotiated(err, serializer.YurtHubSerializer.NegotiatedSerializer, gv, w, req)
+	klog.Errorf("request info is not found when err write, %s", ReqString(req))
 }
 
 // NewDualReadCloser create an dualReadCloser object

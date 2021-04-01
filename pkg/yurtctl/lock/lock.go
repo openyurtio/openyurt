@@ -17,6 +17,7 @@ limitations under the License.
 package lock
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -45,7 +46,7 @@ var (
 // AcquireLock tries to acquire the lock lock configmap/yurtctl-lock
 func AcquireLock(cli *kubernetes.Clientset) error {
 	lockCm, err := cli.CoreV1().ConfigMaps("kube-system").
-		Get(constants.YurtctlLockConfigMapName, metav1.GetOptions{})
+		Get(context.Background(), constants.YurtctlLockConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// the lock is not exist, create one
@@ -61,7 +62,7 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 				},
 			}
 			if _, err := cli.CoreV1().ConfigMaps("kube-system").
-				Create(cm); err != nil {
+				Create(context.Background(), cm, metav1.CreateOptions{}); err != nil {
 				klog.Error("the lock configmap/yurtctl-lock is not found, " +
 					"but fail to create a new one")
 				return ErrAcquireLock
@@ -113,7 +114,7 @@ func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) erro
 	lockCm.Annotations[AnnotationIsLocked] = "true"
 	lockCm.Annotations[AnnotationAcquireTime] = strconv.FormatInt(time.Now().Unix(), 10)
 	if _, err := cli.CoreV1().ConfigMaps("kube-system").
-		Update(lockCm); err != nil {
+		Update(context.Background(), lockCm, metav1.UpdateOptions{}); err != nil {
 		if apierrors.IsResourceExpired(err) {
 			klog.Error("the lock is held by others")
 			return ErrAcquireLock
@@ -127,7 +128,7 @@ func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) erro
 // ReleaseLock releases the lock configmap/yurtctl-lock
 func ReleaseLock(cli *kubernetes.Clientset) error {
 	lockCm, err := cli.CoreV1().ConfigMaps("kube-system").
-		Get(constants.YurtctlLockConfigMapName, metav1.GetOptions{})
+		Get(context.Background(), constants.YurtctlLockConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Error("lock is not found when try to release, " +
@@ -150,7 +151,7 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 	lockCm.Annotations[AnnotationIsLocked] = "false"
 	delete(lockCm.Annotations, AnnotationAcquireTime)
 
-	_, err = cli.CoreV1().ConfigMaps("kube-system").Update(lockCm)
+	_, err = cli.CoreV1().ConfigMaps("kube-system").Update(context.Background(), lockCm, metav1.UpdateOptions{})
 	if err != nil {
 		if apierrors.IsResourceExpired(err) {
 			klog.Error("lock has been touched by others during release, " +

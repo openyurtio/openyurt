@@ -26,13 +26,11 @@ import (
 	"time"
 
 	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/kubernetes/pkg/features"
 )
 
 func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, error) {
 	lifecycleController, err := lifecyclecontroller.NewNodeLifecycleController(
-		ctx.InformerFactory.Coordination().V1beta1().Leases(),
+		ctx.InformerFactory.Coordination().V1().Leases(),
 		ctx.InformerFactory.Core().V1().Pods(),
 		ctx.InformerFactory.Core().V1().Nodes(),
 		ctx.InformerFactory.Apps().V1().DaemonSets(),
@@ -48,8 +46,6 @@ func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, er
 		ctx.ComponentConfig.NodeLifecycleController.LargeClusterSizeThreshold,
 		ctx.ComponentConfig.NodeLifecycleController.UnhealthyZoneThreshold,
 		ctx.ComponentConfig.NodeLifecycleController.EnableTaintManager,
-		utilfeature.DefaultFeatureGate.Enabled(features.TaintBasedEvictions),
-		utilfeature.DefaultFeatureGate.Enabled(features.TaintNodesByCondition),
 	)
 	if err != nil {
 		return nil, true, err

@@ -70,7 +70,7 @@ type checker struct {
 }
 
 // NewHealthChecker create an HealthChecker for servers
-func NewHealthChecker(cfg *config.YurtHubConfiguration, tp transport.Interface, sw cachemanager.StorageWrapper, stopCh <-chan struct{}) (HealthChecker, error) {
+func NewHealthChecker(cfg *config.YurtHubConfiguration, tp transport.Interface, stopCh <-chan struct{}) (HealthChecker, error) {
 	if len(cfg.RemoteServers) == 0 {
 		return nil, fmt.Errorf("no remote servers")
 	}
@@ -79,7 +79,7 @@ func NewHealthChecker(cfg *config.YurtHubConfiguration, tp transport.Interface, 
 		checkers:          make(map[string]*checker),
 		remoteServers:     cfg.RemoteServers,
 		remoteServerIndex: 0,
-		sw:                sw,
+		sw:                cfg.StorageWrapper,
 		stopCh:            stopCh,
 	}
 

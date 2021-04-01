@@ -18,6 +18,7 @@ limitations under the License.
 package nodelifecycle
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -25,7 +26,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 	apps "k8s.io/api/apps/v1"
-	coordv1beta1 "k8s.io/api/coordination/v1beta1"
+	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,7 +38,7 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/informers"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
-	coordinformers "k8s.io/client-go/informers/coordination/v1beta1"
+	coordinformers "k8s.io/client-go/informers/coordination/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -48,7 +49,6 @@ import (
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 	"k8s.io/kubernetes/pkg/features"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 	"k8s.io/kubernetes/pkg/util/node"
 	taintutils "k8s.io/kubernetes/pkg/util/taints"
 	"k8s.io/utils/pointer"
@@ -68,7 +68,7 @@ func alwaysReady() bool { return true }
 func fakeGetPodsAssignedToNode(c *fake.Clientset) func(string) ([]*v1.Pod, error) {
 	return func(nodeName string) ([]*v1.Pod, error) {
 		selector := fields.SelectorFromSet(fields.Set{"spec.nodeName": nodeName})
-		pods, err := c.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{
+		pods, err := c.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), metav1.ListOptions{
 			FieldSelector: selector.String(),
 			LabelSelector: labels.Everything().String(),
 		})
@@ -113,20 +113,20 @@ func (nc *nodeLifecycleController) doEviction(fakeNodeHandler *testutil.FakeNode
 	return false
 }
 
-func createNodeLease(nodeName string, renewTime metav1.MicroTime) *coordv1beta1.Lease {
-	return &coordv1beta1.Lease{
+func createNodeLease(nodeName string, renewTime metav1.MicroTime) *coordv1.Lease {
+	return &coordv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeName,
 			Namespace: v1.NamespaceNodeLease,
 		},
-		Spec: coordv1beta1.LeaseSpec{
+		Spec: coordv1.LeaseSpec{
 			HolderIdentity: pointer.StringPtr(nodeName),
 			RenewTime:      &renewTime,
 		},
 	}
 }
 
-func (nc *nodeLifecycleController) syncLeaseStore(lease *coordv1beta1.Lease) error {
+func (nc *nodeLifecycleController) syncLeaseStore(lease *coordv1.Lease) error {
 	if lease == nil {
 		return nil
 	}
@@ -136,7 +136,7 @@ func (nc *nodeLifecycleController) syncLeaseStore(lease *coordv1beta1.Lease) err
 }
 
 func (nc *nodeLifecycleController) syncNodeStore(fakeNodeHandler *testutil.FakeNodeHandler) error {
-	nodes, err := fakeNodeHandler.List(metav1.ListOptions{})
+	nodes, err := fakeNodeHandler.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func newNodeLifecycleControllerFromClient(
 
 	factory := informers.NewSharedInformerFactory(kubeClient, controller.NoResyncPeriodFunc())
 
-	leaseInformer := factory.Coordination().V1beta1().Leases()
+	leaseInformer := factory.Coordination().V1().Leases()
 	nodeInformer := factory.Core().V1().Nodes()
 	daemonSetInformer := factory.Apps().V1().DaemonSets()
 
@@ -181,8 +181,6 @@ func newNodeLifecycleControllerFromClient(
 		largeClusterThreshold,
 		unhealthyZoneThreshold,
 		useTaints,
-		useTaints,
-		useTaints,
 	)
 	if err != nil {
 		return nil, err
@@ -200,8 +198,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 	fakeNow := metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC)
 	evictionTimeout := 10 * time.Minute
 	labels := map[string]string{
-		v1.LabelZoneRegion:        "region1",
-		v1.LabelZoneFailureDomain: "zone1",
+		v1.LabelZoneRegionStable:        "region1",
+		v1.LabelZoneFailureDomainStable: "zone1",
+		v1.LabelZoneRegion:              "region1",
+		v1.LabelZoneFailureDomain:       "zone1",
 	}
 
 	// Because of the logic that prevents NC from evicting anything when all Nodes are NotReady
@@ -237,8 +237,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: fakeNow,
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 					},
@@ -247,8 +249,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -317,8 +321,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -337,8 +343,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -381,8 +389,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -401,8 +411,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -472,8 +484,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -492,8 +506,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -536,8 +552,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -556,8 +574,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -600,8 +620,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -620,8 +642,10 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 							Name:              "node1",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -710,7 +734,7 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 					return true, 0
 				})
 			} else {
-				t.Fatalf("Zone %v was unitialized!", zone)
+				t.Fatalf("Zone %v was uninitialized!", zone)
 			}
 		}
 
@@ -765,8 +789,10 @@ func TestPodStatusChange(t *testing.T) {
 							Name:              "node0",
 							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 							Labels: map[string]string{
-								v1.LabelZoneRegion:        "region1",
-								v1.LabelZoneFailureDomain: "zone1",
+								v1.LabelZoneRegionStable:        "region1",
+								v1.LabelZoneFailureDomainStable: "zone1",
+								v1.LabelZoneRegion:              "region1",
+								v1.LabelZoneFailureDomain:       "zone1",
 							},
 						},
 						Status: v1.NodeStatus{
@@ -933,8 +959,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -953,8 +981,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node1",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -988,8 +1018,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1008,8 +1040,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node1",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region2",
-							v1.LabelZoneFailureDomain: "zone2",
+							v1.LabelZoneRegionStable:        "region2",
+							v1.LabelZoneFailureDomainStable: "zone2",
+							v1.LabelZoneRegion:              "region2",
+							v1.LabelZoneFailureDomain:       "zone2",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1050,8 +1084,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1070,8 +1106,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node1",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone2",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone2",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone2",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1111,8 +1149,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1131,8 +1171,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node-master",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1170,8 +1212,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1190,8 +1234,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node1",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone2",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone2",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone2",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1232,8 +1278,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node0",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1252,8 +1300,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node1",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1272,8 +1322,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node2",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1292,8 +1344,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node3",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1312,8 +1366,10 @@ func TestMonitorNodeHealthEvictPodsWithDisruption(t *testing.T) {
 						Name:              "node4",
 						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 						Labels: map[string]string{
-							v1.LabelZoneRegion:        "region1",
-							v1.LabelZoneFailureDomain: "zone1",
+							v1.LabelZoneRegionStable:        "region1",
+							v1.LabelZoneFailureDomainStable: "zone1",
+							v1.LabelZoneRegion:              "region1",
+							v1.LabelZoneFailureDomain:       "zone1",
 						},
 					},
 					Status: v1.NodeStatus{
@@ -1692,17 +1748,15 @@ func TestMonitorNodeHealthUpdateStatus(t *testing.T) {
 }
 
 func TestMonitorNodeHealthUpdateNodeAndPodStatusWithLease(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.NodeLease, true)()
-
 	nodeCreationTime := metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC)
 	fakeNow := metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC)
 	testcases := []struct {
 		description             string
 		fakeNodeHandler         *testutil.FakeNodeHandler
-		lease                   *coordv1beta1.Lease
+		lease                   *coordv1.Lease
 		timeToPass              time.Duration
 		newNodeStatus           v1.NodeStatus
-		newLease                *coordv1beta1.Lease
+		newLease                *coordv1.Lease
 		expectedRequestCount    int
 		expectedNodes           []*v1.Node
 		expectedPodStatusUpdate bool
@@ -2587,8 +2641,10 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2609,8 +2665,10 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 					Name:              "node1",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2630,8 +2688,10 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 					Name:              "node2",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2680,7 +2740,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	nodeController.doNoExecuteTaintingPass()
-	node0, err := fakeNodeHandler.Get("node0", metav1.GetOptions{})
+	node0, err := fakeNodeHandler.Get(context.TODO(), "node0", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node0...")
 		return
@@ -2688,7 +2748,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 	if !taintutils.TaintExists(node0.Spec.Taints, UnreachableTaintTemplate) {
 		t.Errorf("Can't find taint %v in %v", originalTaint, node0.Spec.Taints)
 	}
-	node2, err := fakeNodeHandler.Get("node2", metav1.GetOptions{})
+	node2, err := fakeNodeHandler.Get(context.TODO(), "node2", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node2...")
 		return
@@ -2699,7 +2759,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 
 	// Make node3 healthy again.
 	node2.Status = healthyNodeNewStatus
-	_, err = fakeNodeHandler.UpdateStatus(node2)
+	_, err = fakeNodeHandler.UpdateStatus(context.TODO(), node2, metav1.UpdateOptions{})
 	if err != nil {
 		t.Errorf(err.Error())
 		return
@@ -2712,7 +2772,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 	}
 	nodeController.doNoExecuteTaintingPass()
 
-	node2, err = fakeNodeHandler.Get("node2", metav1.GetOptions{})
+	node2, err = fakeNodeHandler.Get(context.TODO(), "node2", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node2...")
 		return
@@ -2734,8 +2794,10 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2757,8 +2819,10 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 					Name:              "node1",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2822,12 +2886,12 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 	}
 	nodeController.doNoExecuteTaintingPass()
 
-	node0, err := fakeNodeHandler.Get("node0", metav1.GetOptions{})
+	node0, err := fakeNodeHandler.Get(context.TODO(), "node0", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node0...")
 		return
 	}
-	node1, err := fakeNodeHandler.Get("node1", metav1.GetOptions{})
+	node1, err := fakeNodeHandler.Get(context.TODO(), "node1", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node1...")
 		return
@@ -2841,12 +2905,12 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 
 	node0.Status = newNodeStatus
 	node1.Status = healthyNodeNewStatus
-	_, err = fakeNodeHandler.UpdateStatus(node0)
+	_, err = fakeNodeHandler.UpdateStatus(context.TODO(), node0, metav1.UpdateOptions{})
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	_, err = fakeNodeHandler.UpdateStatus(node1)
+	_, err = fakeNodeHandler.UpdateStatus(context.TODO(), node1, metav1.UpdateOptions{})
 	if err != nil {
 		t.Errorf(err.Error())
 		return
@@ -2860,7 +2924,7 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 	}
 	nodeController.doNoExecuteTaintingPass()
 
-	node0, err = fakeNodeHandler.Get("node0", metav1.GetOptions{})
+	node0, err = fakeNodeHandler.Get(context.TODO(), "node0", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Can't get current node0...")
 		return
@@ -2883,8 +2947,10 @@ func TestTaintsNodeByCondition(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2918,15 +2984,15 @@ func TestTaintsNodeByCondition(t *testing.T) {
 	nodeController.getPodsAssignedToNode = fakeGetPodsAssignedToNode(fakeNodeHandler.Clientset)
 
 	networkUnavailableTaint := &v1.Taint{
-		Key:    schedulerapi.TaintNodeNetworkUnavailable,
+		Key:    v1.TaintNodeNetworkUnavailable,
 		Effect: v1.TaintEffectNoSchedule,
 	}
 	notReadyTaint := &v1.Taint{
-		Key:    schedulerapi.TaintNodeNotReady,
+		Key:    v1.TaintNodeNotReady,
 		Effect: v1.TaintEffectNoSchedule,
 	}
 	unreachableTaint := &v1.Taint{
-		Key:    schedulerapi.TaintNodeUnreachable,
+		Key:    v1.TaintNodeUnreachable,
 		Effect: v1.TaintEffectNoSchedule,
 	}
 
@@ -2942,8 +3008,10 @@ func TestTaintsNodeByCondition(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -2972,8 +3040,10 @@ func TestTaintsNodeByCondition(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -3002,8 +3072,10 @@ func TestTaintsNodeByCondition(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -3026,8 +3098,10 @@ func TestTaintsNodeByCondition(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -3046,7 +3120,7 @@ func TestTaintsNodeByCondition(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fakeNodeHandler.Update(test.Node)
+		fakeNodeHandler.Update(context.TODO(), test.Node, metav1.UpdateOptions{})
 		if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -3148,8 +3222,10 @@ func TestReconcileNodeLabels(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion:        "region1",
-						v1.LabelZoneFailureDomain: "zone1",
+						v1.LabelZoneRegionStable:        "region1",
+						v1.LabelZoneFailureDomainStable: "zone1",
+						v1.LabelZoneRegion:              "region1",
+						v1.LabelZoneFailureDomain:       "zone1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -3204,12 +3280,12 @@ func TestReconcileNodeLabels(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						v1.LabelZoneRegion: "region1",
+						v1.LabelZoneRegionStable: "region1",
 					},
 				},
 			},
 			ExpectedLabels: map[string]string{
-				v1.LabelZoneRegion: "region1",
+				v1.LabelZoneRegionStable: "region1",
 			},
 		},
 		{
@@ -3255,7 +3331,7 @@ func TestReconcileNodeLabels(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fakeNodeHandler.Update(test.Node)
+		fakeNodeHandler.Update(context.TODO(), test.Node, metav1.UpdateOptions{})
 		if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -3279,7 +3355,6 @@ func TestReconcileNodeLabels(t *testing.T) {
 			if actualValue != expectedValue {
 				t.Errorf("%s: label %q: expected value %q, got value %q", test.Name, key, expectedValue, actualValue)
 			}
-
 		}
 	}
 }

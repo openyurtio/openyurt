@@ -17,6 +17,7 @@ limitations under the License.
 package markautonomous
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -109,7 +110,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 		// make all edge nodes autonomous
 		labelSelector := fmt.Sprintf("%s=true", projectinfo.GetEdgeWorkerLabelKey())
 		edgeNodeList, err = mao.CoreV1().Nodes().
-			List(metav1.ListOptions{LabelSelector: labelSelector})
+			List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
 			return
 		}
@@ -124,7 +125,7 @@ func (mao *MarkAutonomousOptions) RunMarkAutonomous() (err error) {
 		// make only the specified edge nodes autonomous
 		for _, nodeName := range mao.AutonomousNodes {
 			var node *v1.Node
-			node, err = mao.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			node, err = mao.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			if err != nil {
 				return
 			}

@@ -17,6 +17,7 @@ limitations under the License.
 package convert
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -249,7 +250,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	klog.V(4).Info("the server version is valid")
 
 	// 1.1. check the state of worker nodes
-	nodeLst, err := co.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeLst, err := co.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
 	}
@@ -310,7 +311,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 
 	// 4. delete the system:controller:node-controller clusterrolebinding to disable node-controller
-	if err = co.clientSet.RbacV1().ClusterRoleBindings().Delete("system:controller:node-controller", &metav1.DeleteOptions{
+	if err = co.clientSet.RbacV1().ClusterRoleBindings().Delete(context.Background(), "system:controller:node-controller", metav1.DeleteOptions{
 		PropagationPolicy: &kubeutil.PropagationPolicy,
 	}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to delete clusterrolebinding system:controller:node-controller: %v", err)
@@ -444,7 +445,7 @@ func deployYurttunnelAgent(
 
 // prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist
 func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) error {
-	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
+	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
 		if err := clusterinfophase.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {

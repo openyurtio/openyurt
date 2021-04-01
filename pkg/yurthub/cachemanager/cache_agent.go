@@ -19,6 +19,8 @@ package cachemanager
 import (
 	"strings"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+
 	"k8s.io/klog"
 )
 
@@ -28,7 +30,7 @@ var (
 		"kube-proxy",
 		"flanneld",
 		"coredns",
-		"edge-tunnel-agent",
+		projectinfo.GetAgentName(),
 	}
 	cacheAgentsKey = "_internal/cache-manager/cache-agent.conf"
 	sepForAgent    = ","

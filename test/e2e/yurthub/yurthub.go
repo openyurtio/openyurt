@@ -17,6 +17,7 @@ limitations under the License.
 package yurthub
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -111,7 +112,7 @@ func Register() {
 				patchData, err := json.Marshal(patchNode)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail marshal patch node")
 
-				node, err := c.CoreV1().Nodes().Patch(pod.Spec.NodeName, types.StrategicMergePatchType, patchData)
+				node, err := c.CoreV1().Nodes().Patch(context.Background(), pod.Spec.NodeName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail patch node autonomy")
 
 				ginkgo.By("next will stop node")

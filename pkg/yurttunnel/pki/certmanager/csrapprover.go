@@ -17,6 +17,7 @@ limitations under the License.
 package certmanager
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 
 	certificates "k8s.io/api/certificates/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	certinformer "k8s.io/client-go/informers/certificates/v1beta1"
@@ -164,7 +166,7 @@ func approveYurttunnelCSR(
 			Message: fmt.Sprintf("self-approving %s csr", projectinfo.GetTunnelName()),
 		})
 
-	result, err := csrClient.UpdateApproval(csr)
+	result, err := csrClient.UpdateApproval(context.Background(), csr, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("failed to approve %s csr(%s), %v", projectinfo.GetTunnelName(), csr.GetName(), err)
 		return err

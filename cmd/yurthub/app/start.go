@@ -28,11 +28,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 
 	"github.com/spf13/cobra"
@@ -81,35 +79,6 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 // Run runs the YurtHubConfiguration. This should never exit
 func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace := 1
-	klog.Infof("%d. new transport manager for healthz client", trace)
-	transportManager, err := transport.NewTransportManager(cfg.HeartbeatTimeoutSeconds, stopCh)
-	if err != nil {
-		klog.Errorf("could not new transport manager, %v", err)
-		return err
-	}
-	trace++
-
-	klog.Infof("%d. create storage manager", trace)
-	storageManager, err := factory.CreateStorage()
-	if err != nil {
-		klog.Errorf("could not create storage manager, %v", err)
-		return err
-	}
-	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
-	trace++
-
-	klog.Infof("%d. new serializer manager", trace)
-	serializerManager := serializer.NewSerializerManager()
-	trace++
-
-	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-	cacheMgr, err := cachemanager.NewCacheManager(storageWrapper, serializerManager)
-	if err != nil {
-		klog.Errorf("could not new cache manager, %v", err)
-		return err
-	}
-	trace++
-
 	klog.Infof("%d. register cert managers", trace)
 	cmr := certificate.NewCertificateManagerRegistry()
 	kubelet.Register(cmr)
@@ -124,16 +93,16 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. update transport manager", trace)
-	err = transportManager.UpdateTransport(certManager)
+	klog.Infof("%d. new transport manager", trace)
+	transportManager, err := transport.NewTransportManager(certManager, stopCh)
 	if err != nil {
-		klog.Errorf("could not update transport manager, %v", err)
+		klog.Errorf("could not new transport manager, %v", err)
 		return err
 	}
 	trace++
 
 	klog.Infof("%d. create health checker for remote servers ", trace)
-	healthChecker, err := healthchecker.NewHealthChecker(cfg, transportManager, storageWrapper, stopCh)
+	healthChecker, err := healthchecker.NewHealthChecker(cfg, transportManager, stopCh)
 	if err != nil {
 		klog.Errorf("could not new health checker, %v", err)
 		return err
@@ -141,8 +110,16 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	healthChecker.Run()
 	trace++
 
+	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
+	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager)
+	if err != nil {
+		klog.Errorf("could not new cache manager, %v", err)
+		return err
+	}
+	trace++
+
 	klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-	gcMgr, err := gc.NewGCManager(cfg, storageManager, transportManager, stopCh)
+	gcMgr, err := gc.NewGCManager(cfg, transportManager, stopCh)
 	if err != nil {
 		klog.Errorf("could not new gc manager, %v", err)
 		return err

@@ -425,7 +425,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1", tt.resource)
+			s := serializerM.CreateSerializer(tt.accept, "", "v1", tt.resource)
 			accessor := meta.NewAccessor()
 			for i := range tt.inputObj {
 				name, _ := accessor.Name(tt.inputObj[i])
@@ -459,12 +459,12 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 			}
 
 			buf := bytes.NewBuffer([]byte{})
-			_, err := buf.ReadFrom(result.Body)
+			_, err = buf.ReadFrom(result.Body)
 			if err != nil {
 				t.Errorf("read from result body failed, %v", err)
 			}
 
-			obj, _, err := jsonDecoder.Decoder.Decode(buf.Bytes(), nil, nil)
+			obj, err := s.Decode(buf.Bytes())
 			if err != nil {
 				t.Errorf("decode response failed, %v", err)
 			}
@@ -583,7 +583,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1", tt.resource)
+			s := serializerM.CreateSerializer(tt.accept, "", "v1", tt.resource)
 			accessor := meta.NewAccessor()
 			for i := range tt.inputObj {
 				name, _ := accessor.Name(tt.inputObj[i])
@@ -617,12 +617,12 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 			}
 
 			buf := bytes.NewBuffer([]byte{})
-			_, err := buf.ReadFrom(result.Body)
+			_, err = buf.ReadFrom(result.Body)
 			if err != nil {
 				t.Errorf("read from result body failed, %v", err)
 			}
 
-			obj, _, err := jsonDecoder.Decoder.Decode(buf.Bytes(), nil, nil)
+			obj, err := s.Decode(buf.Bytes())
 			if err != nil {
 				t.Errorf("decode response failed, %v", err)
 			}

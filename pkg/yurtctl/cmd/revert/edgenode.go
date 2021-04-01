@@ -17,6 +17,7 @@ limitations under the License.
 package revert
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -149,7 +150,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 	}
 	if len(r.EdgeNodes) > 1 || len(r.EdgeNodes) == 1 && r.EdgeNodes[0] != nodeName {
 		// 2. remote edgenode revert
-		nodeLst, err := r.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+		nodeLst, err := r.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -194,7 +195,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 		}
 	} else {
 		// 3. local edgenode revert
-		node, err := r.clientSet.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+		node, err := r.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -215,7 +216,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			}
 
 			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
-			if _, err = r.clientSet.CoreV1().Nodes().Update(node); err != nil {
+			if _, err = r.clientSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
 		} else {

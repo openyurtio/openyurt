@@ -17,11 +17,12 @@ limitations under the License.
 package gc
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
@@ -40,7 +41,7 @@ var (
 
 // GCManager is responsible for cleanup garbage of yurthub
 type GCManager struct {
-	store             storage.Store
+	store             cachemanager.StorageWrapper
 	transportManager  transport.Interface
 	nodeName          string
 	eventsGCFrequency time.Duration
@@ -49,13 +50,13 @@ type GCManager struct {
 }
 
 // NewGCManager creates a *GCManager object
-func NewGCManager(cfg *config.YurtHubConfiguration, store storage.Store, transportManager transport.Interface, stopCh <-chan struct{}) (*GCManager, error) {
+func NewGCManager(cfg *config.YurtHubConfiguration, transportManager transport.Interface, stopCh <-chan struct{}) (*GCManager, error) {
 	gcFrequency := cfg.GCFrequency
 	if gcFrequency == 0 {
 		gcFrequency = defaultEventGcInterval
 	}
 	mgr := &GCManager{
-		store:             store,
+		store:             cfg.StorageWrapper,
 		transportManager:  transportManager,
 		nodeName:          cfg.NodeName,
 		eventsGCFrequency: time.Duration(gcFrequency) * time.Minute,
@@ -107,7 +108,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 	}
 
 	listOpts := metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("spec.nodeName", m.nodeName).String()}
-	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceAll).List(listOpts)
+	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), listOpts)
 	if err != nil {
 		klog.Errorf("could not list pods for node(%s), %v", m.nodeName, err)
 		return err
@@ -169,7 +170,7 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 			continue
 		}
 
-		_, err := kubeClient.CoreV1().Events(ns).Get(name, metav1.GetOptions{})
+		_, err := kubeClient.CoreV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			deletedEvents = append(deletedEvents, key)
 		} else if err != nil {

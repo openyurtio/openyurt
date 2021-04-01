@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -40,13 +41,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	runtimejson "k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
-	"k8s.io/client-go/kubernetes/scheme"
-	restclientwatch "k8s.io/client-go/rest/watch"
 )
 
 var (
@@ -79,15 +75,15 @@ func TestCacheGetResponse(t *testing.T) {
 		resource     string
 		namespaced   bool
 		expectResult struct {
-			err  bool
+			err  error
 			rv   string
 			name string
 			ns   string
 			kind string
 		}
-		cacheErr error
+		cacheResponseErr bool
 	}{
-		"cache response for get pod": {
+		"cache response for pod with not assigned node": {
 			group:   "",
 			version: "v1",
 			key:     "kubelet/pods/default/mypod1",
@@ -102,6 +98,32 @@ func TestCacheGetResponse(t *testing.T) {
 					ResourceVersion: "1",
 				},
 			}),
+			userAgent:        "kubelet",
+			accept:           "application/json",
+			verb:             "GET",
+			path:             "/api/v1/namespaces/default/pods/mypod1",
+			resource:         "pods",
+			namespaced:       true,
+			cacheResponseErr: true,
+		},
+		"cache response for get pod": {
+			group:   "",
+			version: "v1",
+			key:     "kubelet/pods/default/mypod1",
+			inputObj: runtime.Object(&v1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "mypod1",
+					Namespace:       "default",
+					ResourceVersion: "1",
+				},
+				Spec: v1.PodSpec{
+					NodeName: "node1",
+				},
+			}),
 			userAgent:  "kubelet",
 			accept:     "application/json",
 			verb:       "GET",
@@ -109,7 +131,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "pods",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -135,6 +157,9 @@ func TestCacheGetResponse(t *testing.T) {
 					Namespace:       "default",
 					ResourceVersion: "3",
 				},
+				Spec: v1.PodSpec{
+					NodeName: "node1",
+				},
 			}),
 			userAgent:  "kubelet",
 			accept:     "application/json",
@@ -143,7 +168,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "pods",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -176,7 +201,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "nodes",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -208,7 +233,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "nodes",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -242,7 +267,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -276,7 +301,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -309,7 +334,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "foos",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -341,7 +366,7 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:   "foos",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
@@ -371,27 +396,27 @@ func TestCacheGetResponse(t *testing.T) {
 			verb:      "GET",
 			path:      "/api/v1/nodes/test",
 			resource:  "nodes",
-			cacheErr:  storage.ErrStorageNotFound,
-		},
-		"cache response for nil object": {
-			group:     "",
-			version:   "v1",
-			key:       "kubelet/nodes/test",
-			inputObj:  nil,
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/nodes/test",
-			resource:  "nodes",
 			expectResult: struct {
-				err  bool
+				err  error
 				rv   string
 				name string
 				ns   string
 				kind string
 			}{
-				err: true,
+				err: storage.ErrStorageNotFound,
 			},
+		},
+		"cache response for nil object": {
+			group:            "",
+			version:          "v1",
+			key:              "kubelet/nodes/test",
+			inputObj:         nil,
+			userAgent:        "kubelet",
+			accept:           "application/json",
+			verb:             "GET",
+			path:             "/api/v1/nodes/test",
+			resource:         "nodes",
+			cacheResponseErr: true,
 		},
 	}
 
@@ -399,14 +424,15 @@ func TestCacheGetResponse(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version, tt.resource)
+			s := serializerM.CreateSerializer(tt.accept, tt.group, tt.version, tt.resource)
+			encoder, err := s.Encoder(tt.accept, nil)
 			if err != nil {
-				t.Fatalf("could not create serializer, %v", err)
+				t.Fatalf("could not create encoder, %v", err)
 			}
 
 			buf := bytes.NewBuffer([]byte{})
 			if tt.inputObj != nil {
-				err = encoder.Encoder.Encode(tt.inputObj, buf)
+				err = encoder.Encode(tt.inputObj, buf)
 				if err != nil {
 					t.Fatalf("could not encode input object, %v", err)
 				}
@@ -425,8 +451,9 @@ func TestCacheGetResponse(t *testing.T) {
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
+				req = req.WithContext(ctx)
 				prc := ioutil.NopCloser(buf)
-				err = yurtCM.CacheResponse(ctx, prc, nil)
+				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
@@ -434,8 +461,10 @@ func TestCacheGetResponse(t *testing.T) {
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
-			if tt.expectResult.err && err == nil {
+			if tt.cacheResponseErr && err == nil {
 				t.Errorf("expect err, but do not get error")
+			} else if !tt.cacheResponseErr && err != nil {
+				t.Errorf("expect no err, but got error %v", err)
 			}
 
 			if len(tt.expectResult.name) == 0 {
@@ -444,10 +473,10 @@ func TestCacheGetResponse(t *testing.T) {
 
 			obj, err := sWrapper.Get(tt.key)
 			if err != nil || obj == nil {
-				if tt.cacheErr != err {
-					t.Errorf("expect get error %v, but got %v", tt.cacheErr, err)
+				if tt.expectResult.err != err {
+					t.Errorf("expect get error %v, but got %v", tt.expectResult.err, err)
 				}
-				t.Logf("get expected err %v for key %s", tt.cacheErr, tt.key)
+				t.Logf("get expected err %v for key %s", tt.expectResult.err, tt.key)
 			} else {
 				name, _ := accessor.Name(obj)
 				rv, _ := accessor.ResourceVersion(obj)
@@ -481,19 +510,12 @@ func TestCacheGetResponse(t *testing.T) {
 	}
 }
 
-func getEncoder() runtime.Encoder {
-	jsonSerializer := runtimejson.NewSerializer(runtimejson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, false)
-	directCodecFactory := runtimeserializer.WithoutConversionCodecFactory{
-		CodecFactory: scheme.Codecs,
-	}
-	return directCodecFactory.EncoderForVersion(jsonSerializer, v1.SchemeGroupVersion)
-}
-
 func TestCacheWatchResponse(t *testing.T) {
 	mkPod := func(id string, rv string) *v1.Pod {
 		return &v1.Pod{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "", Kind: "Pod"},
 			ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: "default", ResourceVersion: rv},
+			Spec:       v1.PodSpec{NodeName: "node1"},
 		}
 	}
 
@@ -533,6 +555,7 @@ func TestCacheWatchResponse(t *testing.T) {
 		accept       string
 		verb         string
 		path         string
+		resource     string
 		namespaced   bool
 		expectResult struct {
 			err  bool
@@ -552,6 +575,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods?watch=true",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -578,6 +602,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods?watch=true",
 			namespaced: true,
+			resource:   "pods",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -600,6 +625,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods?watch=true",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -624,6 +650,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods?watch=true",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -648,6 +675,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -673,6 +701,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -696,6 +725,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -720,6 +750,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			resource:   "crontabs",
 			namespaced: true,
 			expectResult: struct {
 				err  bool
@@ -732,18 +763,17 @@ func TestCacheWatchResponse(t *testing.T) {
 		},
 	}
 
-	accessor := meta.NewAccessor()
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
+			s := serializerM.CreateSerializer(tt.accept, tt.group, tt.version, tt.resource)
 			r, w := io.Pipe()
 			go func(w *io.PipeWriter) {
 				//For unregistered GVKs, the normal encoding is used by default and the original GVK information is set
-				encoder := restclientwatch.NewEncoder(streaming.NewEncoder(w, getEncoder()), getEncoder())
 
 				for i := range tt.inputObj {
-					if err := encoder.Encode(&tt.inputObj[i]); err != nil {
-						t.Errorf("%d: unexpected error: %v", i, err)
+					if _, err := s.WatchEncode(w, &tt.inputObj[i]); err != nil {
+						t.Errorf("%d: encode watch unexpected error: %v", i, err)
 						continue
 					}
 					time.Sleep(100 * time.Millisecond)
@@ -766,7 +796,8 @@ func TestCacheWatchResponse(t *testing.T) {
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
-				err = yurtCM.CacheResponse(ctx, rc, nil)
+				req = req.WithContext(ctx)
+				err = yurtCM.CacheResponse(req, rc, nil)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
@@ -776,6 +807,8 @@ func TestCacheWatchResponse(t *testing.T) {
 
 			if tt.expectResult.err && err == nil {
 				t.Errorf("expect err, but do not got err")
+			} else if err != nil && err != io.EOF {
+				t.Errorf("failed to cache resposne, %v", err)
 			}
 
 			if len(tt.expectResult.data) == 0 {
@@ -787,26 +820,8 @@ func TestCacheWatchResponse(t *testing.T) {
 				t.Errorf("failed to get object from storage")
 			}
 
-			if len(objs) != len(tt.expectResult.data) {
-				t.Errorf("Got %d objects, but expect %d objects", len(objs), len(tt.expectResult.data))
-			}
-
-			for _, obj := range objs {
-				name, _ := accessor.Name(obj)
-				ns, _ := accessor.Namespace(obj)
-				rv, _ := accessor.ResourceVersion(obj)
-				kind, _ := accessor.Kind(obj)
-
-				var objKey string
-				if tt.namespaced {
-					objKey = fmt.Sprintf("%s-%s-%s-%s", strings.ToLower(kind), ns, name, rv)
-				} else {
-					objKey = fmt.Sprintf("%s-%s-%s", strings.ToLower(kind), name, rv)
-				}
-
-				if _, ok := tt.expectResult.data[objKey]; !ok {
-					t.Errorf("Got %s %s/%s with rv %s", kind, ns, name, rv)
-				}
+			if !compareObjectsAndKeys(t, objs, tt.namespaced, tt.expectResult.data) {
+				t.Errorf("got unexpected objects for keys for watch request")
 			}
 
 			err = sWrapper.DeleteCollection("kubelet")
@@ -1200,17 +1215,17 @@ func TestCacheListResponse(t *testing.T) {
 		},
 	}
 
-	accessor := meta.NewAccessor()
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version, tt.resource)
+			s := serializerM.CreateSerializer(tt.accept, tt.group, tt.version, tt.resource)
+			encoder, err := s.Encoder(tt.accept, nil)
 			if err != nil {
-				t.Fatalf("could not create serializer, %v", err)
+				t.Fatalf("could not create encoder, %v", err)
 			}
 
 			buf := bytes.NewBuffer([]byte{})
-			err = encoder.Encoder.Encode(tt.inputObj, buf)
+			err = encoder.Encode(tt.inputObj, buf)
 			if err != nil {
 				t.Fatalf("could not encode input object, %v", err)
 			}
@@ -1228,8 +1243,9 @@ func TestCacheListResponse(t *testing.T) {
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
+				req = req.WithContext(ctx)
 				prc := ioutil.NopCloser(buf)
-				err = yurtCM.CacheResponse(ctx, prc, nil)
+				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
@@ -1253,26 +1269,8 @@ func TestCacheListResponse(t *testing.T) {
 					}
 				}
 
-				if len(objs) != len(tt.expectResult.data) {
-					t.Errorf("Got %d objects, but expect %d objects", len(objs), len(tt.expectResult.data))
-				}
-
-				for _, obj := range objs {
-					name, _ := accessor.Name(obj)
-					ns, _ := accessor.Namespace(obj)
-					rv, _ := accessor.ResourceVersion(obj)
-					kind, _ := accessor.Kind(obj)
-
-					var objKey string
-					if tt.namespaced {
-						objKey = fmt.Sprintf("%s-%s-%s-%s", strings.ToLower(kind), ns, name, rv)
-					} else {
-						objKey = fmt.Sprintf("%s-%s-%s", strings.ToLower(kind), name, rv)
-					}
-
-					if _, ok := tt.expectResult.data[objKey]; !ok {
-						t.Errorf("Got %s %s/%s with rv %s", kind, ns, name, rv)
-					}
+				if !compareObjectsAndKeys(t, objs, tt.namespaced, tt.expectResult.data) {
+					t.Errorf("got unexpected objects for keys")
 				}
 			}
 			err = sWrapper.DeleteCollection("kubelet")
@@ -2191,26 +2189,8 @@ func TestQueryCacheForList(t *testing.T) {
 					t.Errorf("Got rv %s, but expect rv %s", rv, tt.expectResult.rv)
 				}
 
-				if len(items) != len(tt.expectResult.data) {
-					t.Errorf("Got %d objects, but expect %d objects", len(items), len(tt.expectResult.data))
-				}
-
-				for i := range items {
-					kind, _ := accessor.Kind(items[i])
-					ns, _ := accessor.Namespace(items[i])
-					name, _ := accessor.Name(items[i])
-					itemRv, _ := accessor.ResourceVersion(items[i])
-
-					var itemKey string
-					if tt.namespaced {
-						itemKey = fmt.Sprintf("%s-%s-%s-%s", strings.ToLower(kind), ns, name, itemRv)
-					} else {
-						itemKey = fmt.Sprintf("%s-%s-%s", strings.ToLower(kind), name, itemRv)
-					}
-
-					if expectKey, ok := tt.expectResult.data[itemKey]; !ok {
-						t.Errorf("Got item key %s, but expect key %s", itemKey, expectKey)
-					}
+				if !compareObjectsAndKeys(t, items, tt.namespaced, tt.expectResult.data) {
+					t.Errorf("got unexpected objects for keys")
 				}
 			}
 			err = sWrapper.DeleteCollection("kubelet")
@@ -2219,6 +2199,42 @@ func TestQueryCacheForList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func compareObjectsAndKeys(t *testing.T, objs []runtime.Object, namespaced bool, keys map[string]struct{}) bool {
+	if len(objs) != len(keys) {
+		t.Errorf("expect %d keys, but got %d objects", len(keys), len(objs))
+		return false
+	}
+
+	accessor := meta.NewAccessor()
+	objKeys := make(map[string]struct{})
+	for i := range objs {
+		kind, _ := accessor.Kind(objs[i])
+		ns, _ := accessor.Namespace(objs[i])
+		name, _ := accessor.Name(objs[i])
+		itemRv, _ := accessor.ResourceVersion(objs[i])
+
+		if namespaced {
+			objKeys[fmt.Sprintf("%s-%s-%s-%s", strings.ToLower(kind), ns, name, itemRv)] = struct{}{}
+		} else {
+			objKeys[fmt.Sprintf("%s-%s-%s", strings.ToLower(kind), name, itemRv)] = struct{}{}
+		}
+	}
+
+	if len(objKeys) != len(keys) {
+		t.Errorf("expect %d keys, but got %d object keys", len(keys), len(objKeys))
+		return false
+	}
+
+	for key := range objKeys {
+		if _, ok := keys[key]; !ok {
+			t.Errorf("got unexpected object with key: %s", key)
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestCanCacheFor(t *testing.T) {
@@ -2289,9 +2305,9 @@ func TestCanCacheFor(t *testing.T) {
 			},
 			expectCache: true,
 		},
-		"default user agent edge-tunnel-agent": {
+		"default user agent tunnel-agent": {
 			request: &proxyRequest{
-				userAgent: "edge-tunnel-agent",
+				userAgent: projectinfo.GetAgentName(),
 				verb:      "HEAD",
 				path:      "/api/v1/nodes/mynode",
 			},

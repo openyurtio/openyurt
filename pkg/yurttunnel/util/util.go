@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -57,7 +58,7 @@ func GetConfiguredDnatPorts(client clientset.Interface, insecurePort string) ([]
 	ports := make([]string, 0)
 	c, err := client.CoreV1().
 		ConfigMaps(YurttunnelServerDnatConfigMapNs).
-		Get(YurttunnelServerDnatConfigMapName, metav1.GetOptions{})
+		Get(context.Background(), YurttunnelServerDnatConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("configmap %s/%s is not found",

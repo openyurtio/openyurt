@@ -17,6 +17,7 @@ limitations under the License.
 package healthchecker
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -82,7 +83,7 @@ func (nl *nodeLeaseImpl) retryUpdateLease(base *coordinationv1.Lease) (*coordina
 	var err error
 	var lease *coordinationv1.Lease
 	for i := 0; i < nl.failedRetry; i++ {
-		lease, err = nl.leaseClient.Update(nl.newLease(base))
+		lease, err = nl.leaseClient.Update(context.Background(), nl.newLease(base), metav1.UpdateOptions{})
 		if err == nil {
 			return lease, nil
 		}
@@ -121,9 +122,9 @@ func (nl *nodeLeaseImpl) backoffEnsureLease() (*coordinationv1.Lease, bool, erro
 }
 
 func (nl *nodeLeaseImpl) ensureLease() (*coordinationv1.Lease, bool, error) {
-	lease, err := nl.leaseClient.Get(nl.holderIdentity, metav1.GetOptions{})
+	lease, err := nl.leaseClient.Get(context.Background(), nl.holderIdentity, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		lease, err := nl.leaseClient.Create(nl.newLease(nil))
+		lease, err := nl.leaseClient.Create(context.Background(), nl.newLease(nil), metav1.CreateOptions{})
 		if err != nil {
 			return nil, false, err
 		}
@@ -153,7 +154,7 @@ func (nl *nodeLeaseImpl) newLease(base *coordinationv1.Lease) *coordinationv1.Le
 
 	lease.Spec.RenewTime = &metav1.MicroTime{Time: nl.clock.Now()}
 	if lease.OwnerReferences == nil || len(lease.OwnerReferences) == 0 {
-		if node, err := nl.client.CoreV1().Nodes().Get(nl.holderIdentity, metav1.GetOptions{}); err == nil {
+		if node, err := nl.client.CoreV1().Nodes().Get(context.Background(), nl.holderIdentity, metav1.GetOptions{}); err == nil {
 			lease.OwnerReferences = []metav1.OwnerReference{
 				{
 					APIVersion: corev1.SchemeGroupVersion.WithKind("Node").Version,

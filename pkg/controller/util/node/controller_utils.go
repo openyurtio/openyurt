@@ -18,20 +18,20 @@ limitations under the License.
 package node
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-
-	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	utilpod "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
@@ -85,7 +85,7 @@ func DeletePods(kubeClient clientset.Interface, pods []*v1.Pod, recorder record.
 
 		klog.V(2).Infof("Starting deletion of pod %v/%v", pod.Namespace, pod.Name)
 		recorder.Eventf(pod, v1.EventTypeNormal, "NodeControllerEviction", "Marking for deletion Pod %s from Node %s", pod.Name, nodeName)
-		if err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil); err != nil {
+		if err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				// NotFound error means that pod was already deleted.
 				// There is nothing left to do with this pod.
@@ -115,7 +115,7 @@ func SetPodTerminationReason(kubeClient clientset.Interface, pod *v1.Pod, nodeNa
 
 	var updatedPod *v1.Pod
 	var err error
-	if updatedPod, err = kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(pod); err != nil {
+	if updatedPod, err = kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{}); err != nil {
 		return nil, err
 	}
 	return updatedPod, nil
@@ -147,7 +147,7 @@ func MarkPodsNotReady(kubeClient clientset.Interface, pods []*v1.Pod, nodeName s
 					break
 				}
 				klog.V(2).Infof("Updating ready status of pod %v to false", pod.Name)
-				_, err := kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(pod)
+				_, err := kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{})
 				if err != nil {
 					if apierrors.IsNotFound(err) {
 						// NotFound error means that pod was already deleted.

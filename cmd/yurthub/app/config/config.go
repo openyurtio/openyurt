@@ -24,6 +24,9 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
 
 	"k8s.io/klog"
 )
@@ -48,6 +51,8 @@ type YurtHubConfiguration struct {
 	EnableDummyIf               bool
 	EnableIptables              bool
 	HubAgentDummyIfName         string
+	StorageWrapper              cachemanager.StorageWrapper
+	SerializerManager           *serializer.SerializerManager
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -56,6 +61,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	storageManager, err := factory.CreateStorage()
+	if err != nil {
+		klog.Errorf("could not create storage manager, %v", err)
+		return nil, err
+	}
+	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
+	serializerManager := serializer.NewSerializerManager()
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
@@ -79,6 +92,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		EnableDummyIf:               options.EnableDummyIf,
 		EnableIptables:              options.EnableIptables,
 		HubAgentDummyIfName:         options.HubAgentDummyIfName,
+		StorageWrapper:              storageWrapper,
+		SerializerManager:           serializerManager,
 	}
 
 	return cfg, nil

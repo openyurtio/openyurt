@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,7 +47,7 @@ import (
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
 type CacheManager interface {
-	CacheResponse(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) error
+	CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error
 	QueryCache(req *http.Request) (runtime.Object, error)
 	UpdateCacheAgents(agents []string) error
 	ListCacheAgents() []string
@@ -82,7 +83,8 @@ func NewCacheManager(
 }
 
 // CacheResponse cache response of request into backend storage
-func (cm *cacheManager) CacheResponse(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) error {
+func (cm *cacheManager) CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error {
+	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	if isWatch(ctx) {
 		return cm.saveWatchObject(ctx, info, prc, stopCh)
@@ -235,11 +237,16 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	addObjCnt := 0
 
 	comp, _ := util.ClientComponentFrom(ctx)
-	reqContentType, _ := util.ReqContentTypeFrom(ctx)
+	respContentType, _ := util.RespContentTypeFrom(ctx)
+	s := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+	if s == nil {
+		klog.Errorf("failed to create serializer in saveWatchObject, %s", util.ReqInfoString(info))
+		return fmt.Errorf("failed to create serializer in saveWatchObject, %s", util.ReqInfoString(info))
+	}
 
 	accessor := meta.NewAccessor()
 
-	d, err := serializer.CreateWatchDecoder(reqContentType, info.APIGroup, info.APIVersion, info.Resource, r)
+	d, err := s.WatchDecoder(r)
 	if err != nil {
 		klog.Errorf("saveWatchObject ended with error, %v", err)
 		return err
@@ -310,15 +317,14 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 }
 
 func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
-	reqContentType, _ := util.ReqContentTypeFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
-	serializers, err := cm.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion, info.Resource)
-	if err != nil {
-		klog.Errorf("failed to create serializers in saveListObject, %v", err)
-		return err
+	s := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+	if s == nil {
+		klog.Errorf("failed to create serializer in saveListObject, %s", util.ReqInfoString(info))
+		return fmt.Errorf("failed to create serializer in saveListObject, %s", util.ReqInfoString(info))
 	}
 
-	list, err := serializer.DecodeResp(serializers, b, reqContentType, respContentType)
+	list, err := s.Decode(b)
 	if err != nil || list == nil {
 		klog.Errorf("failed to decode response in saveOneObject %v", err)
 		return err
@@ -352,11 +358,8 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 		// list returns no objects
 		key, _ := util.KeyFunc(comp, info.Resource, info.Namespace, "")
 		return cm.storage.Create(key, nil)
-	} else if info.Name != "" {
+	} else if info.Name != "" && len(items) == 1 {
 		// list with fieldSelector=metadata.name=xxx
-		if len(items) != 1 {
-			return fmt.Errorf("%s with fieldSelector=metadata.name=%s, but return more than one objects: %d", util.ReqInfoString(info), info.Name, len(items))
-		}
 		accessor.SetKind(items[0], kind)
 		accessor.SetAPIVersion(items[0], apiVersion)
 		name, _ := accessor.Name(items[0])
@@ -373,7 +376,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 
 		return err
 	} else {
-		// list all of objects or fieldselector/labelselector
+		// list all objects or with fieldselector/labelselector
 		rootKey, _ := util.KeyFunc(comp, info.Resource, info.Namespace, info.Name)
 		objs := make(map[string]runtime.Object)
 		for i := range items {
@@ -395,19 +398,17 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 
 func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
 	comp, _ := util.ClientComponentFrom(ctx)
-	reqContentType, _ := util.ReqContentTypeFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 
-	serializers, err := cm.serializerManager.CreateSerializers(reqContentType, info.APIGroup, info.APIVersion, info.Resource)
-	if err != nil {
-		klog.Errorf("failed to create serializers in saveOneObject: %s, %v", util.ReqInfoString(info), err)
-		return err
+	s := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+	if s == nil {
+		klog.Errorf("failed to create serializer in saveOneObject, %s", util.ReqInfoString(info))
+		return fmt.Errorf("failed to create serializer in saveOneObject, %s", util.ReqInfoString(info))
 	}
 
-	accessor := meta.NewAccessor()
-	obj, err := serializer.DecodeResp(serializers, b, reqContentType, respContentType)
+	obj, err := s.Decode(b)
 	if err != nil {
-		klog.Errorf("failed to decode response in saveOneObject(reqContentType:%s, respContentType:%s): %s, %v", reqContentType, respContentType, util.ReqInfoString(info), err)
+		klog.Errorf("failed to decode response in saveOneObject(respContentType:%s): %s, %v", respContentType, util.ReqInfoString(info), err)
 		return err
 	} else if obj == nil {
 		klog.Info("failed to decode nil object. skip cache")
@@ -418,6 +419,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	}
 
 	var name string
+	accessor := meta.NewAccessor()
 	if isCreate(ctx) {
 		name, _ = accessor.Name(obj)
 	} else {
@@ -446,10 +448,15 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 }
 
 func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Object) error {
+	accessor := meta.NewAccessor()
+	if isNotAssignedPod(obj) {
+		ns, _ := accessor.Namespace(obj)
+		name, _ := accessor.Name(obj)
+		return fmt.Errorf("pod(%s/%s) is not assigned to a node, skip cache it.", ns, name)
+	}
+
 	oldObj, err := cm.storage.Get(key)
 	if err == nil && oldObj != nil {
-		accessor := meta.NewAccessor()
-
 		oldRv, err := accessor.ResourceVersion(oldObj)
 		if err != nil {
 			klog.Errorf("failed to get old object resource version for %s, %v", key, err)
@@ -477,6 +484,21 @@ func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Obje
 		}
 		return err
 	}
+}
+
+// isNotAssignedPod check pod is assigned to node or not
+// when delete pod of statefulSet, kubelet may get pod unassigned.
+func isNotAssignedPod(obj runtime.Object) bool {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return false
+	}
+
+	if pod.Spec.NodeName == "" {
+		return true
+	}
+
+	return false
 }
 
 func isList(ctx context.Context) bool {
@@ -558,6 +580,7 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 				// because func queryListObject() will get all pods for both requests instead of
 				// getting pods by request selector. so cache manager can not support same path list
 				// requests that has different selector.
+				klog.Warningf("list requests that have the same path but with different selector, skip cache for %s", util.ReqString(req))
 				return false
 			}
 		} else {
@@ -568,9 +591,8 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 			// getting pods by request selector. so cache manager can not support getting same resource
 			// list requests that has different path.
 			for k := range cm.listSelectorCollector {
-				if len(k) > len(key) && strings.Contains(k, key) {
-					return false
-				} else if len(k) < len(key) && strings.Contains(key, k) {
+				if (len(k) > len(key) && strings.Contains(k, key)) || (len(k) < len(key) && strings.Contains(key, k)) {
+					klog.Warningf("list requests that get the same resources but with different path, skip cache for %s", util.ReqString(req))
 					return false
 				}
 			}
