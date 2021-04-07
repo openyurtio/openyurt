@@ -17,9 +17,9 @@ limitations under the License.
 package constants
 
 const (
-	YurttunnelServerAgentPort          = 10262
-	YurttunnelServerMasterPort         = 10263
-	YurttunnelServerMasterInsecurePort = 10264
+	YurttunnelServerAgentPort          = "10262"
+	YurttunnelServerMasterPort         = "10263"
+	YurttunnelServerMasterInsecurePort = "10264"
 	YurttunnelServerServiceNs          = "kube-system"
 	YurttunnelServerServiceName        = "x-tunnel-server-svc"
 	YurttunnelServerAgentPortName      = "tcp"

@@ -19,7 +19,6 @@ package iptables
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -37,7 +36,6 @@ import (
 	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 const (
@@ -93,6 +91,7 @@ type iptablesManager struct {
 	conntrackPath    string
 	secureDnatDest   string
 	insecureDnatDest string
+	insecurePort     string
 	lastNodesIP      []string
 	lastDnatPorts    []string
 	syncPeriod       int
@@ -103,8 +102,8 @@ type iptablesManager struct {
 // appends the rules to the iptable.
 func NewIptablesManager(client clientset.Interface,
 	nodeInformer coreinformer.NodeInformer,
-	nodeIP string,
-	insecureBindIP string,
+	listenAddr string,
+	listenInsecureAddr string,
 	syncPeriod int) IptablesManager {
 
 	protocol := iptables.ProtocolIpv4
@@ -116,18 +115,19 @@ func NewIptablesManager(client clientset.Interface,
 		syncPeriod = defaultSyncPeriod
 	}
 
-	secureDnatDest := fmt.Sprintf("%s:%d", nodeIP,
-		constants.YurttunnelServerMasterPort)
-	insecureDnatDest := fmt.Sprintf("%s:%d", insecureBindIP,
-		constants.YurttunnelServerMasterInsecurePort)
+	_, insecurePort, err := net.SplitHostPort(listenInsecureAddr)
+	if err != nil {
+		return nil
+	}
 
 	im := &iptablesManager{
 		kubeClient:       client,
 		iptables:         iptInterface,
 		execer:           execer,
 		nodeInformer:     nodeInformer,
-		secureDnatDest:   secureDnatDest,
-		insecureDnatDest: insecureDnatDest,
+		secureDnatDest:   listenAddr,
+		insecureDnatDest: listenInsecureAddr,
+		insecurePort:     insecurePort,
 		lastNodesIP:      make([]string, 0),
 		lastDnatPorts:    make([]string, 0),
 		syncPeriod:       syncPeriod,
@@ -229,7 +229,7 @@ func (im *iptablesManager) getConfiguredDnatPorts() []string {
 		// we only allowed user to add dnat rule that uses insecure port as the
 		// destination port.
 		if len(portPair) == 2 &&
-			portPair[1] == strconv.Itoa(constants.YurttunnelServerMasterInsecurePort) &&
+			portPair[1] == im.insecurePort &&
 			len(portPair[0]) != 0 {
 			if portPair[0] != "10250" && portPair[0] != "10255" {
 				ports = append(ports, portPair[0])

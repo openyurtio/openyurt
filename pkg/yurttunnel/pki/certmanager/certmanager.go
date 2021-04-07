@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -42,8 +41,8 @@ import (
 // the yurttunnel-server
 func NewYurttunnelServerCertManager(
 	clientset kubernetes.Interface,
-	clCertNames,
-	clIPs string,
+	clCertNames []string,
+	clIPs []net.IP,
 	stopCh <-chan struct{}) (certificate.Manager, error) {
 	// get server DNS names and IPs
 	var (
@@ -60,14 +59,9 @@ func NewYurttunnelServerCertManager(
 		return false, nil
 	}, stopCh)
 	// add user specified DNS anems and IP addresses
-	if clCertNames != "" {
-		dnsNames = append(dnsNames, strings.Split(clCertNames, ",")...)
-	}
-	if clIPs != "" {
-		for _, ipstr := range strings.Split(clIPs, ",") {
-			ips = append(ips, net.ParseIP(ipstr))
-		}
-	}
+	dnsNames = append(dnsNames, clCertNames...)
+	ips = append(ips, clIPs...)
+
 	return newCertManager(
 		clientset,
 		projectinfo.GetServerName(),

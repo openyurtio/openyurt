@@ -19,18 +19,18 @@ package main
 import (
 	"flag"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/agent"
 )
 
 func main() {
 	klog.InitFlags(nil)
 	defer klog.Flush()
 
-	cmd := agent.NewYurttunnelAgentCommand(wait.NeverStop)
+	cmd := app.NewYurttunnelAgentCommand(wait.NeverStop)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {
 		klog.Fatalf("%s failed: %s", projectinfo.GetAgentName(), err)
