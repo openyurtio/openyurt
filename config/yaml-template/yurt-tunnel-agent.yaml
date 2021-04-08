@@ -1,40 +1,3 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: __project_prefix__-tunnel-agent
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes/stats
-  - nodes/metrics
-  - nodes/log
-  - nodes/spec
-  - nodes/proxy
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - patch
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: __project_prefix__-tunnel-agent
-subjects:
-- kind: Group
-  name: system:nodes
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: ClusterRole
-  name: __project_prefix__-tunnel-agent
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -59,6 +22,7 @@ spec:
         - __project_prefix__-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+        - --v=2
         image: __repo__/__project_prefix__-tunnel-agent:__tag__
         imagePullPolicy: IfNotPresent
         name: __project_prefix__-tunnel-agent
@@ -78,6 +42,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
       hostNetwork: true
       restartPolicy: Always
       volumes:

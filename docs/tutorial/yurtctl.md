@@ -41,7 +41,7 @@ I0602 14:11:08.610222   89160 markautonomous.go:149] mark minikube-m02 as autono
 5. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
 ```
 $ kubectl describe node | grep Labels -A 5
-Labels:      alibabacloud.com/is-edge-worker=true
+Labels:      openyurt.io/is-edge-worker=true
 $ kubectl describe node | grep Annotations -A 5
 Annotations: node.beta.alibabacloud.com/autonomy: true
 ```
@@ -194,7 +194,7 @@ $ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
 Using `yurtctl` to revert an OpenYurt cluster can be done by doing the following:
 ```
 $ _output/bin/yurtctl revert
-revert.go:100] label alibabacloud.com/is-edge-worker is removed
+revert.go:100] label openyurt.io/is-edge-worker is removed
 revert.go:110] yurt controller manager is removed
 revert.go:124] ServiceAccount node-controller is created
 util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
@@ -244,7 +244,7 @@ kube-system   yurt-hub-n80               1/1     Running   0          7m32s
 Using `yurtctl revert edgenode` to revert:
 ```
 $ _output/bin/yurtctl revert edgenode --edge-nodes n80
-I0209 11:01:46.837812   12217 edgenode.go:225] label alibabacloud.com/is-edge-worker is removed
+I0209 11:01:46.837812   12217 edgenode.go:225] label openyurt.io/is-edge-worker is removed
 I0209 11:01:46.838454   12217 edgenode.go:252] found backup file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf.bk, will use it to revert the node
 I0209 11:01:46.838689   12217 edgenode.go:259] systemctl daemon-reload
 I0209 11:01:47.085554   12217 edgenode.go:265] systemctl restart kubelet

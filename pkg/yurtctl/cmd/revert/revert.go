@@ -158,7 +158,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			}
 		}
 	}
-	klog.Info("label alibabacloud.com/is-edge-worker is removed")
+	klog.Info("label openyurt.io/is-edge-worker is removed")
 
 	// 3. remove the yurt controller manager
 	if err = ro.clientSet.AppsV1().Deployments("kube-system").

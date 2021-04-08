@@ -139,9 +139,7 @@ spec:
           path: /var/lib/yurttunnel-server
           type: DirectoryOrCreate
       tolerations:
-      - key: "node-role.alibabacloud.com/addon"
-        operator: "Exists"
-        effect: "NoSchedule"
+      - operator: "Exists"
       nodeSelector:
         beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
@@ -159,7 +157,7 @@ spec:
         - name: NODE_IP
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.hostIP
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW"]

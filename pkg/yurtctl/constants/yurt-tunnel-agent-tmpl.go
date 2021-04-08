@@ -17,45 +17,6 @@ limitations under the License.
 package constants
 
 const (
-	YurttunnelAgentClusterRole = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: yurt-tunnel-agent
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes/stats
-  - nodes/metrics
-  - nodes/log
-  - nodes/spec
-  - nodes/proxy
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - patch
-`
-	YurttunnelAgentClusterRoleBinding = `
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: yurt-tunnel-agent
-subjects:
-- kind: Group
-  name: system:nodes
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: ClusterRole
-  name: yurt-tunnel-agent
-  apiGroup: rbac.authorization.k8s.io
-`
 	YurttunnelAgentDaemonSet = `
 apiVersion: apps/v1
 kind: DaemonSet
@@ -100,6 +61,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
       hostNetwork: true
       restartPolicy: Always
       volumes:

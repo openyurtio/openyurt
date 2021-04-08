@@ -69,7 +69,7 @@ metadata:
   labels:
     name: yurt-tunnel-server
 spec:
-  type: NodePort 
+  type: NodePort
   ports:
   - port: 10263
     targetPort: 10263
@@ -114,9 +114,7 @@ spec:
           path: /var/lib/yurttunnel-server
           type: DirectoryOrCreate
       tolerations:
-      - key: "node-role.alibabacloud.com/addon"
-        operator: "Exists"
-        effect: "NoSchedule"
+      - operator: "Exists"
       nodeSelector:
         beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
@@ -130,11 +128,12 @@ spec:
         args:
         - --bind-address=$(NODE_IP)
         - --proxy-strategy=destHost
+        - --v=2
         env:
         - name: NODE_IP
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.hostIP
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW"]

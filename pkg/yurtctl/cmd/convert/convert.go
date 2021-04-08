@@ -402,19 +402,7 @@ func deployYurttunnelAgent(
 	client *kubernetes.Clientset,
 	tunnelAgentNodes []string,
 	yurttunnelAgentImage string) error {
-	// 1. Deploy the yurt-tunnel-agent ClusterRole
-	if err := kubeutil.CreateClusterRoleFromYaml(client,
-		constants.YurttunnelAgentClusterRole); err != nil {
-		return err
-	}
-
-	// 2. Deploy the yurt-tunnel-agent ClusterRoleBinding
-	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
-		constants.YurttunnelAgentClusterRoleBinding); err != nil {
-		return err
-	}
-
-	// 3. Deploy the yurt-tunnel-agent DaemonSet
+	// 1. Deploy the yurt-tunnel-agent DaemonSet
 	if err := kubeutil.CreateDaemonSetFromYaml(client,
 		constants.YurttunnelAgentDaemonSet,
 		map[string]string{
