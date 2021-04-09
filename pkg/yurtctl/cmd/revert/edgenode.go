@@ -222,7 +222,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			klog.Errorf("Cannot do the revert, the worker node: %s is not a Yurt edge node.", node.Name)
 			return err
 		}
-		klog.Info("label alibabacloud.com/is-edge-worker is removed")
+		klog.Info("label openyurt.io/is-edge-worker is removed")
 
 		// 3.3. remove yurt-hub and revert kubelet service
 		if err := r.RevertKubelet(); err != nil {

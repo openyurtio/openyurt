@@ -110,7 +110,7 @@ Next, we can set up the yurt-tunnel-agent. Like before, we add a label to the
 edge node, which allows the yurt-tunnel-agent to be run on the edge node:
 
 ```bash
-kubectl label nodes minikube-m02 openyurt.io/edge-enable-reverseTunnel-client=true
+kubectl label nodes minikube-m02 openyurt.io/is-edge-worker=true
 ```
 
 And, apply the yurt-tunnel-agent yaml:
