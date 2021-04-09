@@ -20,6 +20,8 @@ const (
 	YurttunnelServerAgentPort          = "10262"
 	YurttunnelServerMasterPort         = "10263"
 	YurttunnelServerMasterInsecurePort = "10264"
+	YurttunnelServerMetaPort           = "10265"
+	YurttunnelAgentMetaPort            = "10266"
 	YurttunnelServerServiceNs          = "kube-system"
 	YurttunnelServerServiceName        = "x-tunnel-server-svc"
 	YurttunnelServerAgentPortName      = "tcp"

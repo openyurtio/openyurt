@@ -27,6 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/certificate"
@@ -44,7 +45,7 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 				fmt.Printf("%s: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
 				return nil
 			}
-			klog.Infof("%s version: %#v\n", projectinfo.GetAgentName(), projectinfo.Get())
+			klog.Infof("%s version: %#v", projectinfo.GetAgentName(), projectinfo.Get())
 
 			if err := agentOptions.Validate(); err != nil {
 				return err
@@ -100,6 +101,9 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// 4. start the yurttunnel-agent
 	ta := agent.NewTunnelAgent(tlsCfg, tunnelServerAddr, cfg.NodeName, cfg.AgentIdentifiers)
 	ta.Run(stopCh)
+
+	// 5. start meta server
+	util.RunMetaServer(cfg.AgentMetaAddr)
 
 	<-stopCh
 	return nil

@@ -36,6 +36,7 @@ import (
 	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/metrics"
 )
 
 const (
@@ -258,6 +259,7 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 	}
 
 	klog.V(4).Infof("nodes without %s: %s", projectinfo.GetAgentName(), strings.Join(nodesIP, ","))
+	metrics.Metrics.ObserveCloudNodes(len(nodesIP))
 	return nodesIP
 }
 

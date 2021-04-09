@@ -48,6 +48,7 @@ type ServerOptions struct {
 	TunnelAgentConnectPort string
 	SecurePort             string
 	InsecurePort           string
+	MetaPort               string
 	ServerCount            int
 	ProxyStrategy          string
 }
@@ -63,6 +64,7 @@ func NewServerOptions() *ServerOptions {
 		TunnelAgentConnectPort: constants.YurttunnelServerAgentPort,
 		SecurePort:             constants.YurttunnelServerMasterPort,
 		InsecurePort:           constants.YurttunnelServerMasterInsecurePort,
+		MetaPort:               constants.YurttunnelServerMetaPort,
 		ProxyStrategy:          string(server.ProxyStrategyDestHost),
 	}
 	return o
@@ -92,7 +94,8 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ProxyStrategy, "proxy-strategy", o.ProxyStrategy, "The strategy of proxying requests from tunnel server to agent.")
 	fs.StringVar(&o.TunnelAgentConnectPort, "tunnel-agent-connect-port", o.TunnelAgentConnectPort, "The port on which to serve tcp packets from tunnel agent")
 	fs.StringVar(&o.SecurePort, "secure-port", o.SecurePort, "The port on which to serve HTTPS requests from cloud clients like prometheus")
-	fs.StringVar(&o.InsecurePort, "insecure-port", o.InsecurePort, "The port on which to server HTTP requests from cloud clients like metrics-server")
+	fs.StringVar(&o.InsecurePort, "insecure-port", o.InsecurePort, "The port on which to serve HTTP requests from cloud clients like metrics-server")
+	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profling, metrics")
 }
 
 func (o *ServerOptions) Config() (*config.Config, error) {
@@ -125,7 +128,7 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	cfg.ListenAddrForAgent = net.JoinHostPort(o.BindAddr, o.TunnelAgentConnectPort)
 	cfg.ListenAddrForMaster = net.JoinHostPort(o.BindAddr, o.SecurePort)
 	cfg.ListenInsecureAddrForMaster = net.JoinHostPort(o.InsecureBindAddr, o.InsecurePort)
-
+	cfg.ListenMetaAddr = net.JoinHostPort(o.InsecureBindAddr, o.MetaPort)
 	cfg.RootCert, err = pki.GenRootCertPool(o.KubeConfig, constants.YurttunnelCAFile)
 	if err != nil {
 		return nil, fmt.Errorf("fail to generate the rootCertPool: %s", err)

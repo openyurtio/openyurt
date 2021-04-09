@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -48,7 +49,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 				fmt.Printf("%s: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
 				return nil
 			}
-			klog.Infof("%s version: %#v\n", projectinfo.GetServerName(), projectinfo.Get())
+			klog.Infof("%s version: %#v", projectinfo.GetServerName(), projectinfo.Get())
 
 			if err := serverOptions.Validate(); err != nil {
 				return err
@@ -135,6 +136,9 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	if err := ts.Run(); err != nil {
 		return err
 	}
+
+	// 7. start meta server
+	util.RunMetaServer(cfg.ListenMetaAddr)
 
 	<-stopCh
 	return nil

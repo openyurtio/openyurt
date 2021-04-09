@@ -25,6 +25,7 @@ type Config struct {
 	TunnelServerAddr string
 	Client           kubernetes.Interface
 	AgentIdentifiers string
+	AgentMetaAddr    string
 }
 
 type completedConfig struct {
