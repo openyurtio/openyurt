@@ -39,6 +39,8 @@ type StorageWrapper interface {
 	ListKeys(key string) ([]string, error)
 	List(key string) ([]runtime.Object, error)
 	Update(key string, obj runtime.Object) error
+	Replace(rootKey string, objs map[string]runtime.Object) error
+	DeleteCollection(rootKey string) error
 	GetRaw(key string) ([]byte, error)
 	UpdateRaw(key string, contents []byte) error
 }
@@ -209,6 +211,28 @@ func (sw *storageWrapper) Update(key string, obj runtime.Object) error {
 	}
 
 	return nil
+}
+
+// Replace will delete the old objects, and use the given objs instead.
+func (sw *storageWrapper) Replace(rootKey string, objs map[string]runtime.Object) error {
+	var buf bytes.Buffer
+	contents := make(map[string][]byte, len(objs))
+	for key, obj := range objs {
+		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
+			klog.Errorf("failed to encode object in update for %s, %v", key, err)
+			return err
+		}
+		contents[key] = make([]byte, len(buf.Bytes()))
+		copy(contents[key], buf.Bytes())
+		buf.Reset()
+	}
+
+	return sw.store.Replace(rootKey, contents)
+}
+
+// DeleteCollection will delete all objects under rootKey
+func (sw *storageWrapper) DeleteCollection(rootKey string) error {
+	return sw.store.DeleteCollection(rootKey)
 }
 
 // GetRaw get byte data for specified key

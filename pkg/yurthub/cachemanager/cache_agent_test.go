@@ -20,12 +20,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 func TestInitCacheAgents(t *testing.T) {
-	s := NewFakeStorageWrapper()
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	s := NewStorageWrapper(dStorage)
 	m, _ := NewCacheManager(s, nil)
 
 	// default cache agents in fake store
@@ -62,23 +68,32 @@ func TestInitCacheAgents(t *testing.T) {
 	if !compareAgents(gotAgents2, m.ListCacheAgents()) {
 		t.Errorf("Got agents: %v, cache agents map: %v", gotAgents2, m.ListCacheAgents())
 	}
+
+	err = s.Delete(cacheAgentsKey)
+	if err != nil {
+		t.Errorf("failed to delete cache agents key, %v", err)
+	}
 }
 
 func TestUpdateCacheAgents(t *testing.T) {
-	s := NewFakeStorageWrapper()
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	s := NewStorageWrapper(dStorage)
 	m, _ := NewCacheManager(s, nil)
 
-	tests := []struct {
+	testcases := map[string]struct {
 		desc         string
 		addAgents    []string
 		expectAgents []string
 	}{
-		{desc: "add one agent", addAgents: []string{"agent1"}, expectAgents: append(defaultCacheAgents, "agent1")},
-		{desc: "update with two agents", addAgents: []string{"agent2", "agent3"}, expectAgents: append(defaultCacheAgents, "agent2", "agent3")},
-		{desc: "update with more two agents", addAgents: []string{"agent4", "agent5"}, expectAgents: append(defaultCacheAgents, "agent4", "agent5")},
+		"add one agent":               {addAgents: []string{"agent1"}, expectAgents: append(defaultCacheAgents, "agent1")},
+		"update with two agents":      {addAgents: []string{"agent2", "agent3"}, expectAgents: append(defaultCacheAgents, "agent2", "agent3")},
+		"update with more two agents": {addAgents: []string{"agent4", "agent5"}, expectAgents: append(defaultCacheAgents, "agent4", "agent5")},
 	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
 
 			// add agents
 			err := m.UpdateCacheAgents(tt.addAgents)
@@ -98,6 +113,11 @@ func TestUpdateCacheAgents(t *testing.T) {
 
 			if !compareAgents(gotAgents, m.ListCacheAgents()) {
 				t.Errorf("Got agents: %v, cache agents map: %v", gotAgents, m.ListCacheAgents())
+			}
+
+			err = s.Delete(cacheAgentsKey)
+			if err != nil {
+				t.Errorf("failed to delete cache agents key, %v", err)
 			}
 		})
 	}

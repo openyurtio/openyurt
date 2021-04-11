@@ -55,9 +55,10 @@ type CacheManager interface {
 
 type cacheManager struct {
 	sync.RWMutex
-	storage           StorageWrapper
-	serializerManager *serializer.SerializerManager
-	cacheAgents       map[string]bool
+	storage               StorageWrapper
+	serializerManager     *serializer.SerializerManager
+	cacheAgents           map[string]bool
+	listSelectorCollector map[string]string
 }
 
 // NewCacheManager creates a new CacheManager
@@ -66,9 +67,10 @@ func NewCacheManager(
 	serializerMgr *serializer.SerializerManager,
 ) (CacheManager, error) {
 	cm := &cacheManager{
-		storage:           storage,
-		serializerManager: serializerMgr,
-		cacheAgents:       make(map[string]bool),
+		storage:               storage,
+		serializerManager:     serializerMgr,
+		cacheAgents:           make(map[string]bool),
+		listSelectorCollector: make(map[string]string),
 	}
 
 	err := cm.initCacheAgents()
@@ -142,17 +144,30 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 
+	var gvk schema.GroupVersionKind
+	var kind string
 	objs, err := cm.storage.List(key)
 	if err != nil {
 		return nil, err
 	} else if len(objs) == 0 {
-		return nil, nil
+		gvk, err = serializer.UnsafeDefaultRESTMapper.KindFor(schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		})
+		if err != nil {
+			return nil, err
+		}
+		kind = gvk.Kind
+	} else {
+		kind = objs[0].GetObjectKind().GroupVersionKind().Kind
 	}
+
 	var listObj runtime.Object
 	listGvk := schema.GroupVersionKind{
 		Group:   info.APIGroup,
 		Version: info.APIVersion,
-		Kind:    objs[0].GetObjectKind().GroupVersionKind().Kind + "List",
+		Kind:    kind + "List",
 	}
 	if scheme.Scheme.Recognizes(listGvk) {
 		listObj, err = scheme.Scheme.New(listGvk)
@@ -304,14 +319,12 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	}
 
 	list, err := serializer.DecodeResp(serializers, b, reqContentType, respContentType)
-	if err != nil {
+	if err != nil || list == nil {
 		klog.Errorf("failed to decode response in saveOneObject %v", err)
 		return err
 	}
 
-	switch list.(type) {
-	case *metav1.Status:
-		// it's not need to cache for status
+	if _, ok := list.(*metav1.Status); ok {
 		klog.Infof("it's not need to cache metav1.Status")
 		return nil
 	}
@@ -336,48 +349,48 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	// in local disk, so when cloud-edge network disconnected,
 	// yurthub can return empty objects instead of 404 code(not found)
 	if len(items) == 0 {
+		// list returns no objects
 		key, _ := util.KeyFunc(comp, info.Resource, info.Namespace, "")
 		return cm.storage.Create(key, nil)
-	}
-
-	var errs []error
-	for i := range items {
-		name, err := accessor.Name(items[i])
-		if err != nil || name == "" {
-			klog.Errorf("failed to get name of list items object, %v", err)
-			continue
+	} else if info.Name != "" {
+		// list with fieldSelector=metadata.name=xxx
+		if len(items) != 1 {
+			return fmt.Errorf("%s with fieldSelector=metadata.name=%s, but return more than one objects: %d", util.ReqInfoString(info), info.Name, len(items))
 		}
-
-		ns, err := accessor.Namespace(items[i])
-		if err != nil {
-			klog.Errorf("failed to get namespace of list items object, %v", err)
-			continue
-		} else if ns == "" {
+		accessor.SetKind(items[0], kind)
+		accessor.SetAPIVersion(items[0], apiVersion)
+		name, _ := accessor.Name(items[0])
+		ns, _ := accessor.Namespace(items[0])
+		if ns == "" {
 			ns = info.Namespace
 		}
-
-		klog.V(5).Infof("path for list item(%d): %s/%s/%s/%s", i, comp, info.Resource, ns, name)
-		key, err := util.KeyFunc(comp, info.Resource, ns, name)
-		if err != nil || key == "" {
-			klog.Errorf("failed to get cache key(%s:%s:%s:%s), %v", comp, info.Resource, ns, name, err)
-			return err
-		}
-
-		accessor.SetKind(items[i], kind)
-		accessor.SetAPIVersion(items[i], apiVersion)
-		err = cm.saveOneObjectWithValidation(key, items[i])
+		key, _ := util.KeyFunc(comp, info.Resource, ns, name)
+		err = cm.saveOneObjectWithValidation(key, items[0])
 		if err == storage.ErrStorageAccessConflict {
 			klog.V(2).Infof("skip to cache list object because key(%s) is under processing", key)
-		} else if err != nil {
-			errs = append(errs, fmt.Errorf("failed to save object(%s), %v", key, err))
+			return nil
 		}
-	}
 
-	if len(errs) != 0 {
-		return fmt.Errorf("failed to save list object, %#+v", errs)
-	}
+		return err
+	} else {
+		// list all of objects or fieldselector/labelselector
+		rootKey, _ := util.KeyFunc(comp, info.Resource, info.Namespace, info.Name)
+		objs := make(map[string]runtime.Object)
+		for i := range items {
+			accessor.SetKind(items[i], kind)
+			accessor.SetAPIVersion(items[i], apiVersion)
+			name, _ := accessor.Name(items[i])
+			ns, _ := accessor.Namespace(items[i])
+			if ns == "" {
+				ns = info.Namespace
+			}
 
-	return nil
+			key, _ := util.KeyFunc(comp, info.Resource, ns, name)
+			objs[key] = items[i]
+		}
+
+		return cm.storage.Replace(rootKey, objs)
+	}
 }
 
 func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
@@ -397,14 +410,11 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		klog.Errorf("failed to decode response in saveOneObject(reqContentType:%s, respContentType:%s): %s, %v", reqContentType, respContentType, util.ReqInfoString(info), err)
 		return err
 	} else if obj == nil {
+		klog.Info("failed to decode nil object. skip cache")
+		return nil
+	} else if _, ok := obj.(*metav1.Status); ok {
 		klog.Infof("it's not need to cache metav1.Status.")
 		return nil
-	} else {
-		switch obj.(type) {
-		case *metav1.Status:
-			// it's not need to cache for status
-			return nil
-		}
 	}
 
 	var name string
@@ -535,5 +545,37 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 		return false
 	}
 
+	cm.Lock()
+	defer cm.Unlock()
+	if info.Verb == "list" && info.Name == "" {
+		key, _ := util.KeyFunc(comp, info.Resource, info.Namespace, info.Name)
+		selector, _ := util.ListSelectorFrom(ctx)
+		if oldSelector, ok := cm.listSelectorCollector[key]; ok {
+			if oldSelector != selector {
+				// list requests that have the same path but with different selector, for example:
+				// request1: http://{ip:port}/api/v1/default/pods?labelSelector=foo=bar
+				// request2: http://{ip:port}/api/v1/default/pods?labelSelector=foo2=bar2
+				// because func queryListObject() will get all pods for both requests instead of
+				// getting pods by request selector. so cache manager can not support same path list
+				// requests that has different selector.
+				return false
+			}
+		} else {
+			// list requests that get the same resources but with different path, for example:
+			// request1: http://{ip/port}/api/v1/pods?fieldSelector=spec.nodeName=foo
+			// request2: http://{ip/port}/api/v1/default/pods?fieldSelector=spec.nodeName=foo
+			// because func queryListObject() will get all pods for both requests instead of
+			// getting pods by request selector. so cache manager can not support getting same resource
+			// list requests that has different path.
+			for k := range cm.listSelectorCollector {
+				if len(k) > len(key) && strings.Contains(k, key) {
+					return false
+				} else if len(k) < len(key) && strings.Contains(key, k) {
+					return false
+				}
+			}
+			cm.listSelectorCollector[key] = selector
+		}
+	}
 	return true
 }

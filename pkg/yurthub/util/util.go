@@ -51,6 +51,8 @@ const (
 	ProxyClientComponent
 	// ProxyReqCanCache represents request can cache context key
 	ProxyReqCanCache
+	// ProxyListSelector represents label selector and filed selector string for list request
+	ProxyListSelector
 )
 
 // WithValue returns a copy of parent in which the value associated with key is val.
@@ -99,6 +101,17 @@ func WithReqCanCache(parent context.Context, canCache bool) context.Context {
 // ReqCanCacheFrom returns the value of the request can cache key on the ctx
 func ReqCanCacheFrom(ctx context.Context) (bool, bool) {
 	info, ok := ctx.Value(ProxyReqCanCache).(bool)
+	return info, ok
+}
+
+// WithListSelector returns a copy of parent in which the list request selector string is set
+func WithListSelector(parent context.Context, selector string) context.Context {
+	return WithValue(parent, ProxyListSelector, selector)
+}
+
+// ListSelectorFrom returns the value of the list request selector string on the ctx
+func ListSelectorFrom(ctx context.Context) (string, bool) {
+	info, ok := ctx.Value(ProxyListSelector).(string)
 	return info, ok
 }
 
