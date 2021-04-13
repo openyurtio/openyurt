@@ -76,7 +76,7 @@ func (fsw *fakeStorageWrapper) ListKeys(key string) ([]string, error) {
 func (fsw *fakeStorageWrapper) List(key string) ([]runtime.Object, error) {
 	objs := make([]runtime.Object, 0, len(fsw.data))
 	for k, obj := range fsw.data {
-		if strings.HasPrefix(k, key) {
+		if strings.HasPrefix(k, key) && obj != nil {
 			objs = append(objs, obj)
 		}
 	}

@@ -17,11 +17,7 @@ limitations under the License.
 package disk
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -29,103 +25,147 @@ import (
 
 var (
 	testDir = "/tmp/cache/"
-	tempDir = "kubelet/default/pods"
-	tempKey = "kubelet/default/pods/test-pod"
 )
 
 func TestCreate(t *testing.T) {
+	testcases := map[string]struct {
+		rootDir       string
+		preCreatedKey map[string]string
+		keysData      map[string]string
+		result        map[string]struct {
+			err  error
+			data string
+		}
+		createErr error
+	}{
+		"create dir key with no data": {
+			keysData: map[string]string{
+				"/kubelet/default/pods": "",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"/kubelet/default/pods": {
+					err: storage.ErrKeyHasNoContent,
+				},
+			},
+		},
+		"create dir key that already exists": {
+			preCreatedKey: map[string]string{
+				"/kubelet/default/pods/foo": "test-pod1",
+			},
+			keysData: map[string]string{
+				"/kubelet/default/pods": "",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"/kubelet/default/pods/foo": {
+					data: "test-pod1",
+				},
+			},
+		},
+		"create key normally": {
+			keysData: map[string]string{
+				"/kubelet/default/pods/foo": "test-pod",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"/kubelet/default/pods/foo": {
+					data: "test-pod",
+				},
+			},
+		},
+		"create key when key already exists": {
+			preCreatedKey: map[string]string{
+				"/kubelet/default/pods/bar": "test-pod1",
+			},
+			keysData: map[string]string{
+				"/kubelet/default/pods/bar": "test-pod2",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"/kubelet/default/pods/bar": {
+					data: "test-pod2",
+				},
+			},
+		},
+		"create key when parent dir already exists": {
+			preCreatedKey: map[string]string{
+				"/kubelet/default/pods": "",
+			},
+			keysData: map[string]string{
+				"/kubelet/default/pods/bar": "test-pod1",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"/kubelet/default/pods/bar": {
+					data: "test-pod1",
+				},
+			},
+		},
+		"create key that already exists with no data": {
+			preCreatedKey: map[string]string{
+				"/kubelet/default/pods/foo": "test-pod1",
+			},
+			keysData: map[string]string{
+				"/kubelet/default/pods/foo": "",
+			},
+			createErr: storage.ErrKeyHasNoContent,
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKey {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s Got error %v, wanted successful create %s", k, err, key)
+				}
+			}
 
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
+			for key, data := range tc.keysData {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					if tc.createErr != err {
+						t.Errorf("%s: expect create error %v, but got %v", k, tc.createErr, err)
+					}
+				}
+			}
 
-	b, err := ioutil.ReadFile(createdFile)
-	if err != nil {
-		t.Errorf("Got error %v, unable read regular file %q", err, createdFile)
-	} else if !bytes.Equal(b, []byte("test-pod")) {
-		t.Errorf("Wanted string: test-pod but got %s", string(b))
-	}
+			for key, result := range tc.result {
+				b, err := s.Get(key)
+				if result.err != nil {
+					if result.err != err {
+						t.Errorf("%s(key=%s) expect error %v, but got error %v", k, key, result.err, err)
+					}
+				}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
+				if result.data != "" {
+					if result.data != string(b) {
+						t.Errorf("%s(key=%s) expect result %s, but got data %s", k, key, result.data, string(b))
+					}
+				}
+			}
 
-func TestCreateFileExist(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod1"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod2"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s witch contents test-pod2", err, tempKey)
-	}
-
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
-
-	b, err := ioutil.ReadFile(createdFile)
-	if err != nil {
-		t.Errorf("Got error %v, unable read regular file %q", err, createdFile)
-	} else if !bytes.Equal(b, []byte("test-pod2")) {
-		t.Errorf("Wanted string: test-pod2 but got %s", string(b))
-	}
-
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestCreateDirExist(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	createdFile := filepath.Join(testDir, tempKey)
-	dir, _ := filepath.Split(createdFile)
-	if err = os.MkdirAll(dir, 0755); err != nil {
-		t.Errorf("Got error %v, unable make dir %s", err, dir)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
-
-	b, err := ioutil.ReadFile(createdFile)
-	if err != nil {
-		t.Errorf("Got error %v, unable read regular file %q", err, createdFile)
-	} else if !bytes.Equal(b, []byte("test-pod")) {
-		t.Errorf("Wanted string: test-pod but got %s", string(b))
+			for key := range tc.result {
+				if err = s.Delete(key); err != nil {
+					t.Errorf("%s failed to delete key %s, %v", k, key, err)
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -134,75 +174,108 @@ func TestCreateDirExist(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	testcases := map[string]struct {
+		preCreatedKeys map[string]string
+		deleteKeys     []string
+		result         map[string]struct {
+			beforeDelete string
+			deleteErr    error
+			getErr       error
+		}
+	}{
+		"normally delete key": {
+			preCreatedKeys: map[string]string{
+				"kubelet/nodes/foo": "node-test1",
+			},
+			deleteKeys: []string{"kubelet/nodes/foo"},
+			result: map[string]struct {
+				beforeDelete string
+				deleteErr    error
+				getErr       error
+			}{
+				"kubelet/nodes/foo": {
+					beforeDelete: "node-test1",
+					deleteErr:    nil,
+					getErr:       storage.ErrStorageNotFound,
+				},
+			},
+		},
+		"delete key that not exist": {
+			deleteKeys: []string{"kubelet/nodes/foo"},
+			result: map[string]struct {
+				beforeDelete string
+				deleteErr    error
+				getErr       error
+			}{
+				"kubelet/nodes/foo": {
+					deleteErr: nil,
+				},
+			},
+		},
+		"delete dir key": {
+			preCreatedKeys: map[string]string{
+				"kubelet/nodes": "",
+			},
+			deleteKeys: []string{"kubelet/nodes"},
+			result: map[string]struct {
+				beforeDelete string
+				deleteErr    error
+				getErr       error
+			}{
+				"kubelet/nodes/": {
+					deleteErr: nil,
+					getErr:    storage.ErrKeyHasNoContent,
+				},
+			},
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKeys {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
+				}
+			}
 
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
+			for key, result := range tc.result {
+				if result.beforeDelete != "" {
+					b, err := s.Get(key)
+					if err != nil {
+						t.Errorf("%s: got error %v when get key %s before deletion", k, err, key)
+					}
 
-	err = s.Delete(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, unable delete key %q", err, tempKey)
-	}
+					if result.beforeDelete != string(b) {
+						t.Errorf("%s: expect data %s, but got %s before deletion", k, result.beforeDelete, string(b))
+					}
+				}
+			}
 
-	if _, err := os.Stat(createdFile); err == nil || !os.IsNotExist(err) {
-		t.Errorf("want %q is deleted, but it still exist", createdFile)
-	}
+			for _, key := range tc.deleteKeys {
+				err = s.Delete(key)
+				if result, ok := tc.result[key]; ok {
+					if result.deleteErr != err {
+						t.Errorf("%s: delete key(%s) expect error %v, but got %v", k, key, result.deleteErr, err)
+					}
+				} else if err != nil {
+					t.Errorf("%s: Got error %v, unable delete key %q", k, err, key)
+				}
+			}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestDeleteFileNotExist(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	createdFile := filepath.Join(testDir, tempKey)
-	err = s.Delete(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, delete not exist file(%q) returned error", err, createdFile)
-	}
-
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestDeleteDir(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	err = s.Delete(tempDir)
-	if err != nil {
-		t.Errorf("Got error %v, unable delete dir key %q", err, tempDir)
-	}
-
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
+			for key, result := range tc.result {
+				_, err := s.Get(key)
+				if result.getErr != nil {
+					if result.getErr != err {
+						t.Errorf("%s: expect error %v, but got error %v", k, result.getErr, err)
+					}
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -211,60 +284,85 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	testcases := map[string]struct {
+		preCreatedKeys map[string]string
+		result         map[string]struct {
+			err  error
+			data string
+		}
+	}{
+		"normally get key": {
+			preCreatedKeys: map[string]string{
+				"kubelet/nodes/foo": "test-node1",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"kubelet/nodes/foo": {
+					data: "test-node1",
+				},
+			},
+		},
+		"get key that is not exist": {
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"kubelet/nodes/foo": {
+					err: storage.ErrStorageNotFound,
+				},
+			},
+		},
+		"get key that is not regular file": {
+			preCreatedKeys: map[string]string{
+				"kubelet/nodes": "",
+			},
+			result: map[string]struct {
+				err  error
+				data string
+			}{
+				"kubelet/nodes": {
+					err: storage.ErrKeyHasNoContent,
+				},
+			},
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKeys {
+				err := s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s Got error %v, wanted successful create %s", k, err, key)
+				}
+			}
 
-	b, err := s.Get(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, get key %q", err, tempKey)
-	} else if !bytes.Equal(b, []byte("test-pod")) {
-		t.Errorf("Wanted string: test-pod but got %s", string(b))
-	}
+			for key, result := range tc.result {
+				b, err := s.Get(key)
+				if result.err != nil {
+					if result.err != err {
+						t.Errorf("%s: expect error %v, but got error %v", k, result.err, err)
+					}
+				}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
+				if result.data != "" {
+					if result.data != string(b) {
+						t.Errorf("%s: expect result data %s, but got data %s", k, result.data, string(b))
+					}
+				}
+			}
 
-func TestGetFileNotExist(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	b, err := s.Get(tempKey)
-	if err != storage.ErrStorageNotFound {
-		t.Errorf("Got error %v, expect error %v", err, storage.ErrStorageNotFound)
-	} else if len(b) != 0 {
-		t.Errorf("Wanted empty string got %s", string(b))
-	}
-
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestGetNotRegularFile(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	_, err = s.Get(tempDir)
-	if err == nil {
-		t.Errorf("Got not error for dir key %q", tempDir)
+			for key := range tc.result {
+				if err = s.Delete(key); err != nil {
+					t.Errorf("%s failed to delete key %s, %v", k, key, err)
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -273,89 +371,88 @@ func TestGetNotRegularFile(t *testing.T) {
 }
 
 func TestListKeys(t *testing.T) {
+	testcases := map[string]struct {
+		preCreatedKeys map[string]string
+		listKey        string
+		result         map[string]struct{}
+		listErr        error
+	}{
+		"normally list keys": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1":         "pod1",
+				"kubelet/pods/default/foo2":         "pod2",
+				"kubelet/pods/kube-system/foo3":     "pod3",
+				"kubelet/pods/kube-system/foo4":     "pod4",
+				"kubelet/pods/kube-system/tmp_foo5": "pod5",
+				"kubelet/pods/foo5":                 "",
+			},
+			listKey: "kubelet/pods",
+			result: map[string]struct{}{
+				"kubelet/pods/default/foo1":     {},
+				"kubelet/pods/default/foo2":     {},
+				"kubelet/pods/kube-system/foo3": {},
+				"kubelet/pods/kube-system/foo4": {},
+			},
+		},
+		"list keys for dir only": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default":     "",
+				"kubelet/pods/kube-system": "",
+				"kubelet/pods/foo5":        "",
+			},
+			listKey: "kubelet/pods",
+			result:  map[string]struct{}{},
+		},
+		"list keys for regular file": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1": "pod1",
+			},
+			listKey: "kubelet/pods/default/foo1",
+			result: map[string]struct{}{
+				"kubelet/pods/default/foo1": {},
+			},
+		},
+		"list keys for not exist file": {
+			listKey: "kubelet/pods/default/foo5",
+			result:  map[string]struct{}{},
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	tempKeys := make([]string, 5)
-	for i := 0; i < 5; i++ {
-		tempKeys[i] = fmt.Sprintf("%s-%d", tempKey, i)
-		err = s.Create(tempKeys[i], []byte("test-pod"))
-		if err != nil {
-			t.Errorf("Got error %v, wanted successful create %s", err, tempKeys[i])
-		}
-	}
-
-	keys, err := s.ListKeys(tempDir)
-	if err != nil {
-		t.Errorf("Got error %v, unable list keys for %s", err, tempDir)
-	}
-
-	if len(tempKeys) != len(keys) {
-		t.Errorf("expect %d keys, but got %d keys", len(tempKeys), len(keys))
-	}
-
-	for _, key := range tempKeys {
-		found := false
-		for _, cachedKey := range keys {
-			if key == cachedKey {
-				found = true
-				break
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKeys {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
+				}
 			}
-		}
-		if !found {
-			t.Errorf("key %s is not found by list keys %v", key, keys)
-		}
-	}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
+			keys, err := s.ListKeys(tc.listKey)
+			if err != nil {
+				t.Errorf("%s: Got error %v, unable list keys for %s", k, err, tc.listKey)
+			}
 
-func TestListKeysForEmptyDir(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
+			if len(tc.result) != len(keys) {
+				t.Errorf("%s: expect %d keys, but got %d keys", k, len(tc.result), len(keys))
+			}
 
-	keys, err := s.ListKeys(tempDir)
-	if err != nil {
-		t.Errorf("Got error %v, unable list keys for empty dir %s", err, tempDir)
-	}
+			for _, key := range keys {
+				if _, ok := tc.result[key]; !ok {
+					t.Errorf("%s: got key %s not in result %v", k, key, tc.result)
+				}
+			}
 
-	if len(keys) != 0 {
-		t.Errorf("expect 0 key, but got %d keys", len(keys))
-	}
-
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestListKeysForRegularFile(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	keys, err := s.ListKeys(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, unable list keys for empty dir %s", err, tempDir)
-	}
-
-	if len(keys) != 1 {
-		t.Errorf("listKeys: expect 1 key, but got %d keys", len(keys))
-	}
-
-	if keys[0] != tempKey {
-		t.Errorf("listKeys: expect %s key, but got %s key", tempKey, keys[0])
+			for key := range tc.preCreatedKeys {
+				err = s.Delete(key)
+				if err != nil {
+					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -364,89 +461,91 @@ func TestListKeysForRegularFile(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
+	testcases := map[string]struct {
+		preCreatedKeys map[string]string
+		listKey        string
+		result         map[string]struct{}
+		listErr        error
+	}{
+		"normally list": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1":         "pod1",
+				"kubelet/pods/default/foo2":         "pod2",
+				"kubelet/pods/kube-system/foo3":     "pod3",
+				"kubelet/pods/kube-system/foo4":     "pod4",
+				"kubelet/pods/kube-system/tmp_foo5": "pod5",
+				"kubelet/pods/foo5":                 "",
+			},
+			listKey: "kubelet/pods",
+			result: map[string]struct{}{
+				"pod1": {},
+				"pod2": {},
+				"pod3": {},
+				"pod4": {},
+			},
+		},
+		"list for empty dir": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default":     "",
+				"kubelet/pods/kube-system": "",
+				"kubelet/pods/foo5":        "",
+			},
+			listKey: "kubelet/pods",
+			result:  map[string]struct{}{},
+		},
+		"list for regular file": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1": "pod1",
+			},
+			listKey: "kubelet/pods/default/foo1",
+			result: map[string]struct{}{
+				"pod1": {},
+			},
+		},
+		"list for not exist file": {
+			listKey: "kubelet/pods/default/foo5",
+			result:  map[string]struct{}{},
+			listErr: storage.ErrStorageNotFound,
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	tempContents := make([]string, 5)
-	for i := 0; i < 5; i++ {
-		tempContents[i] = fmt.Sprintf("test-pod-%d", i)
-		err = s.Create(fmt.Sprintf("%s-%d", tempKey, i), []byte(tempContents[i]))
-		if err != nil {
-			t.Errorf("Got error %v, wanted successful create %s", err, fmt.Sprintf("%s-%d", tempKey, i))
-		}
-	}
-
-	contents, err := s.List(tempDir)
-	if err != nil {
-		t.Errorf("Got error %v, unable list for %s", err, tempDir)
-	}
-
-	if len(tempContents) != len(contents) {
-		t.Errorf("expect %d number of contents, but got %d number of contents", len(tempContents), len(contents))
-	}
-
-	for _, content := range tempContents {
-		found := false
-		for _, cachedContent := range contents {
-			if content == string(cachedContent) {
-				found = true
-				break
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKeys {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
+				}
 			}
-		}
-		if !found {
-			t.Errorf("content %s is not found by list", content)
-		}
-	}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
+			data, err := s.List(tc.listKey)
+			if err != nil {
+				if tc.listErr != err {
+					t.Errorf("%s: list(%s) expect error %v, but got error %v", k, tc.listKey, tc.listErr, err)
+				}
+			}
 
-func TestListEmptyDir(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
+			if len(tc.result) != len(data) {
+				t.Errorf("%s: list expect %d objects, but got %d objects", k, len(tc.result), len(data))
+			}
 
-	contents, err := s.List(tempDir)
-	if err != storage.ErrStorageNotFound {
-		t.Errorf("Got error %v, expect error %v", err, storage.ErrStorageNotFound)
-	}
+			for i := range data {
+				if _, ok := tc.result[string(data[i])]; !ok {
+					t.Errorf("%s: list data %s not in result %v", k, string(data[i]), tc.result)
+				}
+			}
 
-	if len(contents) != 0 {
-		t.Errorf("expect no contents, but got %d number of contents", len(contents))
-	}
-
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
-	}
-}
-
-func TestListSpecifiedFile(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
-	}
-
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
-
-	contents, err := s.List(tempKey)
-	if err != nil {
-		t.Errorf("Got error %v, unable list for %s", err, tempKey)
-	}
-
-	if len(contents) != 1 {
-		t.Errorf("expect 1 contents, but got %d number of contents", len(contents))
-	}
-
-	if string(contents[0]) != "test-pod" {
-		t.Errorf("expect content: test-pod, but got content: %s", contents[0])
+			for key := range tc.preCreatedKeys {
+				err = s.Delete(key)
+				if err != nil {
+					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -455,33 +554,93 @@ func TestListSpecifiedFile(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	testcases := map[string]struct {
+		preCreatedKeys map[string]string
+		updateKeys     map[string]string
+		result         map[string]string
+		updateErr      error
+	}{
+		"normally update keys": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod1",
+				"kubelet/pods/default/foo2": "test-pod2",
+			},
+			updateKeys: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod11",
+				"kubelet/pods/default/foo2": "test-pod21",
+			},
+			result: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod11",
+				"kubelet/pods/default/foo2": "test-pod21",
+			},
+		},
+		"update keys that not exist": {
+			updateKeys: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod11",
+				"kubelet/pods/default/foo2": "test-pod21",
+			},
+			result: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod11",
+				"kubelet/pods/default/foo2": "test-pod21",
+			},
+		},
+		"update keys with empty string": {
+			preCreatedKeys: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod1",
+				"kubelet/pods/default/foo2": "test-pod2",
+			},
+			updateKeys: map[string]string{
+				"kubelet/pods/default/foo1": "",
+				"kubelet/pods/default/foo2": "",
+			},
+			result: map[string]string{
+				"kubelet/pods/default/foo1": "test-pod1",
+				"kubelet/pods/default/foo2": "test-pod2",
+			},
+			updateErr: storage.ErrKeyHasNoContent,
+		},
+	}
 	s, err := NewDiskStorage(testDir)
 	if err != nil {
 		t.Fatalf("unable to new disk storage, %v", err)
 	}
 
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
-	}
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for key, data := range tc.preCreatedKeys {
+				err = s.Create(key, []byte(data))
+				if err != nil {
+					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
+				}
+			}
 
-	err = s.Update(tempKey, []byte("test-pod1"))
-	if err != nil {
-		t.Errorf("Got error %v, unable update key %s", err, tempKey)
-	}
+			for key, data := range tc.updateKeys {
+				err = s.Update(key, []byte(data))
+				if err != nil {
+					if tc.updateErr != err {
+						t.Errorf("%s: expect error %v, but got %v", k, tc.updateErr, err)
+					}
+				}
+			}
 
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
+			for key, data := range tc.result {
+				b, err := s.Get(key)
+				if err != nil {
+					t.Errorf("%s: Got error %v, unable get key %s", k, err, key)
+				}
 
-	b, err := ioutil.ReadFile(createdFile)
-	if err != nil {
-		t.Errorf("Got error %v, unable read regular file %q", err, createdFile)
-	} else if !bytes.Equal(b, []byte("test-pod1")) {
-		t.Errorf("Wanted string: test-pod1 but got %s", string(b))
+				if data != string(b) {
+					t.Errorf("%s: expect updated data %s, but got %s", k, data, string(b))
+				}
+			}
+
+			for key := range testcases {
+				err = s.Delete(key)
+				if err != nil {
+					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
+				}
+			}
+		})
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
@@ -489,37 +648,70 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestUpdateEmptyString(t *testing.T) {
-	s, err := NewDiskStorage(testDir)
-	if err != nil {
-		t.Fatalf("unable to new disk storage, %v", err)
+func TestLockKey(t *testing.T) {
+	testcases := map[string]struct {
+		preLockedKeys    []string
+		lockKey          string
+		lockResult       bool
+		lockVerifyResult bool
+	}{
+		"normal lock key": {
+			preLockedKeys:    []string{},
+			lockKey:          "kubelet/pods/kube-system/foo",
+			lockResult:       true,
+			lockVerifyResult: false,
+		},
+		"lock pre-locked key with same key": {
+			preLockedKeys:    []string{"kubelet/pods/kube-system/foo"},
+			lockKey:          "kubelet/pods/kube-system/foo",
+			lockResult:       false,
+			lockVerifyResult: false,
+		},
+		"lock child key of pre-locked key": {
+			preLockedKeys:    []string{"kubelet/pods/kube-system"},
+			lockKey:          "kubelet/pods/kube-system/foo",
+			lockResult:       false,
+			lockVerifyResult: false,
+		},
+		"lock parent key of pre-locked key ": {
+			preLockedKeys:    []string{"kubelet/pods/kube-system/foo"},
+			lockKey:          "kubelet/pods/kube-system",
+			lockResult:       false,
+			lockVerifyResult: false,
+		},
+		"lock different key with pre-locked key ": {
+			preLockedKeys:    []string{"kubelet/pods/kube-system/foo1"},
+			lockKey:          "kubelet/pods/kube-system/foo2",
+			lockResult:       true,
+			lockVerifyResult: false,
+		},
 	}
 
-	err = s.Create(tempKey, []byte("test-pod"))
-	if err != nil {
-		t.Errorf("Got error %v, wanted successful create %s", err, tempKey)
+	s := &diskStorage{
+		keyPendingStatus: make(map[string]struct{}),
+		baseDir:          testDir,
 	}
 
-	err = s.Update(tempKey, []byte(""))
-	if err != nil {
-		t.Errorf("Got error %v, unable update key %s", err, tempKey)
-	}
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			for _, key := range tc.preLockedKeys {
+				s.lockKey(key)
+			}
 
-	createdFile := filepath.Join(testDir, tempKey)
-	if fi, err := os.Stat(createdFile); err != nil {
-		t.Errorf("Got error %v, wanted file %q to be there", err, createdFile)
-	} else if !fi.Mode().IsRegular() {
-		t.Errorf("Got %q not a regular file", createdFile)
-	}
+			lResult := s.lockKey(tc.lockKey)
+			if lResult != tc.lockResult {
+				t.Errorf("%s: expect lock result %v, but got %v", k, tc.lockResult, lResult)
+			}
 
-	b, err := ioutil.ReadFile(createdFile)
-	if err != nil {
-		t.Errorf("Got error %v, unable read regular file %q", err, createdFile)
-	} else if len(b) == 0 {
-		t.Errorf("Wanted string: empty string but got %s", string(b))
-	}
+			lResult2 := s.lockKey(tc.lockKey)
+			if lResult2 != tc.lockVerifyResult {
+				t.Errorf("%s: expect lock verify result %v, but got %v", k, tc.lockVerifyResult, lResult2)
+			}
 
-	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+			s.unLockKey(tc.lockKey)
+			for _, key := range tc.preLockedKeys {
+				s.unLockKey(key)
+			}
+		})
 	}
 }

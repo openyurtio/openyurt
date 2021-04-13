@@ -32,6 +32,7 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	v1 "k8s.io/api/core/v1"
+	nodev1beta1 "k8s.io/api/node/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -642,6 +643,71 @@ func TestCacheResponseForList(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc:    "cache response for list nodes with fieldselector",
+			group:   "",
+			version: "v1",
+			key:     "kubelet/nodes",
+			inputObj: runtime.Object(
+				&v1.NodeList{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "NodeList",
+					},
+					ListMeta: metav1.ListMeta{
+						ResourceVersion: "12",
+					},
+					Items: []v1.Node{
+						{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "v1",
+								Kind:       "Node",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:            "mynode",
+								ResourceVersion: "12",
+							},
+						},
+					},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/nodes?fieldselector=meatadata.name=mynode",
+			namespaced: false,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"node-mynode-12": {},
+				},
+			},
+		},
+		{
+			desc:    "cache response for list runtimeclasses with no objects",
+			group:   "node.k8s.io",
+			version: "v1beta1",
+			key:     "kubelet/runtimeclass",
+			inputObj: runtime.Object(
+				&nodev1beta1.RuntimeClassList{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "node.k8s.io/v1beta1",
+						Kind:       "RuntimeClassList",
+					},
+					ListMeta: metav1.ListMeta{
+						ResourceVersion: "12",
+					},
+					Items: []nodev1beta1.RuntimeClass{},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/node.k8s.io/v1beta1/runtimeclasses",
+			namespaced: false,
+			expectResult: expectData{
+				data: map[string]struct{}{},
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
@@ -683,7 +749,7 @@ func TestCacheResponseForList(t *testing.T) {
 
 			if tt.expectResult.err {
 				if err == nil {
-					t.Errorf("Got no error, but expect err")
+					t.Error("Got no error, but expect err")
 				}
 			} else {
 				if err != nil {
@@ -691,8 +757,8 @@ func TestCacheResponseForList(t *testing.T) {
 				}
 
 				objs, err := storage.List(tt.key)
-				if err != nil || len(objs) == 0 {
-					t.Errorf("failed to get object from storage")
+				if err != nil {
+					t.Errorf("failed to list objects from storage, %v", err)
 				}
 
 				if len(objs) != len(tt.expectResult.data) {
@@ -717,6 +783,7 @@ func TestCacheResponseForList(t *testing.T) {
 					}
 				}
 			}
+			resetStorage(storage, tt.key)
 		})
 	}
 }

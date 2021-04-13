@@ -59,18 +59,23 @@ func NewStorageWrapper(storage storage.Store) StorageWrapper {
 }
 
 // Create store runtime object into backend storage
+// if obj is nil, the storage used to represent the key
+// will be created. for example: for disk storage,
+// a directory that indicates the key will be created.
 func (sw *storageWrapper) Create(key string, obj runtime.Object) error {
 	var buf bytes.Buffer
-	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-		klog.Errorf("failed to encode object in create for %s, %v", key, err)
-		return err
+	if obj != nil {
+		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
+			klog.Errorf("failed to encode object in create for %s, %v", key, err)
+			return err
+		}
 	}
 
 	if err := sw.store.Create(key, buf.Bytes()); err != nil {
 		return err
 	}
 
-	if isCacheKey(key) {
+	if obj != nil && isCacheKey(key) {
 		sw.Lock()
 		sw.cache[key] = obj
 		sw.Unlock()
@@ -141,6 +146,14 @@ func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
 		klog.Errorf("could not list objects for %s, %v", key, err)
 		return nil, err
 	} else if len(bb) == 0 {
+		if isPodKey(key) {
+			// because at least there will be yurt-hub pod on the node.
+			// if no pods in cache, maybe all of pods have been deleted by accident,
+			// if empty object is returned, pods on node will be deleted by kubelet.
+			// in order to prevent the influence to business, return error here so pods
+			// will be kept on node.
+			return objects, storage.ErrStorageNotFound
+		}
 		return objects, nil
 	}
 
@@ -199,4 +212,10 @@ func isCacheKey(key string) bool {
 	}
 
 	return false
+}
+
+// isPodKey verify the key is kubelet/pods or not
+func isPodKey(key string) bool {
+	comp, resource, _, _ := util.SplitKey(key)
+	return comp == "kubelet" && resource == "pods"
 }
