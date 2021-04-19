@@ -370,6 +370,15 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	accessor := meta.NewAccessor()
 
 	comp, _ := util.ClientComponentFrom(ctx)
+	// even if no objects in cloud cluster, we need to
+	// make up a storage that represents the no resources
+	// in local disk, so when cloud-edge network disconnected,
+	// yurthub can return empty objects instead of 404 code(not found)
+	if len(items) == 0 {
+		key, _ := util.KeyFunc(comp, info.Resource, info.Namespace, "")
+		return cm.storage.Create(key, nil)
+	}
+
 	var errs []error
 	for i := range items {
 		name, err := accessor.Name(items[i])
