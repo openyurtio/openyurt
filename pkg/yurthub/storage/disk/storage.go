@@ -37,7 +37,7 @@ const (
 type diskStorage struct {
 	baseDir          string
 	keyPendingStatus map[string]struct{}
-	sync.RWMutex
+	sync.Mutex
 }
 
 // NewDiskStorage creates a storage.Store for caching data into local disk
@@ -377,8 +377,8 @@ func (ds *diskStorage) Recover(key string) error {
 }
 
 func (ds *diskStorage) lockKey(key string) bool {
-	ds.RLock()
-	defer ds.RUnlock()
+	ds.Lock()
+	defer ds.Unlock()
 	if _, ok := ds.keyPendingStatus[key]; ok {
 		return false
 	}
