@@ -34,7 +34,7 @@ func TestDualReader(t *testing.T) {
 
 	go func() {
 		if n2, err := io.ReadFull(prc, dst2); err != nil || n2 != len(src) {
-			t.Fatalf("ReadFull(prc, dst2) = %d, %v; want %d, nil", n2, err, len(src))
+			t.Errorf("ReadFull(prc, dst2) = %d, %v; want %d, nil", n2, err, len(src))
 		}
 	}()
 
