@@ -22,6 +22,7 @@ spec:
         - yurt-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+        - --node-ip=$(POD_IP)
         - --v=2
         image: openyurt/yurt-tunnel-agent:latest
         imagePullPolicy: IfNotPresent
