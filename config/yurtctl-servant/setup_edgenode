@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# This script can not be executed directly, it is baked in the 
+# openyurt/yurtctl-servant, before exeuction, context value (i.e., __variable__)
+# need to be replaced based on the environment variables set in the pod, 
+# and will be executed as a subprogram of the nsenter command.
+
+set -o errexit
+set -o pipefail
+
+KUBELET_SVC=${KUBELET_SVC:-/etc/systemd/system/kubelet.service.d/10-kubeadm.conf}
+OPENYURT_DIR=${OPENYURT_DIR:-/var/lib/openyurt}
+STATIC_POD_PATH=${STATIC_POD_PATH:-/etc/kubernetes/manifests}
+ACTION=$1
+
+# PROVIDER can be nounset
+set -o nounset
+
+declare -r YURTHUB_TEMPLATE='
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    k8s-app: yurt-hub
+  name: yurt-hub
+  namespace: kube-system
+spec:
+  volumes:
+  - name: hub-dir
+    hostPath:
+      path: /var/lib/yurthub
+      type: DirectoryOrCreate
+  - name: kubernetes
+    hostPath:
+      path: /etc/kubernetes
+      type: Directory
+  containers:
+  - name: yurt-hub
+    image: __yurthub_image__
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: hub-dir
+      mountPath: /var/lib/yurthub
+    - name: kubernetes
+      mountPath: /etc/kubernetes
+    command:
+    - yurthub
+    - --v=2
+    - --server-addr=__kubernetes_service_addr__
+    - --node-name=$(NODE_NAME)
+    - --join-token=__join_token__
+    livenessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /v1/healthz
+        port: 10261
+      initialDelaySeconds: 300
+      periodSeconds: 5
+      failureThreshold: 3
+    resources:
+      requests:
+        cpu: 150m
+        memory: 150Mi
+      limits:
+        memory: 300Mi
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "NET_RAW"]
+    env:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  priority: 2000001000
+'
+
+# log outputs the log message with date and program prefix
+log() {
+    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [LOG] $@"
+}
+
+# error outputs the error message with data program prefix
+error() {
+    echo "$(date +"%m/%d/%Y-%T-%Z") [YURT_SERVANT] [ERROR] $@"
+}
+
+check_addr()
+{
+    echo $1|grep -E '^(http(s)?:\/\/)?[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+(:[0-9]{1,5})?$' > /dev/null;
+    if [ $? -ne 0 ]
+    then
+        log "apiserver addr $1 is error."
+        exit 1
+    fi
+
+   log "apiserver addr $1 is ok."
+   return 0
+}
+
+# preset creates the /var/lib/kubelet/pki/kubelet-client-current.pem if 
+# it does not exist
+preset() {
+    # if $KUBELET_CLI_PEM doesn't exist, create one based on 'client-certificate-data'
+    # and 'client-key-data' of $KUBELET_CONF
+    if [ ! -f $KUBELET_SVC ]; then
+        log "$KUBELET_SVC don't exist."
+        exit 1
+    fi
+    if [ ! -d $STATIC_POD_PATH ]; then
+      log "$STATIC_POD_PATH don't exist."
+      exit 1
+    fi
+}
+
+# setup_yurthub sets up the yurthub pod and wait for the its status to be Running
+setup_yurthub() {
+    # 1. put yurt-hub yaml into /etc/kubernetes/manifests
+    log "setting up yurthub on nodes"
+    KUBELET_CONF=`cat $KUBELET_SVC | grep -Eo '\-\-kubeconfig=.*kubelet.conf' | awk -F '=' '{print $2}'`
+    apiserver_addr=`cat $KUBELET_CONF | grep "server:" | awk  '{print $2}'`
+    check_addr $apiserver_addr
+    log "setting up yurthub apiserver addr ${apiserver_addr}."
+    yurthub_yaml=$(echo "$YURTHUB_TEMPLATE" |
+    sed "s|__kubernetes_service_addr__|${apiserver_addr}|")
+
+    echo "$yurthub_yaml" > ${STATIC_POD_PATH}/yurt-hub.yaml
+    log "create the ${STATIC_POD_PATH}/yurt-hub.yaml"
+    # 2. wait yurthub pod to be ready
+    local retry=5
+    while [ $retry -ge 0 ] 
+    do
+        sleep 10
+        # NOTE: context variables need to be replaced before exeuction
+        set +e
+        local hub_healthz
+        hub_healthz=$(netstat -nlutp | grep 10261 | wc -l)
+        set -e
+
+        if [ "$hub_healthz" == "1" ]; then
+            log "yurt-hub-$NODE_NAME healthz is OK"
+            return 
+        else 
+            retry=$((retry-1))
+            if [ $retry -ge 0 ]; then
+                log "yurt-hub-$NODE_NAME is not ready, will retry $retry times"
+            else 
+                error "yurt-hub-$NODE_NAME failed, after retry 5 times"
+                exit 1
+            fi
+            continue
+        fi
+    done
+}
+
+# reset_kubelet changes the configuration of the kubelet service and restart it
+reset_kubelet() {
+    # 1. create a working dir to store revised kubelet.conf 
+    mkdir -p $OPENYURT_DIR
+    cp $KUBELET_CONF $OPENYURT_DIR/    
+    # 2. revise the copy of the kubelet.conf
+    cat << EOF  > $OPENYURT_DIR/kubelet.conf
+apiVersion: v1
+clusters:
+- cluster:
+    server: http://127.0.0.1:10261
+  name: default-cluster
+contexts:
+- context:
+    cluster: default-cluster
+    namespace: default
+    user: default-auth
+  name: default-context
+current-context: default-context
+kind: Config
+preferences: {}
+EOF
+    log "revised kubeconfig $OPENYURT_DIR/kubelet.conf is generated"
+    # 3. revise the kubelet.service drop-in 
+    # 3.1 make a backup for the origin kubelet.service
+    cp $KUBELET_SVC ${KUBELET_SVC}.bk
+    # 3.2 revise the drop-in, point it to the $OPENYURT_DIR/kubelet.conf
+    sed -i "s/--bootstrap.*bootstrap-kubelet.conf//g;
+        s|--kubeconfig=.*kubelet.conf|--kubeconfig=$OPENYURT_DIR\/kubelet.conf|g" $KUBELET_SVC
+    log "kubelet.service drop-in file is revised"
+    # 4. reset the kubelete.service
+    systemctl daemon-reload
+    systemctl restart kubelet.service
+    log "kubelet has been restarted"
+}
+
+# remove_yurthub deletes the yurt-hub pod
+remove_yurthub() {
+    # remove the yurt-hub.yaml to delete the yurt-hub 
+    [ -f $STATIC_POD_PATH/yurt-hub.yaml ] &&
+        rm $STATIC_POD_PATH/yurt-hub.yaml
+    log "yurt-hub has been removed"
+}
+
+# revert_kubelet resets the kubelet service and makes it connect to the 
+# apiserver directly
+revert_kubelet() {
+    # 1. remove openyurt's kubelet.conf if exist
+    [ -f $OPENYURT_DIR/kubelet.conf ] && rm $OPENYURT_DIR/kubelet.conf
+    if [ -f ${KUBELET_SVC}.bk ]; then
+        # if found, use the backup file 
+        log "found backup file ${KUBELET_SVC}.bk, will use it to revert the node"
+        mv ${KUBELET_SVC}.bk $KUBELET_SVC
+    else
+        # if the backup file doesn't not exist, revise the kubelet.service drop-in
+        log "didn't find the ${KUBELET_SVC}.bk, will revise the $KUBELET_SVC directly"
+        exit 1
+    fi
+    # 2. reset the kubelete.service
+    systemctl daemon-reload
+    systemctl restart kubelet.service
+    log "kubelet has been reset back to default"
+}
+
+case $ACTION in
+    convert)
+        preset
+        setup_yurthub
+        reset_kubelet
+        ;;
+    revert)
+        revert_kubelet 
+        remove_yurthub
+        ;;
+    *)
+        error "unknown action $ACTION"
+        exit 1
+        ;;
+esac
+
+
+
+log "done"

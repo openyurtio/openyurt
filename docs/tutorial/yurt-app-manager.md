@@ -35,41 +35,41 @@ cat <<EOF | kubectl apply -f -
 apiVersion: apps.openyurt.io/v1alpha1
 kind: NodePool
 metadata:
-  name: Pool-A
+  name: pool-a
 spec:
   type: Edge
   annotations:
-    apps.openyurt.io/example: test-Pool-A
+    apps.openyurt.io/example: test-pool-a
   labels:
-    apps.openyurt.io/example: test-Pool-A
+    apps.openyurt.io/example: test-pool-a
   taints:
   - key: apps.openyurt.io/example
-    value: test-Pool-A
+    value: test-pool-a
     effect: NoSchedule
 EOF
 ```
 
 - 2 Get NodePool
 ```bash
-$ kubectl get np Pool-A
+$ kubectl get np pool-a
 
 NAME       TYPE   READYNODES   NOTREADYNODES   AGE
-Pool-A     Edge                                28s
+pool-a     Edge                                28s
 ```
 
 - 3 Add Node To NodePool
 
-Add an node into `Pool-A` NodePool, Set the `apps.openyurt.io/desired-nodepool` label on the host, and value is the name of the Pool-A NodePool
+Add an node into `pool-a` NodePool, Set the `apps.openyurt.io/desired-nodepool` label on the host, and value is the name of the pool-a NodePool
 ```bash
-$ kubectl label node {Your_Node_Name} apps.openyurt.io/desired-nodepool=Pool-A
+$ kubectl label node {Your_Node_Name} apps.openyurt.io/desired-nodepool=pool-a
 
 {Your_Node_Name} labeled
 ```
 
 ```bash
-$ kubectl get np Pool-A
+$ kubectl get np pool-a
 NAME       TYPE   READYNODES   NOTREADYNODES   AGE
-Pool-A     Edge   1            0               5m19s
+pool-a     Edge   1            0               5m19s
 ```
 
 Once a Node adds a NodePool, it inherits the annotations, labels, and taints defined in the nodepool Spec,at the same time, the Node will add a new tag: `apps.openyurt.io/nodepool`. For Example:
@@ -80,16 +80,16 @@ apiVersion: v1
 kind: Node
 metadata:
   annotations:
-    apps.openyurt.io/example: test-Pool-A
+    apps.openyurt.io/example: test-pool-a
   labels:
-    apps.openyurt.io/desired-nodepool: Pool-A
-    apps.openyurt.io/example: test-Pool-A
-    apps.openyurt.io/nodepool: Pool-A
+    apps.openyurt.io/desired-nodepool: pool-a
+    apps.openyurt.io/example: test-pool-a
+    apps.openyurt.io/nodepool: pool-a
 spec:
   taints:
   - effect: NoSchedule
     key: apps.openyurt.io/example
-    value: test-Pool-A
+    value: test-pool-a
 status:
 ***
 ```
@@ -132,7 +132,7 @@ spec:
         - key: apps.openyurt.io/nodepool
           operator: In
           values:
-          - Pool-A
+          - pool-a
       replicas: 3
       tolerations:
       - effect: NoSchedule
@@ -156,7 +156,7 @@ NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
 ud-test-edge-ttthd   1/1     1            1           100s
 ```
 
-check the pod created by UnitedeDeployment , and you will find that these pods will be created on all the hosts under the `Pool-A` NodePool,  and all the pods created by UnitedDeployment use the same image: `nginx:1.19.1`
+check the pod created by UnitedeDeployment , and you will find that these pods will be created on all the hosts under the `pool-a` NodePool,  and all the pods created by UnitedDeployment use the same image: `nginx:1.19.1`
 
 ```
 $ kubectl get pod -l app=ud-test
