@@ -371,6 +371,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 		accept    string
 		verb      string
 		path      string
+		resource  string
 		code      int
 		data      expectData
 	}{
@@ -391,10 +392,11 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 					},
 				},
 			},
-			accept: "application/json",
-			verb:   "GET",
-			path:   "/api/v1/namespaces/default/pods/mypod1",
-			code:   http.StatusOK,
+			accept:   "application/json",
+			verb:     "GET",
+			path:     "/api/v1/namespaces/default/pods/mypod1",
+			resource: "pods",
+			code:     http.StatusOK,
 			data: expectData{
 				ns:   "default",
 				name: "mypod1",
@@ -407,7 +409,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.desc, func(t *testing.T) {
-			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1")
+			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1", tt.resource)
 			accessor := meta.NewAccessor()
 			for i := range tt.inputObj {
 				name, _ := accessor.Name(tt.inputObj[i])
@@ -495,6 +497,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 		accept    string
 		verb      string
 		path      string
+		resource  string
 		code      int
 		expectD   expectData
 	}{
@@ -537,10 +540,11 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 					},
 				},
 			},
-			accept: "application/json",
-			verb:   "GET",
-			path:   "/api/v1/namespaces/default/pods",
-			code:   http.StatusOK,
+			accept:   "application/json",
+			verb:     "GET",
+			path:     "/api/v1/namespaces/default/pods",
+			resource: "pods",
+			code:     http.StatusOK,
 			expectD: expectData{
 				rv: "6",
 				data: map[string]struct{}{
@@ -556,7 +560,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.desc, func(t *testing.T) {
-			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1")
+			jsonDecoder, _ := serializerM.CreateSerializers(tt.accept, "", "v1", tt.resource)
 			accessor := meta.NewAccessor()
 			for i := range tt.inputObj {
 				name, _ := accessor.Name(tt.inputObj[i])

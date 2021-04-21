@@ -35,6 +35,7 @@ import (
 	nodev1beta1 "k8s.io/api/node/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	runtimejson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -71,6 +72,7 @@ func TestCacheResponse(t *testing.T) {
 		accept       string
 		verb         string
 		path         string
+		resource     string
 		namespaced   bool
 		expectResult expectData
 	}{
@@ -94,6 +96,7 @@ func TestCacheResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods/mypod1",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: expectData{
 				rv:   "1",
@@ -122,6 +125,7 @@ func TestCacheResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods/mypod2",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: expectData{
 				rv:   "3",
@@ -149,6 +153,7 @@ func TestCacheResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/nodes/mynode1",
+			resource:   "nodes",
 			namespaced: false,
 			expectResult: expectData{
 				rv:   "4",
@@ -175,11 +180,126 @@ func TestCacheResponse(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/nodes/mynode2",
+			resource:   "nodes",
 			namespaced: false,
 			expectResult: expectData{
 				rv:   "6",
 				name: "mynode2",
 				kind: "Node",
+			},
+		},
+
+		//used to test whether custom resources can be cached correctly
+		{
+			desc:    "cache response for get crontab",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default/crontab1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab1",
+						"namespace":       "default",
+						"resourceVersion": "1",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab1",
+			resource:   "crontabs",
+			namespaced: true,
+			expectResult: expectData{
+				rv:   "1",
+				name: "crontab1",
+				ns:   "default",
+				kind: "CronTab",
+			},
+		},
+		{
+			desc:    "cache response for get crontab2",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default/crontab2",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab2",
+						"namespace":       "default",
+						"resourceVersion": "3",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab2",
+			resource:   "crontabs",
+			namespaced: true,
+			expectResult: expectData{
+				rv:   "3",
+				name: "crontab2",
+				ns:   "default",
+				kind: "CronTab",
+			},
+		},
+		{
+			desc:    "cache response for get foo without namespace",
+			group:   "samplecontroller.k8s.io",
+			version: "v1",
+			key:     "kubelet/foos/foo1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo1",
+						"resourceVersion": "3",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo1",
+			resource:   "foos",
+			namespaced: false,
+			expectResult: expectData{
+				rv:   "3",
+				name: "foo1",
+				kind: "Foo",
+			},
+		},
+		{
+			desc:    "cache response for get foo2 without namespace",
+			group:   "samplecontroller.k8s.io",
+			version: "v1",
+			key:     "kubelet/foos/foo2",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo2",
+						"resourceVersion": "5",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo2",
+			resource:   "foos",
+			namespaced: false,
+			expectResult: expectData{
+				rv:   "5",
+				name: "foo2",
+				kind: "Foo",
 			},
 		},
 	}
@@ -188,7 +308,7 @@ func TestCacheResponse(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version)
+			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version, tt.resource)
 			if err != nil {
 				t.Fatalf("could not create serializer, %v", err)
 			}
@@ -281,6 +401,21 @@ func TestCacheResponseForWatch(t *testing.T) {
 		return &v1.Pod{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "", Kind: "Pod"},
 			ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: "default", ResourceVersion: rv},
+		}
+	}
+
+	//used to generate the custom resources
+	mkCronTab := func(id string, rv string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "stable.example.com/v1",
+				"kind":       "CronTab",
+				"metadata": map[string]interface{}{
+					"name":            id,
+					"namespace":       "default",
+					"resourceVersion": rv,
+				},
+			},
 		}
 	}
 
@@ -396,6 +531,95 @@ func TestCacheResponseForWatch(t *testing.T) {
 				},
 			},
 		},
+
+		//used to test whether custom resource's watch-events can be cached correctly
+		{
+			desc:    "cache response for watch add crontabs",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default",
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
+				{Type: watch.Added, Object: mkCronTab("crontab2", "4")},
+				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			namespaced: true,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"crontab-default-crontab1-2": {},
+					"crontab-default-crontab2-4": {},
+					"crontab-default-crontab3-6": {},
+				},
+			},
+		},
+		{
+			desc:    "cache response for watch add and delete crontabs",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default",
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
+				{Type: watch.Deleted, Object: mkCronTab("crontab1", "4")},
+				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			namespaced: true,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"crontab-default-crontab3-6": {},
+				},
+			},
+		},
+		{
+			desc:    "cache response for watch add and update crontabs",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default",
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
+				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
+				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			namespaced: true,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"crontab-default-crontab1-4": {},
+					"crontab-default-crontab3-6": {},
+				},
+			},
+		},
+		{
+			desc:    "cache response for watch not update crontabs",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default",
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: mkCronTab("crontab1", "6")},
+				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
+				{Type: watch.Modified, Object: mkCronTab("crontab1", "2")},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
+			namespaced: true,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"crontab-default-crontab1-6": {},
+				},
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
@@ -404,6 +628,7 @@ func TestCacheResponseForWatch(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			r, w := io.Pipe()
 			go func(w *io.PipeWriter) {
+				//For unregistered GVKs, the normal encoding is used by default and the original GVK information is set
 				encoder := restclientwatch.NewEncoder(streaming.NewEncoder(w, getEncoder()), getEncoder())
 
 				for i := range tt.inputObj {
@@ -451,7 +676,6 @@ func TestCacheResponseForWatch(t *testing.T) {
 				objs, err := storage.List(tt.key)
 				if err != nil || len(objs) == 0 {
 					t.Errorf("failed to get object from storage")
-
 				}
 
 				if len(objs) != len(tt.expectResult.data) {
@@ -504,6 +728,7 @@ func TestCacheResponseForList(t *testing.T) {
 		accept       string
 		verb         string
 		path         string
+		resource     string
 		namespaced   bool
 		expectResult expectData
 	}{
@@ -562,6 +787,7 @@ func TestCacheResponseForList(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods",
+			resource:   "pods",
 			namespaced: true,
 			expectResult: expectData{
 				data: map[string]struct{}{
@@ -633,6 +859,7 @@ func TestCacheResponseForList(t *testing.T) {
 			accept:     "application/json",
 			verb:       "GET",
 			path:       "/api/v1/nodes",
+			resource:   "nodes",
 			namespaced: false,
 			expectResult: expectData{
 				data: map[string]struct{}{
@@ -708,13 +935,123 @@ func TestCacheResponseForList(t *testing.T) {
 				data: map[string]struct{}{},
 			},
 		},
+
+		//used to test whether custom resource list can be cached correctly
+		{
+			desc:    "cache response for list crontabs",
+			group:   "stable.example.com",
+			version: "v1",
+			key:     "kubelet/crontabs/default",
+			inputObj: runtime.Object(
+				&unstructured.UnstructuredList{
+					Object: map[string]interface{}{
+						"apiVersion": "stable.example.com/v1",
+						"kind":       "CronTabList",
+						"metadata": map[string]interface{}{
+							"continue":        "",
+							"resourceVersion": "2",
+							"selfLink":        "/apis/stable.example.com/v1/namespaces/default/crontabs",
+						},
+					},
+					Items: []unstructured.Unstructured{
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "stable.example.com/v1",
+								"kind":       "CronTab",
+								"metadata": map[string]interface{}{
+									"name":            "crontab1",
+									"namespace":       "default",
+									"resourceVersion": "1",
+								},
+							},
+						},
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "stable.example.com/v1",
+								"kind":       "CronTab",
+								"metadata": map[string]interface{}{
+									"name":            "crontab2",
+									"namespace":       "default",
+									"resourceVersion": "2",
+								},
+							},
+						},
+					},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs",
+			resource:   "crontabs",
+			namespaced: true,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"crontab-default-crontab1-1": {},
+					"crontab-default-crontab2-2": {},
+				},
+			},
+		},
+		{
+			desc:    "cache response for list foos without namespace",
+			group:   "samplecontroller.k8s.io",
+			version: "v1",
+			key:     "kubelet/foos",
+			inputObj: runtime.Object(
+				&unstructured.UnstructuredList{
+					Object: map[string]interface{}{
+						"apiVersion": "samplecontroller.k8s.io/v1",
+						"kind":       "FooList",
+						"metadata": map[string]interface{}{
+							"continue":        "",
+							"resourceVersion": "2",
+							"selfLink":        "/apis/samplecontroller.k8s.io/v1/foos",
+						},
+					},
+					Items: []unstructured.Unstructured{
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "samplecontroller.k8s.io/v1",
+								"kind":       "Foo",
+								"metadata": map[string]interface{}{
+									"name":            "foo1",
+									"resourceVersion": "1",
+								},
+							},
+						},
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "samplecontroller.k8s.io/v1",
+								"kind":       "Foo",
+								"metadata": map[string]interface{}{
+									"name":            "foo2",
+									"resourceVersion": "2",
+								},
+							},
+						},
+					},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos",
+			resource:   "foos",
+			namespaced: false,
+			expectResult: expectData{
+				data: map[string]struct{}{
+					"foo-foo1-1": {},
+					"foo-foo2-2": {},
+				},
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
 	resolver := newTestRequestInfoResolver()
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version)
+			encoder, err := serializerM.CreateSerializers(tt.accept, tt.group, tt.version, tt.resource)
 			if err != nil {
 				t.Fatalf("could not create serializer, %v", err)
 			}
@@ -953,6 +1290,213 @@ func TestQueryCacheForGet(t *testing.T) {
 				kind: "Node",
 			},
 		},
+
+		//used to test whether the query local Custom Resource request can be handled correctly
+		{
+			desc:       "no client",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab1",
+			namespaced: true,
+			expectResult: expectData{
+				err: true,
+			},
+		},
+		{
+			desc: "query post crontab",
+			key:  "kubelet/crontabs/default/crontab1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab1",
+						"namespace":       "default",
+						"resourceVersion": "1",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "POST",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab1",
+			namespaced: true,
+			expectResult: expectData{
+				err: true,
+			},
+		},
+		{
+			desc: "query get crontab",
+			key:  "kubelet/crontabs/default/crontab1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab1",
+						"namespace":       "default",
+						"resourceVersion": "1",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab1",
+			namespaced: true,
+			expectResult: expectData{
+				rv:   "1",
+				name: "crontab1",
+				ns:   "default",
+				kind: "CronTab",
+			},
+		},
+		{
+			desc: "query update crontab",
+			key:  "kubelet/crontabs/default/crontab2",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab2",
+						"namespace":       "default",
+						"resourceVersion": "2",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "PUT",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab2",
+			namespaced: true,
+			expectResult: expectData{
+				rv:   "2",
+				name: "crontab2",
+				ns:   "default",
+				kind: "CronTab",
+			},
+		},
+		{
+			desc: "query patch crontab",
+			key:  "kubelet/crontabs/default/crontab3",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "stable.example.com/v1",
+					"kind":       "CronTab",
+					"metadata": map[string]interface{}{
+						"name":            "crontab3",
+						"namespace":       "default",
+						"resourceVersion": "4",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "PATCH",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab3/status",
+			namespaced: true,
+			expectResult: expectData{
+				rv:   "4",
+				name: "crontab3",
+				ns:   "default",
+				kind: "CronTab",
+			},
+		},
+		{
+			desc: "query post foo",
+			key:  "kubelet/foos/foo1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo1",
+						"resourceVersion": "1",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "POST",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo1",
+			namespaced: false,
+			expectResult: expectData{
+				err: true,
+			},
+		},
+		{
+			desc: "query get foo",
+			key:  "kubelet/foos/foo1",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo1",
+						"resourceVersion": "1",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo1",
+			namespaced: false,
+			expectResult: expectData{
+				rv:   "1",
+				name: "foo1",
+				kind: "Foo",
+			},
+		},
+		{
+			desc: "query update foo",
+			key:  "kubelet/foos/foo2",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo2",
+						"resourceVersion": "2",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "PUT",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo2",
+			namespaced: false,
+			expectResult: expectData{
+				rv:   "2",
+				name: "foo2",
+				kind: "Foo",
+			},
+		},
+		{
+			desc: "query patch foo",
+			key:  "kubelet/foos/foo3",
+			inputObj: runtime.Object(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "samplecontroller.k8s.io/v1",
+					"kind":       "Foo",
+					"metadata": map[string]interface{}{
+						"name":            "foo3",
+						"resourceVersion": "4",
+					},
+				},
+			}),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "PATCH",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos/foo3/status",
+			namespaced: false,
+			expectResult: expectData{
+				rv:   "4",
+				name: "foo3",
+				kind: "Foo",
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
@@ -1156,6 +1700,109 @@ func TestQueryCacheForList(t *testing.T) {
 					"node-mynode2-8":  {},
 					"node-mynode3-10": {},
 					"node-mynode4-12": {},
+				},
+			},
+		},
+
+		//used to test whether the query local Custom Resource list request can be handled correctly
+		{
+			desc:      "query list crontabs",
+			keyPrefix: "kubelet/crontabs/default",
+			inputObj: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "stable.example.com/v1",
+						"kind":       "CronTab",
+						"metadata": map[string]interface{}{
+							"name":            "crontab1",
+							"namespace":       "default",
+							"resourceVersion": "1",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "stable.example.com/v1",
+						"kind":       "CronTab",
+						"metadata": map[string]interface{}{
+							"name":            "crontab2",
+							"namespace":       "default",
+							"resourceVersion": "2",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "stable.example.com/v1",
+						"kind":       "CronTab",
+						"metadata": map[string]interface{}{
+							"name":            "crontab3",
+							"namespace":       "default",
+							"resourceVersion": "5",
+						},
+					},
+				},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs",
+			namespaced: true,
+			expectResult: expectData{
+				rv: "5",
+				data: map[string]struct{}{
+					"crontab-default-crontab1-1": {},
+					"crontab-default-crontab2-2": {},
+					"crontab-default-crontab3-5": {},
+				},
+			},
+		},
+		{
+			desc:      "query list foos",
+			keyPrefix: "kubelet/foos",
+			inputObj: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "samplecontroller.k8s.io/v1",
+						"kind":       "Foo",
+						"metadata": map[string]interface{}{
+							"name":            "foo1",
+							"resourceVersion": "1",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "samplecontroller.k8s.io/v1",
+						"kind":       "Foo",
+						"metadata": map[string]interface{}{
+							"name":            "foo2",
+							"resourceVersion": "2",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "samplecontroller.k8s.io/v1",
+						"kind":       "Foo",
+						"metadata": map[string]interface{}{
+							"name":            "foo3",
+							"resourceVersion": "5",
+						},
+					},
+				},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos",
+			namespaced: false,
+			expectResult: expectData{
+				rv: "5",
+				data: map[string]struct{}{
+					"foo-foo1-1": {},
+					"foo-foo2-2": {},
+					"foo-foo3-5": {},
 				},
 			},
 		},
