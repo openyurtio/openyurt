@@ -28,7 +28,9 @@ import (
 type Config struct {
 	EgressSelectorEnabled       bool
 	EnableIptables              bool
+	EnableDNSController         bool
 	IptablesSyncPeriod          int
+	DNSSyncPeriod               int
 	CertDNSNames                []string
 	CertIPs                     []net.IP
 	ListenAddrForAgent          string

@@ -1,0 +1,462 @@
+/*
+Copyright 2021 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package dns
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
+	clientset "k8s.io/client-go/kubernetes"
+	corelister "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
+)
+
+const (
+	maxRetries    = 15
+	minSyncPeriod = 30
+
+	yurttunnelDNSRecordConfigMapNs = "kube-system"
+	yurttunnelDNSRecordNodeDataKey = "tunnel-nodes"
+
+	dnatPortPrefix = "dnat-"
+)
+
+var (
+	yurttunnelDNSRecordConfigMapName = fmt.Sprintf("%s-tunnel-nodes",
+		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+)
+
+// DNSRecordController interface defines the method for synchronizing
+// the node dns records with k8s DNS component(such as CoreDNS)
+type DNSRecordController interface {
+	Run(stopCh <-chan struct{})
+}
+
+// coreDNSRecordController implements the DNSRecordController
+type coreDNSRecordController struct {
+	lock                 sync.Mutex
+	kubeClient           clientset.Interface
+	sharedInformerFactor informers.SharedInformerFactory
+	nodeLister           corelister.NodeLister
+	nodeListerSynced     cache.InformerSynced
+	svcInformerSynced    cache.InformerSynced
+	cmInformerSynced     cache.InformerSynced
+	queue                workqueue.RateLimitingInterface
+	tunnelServerIP       string
+	insecurePort         int
+	syncPeriod           int
+}
+
+// NewCoreDNSRecordController create a CoreDNSRecordController that synchronizes node dns records with CoreDNS configuration
+func NewCoreDNSRecordController(client clientset.Interface,
+	informerFactory informers.SharedInformerFactory,
+	listenInsecureAddr string,
+	syncPeriod int) (DNSRecordController, error) {
+
+	_, insecurePortStr, err := net.SplitHostPort(listenInsecureAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	insecurePort, err := strconv.Atoi(insecurePortStr)
+	if err != nil {
+		return nil, err
+	}
+
+	dnsctl := &coreDNSRecordController{
+		kubeClient:           client,
+		syncPeriod:           syncPeriod,
+		insecurePort:         insecurePort,
+		sharedInformerFactor: informerFactory,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+	}
+
+	nodeInformer := informerFactory.Core().V1().Nodes()
+	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    dnsctl.addNode,
+		UpdateFunc: dnsctl.updateNode,
+		DeleteFunc: dnsctl.deleteNode,
+	})
+	dnsctl.nodeLister = nodeInformer.Lister()
+	dnsctl.nodeListerSynced = nodeInformer.Informer().HasSynced
+
+	svcInformer := informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
+	svcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    dnsctl.addService,
+		UpdateFunc: dnsctl.updateService,
+		DeleteFunc: dnsctl.deleteService,
+	})
+	dnsctl.svcInformerSynced = svcInformer.HasSynced
+
+	cmInformer := informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigMapInformer)
+	cmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    dnsctl.addConfigMap,
+		UpdateFunc: dnsctl.updateConfigMap,
+		DeleteFunc: dnsctl.deleteConfigMap,
+	})
+	dnsctl.cmInformerSynced = cmInformer.HasSynced
+
+	// override syncPeriod when the specified value is too small
+	if dnsctl.syncPeriod < minSyncPeriod {
+		dnsctl.syncPeriod = minSyncPeriod
+	}
+
+	return dnsctl, nil
+}
+
+// newServiceInformer creates a shared index informer that returns only interested services
+func newServiceInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelServerServiceName)
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.FieldSelector = selector
+	}
+	return coreinformers.NewFilteredServiceInformer(cs, constants.YurttunnelServerServiceNs, resyncPeriod, nil, tweakListOptions)
+}
+
+// newConfigMapInformer creates a shared index informer that returns only interested configmaps
+func newConfigMapInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	selector := fmt.Sprintf("metadata.name=%v", util.YurttunnelServerDnatConfigMapName)
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.FieldSelector = selector
+	}
+	return coreinformers.NewFilteredConfigMapInformer(cs, util.YurttunnelServerDnatConfigMapNs, resyncPeriod, nil, tweakListOptions)
+}
+
+func (dnsctl *coreDNSRecordController) Run(stopCh <-chan struct{}) {
+	electionChecker := leaderelection.NewLeaderHealthzAdaptor(time.Second * 20)
+	id, err := os.Hostname()
+	if err != nil {
+		klog.Fatalf("failed to get hostname, %v", err)
+	}
+	rl, err := resourcelock.New("leases", metav1.NamespaceSystem, "tunnel-dns-controller",
+		dnsctl.kubeClient.CoreV1(),
+		dnsctl.kubeClient.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity: id + "_" + string(uuid.NewUUID()),
+		})
+	if err != nil {
+		klog.Fatalf("error creating tunnel-dns-controller lock, %v", err)
+	}
+
+	leaderelection.RunOrDie(context.TODO(), leaderelection.LeaderElectionConfig{
+		Lock:          rl,
+		LeaseDuration: metav1.Duration{Duration: time.Second * time.Duration(15)}.Duration,
+		RenewDeadline: metav1.Duration{Duration: time.Second * time.Duration(10)}.Duration,
+		RetryPeriod:   metav1.Duration{Duration: time.Second * time.Duration(2)}.Duration,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				dnsctl.run(stopCh)
+			},
+			OnStoppedLeading: func() {
+				klog.Fatalf("leaderelection lost")
+			},
+		},
+		WatchDog: electionChecker,
+		Name:     "tunnel-dns-controller",
+	})
+	panic("unreachable")
+}
+
+func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer dnsctl.queue.ShutDown()
+
+	klog.Infof("starting tunnel dns controller")
+	defer klog.Infof("shutting down tunnel dns controller")
+
+	if !cache.WaitForNamedCacheSync("tunnel-dns-controller", stopCh,
+		dnsctl.nodeListerSynced, dnsctl.svcInformerSynced, dnsctl.cmInformerSynced) {
+		return
+	}
+
+	if err := dnsctl.ensureCoreDNSRecordConfigMap(); err != nil {
+		klog.Errorf("failed to ensure dns record ConfigMap %v/%v, %v",
+			yurttunnelDNSRecordConfigMapNs, yurttunnelDNSRecordConfigMapName, err)
+		return
+	}
+
+	go wait.Until(dnsctl.worker, time.Second, stopCh)
+
+	// sync dns hosts as a whole
+	go wait.Until(dnsctl.syncDNSRecordAsWhole, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
+
+	// sync tunnel server svc
+	go wait.Until(func() {
+		if err := dnsctl.syncTunnelServerServiceAsWhole(); err != nil {
+			klog.Errorf("failed to sync tunnel server service, %v", err)
+		}
+	}, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
+
+	<-stopCh
+}
+
+func (dnsctl *coreDNSRecordController) enqueue(obj interface{}, eventType EventType) {
+	e := &Event{
+		Obj:  obj,
+		Type: eventType,
+	}
+	dnsctl.queue.Add(e)
+}
+
+func (dnsctl *coreDNSRecordController) worker() {
+	for dnsctl.processNextWorkItem() {
+	}
+}
+
+func (dnsctl *coreDNSRecordController) processNextWorkItem() bool {
+	event, quit := dnsctl.queue.Get()
+	if quit {
+		return false
+	}
+	defer dnsctl.queue.Done(event)
+
+	err := dnsctl.dispatch(event.(*Event))
+	dnsctl.handleErr(err, event)
+
+	return true
+}
+
+func (dnsctl *coreDNSRecordController) dispatch(event *Event) error {
+	switch event.Type {
+	case NodeAdd:
+		return dnsctl.onNodeAdd(event.Obj.(*corev1.Node))
+	case NodeUpdate:
+		return dnsctl.onNodeUpdate(event.Obj.(*corev1.Node))
+	case NodeDelete:
+		return dnsctl.onNodeDelete(event.Obj.(*corev1.Node))
+	case ServiceAdd:
+		return dnsctl.onServiceAdd(event.Obj.(*corev1.Service))
+	case ServiceUpdate:
+		return dnsctl.onServiceUpdate(event.Obj.(*corev1.Service))
+	case ServiceDelete:
+		return dnsctl.onServiceDelete(event.Obj.(*corev1.Service))
+	case ConfigMapAdd:
+		return dnsctl.onConfigMapAdd(event.Obj.(*corev1.ConfigMap))
+	case ConfigMapUpdate:
+		return dnsctl.onConfigMapUpdate(event.Obj.(*corev1.ConfigMap))
+	case ConfigMapDelete:
+		return dnsctl.onConfigMapDelete(event.Obj.(*corev1.ConfigMap))
+	default:
+		return nil
+	}
+}
+
+func (dnsctl *coreDNSRecordController) handleErr(err error, event interface{}) {
+	if err == nil {
+		dnsctl.queue.Forget(event)
+		return
+	}
+
+	if dnsctl.queue.NumRequeues(event) < maxRetries {
+		klog.Infof("error syncing event %v: %v", event, err)
+		dnsctl.queue.AddRateLimited(event)
+		return
+	}
+
+	utilruntime.HandleError(err)
+	klog.Infof("dropping event %q out of the queue: %v", event, err)
+	dnsctl.queue.Forget(event)
+}
+
+func (dnsctl *coreDNSRecordController) ensureCoreDNSRecordConfigMap() error {
+	_, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).
+		Get(yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
+	if err != nil && apierrors.IsNotFound(err) {
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      yurttunnelDNSRecordConfigMapName,
+				Namespace: constants.YurttunnelServerServiceNs,
+			},
+			Data: map[string]string{
+				yurttunnelDNSRecordNodeDataKey: "",
+			},
+		}
+		_, err = dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Create(cm)
+		if err != nil {
+			return fmt.Errorf("failed to create ConfigMap %v/%v, %v",
+				constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
+		}
+	}
+	return err
+}
+
+func (dnsctl *coreDNSRecordController) syncTunnelServerServiceAsWhole() error {
+	klog.V(2).Info("sync tunnel server service as whole")
+	dnatPorts, err := util.GetConfiguredDnatPorts(dnsctl.kubeClient, strconv.Itoa(dnsctl.insecurePort))
+	if err != nil {
+		return err
+	}
+	return dnsctl.updateTunnelServerSvcDnatPorts(dnatPorts)
+}
+
+func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
+	klog.V(2).Info("sync dns record as whole")
+
+	dnsctl.lock.Lock()
+	defer dnsctl.lock.Unlock()
+
+	ip, err := dnsctl.getTunnelServerIP(false)
+	if err != nil {
+		klog.Errorf("failed to sync dns record as whole, %v", err)
+		return
+	}
+
+	nodes, err := dnsctl.nodeLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("failed to sync dns record as whole, %v", err)
+		return
+	}
+
+	records := make([]string, 0, len(nodes))
+	for i := range nodes {
+		node := nodes[i]
+		if !isEdgeNode(node) {
+			ip, err = getNodeHostIP(node)
+			if err != nil {
+				klog.Errorf("failed to parse node address for %v, %v", node.Name, err)
+				continue
+			}
+		}
+		records = append(records, formatDNSRecord(ip, node.Name))
+	}
+
+	if err := dnsctl.updateDNSRecords(records); err != nil {
+		klog.Errorf("failed to sync dns record as whole, %v", err)
+	}
+}
+
+func (dnsctl *coreDNSRecordController) getTunnelServerIP(useCache bool) (string, error) {
+	if useCache && len(dnsctl.tunnelServerIP) != 0 {
+		return dnsctl.tunnelServerIP, nil
+	}
+
+	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
+		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get %v/%v service, %v",
+			constants.YurttunnelServerServiceNs, constants.YurttunnelServerServiceName, err)
+	}
+	if len(svc.Spec.ClusterIP) == 0 {
+		return "", fmt.Errorf("unable find ClusterIP from %s/%s service, %v",
+			constants.YurttunnelServerServiceNs, constants.YurttunnelServerServiceName, err)
+	}
+
+	// cache result
+	dnsctl.tunnelServerIP = svc.Spec.ClusterIP
+
+	return dnsctl.tunnelServerIP, nil
+}
+
+func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error {
+	// keep sorted
+	sort.Strings(records)
+
+	cm, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).
+		Get(yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	cm.Data[yurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
+	if _, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Update(cm); err != nil {
+		return fmt.Errorf("failed to update configmap %v/%v, %v",
+			constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
+	}
+	return nil
+}
+
+func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []string) error {
+	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
+		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to sync tunnel server service, %v", err)
+	}
+
+	changed := false
+
+	svcPortMap := make(map[int32]corev1.ServicePort)
+	for i := range svc.Spec.Ports {
+		port := svc.Spec.Ports[i]
+		svcPortMap[port.Port] = port
+	}
+
+	dnatPortMap := make(map[int]bool)
+	for _, dnatPort := range ports {
+		portInt, err := strconv.Atoi(dnatPort)
+		if err != nil {
+			klog.Errorf("failed to parse dnat port %q, %v", dnatPort, err)
+			continue
+		}
+		dnatPortMap[portInt] = true
+
+		if p, ok := svcPortMap[int32(portInt)]; !ok || p.Protocol != corev1.ProtocolTCP {
+			port := corev1.ServicePort{
+				Name:       fmt.Sprintf("%v%v", dnatPortPrefix, dnatPort),
+				Port:       int32(portInt),
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(dnsctl.insecurePort),
+			}
+			svc.Spec.Ports = append(svc.Spec.Ports, port)
+			changed = true
+		}
+	}
+
+	updatedSvcPorts := make([]corev1.ServicePort, 0, len(svc.Spec.Ports))
+	for i := range svc.Spec.Ports {
+		port := svc.Spec.Ports[i]
+		if strings.HasPrefix(port.Name, dnatPortPrefix) && !dnatPortMap[int(port.Port)] {
+			changed = true
+			continue
+		}
+		updatedSvcPorts = append(updatedSvcPorts, port)
+	}
+
+	if !changed {
+		return nil
+	}
+
+	svc.Spec.Ports = updatedSvcPorts
+	_, err = dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).Update(svc)
+	if err != nil {
+		return fmt.Errorf("failed to sync tunnel server service, %v", err)
+	}
+	return nil
+}
