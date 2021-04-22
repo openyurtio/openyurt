@@ -16,12 +16,13 @@ spec:
     spec:
       nodeSelector:
         beta.kubernetes.io/os: linux
-        __label_prefix__/edge-enable-reverseTunnel-client: "true"
+        __label_prefix__/is-edge-worker: "true"
       containers:
       - command:
         - __project_prefix__-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+        - --node-ip=$(POD_IP)
         - --v=2
         image: __repo__/__project_prefix__-tunnel-agent:__tag__
         imagePullPolicy: IfNotPresent

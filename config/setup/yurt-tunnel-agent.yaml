@@ -16,7 +16,7 @@ spec:
     spec:
       nodeSelector:
         beta.kubernetes.io/os: linux
-        openyurt.io/edge-enable-reverseTunnel-client: "true"
+        openyurt.io/is-edge-worker: "true"
       containers:
       - command:
         - yurt-tunnel-agent
