@@ -26,11 +26,14 @@ var ErrStorageAccessConflict = errors.New("specified key is under accessing")
 // ErrStorageNotFound is an error for not found accessing key
 var ErrStorageNotFound = errors.New("specified key is not found")
 
-// ErrorKeyHasNoContent is an error for file key that has no contents
+// ErrKeyHasNoContent is an error for file key that has no contents
 var ErrKeyHasNoContent = errors.New("specified key has no contents")
 
-// ErrorKeyWithoutContent is an error for key is empty
+// ErrKeyIsEmpty is an error for key is empty
 var ErrKeyIsEmpty = errors.New("specified key is empty")
+
+// ErrRootKeyInvalid is an error for root key is invalid
+var ErrRootKeyInvalid = errors.New("root key is invalid")
 
 // Store is an interface for caching data into backend storage
 type Store interface {
@@ -40,4 +43,6 @@ type Store interface {
 	ListKeys(key string) ([]string, error)
 	List(key string) ([][]byte, error)
 	Update(key string, contents []byte) error
+	Replace(rootKey string, contents map[string][]byte) error
+	DeleteCollection(rootKey string) error
 }

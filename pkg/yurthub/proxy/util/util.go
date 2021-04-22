@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 )
@@ -80,6 +82,53 @@ func WithCacheHeaderCheck(handler http.Handler) http.Handler {
 					req = req.WithContext(ctx)
 				}
 				req.Header.Del(canCacheHeader)
+			}
+		}
+
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// selectorString returns the string of label and field selector
+func selectorString(lSelector labels.Selector, fSelector fields.Selector) string {
+	var ls string
+	var fs string
+	if lSelector != nil {
+		ls = lSelector.String()
+	}
+
+	if fSelector != nil {
+		fs = fSelector.String()
+	}
+
+	switch {
+	case ls != "" && fs != "":
+		return strings.Join([]string{ls, fs}, "&")
+
+	case ls != "":
+		return ls
+
+	case fs != "":
+		return fs
+	}
+
+	return ""
+}
+
+// WithListRequestSelector add label selector and field selector string in list request context.
+func WithListRequestSelector(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+			if info.IsResourceRequest && info.Verb == "list" && info.Name == "" {
+				// list request with fieldSelector=metadata.name does not need to set selector string
+				opts := metainternalversion.ListOptions{}
+				if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err == nil {
+					if str := selectorString(opts.LabelSelector, opts.FieldSelector); str != "" {
+						ctx = util.WithListSelector(ctx, str)
+						req = req.WithContext(ctx)
+					}
+				}
 			}
 		}
 

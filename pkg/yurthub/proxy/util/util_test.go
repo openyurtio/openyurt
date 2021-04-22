@@ -269,3 +269,71 @@ func TestWithRequestTimeout(t *testing.T) {
 		}
 	}
 }
+
+func TestWithListRequestSelector(t *testing.T) {
+	testcases := map[string]struct {
+		Verb        string
+		Path        string
+		HasSelector bool
+		Selector    string
+	}{
+		"list all pods": {
+			Verb:        "GET",
+			Path:        "/api/v1/pods?resourceVersion=1494416105",
+			HasSelector: false,
+			Selector:    "",
+		},
+		"list pods with metadata.name": {
+			Verb:        "GET",
+			Path:        "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&fieldSelector=metadata.name=test",
+			HasSelector: false,
+			Selector:    "",
+		},
+		"list pods with spec nodename": {
+			Verb:        "GET",
+			Path:        "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&fieldSelector=spec.nodeName=test",
+			HasSelector: true,
+			Selector:    "spec.nodeName=test",
+		},
+		"list pods with label selector": {
+			Verb:        "GET",
+			Path:        "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&labelSelector=foo=bar",
+			HasSelector: true,
+			Selector:    "foo=bar",
+		},
+		"list pods with label selector and field selector": {
+			Verb:        "GET",
+			Path:        "/api/v1/namespaces/kube-system/pods?fieldSelector=spec.nodeName=test&labelSelector=foo=bar",
+			HasSelector: true,
+			Selector:    "foo=bar&spec.nodeName=test",
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+			req.RemoteAddr = "127.0.0.1"
+
+			var hasSelector bool
+			var selector string
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := req.Context()
+				selector, hasSelector = util.ListSelectorFrom(ctx)
+			})
+
+			handler = WithListRequestSelector(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if hasSelector != tc.HasSelector {
+				t.Errorf("expect has selector: %v, but got %v", tc.HasSelector, hasSelector)
+			}
+
+			if selector != tc.Selector {
+				t.Errorf("expect list selector %v, but got %v", tc.Selector, selector)
+			}
+		})
+	}
+}

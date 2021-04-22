@@ -343,6 +343,85 @@ func (ds *diskStorage) Update(key string, contents []byte) error {
 	return os.Rename(filepath.Join(ds.baseDir, tmpKey), filepath.Join(ds.baseDir, key))
 }
 
+// Replace will delete all files under rootKey dir and create new files with contents.
+func (ds *diskStorage) Replace(rootKey string, contents map[string][]byte) error {
+	if rootKey == "" {
+		return storage.ErrKeyIsEmpty
+	} else if len(contents) == 0 {
+		return storage.ErrKeyHasNoContent
+	}
+
+	for key := range contents {
+		if !strings.Contains(key, rootKey) {
+			return storage.ErrRootKeyInvalid
+		}
+	}
+
+	if !ds.lockKey(rootKey) {
+		return storage.ErrStorageAccessConflict
+	}
+	defer ds.unLockKey(rootKey)
+
+	// 1. mv old dir into tmp_dir when rootKey dir already exists
+	absPath := filepath.Join(ds.baseDir, rootKey)
+	tmpRootKey := getTmpKey(rootKey)
+	tmpPath := filepath.Join(ds.baseDir, tmpRootKey)
+	dirExisted := false
+	if info, err := os.Stat(absPath); err == nil {
+		if info.IsDir() {
+			err := os.Rename(absPath, tmpPath)
+			if err != nil {
+				return err
+			}
+			dirExisted = true
+		}
+	}
+
+	// 2. create new file with contents
+	// TODO: if error happens, we may need retry mechanism, or add some mechanism to do consistency check.
+	for key, data := range contents {
+		err := ds.create(key, data)
+		if err != nil {
+			klog.Errorf("failed to create %s in replace, %v", key, err)
+			continue
+		}
+	}
+
+	//  3. delete old tmp dir
+	if dirExisted {
+		return os.RemoveAll(tmpPath)
+	}
+
+	return nil
+}
+
+// DeleteCollection delete file or dir that specified by rootKey
+func (ds *diskStorage) DeleteCollection(rootKey string) error {
+	if rootKey == "" {
+		return storage.ErrKeyIsEmpty
+	}
+
+	if !ds.lockKey(rootKey) {
+		return storage.ErrStorageAccessConflict
+	}
+	defer ds.unLockKey(rootKey)
+
+	absKey := filepath.Join(ds.baseDir, rootKey)
+	info, err := os.Stat(absKey)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	} else if info.Mode().IsRegular() {
+		return os.Remove(absKey)
+	} else if info.IsDir() {
+		return os.RemoveAll(absKey)
+	}
+
+	return fmt.Errorf("%s is exist, but not recognized, %v", rootKey, info.Mode())
+}
+
 // Recover recover storage error
 func (ds *diskStorage) Recover(key string) error {
 	if !ds.lockKey(key) {
@@ -395,7 +474,6 @@ func (ds *diskStorage) lockKey(key string) bool {
 		}
 	}
 	ds.keyPendingStatus[key] = struct{}{}
-
 	return true
 }
 
