@@ -42,6 +42,7 @@ spec:
         - yurt-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+        - --node-ip=$(POD_IP)
         image: {{.image}}
         imagePullPolicy: IfNotPresent
         name: yurt-tunnel-agent
