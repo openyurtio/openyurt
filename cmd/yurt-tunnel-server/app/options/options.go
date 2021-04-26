@@ -43,8 +43,10 @@ type ServerOptions struct {
 	CertIPs                string
 	Version                bool
 	EnableIptables         bool
+	EnableDNSController    bool
 	EgressSelectorEnabled  bool
 	IptablesSyncPeriod     int
+	DNSSyncPeriod          int
 	TunnelAgentConnectPort string
 	SecurePort             string
 	InsecurePort           string
@@ -59,7 +61,9 @@ func NewServerOptions() *ServerOptions {
 		BindAddr:               "0.0.0.0",
 		InsecureBindAddr:       "127.0.0.1",
 		EnableIptables:         true,
+		EnableDNSController:    true,
 		IptablesSyncPeriod:     60,
+		DNSSyncPeriod:          1800,
 		ServerCount:            1,
 		TunnelAgentConnectPort: constants.YurttunnelServerAgentPort,
 		SecurePort:             constants.YurttunnelServerMasterPort,
@@ -88,8 +92,10 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CertDNSNames, "cert-dns-names", o.CertDNSNames, "DNS names that will be added into server's certificate. (e.g., dns1,dns2)")
 	fs.StringVar(&o.CertIPs, "cert-ips", o.CertIPs, "IPs that will be added into server's certificate. (e.g., ip1,ip2)")
 	fs.BoolVar(&o.EnableIptables, "enable-iptables", o.EnableIptables, "If allow iptable manager to set the dnat rule.")
+	fs.BoolVar(&o.EnableDNSController, "enable-dns-controller", o.EnableDNSController, "If allow DNS controller to set the dns rules.")
 	fs.BoolVar(&o.EgressSelectorEnabled, "egress-selector-enable", o.EgressSelectorEnabled, "If the apiserver egress selector has been enabled.")
 	fs.IntVar(&o.IptablesSyncPeriod, "iptables-sync-period", o.IptablesSyncPeriod, "The synchronization period of the iptable manager.")
+	fs.IntVar(&o.DNSSyncPeriod, "dns-sync-period", o.DNSSyncPeriod, "The synchronization period of the DNS controller.")
 	fs.IntVar(&o.ServerCount, "server-count", o.ServerCount, "The number of proxy server instances, should be 1 unless it is an HA server.")
 	fs.StringVar(&o.ProxyStrategy, "proxy-strategy", o.ProxyStrategy, "The strategy of proxying requests from tunnel server to agent.")
 	fs.StringVar(&o.TunnelAgentConnectPort, "tunnel-agent-connect-port", o.TunnelAgentConnectPort, "The port on which to serve tcp packets from tunnel agent")
@@ -103,7 +109,9 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	cfg := &config.Config{
 		EgressSelectorEnabled: o.EgressSelectorEnabled,
 		EnableIptables:        o.EnableIptables,
+		EnableDNSController:   o.EnableDNSController,
 		IptablesSyncPeriod:    o.IptablesSyncPeriod,
+		DNSSyncPeriod:         o.DNSSyncPeriod,
 		CertDNSNames:          make([]string, 0),
 		CertIPs:               make([]net.IP, 0),
 		ServerCount:           o.ServerCount,

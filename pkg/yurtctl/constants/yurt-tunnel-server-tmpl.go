@@ -152,6 +152,7 @@ spec:
         - yurt-tunnel-server
         args:
         - --bind-address=$(NODE_IP)
+        - --insecure-bind-address=$(NODE_IP)
         - --server-count=1
         env:
         - name: NODE_IP

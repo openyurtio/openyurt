@@ -23,8 +23,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -37,6 +35,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/metrics"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 )
 
 const (
@@ -48,15 +47,9 @@ const (
 	yurttunnelServerPortChain = "TUNNEL-PORT"
 	yurttunnelPortChainPrefix = "TUNNEL-PORT-"
 	defaultSyncPeriod         = 15
-
-	// constants related dnat rules configmap
-	yurttunnelServerDnatConfigMapNs = "kube-system"
-	yurttunnelServerDnatDataKey     = "dnat-ports-pair"
 )
 
 var (
-	yurttunnelServerDnatConfigMapName = fmt.Sprintf("%s-tunnel-server-cfg",
-		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 	tunnelCommentStr   = strings.ReplaceAll(projectinfo.GetTunnelName(), "-", " ")
 	iptablesJumpChains = []iptablesJumpChain{
 		{
@@ -199,46 +192,6 @@ func (im *iptablesManager) deleteJumpChains(jumpChains []iptablesJumpChain) erro
 		}
 	}
 	return nil
-}
-
-func (im *iptablesManager) getConfiguredDnatPorts() []string {
-	ports := make([]string, 0)
-	c, err := im.kubeClient.CoreV1().
-		ConfigMaps(yurttunnelServerDnatConfigMapNs).
-		Get(yurttunnelServerDnatConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			klog.V(4).Infof("configmap %s/%s is not found",
-				yurttunnelServerDnatConfigMapNs,
-				yurttunnelServerDnatConfigMapName)
-		} else {
-			klog.Errorf("fail to get configmap %s/%s: %v",
-				yurttunnelServerDnatConfigMapNs,
-				yurttunnelServerDnatConfigMapName, err)
-		}
-		return ports
-	}
-
-	pairStr, ok := c.Data[yurttunnelServerDnatDataKey]
-	if !ok || len(pairStr) == 0 {
-		return ports
-	}
-
-	portsPair := strings.Split(pairStr, ",")
-	for _, pair := range portsPair {
-		portPair := strings.Split(pair, "=")
-		// we only allowed user to add dnat rule that uses insecure port as the
-		// destination port.
-		if len(portPair) == 2 &&
-			portPair[1] == im.insecurePort &&
-			len(portPair[0]) != 0 {
-			if portPair[0] != "10250" && portPair[0] != "10255" {
-				ports = append(ports, portPair[0])
-			}
-		}
-	}
-
-	return ports
 }
 
 // getIPOfNodesWithoutAgent returns the ip addresses of all nodes that
@@ -508,7 +461,11 @@ func parametersWithFamily(isIPv6 bool, parameters ...string) []string {
 // while the request to access the cloud node is returned
 func (im *iptablesManager) syncIptableSetting() {
 	// check if there are new dnat ports
-	dnatPorts := im.getConfiguredDnatPorts()
+	dnatPorts, err := util.GetConfiguredDnatPorts(im.kubeClient, im.insecurePort)
+	if err != nil {
+		klog.Errorf("failed to sync iptables rules, %v", err)
+		return
+	}
 	portsChanged, deletedDnatPorts := im.getDeletedPorts(dnatPorts)
 	currentDnatPorts := append(dnatPorts, kubeletSecurePort, kubeletInsecurePort)
 
@@ -518,7 +475,7 @@ func (im *iptablesManager) syncIptableSetting() {
 	currentNodesIP := append(nodesIP, loopbackAddr)
 
 	// update the iptable setting if necessary
-	err := im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP)
+	err = im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP)
 	if err != nil {
 		klog.Errorf("failed to ensurePortsIptables: %v", err)
 		return

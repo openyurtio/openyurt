@@ -24,6 +24,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/iptables"
@@ -73,6 +74,17 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 
 // run starts the yurttunel-server
 func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
+	// 0. start the DNS controller
+	if cfg.EnableDNSController {
+		dnsController, err := dns.NewCoreDNSRecordController(cfg.Client,
+			cfg.SharedInformerFactory,
+			cfg.ListenInsecureAddrForMaster,
+			cfg.DNSSyncPeriod)
+		if err != nil {
+			return fmt.Errorf("fail to create a new dnsController, %v", err)
+		}
+		go dnsController.Run(stopCh)
+	}
 	// 1. start the IP table manager
 	if cfg.EnableIptables {
 		iptablesMgr := iptables.NewIptablesManager(cfg.Client,

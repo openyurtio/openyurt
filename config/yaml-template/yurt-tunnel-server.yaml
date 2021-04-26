@@ -127,6 +127,7 @@ spec:
         - __project_prefix__-tunnel-server
         args:
         - --bind-address=$(NODE_IP)
+        - --insecure-bind-address=$(NODE_IP)
         - --proxy-strategy=destHost
         - --v=2
         env:
