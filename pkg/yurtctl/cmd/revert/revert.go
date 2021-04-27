@@ -263,7 +263,7 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 	}
 	klog.V(4).Infof("daemonset/%s is deleted", constants.YurttunnelServerComponentName)
 
-	// 2. remove the Service
+	// 2.1 remove the Service
 	if err := client.CoreV1().Services(constants.YurttunnelNamespace).
 		Delete(constants.YurttunnelServerSvcName,
 			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
@@ -271,6 +271,15 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 			constants.YurttunnelServerSvcName, err)
 	}
 	klog.V(4).Infof("service/%s is deleted", constants.YurttunnelServerSvcName)
+
+	// 2.2 remove the internal Service(type=ClusterIP)
+	if err := client.CoreV1().Services(constants.YurttunnelNamespace).
+		Delete(constants.YurttunnelServerInternalSvcName,
+			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the service/%s: %s",
+			constants.YurttunnelServerInternalSvcName, err)
+	}
+	klog.V(4).Infof("service/%s is deleted", constants.YurttunnelServerInternalSvcName)
 
 	// 3. remove the ClusterRoleBinding
 	if err := client.RbacV1().ClusterRoleBindings().
