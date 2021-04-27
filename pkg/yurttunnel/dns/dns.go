@@ -334,7 +334,7 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
 	dnsctl.lock.Lock()
 	defer dnsctl.lock.Unlock()
 
-	ip, err := dnsctl.getTunnelServerIP(false)
+	tunnelServerIP, err := dnsctl.getTunnelServerIP(false)
 	if err != nil {
 		klog.Errorf("failed to sync dns record as whole, %v", err)
 		return
@@ -348,7 +348,7 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
 
 	records := make([]string, 0, len(nodes))
 	for i := range nodes {
-		node := nodes[i]
+		ip, node := tunnelServerIP, nodes[i]
 		if !isEdgeNode(node) {
 			ip, err = getNodeHostIP(node)
 			if err != nil {
