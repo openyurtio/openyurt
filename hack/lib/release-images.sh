@@ -29,7 +29,6 @@ readonly -a YURT_BIN_TARGETS=(
     yurtctl
     yurt-tunnel-server
     yurt-tunnel-agent
-    yurt-app-manager
 )
 
 readonly -a SUPPORTED_ARCH=(
