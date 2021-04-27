@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apiserver/pkg/util/flushwriter"
 	"k8s.io/apiserver/pkg/util/wsstream"
@@ -34,8 +36,7 @@ import (
 )
 
 var (
-	proxyHostHeaderKey     = "X-Tunnel-Proxy-Host"
-	supportedHeaders       = []string{proxyHostHeaderKey, "User-Agent"}
+	supportedHeaders       = []string{constants.ProxyHostHeaderKey, "User-Agent"}
 	HeaderTransferEncoding = "Transfer-Encoding"
 	HeaderChunked          = "chunked"
 )
@@ -278,7 +279,7 @@ func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
 			case <-stopCh:
 				klog.V(3).Infof("chunked request(%s) normally exit", r.URL.String())
 			case <-ctx.Done():
-				klog.V(2).Infof("chunked request(%s) to agent(%s) closed by cloud client, %v", r.URL.String(), r.Header.Get(proxyHostHeaderKey), ctx.Err())
+				klog.V(2).Infof("chunked request(%s) to agent(%s) closed by cloud client, %v", r.URL.String(), r.Header.Get(constants.ProxyHostHeaderKey), ctx.Err())
 				// close connection with tunnel
 				conn.Close()
 			}
