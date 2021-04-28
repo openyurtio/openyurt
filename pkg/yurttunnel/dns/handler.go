@@ -133,7 +133,7 @@ func (dnsctl *coreDNSRecordController) addService(obj interface{}) {
 	if !ok {
 		return
 	}
-	if svc.Namespace != constants.YurttunnelServerServiceNs || svc.Name != constants.YurttunnelServerServiceName {
+	if svc.Namespace != constants.YurttunnelServerServiceNs || svc.Name != constants.YurttunnelServerInternalServiceName {
 		return
 	}
 	klog.V(2).Infof("enqueue service add event for %v/%v", svc.Namespace, svc.Name)

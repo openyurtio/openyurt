@@ -103,6 +103,26 @@ spec:
   selector:
     k8s-app: yurt-tunnel-server
 `
+	YurttunnelServerInternalService = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-internal-svc
+  namespace: kube-system
+  labels:
+    name: yurt-tunnel-server
+spec:
+  ports:
+    - port: 10250
+      targetPort: 10263
+      name: https
+    - port: 10255
+      targetPort: 10264
+      name: http
+  selector:
+    k8s-app: yurt-tunnel-server
+`
+
 	YurttunnelServerConfigMap = `
 apiVersion: v1
 kind: ConfigMap

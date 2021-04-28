@@ -145,7 +145,7 @@ func NewCoreDNSRecordController(client clientset.Interface,
 
 // newServiceInformer creates a shared index informer that returns only interested services
 func newServiceInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelServerServiceName)
+	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelServerInternalServiceName)
 	tweakListOptions := func(options *metav1.ListOptions) {
 		options.FieldSelector = selector
 	}
@@ -370,14 +370,14 @@ func (dnsctl *coreDNSRecordController) getTunnelServerIP(useCache bool) (string,
 	}
 
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
-		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
+		Get(constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get %v/%v service, %v",
-			constants.YurttunnelServerServiceNs, constants.YurttunnelServerServiceName, err)
+			constants.YurttunnelServerServiceNs, constants.YurttunnelServerInternalServiceName, err)
 	}
 	if len(svc.Spec.ClusterIP) == 0 {
 		return "", fmt.Errorf("unable find ClusterIP from %s/%s service, %v",
-			constants.YurttunnelServerServiceNs, constants.YurttunnelServerServiceName, err)
+			constants.YurttunnelServerServiceNs, constants.YurttunnelServerInternalServiceName, err)
 	}
 
 	// cache result
@@ -405,9 +405,9 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 
 func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []string) error {
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
-		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
+		Get(constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to sync tunnel server service, %v", err)
+		return fmt.Errorf("failed to sync tunnel server internal service, %v", err)
 	}
 
 	changed := false

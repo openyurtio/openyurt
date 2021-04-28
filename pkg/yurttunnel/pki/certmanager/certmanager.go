@@ -30,6 +30,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 
 	certificates "k8s.io/api/certificates/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
@@ -55,12 +57,25 @@ func NewYurttunnelServerCertManager(
 		if err == nil {
 			return true, nil
 		}
+
+		// get clusterIP for tunnel server internal service
+		svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
+		if err == nil {
+			if svc.Spec.ClusterIP != "" && net.ParseIP(svc.Spec.ClusterIP) != nil {
+				ips = append(ips, net.ParseIP(svc.Spec.ClusterIP))
+			}
+		} else if errors.IsNotFound(err) {
+			// compatible with versions that not supported dns
+			return true, nil
+		}
+
 		klog.Errorf("failed to get DNS names and ips: %s", err)
 		return false, nil
 	}, stopCh)
 	// add user specified DNS anems and IP addresses
 	dnsNames = append(dnsNames, clCertNames...)
 	ips = append(ips, clIPs...)
+	klog.Infof("subject of tunnel server certificate, ips=%#+v, dnsNames=%#+v", ips, dnsNames)
 
 	return newCertManager(
 		clientset,
