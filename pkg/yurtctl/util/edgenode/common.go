@@ -32,7 +32,7 @@ const (
 	DaemonReload      = "systemctl daemon-reload"
 	RestartKubeletSvc = "systemctl restart kubelet"
 
-	ServerHealthzServer  = "127.0.0.1:10261"
+	ServerHealthzServer  = "127.0.0.1:10267"
 	ServerHealthzURLPath = "/v1/healthz"
 	OpenyurtKubeletConf  = `
 apiVersion: v1

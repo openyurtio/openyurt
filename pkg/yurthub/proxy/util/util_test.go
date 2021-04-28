@@ -238,6 +238,48 @@ func TestWithRequestTimeout(t *testing.T) {
 			Timeout: 21,
 			Err:     context.DeadlineExceeded,
 		},
+
+		"no reduce timeout cancel list": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods?resourceVersion=1494416105&timeout=5s&timeoutSeconds=5",
+			Timeout: 2,
+			Err:     nil,
+		},
+
+		"reduce timeout cancel list": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods?resourceVersion=1494416105&timeout=5s&timeoutSeconds=5",
+			Timeout: 4,
+			Err:     context.DeadlineExceeded,
+		},
+
+		"list with no timeout": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods?resourceVersion=1494416105",
+			Timeout: 4,
+			Err:     nil,
+		},
+
+		"no reduce timeout cancel get": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods/default/nginx?resourceVersion=1494416105&timeout=5s",
+			Timeout: 2,
+			Err:     nil,
+		},
+
+		"reduce timeout cancel get": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods/default/nginx?resourceVersion=1494416105&timeout=5s",
+			Timeout: 4,
+			Err:     context.DeadlineExceeded,
+		},
+
+		"get with no timeout": {
+			Verb:    "GET",
+			Path:    "/api/v1/pods/default/nginx?resourceVersion=1494416105",
+			Timeout: 4,
+			Err:     nil,
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()

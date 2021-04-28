@@ -44,6 +44,10 @@ func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
 	return fc.healthy
 }
 
+func (fc *fakeChecker) Run() {
+	return
+}
+
 // NewFakeChecker creates a fake checker
 func NewFakeChecker(healthy bool, settings map[string]int) HealthChecker {
 	return &fakeChecker{

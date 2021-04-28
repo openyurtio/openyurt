@@ -27,6 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
@@ -94,7 +95,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if p.loadBalancer.IsHealthy() {
+	if !hubutil.IsKubeletLeaseReq(req) && p.loadBalancer.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)

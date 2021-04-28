@@ -35,9 +35,16 @@ import (
 )
 
 const (
-	canCacheHeader     string = "Edge-Cache"
-	watchTimeoutMargin int64  = 15
+	canCacheHeader          string = "Edge-Cache"
+	watchTimeoutMargin      int64  = 15
+	getAndListTimeoutReduce int64  = 2
 )
+
+var needModifyTimeoutVerb = map[string]bool{
+	"get":   true,
+	"list":  true,
+	"watch": true,
+}
 
 // WithRequestContentType add req-content-type in request context.
 // if no Accept header is set, application/vnd.kubernetes.protobuf will be used
@@ -237,30 +244,50 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 	})
 }
 
-// WithRequestTimeout add timeout context for watch request, and
-// timeout is TimeoutSeconds plus a margin(15 seconds). the timeout
-// context is used to cancel the request for hub missed disconnect
-// signal from kube-apiserver when watch request is ended.
+// 1. WithRequestTimeout add timeout context for watch request.
+//    timeout is TimeoutSeconds plus a margin(15 seconds). the timeout
+//    context is used to cancel the request for hub missed disconnect
+//    signal from kube-apiserver when watch request is ended.
+// 2. WithRequestTimeout reduce timeout context for get/list request.
+//    timeout is Timout reduce a margin(2 seconds). When request remote server fail,
+//    can get data from cache before client timeout.
+
 func WithRequestTimeout(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {
-			if info.IsResourceRequest && info.Verb == "watch" {
-				opts := metainternalversion.ListOptions{}
-				if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
-					klog.Errorf("failed to decode parameter for watch request: %s", util.ReqString(req))
-					util.Err(errors.NewBadRequest(err.Error()), w, req)
-					return
+			if info.IsResourceRequest && needModifyTimeoutVerb[info.Verb] {
+				var timeout time.Duration
+				if info.Verb == "list" || info.Verb == "watch" {
+					opts := metainternalversion.ListOptions{}
+					if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
+						klog.Errorf("failed to decode parameter for list/watch request: %s", util.ReqString(req))
+						util.Err(errors.NewBadRequest(err.Error()), w, req)
+						return
+					}
+					if opts.TimeoutSeconds != nil {
+						if info.Verb == "watch" {
+							timeout = time.Duration(*opts.TimeoutSeconds+watchTimeoutMargin) * time.Second
+						} else if *opts.TimeoutSeconds > getAndListTimeoutReduce {
+							timeout = time.Duration(*opts.TimeoutSeconds-getAndListTimeoutReduce) * time.Second
+						}
+					}
+				} else if info.Verb == "get" {
+					query := req.URL.Query()
+					if str, _ := query["timeout"]; len(str) > 0 {
+						if t, err := time.ParseDuration(str[0]); err == nil {
+							if t > time.Duration(getAndListTimeoutReduce)*time.Second {
+								timeout = t - time.Duration(getAndListTimeoutReduce)*time.Second
+							}
+						}
+					}
 				}
-
-				if opts.TimeoutSeconds != nil {
-					timeout := time.Duration(*opts.TimeoutSeconds+watchTimeoutMargin) * time.Second
+				if timeout > 0 {
 					ctx, cancel := context.WithTimeout(req.Context(), timeout)
 					defer cancel()
 					req = req.WithContext(ctx)
 				}
 			}
 		}
-
 		handler.ServeHTTP(w, req)
 	})
 }
