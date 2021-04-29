@@ -90,11 +90,11 @@ function build_docker_image() {
                local docker_file_path=${docker_build_path}/Dockerfile.${binary_name}-${arch}
                mkdir -p ${docker_build_path}
 
-               local yurt_component_image
+               local yurt_component_name
                local base_image
                if [[ ${binary} =~ yurtctl ]]
                then
-                 yurt_component_image=$REPO/yurtctl-servant:$TAG-$arch
+                 yurt_component_name="yurtctl-servant"
                  case $arch in
                   amd64)
                       base_image="amd64/alpine:3.9"
@@ -114,7 +114,7 @@ FROM ${base_image}
 ADD ${binary_name} /usr/local/bin/yurtctl
 EOF
                else
-                 yurt_component_image="${REPO}/${binary_name}:${TAG}-${arch}"
+                 yurt_component_name=${binary_name}
                  base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
                  cat <<EOF > "${docker_file_path}"
 FROM ${base_image}
@@ -123,9 +123,10 @@ ENTRYPOINT ["/usr/local/bin/${binary_name}"]
 EOF
                fi
 
+               yurt_component_image="${REPO}/${yurt_component_name}:${TAG}-${arch}"
                ln "${binary_path}" "${docker_build_path}/${binary_name}"
                docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" ${docker_build_path}
-               docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${binary_name}-${SUPPORTED_OS}-${arch}.tar
+               docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${yurt_component_name}-${SUPPORTED_OS}-${arch}.tar
                rm -rf ${docker_build_path}
             fi
         done
