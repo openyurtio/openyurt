@@ -18,6 +18,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
@@ -37,14 +38,15 @@ type Server interface {
 // and hubServer handles requests by hub agent itself, like profiling, metrics, healthz
 // and proxyServer does not handle requests locally and proxy requests to kube-apiserver
 type yurtHubServer struct {
-	hubServer   *http.Server
-	proxyServer *http.Server
+	hubServer        *http.Server
+	proxyServer      *http.Server
+	dummyProxyServer *http.Server
 }
 
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
-	proxyHandler http.Handler) Server {
+	proxyHandler http.Handler) (Server, error) {
 	hubMux := mux.NewRouter()
 	registerHandlers(hubMux, cfg, certificateMgr)
 	hubServer := &http.Server{
@@ -59,10 +61,24 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	return &yurtHubServer{
-		hubServer:   hubServer,
-		proxyServer: proxyServer,
+	var dummyProxyServer *http.Server
+	if cfg.EnableDummyIf {
+		if _, err := net.InterfaceByName(cfg.HubAgentDummyIfName); err != nil {
+			return nil, err
+		}
+
+		dummyProxyServer = &http.Server{
+			Addr:           cfg.YurtHubProxyServerDummyAddr,
+			Handler:        proxyHandler,
+			MaxHeaderBytes: 1 << 20,
+		}
 	}
+
+	return &yurtHubServer{
+		hubServer:        hubServer,
+		proxyServer:      proxyServer,
+		dummyProxyServer: dummyProxyServer,
+	}, nil
 }
 
 // Run will start hub server and proxy server
@@ -73,6 +89,15 @@ func (s *yurtHubServer) Run() {
 			panic(err)
 		}
 	}()
+
+	if s.dummyProxyServer != nil {
+		go func() {
+			err := s.dummyProxyServer.ListenAndServe()
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	err := s.proxyServer.ListenAndServe()
 	if err != nil {

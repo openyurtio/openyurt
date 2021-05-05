@@ -26,6 +26,7 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
+	github.com/vishvananda/netlink v0.0.0-20171020171820-b2de5d10e38e
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect

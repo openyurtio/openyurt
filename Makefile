@@ -26,7 +26,7 @@ gen-yaml:
 
 # Run test
 test: fmt vet
-	go test -v ./pkg/... ./cmd/... -coverprofile cover.out
+	go test -v -short ./pkg/... ./cmd/... -coverprofile cover.out
 	go test -v  -coverpkg=./pkg/yurttunnel/...  -coverprofile=yurttunnel-cover.out ./test/integration/yurttunnel_test.go
 
 # Run go fmt against code

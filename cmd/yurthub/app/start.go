@@ -29,6 +29,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
@@ -157,10 +158,27 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
+	if cfg.EnableDummyIf {
+		klog.Infof("%d. create dummy network interface %s and init iptables manager", trace, cfg.HubAgentDummyIfName)
+		networkMgr, err := network.NewNetworkManager(cfg)
+		if err != nil {
+			klog.Errorf("could not create network manager, %v", err)
+			return err
+		}
+		networkMgr.Run(stopCh)
+		trace++
+		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr)
+	}
+
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubServerAddr)
-	s := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
+	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
+	if err != nil {
+		klog.Errorf("could not create hub server, %v", err)
+		return err
+	}
 	s.Run()
 
+	klog.Infof("hub agent exited")
 	<-stopCh
 	return nil
 }
