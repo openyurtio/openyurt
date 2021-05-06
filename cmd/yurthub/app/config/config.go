@@ -30,20 +30,24 @@ import (
 
 // YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
-	LBMode                    string
-	RemoteServers             []*url.URL
-	YurtHubServerAddr         string
-	YurtHubProxyServerAddr    string
-	GCFrequency               int
-	CertMgrMode               string
-	NodeName                  string
-	HeartbeatFailedRetry      int
-	HeartbeatHealthyThreshold int
-	HeartbeatTimeoutSeconds   int
-	MaxRequestInFlight        int
-	JoinToken                 string
-	RootDir                   string
-	EnableProfiling           bool
+	LBMode                      string
+	RemoteServers               []*url.URL
+	YurtHubServerAddr           string
+	YurtHubProxyServerAddr      string
+	YurtHubProxyServerDummyAddr string
+	GCFrequency                 int
+	CertMgrMode                 string
+	NodeName                    string
+	HeartbeatFailedRetry        int
+	HeartbeatHealthyThreshold   int
+	HeartbeatTimeoutSeconds     int
+	MaxRequestInFlight          int
+	JoinToken                   string
+	RootDir                     string
+	EnableProfiling             bool
+	EnableDummyIf               bool
+	EnableIptables              bool
+	HubAgentDummyIfName         string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -55,21 +59,26 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
+	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	cfg := &YurtHubConfiguration{
-		LBMode:                    options.LBMode,
-		RemoteServers:             us,
-		YurtHubServerAddr:         hubServerAddr,
-		YurtHubProxyServerAddr:    proxyServerAddr,
-		GCFrequency:               options.GCFrequency,
-		CertMgrMode:               options.CertMgrMode,
-		NodeName:                  options.NodeName,
-		HeartbeatFailedRetry:      options.HeartbeatFailedRetry,
-		HeartbeatHealthyThreshold: options.HeartbeatHealthyThreshold,
-		HeartbeatTimeoutSeconds:   options.HeartbeatTimeoutSeconds,
-		MaxRequestInFlight:        options.MaxRequestInFlight,
-		JoinToken:                 options.JoinToken,
-		RootDir:                   options.RootDir,
-		EnableProfiling:           options.EnableProfiling,
+		LBMode:                      options.LBMode,
+		RemoteServers:               us,
+		YurtHubServerAddr:           hubServerAddr,
+		YurtHubProxyServerAddr:      proxyServerAddr,
+		YurtHubProxyServerDummyAddr: proxyServerDummyAddr,
+		GCFrequency:                 options.GCFrequency,
+		CertMgrMode:                 options.CertMgrMode,
+		NodeName:                    options.NodeName,
+		HeartbeatFailedRetry:        options.HeartbeatFailedRetry,
+		HeartbeatHealthyThreshold:   options.HeartbeatHealthyThreshold,
+		HeartbeatTimeoutSeconds:     options.HeartbeatTimeoutSeconds,
+		MaxRequestInFlight:          options.MaxRequestInFlight,
+		JoinToken:                   options.JoinToken,
+		RootDir:                     options.RootDir,
+		EnableProfiling:             options.EnableProfiling,
+		EnableDummyIf:               options.EnableDummyIf,
+		EnableIptables:              options.EnableIptables,
+		HubAgentDummyIfName:         options.HubAgentDummyIfName,
 	}
 
 	return cfg, nil
