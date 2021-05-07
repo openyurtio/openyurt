@@ -19,6 +19,7 @@ package convert
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -51,12 +52,18 @@ const (
 	ProviderKind Provider = "kind"
 )
 
+const (
+	// defaultYurthubHealthCheckTimeout defines the default timeout for yurthub health check phase
+	defaultYurthubHealthCheckTimeout = 2 * time.Minute
+)
+
 // ConvertOptions has the information that required by convert operation
 type ConvertOptions struct {
 	clientSet                  *kubernetes.Clientset
 	CloudNodes                 []string
 	Provider                   Provider
 	YurhubImage                string
+	YurthubHealthCheckTimeout  time.Duration
 	YurtControllerManagerImage string
 	YurctlServantImage         string
 	YurttunnelServerImage      string
@@ -102,6 +109,8 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurthub-image",
 		"openyurt/yurthub:latest",
 		"The yurthub image.")
+	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
+		"The timeout for yurthub health check.")
 	cmd.Flags().String("yurt-controller-manager-image",
 		"openyurt/yurt-controller-manager:latest",
 		"The yurt-controller-manager image.")
@@ -153,6 +162,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.YurhubImage = yhi
+
+	yurthubHealthCheckTimeout, err := flags.GetDuration("yurthub-healthcheck-timeout")
+	if err != nil {
+		return err
+	}
+	co.YurthubHealthCheckTimeout = yurthubHealthCheckTimeout
 
 	ycmi, err := flags.GetString("yurt-controller-manager-image")
 	if err != nil {
@@ -335,13 +350,14 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return err
 	}
 	if err = kubeutil.RunServantJobs(co.clientSet, map[string]string{
-		"provider":              string(co.Provider),
-		"action":                "convert",
-		"yurtctl_servant_image": co.YurctlServantImage,
-		"yurthub_image":         co.YurhubImage,
-		"joinToken":             joinToken,
-		"pod_manifest_path":     co.PodMainfestPath,
-		"kubeadm_conf_path":     co.KubeadmConfPath,
+		"provider":                    string(co.Provider),
+		"action":                      "convert",
+		"yurtctl_servant_image":       co.YurctlServantImage,
+		"yurthub_image":               co.YurhubImage,
+		"yurthub_healthcheck_timeout": co.YurthubHealthCheckTimeout.String(),
+		"joinToken":                   joinToken,
+		"pod_manifest_path":           co.PodMainfestPath,
+		"kubeadm_conf_path":           co.KubeadmConfPath,
 	}, edgeNodeNames, true); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return

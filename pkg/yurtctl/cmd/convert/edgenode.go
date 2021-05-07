@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
@@ -45,21 +46,21 @@ const (
 	kubeletConfigRegularExpression = "\\-\\-kubeconfig=.*kubelet.conf"
 	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][-\\w]{0,62}(\\.[\\w][-\\w]{0,62})*(:[\\d]{1,5})?"
 	hubHealthzCheckFrequency       = 10 * time.Second
-	failedRetry                    = 5
 	filemode                       = 0666
 	dirmode                        = 0755
 )
 
 // ConvertEdgeNodeOptions has the information required by sub command convert edgenode
 type ConvertEdgeNodeOptions struct {
-	clientSet          *kubernetes.Clientset
-	EdgeNodes          []string
-	YurthubImage       string
-	YurctlServantImage string
-	PodMainfestPath    string
-	JoinToken          string
-	KubeadmConfPath    string
-	openyurtDir        string
+	clientSet                 *kubernetes.Clientset
+	EdgeNodes                 []string
+	YurthubImage              string
+	YurthubHealthCheckTimeout time.Duration
+	YurctlServantImage        string
+	PodMainfestPath           string
+	JoinToken                 string
+	KubeadmConfPath           string
+	openyurtDir               string
 }
 
 // NewConvertEdgeNodeOptions creates a new ConvertEdgeNodeOptions
@@ -87,6 +88,8 @@ func NewConvertEdgeNodeCmd() *cobra.Command {
 		"The list of edge nodes wanted to be convert.(e.g. -e edgenode1,edgenode2)")
 	cmd.Flags().String("yurthub-image", "openyurt/yurthub:latest",
 		"The yurthub image.")
+	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
+		"The timeout for yurthub health check.")
 	cmd.Flags().String("yurtctl-servant-image", "openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
 	cmd.Flags().String("pod-manifest-path", "",
@@ -113,6 +116,12 @@ func (c *ConvertEdgeNodeOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	c.YurthubImage = yurthubImage
+
+	yurthubHealthCheckTimeout, err := flags.GetDuration("yurthub-healthcheck-timeout")
+	if err != nil {
+		return err
+	}
+	c.YurthubHealthCheckTimeout = yurthubHealthCheckTimeout
 
 	ycsi, err := flags.GetString("yurtctl-servant-image")
 	if err != nil {
@@ -215,12 +224,13 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			return err
 		}
 		if err = kubeutil.RunServantJobs(c.clientSet, map[string]string{
-			"action":                "convert",
-			"yurtctl_servant_image": c.YurctlServantImage,
-			"yurthub_image":         c.YurthubImage,
-			"joinToken":             joinToken,
-			"pod_manifest_path":     c.PodMainfestPath,
-			"kubeadm_conf_path":     c.KubeadmConfPath,
+			"action":                      "convert",
+			"yurtctl_servant_image":       c.YurctlServantImage,
+			"yurthub_image":               c.YurthubImage,
+			"yurthub_healthcheck_timeout": c.YurthubHealthCheckTimeout.String(),
+			"joinToken":                   joinToken,
+			"pod_manifest_path":           c.PodMainfestPath,
+			"kubeadm_conf_path":           c.KubeadmConfPath,
 		}, c.EdgeNodes, true); err != nil {
 			klog.Errorf("fail to run ServantJobs: %s", err)
 			return err
@@ -310,7 +320,7 @@ func (c *ConvertEdgeNodeOptions) SetupYurthub() error {
 	klog.Infof("create the %s/yurt-hub.yaml", c.PodMainfestPath)
 
 	// 2. wait yurthub pod to be ready
-	err = hubHealthcheck()
+	err = hubHealthcheck(c.YurthubHealthCheckTimeout)
 	return err
 }
 
@@ -380,33 +390,23 @@ func (c *ConvertEdgeNodeOptions) getKubeletSvcBackup() string {
 }
 
 // hubHealthcheck will check the status of yurthub pod
-func hubHealthcheck() error {
+func hubHealthcheck(timeout time.Duration) error {
 	serverHealthzURL, err := url.Parse(fmt.Sprintf("http://%s", enutil.ServerHealthzServer))
 	if err != nil {
 		return err
 	}
 	serverHealthzURL.Path = enutil.ServerHealthzURLPath
 
-	intervalTicker := time.NewTicker(hubHealthzCheckFrequency)
-	defer intervalTicker.Stop()
-	retry := failedRetry
-	for {
-		select {
-		case <-intervalTicker.C:
-			_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
-			retry--
-			if err != nil {
-				if retry > 0 {
-					klog.Infof("yurt-hub is not ready, ping cluster healthz with result: %v, will retry %d times", err, retry)
-				} else {
-					return fmt.Errorf("yurt-hub failed after retry 5 times, ping cluster healthz with result: %v", err)
-				}
-			} else {
-				klog.Infof("yurt-hub healthz is OK")
-				return nil
-			}
+	start := time.Now()
+	return wait.PollImmediate(hubHealthzCheckFrequency, timeout, func() (bool, error) {
+		_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
+		if err != nil {
+			klog.Infof("yurt-hub is not ready, ping cluster healthz with result: %v", err)
+			return false, nil
 		}
-	}
+		klog.Infof("yurt-hub healthz is OK after %f seconds", time.Since(start).Seconds())
+		return true, nil
+	})
 }
 
 func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
