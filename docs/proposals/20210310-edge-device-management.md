@@ -493,6 +493,6 @@ In the first implementation, we will support the EdgeX Foundry [Hanoi](https://w
 ## Implementation History
 
 - [x] 03/15/2021: Proposed idea in an issue or [community meeting](https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09).
-- [x] 03/16/YYYY: Present proposal at a [community meeting](https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09) and collect feedbacks.
+- [x] 03/16/2021: Present proposal at a [community meeting](https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09) and collect feedbacks.
 - [x] 04/13/2021: Present the revised proposal at a [community meeting](https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09) and collect feedbacks.
 - [x] 04/14/2021: Finalize the proposal.
