@@ -47,7 +47,7 @@ var needModifyTimeoutVerb = map[string]bool{
 }
 
 // WithRequestContentType add req-content-type in request context.
-// if no Accept header is set, application/vnd.kubernetes.protobuf will be used
+// if no Accept header is set, the request will be reject with a message.
 func WithRequestContentType(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
