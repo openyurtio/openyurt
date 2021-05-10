@@ -223,15 +223,21 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		if err != nil {
 			return err
 		}
-		if err = kubeutil.RunServantJobs(c.clientSet, map[string]string{
-			"action":                      "convert",
-			"yurtctl_servant_image":       c.YurctlServantImage,
-			"yurthub_image":               c.YurthubImage,
-			"yurthub_healthcheck_timeout": c.YurthubHealthCheckTimeout.String(),
-			"joinToken":                   joinToken,
-			"pod_manifest_path":           c.PodMainfestPath,
-			"kubeadm_conf_path":           c.KubeadmConfPath,
-		}, c.EdgeNodes, true); err != nil {
+
+		ctx := map[string]string{
+			"action":                "convert",
+			"yurtctl_servant_image": c.YurctlServantImage,
+			"yurthub_image":         c.YurthubImage,
+			"joinToken":             joinToken,
+			"pod_manifest_path":     c.PodMainfestPath,
+			"kubeadm_conf_path":     c.KubeadmConfPath,
+		}
+
+		if c.YurthubHealthCheckTimeout != defaultYurthubHealthCheckTimeout {
+			ctx["yurthub_healthcheck_timeout"] = c.YurthubHealthCheckTimeout.String()
+		}
+
+		if err = kubeutil.RunServantJobs(c.clientSet, ctx, c.EdgeNodes, true); err != nil {
 			klog.Errorf("fail to run ServantJobs: %s", err)
 			return err
 		}
