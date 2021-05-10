@@ -205,8 +205,8 @@ func (c *checker) check() bool {
 		if !c.isHealthy() && c.healthyCnt >= c.healthyThreshold {
 			c.setHealthy(true)
 			now := time.Now()
-			c.lastTime = now
 			klog.Infof("cluster becomes healthy from %v, unhealthy status lasts %v, remote server: %v", now, now.Sub(c.lastTime), c.remoteServer.String())
+			c.lastTime = now
 			metrics.Metrics.ObserveServerHealthy(c.remoteServer.Host, 1)
 		}
 		return true
@@ -217,8 +217,8 @@ func (c *checker) check() bool {
 	if c.isHealthy() {
 		c.setHealthy(false)
 		now := time.Now()
-		c.lastTime = now
 		klog.Infof("cluster becomes unhealthy from %v, healthy status lasts %v, remote server: %v", time.Now(), now.Sub(c.lastTime), c.remoteServer.String())
+		c.lastTime = now
 		if c.onFailureFunc != nil {
 			c.onFailureFunc(c.remoteServer.Host)
 		}
