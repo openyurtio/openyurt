@@ -349,16 +349,22 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	if err != nil {
 		return err
 	}
-	if err = kubeutil.RunServantJobs(co.clientSet, map[string]string{
-		"provider":                    string(co.Provider),
-		"action":                      "convert",
-		"yurtctl_servant_image":       co.YurctlServantImage,
-		"yurthub_image":               co.YurhubImage,
-		"yurthub_healthcheck_timeout": co.YurthubHealthCheckTimeout.String(),
-		"joinToken":                   joinToken,
-		"pod_manifest_path":           co.PodMainfestPath,
-		"kubeadm_conf_path":           co.KubeadmConfPath,
-	}, edgeNodeNames, true); err != nil {
+
+	ctx := map[string]string{
+		"provider":              string(co.Provider),
+		"action":                "convert",
+		"yurtctl_servant_image": co.YurctlServantImage,
+		"yurthub_image":         co.YurhubImage,
+		"joinToken":             joinToken,
+		"pod_manifest_path":     co.PodMainfestPath,
+		"kubeadm_conf_path":     co.KubeadmConfPath,
+	}
+
+	if co.YurthubHealthCheckTimeout != defaultYurthubHealthCheckTimeout {
+		ctx["yurthub_healthcheck_timeout"] = co.YurthubHealthCheckTimeout.String()
+	}
+
+	if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames, true); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
 	}

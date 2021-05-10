@@ -187,7 +187,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl convert edgenode --yurthub-image {{.yurthub_image}} --yurthub-healthcheck-timeout {{.yurthub_healthcheck_timeout}} --join-token {{.joinToken}} && rm /tmp/yurtctl"
+        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl convert edgenode --yurthub-image {{.yurthub_image}} {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout {{.yurthub_healthcheck_timeout}} {{end}}--join-token {{.joinToken}} && rm /tmp/yurtctl"
         securityContext:
           privileged: true
         volumeMounts:
