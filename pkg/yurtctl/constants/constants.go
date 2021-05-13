@@ -143,6 +143,8 @@ spec:
     spec:
       serviceAccountName: yurt-controller-manager
       hostNetwork: true
+      tolerations:
+      - operator: "Exists"
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node
