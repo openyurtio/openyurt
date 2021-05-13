@@ -103,6 +103,8 @@ spec:
     spec:
       serviceAccountName: __project_prefix__-controller-manager
       hostNetwork: true
+      tolerations:
+      - operator: "Exists"
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node
