@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"flag"
 	"math/rand"
 	"os"
@@ -85,7 +86,7 @@ func PreCheckOk() bool {
 		return false
 	}
 
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := c.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("pre_check_get_nodes failed errmsg:%v", err)
 		return false

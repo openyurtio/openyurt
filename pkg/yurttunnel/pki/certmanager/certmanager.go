@@ -17,6 +17,7 @@ limitations under the License.
 package certmanager
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -59,7 +60,7 @@ func NewYurttunnelServerCertManager(
 		}
 
 		// get clusterIP for tunnel server internal service
-		svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
+		svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 		if err == nil {
 			if svc.Spec.ClusterIP != "" && net.ParseIP(svc.Spec.ClusterIP) != nil {
 				ips = append(ips, net.ParseIP(svc.Spec.ClusterIP))

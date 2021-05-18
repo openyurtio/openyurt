@@ -19,6 +19,7 @@ package yurttunnel
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -52,7 +53,7 @@ const (
 )
 
 func PreCheckNode(c clientset.Interface) error {
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := c.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("pre_check_get_nodes failed errmsg:%v", err)
 		return err
@@ -73,7 +74,7 @@ func PreCheckNode(c clientset.Interface) error {
 }
 
 func PreCheckTunnelPod(c clientset.Interface) error {
-	pods, err := c.CoreV1().Pods("").List(metav1.ListOptions{})
+	pods, err := c.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("pre_check_get_pods failed errmsg:%v", err)
 		return err

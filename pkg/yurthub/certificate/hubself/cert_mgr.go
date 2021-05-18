@@ -17,6 +17,7 @@ limitations under the License.
 package hubself
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -257,7 +258,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 	}
 
 	// make sure configMap kube-public/cluster-info in k8s cluster beforehand
-	insecureClusterInfo, err := insecureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(ClusterInfoName, metav1.GetOptions{})
+	insecureClusterInfo, err := insecureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), ClusterInfoName, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("failed to get cluster-info configmap, %v", err)
 		return err
@@ -326,7 +327,8 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	ycm.hubClientCertPath = s.CurrentPath()
 
 	m, err := certificate.NewManager(&certificate.Config{
-		ClientFn: ycm.generateCertClientFn,
+		ClientFn:   ycm.generateCertClientFn,
+		SignerName: certificates.KubeAPIServerClientKubeletSignerName,
 		Template: &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   fmt.Sprintf("system:node:%s", ycm.nodeName),

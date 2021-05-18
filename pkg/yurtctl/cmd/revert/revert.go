@@ -17,6 +17,7 @@ limitations under the License.
 package revert
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -125,7 +126,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	klog.V(4).Info("the server version is valid")
 
 	// 1.1. check the state of worker nodes
-	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
 	}
@@ -153,7 +154,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		if ok && isEdgeNode == "false" {
 			// remove the label for both the cloud node
 			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
-			if _, err = ro.clientSet.CoreV1().Nodes().Update(&node); err != nil {
+			if _, err = ro.clientSet.CoreV1().Nodes().Update(context.Background(), &node, metav1.UpdateOptions{}); err != nil {
 				return
 			}
 		}
@@ -162,7 +163,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 3. remove the yurt controller manager
 	if err = ro.clientSet.AppsV1().Deployments("kube-system").
-		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove yurt controller manager: %s", err)
@@ -172,7 +173,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 3.1 remove the serviceaccount for yurt-controller-manager
 	if err = ro.clientSet.CoreV1().ServiceAccounts("kube-system").
-		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove serviceaccount for yurt controller manager: %s", err)
@@ -182,7 +183,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 3.2 remove the clusterrole for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoles().
-		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove clusterrole for yurt controller manager: %s", err)
@@ -192,7 +193,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 3.3 remove the clusterrolebinding for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoleBindings().
-		Delete("yurt-controller-manager", &metav1.DeleteOptions{
+		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Errorf("fail to remove clusterrolebinding for yurt controller manager: %s", err)
@@ -230,7 +231,8 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			},
 		},
 	}
-	if _, err = ro.clientSet.RbacV1().ClusterRoleBindings().Create(ncClusterrolebinding); err != nil && !apierrors.IsAlreadyExists(err) {
+	if _, err = ro.clientSet.RbacV1().ClusterRoleBindings().Create(context.Background(), ncClusterrolebinding,
+		metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 		klog.Errorf("fail to create clusterrolebinding system:controller:node-controller: %v", err)
 		return
 	}
@@ -256,8 +258,8 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 	// 1. remove the DaemonSet
 	if err := client.AppsV1().
 		Deployments(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelServerComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the daemonset/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
@@ -265,8 +267,8 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 
 	// 2.1 remove the Service
 	if err := client.CoreV1().Services(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelServerSvcName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerSvcName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the service/%s: %s",
 			constants.YurttunnelServerSvcName, err)
 	}
@@ -274,8 +276,8 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 
 	// 2.2 remove the internal Service(type=ClusterIP)
 	if err := client.CoreV1().Services(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelServerInternalSvcName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerInternalSvcName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the service/%s: %s",
 			constants.YurttunnelServerInternalSvcName, err)
 	}
@@ -283,8 +285,8 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 
 	// 3. remove the ClusterRoleBinding
 	if err := client.RbacV1().ClusterRoleBindings().
-		Delete(constants.YurttunnelServerComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
@@ -292,8 +294,8 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 
 	// 4. remove the SerivceAccount
 	if err := client.CoreV1().ServiceAccounts(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelServerComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the serviceaccount/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
@@ -301,16 +303,16 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 
 	// 5. remove the ClusterRole
 	if err := client.RbacV1().ClusterRoles().
-		Delete(constants.YurttunnelServerComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
 
 	// 6. remove the ConfigMap
 	if err := client.CoreV1().ConfigMaps(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelServerCmName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelServerCmName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the configmap/%s: %s",
 			constants.YurttunnelServerCmName, err)
 	}
@@ -322,8 +324,8 @@ func removeYurtTunnelAgent(client *kubernetes.Clientset) error {
 	// 1. remove the DaemonSet
 	if err := client.AppsV1().
 		DaemonSets(constants.YurttunnelNamespace).
-		Delete(constants.YurttunnelAgentComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelAgentComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the daemonset/%s: %s",
 			constants.YurttunnelAgentComponentName, err)
 	}
@@ -331,8 +333,8 @@ func removeYurtTunnelAgent(client *kubernetes.Clientset) error {
 
 	// 2. remove the ClusterRoleBinding
 	if err := client.RbacV1().ClusterRoleBindings().
-		Delete(constants.YurttunnelAgentComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelAgentComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
 			constants.YurttunnelAgentComponentName, err)
 	}
@@ -340,8 +342,8 @@ func removeYurtTunnelAgent(client *kubernetes.Clientset) error {
 
 	// 3. remove the ClusterRole
 	if err := client.RbacV1().ClusterRoles().
-		Delete(constants.YurttunnelAgentComponentName,
-			&metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		Delete(context.Background(), constants.YurttunnelAgentComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
 			constants.YurttunnelAgentComponentName, err)
 	}

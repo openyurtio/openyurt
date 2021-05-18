@@ -18,7 +18,6 @@ package local
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -111,12 +111,15 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
-	if info.Resource == "events" {
+	reqContentType, _ := util.ReqContentTypeFrom(ctx)
+	if info.Resource == "events" && len(reqContentType) != 0 {
+		ctx = util.WithRespContentType(ctx, reqContentType)
+		req = req.WithContext(ctx)
 		stopCh := make(chan struct{})
 		rc, prc := util.NewDualReadCloser(req.Body, false)
-		go func(ctx context.Context, prc io.ReadCloser, stopCh <-chan struct{}) {
-			klog.V(2).Infof("cache events when cluster is unhealthy, %v", lp.cacheMgr.CacheResponse(ctx, prc, stopCh))
-		}(ctx, prc, stopCh)
+		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
+			klog.V(2).Infof("cache events when cluster is unhealthy, %v", lp.cacheMgr.CacheResponse(req, prc, stopCh))
+		}(req, prc, stopCh)
 
 		req.Body = rc
 	}
@@ -154,7 +157,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	}
 
 	opts := metainternalversion.ListOptions{}
-	if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
+	if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
 		return errors.NewBadRequest(err.Error())
 	}
 
@@ -202,6 +205,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 
 	obj, err := lp.cacheMgr.QueryCache(req)
 	if err == storage.ErrStorageNotFound {
+		klog.Errorf("object not found for %s", util.ReqString(req))
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
 		return errors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
@@ -212,8 +216,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 		return errors.NewInternalError(fmt.Errorf("no cache object for %s", util.ReqString(req)))
 	}
 
-	util.WriteObject(http.StatusOK, obj, w, req)
-	return nil
+	return util.WriteObject(http.StatusOK, obj, w, req)
 }
 
 func copyHeader(dst, src http.Header) {

@@ -116,7 +116,6 @@ func (sw *storageWrapper) Get(key string) (runtime.Object, error) {
 
 	b, err := sw.store.Get(key)
 	if err != nil {
-		klog.Errorf("could not get object for %s, %v", key, err)
 		return nil, err
 	} else if len(b) == 0 {
 		return nil, nil
@@ -175,12 +174,16 @@ func (sw *storageWrapper) List(key string) ([]runtime.Object, error) {
 		return nil, err
 	}
 	var UnstructuredObj runtime.Object
+	var recognized bool
 	if scheme.Scheme.Recognizes(*gvk) {
-		UnstructuredObj = nil
-	} else {
-		UnstructuredObj = new(unstructured.Unstructured)
+		recognized = true
 	}
+
 	for i := range bb {
+		if !recognized {
+			UnstructuredObj = new(unstructured.Unstructured)
+		}
+
 		obj, gvk, err := sw.backendSerializer.Decode(bb[i], nil, UnstructuredObj)
 		if err != nil {
 			klog.Errorf("could not decode %v for %s, %v", gvk, key, err)

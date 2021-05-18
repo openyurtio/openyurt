@@ -17,6 +17,7 @@ limitations under the License.
 package clusterinfo
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -87,7 +88,7 @@ func (o *ClusterInfoOptions) Validate() error {
 
 func (o *ClusterInfoOptions) Run() (err error) {
 	key := projectinfo.GetEdgeWorkerLabelKey()
-	Nodes, err := o.clientSet.CoreV1().Nodes().List(metav1.ListOptions{})
+	Nodes, err := o.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
 	}

@@ -18,6 +18,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -44,7 +45,7 @@ import (
 
 const (
 	// TODO (k82cn): Figure out a reasonable number of workers/channels and propagate
-	// the number of workers up making it a paramater of Run() function.
+	// the number of workers up making it a parameter of Run() function.
 
 	// NodeUpdateChannelSize defines the size of channel for node update events.
 	NodeUpdateChannelSize = 10
@@ -110,7 +111,7 @@ func deletePodHandler(c clientset.Interface, emitEventFunc func(types.Namespaced
 		}
 		var err error
 		for i := 0; i < retries; i++ {
-			err = c.CoreV1().Pods(ns).Delete(name, &metav1.DeleteOptions{})
+			err = c.CoreV1().Pods(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 			if err == nil {
 				break
 			}

@@ -28,7 +28,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
 	utilnet "k8s.io/utils/net"
@@ -102,8 +101,7 @@ func NewIptablesManager(client clientset.Interface,
 
 	protocol := iptables.ProtocolIpv4
 	execer := exec.New()
-	dbus := utildbus.New()
-	iptInterface := iptables.New(execer, dbus, protocol)
+	iptInterface := iptables.New(execer, protocol)
 
 	if syncPeriod < defaultSyncPeriod {
 		syncPeriod = defaultSyncPeriod

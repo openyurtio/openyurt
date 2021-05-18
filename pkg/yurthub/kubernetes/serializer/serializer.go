@@ -17,10 +17,12 @@ limitations under the License.
 package serializer
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"mime"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,8 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	restclientwatch "k8s.io/client-go/rest/watch"
 	"k8s.io/klog"
 )
@@ -44,13 +46,13 @@ var YurtHubSerializer = NewSerializerManager()
 var UnsafeDefaultRESTMapper = NewDefaultRESTMapperFromScheme()
 
 func NewDefaultRESTMapperFromScheme() *meta.DefaultRESTMapper {
-	scheme := scheme.Scheme
-	defaultGroupVersions := scheme.PrioritizedVersionsAllGroups()
+	s := scheme.Scheme
+	defaultGroupVersions := s.PrioritizedVersionsAllGroups()
 	mapper := meta.NewDefaultRESTMapper(defaultGroupVersions)
 	// enumerate all supported versions, get the kinds, and register with the mapper how to address
 	// our resources.
 	for _, gv := range defaultGroupVersions {
-		for kind := range scheme.KnownTypes(gv) {
+		for kind := range s.KnownTypes(gv) {
 			//Since RESTMapper is only used for mapping GVR to GVK information,
 			//the scope field is not involved in actual use, so all scope are currently set to meta.RESTScopeNamespace
 			scope := meta.RESTScopeNamespace
@@ -60,23 +62,49 @@ func NewDefaultRESTMapperFromScheme() *meta.DefaultRESTMapper {
 	return mapper
 }
 
+type yurtClientNegotiator struct {
+	recognized bool
+	runtime.ClientNegotiator
+}
+
 // SerializerManager is responsible for managing *rest.Serializers
 type SerializerManager struct {
+	sync.Mutex
 	// NegotiatedSerializer is used for obtaining encoders and decoders for multiple
 	// supported media types.
 	NegotiatedSerializer runtime.NegotiatedSerializer
 	// UnstructuredNegotiatedSerializer is used to obtain encoders and decoders
 	// for resources not registered in the scheme
 	UnstructuredNegotiatedSerializer runtime.NegotiatedSerializer
+	// ClientNegotiators includes all of ClientNegotiators by GroupVersionResource
+	ClientNegotiators map[schema.GroupVersionResource]*yurtClientNegotiator
+	// WatchEventClientNegotiator is a ClientNegotiators for WatchEvent
+	WatchEventClientNegotiator runtime.ClientNegotiator
 }
 
 // NewSerializerManager creates a *SerializerManager object with no version conversion
 func NewSerializerManager() *SerializerManager {
-	return &SerializerManager{
+	sm := &SerializerManager{
 		// do not need version conversion, and keep the gvk information
 		NegotiatedSerializer:             WithVersionCodecFactory{CodecFactory: scheme.Codecs},
 		UnstructuredNegotiatedSerializer: NewUnstructuredNegotiatedSerializer(),
+		ClientNegotiators:                make(map[schema.GroupVersionResource]*yurtClientNegotiator),
 	}
+
+	watchEventGVR := metav1.SchemeGroupVersion.WithResource("watchevents")
+	sm.WatchEventClientNegotiator = runtime.NewClientNegotiator(sm.NegotiatedSerializer, watchEventGVR.GroupVersion())
+	sm.ClientNegotiators[watchEventGVR] = &yurtClientNegotiator{recognized: true, ClientNegotiator: sm.WatchEventClientNegotiator}
+	return sm
+}
+
+// GetNegotiatedSerializer returns an NegotiatedSerializer object based on GroupVersionResource
+func (sm *SerializerManager) GetNegotiatedSerializer(gvr schema.GroupVersionResource) runtime.NegotiatedSerializer {
+	_, kindErr := UnsafeDefaultRESTMapper.KindFor(gvr)
+	if kindErr == nil {
+		return sm.NegotiatedSerializer
+	}
+
+	return sm.UnstructuredNegotiatedSerializer
 }
 
 // WithVersionCodecFactory is a CodecFactory that will explicitly ignore requests to perform conversion.
@@ -185,134 +213,161 @@ func (c unstructuredCreator) New(kind schema.GroupVersionKind) (runtime.Object, 
 	}
 }
 
-// CreateSerializers create a *rest.Serializers for encoding or decoding runtime object
-func (sm *SerializerManager) CreateSerializers(contentType, group, version, resource string) (*rest.Serializers, error) {
-	var mediaTypes []runtime.SerializerInfo
+// genClientNegotiator creates a ClientNegotiator for specified GroupVersionResource and gvr is recognized or not
+func (sm *SerializerManager) genClientNegotiator(gvr schema.GroupVersionResource) (runtime.ClientNegotiator, bool) {
+	_, kindErr := UnsafeDefaultRESTMapper.KindFor(gvr)
+	if kindErr == nil {
+		return runtime.NewClientNegotiator(sm.NegotiatedSerializer, gvr.GroupVersion()), true
+	}
+	klog.Infof("%#+v is not found in client-go runtime scheme", gvr)
+	return runtime.NewClientNegotiator(sm.UnstructuredNegotiatedSerializer, gvr.GroupVersion()), false
+
+}
+
+// Serializer is used for transforming objects into a serialized format and back for cache manager of hub agent.
+type Serializer struct {
+	recognized  bool
+	contentType string
+	runtime.ClientNegotiator
+	watchEventClientNegotiator runtime.ClientNegotiator
+}
+
+// CreateSerializer will returns a Serializer object for encoding or decoding runtime object.
+func (sm *SerializerManager) CreateSerializer(contentType, group, version, resource string) *Serializer {
+	var recognized bool
+	var clientNegotiator runtime.ClientNegotiator
 	gvr := schema.GroupVersionResource{
 		Group:    group,
 		Version:  version,
 		Resource: resource,
 	}
-	_, kindErr := UnsafeDefaultRESTMapper.KindFor(gvr)
-	if kindErr == nil || resource == "WatchEvent" {
-		mediaTypes = sm.NegotiatedSerializer.SupportedMediaTypes()
+
+	if len(contentType) == 0 {
+		return nil
+	}
+
+	sm.Lock()
+	defer sm.Unlock()
+	if cn, ok := sm.ClientNegotiators[gvr]; ok {
+		clientNegotiator, recognized = cn.ClientNegotiator, cn.recognized
 	} else {
-		mediaTypes = sm.UnstructuredNegotiatedSerializer.SupportedMediaTypes()
-	}
-	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		return nil, fmt.Errorf("the content type(%s) specified in the request is not recognized: %v", contentType, err)
-	}
-	info, ok := runtime.SerializerInfoForMediaType(mediaTypes, mediaType)
-	if !ok {
-		if mediaType == "application/vnd.kubernetes.protobuf" && kindErr != nil {
-			return nil, fmt.Errorf("*unstructured.Unstructured(%s/%s) does not implement the protobuf marshalling interface and cannot be encoded to a protobuf message", group, version)
+		clientNegotiator, recognized = sm.genClientNegotiator(gvr)
+		sm.ClientNegotiators[gvr] = &yurtClientNegotiator{
+			recognized:       recognized,
+			ClientNegotiator: clientNegotiator,
 		}
-		if len(contentType) != 0 || len(mediaTypes) == 0 {
-			return nil, fmt.Errorf("no serializers registered for %s", contentType)
-		}
-		info = mediaTypes[0]
 	}
 
-	internalGV := schema.GroupVersions{
-		{
-			Group:   group,
-			Version: runtime.APIVersionInternal,
-		},
-		// always include the legacy group as a decoding target to handle non-error `Status` return types
-		{
-			Group:   "",
-			Version: runtime.APIVersionInternal,
-		},
+	return &Serializer{
+		recognized:                 recognized,
+		contentType:                contentType,
+		ClientNegotiator:           clientNegotiator,
+		watchEventClientNegotiator: sm.WatchEventClientNegotiator,
 	}
-	reqGroupVersion := schema.GroupVersion{
-		Group:   group,
-		Version: version,
-	}
-	var encoder runtime.Encoder
-	var decoder runtime.Decoder
-	if kindErr == nil {
-		encoder = sm.NegotiatedSerializer.EncoderForVersion(info.Serializer, &reqGroupVersion)
-		decoder = sm.NegotiatedSerializer.DecoderToVersion(info.Serializer, internalGV)
-	} else {
-		encoder = sm.UnstructuredNegotiatedSerializer.EncoderForVersion(info.Serializer, &reqGroupVersion)
-		decoder = sm.UnstructuredNegotiatedSerializer.DecoderToVersion(info.Serializer, &reqGroupVersion)
-	}
-
-	s := &rest.Serializers{
-		Encoder: encoder,
-		Decoder: decoder,
-
-		RenegotiatedDecoder: func(contentType string, params map[string]string) (runtime.Decoder, error) {
-			info, ok := runtime.SerializerInfoForMediaType(mediaTypes, contentType)
-			if !ok {
-				return nil, fmt.Errorf("serializer for %s not registered", contentType)
-			}
-			if kindErr == nil {
-				return sm.NegotiatedSerializer.DecoderToVersion(info.Serializer, internalGV), nil
-			} else {
-				return sm.UnstructuredNegotiatedSerializer.DecoderToVersion(info.Serializer, &reqGroupVersion), nil
-			}
-		},
-	}
-	if info.StreamSerializer != nil {
-		s.StreamingSerializer = info.StreamSerializer.Serializer
-		s.Framer = info.StreamSerializer.Framer
-	}
-
-	return s, nil
 }
 
-// DecodeResp decodes byte data into runtime object with specified serializers and content type
-func DecodeResp(serializers *rest.Serializers, b []byte, reqContentType, respContentType string) (runtime.Object, error) {
-	decoder := serializers.Decoder
-	if len(respContentType) > 0 && (decoder == nil || (len(reqContentType) > 0 && respContentType != reqContentType)) {
-		mediaType, params, err := mime.ParseMediaType(respContentType)
-		if err != nil {
-			return nil, fmt.Errorf("response content type(%s) is invalid, %v", respContentType, err)
-		}
-		decoder, err = serializers.RenegotiatedDecoder(mediaType, params)
-		if err != nil {
-			return nil, fmt.Errorf("response content type(%s) is not supported, %v", respContentType, err)
-		}
-		klog.Infof("serializer decoder changed from %s to %s(%v)", reqContentType, respContentType, params)
+// Decode decodes byte data into runtime object with embedded contentType.
+func (s *Serializer) Decode(b []byte) (runtime.Object, error) {
+	var decoder runtime.Decoder
+	if len(b) == 0 {
+		return nil, fmt.Errorf("0-length response body, content type: %s", s.contentType)
 	}
 
-	if len(b) == 0 {
-		return nil, fmt.Errorf("0-length response with content type: %s", respContentType)
+	mediaType, params, err := mime.ParseMediaType(s.contentType)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder, err = s.Decoder(mediaType, params)
+	if err != nil {
+		return nil, err
 	}
 
 	out, _, err := decoder.Decode(b, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	// if a different object is returned, see if it is Status and avoid double decoding
-	// the object.
-	switch out.(type) {
-	case *metav1.Status:
-		// it's not need to cache for status
-		return out, nil
-	}
+
 	return out, nil
 }
 
-// CreateWatchDecoder generates a Decoder for watch response
-func CreateWatchDecoder(contentType, group, version, resource string, body io.ReadCloser) (*restclientwatch.Decoder, error) {
-	//get the general serializers to decode the watch event
-	serializers, err := YurtHubSerializer.CreateSerializers(contentType, group, version, "WatchEvent")
+// WatchDecoder generates a Decoder for decoding response of watch request.
+func (s *Serializer) WatchDecoder(body io.ReadCloser) (*restclientwatch.Decoder, error) {
+	var err error
+	var embeddedObjectDecoder runtime.Decoder
+	var streamingSerializer runtime.Serializer
+	var framer runtime.Framer
+	mediaType, params, err := mime.ParseMediaType(s.contentType)
 	if err != nil {
-		klog.Errorf("failed to create serializers in saveWatchObject, %v", err)
 		return nil, err
 	}
 
-	//get the serializers to decode the embedded object inside watch event according to the GVR of embedded object
-	embeddedSerializers, err := YurtHubSerializer.CreateSerializers(contentType, group, version, resource)
+	embeddedObjectDecoder, streamingSerializer, framer, err = s.StreamDecoder(mediaType, params)
 	if err != nil {
-		klog.Errorf("failed to create serializers in saveWatchObject, %v", err)
 		return nil, err
 	}
+	if !s.recognized {
+		// if gvr is not recognized, maybe it's a crd resource, so do not use the same streaming
+		// serializer to decode watch event object, and instead use watch event client negotiator.
+		_, streamingSerializer, framer, err = s.watchEventClientNegotiator.StreamDecoder(mediaType, params)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	framer := serializers.Framer.NewFrameReader(body)
-	streamingDecoder := streaming.NewDecoder(framer, serializers.StreamingSerializer)
-	return restclientwatch.NewDecoder(streamingDecoder, embeddedSerializers.Decoder), nil
+	frameReader := framer.NewFrameReader(body)
+	streamingDecoder := streaming.NewDecoder(frameReader, streamingSerializer)
+	return restclientwatch.NewDecoder(streamingDecoder, embeddedObjectDecoder), nil
+}
+
+// WatchEncode writes watch event to provided io.Writer
+func (s *Serializer) WatchEncode(w io.Writer, event *watch.Event) (int, error) {
+	mediaType, params, err := mime.ParseMediaType(s.contentType)
+	if err != nil {
+		return 0, err
+	}
+
+	// 1. prepare streaming encoder for watch event and embedded encoder for event.object
+	_, streamingSerializer, framer, err := s.watchEventClientNegotiator.StreamDecoder(mediaType, params)
+	if err != nil {
+		return 0, err
+	}
+
+	sw := &sizeWriter{Writer: w}
+	streamingEncoder := streaming.NewEncoder(framer.NewFrameWriter(sw), streamingSerializer)
+	embeddedEncoder, err := s.Encoder(mediaType, params)
+	if err != nil {
+		return 0, err
+	}
+
+	// 2. encode the embedded object into bytes.Buffer
+	buf := &bytes.Buffer{}
+	obj := event.Object
+	if err := embeddedEncoder.Encode(obj, buf); err != nil {
+		return 0, err
+	}
+
+	// 3. make up metav1.WatchEvent and encode it by using streaming encoder
+	outEvent := &metav1.WatchEvent{}
+	outEvent.Type = string(event.Type)
+	outEvent.Object.Raw = buf.Bytes()
+
+	if err := streamingEncoder.Encode(outEvent); err != nil {
+		return 0, err
+	}
+
+	return sw.size, nil
+}
+
+// sizeWriter used to hold total wrote bytes size
+type sizeWriter struct {
+	io.Writer
+	size int
+}
+
+func (sw *sizeWriter) Write(p []byte) (int, error) {
+	n, err := sw.Writer.Write(p)
+	sw.size = sw.size + n
+	klog.V(5).Infof("encode bytes data: write bytes=%d, size=%d, bytes=%v", n, sw.size, p[:n])
+	return n, err
 }

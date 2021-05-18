@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -130,7 +131,7 @@ func WithListRequestSelector(handler http.Handler) http.Handler {
 			if info.IsResourceRequest && info.Verb == "list" && info.Name == "" {
 				// list request with fieldSelector=metadata.name does not need to set selector string
 				opts := metainternalversion.ListOptions{}
-				if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err == nil {
+				if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err == nil {
 					if str := selectorString(opts.LabelSelector, opts.FieldSelector); str != "" {
 						ctx = util.WithListSelector(ctx, str)
 						req = req.WithContext(ctx)
@@ -259,7 +260,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 				var timeout time.Duration
 				if info.Verb == "list" || info.Verb == "watch" {
 					opts := metainternalversion.ListOptions{}
-					if err := metainternalversion.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
+					if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
 						klog.Errorf("failed to decode parameter for list/watch request: %s", util.ReqString(req))
 						util.Err(errors.NewBadRequest(err.Error()), w, req)
 						return

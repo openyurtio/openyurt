@@ -17,6 +17,7 @@ limitations under the License.
 package serveraddr
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -115,7 +116,7 @@ func getTunnelServerResources(clientset kubernetes.Interface) (*v1.Service, *v1.
 	// get x-tunnel-server-svc service
 	svc, err = clientset.CoreV1().
 		Services(constants.YurttunnelServerServiceNs).
-		Get(constants.YurttunnelServerServiceName, metav1.GetOptions{})
+		Get(context.Background(), constants.YurttunnelServerServiceName, metav1.GetOptions{})
 	if err != nil {
 		return svc, eps, nodeLst, err
 	}
@@ -123,7 +124,7 @@ func getTunnelServerResources(clientset kubernetes.Interface) (*v1.Service, *v1.
 	// get x-tunnel-server-svc endpoints
 	eps, err = clientset.CoreV1().
 		Endpoints(constants.YurttunnelEndpointsNs).
-		Get(constants.YurttunnelEndpointsName, metav1.GetOptions{})
+		Get(context.Background(), constants.YurttunnelEndpointsName, metav1.GetOptions{})
 	if err != nil {
 		return svc, eps, nodeLst, err
 	}
@@ -132,7 +133,7 @@ func getTunnelServerResources(clientset kubernetes.Interface) (*v1.Service, *v1.
 	if svc.Spec.Type == corev1.ServiceTypeNodePort {
 		labelSelector := fmt.Sprintf("%s=false", projectinfo.GetEdgeWorkerLabelKey())
 		// yurttunnel-server will be deployed on one of the cloud nodes
-		nodeLst, err = clientset.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: labelSelector})
+		nodeLst, err = clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
 			return svc, eps, nodeLst, err
 		}

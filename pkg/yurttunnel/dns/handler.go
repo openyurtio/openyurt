@@ -17,6 +17,7 @@ limitations under the License.
 package dns
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -218,7 +219,7 @@ func (dnsctl *coreDNSRecordController) onNodeDelete(node *corev1.Node) error {
 
 func (dnsctl *coreDNSRecordController) getCurrentDNSRecords() ([]string, error) {
 	cm, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).
-		Get(yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
+		Get(context.Background(), yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

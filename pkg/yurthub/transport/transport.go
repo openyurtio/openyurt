@@ -32,93 +32,58 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	deaultHealthzTimeoutSeconds = 2
-)
-
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver
 type Interface interface {
-	// HealthzHTTPClient returns http client that used by health checker
-	HealthzHTTPClient() *http.Client
 	// concurrent use by multiple goroutines
 	// CurrentTransport get transport that used by load balancer
 	CurrentTransport() *http.Transport
 	// GetRestClientConfig get rest config that used by gc
 	GetRestClientConfig() *rest.Config
-	// UpdateTransport update secure transport manager with certificate manager
-	UpdateTransport(certMgr interfaces.YurtCertificateManager) error
 	// close all net connections that specified by address
 	Close(address string)
 }
 
 type transportManager struct {
-	dialer            *util.Dialer
-	healthzHTTPClient *http.Client
-	currentTransport  *http.Transport
-	certManager       interfaces.YurtCertificateManager
-	closeAll          func()
-	close             func(string)
-	stopCh            <-chan struct{}
+	currentTransport *http.Transport
+	certManager      interfaces.YurtCertificateManager
+	closeAll         func()
+	close            func(string)
+	stopCh           <-chan struct{}
 }
 
 // NewTransportManager create an transport interface object.
-func NewTransportManager(heartbeatTimeoutSeconds int, stopCh <-chan struct{}) (Interface, error) {
-	d := util.NewDialer("transport manager")
-	t := utilnet.SetTransportDefaults(&http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost: 25,
-		DialContext:         d.DialContext,
-	})
-
-	if heartbeatTimeoutSeconds == 0 {
-		heartbeatTimeoutSeconds = deaultHealthzTimeoutSeconds
-	}
-
-	tm := &transportManager{
-		healthzHTTPClient: &http.Client{
-			Transport: t,
-			Timeout:   time.Duration(heartbeatTimeoutSeconds) * time.Second,
-		},
-		dialer:   d,
-		closeAll: d.CloseAll,
-		close:    d.Close,
-		stopCh:   stopCh,
-	}
-
-	return tm, nil
-}
-
-// UpdateTransport used to update ca file and tls config
-func (tm *transportManager) UpdateTransport(certMgr interfaces.YurtCertificateManager) error {
+func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
 	caFile := certMgr.GetCaFile()
 	if len(caFile) == 0 {
-		return fmt.Errorf("ca cert file was not prepared when update tranport")
+		return nil, fmt.Errorf("ca cert file was not prepared when new tranport")
 	}
 	klog.V(2).Infof("use %s ca cert file to access remote server", caFile)
 
 	cfg, err := tlsConfig(certMgr, caFile)
 	if err != nil {
-		klog.Errorf("could not get tls config when update transport, %v", err)
-		return err
+		klog.Errorf("could not get tls config when new transport, %v", err)
+		return nil, err
 	}
 
-	tm.currentTransport = utilnet.SetTransportDefaults(&http.Transport{
+	d := util.NewDialer("transport manager")
+	t := utilnet.SetTransportDefaults(&http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     cfg,
 		MaxIdleConnsPerHost: 25,
-		DialContext:         tm.dialer.DialContext,
+		DialContext:         d.DialContext,
 	})
-	tm.certManager = certMgr
 
+	tm := &transportManager{
+		currentTransport: t,
+		certManager:      certMgr,
+		closeAll:         d.CloseAll,
+		close:            d.Close,
+		stopCh:           stopCh,
+	}
 	tm.start()
-	return nil
-}
 
-func (tm *transportManager) HealthzHTTPClient() *http.Client {
-	return tm.healthzHTTPClient
+	return tm, nil
 }
 
 func (tm *transportManager) GetRestClientConfig() *rest.Config {

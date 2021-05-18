@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"k8s.io/klog"
-	utildbus "k8s.io/kubernetes/pkg/util/dbus"
 	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
 )
@@ -40,8 +39,7 @@ type IptablesManager struct {
 func NewIptablesManager(dummyIfIP, dummyIfPort string) *IptablesManager {
 	protocol := iptables.ProtocolIpv4
 	execer := exec.New()
-	dbus := utildbus.New()
-	iptInterface := iptables.New(execer, dbus, protocol)
+	iptInterface := iptables.New(execer, protocol)
 
 	im := &IptablesManager{
 		iptables: iptInterface,

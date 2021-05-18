@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -26,7 +27,7 @@ import (
 )
 
 func ListPods(c clientset.Interface, ns string) (pods *apiv1.PodList, err error) {
-	return c.CoreV1().Pods(ns).List(metav1.ListOptions{})
+	return c.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{})
 }
 
 func CreatePod(c clientset.Interface, ns string, objectMeta metav1.ObjectMeta, spec apiv1.PodSpec) (pods *apiv1.Pod, err error) {
@@ -34,15 +35,15 @@ func CreatePod(c clientset.Interface, ns string, objectMeta metav1.ObjectMeta, s
 	p := &apiv1.Pod{}
 	p.ObjectMeta = objectMeta
 	p.Spec = spec
-	return c.CoreV1().Pods(ns).Create(p)
+	return c.CoreV1().Pods(ns).Create(context.Background(), p, metav1.CreateOptions{})
 }
 
 func GetPod(c clientset.Interface, ns, podName string) (pod *apiv1.Pod, err error) {
-	return c.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	return c.CoreV1().Pods(ns).Get(context.Background(), podName, metav1.GetOptions{})
 }
 
 func DeletePod(c clientset.Interface, ns, podName string) (err error) {
-	return c.CoreV1().Pods(ns).Delete(podName, &metav1.DeleteOptions{})
+	return c.CoreV1().Pods(ns).Delete(context.Background(), podName, metav1.DeleteOptions{})
 }
 
 func VerifyPodsRunning(c clientset.Interface, ns, podName string, wantName bool, replicas int32) error {
