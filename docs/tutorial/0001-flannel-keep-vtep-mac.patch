@@ -1,0 +1,146 @@
+From 27b0a582c8dc03fdf79dc21f04c499e1311eb468 Mon Sep 17 00:00:00 2001
+From: "openyurt" <openyurt.io>
+Date: Wed, 13 Mar 2019 16:28:15 +0800
+Subject: [PATCH] - function: keep vtep mac addr. - solution:   1. get vtep mac
+ addr from node annotations if it's exists   2. use old mac addr to set
+ flannel.1 when flannel restart
+
+and we also add a script for build flannel docker image for edge k8s.
+---
+ backend/vxlan/vxlan.go | 18 ++++++++++-
+ main.go                | 72 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+), 1 deletion(-)
+
+diff --git a/backend/vxlan/vxlan.go b/backend/vxlan/vxlan.go
+index 161e8cfb..821b336b 100644
+--- a/backend/vxlan/vxlan.go
++++ b/backend/vxlan/vxlan.go
+@@ -64,6 +64,7 @@ import (
+ 	"github.com/flannel-io/flannel/pkg/ip"
+ 	"github.com/flannel-io/flannel/subnet"
+ 	log "k8s.io/klog"
++	"github.com/vishvananda/netlink"
+ )
+ 
+ func init() {
+@@ -138,7 +139,22 @@ func (be *VXLANBackend) RegisterNetwork(ctx context.Context, wg *sync.WaitGroup,
+ 	}
+ 	dev.directRouting = cfg.DirectRouting
+ 
+-	subnetAttrs, err := newSubnetAttrs(be.extIface.ExtAddr, uint16(cfg.VNI), dev.MACAddr())
++	// edge k8s: when flannel is restarted, it will get mac addr from node annotations to set flannel.1 mac address
++	// in order to keep mac address for flannel.1
++	var hwAddr net.HardwareAddr
++	macStr, _ := ctx.Value("VtepMAC").(string)
++	if macStr != "" {
++		hwAddr, _ = net.ParseMAC(macStr)
++		if err := netlink.LinkSetHardwareAddr(dev.link, hwAddr); err != nil {
++			log.Errorf("Failed to ip link set mac addr(%s): %v", macStr, err)
++		} else {
++			log.Infof("Setup flannel.1 mac address to %s successfully when flannel restart", macStr)
++		}
++	} else {
++		hwAddr = dev.MACAddr()
++	}
++
++	subnetAttrs, err := newSubnetAttrs(be.extIface.ExtAddr, uint16(cfg.VNI), hwAddr)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/main.go b/main.go
+index 9f7874cf..99399cda 100644
+--- a/main.go
++++ b/main.go
+@@ -57,6 +57,10 @@ import (
+ 	_ "github.com/flannel-io/flannel/backend/tencentvpc"
+ 	_ "github.com/flannel-io/flannel/backend/udp"
+ 	_ "github.com/flannel-io/flannel/backend/vxlan"
++
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	clientset "k8s.io/client-go/kubernetes"
++	"k8s.io/client-go/tools/clientcmd"
+ )
+ 
+ type flagSlice []string
+@@ -288,6 +292,12 @@ func main() {
+ 		os.Exit(1)
+ 	}
+ 
++	// edge k8s: get mac str from kube-mgr and use it to register network(flannel.1)
++	macStr := getMacStrFromNodeAnnotations(opts.kubeApiUrl, opts.kubeConfigFile)
++	if macStr != "" {
++		ctx = context.WithValue(ctx, "VtepMAC", macStr)
++	}
++
+ 	bn, err := be.RegisterNetwork(ctx, &wg, config)
+ 	if err != nil {
+ 		log.Errorf("Error registering network: %s", err)
+@@ -618,3 +628,65 @@ func ReadCIDRFromSubnetFile(path string, CIDRKey string) ip.IP4Net {
+ 	}
+ 	return prevCIDR
+ }
++
++// getMacStrFromNodeAnnotations get mac address from node annotations when flannel restart
++func getMacStrFromNodeAnnotations(apiUrl, kubeconfig string) string {
++	cfg, err := clientcmd.BuildConfigFromFlags(apiUrl, kubeconfig)
++	if err != nil {
++		log.Errorf("Failed to create k8s config for backend data: %v", err)
++		return ""
++	}
++
++	c, err := clientset.NewForConfig(cfg)
++	if err != nil {
++		log.Errorf("Failed to initialize client for backend data: %v", err)
++		return ""
++	}
++
++	// The kube subnet mgr needs to know the k8s node name that it's running on so it can annotate it.
++	// If we're running as a pod then the POD_NAME and POD_NAMESPACE will be populated and can be used to find the node
++	// name. Otherwise, the environment variable NODE_NAME can be passed in.
++	nodeName := os.Getenv("NODE_NAME")
++	if nodeName == "" {
++		podName := os.Getenv("POD_NAME")
++		podNamespace := os.Getenv("POD_NAMESPACE")
++		if podName == "" || podNamespace == "" {
++			log.Errorf("env variables POD_NAME and POD_NAMESPACE must be set")
++			return ""
++		}
++
++		pod, err := c.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
++		if err != nil {
++			log.Errorf("error retrieving pod spec for '%s/%s': %v", podNamespace, podName, err)
++			return ""
++		}
++		nodeName = pod.Spec.NodeName
++		if nodeName == "" {
++			log.Errorf("node name not present in pod spec '%s/%s'", podNamespace, podName)
++			return ""
++		}
++	}
++
++	// get mac info from Name func.
++	node, err := c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
++	if err != nil {
++		log.Errorf("Failed to get node for backend data: %v", err)
++		return ""
++	}
++
++	// node backend data format: `{"VNI":1,"VtepMAC":"12:c6:65:89:b4:e3"}`
++	// and we will return only mac addr str like 12:c6:65:89:b4:e3
++	if node != nil && node.Annotations != nil {
++		log.Infof("List of node(%s) annotations: %#+v", nodeName, node.Annotations)
++		backendData, ok := node.Annotations[fmt.Sprintf("%s/backend-data", opts.kubeAnnotationPrefix)]
++		if ok {
++			macStr := strings.Trim(backendData, "\"}")
++			macInfoSlice := strings.Split(macStr, ":\"")
++			if len(macInfoSlice) == 2 {
++				return macInfoSlice[1]
++			}
++		}
++	}
++
++	return ""
++}
+-- 
+2.23.0
+
