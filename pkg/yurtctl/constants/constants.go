@@ -161,6 +161,7 @@ spec:
       containers:
       - name: yurt-controller-manager
         image: {{.image}}
+        imagePullPolicy: IfNotPresent
         command:
         - yurt-controller-manager	
 `
@@ -186,7 +187,7 @@ spec:
       containers:
       - name: yurtctl-servant
         image: {{.yurtctl_servant_image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
@@ -231,7 +232,7 @@ spec:
       containers:
       - name: yurtctl-servant
         image: {{.yurtctl_servant_image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c

@@ -122,5 +122,6 @@ spec:
       containers:
       - name: yurt-controller-manager
         image: openyurt/yurt-controller-manager:latest
+        imagePullPolicy: IfNotPresent
         command:
         - yurt-controller-manager
