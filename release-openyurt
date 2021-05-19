@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# author: joe.zheng
+# version: 21.5.17
+
+set -e
+
+repo="${REL_REPO:-openyurt}"
+arch="${REL_ARCH:-amd64}"
+tag="${REL_TAG:-latest}"
+out="_output/local/bin/linux"
+saved="$repo-release"
+loads="$saved/load"
+images="
+  yurthub
+  yurt-controller-manager
+  yurtctl-servant
+  yurt-tunnel-server
+  yurt-tunnel-agent
+"
+
+echo "build images"
+make release ARCH=$arch REPO=$repo GIT_VERSION=$tag
+
+echo "clear $saved"
+rm -rf $saved
+mkdir -p $saved
+
+echo "copy yurtctl"
+cp $out/$arch/yurtctl $saved
+
+echo "save images"
+for i in $images; do
+  old="$repo/$i:$tag-$arch"
+  new="$repo/$i:$tag"
+  echo "tag $old to $new"
+  docker tag $old $new
+  echo "saving $new"
+  docker save $new | gzip > $saved/$i.tar.gz
+done
+
+echo "create $loads"
+cat <<'EOF' > $loads
+#!/usr/bin/env bash
+# author: joe.zheng
+# version: 21.5.17
+
+set -e
+
+cd $(dirname $0)
+
+images="$(ls *.tar.gz)"
+echo "load images:"
+for i in $images; do
+  echo "loading $i"
+  docker load -i $i
+done
+echo "done"
+EOF
+
+chmod a+x $loads
+
+echo "done"
