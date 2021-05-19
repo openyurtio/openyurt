@@ -280,6 +280,11 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		edgeNodeNames = append(edgeNodeNames, node.GetName())
 	}
 
+	if len(co.CloudNodes) < 1 {
+		klog.Errorf("At least one cloud node should be provided!")
+		return
+	}
+
 	// 3. deploy yurt controller manager
 	// create a service account for yurt-controller-manager
 	err = kubeutil.CreateServiceAccountFromYaml(co.clientSet,
