@@ -243,7 +243,6 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 		klog.Errorf("failed to create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 		return fmt.Errorf("failed to create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 	}
-
 	accessor := meta.NewAccessor()
 
 	d, err := s.WatchDecoder(r)

@@ -21,13 +21,23 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
+	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
+	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 )
 
@@ -55,6 +65,10 @@ type YurtHubConfiguration struct {
 	HubAgentDummyIfName         string
 	StorageWrapper              cachemanager.StorageWrapper
 	SerializerManager           *serializer.SerializerManager
+	MutatedMasterServiceAddr    string
+	Filters                     *filter.Filters
+	SharedFactory               informers.SharedInformerFactory
+	YurtSharedFactory           yurtinformers.SharedInformerFactory
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -75,6 +89,28 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
+
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
+	if err != nil {
+		return nil, err
+	}
+
+	var filters *filter.Filters
+	var mutatedMasterServiceAddr string
+	if options.EnableResourceFilter {
+		filters = filter.NewFilters(options.DisabledResourceFilters)
+		registerAllFilters(filters)
+
+		mutatedMasterServiceAddr = us[0].Host
+		if options.AccessServerThroughHub {
+			if options.EnableDummyIf {
+				mutatedMasterServiceAddr = proxyServerDummyAddr
+			} else {
+				mutatedMasterServiceAddr = proxyServerAddr
+			}
+		}
+	}
+
 	cfg := &YurtHubConfiguration{
 		LBMode:                      options.LBMode,
 		RemoteServers:               us,
@@ -98,6 +134,10 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HubAgentDummyIfName:         options.HubAgentDummyIfName,
 		StorageWrapper:              storageWrapper,
 		SerializerManager:           serializerManager,
+		MutatedMasterServiceAddr:    mutatedMasterServiceAddr,
+		Filters:                     filters,
+		SharedFactory:               sharedFactory,
+		YurtSharedFactory:           yurtSharedFactory,
 	}
 
 	return cfg, nil
@@ -128,4 +168,33 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	klog.Infof("%s would connect remote servers: %s", projectinfo.GetHubName(), strings.Join(remoteServers, ","))
 
 	return us, nil
+}
+
+// createSharedInformers create sharedInformers from the given proxyAddr.
+func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+	var kubeConfig *rest.Config
+	var err error
+	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	yurtClient, err := yurtclientset.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+}
+
+// registerAllFilters by order, the front registered filter will be
+// called before the later registered ones.
+func registerAllFilters(filters *filter.Filters) {
+	servicetopology.Register(filters)
+	masterservice.Register(filters)
 }

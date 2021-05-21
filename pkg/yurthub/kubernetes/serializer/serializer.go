@@ -291,6 +291,25 @@ func (s *Serializer) Decode(b []byte) (runtime.Object, error) {
 	return out, nil
 }
 
+// Encode encode object and return bytes of it.
+func (s *Serializer) Encode(obj runtime.Object) ([]byte, error) {
+	if obj == nil {
+		return []byte{}, fmt.Errorf("obj is nil, content type: %s", s.contentType)
+	}
+
+	mediaType, params, err := mime.ParseMediaType(s.contentType)
+	if err != nil {
+		return nil, err
+	}
+
+	encoder, err := s.Encoder(mediaType, params)
+	if err != nil {
+		return nil, err
+	}
+
+	return runtime.Encode(encoder, obj)
+}
+
 // WatchDecoder generates a Decoder for decoding response of watch request.
 func (s *Serializer) WatchDecoder(body io.ReadCloser) (*restclientwatch.Decoder, error) {
 	var err error
