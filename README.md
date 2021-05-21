@@ -68,6 +68,10 @@ The major OpenYurt components consist of:
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
 
+## Before you begin
+
+[Resource and system requirements](./docs/resource-and-system-requirements.md)
+
 ## Getting started
 
 OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
