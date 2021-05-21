@@ -48,6 +48,10 @@ OpenYurt 的主要组件包括：
 后者定义了一种新的边缘应用模型以节点池为单位来管理工作负载。
 - **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
 
+## 开始之前
+
+[资源和系统要求](./docs/resource-and-system-requirements-cn.md)
+
 ## 开始使用
 OpenYurt 支持最高版本为1.16的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
 您可以[手动](docs/tutorial/manually-setup.md)设置 OpenYurt 集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
