@@ -106,7 +106,7 @@ func ReplaceRegularExpression(content string, replace map[string]string) string 
 
 // GetNodeName gets the node name based on environment variable, parameters --hostname-override
 // in the configuration file or hostname
-func GetNodeName() (string, error) {
+func GetNodeName(kubeadmConfPath string) (string, error) {
 	//1. from env NODE_NAME
 	nodename := os.Getenv("NODE_NAME")
 	if nodename != "" {
@@ -114,7 +114,7 @@ func GetNodeName() (string, error) {
 	}
 
 	//2. find --hostname-override in 10-kubeadm.conf
-	nodeName, err := GetSingleContentFromFile(KubeletSvcPath, KubeletHostname)
+	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, KubeletHostname)
 	if nodeName != "" {
 		nodeName = strings.Split(nodeName, "=")[1]
 		return nodeName, nil
@@ -123,7 +123,7 @@ func GetNodeName() (string, error) {
 	}
 
 	//3. find --hostname-override in EnvironmentFile
-	environmentFiles, err := GetContentFormFile(KubeletSvcPath, KubeletEnvironmentFile)
+	environmentFiles, err := GetContentFormFile(kubeadmConfPath, KubeletEnvironmentFile)
 	if err != nil {
 		return "", err
 	}

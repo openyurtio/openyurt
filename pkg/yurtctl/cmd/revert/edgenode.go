@@ -144,11 +144,11 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	nodeName, err := enutil.GetNodeName()
+	nodeName, err := enutil.GetNodeName(r.KubeadmConfPath)
 	if err != nil {
-		return err
+		nodeName = ""
 	}
-	if len(r.EdgeNodes) > 1 || len(r.EdgeNodes) == 1 && r.EdgeNodes[0] != nodeName {
+	if len(r.EdgeNodes) > 1 || (len(r.EdgeNodes) == 1 && r.EdgeNodes[0] != nodeName) {
 		// 2. remote edgenode revert
 		nodeLst, err := r.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
@@ -193,48 +193,68 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			klog.Errorf("fail to revert edge node: %s", err)
 			return err
 		}
-	} else {
+	} else if (len(r.EdgeNodes) == 0 && nodeName != "") || (len(r.EdgeNodes) == 1 && r.EdgeNodes[0] == nodeName) {
 		// 3. local edgenode revert
+		// 3.1. check if critical files exist
+		yurtKubeletConf := r.getYurthubKubeletConf()
+		if ok, err := enutil.FileExists(yurtKubeletConf); !ok {
+			return err
+		}
+		kubeletSvcBk := r.getKubeletSvcBackup()
+		if _, err := enutil.FileExists(kubeletSvcBk); err != nil {
+			klog.Errorf("fail to get file %s, should revise the %s directly", kubeletSvcBk, r.KubeadmConfPath)
+			return err
+		}
+		yurthubYaml := r.getYurthubYaml()
+		if ok, err := enutil.FileExists(yurthubYaml); !ok {
+			return err
+		}
+
+		// 3.2. check the state of EdgeNodes
 		node, err := r.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-
-		// 3.1. check the state of EdgeNodes
 		_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 		if condition == nil || condition.Status != v1.ConditionTrue {
 			klog.Errorf("Cannot do the revert, the status of worker node: %s is not 'Ready'.", node.Name)
 			return err
 		}
 
-		// 3.2. check the label of EdgeNodes and remove label
+		// 3.3. check the label of EdgeNodes
 		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
-		if ok && isEdgeNode == "true" {
-			_, foundAutonomy := node.Annotations[constants.AnnotationAutonomy]
-			if foundAutonomy {
-				delete(node.Annotations, constants.AnnotationAutonomy)
-			}
-
-			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
-			if _, err = r.clientSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{}); err != nil {
-				return err
-			}
-		} else {
-			klog.Errorf("Cannot do the revert, the worker node: %s is not a Yurt edge node.", node.Name)
-			return err
+		if !ok || isEdgeNode == "false" {
+			return fmt.Errorf("Cannot do the revert, the worker node: %s is not a Yurt edge node.", node.Name)
 		}
-		klog.Info("label openyurt.io/is-edge-worker is removed")
 
-		// 3.3. remove yurt-hub and revert kubelet service
+		// 3.4. remove yurt-hub and revert kubelet service
 		if err := r.RevertKubelet(); err != nil {
 			return fmt.Errorf("fail to revert kubelet: %v", err)
 		}
 		if err := r.RemoveYurthub(); err != nil {
 			return err
 		}
+
+		// 3.5. remove label of EdgeNodes
+		node, err = r.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		_, foundAutonomy := node.Annotations[constants.AnnotationAutonomy]
+		if foundAutonomy {
+			delete(node.Annotations, constants.AnnotationAutonomy)
+		}
+		delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
+		if _, err = r.clientSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		klog.Info("label openyurt.io/is-edge-worker is removed")
+
+	} else {
+		return fmt.Errorf("fail to revert edge node, flag --edge-nodes %s err", r.EdgeNodes)
 	}
 
-	return
+	return nil
 }
 
 // RevertKubelet resets the kubelet service
@@ -245,13 +265,8 @@ func (r *RevertEdgeNodeOptions) RevertKubelet() error {
 		return err
 	}
 	kubeletSvcBk := r.getKubeletSvcBackup()
-	_, err := enutil.FileExists(kubeletSvcBk)
-	if err != nil {
-		klog.Errorf("fail to get file %s, will revise the %s directly", kubeletSvcBk, r.KubeadmConfPath)
-		return err
-	}
 	klog.Infof("found backup file %s, will use it to revert the node", kubeletSvcBk)
-	err = os.Rename(kubeletSvcBk, r.KubeadmConfPath)
+	err := os.Rename(kubeletSvcBk, r.KubeadmConfPath)
 	if err != nil {
 		return err
 	}
