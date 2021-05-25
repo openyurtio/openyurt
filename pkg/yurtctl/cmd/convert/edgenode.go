@@ -154,16 +154,22 @@ func (c *ConvertEdgeNodeOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	c.KubeadmConfPath = kubeadmConfPath
 
-	joinToken, err := flags.GetString("join-token")
-	if err != nil {
-		return err
-	}
-	c.JoinToken = joinToken
-
 	c.clientSet, err = enutil.GenClientSet(flags)
 	if err != nil {
 		return err
 	}
+
+	joinToken, err := flags.GetString("join-token")
+	if err != nil {
+		return err
+	}
+	if joinToken == "" {
+		joinToken, err = kubeutil.GetOrCreateJoinTokenString(c.clientSet)
+		if err != nil {
+			return err
+		}
+	}
+	c.JoinToken = joinToken
 
 	openyurtDir := os.Getenv("OPENYURT_DIR")
 	if openyurtDir == "" {
@@ -182,11 +188,11 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	nodeName, err := enutil.GetNodeName()
+	nodeName, err := enutil.GetNodeName(c.KubeadmConfPath)
 	if err != nil {
-		return err
+		nodeName = ""
 	}
-	if len(c.EdgeNodes) > 1 || len(c.EdgeNodes) == 1 && c.EdgeNodes[0] != nodeName {
+	if len(c.EdgeNodes) > 1 || (len(c.EdgeNodes) == 1 && c.EdgeNodes[0] != nodeName) {
 		// 2 remote edgenode convert
 		nodeLst, err := c.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
@@ -203,8 +209,7 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		}
 		for _, edgeNode := range c.EdgeNodes {
 			if !strutil.IsInStringLst(edgeNodeNames, edgeNode) {
-				klog.Errorf("Cannot do the convert, the worker node: %s is not a Kubernetes node.", edgeNode)
-				return err
+				return fmt.Errorf("Cannot do the convert, the worker node: %s is not a Kubernetes node.", edgeNode)
 			}
 		}
 
@@ -213,23 +218,17 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			if strutil.IsInStringLst(c.EdgeNodes, node.GetName()) {
 				_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 				if condition == nil || condition.Status != v1.ConditionTrue {
-					klog.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
-					return err
+					return fmt.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
 				}
 			}
 		}
 
 		// 2.3. deploy yurt-hub and reset the kubelet service
-		joinToken, err := kubeutil.GetOrCreateJoinTokenString(c.clientSet)
-		if err != nil {
-			return err
-		}
-
 		ctx := map[string]string{
 			"action":                "convert",
 			"yurtctl_servant_image": c.YurctlServantImage,
 			"yurthub_image":         c.YurthubImage,
-			"joinToken":             joinToken,
+			"joinToken":             c.JoinToken,
 			"pod_manifest_path":     c.PodMainfestPath,
 			"kubeadm_conf_path":     c.KubeadmConfPath,
 		}
@@ -242,41 +241,33 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			klog.Errorf("fail to run ServantJobs: %s", err)
 			return err
 		}
-	} else {
+	} else if (len(c.EdgeNodes) == 0 && nodeName != "") || (len(c.EdgeNodes) == 1 && c.EdgeNodes[0] == nodeName) {
 		// 3. local edgenode convert
+		// 3.1. check if critical files exist
+		if _, err := enutil.FileExists(c.KubeadmConfPath); err != nil {
+			return err
+		}
+		if ok, err := enutil.DirExists(c.PodMainfestPath); !ok {
+			return err
+		}
+
+		// 3.2. check the state of EdgeNodes
 		node, err := c.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-
-		// 3.1. check the state of EdgeNodes
 		_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 		if condition == nil || condition.Status != v1.ConditionTrue {
-			klog.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
-			return err
+			return fmt.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
 		}
 
-		// 3.2. check the label of EdgeNodes
+		// 3.3. check the label of EdgeNodes
 		_, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
 		if ok {
-			klog.Errorf("Cannot do the convert, the worker node: %s is not a Kubernetes node.", node.Name)
-			return err
+			return fmt.Errorf("Cannot do the convert, the worker node: %s is not a Kubernetes node.", node.Name)
 		}
 
-		// 3.3. label node as edge node
-		klog.Infof("mark %s as the edge-node", nodeName)
-		_, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
-		if err != nil {
-			return err
-		}
-
-		// 3. deploy yurt-hub and reset the kubelet service
-		if c.JoinToken == "" {
-			c.JoinToken, err = kubeutil.GetOrCreateJoinTokenString(c.clientSet)
-			if err != nil {
-				return err
-			}
-		}
+		// 3.4. deploy yurt-hub and reset the kubelet service
 		err = c.SetupYurthub()
 		if err != nil {
 			return fmt.Errorf("fail to set up the yurthub pod: %v", err)
@@ -285,8 +276,21 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		if err != nil {
 			return fmt.Errorf("fail to reset the kubelet service: %v", err)
 		}
+
+		// 3.5. label node as edge node
+		klog.Infof("mark %s as the edge-node", nodeName)
+		node, err = c.clientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		_, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("fail to revert edge node, flag --edge-nodes %s err", c.EdgeNodes)
 	}
-	return
+	return nil
 }
 
 // SetupYurthub sets up the yurthub pod and wait for the its status to be Running
