@@ -4,24 +4,21 @@ https://github.com/openyurtio/openyurt/blob/master/CONTRIBUTING.md
 
 
 #### What type of PR is this?
+> Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading whitespace from that line:
+> /kind bug
+> /kind documentation
+> /kind enhancement
+> /kind good-first-issue
+> /kind feature
+> /kind question
+> /kind design
+> /sig ai
+> /sig iot
+> /sig network
+> /sig storage
+> /sig storage
 
-<!--
-Add one of the following kinds:
-/kind bug
-/kind documentation
-/kind enhancement
-/kind good-first-issue
-/kind feature
-/kind question
-/kind design
 
-Optionally add one or more of the following kinds if applicable:
-/sig ai
-/sig iot
-/sig network
-/sig storage
-/sig storage
--->
 
 #### What this PR does / why we need it:
 
