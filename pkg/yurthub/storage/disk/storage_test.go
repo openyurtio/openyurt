@@ -685,6 +685,12 @@ func TestLockKey(t *testing.T) {
 			lockResult:       true,
 			lockVerifyResult: false,
 		},
+		"lock same prefix key with pre-locked key ": {
+			preLockedKeys:    []string{"kubelet/pods/kube-system/foo"},
+			lockKey:          "kubelet/pods/kube-system/foo2",
+			lockResult:       true,
+			lockVerifyResult: false,
+		},
 	}
 
 	s := &diskStorage{

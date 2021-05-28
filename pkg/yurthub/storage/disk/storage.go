@@ -460,16 +460,19 @@ func (ds *diskStorage) lockKey(key string) bool {
 	ds.Lock()
 	defer ds.Unlock()
 	if _, ok := ds.keyPendingStatus[key]; ok {
+		klog.Infof("key(%s) storage is pending, just skip it", key)
 		return false
 	}
 
 	for pendingKey := range ds.keyPendingStatus {
 		if len(key) > len(pendingKey) {
-			if strings.Contains(key, pendingKey) {
+			if strings.Contains(key, fmt.Sprintf("%s/", pendingKey)) {
+				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, key)
 				return false
 			}
 		} else {
-			if strings.Contains(pendingKey, key) {
+			if strings.Contains(pendingKey, fmt.Sprintf("%s/", key)) {
+				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, key)
 				return false
 			}
 		}
