@@ -139,7 +139,7 @@ Other active communication channels:
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
-  <img src="docs/img/ding.jpeg" width=25% title="dingtalk">
+  <img src="docs/img/ding.jpg" width=25% title="dingtalk">
 </div>
 
 ## License
