@@ -22,6 +22,6 @@ import (
 )
 
 // CreateStorage create a storage.Store for backend storage
-func CreateStorage() (storage.Store, error) {
-	return disk.NewDiskStorage("")
+func CreateStorage(cachePath string) (storage.Store, error) {
+	return disk.NewDiskStorage(cachePath)
 }
