@@ -50,6 +50,14 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
+	"bytes"
+	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/restmapper"
 )
 
 const (
@@ -210,6 +218,145 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 	return nil
 }
 
+//add by yanyhui at 20210611
+// CreateRoleFromYaml creates the ClusterRole from the yaml template.
+func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
+	obj, err := YamlToObject([]byte(crTmpl))
+	if err != nil {
+		return err
+	}
+	cr, ok := obj.(*rbacv1.Role)
+	if !ok {
+		return fmt.Errorf("fail to assert role: %v", err)
+	}
+	_, err = cliSet.RbacV1().Roles(ns).Create(context.Background(), cr, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("fail to create the role/%s: %v", cr.Name, err)
+	}
+	klog.V(4).Infof("role/%s is created", cr.Name)
+	return nil
+}
+
+// CreateRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
+func CreateRoleBindingFromYaml(cliSet *kubernetes.Clientset, ns, crbTmpl string) error {
+	obj, err := YamlToObject([]byte(crbTmpl))
+	if err != nil {
+		return err
+	}
+	crb, ok := obj.(*rbacv1.RoleBinding)
+	if !ok {
+		return fmt.Errorf("fail to assert rolebinding: %v", err)
+	}
+	_, err = cliSet.RbacV1().RoleBindings(ns).Create(context.Background(), crb, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("fail to create the rolebinding/%s: %v", crb.Name, err)
+	}
+	klog.V(4).Infof("rolebinding/%s is created", crb.Name)
+	return nil
+}
+
+// CreateSecretFromYaml creates the Secret from the yaml template.
+func CreateSecretFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
+	obj, err := YamlToObject([]byte(saTmpl))
+	if err != nil {
+		return err
+	}
+	sa, ok := obj.(*corev1.Secret)
+	if !ok {
+		return fmt.Errorf("fail to assert secret: %v", err)
+	}
+	_, err = cliSet.CoreV1().Secrets(ns).Create(context.Background(), sa, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("fail to create the secret/%s: %v", sa.Name, err)
+	}
+	klog.V(4).Infof("secret/%s is created", sa.Name)
+
+	return nil
+}
+
+// CreateMutatingWebhookConfigurationFromYaml creates the Service from the yaml template.
+func CreateMutatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+	obj, err := YamlToObject([]byte(svcTmpl))
+	if err != nil {
+		return err
+	}
+	svc, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
+	if !ok {
+		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %v", err)
+	}
+	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), svc, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("fail to create the mutatingwebhookconfiguration/%s: %s", svc.Name, err)
+	}
+	klog.V(4).Infof("mutatingwebhookconfiguration/%s is created", svc.Name)
+
+	return nil
+}
+
+// CreateValidatingWebhookConfigurationFromYaml creates the Service from the yaml template.
+func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+	obj, err := YamlToObject([]byte(svcTmpl))
+	if err != nil {
+		return err
+	}
+	svc, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
+	if !ok {
+		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %v", err)
+	}
+	_, err = cliSet.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), svc, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("fail to create the validatingwebhookconfiguration/%s: %s", svc.Name, err)
+	}
+	klog.V(4).Infof("validatingwebhookconfiguration/%s is created", svc.Name)
+
+	return nil
+}
+
+func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string,filebytes []byte) error {
+	var err error
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
+	for {
+		var rawObj runtime.RawExtension
+		if err = decoder.Decode(&rawObj); err != nil {
+			break
+		}
+		obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+		unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return err
+		}
+		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+		gr, err := restmapper.GetAPIGroupResources(clientset.Discovery())
+		if err != nil {
+			return err
+		}
+
+		mapper := restmapper.NewDiscoveryRESTMapper(gr)
+		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return err
+		}
+
+		var dri dynamic.ResourceInterface
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+			if unstructuredObj.GetNamespace() == "" {
+				unstructuredObj.SetNamespace(nameSpace)
+			}
+			dri = yurtAppManagerClient.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
+		} else {
+			dri = yurtAppManagerClient.Resource(mapping.Resource)
+		}
+
+		objSecond, err := dri.Create(context.Background(), unstructuredObj, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("%s/%s created", objSecond.GetKind(), objSecond.GetName())
+		}
+	}
+	return nil
+}
+
 // YamlToObject deserializes object in yaml format to a runtime.Object
 func YamlToObject(yamlContent []byte) (runtime.Object, error) {
 	decode := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer().Decode
@@ -355,6 +502,23 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(restCfg)
+}
+
+//add by yanyhui at 20210611
+// GenDynamicClientSet generates the clientset based on command option, environment variable or
+// the default kubeconfig file
+func GenDynamicClientSet(flags *pflag.FlagSet) (dynamic.Interface, error) {
+	kubeconfigPath, err := PrepareKubeConfigPath(flags)
+	if err != nil {
+		return nil, err
+	}
+
+	restCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return dynamic.NewForConfig(restCfg)
 }
 
 // PrepareKubeConfigPath returns the path of cluster kubeconfig file
