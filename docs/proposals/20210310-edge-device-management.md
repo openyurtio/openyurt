@@ -31,7 +31,7 @@ status: provisional
       - [1. DeviceProfile](#1-deviceprofile)
       - [2. Device](#2-device)
       - [3. DeviceService](#3-deviceservice)
-    - [Interaction with EdgeX Foundry](#interaction-with-edgex-foundry)
+    - [Using EdgeX Foundry as the Edge Platform](#using-edgex-foundry-as-the-edge-platform)
       - [1. Setting up EdgeX Foundry](#1-setting-up-edgex-foundry)
       - [2. CRUD objects on EdgeX Foundry](#2-crud-objects-on-edgex-foundry)
       - [3. Controlling the device declaratively](#3-controlling-the-device-declaratively)
@@ -86,7 +86,7 @@ We define three new custom resource definitions(CRD) to manage devices on the ed
 
 #### 1. DeviceProfile
 
-Followings are definitions of `DeviceProfile` CRD and its related Golang structs. This CRD will be defined by vendors, and the corresponding CRs will be created by vendors as well
+Followings are definitions of `DeviceProfile` CRD and its related Golang structs. This CRD will be defined by vendors, and the corresponding CRs will be created by device controller when it detected a new device service created.
 
 ```go
 type DeviceProfile struct {
@@ -268,7 +268,7 @@ type DeviceProperty struct {
 
 #### 3. DeviceService
 
-Followings are definitions of `DeviceService` CRD and related Golang structs. This CRD will be defined by vendors, and the corresponding CRs will be created by vendors as well
+Followings are definitions of `DeviceService` CRD and related Golang structs. This CRD will be defined by vendors, and the corresponding CRs will be created by device controller when it detected a new device service created.
 
 ```go
 // DeviceService is the Schema for the deviceservices API
