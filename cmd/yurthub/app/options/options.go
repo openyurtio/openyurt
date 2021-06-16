@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/spf13/pflag"
 )
@@ -75,7 +76,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableIptables:            true,
 		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
-		DiskCachePath:             "/etc/kubernetes/cache",
+		DiskCachePath:             disk.CacheBaseDir,
 	}
 
 	return o
