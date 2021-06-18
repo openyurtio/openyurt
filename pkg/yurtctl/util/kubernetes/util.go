@@ -17,6 +17,7 @@ limitations under the License.
 package kubernetes
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,19 +26,30 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 	"github.com/spf13/pflag"
+
+	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
@@ -46,18 +58,6 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
-
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
-	"bytes"
-	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/restmapper"
 )
 
 const (
@@ -312,47 +312,46 @@ func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, 
 	return nil
 }
 
-func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string,filebytes []byte) error {
+func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string, filebytes []byte) error {
 	var err error
 	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
-	for {
-		var rawObj runtime.RawExtension
-		if err = decoder.Decode(&rawObj); err != nil {
-			break
-		}
-		obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
-		unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-		if err != nil {
-			return err
-		}
-		unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
-		gr, err := restmapper.GetAPIGroupResources(clientset.Discovery())
-		if err != nil {
-			return err
-		}
+	var rawObj runtime.RawExtension
+	err = decoder.Decode(&rawObj)
+	if err != nil {
+		return err
+	}
+	obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+	unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+	unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+	gr, err := restmapper.GetAPIGroupResources(clientset.Discovery())
+	if err != nil {
+		return err
+	}
 
-		mapper := restmapper.NewDiscoveryRESTMapper(gr)
-		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			return err
-		}
+	mapper := restmapper.NewDiscoveryRESTMapper(gr)
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return err
+	}
 
-		var dri dynamic.ResourceInterface
-		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-			if unstructuredObj.GetNamespace() == "" {
-				unstructuredObj.SetNamespace(nameSpace)
-			}
-			dri = yurtAppManagerClient.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
-		} else {
-			dri = yurtAppManagerClient.Resource(mapping.Resource)
+	var dri dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		if unstructuredObj.GetNamespace() == "" {
+			unstructuredObj.SetNamespace(nameSpace)
 		}
+		dri = yurtAppManagerClient.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
+	} else {
+		dri = yurtAppManagerClient.Resource(mapping.Resource)
+	}
 
-		objSecond, err := dri.Create(context.Background(), unstructuredObj, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		} else {
-			fmt.Printf("%s/%s created", objSecond.GetKind(), objSecond.GetName())
-		}
+	objSecond, err := dri.Create(context.Background(), unstructuredObj, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	} else {
+		fmt.Printf("%s/%s created", objSecond.GetKind(), objSecond.GetName())
 	}
 	return nil
 }
@@ -504,7 +503,6 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(restCfg)
 }
 
-//add by yanyhui at 20210611
 // GenDynamicClientSet generates the clientset based on command option, environment variable or
 // the default kubeconfig file
 func GenDynamicClientSet(flags *pflag.FlagSet) (dynamic.Interface, error) {

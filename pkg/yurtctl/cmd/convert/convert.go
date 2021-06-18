@@ -22,23 +22,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
-	"k8s.io/klog"
-	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
-
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
+	"k8s.io/klog"
+	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 )
 
 // Provider signifies the provider type
@@ -163,7 +163,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.DeployTunnel = dt
-	
+
 	eam, err := flags.GetBool("enable-app-manager")
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.YurttunnelAgentImage = ytai
-	
+
 	yami, err := flags.GetString("yurt-app-manager-image")
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// parse kubeconfig and generate the yurtappmanagerclientset
 	co.yurtAppManagerClientSet, err = kubeutil.GenDynamicClientSet(flags)
 	if err != nil {
@@ -374,23 +374,22 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 7. deploy yurt-hub and reset the kubelet service
-	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
-	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
-	if err != nil {
-		return err
-	}
-	
-	//8. deploy the yurtappmanager if required
+	//7. deploy the yurtappmanager if required
 	if co.EnableAppManager {
 		if err = deployYurtAppManager(co.clientSet,
-			co.CloudNodes,
 			co.YurtAppManagerImage,
 			co.yurtAppManagerClientSet); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-app-manager: %s", err)
 			return
 		}
 		klog.Info("yurt-app-manager is deployed")
+	}
+
+	// 8. deploy yurt-hub and reset the kubelet service
+	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
+	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
+	if err != nil {
+		return err
 	}
 
 	ctx := map[string]string{
@@ -418,18 +417,17 @@ func (co *ConvertOptions) RunConvert() (err error) {
 
 func deployYurtAppManager(
 	client *kubernetes.Clientset,
-	cloudNodes []string,
 	yurtappmanagerImage string,
 	yurtAppManagerClient dynamic.Interface) error {
 
 	// 1.create the YurtAppManagerCustomResourceDefinition
 	// 1.1 nodepool
-	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "",[]byte(constants.YurtAppManagerNodePool)); err != nil {
+	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerNodePool)); err != nil {
 		return err
 	}
 
 	// 1.2 uniteddeployment
-	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "",[]byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
+	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
 		return err
 	}
 
