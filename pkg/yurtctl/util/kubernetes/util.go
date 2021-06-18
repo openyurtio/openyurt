@@ -321,6 +321,9 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 		return err
 	}
 	obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+	if err != nil {
+		return err
+	}
 	unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return err
