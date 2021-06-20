@@ -49,6 +49,8 @@ spec:
               fieldPath: status.hostIP
       hostNetwork: true
       restartPolicy: Always
+      tolerations:
+        - operator: Exists
       volumes:
       - name: k8s-dir
         hostPath:
