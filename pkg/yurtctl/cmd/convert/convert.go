@@ -22,22 +22,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
-	"k8s.io/klog"
-	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
-
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
+	"k8s.io/klog"
+	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 )
 
 // Provider signifies the provider type
@@ -73,6 +74,9 @@ type ConvertOptions struct {
 	KubeadmConfPath            string
 	DeployTunnel               bool
 	kubeConfigPath             string
+	EnableAppManager           bool
+	YurtAppManagerImage        string
+	yurtAppManagerClientSet    dynamic.Interface
 }
 
 // NewConvertOptions creates a new ConvertOptions
@@ -132,6 +136,11 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("pod-manifest-path",
 		"/etc/kubernetes/manifests",
 		"Path to the directory on edge node containing static pod files.")
+	cmd.Flags().BoolP("enable-app-manager", "e", false,
+		"if set, yurtappmanager will be deployed.")
+	cmd.Flags().String("yurt-app-manager-image",
+		"openyurt/yurt-app-manager:v0.4.0",
+		"The yurt-app-manager image.")
 
 	return cmd
 }
@@ -154,6 +163,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.DeployTunnel = dt
+
+	eam, err := flags.GetBool("enable-app-manager")
+	if err != nil {
+		return err
+	}
+	co.EnableAppManager = eam
 
 	pStr, err := flags.GetString("provider")
 	if err != nil {
@@ -197,6 +212,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.YurttunnelAgentImage = ytai
 
+	yami, err := flags.GetString("yurt-app-manager-image")
+	if err != nil {
+		return err
+	}
+	co.YurtAppManagerImage = yami
+
 	pmp, err := flags.GetString("pod-manifest-path")
 	if err != nil {
 		return err
@@ -211,6 +232,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 
 	// parse kubeconfig and generate the clientset
 	co.clientSet, err = kubeutil.GenClientSet(flags)
+	if err != nil {
+		return err
+	}
+
+	// parse kubeconfig and generate the yurtappmanagerclientset
+	co.yurtAppManagerClientSet, err = kubeutil.GenDynamicClientSet(flags)
 	if err != nil {
 		return err
 	}
@@ -347,7 +374,18 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 7. deploy yurt-hub and reset the kubelet service
+	//7. deploy the yurtappmanager if required
+	if co.EnableAppManager {
+		if err = deployYurtAppManager(co.clientSet,
+			co.YurtAppManagerImage,
+			co.yurtAppManagerClientSet); err != nil {
+			err = fmt.Errorf("fail to deploy the yurt-app-manager: %s", err)
+			return
+		}
+		klog.Info("yurt-app-manager is deployed")
+	}
+
+	// 8. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
 	if err != nil {
@@ -375,6 +413,83 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	klog.Info("the yurt-hub is deployed")
 
 	return
+}
+
+func deployYurtAppManager(
+	client *kubernetes.Clientset,
+	yurtappmanagerImage string,
+	yurtAppManagerClient dynamic.Interface) error {
+
+	// 1.create the YurtAppManagerCustomResourceDefinition
+	// 1.1 nodepool
+	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerNodePool)); err != nil {
+		return err
+	}
+
+	// 1.2 uniteddeployment
+	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
+		return err
+	}
+
+	// 2. create the YurtAppManagerRole
+	if err := kubeutil.CreateRoleFromYaml(client, "kube-system",
+		constants.YurtAppManagerRole); err != nil {
+		return err
+	}
+
+	// 3. create the ClusterRole
+	if err := kubeutil.CreateClusterRoleFromYaml(client,
+		constants.YurtAppManagerClusterRole); err != nil {
+		return err
+	}
+
+	// 4. create the RoleBinding
+	if err := kubeutil.CreateRoleBindingFromYaml(client, "kube-system",
+		constants.YurtAppManagerRolebinding); err != nil {
+		return err
+	}
+
+	// 5. create the ClusterRoleBinding
+	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
+		constants.YurtAppManagerClusterRolebinding); err != nil {
+		return err
+	}
+
+	// 6. create the Secret
+	if err := kubeutil.CreateSecretFromYaml(client, "kube-system",
+		constants.YurtAppManagerSecret); err != nil {
+		return err
+	}
+
+	// 7. create the Service
+	if err := kubeutil.CreateServiceFromYaml(client,
+		constants.YurtAppManagerService); err != nil {
+		return err
+	}
+
+	// 8. create the Deployment
+	if err := kubeutil.CreateDeployFromYaml(client,
+		"kube-system",
+		constants.YurtAppManagerDeployment,
+		map[string]string{
+			"image":           yurtappmanagerImage,
+			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+		return err
+	}
+
+	// 9. create the YurtAppManagerMutatingWebhookConfiguration
+	if err := kubeutil.CreateMutatingWebhookConfigurationFromYaml(client,
+		constants.YurtAppManagerMutatingWebhookConfiguration); err != nil {
+		return err
+	}
+
+	// 10. create the YurtAppManagerValidatingWebhookConfiguration
+	if err := kubeutil.CreateValidatingWebhookConfigurationFromYaml(client,
+		constants.YurtAppManagerValidatingWebhookConfiguration); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func deployYurttunnelServer(
