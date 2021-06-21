@@ -42,7 +42,9 @@ const (
 	YurttunnelCSRApproverThreadiness = 2
 
 	// name of the environment variables used in pod
-	YurttunnelAgentPodIPEnv = "POD_IP"
+	YurttunnelAgentPodIPEnv      = "POD_IP"
+	YurttunnelServerPodName      = "POD_NAME"
+	YurttunnelServerPodNamespace = "POD_NAMESPACE"
 
 	// name of the environment for selecting backend agent used in yurt-tunnel-server
 	ProxyHostHeaderKey = "X-Tunnel-Proxy-Host"

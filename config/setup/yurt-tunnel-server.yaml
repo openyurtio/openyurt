@@ -29,6 +29,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
   - endpoints
   verbs:
   - get
@@ -65,6 +66,12 @@ rules:
   - create
   - get
   - update
+- apiGroups:
+  - "apps"
+  resources:
+  - replicasets
+  verbs:
+  - get
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -177,6 +184,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "NET_RAW"]

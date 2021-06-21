@@ -17,8 +17,10 @@ limitations under the License.
 package options
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -29,7 +31,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
 
 	"github.com/spf13/pflag"
+	apps "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 )
@@ -64,7 +69,7 @@ func NewServerOptions() *ServerOptions {
 		EnableDNSController:    true,
 		IptablesSyncPeriod:     60,
 		DNSSyncPeriod:          1800,
-		ServerCount:            1,
+		ServerCount:            0,
 		TunnelAgentConnectPort: constants.YurttunnelServerAgentPort,
 		SecurePort:             constants.YurttunnelServerMasterPort,
 		InsecurePort:           constants.YurttunnelServerMasterInsecurePort,
@@ -152,6 +157,55 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	}
 	cfg.SharedInformerFactory = informers.NewSharedInformerFactory(cfg.Client, 10*time.Second)
 
+	if cfg.ServerCount <= 0 {
+		cnt, err := tryObtainServerCountFromReplicaSet(cfg.Client)
+		if err != nil {
+			klog.Warningf("failed to obtain server count from ReplicaSet, fall back to set server count as 1, %v", err)
+			cfg.ServerCount = 1
+		} else {
+			klog.Infof("set server count as %v", cnt)
+			cfg.ServerCount = cnt
+		}
+	}
+
 	klog.Infof("yurttunnel server config: %#+v", cfg)
 	return cfg, nil
+}
+
+// tryObtainServerCountFromReplicaSet returns the replicas of the ReplicaSet
+// which controls the tunnel server Pod
+func tryObtainServerCountFromReplicaSet(client kubernetes.Interface) (int, error) {
+	namespace := os.Getenv(constants.YurttunnelServerPodNamespace)
+	name := os.Getenv(constants.YurttunnelServerPodName)
+	if len(namespace) == 0 || len(name) == 0 {
+		return 0, fmt.Errorf("environment variable %s and %s cannot be empty",
+			constants.YurttunnelServerPodNamespace, constants.YurttunnelServerPodName)
+	}
+
+	pod, err := client.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return 0, err
+	}
+
+	controllerRef := metav1.GetControllerOf(pod)
+	if controllerRef == nil {
+		return 0, fmt.Errorf("no controller owns the pod %v", klog.KObj(pod))
+	}
+	if controllerRef.Kind != apps.SchemeGroupVersion.WithKind("ReplicaSet").Kind {
+		return 0, fmt.Errorf("the pod %v is not owned by a replica set", klog.KObj(pod))
+	}
+
+	rs, err := client.AppsV1().ReplicaSets(namespace).Get(context.Background(), controllerRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("cannot get replicaset for pod %v, %v", klog.KObj(pod), err)
+	}
+	if rs.UID != controllerRef.UID {
+		return 0, fmt.Errorf("cannot get replicaset for pod %v, expected owner UID %v, but got %v",
+			klog.KObj(pod), controllerRef.UID, rs.UID)
+	}
+	if rs.Spec.Replicas == nil {
+		return 0, fmt.Errorf("the replicas field of ReplicaSet %v is null", klog.KObj(rs))
+	}
+
+	return int(*rs.Spec.Replicas), nil
 }
