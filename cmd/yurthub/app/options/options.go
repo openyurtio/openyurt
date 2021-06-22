@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/spf13/pflag"
 )
@@ -53,6 +54,7 @@ type YurtHubOptions struct {
 	EnableIptables            bool
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
+	DiskCachePath             string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -74,6 +76,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableIptables:            true,
 		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
+		DiskCachePath:             disk.CacheBaseDir,
 	}
 
 	return o
@@ -126,6 +129,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableIptables, "enable-iptables", o.EnableIptables, "enable iptables manager to setup rules for accessing hub agent")
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
 	fs.StringVar(&o.HubAgentDummyIfName, "dummy-if-name", o.HubAgentDummyIfName, "the name of dummy interface that is used for hub agent")
+	fs.StringVar(&o.DiskCachePath, "disk-cache-path", o.DiskCachePath, "the path for kubernetes to storage metadata")
 }
 
 // verifyDummyIP verify the specified ip is valid or not

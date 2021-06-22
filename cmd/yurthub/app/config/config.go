@@ -62,7 +62,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
-	storageManager, err := factory.CreateStorage()
+	storageManager, err := factory.CreateStorage(options.DiskCachePath)
 	if err != nil {
 		klog.Errorf("could not create storage manager, %v", err)
 		return nil, err

@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	cacheBaseDir = "/etc/kubernetes/cache/"
+	CacheBaseDir = "/etc/kubernetes/cache/"
 	tmpPrefix    = "tmp_"
 )
 
@@ -43,7 +43,8 @@ type diskStorage struct {
 // NewDiskStorage creates a storage.Store for caching data into local disk
 func NewDiskStorage(dir string) (storage.Store, error) {
 	if dir == "" {
-		dir = cacheBaseDir
+		klog.Infof("disk cache path is empty, set it by default %s", CacheBaseDir)
+		dir = CacheBaseDir
 	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0755); err != nil {
