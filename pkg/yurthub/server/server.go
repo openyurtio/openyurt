@@ -17,7 +17,10 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 
@@ -27,6 +30,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog"
 )
 
 // Server is an interface for providing http service for yurthub
@@ -38,9 +42,16 @@ type Server interface {
 // and hubServer handles requests by hub agent itself, like profiling, metrics, healthz
 // and proxyServer does not handle requests locally and proxy requests to kube-apiserver
 type yurtHubServer struct {
-	hubServer        *http.Server
-	proxyServer      *http.Server
-	dummyProxyServer *http.Server
+	CAFile string
+	// CertFile the tls cert file for proxyhub's https server
+	CertFile string
+	// KeyFile the tls key file for proxyhub's https server
+	KeyFile string
+
+	hubServer         *http.Server
+	proxyServer       *http.Server
+	secureProxyServer *http.Server
+	dummyProxyServer  *http.Server
 }
 
 // NewYurtHubServer creates a Server object
@@ -56,8 +67,25 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	}
 
 	proxyServer := &http.Server{
-		Addr:           cfg.YurtHubProxyServerAddr,
-		Handler:        proxyHandler,
+		Addr:    cfg.YurtHubProxyServerAddr,
+		Handler: proxyHandler,
+	}
+
+	caFile, err := ioutil.ReadFile(cfg.CAFile)
+	if err != nil {
+		klog.Errorf("Read ca file err: %v", err)
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM([]byte(caFile))
+
+	secureProxyServer := &http.Server{
+		Addr:    cfg.YurtHubProxyServerSecureAddr,
+		Handler: proxyHandler,
+		TLSConfig: &tls.Config{
+			ClientCAs:  certPool,
+			ClientAuth: tls.VerifyClientCertIfGiven,
+		},
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -75,9 +103,13 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	}
 
 	return &yurtHubServer{
-		hubServer:        hubServer,
-		proxyServer:      proxyServer,
-		dummyProxyServer: dummyProxyServer,
+		CAFile:            cfg.CAFile,
+		CertFile:          cfg.CertFile,
+		KeyFile:           cfg.KeyFile,
+		hubServer:         hubServer,
+		proxyServer:       proxyServer,
+		secureProxyServer: secureProxyServer,
+		dummyProxyServer:  dummyProxyServer,
 	}, nil
 }
 
@@ -98,6 +130,13 @@ func (s *yurtHubServer) Run() {
 			}
 		}()
 	}
+
+	go func() {
+		err := s.secureProxyServer.ListenAndServeTLS(s.CertFile, s.KeyFile)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	err := s.proxyServer.ListenAndServe()
 	if err != nil {

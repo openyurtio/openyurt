@@ -38,6 +38,7 @@ type YurtHubOptions struct {
 	YurtHubHost               string
 	YurtHubPort               string
 	YurtHubProxyPort          string
+	YurtHubProxySecurePort    string
 	GCFrequency               int
 	CertMgrMode               string
 	NodeName                  string
@@ -55,12 +56,16 @@ type YurtHubOptions struct {
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
 	DiskCachePath             string
+	CAFile                    string
+	CertFile                  string
+	KeyFile                   string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
 func NewYurtHubOptions() *YurtHubOptions {
 	o := &YurtHubOptions{
 		YurtHubHost:               "127.0.0.1",
+		YurtHubProxySecurePort:    "10260",
 		YurtHubProxyPort:          "10261",
 		YurtHubPort:               "10267",
 		GCFrequency:               120,
@@ -92,6 +97,18 @@ func ValidateOptions(options *YurtHubOptions) error {
 		return fmt.Errorf("server-address is empty")
 	}
 
+	if len(options.CAFile) == 0 {
+		return fmt.Errorf("CA is empty")
+	}
+
+	if len(options.CertFile) == 0 {
+		return fmt.Errorf("tls cert is empty")
+	}
+
+	if len(options.KeyFile) == 0 {
+		return fmt.Errorf("tls key is empty")
+	}
+
 	if !util.IsSupportedLBMode(options.LBMode) {
 		return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
 	}
@@ -112,6 +129,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubHost, "bind-address", o.YurtHubHost, "the IP address on which to listen for the --serve-port port.")
 	fs.StringVar(&o.YurtHubPort, "serve-port", o.YurtHubPort, "the port on which to serve HTTP requests(like profiling, metrics) for hub agent.")
 	fs.StringVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
+	fs.StringVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringVar(&o.CertMgrMode, "cert-mgr-mode", o.CertMgrMode, "the cert manager mode, kubelet: use certificates that belongs to kubelet, hubself: auto generate client cert for hub agent.")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
@@ -130,6 +148,9 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
 	fs.StringVar(&o.HubAgentDummyIfName, "dummy-if-name", o.HubAgentDummyIfName, "the name of dummy interface that is used for hub agent")
 	fs.StringVar(&o.DiskCachePath, "disk-cache-path", o.DiskCachePath, "the path for kubernetes to storage metadata")
+	fs.StringVar(&o.CAFile, "ca-file", "", "the CA for yurthub to verify client")
+	fs.StringVar(&o.CertFile, "tls-cert-file", "", "the tls cert of yurthub")
+	fs.StringVar(&o.KeyFile, "tls-private-key-file", "", "the tls key of yurthub")
 }
 
 // verifyDummyIP verify the specified ip is valid or not
