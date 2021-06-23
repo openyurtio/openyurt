@@ -17,7 +17,10 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 
@@ -27,6 +30,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog"
 )
 
 // Server is an interface for providing http service for yurthub
@@ -38,6 +42,12 @@ type Server interface {
 // and hubServer handles requests by hub agent itself, like profiling, metrics, healthz
 // and proxyServer does not handle requests locally and proxy requests to kube-apiserver
 type yurtHubServer struct {
+	CAFile string
+	// CertFile the tls cert file for proxyhub's https server
+	CertFile string
+	// KeyFile the tls key file for proxyhub's https server
+	KeyFile string
+
 	hubServer        *http.Server
 	proxyServer      *http.Server
 	dummyProxyServer *http.Server
@@ -55,9 +65,21 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	caFile, err := ioutil.ReadFile(cfg.CAFile)
+	if err != nil {
+		klog.Errorf("Read ca file err: %v", err)
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM([]byte(caFile))
+
 	proxyServer := &http.Server{
-		Addr:           cfg.YurtHubProxyServerAddr,
-		Handler:        proxyHandler,
+		Addr:    cfg.YurtHubProxyServerAddr,
+		Handler: proxyHandler,
+		TLSConfig: &tls.Config{
+			ClientCAs:  certPool,
+			ClientAuth: tls.VerifyClientCertIfGiven,
+		},
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -75,6 +97,9 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	}
 
 	return &yurtHubServer{
+		CAFile:           cfg.CAFile,
+		CertFile:         cfg.CertFile,
+		KeyFile:          cfg.KeyFile,
 		hubServer:        hubServer,
 		proxyServer:      proxyServer,
 		dummyProxyServer: dummyProxyServer,
@@ -99,7 +124,7 @@ func (s *yurtHubServer) Run() {
 		}()
 	}
 
-	err := s.proxyServer.ListenAndServe()
+	err := s.proxyServer.ListenAndServeTLS(s.CertFile, s.KeyFile)
 	if err != nil {
 		panic(err)
 	}

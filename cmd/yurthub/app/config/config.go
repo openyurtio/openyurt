@@ -53,6 +53,9 @@ type YurtHubConfiguration struct {
 	HubAgentDummyIfName         string
 	StorageWrapper              cachemanager.StorageWrapper
 	SerializerManager           *serializer.SerializerManager
+	CAFile                      string
+	CertFile                    string
+	KeyFile                     string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -94,6 +97,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HubAgentDummyIfName:         options.HubAgentDummyIfName,
 		StorageWrapper:              storageWrapper,
 		SerializerManager:           serializerManager,
+		CAFile:                      options.CAFile,
+		CertFile:                    options.CertFile,
+		KeyFile:                     options.KeyFile,
 	}
 
 	return cfg, nil
