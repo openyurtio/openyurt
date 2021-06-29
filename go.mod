@@ -11,17 +11,22 @@ require (
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
+	github.com/lithammer/dedent v1.1.0
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/selinux v1.3.1-0.20190929122143-5215b1806f52
 	github.com/openyurtio/yurt-app-manager-api v0.18.8
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	google.golang.org/grpc v1.27.0
+	gopkg.in/cheggaaa/pb.v1 v1.0.25
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7

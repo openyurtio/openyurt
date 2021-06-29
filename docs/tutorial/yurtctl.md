@@ -216,6 +216,20 @@ Note that before performing the uninstall, please make sure all edge nodes are r
 In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`,
 and the path of the directory on edge node containing static pod files can be set by the option `--pod-manifest-path`.
 
+## Join Edge-Node/Cloud-Node to OpenYurt
+
+`yurtctl join` will automatically install the corresponding kubelet according to the cluster version, but the user needs to install the runtime in advance and ensure that the swap partition of the node has been closed.
+
+Using `yurtctl` to join an Edge-Node to OpenYurt cluster can be by doing the following:
+```
+$ _output/bin/yurtctl join 1.2.3.4:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge-node --discovery-token-unsafe-skip-ca-verification --v=5
+```
+
+Using `yurtctl` to join a Cloud-Node to OpenYurt cluster can be by doing the following:
+```
+$ _output/bin/yurtctl join 1.2.3.4:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud-node --discovery-token-unsafe-skip-ca-verification --v=5
+```
+
 ## Subcommand
 ### Convert a Kubernetes node to Yurt edge node
 
