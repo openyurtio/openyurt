@@ -56,9 +56,6 @@ type YurtHubOptions struct {
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
 	DiskCachePath             string
-	CAFile                    string
-	CertFile                  string
-	KeyFile                   string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -95,18 +92,6 @@ func ValidateOptions(options *YurtHubOptions) error {
 
 	if len(options.ServerAddr) == 0 {
 		return fmt.Errorf("server-address is empty")
-	}
-
-	if len(options.CAFile) == 0 {
-		return fmt.Errorf("CA is empty")
-	}
-
-	if len(options.CertFile) == 0 {
-		return fmt.Errorf("tls cert is empty")
-	}
-
-	if len(options.KeyFile) == 0 {
-		return fmt.Errorf("tls key is empty")
 	}
 
 	if !util.IsSupportedLBMode(options.LBMode) {
@@ -148,9 +133,6 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
 	fs.StringVar(&o.HubAgentDummyIfName, "dummy-if-name", o.HubAgentDummyIfName, "the name of dummy interface that is used for hub agent")
 	fs.StringVar(&o.DiskCachePath, "disk-cache-path", o.DiskCachePath, "the path for kubernetes to storage metadata")
-	fs.StringVar(&o.CAFile, "ca-file", "", "the CA for yurthub to verify client")
-	fs.StringVar(&o.CertFile, "tls-cert-file", "", "the tls cert of yurthub")
-	fs.StringVar(&o.KeyFile, "tls-private-key-file", "", "the tls key of yurthub")
 }
 
 // verifyDummyIP verify the specified ip is valid or not

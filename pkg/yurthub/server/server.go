@@ -18,18 +18,23 @@ package server
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"path/filepath"
+	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/pki"
+	"github.com/openyurtio/openyurt/pkg/yurthub/pki/certmanager"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
@@ -42,22 +47,17 @@ type Server interface {
 // and hubServer handles requests by hub agent itself, like profiling, metrics, healthz
 // and proxyServer does not handle requests locally and proxy requests to kube-apiserver
 type yurtHubServer struct {
-	CAFile string
-	// CertFile the tls cert file for proxyhub's https server
-	CertFile string
-	// KeyFile the tls key file for proxyhub's https server
-	KeyFile string
-
-	hubServer         *http.Server
-	proxyServer       *http.Server
-	secureProxyServer *http.Server
-	dummyProxyServer  *http.Server
+	hubServer              *http.Server
+	proxyServer            *http.Server
+	secureProxyServer      *http.Server
+	dummyProxyServer       *http.Server
+	dummySecureProxyServer *http.Server
 }
 
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
-	proxyHandler http.Handler) (Server, error) {
+	proxyHandler http.Handler, stopCh <-chan struct{}) (Server, error) {
 	hubMux := mux.NewRouter()
 	registerHandlers(hubMux, cfg, certificateMgr)
 	hubServer := &http.Server{
@@ -71,25 +71,19 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		Handler: proxyHandler,
 	}
 
-	caFile, err := ioutil.ReadFile(cfg.CAFile)
+	tlsCfg, err := genUseCertMgrAndTLSConfig(certificateMgr, filepath.Join(cfg.RootDir, "pki"), stopCh)
 	if err != nil {
-		klog.Errorf("Read ca file err: %v", err)
 		return nil, err
 	}
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM([]byte(caFile))
-
 	secureProxyServer := &http.Server{
-		Addr:    cfg.YurtHubProxyServerSecureAddr,
-		Handler: proxyHandler,
-		TLSConfig: &tls.Config{
-			ClientCAs:  certPool,
-			ClientAuth: tls.VerifyClientCertIfGiven,
-		},
+		Addr:           cfg.YurtHubProxyServerSecureAddr,
+		Handler:        proxyHandler,
+		TLSConfig:      tlsCfg,
+		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	var dummyProxyServer *http.Server
+	var dummyProxyServer, secureDummyProxyServer *http.Server
 	if cfg.EnableDummyIf {
 		if _, err := net.InterfaceByName(cfg.HubAgentDummyIfName); err != nil {
 			return nil, err
@@ -100,16 +94,22 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 			Handler:        proxyHandler,
 			MaxHeaderBytes: 1 << 20,
 		}
+
+		secureDummyProxyServer = &http.Server{
+			Addr:           cfg.YurtHubProxyServerSecureDummyAddr,
+			Handler:        proxyHandler,
+			TLSConfig:      tlsCfg,
+			TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+			MaxHeaderBytes: 1 << 20,
+		}
 	}
 
 	return &yurtHubServer{
-		CAFile:            cfg.CAFile,
-		CertFile:          cfg.CertFile,
-		KeyFile:           cfg.KeyFile,
-		hubServer:         hubServer,
-		proxyServer:       proxyServer,
-		secureProxyServer: secureProxyServer,
-		dummyProxyServer:  dummyProxyServer,
+		hubServer:              hubServer,
+		proxyServer:            proxyServer,
+		secureProxyServer:      secureProxyServer,
+		dummyProxyServer:       dummyProxyServer,
+		dummySecureProxyServer: secureDummyProxyServer,
 	}, nil
 }
 
@@ -129,10 +129,16 @@ func (s *yurtHubServer) Run() {
 				panic(err)
 			}
 		}()
+		go func() {
+			err := s.dummySecureProxyServer.ListenAndServeTLS("", "")
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	go func() {
-		err := s.secureProxyServer.ListenAndServeTLS(s.CertFile, s.KeyFile)
+		err := s.secureProxyServer.ListenAndServeTLS("", "")
 		if err != nil {
 			panic(err)
 		}
@@ -165,4 +171,42 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "OK")
+}
+
+// create a certificate manager for the yurthub server and run the csr approver for both yurthub
+// and generate a TLS configuration
+func genUseCertMgrAndTLSConfig(certificateMgr interfaces.YurtCertificateManager, certDir string, stopCh <-chan struct{}) (*tls.Config, error) {
+	clientSet, err := kubernetes.NewForConfig(certificateMgr.GetRestConfig())
+	if err != nil {
+		return nil, err
+	}
+	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
+	serverCertMgr, err := certmanager.NewYurtHubServerCertManager(clientSet, certDir)
+	if err != nil {
+		return nil, err
+	}
+	serverCertMgr.Start()
+
+	// generate the TLS configuration based on the latest certificate
+	rootCert, err := pki.GenCertPoolUseCA(certificateMgr.GetCaFile())
+	if err != nil {
+		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
+		return nil, err
+	}
+	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
+	if err != nil {
+		return nil, err
+	}
+
+	// waiting for the certificate is generated
+	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+		// keep polling until the certificate is signed
+		if serverCertMgr.Current() != nil {
+			return true, nil
+		}
+		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetHubName())
+		return false, nil
+	}, stopCh)
+
+	return tlsCfg, nil
 }

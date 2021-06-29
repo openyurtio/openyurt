@@ -148,7 +148,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
-	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
+	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler, stopCh)
 	if err != nil {
 		klog.Errorf("could not create hub server, %v", err)
 		return err
