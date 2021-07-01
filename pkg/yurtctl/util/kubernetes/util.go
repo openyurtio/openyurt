@@ -74,7 +74,7 @@ var (
 	WaitServantJobTimeout = time.Minute * 2
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
-	// ValidServerVersions contains all compatable server version
+	// ValidServerVersions contains all compatible server version
 	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",
@@ -424,7 +424,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 	}
 }
 
-// RunServantJobs launchs servant jobs on specified edge nodes
+// RunServantJobs launch servant jobs on specified edge nodes
 func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string, convert bool) error {
 	var wg sync.WaitGroup
 	servantJobTemplate := constants.ConvertServantJobTemplate
