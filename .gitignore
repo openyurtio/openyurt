@@ -4,5 +4,7 @@ _output
 gopath
 dockerbuild
 
+vendor
+.vscode
 *.out
 logs
