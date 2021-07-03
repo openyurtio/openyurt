@@ -21,33 +21,26 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 )
 
 const (
-	certificateManagerName = "kubelet"
-	defaultPairDir         = "/var/lib/kubelet/pki"
-	defaultPairFile        = "kubelet-client-current.pem"
-	defaultCaFile          = "/etc/kubernetes/pki/ca.crt"
-	certVerifyDuration     = 30 * time.Minute
+	certVerifyDuration = 30 * time.Minute
 )
 
 // Register registers a YurtCertificateManager
 func Register(cmr *certificate.CertificateManagerRegistry) {
-	cmr.Register(certificateManagerName, func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
-		return NewKubeletCertManager(cfg, 0, "")
+	cmr.Register(util.KubeletCertificateManagerName, func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
+		return NewKubeletCertManager(cfg, 0)
 	})
 }
 
@@ -59,14 +52,13 @@ type kubeletCertManager struct {
 	remoteServers      []*url.URL
 	caFile             string
 	certVerifyDuration time.Duration
-	checker            healthchecker.HealthChecker
 	stopped            bool
 }
 
 // NewKubeletCertManager creates a YurtCertificateManager
-func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duration, certDir string) (interfaces.YurtCertificateManager, error) {
+func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duration) (interfaces.YurtCertificateManager, error) {
 	var cert *tls.Certificate
-	var pairFile string
+	pairFile := cfg.KubeletPairFilePath
 	if cfg == nil || len(cfg.RemoteServers) == 0 {
 		return nil, fmt.Errorf("hub configuration is invalid")
 	}
@@ -74,11 +66,6 @@ func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duratio
 	if period == time.Duration(0) {
 		period = certVerifyDuration
 	}
-
-	if len(certDir) == 0 {
-		certDir = defaultPairDir
-	}
-	pairFile = filepath.Join(certDir, defaultPairFile)
 
 	if pairFileExists, err := util.FileExists(pairFile); err != nil {
 		return nil, err
@@ -94,15 +81,10 @@ func NewKubeletCertManager(cfg *config.YurtHubConfiguration, period time.Duratio
 		pairFile:           pairFile,
 		cert:               cert,
 		remoteServers:      cfg.RemoteServers,
-		caFile:             defaultCaFile,
+		caFile:             cfg.KubeletRootCAFilePath,
 		certVerifyDuration: period,
 		stopCh:             make(chan struct{}),
 	}, nil
-}
-
-// SetHealthChecker set healthChecker
-func (kcm *kubeletCertManager) SetHealthChecker(checker healthchecker.HealthChecker) {
-	kcm.checker = checker
 }
 
 // Stop stop cert manager
@@ -157,25 +139,9 @@ func (kcm *kubeletCertManager) GetCaFile() string {
 	return kcm.caFile
 }
 
-// GetRestConfig get *rest.Config from kubelet.conf
-func (kcm *kubeletCertManager) GetRestConfig() *rest.Config {
-	var s *url.URL
-	for _, server := range kcm.remoteServers {
-		if kcm.checker.IsHealthy(server) {
-			s = server
-			break
-		}
-	}
-	if s == nil {
-		return nil
-	}
-
-	cfg, err := util.LoadKubeletRestClientConfig(s)
-	if err != nil {
-		klog.Errorf("could not load kubelet rest client config, %v", err)
-		return nil
-	}
-	return cfg
+// GetConfFilePath get an kube-config file path, but the kubelet mode just using the ca and pair, so return empty
+func (kcm *kubeletCertManager) GetConfFilePath() string {
+	return ""
 }
 
 func (kcm *kubeletCertManager) NotExpired() bool {
@@ -195,7 +161,7 @@ func (kcm *kubeletCertManager) updateCert(c *tls.Certificate) {
 }
 
 // Update do nothing
-func (kcm *kubeletCertManager) Update(cfg *config.YurtHubConfiguration) error {
+func (kcm *kubeletCertManager) Update(_ *config.YurtHubConfiguration) error {
 	return nil
 }
 

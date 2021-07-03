@@ -23,7 +23,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	v1 "k8s.io/api/core/v1"
@@ -42,7 +42,7 @@ var (
 // GCManager is responsible for cleanup garbage of yurthub
 type GCManager struct {
 	store             cachemanager.StorageWrapper
-	transportManager  transport.Interface
+	restConfigManager *rest.RestConfigManager
 	nodeName          string
 	eventsGCFrequency time.Duration
 	lastTime          time.Time
@@ -50,15 +50,15 @@ type GCManager struct {
 }
 
 // NewGCManager creates a *GCManager object
-func NewGCManager(cfg *config.YurtHubConfiguration, transportManager transport.Interface, stopCh <-chan struct{}) (*GCManager, error) {
+func NewGCManager(cfg *config.YurtHubConfiguration, restConfigManager *rest.RestConfigManager, stopCh <-chan struct{}) (*GCManager, error) {
 	gcFrequency := cfg.GCFrequency
 	if gcFrequency == 0 {
 		gcFrequency = defaultEventGcInterval
 	}
 	mgr := &GCManager{
 		store:             cfg.StorageWrapper,
-		transportManager:  transportManager,
 		nodeName:          cfg.NodeName,
+		restConfigManager: restConfigManager,
 		eventsGCFrequency: time.Duration(gcFrequency) * time.Minute,
 		stopCh:            stopCh,
 	}
@@ -73,7 +73,7 @@ func (m *GCManager) Run() {
 	go wait.JitterUntil(func() {
 		klog.V(2).Infof("start gc events after waiting %v from previous gc", time.Since(m.lastTime))
 		m.lastTime = time.Now()
-		cfg := m.transportManager.GetRestClientConfig()
+		cfg := m.restConfigManager.GetRestConfig()
 		if cfg == nil {
 			klog.Errorf("could not get rest config, so skip gc")
 			return
@@ -96,7 +96,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 	}
 	klog.Infof("list pod keys from storage, total: %d", len(localPodKeys))
 
-	cfg := m.transportManager.GetRestClientConfig()
+	cfg := m.restConfigManager.GetRestConfig()
 	if cfg == nil {
 		klog.Errorf("could not get rest config, so skip gc pods when restart")
 		return err

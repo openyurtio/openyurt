@@ -43,6 +43,14 @@ import (
 type ProxyKeyType int
 
 const (
+	// YurtHubCertificateManagerName represents the certificateManager name in yurthub mode
+	YurtHubCertificateManagerName = "hubself"
+	// KubeletCertificateManagerName represents the certificateManager name in kubelet mode
+	KubeletCertificateManagerName = "kubelet"
+	// DefaultKubeletPairFilePath represents the default kubelet pair file path
+	DefaultKubeletPairFilePath = "/var/lib/kubelet/pki/kubelet-client-current.pem"
+	// DefaultKubeletRootCAFilePath represents the default kubelet ca file path
+	DefaultKubeletRootCAFilePath = "/etc/kubernetes/pki/ca.crt"
 	// ProxyReqContentType represents request content type context key
 	ProxyReqContentType ProxyKeyType = iota
 	// ProxyRespContentType represents response content type context key
@@ -283,7 +291,7 @@ func IsSupportedLBMode(lbMode string) bool {
 // IsSupportedCertMode check cert mode is supported or not
 func IsSupportedCertMode(certMode string) bool {
 	switch certMode {
-	case "kubelet", "hubself":
+	case KubeletCertificateManagerName, YurtHubCertificateManagerName:
 		return true
 	}
 
@@ -301,24 +309,19 @@ func FileExists(filename string) (bool, error) {
 }
 
 // LoadKubeletRestClientConfig load *rest.Config for accessing healthyServer
-func LoadKubeletRestClientConfig(healthyServer *url.URL) (*rest.Config, error) {
-	const (
-		pairFile   = "/var/lib/kubelet/pki/kubelet-client-current.pem"
-		rootCAFile = "/etc/kubernetes/pki/ca.crt"
-	)
-
+func LoadKubeletRestClientConfig(healthyServer *url.URL, kubeletRootCAFilePath, kubeletPairFilePath string) (*rest.Config, error) {
 	tlsClientConfig := rest.TLSClientConfig{}
-	if _, err := certutil.NewPool(rootCAFile); err != nil {
-		klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+	if _, err := certutil.NewPool(kubeletRootCAFilePath); err != nil {
+		klog.Errorf("Expected to load root CA config from %s, but got err: %v", kubeletRootCAFilePath, err)
 	} else {
-		tlsClientConfig.CAFile = rootCAFile
+		tlsClientConfig.CAFile = kubeletRootCAFilePath
 	}
 
-	if can, _ := certutil.CanReadCertAndKey(pairFile, pairFile); !can {
-		return nil, fmt.Errorf("error reading %s, certificate and key must be supplied as a pair", pairFile)
+	if can, _ := certutil.CanReadCertAndKey(kubeletPairFilePath, kubeletPairFilePath); !can {
+		return nil, fmt.Errorf("error reading %s, certificate and key must be supplied as a pair", kubeletPairFilePath)
 	}
-	tlsClientConfig.KeyFile = pairFile
-	tlsClientConfig.CertFile = pairFile
+	tlsClientConfig.KeyFile = kubeletPairFilePath
+	tlsClientConfig.CertFile = kubeletPairFilePath
 
 	return &rest.Config{
 		Host:            healthyServer.String(),

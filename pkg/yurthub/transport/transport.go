@@ -28,7 +28,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 )
 
@@ -37,8 +36,6 @@ type Interface interface {
 	// concurrent use by multiple goroutines
 	// CurrentTransport get transport that used by load balancer
 	CurrentTransport() *http.Transport
-	// GetRestClientConfig get rest config that used by gc
-	GetRestClientConfig() *rest.Config
 	// close all net connections that specified by address
 	Close(address string)
 }
@@ -84,10 +81,6 @@ func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-cha
 	tm.start()
 
 	return tm, nil
-}
-
-func (tm *transportManager) GetRestClientConfig() *rest.Config {
-	return tm.certManager.GetRestConfig()
 }
 
 func (tm *transportManager) CurrentTransport() *http.Transport {
