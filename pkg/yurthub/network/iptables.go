@@ -79,7 +79,7 @@ func (im *IptablesManager) EnsureIptablesRules() error {
 		_, err := im.iptables.EnsureRule(rule.pos, rule.table, rule.chain, rule.args...)
 		if err != nil {
 			klog.Errorf("could not ensure iptables rule(%s -t %s %s %s), %v", rule.pos, rule.table, rule.chain, strings.Join(rule.args, ","), err)
-			return err
+			continue
 		}
 	}
 	return nil
