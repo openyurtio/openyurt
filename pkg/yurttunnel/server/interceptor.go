@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
@@ -39,7 +40,22 @@ var (
 	supportedHeaders       = []string{constants.ProxyHostHeaderKey, "User-Agent"}
 	HeaderTransferEncoding = "Transfer-Encoding"
 	HeaderChunked          = "chunked"
+	bufioReaderPool        sync.Pool
 )
+
+func newBufioReader(r io.Reader) *bufio.Reader {
+	if v := bufioReaderPool.Get(); v != nil {
+		br := v.(*bufio.Reader)
+		br.Reset(r)
+		return br
+	}
+	return bufio.NewReader(r)
+}
+
+func putBufioReader(br *bufio.Reader) {
+	br.Reset(nil)
+	bufioReaderPool.Put(br)
+}
 
 // ReqRequestInterceptor intercepts http/https requests sent from the master,
 // prometheus and metric server, setup proxy tunnel to kubelet, sends requests
@@ -70,7 +86,8 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 		}
 
 		fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s%s\r\n\r\n", addr, "127.0.0.1", connectHeaders)
-		br := bufio.NewReader(proxyConn)
+		br := newBufioReader(proxyConn)
+		defer putBufioReader(br)
 		res, err := http.ReadResponse(br, nil)
 		if err != nil {
 			proxyConn.Close()
@@ -151,7 +168,9 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func getResponse(r io.Reader) (*http.Response, []byte, error) {
 	rawResponse := bytes.NewBuffer(make([]byte, 0, 256))
 	// Save the bytes read while reading the response headers into the rawResponse buffer
-	resp, err := http.ReadResponse(bufio.NewReader(io.TeeReader(r, rawResponse)), nil)
+	br := newBufioReader(io.TeeReader(r, rawResponse))
+	defer putBufioReader(br)
+	resp, err := http.ReadResponse(br, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -250,7 +269,9 @@ func isChunked(response *http.Response) bool {
 
 // serverRequest serves the normal requests, e.g., kubectl logs
 func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
-	tunnelHTTPResp, err := http.ReadResponse(bufio.NewReader(tunnelConn), r)
+	br := newBufioReader(tunnelConn)
+	defer putBufioReader(br)
+	tunnelHTTPResp, err := http.ReadResponse(br, r)
 	if err != nil {
 		klogAndHTTPError(w, http.StatusServiceUnavailable, "fail to read response from the tunnel: %v", err)
 		return
