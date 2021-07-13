@@ -43,6 +43,8 @@ var (
 	bufioReaderPool        sync.Pool
 )
 
+// newBufioReader retrieves a cached Reader from the pool if the pool is not empty,
+// otherwise creates a new one
 func newBufioReader(r io.Reader) *bufio.Reader {
 	if v := bufioReaderPool.Get(); v != nil {
 		br := v.(*bufio.Reader)
@@ -52,6 +54,7 @@ func newBufioReader(r io.Reader) *bufio.Reader {
 	return bufio.NewReader(r)
 }
 
+// putBufioReader puts the Reader to the pool.
 func putBufioReader(br *bufio.Reader) {
 	br.Reset(nil)
 	bufioReaderPool.Put(br)
