@@ -40,6 +40,8 @@ type YurtHubOptions struct {
 	YurtHubProxyPort          string
 	GCFrequency               int
 	CertMgrMode               string
+	KubeletRootCAFilePath     string
+	KubeletPairFilePath       string
 	NodeName                  string
 	LBMode                    string
 	HeartbeatFailedRetry      int
@@ -64,7 +66,9 @@ func NewYurtHubOptions() *YurtHubOptions {
 		YurtHubProxyPort:          "10261",
 		YurtHubPort:               "10267",
 		GCFrequency:               120,
-		CertMgrMode:               "hubself",
+		CertMgrMode:               util.YurtHubCertificateManagerName,
+		KubeletRootCAFilePath:     util.DefaultKubeletRootCAFilePath,
+		KubeletPairFilePath:       util.DefaultKubeletPairFilePath,
 		LBMode:                    "rr",
 		HeartbeatFailedRetry:      3,
 		HeartbeatHealthyThreshold: 2,
@@ -114,6 +118,8 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringVar(&o.CertMgrMode, "cert-mgr-mode", o.CertMgrMode, "the cert manager mode, kubelet: use certificates that belongs to kubelet, hubself: auto generate client cert for hub agent.")
+	fs.StringVar(&o.KubeletRootCAFilePath, "kubelet-ca-file", o.KubeletRootCAFilePath, "the ca file path used by kubelet.")
+	fs.StringVar(&o.KubeletPairFilePath, "kubelet-client-certificate", o.KubeletPairFilePath, "the path of kubelet client certificate file.")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs hub agent")
 	fs.StringVar(&o.LBMode, "lb-mode", o.LBMode, "the mode of load balancer to connect remote servers(rr, priority)")

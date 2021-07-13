@@ -40,6 +40,8 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerDummyAddr string
 	GCFrequency                 int
 	CertMgrMode                 string
+	KubeletRootCAFilePath       string
+	KubeletPairFilePath         string
 	NodeName                    string
 	HeartbeatFailedRetry        int
 	HeartbeatHealthyThreshold   int
@@ -81,6 +83,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubProxyServerDummyAddr: proxyServerDummyAddr,
 		GCFrequency:                 options.GCFrequency,
 		CertMgrMode:                 options.CertMgrMode,
+		KubeletRootCAFilePath:       options.KubeletRootCAFilePath,
+		KubeletPairFilePath:         options.KubeletPairFilePath,
 		NodeName:                    options.NodeName,
 		HeartbeatFailedRetry:        options.HeartbeatFailedRetry,
 		HeartbeatHealthyThreshold:   options.HeartbeatHealthyThreshold,

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var storeCertData = newCertificateData(`-----BEGIN CERTIFICATE-----
@@ -138,10 +139,12 @@ func TestCurrent(t *testing.T) {
 
 	u, _ := url.Parse("http://127.0.0.1:8080")
 	cfg := &config.YurtHubConfiguration{
-		RemoteServers: []*url.URL{u},
+		RemoteServers:         []*url.URL{u},
+		KubeletPairFilePath:   pairFile,
+		KubeletRootCAFilePath: util.DefaultKubeletRootCAFilePath,
 	}
 	// new kubelet cert manager
-	m, err := NewKubeletCertManager(cfg, 10*time.Second, dir)
+	m, err := NewKubeletCertManager(cfg, 10*time.Second)
 	if err != nil {
 		t.Errorf("failed to new kubelet cert manager, %v", err)
 	}
