@@ -77,7 +77,7 @@ The major OpenYurt components consist of:
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions up to 1.16. Using higher Kubernetes versions may cause
+OpenYurt supports Kubernetes versions up to 1.18. Using higher Kubernetes versions may cause
 compatibility issues.
 
 You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start

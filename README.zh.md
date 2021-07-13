@@ -53,7 +53,7 @@ OpenYurt 的主要组件包括：
 [资源和系统要求](./docs/resource-and-system-requirements-cn.md)
 
 ## 开始使用
-OpenYurt 支持最高版本为1.16的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
+OpenYurt 支持最高版本为1.18的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
 您可以[手动](docs/tutorial/manually-setup.md)设置 OpenYurt 集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
 
 ```bash
