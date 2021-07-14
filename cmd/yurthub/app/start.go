@@ -28,6 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
@@ -110,6 +111,14 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	healthChecker.Run()
 	trace++
 
+	klog.Infof("%d. new restConfig manager for %s mode", trace, cfg.CertMgrMode)
+	restConfigMgr, err := rest.NewRestConfigManager(cfg, certManager, healthChecker)
+	if err != nil {
+		klog.Errorf("could not new restConfig manager, %v", err)
+		return err
+	}
+	trace++
+
 	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
 	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager)
 	if err != nil {
@@ -119,7 +128,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-	gcMgr, err := gc.NewGCManager(cfg, transportManager, stopCh)
+	gcMgr, err := gc.NewGCManager(cfg, restConfigMgr, stopCh)
 	if err != nil {
 		klog.Errorf("could not new gc manager, %v", err)
 		return err
