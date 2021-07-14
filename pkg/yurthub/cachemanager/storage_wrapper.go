@@ -114,7 +114,7 @@ func (sw *storageWrapper) Get(key string) (runtime.Object, error) {
 		}
 	}
 
-	b, err := sw.store.Get(key)
+	b, err := sw.GetRaw(key)
 	if err != nil {
 		return nil, err
 	} else if len(b) == 0 {
@@ -203,7 +203,7 @@ func (sw *storageWrapper) Update(key string, obj runtime.Object) error {
 		return err
 	}
 
-	if err := sw.store.Update(key, buf.Bytes()); err != nil {
+	if err := sw.UpdateRaw(key, buf.Bytes()); err != nil {
 		return err
 	}
 

@@ -28,6 +28,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager/store"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 
 	certificates "k8s.io/api/certificates/v1beta1"
@@ -121,7 +122,7 @@ func newCertManager(
 	organizations,
 	dnsNames []string, ipAddrs []net.IP) (certificate.Manager, error) {
 	certificateStore, err :=
-		certificate.NewFileStore(componentName, certDir, certDir, "", "")
+		store.NewFileStoreWrapper(componentName, certDir, certDir, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize the server certificate store: %v", err)
 	}
