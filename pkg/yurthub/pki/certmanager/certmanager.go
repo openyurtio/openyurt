@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 
@@ -32,7 +33,8 @@ import (
 )
 
 const (
-	YurtHubServerCSROrg = "system:nodes"
+	YurtHubServerCSROrg = "system:masters"
+	YurtHubCSROrg       = "openyurt:yurthub"
 	YurtHubServerCSRCN  = "kube-apiserver-kubelet-client"
 )
 
@@ -48,7 +50,7 @@ func NewYurtHubServerCertManager(
 		projectinfo.GetHubName(),
 		certDir,
 		YurtHubServerCSRCN,
-		[]string{YurtHubServerCSROrg})
+		[]string{YurtHubServerCSROrg, YurtHubCSROrg})
 }
 
 // NewCertManager creates a certificate manager that will generates a
@@ -71,6 +73,7 @@ func newCertManager(
 				CommonName:   commonName,
 				Organization: organizations,
 			},
+			IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		}
 	}
 
@@ -78,7 +81,7 @@ func newCertManager(
 		ClientFn: func(current *tls.Certificate) (clicert.CertificateSigningRequestInterface, error) {
 			return clientset.CertificatesV1beta1().CertificateSigningRequests(), nil
 		},
-		SignerName:  certificates.KubeAPIServerClientKubeletSignerName,
+		SignerName:  certificates.LegacyUnknownSignerName,
 		GetTemplate: getTemplate,
 		Usages: []certificates.KeyUsage{
 			certificates.UsageAny,

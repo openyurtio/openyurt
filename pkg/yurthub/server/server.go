@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/pki"
 	"github.com/openyurtio/openyurt/pkg/yurthub/pki/certmanager"
 
@@ -71,14 +71,10 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		Handler: proxyHandler,
 	}
 
-	tlsCfg, err := genUseCertMgrAndTLSConfig(certificateMgr, filepath.Join(cfg.RootDir, "pki"), stopCh)
-	if err != nil {
-		return nil, err
-	}
 	secureProxyServer := &http.Server{
 		Addr:           cfg.YurtHubProxyServerSecureAddr,
 		Handler:        proxyHandler,
-		TLSConfig:      tlsCfg,
+		TLSConfig:      cfg.TLSConfig,
 		TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		MaxHeaderBytes: 1 << 20,
 	}
@@ -98,7 +94,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		secureDummyProxyServer = &http.Server{
 			Addr:           cfg.YurtHubProxyServerSecureDummyAddr,
 			Handler:        proxyHandler,
-			TLSConfig:      tlsCfg,
+			TLSConfig:      cfg.TLSConfig,
 			TLSNextProto:   make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 			MaxHeaderBytes: 1 << 20,
 		}
@@ -175,8 +171,8 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 // create a certificate manager for the yurthub server and run the csr approver for both yurthub
 // and generate a TLS configuration
-func genUseCertMgrAndTLSConfig(certificateMgr interfaces.YurtCertificateManager, certDir string, stopCh <-chan struct{}) (*tls.Config, error) {
-	clientSet, err := kubernetes.NewForConfig(certificateMgr.GetRestConfig())
+func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificateMgr interfaces.YurtCertificateManager, certDir string, stopCh <-chan struct{}) (*tls.Config, error) {
+	clientSet, err := kubernetes.NewForConfig(restConfigMgr.GetRestConfig())
 	if err != nil {
 		return nil, err
 	}

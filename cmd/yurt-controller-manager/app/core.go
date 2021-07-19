@@ -25,7 +25,10 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/client-go/informers"
+
 	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
+	"github.com/openyurtio/openyurt/pkg/controller/yurthub"
 )
 
 func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, error) {
@@ -51,5 +54,17 @@ func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, er
 		return nil, true, err
 	}
 	go lifecycleController.Run(ctx.Stop)
+	return nil, true, nil
+}
+
+func startYurtHubCSRApproverController(ctx ControllerContext) (http.Handler, bool, error) {
+	clientSet := ctx.ClientBuilder.ClientOrDie("node-controller")
+	sharedInformerFactory := informers.NewSharedInformerFactory(clientSet, 10*time.Second)
+	go yurthub.NewCSRApprover(clientSet, sharedInformerFactory.Certificates().V1beta1().CertificateSigningRequests()).
+		Run(yurthub.YurtHubCSRApproverThreadiness, ctx.Stop)
+
+	// after all of informers are configured completed, start the shared index informer
+	sharedInformerFactory.Start(ctx.Stop)
+
 	return nil, true, nil
 }

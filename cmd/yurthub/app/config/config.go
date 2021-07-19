@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	"crypto/x509"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -29,8 +29,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
 
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
@@ -45,6 +43,8 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerSecureDummyAddr string
 	GCFrequency                       int
 	CertMgrMode                       string
+	KubeletRootCAFilePath             string
+	KubeletPairFilePath               string
 	NodeName                          string
 	HeartbeatFailedRetry              int
 	HeartbeatHealthyThreshold         int
@@ -58,14 +58,7 @@ type YurtHubConfiguration struct {
 	HubAgentDummyIfName               string
 	StorageWrapper                    cachemanager.StorageWrapper
 	SerializerManager                 *serializer.SerializerManager
-	CertFile                          string
-	KeyFile                           string
-	KubeConfig                        string
-	RootCert                          *x509.CertPool
-	Client                            *kubernetes.Clientset
-	CertDNSNames                      []string
-	CertIPs                           []net.IP
-	SharedInformerFactory             informers.SharedInformerFactory
+	TLSConfig                         *tls.Config
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -98,6 +91,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
 		GCFrequency:                       options.GCFrequency,
 		CertMgrMode:                       options.CertMgrMode,
+		KubeletRootCAFilePath:             options.KubeletRootCAFilePath,
+		KubeletPairFilePath:               options.KubeletPairFilePath,
 		NodeName:                          options.NodeName,
 		HeartbeatFailedRetry:              options.HeartbeatFailedRetry,
 		HeartbeatHealthyThreshold:         options.HeartbeatHealthyThreshold,

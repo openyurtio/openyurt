@@ -65,6 +65,17 @@ kind: Pod
 metadata:
   name: bbox
 spec:
+  nodeSelector:
+    openyurt.io/is-edge-worker: "true"
+  tolerations:
+  - key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 5
+  - key: "node.kubernetes.io/not-ready"
+    operator: "Exists"
+    effect: "NoExecute"
+    tolerationSeconds: 5
   containers:
   - image: busybox
     command:
@@ -95,7 +106,7 @@ $ curl -s <http://127.0.0.1:10261>
 }
 ```
 
-4. After 40 seconds, the edge node status becomes `NotReady`, but the pod/bbox won't be evicted and keeps running on the node:
+4. After 40 seconds, the edge node status becomes `NotReady`, but the pod/bbox won't be evicted after another 5 seconds and keeps running on the node:
 ```bash
 $ kubectl get node && kubectl get po
 NAME       STATUS     ROLES    AGE   VERSION
