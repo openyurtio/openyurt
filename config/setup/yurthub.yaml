@@ -19,6 +19,10 @@ spec:
     hostPath:
       path: /var/lib/kubelet/pki
       type: Directory
+  - name: hub-dir
+    hostPath:
+      path: /var/lib/yurthub/pki
+      type: Directory
   containers:
   - name: yurt-hub
     image: openyurt/yurthub:latest
@@ -30,9 +34,13 @@ spec:
       mountPath: /etc/kubernetes/pki
     - name: pem-dir
       mountPath: /var/lib/kubelet/pki
+    - name: hub-dir
+      mountPath: /var/lib/yurthub/pki
     command:
     - yurthub
     - --v=2
+    # if you use bootstrap token, please uncomment this and replace __kubernetes_botstrap_token__ with your kubelet bootstrap token
+    #- --join-token=__kubernetes_bootstrap_token__
     - --server-addr=https://__kubernetes_service_host__:__kubernetes_service_port_https__
     - --node-name=$(NODE_NAME)
     livenessProbe:
