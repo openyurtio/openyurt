@@ -218,7 +218,6 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 	return nil
 }
 
-//add by yanyhui at 20210611
 // CreateRoleFromYaml creates the ClusterRole from the yaml template.
 func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
 	obj, err := YamlToObject([]byte(crTmpl))
@@ -355,6 +354,52 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 		return err
 	} else {
 		fmt.Printf("%s/%s created", objSecond.GetKind(), objSecond.GetName())
+	}
+	return nil
+}
+
+func DeleteCRD(clientset *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface, res string, name string) error {
+	var err error
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(constants.YurtAppManagerNodePool)), 10000)
+	var rawObj runtime.RawExtension
+	err = decoder.Decode(&rawObj)
+	if err != nil {
+		return err
+	}
+	obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+	if err != nil {
+		return err
+	}
+	unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+	unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+	gr, err := restmapper.GetAPIGroupResources(clientset.Discovery())
+	if err != nil {
+		return err
+	}
+
+	mapper := restmapper.NewDiscoveryRESTMapper(gr)
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return err
+	}
+
+	var dri dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		if unstructuredObj.GetNamespace() == "" {
+			unstructuredObj.SetNamespace("")
+		}
+		dri = yurtAppManagerClientSet.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
+	} else {
+		dri = yurtAppManagerClientSet.Resource(mapping.Resource)
+	}
+	err = dri.Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	} else {
+		fmt.Printf("%s/%s is deleted ", res, name)
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package constants
 
 const (
-	//todo
 	YurtAppManagerNodePool = `
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -606,7 +605,6 @@ subjects:
   name: default
   namespace: kube-system
 `
-	//todo
 	YurtAppManagerSecret = `
 apiVersion: v1
 kind: Secret
@@ -678,7 +676,6 @@ spec:
           defaultMode: 420
           secretName: yurt-app-webhook-certs
 `
-	//todo
 	YurtAppManagerMutatingWebhookConfiguration = `
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -723,7 +720,6 @@ webhooks:
     resources:
     - uniteddeployments
 `
-	//todo
 	YurtAppManagerValidatingWebhookConfiguration = `
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration

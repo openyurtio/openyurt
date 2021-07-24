@@ -28,7 +28,7 @@ const (
 	YurttunnelServerCmName          = "yurt-tunnel-server-cfg"
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
-
+	YurtAppManagerComponentName     = "yurt-app-manager"
 	YurtControllerManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount
