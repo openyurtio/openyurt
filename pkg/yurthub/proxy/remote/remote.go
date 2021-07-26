@@ -25,6 +25,7 @@ import (
 	"net/url"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -39,6 +40,7 @@ type RemoteProxy struct {
 	reverseProxy *httputil.ReverseProxy
 	cacheMgr     cachemanager.CacheManager
 	remoteServer *url.URL
+	filterChain  filter.Interface
 	stopCh       <-chan struct{}
 }
 
@@ -47,6 +49,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
 	healthChecker healthchecker.HealthChecker,
+	filterChain filter.Interface,
 	stopCh <-chan struct{}) (*RemoteProxy, error) {
 	currentTransport := transportMgr.CurrentTransport()
 	if currentTransport == nil {
@@ -58,6 +61,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 		reverseProxy: httputil.NewSingleHostReverseProxy(remoteServer),
 		cacheMgr:     cacheMgr,
 		remoteServer: remoteServer,
+		filterChain:  filterChain,
 		stopCh:       stopCh,
 	}
 
@@ -93,7 +97,8 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 	ctx := req.Context()
 
 	// re-added transfer-encoding=chunked response header for watch request
-	if info, exists := apirequest.RequestInfoFrom(ctx); exists {
+	info, exists := apirequest.RequestInfoFrom(ctx)
+	if exists {
 		if info.Verb == "watch" {
 			klog.V(5).Infof("add transfer-encoding=chunked header into response for req %s", util.ReqString(req))
 			h := resp.Header
@@ -113,6 +118,19 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 			}
 			ctx = util.WithRespContentType(ctx, respContentType)
 			req = req.WithContext(ctx)
+
+			if rp.filterChain != nil {
+				size, filterRc, err := rp.filterChain.Filter(req, resp.Body, rp.stopCh)
+				if err != nil {
+					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
+					return err
+				}
+				resp.Body = filterRc
+				if size > 0 {
+					resp.ContentLength = int64(size)
+					resp.Header.Set("Content-Length", fmt.Sprint(size))
+				}
+			}
 
 			rc, prc := util.NewDualReadCloser(resp.Body, true)
 			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {

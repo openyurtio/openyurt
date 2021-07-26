@@ -31,6 +31,7 @@ var (
 		"flanneld",
 		"coredns",
 		projectinfo.GetAgentName(),
+		projectinfo.GetHubName(),
 	}
 	cacheAgentsKey = "_internal/cache-manager/cache-agent.conf"
 	sepForAgent    = ","

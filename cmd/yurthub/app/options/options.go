@@ -57,6 +57,9 @@ type YurtHubOptions struct {
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
 	DiskCachePath             string
+	AccessServerThroughHub    bool
+	EnableResourceFilter      bool
+	DisabledResourceFilters   []string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -81,8 +84,10 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
+		AccessServerThroughHub:    false,
+		EnableResourceFilter:      true,
+		DisabledResourceFilters:   make([]string, 0),
 	}
-
 	return o
 }
 
@@ -136,6 +141,9 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
 	fs.StringVar(&o.HubAgentDummyIfName, "dummy-if-name", o.HubAgentDummyIfName, "the name of dummy interface that is used for hub agent")
 	fs.StringVar(&o.DiskCachePath, "disk-cache-path", o.DiskCachePath, "the path for kubernetes to storage metadata")
+	fs.BoolVar(&o.AccessServerThroughHub, "access-server-through-hub", o.AccessServerThroughHub, "enable pods access kube-apiserver through yurthub or not")
+	fs.BoolVar(&o.EnableResourceFilter, "enable-resource-filter", o.EnableResourceFilter, "enable to filter response that comes back from reverse proxy")
+	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
 }
 
 // verifyDummyIP verify the specified ip is valid or not
