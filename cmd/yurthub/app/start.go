@@ -18,6 +18,7 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -122,6 +123,14 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
+	klog.Infof("%d. create tls config for secure servers ", trace)
+	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), stopCh)
+	if err != nil {
+		klog.Errorf("could not create tls config, %v", err)
+		return err
+	}
+	trace++
+
 	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
 	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager)
 	if err != nil {
@@ -164,7 +173,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		}
 		networkMgr.Run(stopCh)
 		trace++
-		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr)
+		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s, secure dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr, cfg.YurtHubProxyServerSecureDummyAddr)
 	}
 
 	// start shared informers here
@@ -173,7 +182,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		cfg.YurtSharedFactory.Start(stopCh)
 	}
 
-	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubServerAddr)
+	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
 	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	if err != nil {
 		klog.Errorf("could not create hub server, %v", err)

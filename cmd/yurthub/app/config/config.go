@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -43,32 +44,35 @@ import (
 
 // YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
-	LBMode                      string
-	RemoteServers               []*url.URL
-	YurtHubServerAddr           string
-	YurtHubProxyServerAddr      string
-	YurtHubProxyServerDummyAddr string
-	GCFrequency                 int
-	CertMgrMode                 string
-	KubeletRootCAFilePath       string
-	KubeletPairFilePath         string
-	NodeName                    string
-	HeartbeatFailedRetry        int
-	HeartbeatHealthyThreshold   int
-	HeartbeatTimeoutSeconds     int
-	MaxRequestInFlight          int
-	JoinToken                   string
-	RootDir                     string
-	EnableProfiling             bool
-	EnableDummyIf               bool
-	EnableIptables              bool
-	HubAgentDummyIfName         string
-	StorageWrapper              cachemanager.StorageWrapper
-	SerializerManager           *serializer.SerializerManager
-	MutatedMasterServiceAddr    string
-	Filters                     *filter.Filters
-	SharedFactory               informers.SharedInformerFactory
-	YurtSharedFactory           yurtinformers.SharedInformerFactory
+	LBMode                            string
+	RemoteServers                     []*url.URL
+	YurtHubServerAddr                 string
+	YurtHubProxyServerAddr            string
+	YurtHubProxyServerSecureAddr      string
+	YurtHubProxyServerDummyAddr       string
+	YurtHubProxyServerSecureDummyAddr string
+	GCFrequency                       int
+	CertMgrMode                       string
+	KubeletRootCAFilePath             string
+	KubeletPairFilePath               string
+	NodeName                          string
+	HeartbeatFailedRetry              int
+	HeartbeatHealthyThreshold         int
+	HeartbeatTimeoutSeconds           int
+	MaxRequestInFlight                int
+	JoinToken                         string
+	RootDir                           string
+	EnableProfiling                   bool
+	EnableDummyIf                     bool
+	EnableIptables                    bool
+	HubAgentDummyIfName               string
+	StorageWrapper                    cachemanager.StorageWrapper
+	SerializerManager                 *serializer.SerializerManager
+	TLSConfig                         *tls.Config
+	MutatedMasterServiceAddr          string
+	Filters                           *filter.Filters
+	SharedFactory                     informers.SharedInformerFactory
+	YurtSharedFactory                 yurtinformers.SharedInformerFactory
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -88,8 +92,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
+	proxySecureServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxySecurePort)
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
-
+	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
 	if err != nil {
 		return nil, err
@@ -112,32 +117,34 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 
 	cfg := &YurtHubConfiguration{
-		LBMode:                      options.LBMode,
-		RemoteServers:               us,
-		YurtHubServerAddr:           hubServerAddr,
-		YurtHubProxyServerAddr:      proxyServerAddr,
-		YurtHubProxyServerDummyAddr: proxyServerDummyAddr,
-		GCFrequency:                 options.GCFrequency,
-		CertMgrMode:                 options.CertMgrMode,
-		KubeletRootCAFilePath:       options.KubeletRootCAFilePath,
-		KubeletPairFilePath:         options.KubeletPairFilePath,
-		NodeName:                    options.NodeName,
-		HeartbeatFailedRetry:        options.HeartbeatFailedRetry,
-		HeartbeatHealthyThreshold:   options.HeartbeatHealthyThreshold,
-		HeartbeatTimeoutSeconds:     options.HeartbeatTimeoutSeconds,
-		MaxRequestInFlight:          options.MaxRequestInFlight,
-		JoinToken:                   options.JoinToken,
-		RootDir:                     options.RootDir,
-		EnableProfiling:             options.EnableProfiling,
-		EnableDummyIf:               options.EnableDummyIf,
-		EnableIptables:              options.EnableIptables,
-		HubAgentDummyIfName:         options.HubAgentDummyIfName,
-		StorageWrapper:              storageWrapper,
-		SerializerManager:           serializerManager,
-		MutatedMasterServiceAddr:    mutatedMasterServiceAddr,
-		Filters:                     filters,
-		SharedFactory:               sharedFactory,
-		YurtSharedFactory:           yurtSharedFactory,
+		LBMode:                            options.LBMode,
+		RemoteServers:                     us,
+		YurtHubServerAddr:                 hubServerAddr,
+		YurtHubProxyServerAddr:            proxyServerAddr,
+		YurtHubProxyServerSecureAddr:      proxySecureServerAddr,
+		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,
+		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
+		GCFrequency:                       options.GCFrequency,
+		CertMgrMode:                       options.CertMgrMode,
+		KubeletRootCAFilePath:             options.KubeletRootCAFilePath,
+		KubeletPairFilePath:               options.KubeletPairFilePath,
+		NodeName:                          options.NodeName,
+		HeartbeatFailedRetry:              options.HeartbeatFailedRetry,
+		HeartbeatHealthyThreshold:         options.HeartbeatHealthyThreshold,
+		HeartbeatTimeoutSeconds:           options.HeartbeatTimeoutSeconds,
+		MaxRequestInFlight:                options.MaxRequestInFlight,
+		JoinToken:                         options.JoinToken,
+		RootDir:                           options.RootDir,
+		EnableProfiling:                   options.EnableProfiling,
+		EnableDummyIf:                     options.EnableDummyIf,
+		EnableIptables:                    options.EnableIptables,
+		HubAgentDummyIfName:               options.HubAgentDummyIfName,
+		StorageWrapper:                    storageWrapper,
+		SerializerManager:                 serializerManager,
+		MutatedMasterServiceAddr:          mutatedMasterServiceAddr,
+		Filters:                           filters,
+		SharedFactory:                     sharedFactory,
+		YurtSharedFactory:                 yurtSharedFactory,
 	}
 
 	return cfg, nil
