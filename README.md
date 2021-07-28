@@ -103,6 +103,11 @@ To uninstall OpenYurt and revert back to the original Kubernetes cluster setting
 _output/bin/yurtctl revert
 ```
 
+To join nodes to OpenYurt, you can run the following command:
+```bash
+_output/bin/yurtctl join
+```
+
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 ## Usage
