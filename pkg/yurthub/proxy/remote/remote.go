@@ -132,7 +132,7 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 				}
 			}
 
-			rc, prc := util.NewDualReadCloser(resp.Body, true)
+			rc, prc := util.NewDualReadCloser(req, resp.Body, true)
 			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 				err := rp.cacheMgr.CacheResponse(req, prc, stopCh)
 				if err != nil && err != io.EOF && err != context.Canceled {

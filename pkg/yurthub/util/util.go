@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -188,9 +190,10 @@ func Err(err error, w http.ResponseWriter, req *http.Request) {
 }
 
 // NewDualReadCloser create an dualReadCloser object
-func NewDualReadCloser(rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser) {
+func NewDualReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser) {
 	pr, pw := io.Pipe()
 	dr := &dualReadCloser{
+		req:        req,
 		rc:         rc,
 		pw:         pw,
 		isRespBody: isRespBody,
@@ -200,8 +203,9 @@ func NewDualReadCloser(rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.Rea
 }
 
 type dualReadCloser struct {
-	rc io.ReadCloser
-	pw *io.PipeWriter
+	req *http.Request
+	rc  io.ReadCloser
+	pw  *io.PipeWriter
 	// isRespBody shows rc(is.ReadCloser) is a response.Body
 	// or not(maybe a request.Body). if it is true(it's a response.Body),
 	// we should close the response body in Close func, else not,
@@ -211,6 +215,17 @@ type dualReadCloser struct {
 
 // Read read data into p and write into pipe
 func (dr *dualReadCloser) Read(p []byte) (n int, err error) {
+	defer func() {
+		if dr.req != nil && dr.isRespBody {
+			ctx := dr.req.Context()
+			info, _ := apirequest.RequestInfoFrom(ctx)
+			if info.IsResourceRequest {
+				comp, _ := ClientComponentFrom(ctx)
+				metrics.Metrics.AddProxyTrafficCollector(comp, info.Verb, info.Resource, info.Subresource, n)
+			}
+		}
+	}()
+
 	n, err = dr.rc.Read(p)
 	if n > 0 {
 		if n, err := dr.pw.Write(p[:n]); err != nil {

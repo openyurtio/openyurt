@@ -116,7 +116,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 		ctx = util.WithRespContentType(ctx, reqContentType)
 		req = req.WithContext(ctx)
 		stopCh := make(chan struct{})
-		rc, prc := util.NewDualReadCloser(req.Body, false)
+		rc, prc := util.NewDualReadCloser(req, req.Body, false)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			klog.V(2).Infof("cache events when cluster is unhealthy, %v", lp.cacheMgr.CacheResponse(req, prc, stopCh))
 		}(req, prc, stopCh)

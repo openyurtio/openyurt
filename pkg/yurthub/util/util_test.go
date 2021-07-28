@@ -27,7 +27,7 @@ func TestDualReader(t *testing.T) {
 	src := []byte("hello, world")
 	rb := bytes.NewBuffer(src)
 	rc := ioutil.NopCloser(rb)
-	drc, prc := NewDualReadCloser(rc, true)
+	drc, prc := NewDualReadCloser(nil, rc, true)
 	rc = drc
 	dst1 := make([]byte, len(src))
 	dst2 := make([]byte, len(src))
@@ -67,7 +67,7 @@ func TestDualReaderByPreClose(t *testing.T) {
 	src := []byte("hello, world")
 	rb := bytes.NewBuffer(src)
 	rc := ioutil.NopCloser(rb)
-	drc, prc := NewDualReadCloser(rc, true)
+	drc, prc := NewDualReadCloser(nil, rc, true)
 	rc = drc
 	dst := make([]byte, len(src))
 
