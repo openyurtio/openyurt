@@ -184,7 +184,7 @@ spec:
       containers:
       - name: yurtctl-servant
         image: {{.yurtctl_servant_image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
@@ -229,7 +229,7 @@ spec:
       containers:
       - name: yurtctl-servant
         image: {{.yurtctl_servant_image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
@@ -251,5 +251,57 @@ spec:
         - name: KUBELET_SVC
           value: {{.kubeadm_conf_path}}
           {{end}}
+`
+	// DisableNodeControllerJobTemplate defines the node-controller disable job in yaml format
+	DisableNodeControllerJobTemplate = `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.jobName}}
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      hostPID: true
+      hostNetwork: true
+      restartPolicy: OnFailure
+      nodeName: {{.nodeName}}
+      containers:
+      - name: yurtctl-disable-node-controller
+        image: {{.yurtctl_servant_image}}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - "nsenter -t 1 -m -u -n -i -- sed -i 's/--controllers=/--controllers=-nodelifecycle,/g' {{.pod_manifest_path}}/kube-controller-manager.yaml"
+        securityContext:
+          privileged: true
+`
+	// EnableNodeControllerJobTemplate defines the node-controller enable job in yaml format
+	EnableNodeControllerJobTemplate = `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.jobName}}
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      hostPID: true
+      hostNetwork: true
+      restartPolicy: OnFailure
+      nodeName: {{.nodeName}}
+      containers:
+      - name: yurtctl-enable-node-controller
+        image: {{.yurtctl_servant_image}}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - "nsenter -t 1 -m -u -n -i -- sed -i 's/--controllers=-nodelifecycle,/--controllers=/g' {{.pod_manifest_path}}/kube-controller-manager.yaml"
+        securityContext:
+          privileged: true
 `
 )

@@ -23,17 +23,17 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
 
 // RevertOptions has the information required by the revert operation
@@ -125,7 +125,13 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	// 1.1. check the state of worker nodes
+	// 1.1. get kube-controller-manager HA nodes
+	kcmNodeNames, err := kubeutil.GetKubeControllerManagerHANodes(ro.clientSet)
+	if err != nil {
+		return
+	}
+
+	// 1.2. check the state of worker nodes
 	nodeLst, err := ro.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
@@ -133,15 +139,15 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	for _, node := range nodeLst.Items {
 		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
-		if ok && isEdgeNode == "true" {
+		if ok && isEdgeNode == "true" || strutil.IsInStringLst(kcmNodeNames, node.GetName()) {
 			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 			if condition == nil || condition.Status != v1.ConditionTrue {
-				klog.Errorf("Cannot do the revert, the status of worker node: %s is not 'Ready'.", node.Name)
+				klog.Errorf("Cannot do the revert, the status of worker or kube-controller-manager node: %s is not 'Ready'.", node.Name)
 				return
 			}
 		}
 	}
-	klog.V(4).Info("the status of worker nodes are satisfied")
+	klog.V(4).Info("the status of worker nodes and kube-controller-manager nodes are satisfied")
 
 	// 2. remove labels from nodes
 	var edgeNodeNames []string
@@ -213,30 +219,18 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 
-	// 6. recreate the system:controller:node-controller clustrrolebinding
-	ncClusterrolebinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "system:controller:node-controller",
+	// 6. enable node-controller
+	if err = kubeutil.RunServantJobs(ro.clientSet,
+		map[string]string{
+			"action":                "enable",
+			"yurtctl_servant_image": ro.YurtctlServantImage,
+			"pod_manifest_path":     ro.PodMainfestPath,
 		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "system:controller:node-controller",
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      "node-controller",
-				Namespace: "kube-system",
-			},
-		},
-	}
-	if _, err = ro.clientSet.RbacV1().ClusterRoleBindings().Create(context.Background(), ncClusterrolebinding,
-		metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-		klog.Errorf("fail to create clusterrolebinding system:controller:node-controller: %v", err)
+		kcmNodeNames); err != nil {
+		klog.Errorf("fail to run EnableNodeControllerJobs: %s", err)
 		return
 	}
-	klog.Info("clusterrolebinding system:controller:node-controller is created")
+	klog.Info("complete enabling node-controller")
 
 	// 7. remove yurt-hub and revert kubelet service
 	if err = kubeutil.RunServantJobs(ro.clientSet,
@@ -246,11 +240,11 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			"pod_manifest_path":     ro.PodMainfestPath,
 			"kubeadm_conf_path":     ro.KubeadmConfPath,
 		},
-		edgeNodeNames, false); err != nil {
+		edgeNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
 		return
 	}
-	klog.Info("yurt-hub is removed, kubelet service is reset")
+	klog.Info("complete removing yurt-hub and resetting kubelet service")
 	return
 }
 
