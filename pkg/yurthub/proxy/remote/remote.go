@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 )
@@ -141,6 +142,20 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 			}(req, prc, rp.stopCh)
 
 			resp.Body = rc
+		}
+	} else if resp.StatusCode == http.StatusNotFound && info.Verb == "list" {
+		// 404 Not Found: The CRD may have been unregistered and should be updated locally as well.
+		// Other types of requests may return a 404 response for other reasons (for example, getting a pod that doesn't exist).
+		// And the main purpose is to return 404 when list an unregistered resource locally, so here only consider the list request.
+		gvr := schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}
+
+		err := rp.cacheMgr.DeleteKindFor(gvr)
+		if err != nil {
+			klog.Errorf("failed: %v", err)
 		}
 	}
 	return nil

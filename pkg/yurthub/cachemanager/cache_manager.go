@@ -28,6 +28,7 @@ import (
 	"strings"
 	"sync"
 
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -52,12 +53,14 @@ type CacheManager interface {
 	UpdateCacheAgents(agents []string) error
 	ListCacheAgents() []string
 	CanCacheFor(req *http.Request) bool
+	DeleteKindFor(gvr schema.GroupVersionResource) error
 }
 
 type cacheManager struct {
 	sync.RWMutex
 	storage               StorageWrapper
 	serializerManager     *serializer.SerializerManager
+	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           map[string]bool
 	listSelectorCollector map[string]string
 }
@@ -66,10 +69,12 @@ type cacheManager struct {
 func NewCacheManager(
 	storage StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
+	restMapperMgr *hubmeta.RESTMapperManager,
 ) (CacheManager, error) {
 	cm := &cacheManager{
 		storage:               storage,
 		serializerManager:     serializerMgr,
+		restMapperManager:     restMapperMgr,
 		cacheAgents:           make(map[string]bool),
 		listSelectorCollector: make(map[string]string),
 	}
@@ -148,21 +153,38 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 
 	var gvk schema.GroupVersionKind
 	var kind string
+	// If the GVR information is not recognized, return 404 not found directly
+	gvr := schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	}
+	if _, gvk = cm.restMapperManager.KindFor(gvr); gvk.Empty() {
+		return nil, hubmeta.ErrGVRNotRecognized
+	} else {
+		kind = gvk.Kind
+	}
+
+	// If the GVR information is recognized, return list or empty list
 	objs, err := cm.storage.List(key)
 	if err != nil {
-		return nil, err
-	} else if len(objs) == 0 {
-		gvk, err = serializer.UnsafeDefaultRESTMapper.KindFor(schema.GroupVersionResource{
-			Group:    info.APIGroup,
-			Version:  info.APIVersion,
-			Resource: info.Resource,
-		})
-		if err != nil {
+		if err != storage.ErrStorageNotFound {
+			return nil, err
+		} else if isPodKey(key) {
+			// because at least there will be yurt-hub pod on the node.
+			// if no pods in cache, maybe all of pods have been deleted by accident,
+			// if empty object is returned, pods on node will be deleted by kubelet.
+			// in order to prevent the influence to business, return error here so pods
+			// will be kept on node.
 			return nil, err
 		}
-		kind = gvk.Kind
-	} else {
-		kind = objs[0].GetObjectKind().GroupVersionKind().Kind
+	} else if len(objs) != 0 {
+		// If restMapper's kind and object's kind are inconsistent, use the object's kind
+		objKind := objs[0].GetObjectKind().GroupVersionKind().Kind
+		if kind != objKind {
+			klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", kind, objKind)
+			kind = objKind
+		}
 	}
 
 	var listObj runtime.Object
@@ -348,16 +370,13 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	}.String()
 	accessor := meta.NewAccessor()
 
+	// Verify if DynamicRESTMapper(which store the CRD info) needs to be updated
+	if err := cm.restMapperManager.UpdateKind(schema.GroupVersionKind{Group: info.APIGroup, Version: info.APIVersion, Kind: kind}); err != nil {
+		klog.Errorf("failed to update the DynamicRESTMapper %v", err)
+	}
+
 	comp, _ := util.ClientComponentFrom(ctx)
-	// even if no objects in cloud cluster, we need to
-	// make up a storage that represents the no resources
-	// in local disk, so when cloud-edge network disconnected,
-	// yurthub can return empty objects instead of 404 code(not found)
-	if len(items) == 0 {
-		// list returns no objects
-		key, _ := util.KeyFunc(comp, info.Resource, info.Namespace, "")
-		return cm.storage.Create(key, nil)
-	} else if info.Name != "" && len(items) == 1 {
+	if info.Name != "" && len(items) == 1 {
 		// list with fieldSelector=metadata.name=xxx
 		accessor.SetKind(items[0], kind)
 		accessor.SetAPIVersion(items[0], apiVersion)
@@ -390,7 +409,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			key, _ := util.KeyFunc(comp, info.Resource, ns, name)
 			objs[key] = items[i]
 		}
-
+		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
 		return cm.storage.Replace(rootKey, objs)
 	}
 }
@@ -434,6 +453,12 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	if err != nil || key == "" {
 		klog.Errorf("failed to get cache key(%s:%s:%s:%s), %v", comp, info.Resource, info.Namespace, info.Name, err)
 		return err
+	}
+
+	// Verify if DynamicRESTMapper(which store the CRD info) needs to be updated
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	if err := cm.restMapperManager.UpdateKind(gvk); err != nil {
+		klog.Errorf("failed to update the DynamicRESTMapper %v", err)
 	}
 
 	if err := cm.saveOneObjectWithValidation(key, obj); err != nil {
@@ -599,4 +624,9 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 		}
 	}
 	return true
+}
+
+// DeleteKindFor is used to delete the invalid Kind(which is not registered in the cloud)
+func (cm *cacheManager) DeleteKindFor(gvr schema.GroupVersionResource) error {
+	return cm.restMapperManager.DeleteKindFor(gvr)
 }

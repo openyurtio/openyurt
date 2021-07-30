@@ -345,11 +345,10 @@ func (ds *diskStorage) Update(key string, contents []byte) error {
 }
 
 // Replace will delete all files under rootKey dir and create new files with contents.
+// Note: when the contents are empty and the dir already exists, the create function will clean the current dir
 func (ds *diskStorage) Replace(rootKey string, contents map[string][]byte) error {
 	if rootKey == "" {
 		return storage.ErrKeyIsEmpty
-	} else if len(contents) == 0 {
-		return storage.ErrKeyHasNoContent
 	}
 
 	for key := range contents {
@@ -380,11 +379,13 @@ func (ds *diskStorage) Replace(rootKey string, contents map[string][]byte) error
 
 	// 2. create new file with contents
 	// TODO: if error happens, we may need retry mechanism, or add some mechanism to do consistency check.
-	for key, data := range contents {
-		err := ds.create(key, data)
-		if err != nil {
-			klog.Errorf("failed to create %s in replace, %v", key, err)
-			continue
+	if len(contents) != 0 {
+		for key, data := range contents {
+			err := ds.create(key, data)
+			if err != nil {
+				klog.Errorf("failed to create %s in replace, %v", key, err)
+				continue
+			}
 		}
 	}
 
