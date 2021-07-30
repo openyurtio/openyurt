@@ -279,21 +279,27 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 	klog.V(4).Info("the server version is valid")
 
-	// 1.1. check the state of worker nodes
+	// 1.1. get kube-controller-manager HA nodes
+	kcmNodeNames, err := kubeutil.GetKubeControllerManagerHANodes(co.clientSet)
+	if err != nil {
+		return
+	}
+
+	// 1.2. check the state of worker nodes and kcm nodes
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
 	}
 	for _, node := range nodeLst.Items {
-		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
+		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) || strutil.IsInStringLst(kcmNodeNames, node.GetName()) {
 			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 			if condition == nil || condition.Status != v1.ConditionTrue {
-				klog.Errorf("Cannot do the convert, the status of worker node: %s is not 'Ready'.", node.Name)
+				klog.Errorf("Cannot do the convert, the status of worker node or kube-controller-manager node: %s is not 'Ready'.", node.Name)
 				return
 			}
 		}
 	}
-	klog.V(4).Info("the status of worker nodes are satisfied")
+	klog.V(4).Info("the status of worker nodes and kube-controller-manager nodes are satisfied")
 
 	// 2. label nodes as cloud node or edge node
 	var edgeNodeNames []string
@@ -340,13 +346,17 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 4. delete the system:controller:node-controller clusterrolebinding to disable node-controller
-	if err = co.clientSet.RbacV1().ClusterRoleBindings().Delete(context.Background(), "system:controller:node-controller", metav1.DeleteOptions{
-		PropagationPolicy: &kubeutil.PropagationPolicy,
-	}); err != nil && !apierrors.IsNotFound(err) {
-		klog.Errorf("fail to delete clusterrolebinding system:controller:node-controller: %v", err)
+	// 4. disable node-controller
+	ctx := map[string]string{
+		"action":                "disable",
+		"yurtctl_servant_image": co.YurctlServantImage,
+		"pod_manifest_path":     co.PodMainfestPath,
+	}
+	if err = kubeutil.RunServantJobs(co.clientSet, ctx, kcmNodeNames); err != nil {
+		klog.Errorf("fail to run DisableNodeControllerJobs: %s", err)
 		return
 	}
+	klog.Info("complete disabling node-controller")
 
 	// 5. deploy the yurttunnel if required
 	if co.DeployTunnel {
@@ -392,7 +402,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return err
 	}
 
-	ctx := map[string]string{
+	ctx = map[string]string{
 		"provider":              string(co.Provider),
 		"action":                "convert",
 		"yurtctl_servant_image": co.YurctlServantImage,
@@ -406,11 +416,11 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		ctx["yurthub_healthcheck_timeout"] = co.YurthubHealthCheckTimeout.String()
 	}
 
-	if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames, true); err != nil {
+	if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
 	}
-	klog.Info("the yurt-hub is deployed")
+	klog.Info("complete deploying yurt-hub")
 
 	return
 }
