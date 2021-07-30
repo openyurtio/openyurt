@@ -1,20 +1,39 @@
+/*
+Copyright 2021 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package util
 
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	"github.com/gorilla/mux"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -22,7 +41,12 @@ const (
 	YurttunnelServerDnatConfigMapNs = "kube-system"
 	yurttunnelServerDnatDataKey     = "dnat-ports-pair"
 	YurtTunnelLocalHostProxyPorts   = "localhost-proxy-ports"
+	yurttunnelServerHTTPProxyPorts  = "http-proxy-ports"
+	yurttunnelServerHTTPSProxyPorts = "https-proxy-ports"
 	PortsSeparator                  = ","
+
+	KubeletHTTPSPort = "10250"
+	KubeletHTTPPort  = "10255"
 )
 
 var (
@@ -54,41 +78,97 @@ func RunMetaServer(addr string) {
 	}()
 }
 
-// GetConfiguredDnatPorts returns the DNAT ports configured for tunnel server.
-// NOTE: We only allow user to add dnat rule that uses insecure port as the destination port currently.
-func GetConfiguredDnatPorts(client clientset.Interface, insecurePort string) ([]string, error) {
-	ports := make([]string, 0)
+// GetConfiguredProxyPortsAndMappings returns the proxy ports and mappings that configured for tunnel server.
+// field dnat-ports-pair will be deprecated in future version. it's recommended to use
+// field http-proxy-ports and https-proxy-ports.
+func GetConfiguredProxyPortsAndMappings(client clientset.Interface, insecureListenAddr, secureListenAddr string) ([]string, map[string]string, error) {
 	c, err := client.CoreV1().
 		ConfigMaps(YurttunnelServerDnatConfigMapNs).
 		Get(context.Background(), YurttunnelServerDnatConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("configmap %s/%s is not found",
+			return []string{}, map[string]string{}, fmt.Errorf("configmap %s/%s is not found",
 				YurttunnelServerDnatConfigMapNs,
 				YurttunnelServerDnatConfigMapName)
 		} else {
-			return nil, fmt.Errorf("fail to get configmap %s/%s: %v",
+			return []string{}, map[string]string{}, fmt.Errorf("fail to get configmap %s/%s: %v",
 				YurttunnelServerDnatConfigMapNs,
 				YurttunnelServerDnatConfigMapName, err)
 		}
 	}
 
-	pairStr, ok := c.Data[yurttunnelServerDnatDataKey]
-	if !ok || len(pairStr) == 0 {
-		return ports, nil
+	return resolveProxyPortsAndMappings(c, insecureListenAddr, secureListenAddr)
+}
+
+// resolveProxyPortsAndMappings get proxy ports and port mappings from specified configmap
+func resolveProxyPortsAndMappings(cm *v1.ConfigMap, insecureListenAddr, secureListenAddr string) ([]string, map[string]string, error) {
+	portMappings := make(map[string]string)
+	proxyPorts := make([]string, 0)
+
+	_, insecurePort, err := net.SplitHostPort(insecureListenAddr)
+	if err != nil {
+		return proxyPorts, portMappings, err
 	}
 
-	portsPair := strings.Split(pairStr, ",")
-	for _, pair := range portsPair {
-		portPair := strings.Split(pair, "=")
-		if len(portPair) == 2 &&
-			portPair[1] == insecurePort &&
-			len(portPair[0]) != 0 {
-			if portPair[0] != "10250" && portPair[0] != "10255" {
-				ports = append(ports, portPair[0])
+	// field dnat-ports-pair will be deprecated in future version
+	for _, port := range resolvePorts(cm.Data[yurttunnelServerDnatDataKey], insecurePort) {
+		portMappings[port] = insecureListenAddr
+	}
+
+	// resolve http-proxy-port field
+	for _, port := range resolvePorts(cm.Data[yurttunnelServerHTTPProxyPorts], "") {
+		portMappings[port] = insecureListenAddr
+	}
+
+	// resolve https-proxy-port field
+	for _, port := range resolvePorts(cm.Data[yurttunnelServerHTTPSProxyPorts], "") {
+		portMappings[port] = secureListenAddr
+	}
+
+	// cleanup 10250/10255 mappings
+	delete(portMappings, KubeletHTTPSPort)
+	delete(portMappings, KubeletHTTPPort)
+
+	for port := range portMappings {
+		proxyPorts = append(proxyPorts, port)
+	}
+
+	return proxyPorts, portMappings, nil
+}
+
+// resolvePorts parse the specified ports setting and return ports slice.
+func resolvePorts(portsStr, insecurePort string) []string {
+	ports := make([]string, 0)
+	if len(strings.TrimSpace(portsStr)) == 0 {
+		return ports
+	}
+
+	isPortPair := strings.Contains(portsStr, "=")
+	parts := strings.Split(portsStr, PortsSeparator)
+	for _, port := range parts {
+		var proxyPort string
+		if isPortPair {
+			subParts := strings.Split(port, "=")
+			if len(subParts) == 2 && strings.TrimSpace(subParts[1]) == insecurePort {
+				proxyPort = strings.TrimSpace(subParts[0])
 			}
+		} else {
+			proxyPort = strings.TrimSpace(port)
+		}
+
+		if len(proxyPort) != 0 {
+			portInt, err := strconv.Atoi(proxyPort)
+			if err != nil {
+				klog.Errorf("failed to parse port %s, %v", port, err)
+				continue
+			} else if portInt < 1 || portInt > 65535 {
+				klog.Errorf("port %s is not invalid port(should be range 1~65535)", port)
+				continue
+			}
+
+			ports = append(ports, proxyPort)
 		}
 	}
 
-	return ports, nil
+	return ports
 }

@@ -81,6 +81,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		dnsController, err := dns.NewCoreDNSRecordController(cfg.Client,
 			cfg.SharedInformerFactory,
 			cfg.ListenInsecureAddrForMaster,
+			cfg.ListenAddrForMaster,
 			cfg.DNSSyncPeriod)
 		if err != nil {
 			return fmt.Errorf("fail to create a new dnsController, %v", err)
