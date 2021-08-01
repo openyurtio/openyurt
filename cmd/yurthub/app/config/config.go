@@ -109,9 +109,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		mutatedMasterServiceAddr = us[0].Host
 		if options.AccessServerThroughHub {
 			if options.EnableDummyIf {
-				mutatedMasterServiceAddr = proxyServerDummyAddr
+				mutatedMasterServiceAddr = proxySecureServerDummyAddr
 			} else {
-				mutatedMasterServiceAddr = proxyServerAddr
+				mutatedMasterServiceAddr = proxySecureServerAddr
 			}
 		}
 	}
