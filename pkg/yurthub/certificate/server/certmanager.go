@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package certmanager
+package server
 
 import (
 	"crypto/tls"
@@ -42,15 +42,22 @@ const (
 // the yurthub-server
 func NewYurtHubServerCertManager(
 	clientset kubernetes.Interface,
-	certDir string) (certificate.Manager, error) {
+	certDir,
+	proxyServerSecureDummyAddr string) (certificate.Manager, error) {
 
 	klog.Infof("subject of yurthub server certificate")
+	host, _, err := net.SplitHostPort(proxyServerSecureDummyAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	return newCertManager(
 		clientset,
 		fmt.Sprintf("%s-server", projectinfo.GetHubName()),
 		certDir,
 		YurtHubServerCSRCN,
-		[]string{YurtHubServerCSROrg, YurtHubCSROrg})
+		[]string{YurtHubServerCSROrg, YurtHubCSROrg},
+		[]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP(host)})
 }
 
 // NewCertManager creates a certificate manager that will generates a
@@ -60,7 +67,8 @@ func newCertManager(
 	componentName,
 	certDir,
 	commonName string,
-	organizations []string) (certificate.Manager, error) {
+	organizations []string,
+	ipAddrs []net.IP) (certificate.Manager, error) {
 	certificateStore, err :=
 		certificate.NewFileStore(componentName, certDir, certDir, "", "")
 	if err != nil {
@@ -73,7 +81,7 @@ func newCertManager(
 				CommonName:   commonName,
 				Organization: organizations,
 			},
-			IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+			IPAddresses: ipAddrs,
 		}
 	}
 

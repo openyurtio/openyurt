@@ -26,10 +26,10 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
-	"github.com/openyurtio/openyurt/pkg/yurthub/pki"
-	"github.com/openyurtio/openyurt/pkg/yurthub/pki/certmanager"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -171,25 +171,25 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 // create a certificate manager for the yurthub server and run the csr approver for both yurthub
 // and generate a TLS configuration
-func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificateMgr interfaces.YurtCertificateManager, certDir string, stopCh <-chan struct{}) (*tls.Config, error) {
+func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificateMgr interfaces.YurtCertificateManager, certDir, proxyServerSecureDummyAddr string, stopCh <-chan struct{}) (*tls.Config, error) {
 	clientSet, err := kubernetes.NewForConfig(restConfigMgr.GetRestConfig())
 	if err != nil {
 		return nil, err
 	}
 	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-	serverCertMgr, err := certmanager.NewYurtHubServerCertManager(clientSet, certDir)
+	serverCertMgr, err := server.NewYurtHubServerCertManager(clientSet, certDir, proxyServerSecureDummyAddr)
 	if err != nil {
 		return nil, err
 	}
 	serverCertMgr.Start()
 
 	// generate the TLS configuration based on the latest certificate
-	rootCert, err := pki.GenCertPoolUseCA(certificateMgr.GetCaFile())
+	rootCert, err := certificate.GenCertPoolUseCA(certificateMgr.GetCaFile())
 	if err != nil {
 		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
 		return nil, err
 	}
-	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
+	tlsCfg, err := certificate.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
 	if err != nil {
 		return nil, err
 	}
