@@ -37,7 +37,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/pki/certmanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
 )
 
 const (
@@ -210,7 +210,7 @@ func isYurtHubCSR(csr *certificates.CertificateSigningRequest) bool {
 		return false
 	}
 	for i, org := range x509cr.Subject.Organization {
-		if org == certmanager.YurtHubCSROrg {
+		if org == server.YurtHubCSROrg {
 			break
 		}
 		if i == len(x509cr.Subject.Organization)-1 {
