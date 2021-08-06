@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -41,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 )
@@ -50,17 +52,18 @@ var (
 )
 
 func TestCacheGetResponse(t *testing.T) {
-	//storage := NewFakeStorageWrapper()
 	dStorage, err := disk.NewDiskStorage(rootDir)
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
 		cacheAgents:       make(map[string]bool),
+		restMapperManager: restRESTMapperMgr,
 	}
 
 	testcases := map[string]struct {
@@ -506,6 +509,9 @@ func TestCacheGetResponse(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
+			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
+			}
 		})
 	}
 }
@@ -538,12 +544,14 @@ func TestCacheWatchResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
 		cacheAgents:       make(map[string]bool),
+		restMapperManager: restRESTMapperMgr,
 	}
 
 	testcases := map[string]struct {
@@ -828,6 +836,9 @@ func TestCacheWatchResponse(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
+			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
+			}
 		})
 	}
 }
@@ -840,10 +851,12 @@ func TestCacheListResponse(t *testing.T) {
 	sWrapper := NewStorageWrapper(dStorage)
 
 	serializerM := serializer.NewSerializerManager()
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
 		cacheAgents:       make(map[string]bool),
+		restMapperManager: restRESTMapperMgr,
 	}
 
 	testcases := map[string]struct {
@@ -861,7 +874,6 @@ func TestCacheListResponse(t *testing.T) {
 			err  bool
 			data map[string]struct{}
 		}
-		cacheErr error
 	}{
 		"list pods": {
 			group:   "",
@@ -1098,7 +1110,6 @@ func TestCacheListResponse(t *testing.T) {
 			path:       "/api/v1/node",
 			resource:   "nodes",
 			namespaced: false,
-			cacheErr:   storage.ErrStorageNotFound,
 		},
 		//used to test whether custom resource list can be cached correctly
 		"cache response for list crontabs": {
@@ -1213,6 +1224,37 @@ func TestCacheListResponse(t *testing.T) {
 				},
 			},
 		},
+		"list foos with no objects": {
+			group:   "samplecontroller.k8s.io",
+			version: "v1",
+			key:     "kubelet/foos",
+			inputObj: runtime.Object(
+				&unstructured.UnstructuredList{
+					Object: map[string]interface{}{
+						"apiVersion": "samplecontroller.k8s.io/v1",
+						"kind":       "FooList",
+						"metadata": map[string]interface{}{
+							"continue":        "",
+							"resourceVersion": "2",
+							"selfLink":        "/apis/samplecontroller.k8s.io/v1/foos",
+						},
+					},
+					Items: []unstructured.Unstructured{},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos",
+			resource:   "foos",
+			namespaced: false,
+			expectResult: struct {
+				err  bool
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{},
+			},
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
@@ -1264,8 +1306,13 @@ func TestCacheListResponse(t *testing.T) {
 
 				objs, err := sWrapper.List(tt.key)
 				if err != nil {
-					if err != tt.cacheErr {
-						t.Errorf("expect error %v, but got %v", tt.cacheErr, err)
+					// If error is storage.ErrStorageNotFound, it means that no object is cached in the hard disk
+					if err == storage.ErrStorageNotFound {
+						if len(tt.expectResult.data) != 0 {
+							t.Errorf("expect %v objects, but get nothing.", len(tt.expectResult.data))
+						}
+					} else {
+						t.Errorf("got unexpected error %v", err)
 					}
 				}
 
@@ -1276,6 +1323,9 @@ func TestCacheListResponse(t *testing.T) {
 			err = sWrapper.DeleteCollection("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
+			}
+			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
 	}
@@ -1288,10 +1338,12 @@ func TestQueryCacheForGet(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
 		cacheAgents:       make(map[string]bool),
+		restMapperManager: restRESTMapperMgr,
 	}
 
 	testcases := map[string]struct {
@@ -1818,15 +1870,18 @@ func TestQueryCacheForList(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
 		cacheAgents:       make(map[string]bool),
+		restMapperManager: restRESTMapperMgr,
 	}
 
 	testcases := map[string]struct {
 		keyPrefix    string
 		noObjs       bool
+		cachedKind   string
 		inputObj     []runtime.Object
 		userAgent    string
 		accept       string
@@ -1834,11 +1889,11 @@ func TestQueryCacheForList(t *testing.T) {
 		path         string
 		namespaced   bool
 		expectResult struct {
-			err  bool
-			rv   string
-			data map[string]struct{}
+			err      bool
+			queryErr error
+			rv       string
+			data     map[string]struct{}
 		}
-		queryErr error
 	}{
 		"list with no user agent": {
 			accept:     "application/json",
@@ -1846,9 +1901,10 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/api/v1/namespaces/default/pods",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				err: true,
 			},
@@ -1896,9 +1952,10 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/api/v1/namespaces/default/pods",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				rv: "5",
 				data: map[string]struct{}{
@@ -1958,9 +2015,10 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/api/v1/nodes",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				rv: "12",
 				data: map[string]struct{}{
@@ -1971,10 +2029,46 @@ func TestQueryCacheForList(t *testing.T) {
 				},
 			},
 		},
+		"list runtimeclass": {
+			keyPrefix:  "kubelet/runtimeclasses",
+			noObjs:     true,
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/apis/node.k8s.io/v1beta1/runtimeclasses",
+			namespaced: false,
+			expectResult: struct {
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
+			}{
+				data: map[string]struct{}{},
+			},
+		},
+		"list pods and no pods in cache": {
+			keyPrefix:  "kubelet/pods",
+			noObjs:     true,
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/pods",
+			namespaced: false,
+			expectResult: struct {
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
+			}{
+				err:      true,
+				queryErr: storage.ErrStorageNotFound,
+			},
+		},
 
 		//used to test whether the query local Custom Resource list request can be handled correctly
 		"list crontabs": {
-			keyPrefix: "kubelet/crontabs/default",
+			keyPrefix:  "kubelet/crontabs/default",
+			cachedKind: "stable.example.com/v1/CronTab",
 			inputObj: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -2016,9 +2110,10 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs",
 			namespaced: true,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				rv: "5",
 				data: map[string]struct{}{
@@ -2029,7 +2124,8 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list foos": {
-			keyPrefix: "kubelet/foos",
+			keyPrefix:  "kubelet/foos",
+			cachedKind: "samplecontroller.k8s.io/v1/Foo",
 			inputObj: []runtime.Object{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
@@ -2068,9 +2164,10 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/apis/samplecontroller.k8s.io/v1/foos",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				rv: "5",
 				data: map[string]struct{}{
@@ -2080,38 +2177,39 @@ func TestQueryCacheForList(t *testing.T) {
 				},
 			},
 		},
-		"list runtimeclass": {
-			keyPrefix:  "kubelet/runtimeclasses",
+		"list foos with no objs": {
+			keyPrefix:  "kubelet/foos",
 			noObjs:     true,
+			cachedKind: "samplecontroller.k8s.io/v1/Foo",
 			userAgent:  "kubelet",
 			accept:     "application/json",
 			verb:       "GET",
-			path:       "/apis/node.k8s.io/v1beta1/runtimeclasses",
+			path:       "/apis/samplecontroller.k8s.io/v1/foos",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
 				data: map[string]struct{}{},
 			},
 		},
-		"list pods and no pods in cache": {
-			keyPrefix:  "kubelet/pods",
-			noObjs:     true,
+		"list unregistered resources": {
 			userAgent:  "kubelet",
 			accept:     "application/json",
 			verb:       "GET",
-			path:       "/api/v1/pods",
+			path:       "/apis/sample.k8s.io/v1/abcs",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
-				err: true,
+				err:      true,
+				queryErr: hubmeta.ErrGVRNotRecognized,
 			},
-			queryErr: storage.ErrStorageNotFound,
 		},
 		"list resources not exist": {
 			userAgent:  "kubelet",
@@ -2120,13 +2218,13 @@ func TestQueryCacheForList(t *testing.T) {
 			path:       "/api/v1/nodes",
 			namespaced: false,
 			expectResult: struct {
-				err  bool
-				rv   string
-				data map[string]struct{}
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
 			}{
-				err: true,
+				data: map[string]struct{}{},
 			},
-			queryErr: storage.ErrStorageNotFound,
 		},
 	}
 
@@ -2140,8 +2238,16 @@ func TestQueryCacheForList(t *testing.T) {
 				_ = sWrapper.Create(key, tt.inputObj[i])
 			}
 
-			if tt.noObjs {
-				_ = sWrapper.Create(tt.keyPrefix, nil)
+			// It is used to simulate caching GVK information. If the caching is successful,
+			// the next process can obtain the correct GVK information when constructing an empty List.
+			if tt.cachedKind != "" {
+				info := strings.Split(tt.cachedKind, hubmeta.SepForGVR)
+				gvk := schema.GroupVersionKind{
+					Group:   info[0],
+					Version: info[1],
+					Kind:    info[2],
+				}
+				_ = yurtCM.restMapperManager.UpdateKind(gvk)
 			}
 
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
@@ -2177,8 +2283,8 @@ func TestQueryCacheForList(t *testing.T) {
 					t.Errorf("Got no error, but expect err")
 				}
 
-				if tt.queryErr != nil && tt.queryErr != err {
-					t.Errorf("expect err %v, but got %v", tt.queryErr, err)
+				if tt.expectResult.queryErr != nil && tt.expectResult.queryErr != err {
+					t.Errorf("expect err %v, but got %v", tt.expectResult.queryErr, err)
 				}
 			} else {
 				if err != nil {
@@ -2196,6 +2302,10 @@ func TestQueryCacheForList(t *testing.T) {
 			err = sWrapper.DeleteCollection("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
+			}
+
+			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
 	}
@@ -2243,7 +2353,7 @@ func TestCanCacheFor(t *testing.T) {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
 	s := NewStorageWrapper(dStorage)
-	m, _ := NewCacheManager(s, nil)
+	m, _ := NewCacheManager(s, nil, nil)
 
 	type proxyRequest struct {
 		userAgent string

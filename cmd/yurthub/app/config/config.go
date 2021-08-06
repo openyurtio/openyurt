@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
@@ -68,6 +69,7 @@ type YurtHubConfiguration struct {
 	HubAgentDummyIfName               string
 	StorageWrapper                    cachemanager.StorageWrapper
 	SerializerManager                 *serializer.SerializerManager
+	RESTMapperManager                 *meta.RESTMapperManager
 	TLSConfig                         *tls.Config
 	MutatedMasterServiceAddr          string
 	Filters                           *filter.Filters
@@ -89,6 +91,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
 	serializerManager := serializer.NewSerializerManager()
+	restMapperManager := meta.NewRESTMapperManager(storageManager)
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
@@ -141,6 +144,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HubAgentDummyIfName:               options.HubAgentDummyIfName,
 		StorageWrapper:                    storageWrapper,
 		SerializerManager:                 serializerManager,
+		RESTMapperManager:                 restMapperManager,
 		MutatedMasterServiceAddr:          mutatedMasterServiceAddr,
 		Filters:                           filters,
 		SharedFactory:                     sharedFactory,

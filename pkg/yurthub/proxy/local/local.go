@@ -25,6 +25,7 @@ import (
 	"time"
 
 	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
@@ -204,7 +205,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 	}
 
 	obj, err := lp.cacheMgr.QueryCache(req)
-	if err == storage.ErrStorageNotFound {
+	if err == storage.ErrStorageNotFound || err == hubmeta.ErrGVRNotRecognized {
 		klog.Errorf("object not found for %s", util.ReqString(req))
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
 		return errors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)

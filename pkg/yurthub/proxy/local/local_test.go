@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -57,7 +59,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
 
 	fn := func() bool {
 		return false
@@ -145,7 +147,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
 
 	cnt := 0
 	fn := func() bool {
@@ -227,7 +229,7 @@ func TestServeHTTPForPost(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
 
 	fn := func() bool {
 		return false
@@ -303,7 +305,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
 
 	fn := func() bool {
 		return false
@@ -366,7 +368,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
 
 	fn := func() bool {
 		return false
@@ -501,7 +503,8 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM)
+	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr)
 
 	fn := func() bool {
 		return false
@@ -510,15 +513,16 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	lp := NewLocalProxy(cacheM, fn)
 
 	testcases := map[string]struct {
-		userAgent string
-		keyPrefix string
-		inputObj  []runtime.Object
-		accept    string
-		verb      string
-		path      string
-		resource  string
-		code      int
-		expectD   struct {
+		userAgent    string
+		keyPrefix    string
+		preCachedObj []runtime.Object
+		accept       string
+		verb         string
+		path         string
+		resource     string
+		gvr          schema.GroupVersionResource
+		code         int
+		expectD      struct {
 			rv   string
 			data map[string]struct{}
 		}
@@ -526,7 +530,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 		"list pods request": {
 			userAgent: "kubelet",
 			keyPrefix: "kubelet/pods/default",
-			inputObj: []runtime.Object{
+			preCachedObj: []runtime.Object{
 				&v1.Pod{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "v1",
@@ -578,6 +582,23 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 				},
 			},
 		},
+		"list unregistered resource(Foo) request": {
+			userAgent:    "kubelet",
+			keyPrefix:    "kubelet/foos",
+			preCachedObj: []runtime.Object{},
+			accept:       "application/json",
+			verb:         "GET",
+			path:         "/api/samplecontroller.k8s.io/v1/foos",
+			resource:     "foos",
+			gvr:          schema.GroupVersionResource{Group: "samplecontroller.k8s.io", Version: "v1", Resource: "foo"},
+			code:         http.StatusNotFound,
+			expectD: struct {
+				rv   string
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{},
+			},
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
@@ -585,10 +606,10 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			s := serializerM.CreateSerializer(tt.accept, "", "v1", tt.resource)
 			accessor := meta.NewAccessor()
-			for i := range tt.inputObj {
-				name, _ := accessor.Name(tt.inputObj[i])
+			for i := range tt.preCachedObj {
+				name, _ := accessor.Name(tt.preCachedObj[i])
 				key := filepath.Join(tt.keyPrefix, name)
-				_ = sWrapper.Update(key, tt.inputObj[i])
+				_ = sWrapper.Update(key, tt.preCachedObj[i])
 			}
 
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
@@ -612,6 +633,13 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 			resp := httptest.NewRecorder()
 			handler.ServeHTTP(resp, req)
 			result := resp.Result()
+			// For unregistered resources, server should return 404 not found
+			if result.StatusCode == http.StatusNotFound {
+				if _, gvk := restRESTMapperMgr.KindFor(tt.gvr); !gvk.Empty() {
+					t.Errorf("this resources %v is registered, but it should return 404 for unregistered resource", tt.gvr)
+				}
+				return
+			}
 			if result.StatusCode != tt.code {
 				t.Errorf("got status code %d, but expect %d", result.StatusCode, tt.code)
 			}
