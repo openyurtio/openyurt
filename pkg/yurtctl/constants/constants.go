@@ -119,6 +119,32 @@ rules:
   verbs:
   - list
   - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/approval
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  resourceNames:
+  - "kubernetes.io/legacy-unknown"
+  verbs:
+  - approve
 `
 	YurtControllerManagerClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1
