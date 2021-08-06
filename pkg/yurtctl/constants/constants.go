@@ -29,6 +29,17 @@ const (
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
 
+	Sysctl_k8s_config              = "/etc/sysctl.d/k8s.conf"
+	StaticPodPath                  = "/etc/kubernetes/manifests"
+	KubeletConfigureDir            = "/etc/kubernetes"
+	KubeletWorkdir                 = "/var/lib/kubelet"
+	YurtHubWorkdir                 = "/var/lib/yurthub"
+	YurttunnelAgentWorkdir         = "/var/lib/yurttunnel-agent"
+	YurttunnelServerWorkdir        = "/var/lib/yurttunnel-server"
+	KubeCniDir                     = "/opt/cni/bin"
+	KubeCniVersion                 = "v0.8.0"
+	KubeletServiceFilepath  string = "/etc/systemd/system/kubelet.service"
+
 	YurtControllerManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount

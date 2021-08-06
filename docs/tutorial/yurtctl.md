@@ -218,6 +218,13 @@ Using `yurtctl` to join a Cloud-Node to OpenYurt cluster can be by doing the fol
 $ _output/bin/yurtctl join 1.2.3.4:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud-node --discovery-token-unsafe-skip-ca-verification --v=5
 ```
 
+## Reset nodes of OpenYurt
+
+Using `yurtctl` to revert any changes made to this host by `yurtctl join` can be by doing the following:
+```
+$ _output/bin/yurtctl reset
+```
+
 ## Note
 ### Disable the default nodelifecycle controller
 `yurtctl convert`  will turn off the default nodelifecycle controller to allow the yurt-controller-mamanger to work properly.

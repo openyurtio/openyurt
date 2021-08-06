@@ -21,26 +21,21 @@ const (
 
 	bridgenf               = "/proc/sys/net/bridge/bridge-nf-call-iptables"
 	bridgenf6              = "/proc/sys/net/bridge/bridge-nf-call-ip6tables"
-	sysctl_k8s_config      = "/etc/sysctl.d/k8s.conf"
 	kubernetsBridgeSetting = `net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1`
 	tmpDownloadDir           = "/tmp"
 	yurtHubStaticPodYamlFile = "/etc/kubernetes/manifests/yurthub.yaml"
 	defaultYurthubImage      = "registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:v0.4.0"
 
-	kubeCniDir     = "/opt/cni/bin"
-	kubeCniVersion = "v0.8.0"
-	cniUrlFormat   = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
-	kubeUrlFormat  = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"
-	staticPodPath  = "/etc/kubernetes/manifests"
+	cniUrlFormat  = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
+	kubeUrlFormat = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"
 
 	EdgeNode  = "edge-node"
 	CloudNode = "cloud-node"
 )
 
 const (
-	KubeletServiceFilepath string = "/etc/systemd/system/kubelet.service"
-	kubeletServiceContent         = `[Unit]
+	kubeletServiceContent = `[Unit]
 Description=kubelet: The Kubernetes Node Agent
 Documentation=http://kubernetes.io/docs/
 

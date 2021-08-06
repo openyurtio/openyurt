@@ -108,6 +108,11 @@ To join nodes to OpenYurt, you can run the following command:
 _output/bin/yurtctl join
 ```
 
+To reset nodes of OpenYurt, you can run the following command:
+```bash
+_output/bin/yurtctl reset
+```
+
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 ## Usage

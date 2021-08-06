@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/convert"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 )
 
@@ -58,6 +59,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
 	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
+	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()

@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
 
 	selinux "github.com/opencontainers/selinux/go-selinux"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
@@ -87,8 +88,8 @@ func setIpv4Forward() error {
 //setBridgeSetting turn on the node bridge-nf-call-iptables.
 func setBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
-	if err := ioutil.WriteFile(sysctl_k8s_config, []byte(kubernetsBridgeSetting), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %v ", sysctl_k8s_config, err)
+	if err := ioutil.WriteFile(constants.Sysctl_k8s_config, []byte(kubernetsBridgeSetting), 0644); err != nil {
+		return fmt.Errorf("Write file %s fail: %v ", constants.Sysctl_k8s_config, err)
 	}
 	if err := ioutil.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
@@ -142,28 +143,28 @@ func checkAndInstallKubelet(clusterVersion string) error {
 			}
 		}
 	}
-	if _, err := os.Stat(staticPodPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(staticPodPath, 0755); err != nil {
+	if _, err := os.Stat(constants.StaticPodPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(constants.StaticPodPath, 0755); err != nil {
 			return err
 		}
 	}
 
-	if _, err := os.Stat(kubeCniDir); err == nil {
-		klog.Infof("Cni dir %s already exist, skip install.", kubeCniDir)
+	if _, err := os.Stat(constants.KubeCniDir); err == nil {
+		klog.Infof("Cni dir %s already exist, skip install.", constants.KubeCniDir)
 		return nil
 	}
 	//download and install kubernetes-cni
-	cniUrl := fmt.Sprintf(cniUrlFormat, kubeCniVersion, runtime.GOARCH, kubeCniVersion)
-	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", tmpDownloadDir, runtime.GOARCH, kubeCniVersion)
+	cniUrl := fmt.Sprintf(cniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
+	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", tmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
 	klog.V(1).Infof("Download cni from: %s", cniUrl)
 	if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(kubeCniDir, 0600); err != nil {
+	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
 		return err
 	}
-	if err := util.Untar(savePath, kubeCniDir); err != nil {
+	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
 		return err
 	}
 	return nil
@@ -172,7 +173,7 @@ func checkAndInstallKubelet(clusterVersion string) error {
 // setKubeletService configure kubelet service.
 func setKubeletService() error {
 	klog.Info("Setting kubelet service.")
-	kubeletServiceDir := filepath.Dir(KubeletServiceFilepath)
+	kubeletServiceDir := filepath.Dir(constants.KubeletServiceFilepath)
 	if _, err := os.Stat(kubeletServiceDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(kubeletServiceDir, os.ModePerm); err != nil {
@@ -184,8 +185,8 @@ func setKubeletService() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(KubeletServiceFilepath, []byte(kubeletServiceContent), 0644); err != nil {
-		klog.Errorf("Write file %s fail: %v", KubeletServiceFilepath, err)
+	if err := ioutil.WriteFile(constants.KubeletServiceFilepath, []byte(kubeletServiceContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", constants.KubeletServiceFilepath, err)
 		return err
 	}
 	return nil
