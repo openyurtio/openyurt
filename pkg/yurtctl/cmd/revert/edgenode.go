@@ -320,5 +320,5 @@ func (r *RevertEdgeNodeOptions) getYurthubYaml() string {
 }
 
 func (r *RevertEdgeNodeOptions) getYurthubConf() string {
-	return filepath.Join(hubself.HubRootDir, hubself.HubName)
+	return filepath.Join(hubself.hubRootDir, hubself.hubName)
 }
