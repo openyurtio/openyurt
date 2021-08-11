@@ -54,6 +54,12 @@ func NewNetworkManager(cfg *config.YurtHubConfiguration) (*NetworkManager, error
 		dummyIfName:     cfg.HubAgentDummyIfName,
 		enableIptables:  cfg.EnableIptables,
 	}
+	// secure port
+	_, securePort, err := net.SplitHostPort(cfg.YurtHubProxyServerSecureDummyAddr)
+	if err != nil {
+		return nil, err
+	}
+	m.iptablesManager.rules = append(m.iptablesManager.rules, makeupIptablesRules(ip, securePort)...)
 	if err = m.configureNetwork(); err != nil {
 		return nil, err
 	}

@@ -21,6 +21,7 @@ const (
 	OpenyurtDir      = "/var/lib/openyurt"
 	StaticPodPath    = "/etc/kubernetes/manifests"
 	KubeCondfigPath  = "/etc/kubernetes/kubelet.conf"
+	KubeCaFile       = "/etc/kubernetes/pki/ca.crt"
 	YurthubYamlName  = "yurt-hub.yaml"
 	KubeletConfName  = "kubelet.conf"
 	KubeletSvcBackup = "%s.bk"

@@ -65,6 +65,10 @@ const (
 	ConvertJobNameBase = "yurtctl-servant-convert"
 	// RevertJobNameBase is the prefix of the revert ServantJob name
 	RevertJobNameBase = "yurtctl-servant-revert"
+	// DisableNodeControllerJobNameBase is the prefix of the DisableNodeControllerJob name
+	DisableNodeControllerJobNameBase = "yurtctl-disable-node-controller"
+	// EnableNodeControllerJobNameBase is the prefix of the EnableNodeControllerJob name
+	EnableNodeControllerJobNameBase = "yurtctl-enable-node-controller"
 )
 
 var (
@@ -425,28 +429,33 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 }
 
 // RunServantJobs launch servant jobs on specified edge nodes
-func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string, convert bool) error {
+func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, edgeNodeNames []string) error {
 	var wg sync.WaitGroup
-	servantJobTemplate := constants.ConvertServantJobTemplate
-	if !convert {
-		servantJobTemplate = constants.RevertServantJobTemplate
+	var servantJobTemplate, jobBaseName string
+	action, exist := tmplCtx["action"]
+	if !exist {
+		return errors.New("action is not specified")
 	}
+	switch action {
+	case "convert":
+		servantJobTemplate = constants.ConvertServantJobTemplate
+		jobBaseName = ConvertJobNameBase
+	case "revert":
+		servantJobTemplate = constants.RevertServantJobTemplate
+		jobBaseName = RevertJobNameBase
+	case "disable":
+		servantJobTemplate = constants.DisableNodeControllerJobTemplate
+		jobBaseName = DisableNodeControllerJobNameBase
+	case "enable":
+		servantJobTemplate = constants.EnableNodeControllerJobTemplate
+		jobBaseName = EnableNodeControllerJobNameBase
+	default:
+		return fmt.Errorf("unknown action: %s", action)
+	}
+
 	for _, nodeName := range edgeNodeNames {
-		action, exist := tmplCtx["action"]
-		if !exist {
-			return errors.New("action is not specified")
-		}
-
-		switch action {
-		case "convert":
-			tmplCtx["jobName"] = ConvertJobNameBase + "-" + nodeName
-		case "revert":
-			tmplCtx["jobName"] = RevertJobNameBase + "-" + nodeName
-		default:
-			return fmt.Errorf("unknown action: %s", action)
-		}
+		tmplCtx["jobName"] = jobBaseName + "-" + nodeName
 		tmplCtx["nodeName"] = nodeName
-
 		jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
 		if err != nil {
 			return err
@@ -590,4 +599,20 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 		return "", err
 	}
 	return tokenStr, nil
+}
+
+// find kube-controller-manager deployed through static file
+func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, error) {
+	var kcmNodeNames []string
+	podLst, err := cliSet.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, pod := range podLst.Items {
+		kcmPodName := fmt.Sprintf("kube-controller-manager-%s", pod.Spec.NodeName)
+		if kcmPodName == pod.Name {
+			kcmNodeNames = append(kcmNodeNames, pod.Spec.NodeName)
+		}
+	}
+	return kcmNodeNames, nil
 }

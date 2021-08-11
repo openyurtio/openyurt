@@ -237,7 +237,7 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			ctx["yurthub_healthcheck_timeout"] = c.YurthubHealthCheckTimeout.String()
 		}
 
-		if err = kubeutil.RunServantJobs(c.clientSet, ctx, c.EdgeNodes, true); err != nil {
+		if err = kubeutil.RunServantJobs(c.clientSet, ctx, c.EdgeNodes); err != nil {
 			klog.Errorf("fail to run ServantJobs: %s", err)
 			return err
 		}
@@ -352,7 +352,7 @@ func (c *ConvertEdgeNodeOptions) ResetKubelet() error {
 	// 2. revise the kubelet.service drop-in
 	// 2.1 make a backup for the origin kubelet.service
 	bkfile := c.getKubeletSvcBackup()
-	err = enutil.CopyFile(c.KubeadmConfPath, bkfile)
+	err = enutil.CopyFile(c.KubeadmConfPath, bkfile, 0666)
 	if err != nil {
 		return err
 	}

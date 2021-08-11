@@ -25,6 +25,7 @@ import (
 	"time"
 
 	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
@@ -116,7 +117,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 		ctx = util.WithRespContentType(ctx, reqContentType)
 		req = req.WithContext(ctx)
 		stopCh := make(chan struct{})
-		rc, prc := util.NewDualReadCloser(req.Body, false)
+		rc, prc := util.NewDualReadCloser(req, req.Body, false)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			klog.V(2).Infof("cache events when cluster is unhealthy, %v", lp.cacheMgr.CacheResponse(req, prc, stopCh))
 		}(req, prc, stopCh)
@@ -204,7 +205,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 	}
 
 	obj, err := lp.cacheMgr.QueryCache(req)
-	if err == storage.ErrStorageNotFound {
+	if err == storage.ErrStorageNotFound || err == hubmeta.ErrGVRNotRecognized {
 		klog.Errorf("object not found for %s", util.ReqString(req))
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
 		return errors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)

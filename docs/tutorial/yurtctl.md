@@ -188,18 +188,6 @@ I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
 To verify that the yurttunnel works as expected, please refer to
 the [yurttunnel tutorial](https://github.com/openyurtio/openyurt/blob/master/docs/tutorial/yurt-tunnel.md)
 
-## Set the path of configuration
-Sometimes the configuration of the node may be different. Users can set the path of the kubelet service configuration
-by the option `--kubeadm-conf-path`, which is used by kubelet component to join the cluster on the edge node.
-```
-$ _output/bin/yurtctl convert --kubeadm-conf-path /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
-```
-The path of the directory on edge node containing static pod files can be set by the
-option `--pod-manifest-path`.
-```
-$ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
-```
-
 ## Revert/Uninstall OpenYurt
 
 Using `yurtctl` to revert an OpenYurt cluster can be done by doing the following:
@@ -215,6 +203,49 @@ Note that before performing the uninstall, please make sure all edge nodes are r
 
 In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`,
 and the path of the directory on edge node containing static pod files can be set by the option `--pod-manifest-path`.
+
+## Join Edge-Node/Cloud-Node to OpenYurt
+
+`yurtctl join` will automatically install the corresponding kubelet according to the cluster version, but the user needs to install the runtime in advance and ensure that the swap partition of the node has been closed.
+
+Using `yurtctl` to join an Edge-Node to OpenYurt cluster can be by doing the following:
+```
+$ _output/bin/yurtctl join 1.2.3.4:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge-node --discovery-token-unsafe-skip-ca-verification --v=5
+```
+
+Using `yurtctl` to join a Cloud-Node to OpenYurt cluster can be by doing the following:
+```
+$ _output/bin/yurtctl join 1.2.3.4:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud-node --discovery-token-unsafe-skip-ca-verification --v=5
+```
+
+## Reset nodes of OpenYurt
+
+Using `yurtctl` to revert any changes made to this host by `yurtctl join` can be by doing the following:
+```
+$ _output/bin/yurtctl reset
+```
+
+## Note
+### Disable the default nodelifecycle controller
+`yurtctl convert`  will turn off the default nodelifecycle controller to allow the yurt-controller-mamanger to work properly.
+If kube-controller-manager is deployed as a static pod, yurtctl can modify the `kube-controller-manager.yaml`
+according the parameter `--pod-manifest-path` with default value `/etc/kubernetes/manifests`.
+It is also suitable for kube-controller-manager high-availability scenarios.
+
+But for kube-controller-manager deployed in other ways, the user needs to turn off the default nodelifecycle controller manually.
+Please refer to the [Disable the default nodelifecycle controller](https://github.com/openyurtio/openyurt/blob/master/docs/tutorial/manually-setup.md#disable-the-default-nodelifecycle-controller) section. In addition, when using `yurtctl revert`, if kube-controller-manager is not deployed through static file, the user also needs to restore manually.
+
+### Set the path of configuration
+Sometimes the configuration of the node may be different. Users can set the path of the kubelet service configuration
+by the option `--kubeadm-conf-path`, which is used by kubelet component to join the cluster on the edge node.
+```
+$ _output/bin/yurtctl convert --kubeadm-conf-path /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+```
+The path of the directory on edge node containing static pod files can be set by the
+option `--pod-manifest-path`.
+```
+$ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
+```
 
 ## Subcommand
 ### Convert a Kubernetes node to Yurt edge node

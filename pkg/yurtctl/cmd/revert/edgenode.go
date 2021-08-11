@@ -190,7 +190,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 				"pod_manifest_path":     r.PodMainfestPath,
 				"kubeadm_conf_path":     r.KubeadmConfPath,
 			},
-			r.EdgeNodes, false); err != nil {
+			r.EdgeNodes); err != nil {
 			klog.Errorf("fail to revert edge node: %s", err)
 			return err
 		}

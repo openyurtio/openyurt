@@ -213,15 +213,15 @@ func (c *checker) check() bool {
 	}
 
 	klog.Infof("failed to update lease: %v, remote server %s", err, c.remoteServer.String())
+	if c.onFailureFunc != nil {
+		c.onFailureFunc(c.remoteServer.Host)
+	}
 	c.healthyCnt = 0
 	if c.isHealthy() {
 		c.setHealthy(false)
 		now := time.Now()
 		klog.Infof("cluster becomes unhealthy from %v, healthy status lasts %v, remote server: %v", time.Now(), now.Sub(c.lastTime), c.remoteServer.String())
 		c.lastTime = now
-		if c.onFailureFunc != nil {
-			c.onFailureFunc(c.remoteServer.Host)
-		}
 		metrics.Metrics.ObserveServerHealthy(c.remoteServer.Host, 0)
 	}
 	return false

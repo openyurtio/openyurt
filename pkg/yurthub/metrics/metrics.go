@@ -39,6 +39,7 @@ type HubMetrics struct {
 	inFlightRequestsGauge     prometheus.Gauge
 	rejectedRequestsCounter   prometheus.Counter
 	closableConnsCollector    *prometheus.GaugeVec
+	proxyTrafficCollector     *prometheus.CounterVec
 }
 
 func newHubMetrics() *HubMetrics {
@@ -80,17 +81,27 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of underlay tcp connection from hub agent to remote server",
 		},
 		[]string{"server"})
+	proxyTrafficCollector := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "proxy_traffic_collector",
+			Help:      "collector of proxy response traffic by hub agent(unit: byte)",
+		},
+		[]string{"client", "verb", "resource", "subresources"})
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
 	prometheus.MustRegister(rejectedRequestsCounter)
 	prometheus.MustRegister(closableConnsCollector)
+	prometheus.MustRegister(proxyTrafficCollector)
 	return &HubMetrics{
 		serversHealthyCollector:   serversHealthyCollector,
 		inFlightRequestsCollector: inFlightRequestsCollector,
 		inFlightRequestsGauge:     inFlightRequestsGauge,
 		rejectedRequestsCounter:   rejectedRequestsCounter,
 		closableConnsCollector:    closableConnsCollector,
+		proxyTrafficCollector:     proxyTrafficCollector,
 	}
 }
 
@@ -99,6 +110,7 @@ func (hm *HubMetrics) Reset() {
 	hm.inFlightRequestsCollector.Reset()
 	hm.inFlightRequestsGauge.Set(float64(0))
 	hm.closableConnsCollector.Reset()
+	hm.proxyTrafficCollector.Reset()
 }
 
 func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
@@ -129,4 +141,10 @@ func (hm *HubMetrics) DecClosableConns(server string) {
 
 func (hm *HubMetrics) SetClosableConns(server string, cnt int) {
 	hm.closableConnsCollector.WithLabelValues(server).Set(float64(cnt))
+}
+
+func (hm *HubMetrics) AddProxyTrafficCollector(client, verb, resource, subresource string, size int) {
+	if size > 0 {
+		hm.proxyTrafficCollector.WithLabelValues(client, verb, resource, subresource).Add(float64(size))
+	}
 }

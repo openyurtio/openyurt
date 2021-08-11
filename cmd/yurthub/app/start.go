@@ -18,6 +18,7 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -26,6 +27,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -119,8 +123,16 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
+	klog.Infof("%d. create tls config for secure servers ", trace)
+	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), cfg.YurtHubProxyServerSecureDummyAddr, stopCh)
+	if err != nil {
+		klog.Errorf("could not create tls config, %v", err)
+		return err
+	}
+	trace++
+
 	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager)
+	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager)
 	if err != nil {
 		klog.Errorf("could not new cache manager, %v", err)
 		return err
@@ -136,8 +148,16 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	gcMgr.Run()
 	trace++
 
+	klog.Infof("%d. new filter chain for mutating response body", trace)
+	filterChain, err := createFilterChain(cfg)
+	if err != nil {
+		klog.Errorf("could not new filter chain, %v", err)
+		return err
+	}
+	trace++
+
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, stopCh)
+	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, filterChain, stopCh)
 	if err != nil {
 		klog.Errorf("could not create reverse proxy handler, %v", err)
 		return err
@@ -153,18 +173,34 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		}
 		networkMgr.Run(stopCh)
 		trace++
-		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr)
+		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s, secure dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr, cfg.YurtHubProxyServerSecureDummyAddr)
 	}
 
-	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubServerAddr)
+	// start shared informers here
+	if filterChain != nil && cfg.Filters.Enabled(servicetopology.FilterName) {
+		cfg.SharedFactory.Start(stopCh)
+		cfg.YurtSharedFactory.Start(stopCh)
+	}
+
+	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
 	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	if err != nil {
 		klog.Errorf("could not create hub server, %v", err)
 		return err
 	}
 	s.Run()
-
 	klog.Infof("hub agent exited")
 	<-stopCh
 	return nil
+}
+
+func createFilterChain(cfg *config.YurtHubConfiguration) (filter.Interface, error) {
+	if cfg.Filters == nil {
+		return nil, nil
+	}
+
+	genericInitializer := initializer.New(cfg.SharedFactory, cfg.YurtSharedFactory, cfg.SerializerManager, cfg.StorageWrapper, cfg.NodeName, cfg.MutatedMasterServiceAddr)
+	initializerChain := filter.FilterInitializers{}
+	initializerChain = append(initializerChain, genericInitializer)
+	return cfg.Filters.NewFromFilters(initializerChain)
 }

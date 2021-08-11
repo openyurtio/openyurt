@@ -19,6 +19,7 @@ package cmd
 import (
 	goflag "flag"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -27,7 +28,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/clusterinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/convert"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 )
 
@@ -55,6 +58,8 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
+	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
+	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()

@@ -38,6 +38,7 @@ type YurtHubOptions struct {
 	YurtHubHost               string
 	YurtHubPort               string
 	YurtHubProxyPort          string
+	YurtHubProxySecurePort    string
 	GCFrequency               int
 	CertMgrMode               string
 	KubeletRootCAFilePath     string
@@ -57,6 +58,9 @@ type YurtHubOptions struct {
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
 	DiskCachePath             string
+	AccessServerThroughHub    bool
+	EnableResourceFilter      bool
+	DisabledResourceFilters   []string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -65,6 +69,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		YurtHubHost:               "127.0.0.1",
 		YurtHubProxyPort:          "10261",
 		YurtHubPort:               "10267",
+		YurtHubProxySecurePort:    "10268",
 		GCFrequency:               120,
 		CertMgrMode:               util.YurtHubCertificateManagerName,
 		KubeletRootCAFilePath:     util.DefaultKubeletRootCAFilePath,
@@ -81,8 +86,10 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
+		AccessServerThroughHub:    false,
+		EnableResourceFilter:      true,
+		DisabledResourceFilters:   make([]string, 0),
 	}
-
 	return o
 }
 
@@ -116,6 +123,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubHost, "bind-address", o.YurtHubHost, "the IP address on which to listen for the --serve-port port.")
 	fs.StringVar(&o.YurtHubPort, "serve-port", o.YurtHubPort, "the port on which to serve HTTP requests(like profiling, metrics) for hub agent.")
 	fs.StringVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
+	fs.StringVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringVar(&o.CertMgrMode, "cert-mgr-mode", o.CertMgrMode, "the cert manager mode, kubelet: use certificates that belongs to kubelet, hubself: auto generate client cert for hub agent.")
 	fs.StringVar(&o.KubeletRootCAFilePath, "kubelet-ca-file", o.KubeletRootCAFilePath, "the ca file path used by kubelet.")
@@ -136,6 +144,9 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
 	fs.StringVar(&o.HubAgentDummyIfName, "dummy-if-name", o.HubAgentDummyIfName, "the name of dummy interface that is used for hub agent")
 	fs.StringVar(&o.DiskCachePath, "disk-cache-path", o.DiskCachePath, "the path for kubernetes to storage metadata")
+	fs.BoolVar(&o.AccessServerThroughHub, "access-server-through-hub", o.AccessServerThroughHub, "enable pods access kube-apiserver through yurthub or not")
+	fs.BoolVar(&o.EnableResourceFilter, "enable-resource-filter", o.EnableResourceFilter, "enable to filter response that comes back from reverse proxy")
+	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
 }
 
 // verifyDummyIP verify the specified ip is valid or not

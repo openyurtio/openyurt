@@ -39,8 +39,8 @@ func GenTLSConfigUseCertMgrAndCertPool(
 		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
 		// Can't use TLSv1.1 because of RC4 cipher usage
 		MinVersion: tls.VersionTLS12,
-		RootCAs:    root,
-		ClientAuth: tls.RequireAnyClientCert,
+		ClientCAs:  root,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 
 	tlsConfig.GetClientCertificate =

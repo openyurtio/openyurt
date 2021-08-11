@@ -25,11 +25,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
+
+	"github.com/spf13/pflag"
 )
 
 // FileExists determines whether the file exists
@@ -83,12 +84,12 @@ func DirExists(dirname string) (bool, error) {
 }
 
 // CopyFile copys sourceFile to destinationFile
-func CopyFile(sourceFile string, destinationFile string) error {
+func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error {
 	content, err := ioutil.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read source file %s: %v", sourceFile, err)
 	}
-	err = ioutil.WriteFile(destinationFile, content, 0666)
+	err = ioutil.WriteFile(destinationFile, content, perm)
 	if err != nil {
 		return fmt.Errorf("failed to write destination file %s: %v", destinationFile, err)
 	}
