@@ -70,7 +70,7 @@ type fakeYurtHubCertManager struct {
 func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPEM string) (interfaces.YurtCertificateManager, error) {
 	hn := projectinfo.GetHubName()
 	if len(hn) == 0 {
-		hn = hubName
+		hn = HubName
 	}
 	if len(certificatePEM) == 0 {
 		certificatePEM = defaultCertificatePEM
@@ -81,7 +81,7 @@ func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPE
 
 	rd := rootDir
 	if len(rd) == 0 {
-		rd = filepath.Join(hubRootDir, hn)
+		rd = filepath.Join(HubRootDir, hn)
 	}
 
 	fyc := &fakeYurtHubCertManager{
