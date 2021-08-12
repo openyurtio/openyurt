@@ -37,6 +37,7 @@ import (
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 )
 
 // RevertEdgeNodeOptions has the information required by sub command revert edgenode
@@ -295,6 +296,13 @@ func (r *RevertEdgeNodeOptions) RemoveYurthub() error {
 	if err != nil {
 		return err
 	}
+
+	// 2. remove yurt-hub config directory and certificates in it
+	yurthubConf := r.getYurthubConf()
+	err = os.RemoveAll(yurthubConf)
+	if err != nil {
+		return err
+	}
 	klog.Infof("yurt-hub has been removed")
 	return nil
 }
@@ -309,4 +317,8 @@ func (r *RevertEdgeNodeOptions) getKubeletSvcBackup() string {
 
 func (r *RevertEdgeNodeOptions) getYurthubYaml() string {
 	return filepath.Join(r.PodMainfestPath, enutil.YurthubYamlName)
+}
+
+func (r *RevertEdgeNodeOptions) getYurthubConf() string {
+	return filepath.Join(hubself.HubRootDir, hubself.HubName)
 }

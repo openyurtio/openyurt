@@ -50,8 +50,8 @@ import (
 )
 
 const (
-	hubName                 = "yurthub"
-	hubRootDir              = "/var/lib/"
+	HubName                 = "yurthub"
+	HubRootDir              = "/var/lib/"
 	hubPkiDirName           = "pki"
 	hubCaFileName           = "ca.crt"
 	hubConfigFileName       = "%s.conf"
@@ -93,12 +93,12 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 
 	hn := projectinfo.GetHubName()
 	if len(hn) == 0 {
-		hn = hubName
+		hn = HubName
 	}
 
 	rootDir := cfg.RootDir
 	if len(rootDir) == 0 {
-		rootDir = filepath.Join(hubRootDir, hn)
+		rootDir = filepath.Join(HubRootDir, hn)
 	}
 
 	ycm := &yurtHubCertManager{
