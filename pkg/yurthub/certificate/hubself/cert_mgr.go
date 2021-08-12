@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
@@ -51,8 +50,8 @@ import (
 )
 
 const (
-	hubName                 = "yurthub"
-	hubRootDir              = "/var/lib/"
+	HubName                 = "yurthub"
+	HubRootDir              = "/var/lib/"
 	hubPkiDirName           = "pki"
 	hubCaFileName           = "ca.crt"
 	hubConfigFileName       = "%s.conf"
@@ -86,26 +85,6 @@ type yurtHubCertManager struct {
 	stopCh                chan struct{}
 }
 
-// GetYurthubConfRootDir
-func GetYurthubConfRootDir() string {
-	hn := projectinfo.GetHubName()
-	if len(hn) == 0 {
-		hn = hubName
-	}
-
-	yurtHubOptions := options.NewYurtHubOptions()
-	cfg, err := config.Complete(yurtHubOptions)
-	rootDir := ""
-	if err == nil {
-		rootDir = cfg.RootDir
-	}
-	if len(rootDir) == 0 {
-		rootDir = filepath.Join(hubRootDir, hn)
-	}
-
-	return rootDir
-}
-
 // NewYurtHubCertManager new a YurtCertificateManager instance
 func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
 	if cfg == nil || len(cfg.NodeName) == 0 || len(cfg.RemoteServers) == 0 {
@@ -114,12 +93,12 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 
 	hn := projectinfo.GetHubName()
 	if len(hn) == 0 {
-		hn = hubName
+		hn = HubName
 	}
 
 	rootDir := cfg.RootDir
 	if len(rootDir) == 0 {
-		rootDir = filepath.Join(hubRootDir, hn)
+		rootDir = filepath.Join(HubRootDir, hn)
 	}
 
 	ycm := &yurtHubCertManager{
