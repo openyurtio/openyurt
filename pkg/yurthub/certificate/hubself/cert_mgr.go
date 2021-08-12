@@ -95,10 +95,9 @@ func GetYurthubConfRootDir() string {
 
 	yurtHubOptions := options.NewYurtHubOptions()
 	cfg, err := config.Complete(yurtHubOptions)
-	if err != nil {
-		rootDir := ""
-	} else {
-		rootDir := cfg.RootDir
+	rootDir := ""
+	if err == nil {
+		rootDir = cfg.RootDir
 	}
 	if len(rootDir) == 0 {
 		rootDir = filepath.Join(hubRootDir, hn)
