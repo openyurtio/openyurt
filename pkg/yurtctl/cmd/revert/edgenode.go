@@ -34,10 +34,10 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 )
 
 // RevertEdgeNodeOptions has the information required by sub command revert edgenode
