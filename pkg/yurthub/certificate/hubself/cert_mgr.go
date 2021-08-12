@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
@@ -83,6 +84,27 @@ type yurtHubCertManager struct {
 	kubeletPairFilePath   string
 	dialer                *util.Dialer
 	stopCh                chan struct{}
+}
+
+// GetYurthubConfRootDir
+func GetYurthubConfRootDir() string {
+	hn := projectinfo.GetHubName()
+	if len(hn) == 0 {
+		hn = hubName
+	}
+
+	yurtHubOptions := options.NewYurtHubOptions()
+	cfg, err := config.Complete(yurtHubOptions)
+	if err != nil {
+		rootDir := ""
+	} else {
+		rootDir := cfg.RootDir
+	}
+	if len(rootDir) == 0 {
+		rootDir = filepath.Join(hubRootDir, hn)
+	}
+
+	return rootDir
 }
 
 // NewYurtHubCertManager new a YurtCertificateManager instance
