@@ -40,6 +40,55 @@ const (
 	KubeCniVersion                 = "v0.8.0"
 	KubeletServiceFilepath  string = "/etc/systemd/system/kubelet.service"
 
+	CniUrlFormat      = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
+	KubeUrlFormat     = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"
+	TmpDownloadDir    = "/tmp"
+	FlannelIntallFile = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/flannel.yaml"
+
+	EdgeNode  = "edge-node"
+	CloudNode = "cloud-node"
+
+	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
+	DefaultOpenYurtVersion       = "latest"
+	YurtControllerManager        = "yurt-controller-manager"
+	YurtTunnelServer             = "yurt-tunnel-server"
+	YurtTunnelAgent              = "yurt-tunnel-agent"
+	Yurthub                      = "yurthub"
+	YurtAppManager               = "yurt-app-manager"
+	KubeletServiceContent        = `
+[Unit]
+Description=kubelet: The Kubernetes Node Agent
+Documentation=http://kubernetes.io/docs/
+
+[Service]
+ExecStartPre=/sbin/swapoff -a
+ExecStart=/usr/bin/kubelet
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target`
+
+	EdgeKubeletUnitConfig = `
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+EnvironmentFile=-/etc/default/kubelet
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+`
+	CloudKubeletUnitConfig = `
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+EnvironmentFile=-/etc/default/kubelet
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+`
+
 	YurtControllerManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount

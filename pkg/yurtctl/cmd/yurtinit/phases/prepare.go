@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
 
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/system"
 )
@@ -36,15 +37,11 @@ func NewPreparePhase() workflow.Phase {
 
 //runPrepare executes the node initialization process.
 func runPrepare(c workflow.RunData) error {
-	data, ok := c.(YurtJoinData)
+	data, ok := c.(YurtInitData)
 	if !ok {
 		return fmt.Errorf("Prepare phase invoked with an invalid data struct. ")
 	}
-
-	initCfg, err := data.InitCfg()
-	if err != nil {
-		return err
-	}
+	initCfg := data.Cfg()
 
 	if err := system.SetIpv4Forward(); err != nil {
 		return err
@@ -61,7 +58,7 @@ func runPrepare(c workflow.RunData) error {
 	if err := kubernetes.SetKubeletService(); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletUnitConfig(data.NodeType()); err != nil {
+	if err := kubernetes.SetKubeletUnitConfig(constants.CloudNode); err != nil {
 		return err
 	}
 	return nil

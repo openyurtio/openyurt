@@ -1,5 +1,3 @@
-package phases
-
 /*
 Copyright 2021 The OpenYurt Authors.
 
@@ -15,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package phases
 
 import (
 	joinphases "k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/join"

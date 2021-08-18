@@ -204,6 +204,16 @@ Note that before performing the uninstall, please make sure all edge nodes are r
 In addition, the path of the kubelet service configuration can be set by the option `--kubeadm-conf-path`,
 and the path of the directory on edge node containing static pod files can be set by the option `--pod-manifest-path`.
 
+## Create OpenYurt cluster
+`yurtctl init` will create an OpenYurt cluster, but the user needs to install the runtime in advance and ensure that the swap partition of the node has been closed.
+
+Using `yurtctl` to create an OpenYurt cluster can be done by doing the following:
+```
+$ _output/bin/yurtctl init --image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers --kubernetes-version=v1.18.8  --pod-network-cidr=10.244.0.0/16
+```
+In addition, the OpenYurt components version can be set by the option `--yurt-version`,
+and the OpenYurt components image registry can be set by the option `--yurt-image-registry`.
+
 ## Join Edge-Node/Cloud-Node to OpenYurt
 
 `yurtctl join` will automatically install the corresponding kubelet according to the cluster version, but the user needs to install the runtime in advance and ensure that the swap partition of the node has been closed.

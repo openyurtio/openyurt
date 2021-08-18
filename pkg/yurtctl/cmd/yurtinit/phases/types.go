@@ -16,25 +16,14 @@ limitations under the License.
 
 package phases
 
-const (
-	defaultYurthubStaticPodFileName = "yurthub.yaml"
+import (
+	phases "k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/init"
 )
 
-const (
-	kubeletConfForEdgeNode = `
-apiVersion: v1
-clusters:
-- cluster:
-    server: http://127.0.0.1:10261
-  name: default-cluster
-contexts:
-- context:
-    cluster: default-cluster
-    namespace: default
-    user: default-auth
-  name: default-context
-current-context: default-context
-kind: Config
-preferences: {}
-`
-)
+type YurtInitData interface {
+	phases.InitData
+	IsConvertYurtCluster() bool
+	OpenYurtVersion() string
+	OpenYurtImageRegistry() string
+	CNIFileName() string
+}

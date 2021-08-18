@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
@@ -327,35 +326,10 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 
 	// 3. deploy yurt controller manager
-	// create a service account for yurt-controller-manager
-	err = kubeutil.CreateServiceAccountFromYaml(co.clientSet,
-		"kube-system", constants.YurtControllerManagerServiceAccount)
-	if err != nil {
+	if err = kubeutil.DeployYurtControllerManager(co.clientSet, co.YurtControllerManagerImage); err != nil {
+		klog.Errorf("fail to deploy yurtcontrollermanager: %s", err)
 		return
 	}
-	// create the clusterrole
-	err = kubeutil.CreateClusterRoleFromYaml(co.clientSet,
-		constants.YurtControllerManagerClusterRole)
-	if err != nil {
-		return err
-	}
-	// bind the clusterrole
-	err = kubeutil.CreateClusterRoleBindingFromYaml(co.clientSet,
-		constants.YurtControllerManagerClusterRoleBinding)
-	if err != nil {
-		return
-	}
-	// create the yurt-controller-manager deployment
-	err = kubeutil.CreateDeployFromYaml(co.clientSet,
-		"kube-system",
-		constants.YurtControllerManagerDeployment,
-		map[string]string{
-			"image":         co.YurtControllerManagerImage,
-			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()})
-	if err != nil {
-		return
-	}
-
 	// 4. disable node-controller
 	ctx := map[string]string{
 		"action":                "disable",
@@ -370,7 +344,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 
 	// 5. deploy the yurttunnel if required
 	if co.DeployTunnel {
-		if err = deployYurttunnelServer(co.clientSet,
+		if err = kubeutil.DeployYurttunnelServer(co.clientSet,
 			co.CloudNodes,
 			co.YurttunnelServerImage,
 			co.SystemArchitecture); err != nil {
@@ -379,7 +353,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		}
 		klog.Info("yurt-tunnel-server is deployed")
 		// we will deploy yurt-tunnel-agent on every edge node
-		if err = deployYurttunnelAgent(co.clientSet,
+		if err = kubeutil.DeployYurttunnelAgent(co.clientSet,
 			edgeNodeNames,
 			co.YurttunnelAgentImage); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-tunnel-agent: %s", err)
@@ -397,7 +371,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 
 	//7. deploy the yurtappmanager if required
 	if co.EnableAppManager {
-		if err = deployYurtAppManager(co.clientSet,
+		if err = kubeutil.DeployYurtAppManager(co.clientSet,
 			co.YurtAppManagerImage,
 			co.yurtAppManagerClientSet,
 			co.SystemArchitecture); err != nil {
@@ -435,156 +409,6 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	klog.Info("complete deploying yurt-hub")
 
 	return
-}
-
-func deployYurtAppManager(
-	client *kubernetes.Clientset,
-	yurtappmanagerImage string,
-	yurtAppManagerClient dynamic.Interface,
-	systemArchitecture string) error {
-
-	// 1.create the YurtAppManagerCustomResourceDefinition
-	// 1.1 nodepool
-	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerNodePool)); err != nil {
-		return err
-	}
-
-	// 1.2 uniteddeployment
-	if err := kubeutil.CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
-		return err
-	}
-
-	// 2. create the YurtAppManagerRole
-	if err := kubeutil.CreateRoleFromYaml(client, "kube-system",
-		constants.YurtAppManagerRole); err != nil {
-		return err
-	}
-
-	// 3. create the ClusterRole
-	if err := kubeutil.CreateClusterRoleFromYaml(client,
-		constants.YurtAppManagerClusterRole); err != nil {
-		return err
-	}
-
-	// 4. create the RoleBinding
-	if err := kubeutil.CreateRoleBindingFromYaml(client, "kube-system",
-		constants.YurtAppManagerRolebinding); err != nil {
-		return err
-	}
-
-	// 5. create the ClusterRoleBinding
-	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
-		constants.YurtAppManagerClusterRolebinding); err != nil {
-		return err
-	}
-
-	// 6. create the Secret
-	if err := kubeutil.CreateSecretFromYaml(client, "kube-system",
-		constants.YurtAppManagerSecret); err != nil {
-		return err
-	}
-
-	// 7. create the Service
-	if err := kubeutil.CreateServiceFromYaml(client,
-		constants.YurtAppManagerService); err != nil {
-		return err
-	}
-
-	// 8. create the Deployment
-	if err := kubeutil.CreateDeployFromYaml(client,
-		"kube-system",
-		constants.YurtAppManagerDeployment,
-		map[string]string{
-			"image":           yurtappmanagerImage,
-			"arch":            systemArchitecture,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-
-	// 9. create the YurtAppManagerMutatingWebhookConfiguration
-	if err := kubeutil.CreateMutatingWebhookConfigurationFromYaml(client,
-		constants.YurtAppManagerMutatingWebhookConfiguration); err != nil {
-		return err
-	}
-
-	// 10. create the YurtAppManagerValidatingWebhookConfiguration
-	if err := kubeutil.CreateValidatingWebhookConfigurationFromYaml(client,
-		constants.YurtAppManagerValidatingWebhookConfiguration); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func deployYurttunnelServer(
-	client *kubernetes.Clientset,
-	cloudNodes []string,
-	yurttunnelServerImage string,
-	systemArchitecture string) error {
-	// 1. create the ClusterRole
-	if err := kubeutil.CreateClusterRoleFromYaml(client,
-		constants.YurttunnelServerClusterRole); err != nil {
-		return err
-	}
-
-	// 2. create the ServiceAccount
-	if err := kubeutil.CreateServiceAccountFromYaml(client, "kube-system",
-		constants.YurttunnelServerServiceAccount); err != nil {
-		return err
-	}
-
-	// 3. create the ClusterRoleBinding
-	if err := kubeutil.CreateClusterRoleBindingFromYaml(client,
-		constants.YurttunnelServerClusterRolebinding); err != nil {
-		return err
-	}
-
-	// 4. create the Service
-	if err := kubeutil.CreateServiceFromYaml(client,
-		constants.YurttunnelServerService); err != nil {
-		return err
-	}
-
-	// 5. create the internal Service(type=ClusterIP)
-	if err := kubeutil.CreateServiceFromYaml(client,
-		constants.YurttunnelServerInternalService); err != nil {
-		return err
-	}
-
-	// 6. create the Configmap
-	if err := kubeutil.CreateConfigMapFromYaml(client,
-		"kube-system",
-		constants.YurttunnelServerConfigMap); err != nil {
-		return err
-	}
-
-	// 7. create the Deployment
-	if err := kubeutil.CreateDeployFromYaml(client,
-		"kube-system",
-		constants.YurttunnelServerDeployment,
-		map[string]string{
-			"image":           yurttunnelServerImage,
-			"arch":            systemArchitecture,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func deployYurttunnelAgent(
-	client *kubernetes.Clientset,
-	tunnelAgentNodes []string,
-	yurttunnelAgentImage string) error {
-	// 1. Deploy the yurt-tunnel-agent DaemonSet
-	if err := kubeutil.CreateDaemonSetFromYaml(client,
-		constants.YurttunnelAgentDaemonSet,
-		map[string]string{
-			"image":           yurttunnelAgentImage,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-	return nil
 }
 
 // prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist

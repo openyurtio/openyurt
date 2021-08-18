@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 	"k8s.io/klog"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -32,6 +30,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurtinit"
+	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 )
 
 // NewYurtctlCommand creates a new yurtctl command
@@ -52,6 +53,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
 	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
+	cmds.AddCommand(yurtinit.NewCmdInit(os.Stdout, nil))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()

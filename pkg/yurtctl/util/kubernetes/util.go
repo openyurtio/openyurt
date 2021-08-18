@@ -21,15 +21,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
-
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
-	"github.com/spf13/pflag"
 
 	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,7 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
@@ -58,6 +57,13 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
+
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -184,10 +190,17 @@ func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx
 
 // CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
 func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx interface{}) error {
-	ytadstmp, err := tmplutil.SubsituteTemplate(dsTmpl, ctx)
-	if err != nil {
-		return err
+	var ytadstmp string
+	var err error
+	if ctx != nil {
+		ytadstmp, err = tmplutil.SubsituteTemplate(dsTmpl, ctx)
+		if err != nil {
+			return err
+		}
+	} else {
+		ytadstmp = dsTmpl
 	}
+
 	obj, err := YamlToObject([]byte(ytadstmp))
 	if err != nil {
 		return err
@@ -319,7 +332,7 @@ func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, 
 func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string, filebytes []byte) error {
 	var err error
 	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
-	var rawObj runtime.RawExtension
+	var rawObj k8sruntime.RawExtension
 	err = decoder.Decode(&rawObj)
 	if err != nil {
 		return err
@@ -328,7 +341,7 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 	if err != nil {
 		return err
 	}
-	unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	unstructuredMap, err := k8sruntime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return err
 	}
@@ -364,7 +377,7 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 }
 
 // YamlToObject deserializes object in yaml format to a runtime.Object
-func YamlToObject(yamlContent []byte) (runtime.Object, error) {
+func YamlToObject(yamlContent []byte) (k8sruntime.Object, error) {
 	decode := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer().Decode
 	obj, _, err := decode(yamlContent, nil, nil)
 	if err != nil {
@@ -615,4 +628,116 @@ func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, er
 		}
 	}
 	return kcmNodeNames, nil
+}
+
+//CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
+func CheckAndInstallKubelet(clusterVersion string) error {
+	klog.Info("Check and install kubelet.")
+	kubeletExist := false
+	if _, err := exec.LookPath("kubelet"); err == nil {
+		if b, err := exec.Command("kubelet", "--version").CombinedOutput(); err == nil {
+			kubeletVersion := strings.Split(string(b), " ")[1]
+			kubeletVersion = strings.TrimSpace(kubeletVersion)
+			klog.Infof("kubelet --version: %s", kubeletVersion)
+			if strings.Contains(string(b), clusterVersion) {
+				klog.Infof("Kubelet %s already exist, skip install.", clusterVersion)
+				kubeletExist = true
+			} else {
+				return fmt.Errorf("The existing kubelet version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeletVersion, clusterVersion)
+			}
+		}
+	}
+
+	if !kubeletExist {
+		//download and install kubernetes-node
+		packageUrl := fmt.Sprintf(constants.KubeUrlFormat, clusterVersion, runtime.GOARCH)
+		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
+		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
+		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+			return fmt.Errorf("Download kuelet fail: %v", err)
+		}
+		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
+			return err
+		}
+		for _, comp := range []string{"kubectl", "kubeadm", "kubelet"} {
+			target := fmt.Sprintf("/usr/bin/%s", comp)
+			if err := edgenode.CopyFile(constants.TmpDownloadDir+"/kubernetes/node/bin/"+comp, target, 0755); err != nil {
+				return err
+			}
+		}
+	}
+	if _, err := os.Stat(constants.StaticPodPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(constants.StaticPodPath, 0755); err != nil {
+			return err
+		}
+	}
+
+	if _, err := os.Stat(constants.KubeCniDir); err == nil {
+		klog.Infof("Cni dir %s already exist, skip install.", constants.KubeCniDir)
+		return nil
+	}
+	//download and install kubernetes-cni
+	cniUrl := fmt.Sprintf(constants.CniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
+	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
+	klog.V(1).Infof("Download cni from: %s", cniUrl)
+	if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
+		return err
+	}
+	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetKubeletService configure kubelet service.
+func SetKubeletService() error {
+	klog.Info("Setting kubelet service.")
+	kubeletServiceDir := filepath.Dir(constants.KubeletServiceFilepath)
+	if _, err := os.Stat(kubeletServiceDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeletServiceDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeletServiceDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeletServiceDir, err)
+			return err
+		}
+	}
+	if err := ioutil.WriteFile(constants.KubeletServiceFilepath, []byte(constants.KubeletServiceContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", constants.KubeletServiceFilepath, err)
+		return err
+	}
+	return nil
+}
+
+//SetKubeletUnitConfig configure kubelet startup parameters.
+func SetKubeletUnitConfig(nodeType string) error {
+	kubeletUnitDir := filepath.Dir(edgenode.KubeletSvcPath)
+	if _, err := os.Stat(kubeletUnitDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeletUnitDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeletUnitDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeletUnitDir, err)
+			return err
+		}
+	}
+	if nodeType == constants.EdgeNode {
+		if err := ioutil.WriteFile(edgenode.KubeletSvcPath, []byte(constants.EdgeKubeletUnitConfig), 0600); err != nil {
+			return err
+		}
+	} else {
+		if err := ioutil.WriteFile(edgenode.KubeletSvcPath, []byte(constants.CloudKubeletUnitConfig), 0600); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
