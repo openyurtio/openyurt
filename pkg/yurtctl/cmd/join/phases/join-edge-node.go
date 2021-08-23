@@ -2,6 +2,7 @@ package phases
 
 /*
 Copyright 2021 The OpenYurt Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,18 +23,28 @@ import (
 	"os"
 	"path/filepath"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
 	clientset "k8s.io/client-go/kubernetes"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog"
+	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
 	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	kubeletphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/kubelet"
+	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
+	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
+	kubeletscheme "k8s.io/kubernetes/pkg/kubelet/apis/config/scheme"
+	utilcodec "k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/codec"
 
+	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	"github.com/pkg/errors"
 )
 
 // NewEdgeNodePhase creates a yurtctl workflow phase that start kubelet on a edge node.
@@ -59,10 +70,7 @@ func runJoinEdgeNode(c workflow.RunData) error {
 		return err
 	}
 
-	if err := setKubeleConfigForEdgeNode(); err != nil {
-		return err
-	}
-	if err := addYurthubStaticYaml(cfg, data.YurtHubImage()); err != nil {
+	if err := setKubeletConfigForEdgeNode(); err != nil {
 		return err
 	}
 	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(tlsBootstrapCfg)
@@ -74,7 +82,11 @@ func runJoinEdgeNode(c workflow.RunData) error {
 	if err != nil {
 		return err
 	}
-	if err := getKubeletConfig(cfg, initCfg, tlsClient); err != nil {
+	kc, err := getKubeletConfig(cfg, initCfg, tlsClient)
+	if err != nil {
+		return err
+	}
+	if err := addYurthubStaticYaml(cfg, kc.StaticPodPath, data.YurtHubImage()); err != nil {
 		return err
 	}
 	klog.Info("[kubelet-start] Starting the kubelet")
@@ -83,7 +95,7 @@ func runJoinEdgeNode(c workflow.RunData) error {
 }
 
 //setKubeleConfigForEdgeNode write kubelet.conf for edge-node.
-func setKubeleConfigForEdgeNode() error {
+func setKubeletConfigForEdgeNode() error {
 	kubeletConfigDir := filepath.Dir(edgenode.KubeCondfigPath)
 	if _, err := os.Stat(kubeletConfigDir); err != nil {
 		if os.IsNotExist(err) {
@@ -103,20 +115,19 @@ func setKubeleConfigForEdgeNode() error {
 }
 
 //addYurthubStaticYaml generate YurtHub static yaml for edge-node.
-func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, yurthubImage string) error {
+func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, podManifestPath string, yurthubImage string) error {
 	klog.Info("[join-node] Adding edge hub static yaml")
 	if len(yurthubImage) == 0 {
 		yurthubImage = defaultYurthubImage
 	}
-	kubeletStaticPodDir := filepath.Dir(yurtHubStaticPodYamlFile)
-	if _, err := os.Stat(kubeletStaticPodDir); err != nil {
+	if _, err := os.Stat(podManifestPath); err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(kubeletStaticPodDir, os.ModePerm)
+			err = os.MkdirAll(podManifestPath, os.ModePerm)
 			if err != nil {
 				return err
 			}
 		} else {
-			klog.Errorf("Describe dir %s fail: %v", kubeletStaticPodDir, err)
+			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
 			return err
 		}
 	}
@@ -128,7 +139,7 @@ func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, yurthubImage string
 			"__join_token__":              cfg.Discovery.BootstrapToken.Token,
 		})
 
-	if err := ioutil.WriteFile(yurtHubStaticPodYamlFile, []byte(yurthubTemplate), 0600); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(podManifestPath, defaultYurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
 		return err
 	}
 	klog.Info("[join-node] Add edge hub static yaml is ok")
@@ -136,20 +147,62 @@ func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, yurthubImage string
 }
 
 //getKubeletConfig get kubelet configure from master.
-func getKubeletConfig(cfg *kubeadmapi.JoinConfiguration, initCfg *kubeadmapi.InitConfiguration, tlsClient *clientset.Clientset) error {
+func getKubeletConfig(cfg *kubeadmapi.JoinConfiguration, initCfg *kubeadmapi.InitConfiguration, tlsClient *clientset.Clientset) (*kubeletconfig.KubeletConfiguration, error) {
 	kubeletVersion, err := version.ParseSemantic(initCfg.ClusterConfiguration.KubernetesVersion)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Write the configuration for the kubelet (using the bootstrap token credentials) to disk so the kubelet can start
-	if err := kubeletphase.DownloadConfig(tlsClient, kubeletVersion, kubeadmconstants.KubeletRunDirectory); err != nil {
-		return err
+	kc, err := downloadConfig(tlsClient, kubeletVersion, kubeadmconstants.KubeletRunDirectory)
+	if err != nil {
+		return nil, err
 	}
 	if err := kubeletphase.WriteKubeletDynamicEnvFile(&initCfg.ClusterConfiguration, &cfg.NodeRegistration, false, kubeadmconstants.KubeletRunDirectory); err != nil {
-		return err
+		return kc, err
 	}
-	return nil
+	return kc, nil
+}
+
+// downloadConfig downloads the kubelet configuration from a ConfigMap and writes it to disk.
+// Used at "kubeadm join" time
+func downloadConfig(client clientset.Interface, kubeletVersion *version.Version, kubeletDir string) (*kubeletconfig.KubeletConfiguration, error) {
+
+	// Download the ConfigMap from the cluster based on what version the kubelet is
+	configMapName := kubeadmconstants.GetKubeletConfigMapName(kubeletVersion)
+
+	fmt.Printf("[kubelet-start] Downloading configuration for the kubelet from the %q ConfigMap in the %s namespace\n",
+		configMapName, metav1.NamespaceSystem)
+
+	kubeletCfg, err := apiclient.GetConfigMapWithRetry(client, metav1.NamespaceSystem, configMapName)
+	// If the ConfigMap wasn't found and the kubelet version is v1.10.x, where we didn't support the config file yet
+	// just return, don't error out
+	if apierrors.IsNotFound(err) && kubeletVersion.Minor() == 10 {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, kubeletCodecs, err := kubeletscheme.NewSchemeAndCodecs()
+	if err != nil {
+		return nil, err
+	}
+	kc, err := utilcodec.DecodeKubeletConfiguration(kubeletCodecs, []byte(kubeletCfg.Data[kubeadmconstants.KubeletBaseConfigurationConfigMapKey]))
+	if err != nil {
+		return nil, err
+	}
+	if kc.StaticPodPath == "" {
+		kc.StaticPodPath = yurtconstants.StaticPodPath
+	}
+	encoder, err := utilcodec.NewKubeletconfigYAMLEncoder(kubeletconfigv1beta1.SchemeGroupVersion)
+	if err != nil {
+		return nil, err
+	}
+	data, err := runtime.Encode(encoder, kc)
+	if err != nil {
+		return nil, err
+	}
+	return kc, writeConfigBytesToDisk(data, kubeletDir)
 }
 
 //getEdgeNodeJoinData get edge-node join configuration.
@@ -164,4 +217,20 @@ func getEdgeNodeJoinData(data YurtJoinData) (*kubeadmapi.JoinConfiguration, *kub
 		return nil, nil, nil, err
 	}
 	return cfg, initCfg, tlsBootstrapCfg, nil
+}
+
+// writeConfigBytesToDisk writes a byte slice down to disk at the specific location of the kubelet config file
+func writeConfigBytesToDisk(b []byte, kubeletDir string) error {
+	configFile := filepath.Join(kubeletDir, kubeadmconstants.KubeletConfigurationFileName)
+	fmt.Printf("[kubelet-start] Writing kubelet configuration to file %q\n", configFile)
+
+	// creates target folder if not already exists
+	if err := os.MkdirAll(kubeletDir, 0700); err != nil {
+		return errors.Wrapf(err, "failed to create directory %q", kubeletDir)
+	}
+
+	if err := ioutil.WriteFile(configFile, b, 0644); err != nil {
+		return errors.Wrapf(err, "failed to write kubelet configuration to the file %q", configFile)
+	}
+	return nil
 }

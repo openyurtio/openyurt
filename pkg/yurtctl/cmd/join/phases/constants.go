@@ -23,9 +23,9 @@ const (
 	bridgenf6              = "/proc/sys/net/bridge/bridge-nf-call-ip6tables"
 	kubernetsBridgeSetting = `net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1`
-	tmpDownloadDir           = "/tmp"
-	yurtHubStaticPodYamlFile = "/etc/kubernetes/manifests/yurthub.yaml"
-	defaultYurthubImage      = "registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:v0.4.0"
+	tmpDownloadDir                  = "/tmp"
+	defaultYurthubStaticPodFileName = "yurthub.yaml"
+	defaultYurthubImage             = "registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:latest"
 
 	cniUrlFormat  = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
 	kubeUrlFormat = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"

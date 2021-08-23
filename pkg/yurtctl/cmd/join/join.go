@@ -311,6 +311,9 @@ func (j *joinData) InitCfg() (*kubeadmapi.InitConfiguration, error) {
 	if _, err := j.TLSBootstrapCfg(); err != nil {
 		return nil, err
 	}
+	for _, cluster := range j.tlsBootstrapCfg.Clusters {
+		cluster.Server = fmt.Sprintf("https://%s", j.cfg.Discovery.BootstrapToken.APIServerEndpoint)
+	}
 	klog.V(1).Infoln("[preflight] Fetching init configuration")
 	initCfg, err := fetchInitConfigurationFromJoinConfiguration(j.cfg, j.tlsBootstrapCfg)
 	j.initCfg = initCfg
