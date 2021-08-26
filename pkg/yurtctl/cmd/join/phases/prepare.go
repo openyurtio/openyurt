@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
 
@@ -108,26 +109,34 @@ func setSELinux() error {
 }
 
 //checkAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
-func checkAndInstallKubelet(clusterVersion string) error {
+func checkAndInstallKubelet(clusterVersionStr string) error {
 	klog.Info("Check and install kubelet.")
 	kubeletExist := false
+	clusterVersion, err := version.ParseSemantic(clusterVersionStr)
+	if err != nil {
+		return fmt.Errorf("Parse cluster version %s, fail: %v ", clusterVersionStr, err)
+	}
 	if _, err := exec.LookPath("kubelet"); err == nil {
 		if b, err := exec.Command("kubelet", "--version").CombinedOutput(); err == nil {
-			kubeletVersion := strings.Split(string(b), " ")[1]
-			kubeletVersion = strings.TrimSpace(kubeletVersion)
-			klog.Infof("kubelet --version: %s", kubeletVersion)
-			if strings.Contains(string(b), clusterVersion) {
-				klog.Infof("Kubelet %s already exist, skip install.", clusterVersion)
+			kubeletVersionStr := strings.Split(string(b), " ")[1]
+			kubeletVersionStr = strings.TrimSpace(kubeletVersionStr)
+			kubeletVersion, err := version.ParseSemantic(kubeletVersionStr)
+			if err != nil {
+				return fmt.Errorf("Parse kubelet version %s, fail: %v ", kubeletVersionStr, err)
+			}
+			klog.Infof("kubelet --version: %s", kubeletVersionStr)
+			if kubeletVersion.Major() == clusterVersion.Major() && kubeletVersion.Minor() == clusterVersion.Minor() {
+				klog.Infof("Kubelet %s already exist, skip install.", kubeletVersionStr)
 				kubeletExist = true
 			} else {
-				return fmt.Errorf("The existing kubelet version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeletVersion, clusterVersion)
+				return fmt.Errorf("The existing kubelet version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeletVersionStr, clusterVersion)
 			}
 		}
 	}
 
 	if !kubeletExist {
 		//download and install kubernetes-node
-		packageUrl := fmt.Sprintf(kubeUrlFormat, clusterVersion, runtime.GOARCH)
+		packageUrl := fmt.Sprintf(kubeUrlFormat, clusterVersionStr, runtime.GOARCH)
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", tmpDownloadDir, runtime.GOARCH)
 		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
