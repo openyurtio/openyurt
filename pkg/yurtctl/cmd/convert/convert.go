@@ -19,16 +19,18 @@ package convert
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -483,6 +485,7 @@ func deployYurtAppManager(
 		constants.YurtAppManagerDeployment,
 		map[string]string{
 			"image":           yurtappmanagerImage,
+			"arch":            runtime.GOARCH,
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
@@ -549,6 +552,7 @@ func deployYurttunnelServer(
 		constants.YurttunnelServerDeployment,
 		map[string]string{
 			"image":           yurttunnelServerImage,
+			"arch":            runtime.GOARCH,
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}

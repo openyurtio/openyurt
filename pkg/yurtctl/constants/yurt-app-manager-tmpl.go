@@ -664,7 +664,7 @@ spec:
           readOnly: true
       nodeSelector:
         openyurt.io/is-edge-worker: "false"
-        beta.kubernetes.io/arch: amd64
+        beta.kubernetes.io/arch: {{.arch}}
         beta.kubernetes.io/os: linux
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 10
