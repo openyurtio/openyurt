@@ -38,6 +38,7 @@ import (
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
@@ -284,6 +285,13 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			return err
 		}
 		_, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
+		if err != nil {
+			return err
+		}
+
+		// 3.6. open the autonomous
+		klog.Infof("open the %s autonomous", nodeName)
+		_, err = kubeutil.AnnotateNode(c.clientSet, node, constants.AnnotationAutonomy, "true")
 		if err != nil {
 			return err
 		}
