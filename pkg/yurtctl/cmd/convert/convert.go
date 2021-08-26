@@ -19,7 +19,6 @@ package convert
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"strings"
 	"time"
 
@@ -78,6 +77,7 @@ type ConvertOptions struct {
 	kubeConfigPath             string
 	EnableAppManager           bool
 	YurtAppManagerImage        string
+	SystemArchitecture         string
 	yurtAppManagerClientSet    dynamic.Interface
 }
 
@@ -143,6 +143,8 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurt-app-manager-image",
 		"openyurt/yurt-app-manager:v0.4.0",
 		"The yurt-app-manager image.")
+	cmd.Flags().String("system-architecture", "amd64",
+		"The system architecture of program execution.")
 
 	return cmd
 }
@@ -231,6 +233,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.KubeadmConfPath = kcp
+
+	sa, err := flags.GetString("system-architecture")
+	if err != nil {
+		return err
+	}
+	co.SystemArchitecture = sa
 
 	// parse kubeconfig and generate the clientset
 	co.clientSet, err = kubeutil.GenClientSet(flags)
@@ -364,7 +372,8 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	if co.DeployTunnel {
 		if err = deployYurttunnelServer(co.clientSet,
 			co.CloudNodes,
-			co.YurttunnelServerImage); err != nil {
+			co.YurttunnelServerImage,
+			co.SystemArchitecture); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-tunnel-server: %s", err)
 			return
 		}
@@ -390,7 +399,8 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	if co.EnableAppManager {
 		if err = deployYurtAppManager(co.clientSet,
 			co.YurtAppManagerImage,
-			co.yurtAppManagerClientSet); err != nil {
+			co.yurtAppManagerClientSet,
+			co.SystemArchitecture); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-app-manager: %s", err)
 			return
 		}
@@ -430,7 +440,8 @@ func (co *ConvertOptions) RunConvert() (err error) {
 func deployYurtAppManager(
 	client *kubernetes.Clientset,
 	yurtappmanagerImage string,
-	yurtAppManagerClient dynamic.Interface) error {
+	yurtAppManagerClient dynamic.Interface,
+	systemArchitecture string) error {
 
 	// 1.create the YurtAppManagerCustomResourceDefinition
 	// 1.1 nodepool
@@ -485,7 +496,7 @@ func deployYurtAppManager(
 		constants.YurtAppManagerDeployment,
 		map[string]string{
 			"image":           yurtappmanagerImage,
-			"arch":            runtime.GOARCH,
+			"arch":            systemArchitecture,
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
@@ -508,7 +519,8 @@ func deployYurtAppManager(
 func deployYurttunnelServer(
 	client *kubernetes.Clientset,
 	cloudNodes []string,
-	yurttunnelServerImage string) error {
+	yurttunnelServerImage string,
+	systemArchitecture string) error {
 	// 1. create the ClusterRole
 	if err := kubeutil.CreateClusterRoleFromYaml(client,
 		constants.YurttunnelServerClusterRole); err != nil {
@@ -552,7 +564,7 @@ func deployYurttunnelServer(
 		constants.YurttunnelServerDeployment,
 		map[string]string{
 			"image":           yurttunnelServerImage,
-			"arch":            runtime.GOARCH,
+			"arch":            systemArchitecture,
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
