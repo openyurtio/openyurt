@@ -144,7 +144,7 @@ func NewConvertCmd() *cobra.Command {
 		"openyurt/yurt-app-manager:v0.4.0",
 		"The yurt-app-manager image.")
 	cmd.Flags().String("system-architecture", "amd64",
-		"The system architecture of program execution.")
+		"The system architecture of cloud nodes.")
 
 	return cmd
 }
