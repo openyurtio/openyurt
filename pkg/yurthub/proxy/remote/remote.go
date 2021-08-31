@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -37,12 +38,14 @@ import (
 
 // RemoteProxy is an reverse proxy for remote server
 type RemoteProxy struct {
-	checker      healthchecker.HealthChecker
-	reverseProxy *httputil.ReverseProxy
-	cacheMgr     cachemanager.CacheManager
-	remoteServer *url.URL
-	filterChain  filter.Interface
-	stopCh       <-chan struct{}
+	checker          healthchecker.HealthChecker
+	reverseProxy     *httputil.ReverseProxy
+	cacheMgr         cachemanager.CacheManager
+	remoteServer     *url.URL
+	filterChain      filter.Interface
+	currentTransport http.RoundTripper
+	bearerTransport  http.RoundTripper
+	stopCh           <-chan struct{}
 }
 
 // NewRemoteProxy creates an *RemoteProxy object, and will be used by LoadBalancer
@@ -56,14 +59,20 @@ func NewRemoteProxy(remoteServer *url.URL,
 	if currentTransport == nil {
 		return nil, fmt.Errorf("could not get current transport when init proxy backend(%s)", remoteServer.String())
 	}
+	bearerTransport := transportMgr.BearerTransport()
+	if bearerTransport == nil {
+		return nil, fmt.Errorf("could not get bearer transport when init proxy backend(%s)", remoteServer.String())
+	}
 
 	proxyBackend := &RemoteProxy{
-		checker:      healthChecker,
-		reverseProxy: httputil.NewSingleHostReverseProxy(remoteServer),
-		cacheMgr:     cacheMgr,
-		remoteServer: remoteServer,
-		filterChain:  filterChain,
-		stopCh:       stopCh,
+		checker:          healthChecker,
+		reverseProxy:     httputil.NewSingleHostReverseProxy(remoteServer),
+		cacheMgr:         cacheMgr,
+		remoteServer:     remoteServer,
+		filterChain:      filterChain,
+		currentTransport: currentTransport,
+		bearerTransport:  bearerTransport,
+		stopCh:           stopCh,
 	}
 
 	proxyBackend.reverseProxy.Transport = currentTransport
@@ -80,6 +89,18 @@ func (rp *RemoteProxy) Name() string {
 }
 
 func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	rp.reverseProxy.Transport = rp.currentTransport
+	// when edge client(like kube-proxy, flannel, etc) use service account(default InClusterConfig) to access yurthub,
+	// Authorization header will be set in request. and when edge client(like kubelet) use x509 certificate to access
+	// yurthub, Authorization header in request will be empty.
+	auth := strings.TrimSpace(req.Header.Get("Authorization"))
+	if auth != "" {
+		parts := strings.Split(auth, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			klog.V(5).Infof("request: %s with bearer token: %s", util.ReqString(req), parts[1])
+			rp.reverseProxy.Transport = rp.bearerTransport
+		}
+	}
 	rp.reverseProxy.ServeHTTP(rw, req)
 }
 

@@ -35,13 +35,16 @@ import (
 type Interface interface {
 	// concurrent use by multiple goroutines
 	// CurrentTransport get transport that used by load balancer
-	CurrentTransport() *http.Transport
+	CurrentTransport() http.RoundTripper
+	// BearerTransport returns transport for proxying request with bearer token in header
+	BearerTransport() http.RoundTripper
 	// close all net connections that specified by address
 	Close(address string)
 }
 
 type transportManager struct {
 	currentTransport *http.Transport
+	bearerTransport  *http.Transport
 	certManager      interfaces.YurtCertificateManager
 	closeAll         func()
 	close            func(string)
@@ -71,8 +74,23 @@ func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-cha
 		DialContext:         d.DialContext,
 	})
 
+	bearerTLSCfg, err := tlsConfig(nil, caFile)
+	if err != nil {
+		klog.Errorf("could not get tls config when new bearer transport, %v", err)
+		return nil, err
+	}
+
+	bt := utilnet.SetTransportDefaults(&http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     bearerTLSCfg,
+		MaxIdleConnsPerHost: 25,
+		DialContext:         d.DialContext,
+	})
+
 	tm := &transportManager{
 		currentTransport: t,
+		bearerTransport:  bt,
 		certManager:      certMgr,
 		closeAll:         d.CloseAll,
 		close:            d.Close,
@@ -83,8 +101,12 @@ func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-cha
 	return tm, nil
 }
 
-func (tm *transportManager) CurrentTransport() *http.Transport {
+func (tm *transportManager) CurrentTransport() http.RoundTripper {
 	return tm.currentTransport
+}
+
+func (tm *transportManager) BearerTransport() http.RoundTripper {
+	return tm.bearerTransport
 }
 
 func (tm *transportManager) Close(address string) {
@@ -134,12 +156,14 @@ func tlsConfig(certMgr interfaces.YurtCertificateManager, caFile string) (*tls.C
 		RootCAs:    root,
 	}
 
-	tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		cert := certMgr.Current()
-		if cert == nil {
-			return &tls.Certificate{Certificate: nil}, nil
+	if certMgr != nil {
+		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			cert := certMgr.Current()
+			if cert == nil {
+				return &tls.Certificate{Certificate: nil}, nil
+			}
+			return cert, nil
 		}
-		return cert, nil
 	}
 
 	return tlsConfig, nil
