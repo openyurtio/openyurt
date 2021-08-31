@@ -93,24 +93,21 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)
 	certManager, err := cmr.New(cfg.CertMgrMode, cfg)
 	if err != nil {
-		klog.Errorf("could not create certificate manager, %v", err)
-		return err
+		return fmt.Errorf("could not create certificate manager, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. new transport manager", trace)
 	transportManager, err := transport.NewTransportManager(certManager, stopCh)
 	if err != nil {
-		klog.Errorf("could not new transport manager, %v", err)
-		return err
+		return fmt.Errorf("could not new transport manager, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. create health checker for remote servers ", trace)
 	healthChecker, err := healthchecker.NewHealthChecker(cfg, transportManager, stopCh)
 	if err != nil {
-		klog.Errorf("could not new health checker, %v", err)
-		return err
+		return fmt.Errorf("could not new health checker, %v", err)
 	}
 	healthChecker.Run()
 	trace++
@@ -118,32 +115,28 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. new restConfig manager for %s mode", trace, cfg.CertMgrMode)
 	restConfigMgr, err := rest.NewRestConfigManager(cfg, certManager, healthChecker)
 	if err != nil {
-		klog.Errorf("could not new restConfig manager, %v", err)
-		return err
+		return fmt.Errorf("could not new restConfig manager, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. create tls config for secure servers ", trace)
 	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), cfg.YurtHubProxyServerSecureDummyAddr, stopCh)
 	if err != nil {
-		klog.Errorf("could not create tls config, %v", err)
-		return err
+		return fmt.Errorf("could not create tls config, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
 	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager)
 	if err != nil {
-		klog.Errorf("could not new cache manager, %v", err)
-		return err
+		return fmt.Errorf("could not new cache manager, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
 	gcMgr, err := gc.NewGCManager(cfg, restConfigMgr, stopCh)
 	if err != nil {
-		klog.Errorf("could not new gc manager, %v", err)
-		return err
+		return fmt.Errorf("could not new gc manager, %v", err)
 	}
 	gcMgr.Run()
 	trace++
@@ -151,16 +144,14 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. new filter chain for mutating response body", trace)
 	filterChain, err := createFilterChain(cfg)
 	if err != nil {
-		klog.Errorf("could not new filter chain, %v", err)
-		return err
+		return fmt.Errorf("could not new filter chain, %v", err)
 	}
 	trace++
 
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
 	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, filterChain, stopCh)
 	if err != nil {
-		klog.Errorf("could not create reverse proxy handler, %v", err)
-		return err
+		return fmt.Errorf("could not create reverse proxy handler, %v", err)
 	}
 	trace++
 
@@ -168,8 +159,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		klog.Infof("%d. create dummy network interface %s and init iptables manager", trace, cfg.HubAgentDummyIfName)
 		networkMgr, err := network.NewNetworkManager(cfg)
 		if err != nil {
-			klog.Errorf("could not create network manager, %v", err)
-			return err
+			return fmt.Errorf("could not create network manager, %v", err)
 		}
 		networkMgr.Run(stopCh)
 		trace++
@@ -185,8 +175,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
 	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
 	if err != nil {
-		klog.Errorf("could not create hub server, %v", err)
-		return err
+		return fmt.Errorf("could not create hub server, %v", err)
 	}
 	s.Run()
 	klog.Infof("hub agent exited")
