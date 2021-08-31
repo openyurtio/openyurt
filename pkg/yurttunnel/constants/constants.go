@@ -45,7 +45,9 @@ const (
 	YurttunnelAgentPodIPEnv = "POD_IP"
 
 	// name of the environment for selecting backend agent used in yurt-tunnel-server
+	NodeIPKeyIndex     = "status.internalIP"
 	ProxyHostHeaderKey = "X-Tunnel-Proxy-Host"
+	ProxyDestHeaderKey = "X-Tunnel-Proxy-Dest"
 
 	// The timeout seconds of reading a complete request from the apiserver
 	YurttunnelANPInterceptorReadTimeoutSec = 10

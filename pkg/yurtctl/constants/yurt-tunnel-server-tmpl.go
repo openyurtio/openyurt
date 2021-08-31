@@ -155,6 +155,7 @@ metadata:
   name: yurt-tunnel-server-cfg
   namespace: kube-system
 data:
+  localhost-proxy-ports: "10266, 10267"
   dnat-ports-pair: ""
 `
 	YurttunnelServerDeployment = `
