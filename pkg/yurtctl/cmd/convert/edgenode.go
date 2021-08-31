@@ -284,7 +284,14 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		if err != nil {
 			return err
 		}
-		_, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
+		node, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
+		if err != nil {
+			return err
+		}
+
+		// 3.6. open the autonomous
+		klog.Infof("open the %s autonomous", nodeName)
+		_, err = kubeutil.AnnotateNode(c.clientSet, node, constants.AnnotationAutonomy, "true")
 		if err != nil {
 			return err
 		}
