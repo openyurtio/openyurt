@@ -284,7 +284,7 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		if err != nil {
 			return err
 		}
-		_, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
+		node, err = kubeutil.LabelNode(c.clientSet, node, projectinfo.GetEdgeWorkerLabelKey(), "true")
 		if err != nil {
 			return err
 		}
