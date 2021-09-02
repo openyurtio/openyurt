@@ -36,24 +36,16 @@ import (
 
 // NewYurtctlCommand creates a new yurtctl command
 func NewYurtctlCommand() *cobra.Command {
+	version := fmt.Sprintf("%#v", projectinfo.Get())
 	cmds := &cobra.Command{
-		Use:   "yurtctl",
-		Short: "yurtctl controls the yurt cluster",
-		Run: func(cmd *cobra.Command, args []string) {
-			printV, _ := cmd.Flags().GetBool("version")
-			if printV {
-				fmt.Printf("yurtctl: %#v\n", projectinfo.Get())
-				return
-			}
-			fmt.Printf("yurtctl version: %#v\n", projectinfo.Get())
-
-			showHelp(cmd, args)
-		},
+		Use:     "yurtctl",
+		Short:   "yurtctl controls the yurt cluster",
+		Version: version,
 	}
 
+	setVersion(cmds)
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
-	cmds.PersistentFlags().Bool("version", false, "print  the version information.")
 	cmds.AddCommand(convert.NewConvertCmd())
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
@@ -68,7 +60,6 @@ func NewYurtctlCommand() *cobra.Command {
 	return cmds
 }
 
-// showHelp shows the help message
-func showHelp(cmd *cobra.Command, _ []string) {
-	cmd.Help()
+func setVersion(cmd *cobra.Command) {
+	cmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version: %s" .Version}}`)
 }
