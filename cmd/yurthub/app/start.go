@@ -190,7 +190,6 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	s.Run()
 	klog.Infof("hub agent exited")
-	<-stopCh
 	return nil
 }
 
