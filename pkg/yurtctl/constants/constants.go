@@ -17,6 +17,9 @@ limitations under the License.
 package constants
 
 const (
+	// LabelNodeRoleControlPlane specifies that a node hosts control-plane components
+	LabelNodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
+
 	// AnnotationAutonomy is used to identify if a node is automous
 	AnnotationAutonomy = "node.beta.alibabacloud.com/autonomy"
 

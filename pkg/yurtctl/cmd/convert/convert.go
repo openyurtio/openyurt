@@ -314,6 +314,10 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	// 2. label nodes as cloud node or edge node
 	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
+		if _, ok := node.Labels[constants.LabelNodeRoleControlPlane]; ok {
+			klog.Infof("Skip to convert control plane node A %s", node.Name)
+			continue
+		}
 		if strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
 			// label node as cloud node
 			klog.Infof("mark %s as the cloud-node", node.GetName())
