@@ -347,7 +347,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 
 	list, err := s.Decode(b)
 	if err != nil || list == nil {
-		klog.Errorf("failed to decode response in saveOneObject %v", err)
+		klog.Errorf("failed to decode response in saveListObject %v", err)
 		return err
 	}
 

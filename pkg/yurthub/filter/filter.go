@@ -191,8 +191,7 @@ func (dr *filterReadCloser) Read(p []byte) (int, error) {
 			return n, nil
 		}
 	} else {
-		n := copy(p, dr.data.Bytes())
-		return n, io.EOF
+		return dr.data.Read(p)
 	}
 }
 
