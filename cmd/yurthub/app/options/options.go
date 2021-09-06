@@ -44,6 +44,7 @@ type YurtHubOptions struct {
 	KubeletRootCAFilePath     string
 	KubeletPairFilePath       string
 	NodeName                  string
+	NodePoolName              string
 	LBMode                    string
 	HeartbeatFailedRetry      int
 	HeartbeatHealthyThreshold int
@@ -147,6 +148,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.AccessServerThroughHub, "access-server-through-hub", o.AccessServerThroughHub, "enable pods access kube-apiserver through yurthub or not")
 	fs.BoolVar(&o.EnableResourceFilter, "enable-resource-filter", o.EnableResourceFilter, "enable to filter response that comes back from reverse proxy")
 	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
+	fs.StringVar(&o.NodePoolName, "nodepool-name", o.NodePoolName, "the name of node pool that runs hub agent")
 }
 
 // verifyDummyIP verify the specified ip is valid or not
