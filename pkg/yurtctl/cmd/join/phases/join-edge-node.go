@@ -1,5 +1,3 @@
-package phases
-
 /*
 Copyright 2021 The OpenYurt Authors.
 Copyright 2019 The Kubernetes Authors.
@@ -16,6 +14,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package phases
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ import (
 	kubeletscheme "k8s.io/kubernetes/pkg/kubelet/apis/config/scheme"
 	utilcodec "k8s.io/kubernetes/pkg/kubelet/kubeletconfig/util/codec"
 
-	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/pkg/errors"
 )
@@ -62,7 +62,7 @@ func runJoinEdgeNode(c workflow.RunData) error {
 	if !ok {
 		return fmt.Errorf("Join edge-node phase invoked with an invalid data struct. ")
 	}
-	if data.NodeType() != EdgeNode {
+	if data.NodeType() != constants.EdgeNode {
 		return nil
 	}
 	cfg, initCfg, tlsBootstrapCfg, err := getEdgeNodeJoinData(data)
@@ -118,7 +118,7 @@ func setKubeletConfigForEdgeNode() error {
 func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, podManifestPath string, yurthubImage string) error {
 	klog.Info("[join-node] Adding edge hub static yaml")
 	if len(yurthubImage) == 0 {
-		yurthubImage = defaultYurthubImage
+		yurthubImage = fmt.Sprintf("%s/%s:%s", constants.DefaultOpenYurtImageRegistry, constants.Yurthub, constants.DefaultOpenYurtVersion)
 	}
 	if _, err := os.Stat(podManifestPath); err != nil {
 		if os.IsNotExist(err) {
@@ -192,7 +192,7 @@ func downloadConfig(client clientset.Interface, kubeletVersion *version.Version,
 		return nil, err
 	}
 	if kc.StaticPodPath == "" {
-		kc.StaticPodPath = yurtconstants.StaticPodPath
+		kc.StaticPodPath = constants.StaticPodPath
 	}
 	encoder, err := utilcodec.NewKubeletconfigYAMLEncoder(kubeletconfigv1beta1.SchemeGroupVersion)
 	if err != nil {

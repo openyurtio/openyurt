@@ -1,5 +1,3 @@
-package phases
-
 /*
 Copyright 2021 The OpenYurt Authors.
 
@@ -15,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package phases
 
 import (
 	"fmt"
@@ -34,6 +34,7 @@ import (
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
@@ -59,7 +60,7 @@ func runPostcheck(c workflow.RunData) error {
 	}
 
 	cfg := j.Cfg()
-	if j.NodeType() == EdgeNode {
+	if j.NodeType() == constants.EdgeNode {
 		klog.V(1).Infof("waiting yurt hub ready.")
 		if err := checkYurthubHealthz(); err != nil {
 			return err

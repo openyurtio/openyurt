@@ -31,11 +31,13 @@ require (
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
 	k8s.io/apiserver v0.18.8
+	k8s.io/cli-runtime v0.18.8
 	k8s.io/client-go v0.19.2
 	k8s.io/cluster-bootstrap v0.0.0
 	k8s.io/component-base v0.18.8
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.0.0
+	k8s.io/kubectl v0.0.0
 	k8s.io/kubelet v0.0.0
 	k8s.io/kubernetes v1.18.8
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451

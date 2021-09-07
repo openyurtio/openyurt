@@ -40,6 +40,7 @@ import (
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 
 	"github.com/lithammer/dedent"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/pkg/errors"
 )
 
@@ -105,7 +106,7 @@ func runKubeletStartJoinPhase(c workflow.RunData) (returnErr error) {
 	if !ok {
 		return errors.New("kubelet-start phase invoked with an invalid data struct")
 	}
-	if data.NodeType() != CloudNode {
+	if data.NodeType() != constants.CloudNode {
 		return
 	}
 	cfg, initCfg, tlsBootstrapCfg, err := getCloudNodeJoinData(c)
