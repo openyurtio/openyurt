@@ -36,6 +36,8 @@ import (
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -98,7 +100,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxySecureServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxySecurePort)
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr), options.NodePoolName)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +184,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+func createSharedInformers(proxyAddr, nodePoolName string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var err error
 	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
@@ -200,7 +202,14 @@ func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, y
 		return nil, nil, err
 	}
 
-	return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+	if len(nodePoolName) == 0 {
+		return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+	}
+	yurtSharedInformerFactory := yurtinformers.NewSharedInformerFactoryWithOptions(yurtClient, 24*time.Hour,
+		yurtinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.Set{"metadata.name": nodePoolName}.String()
+		}))
+	return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtSharedInformerFactory, nil
 }
 
 // registerAllFilters by order, the front registered filter will be
