@@ -28,6 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
@@ -217,4 +218,5 @@ func createSharedInformers(proxyAddr, nodePoolName string) (informers.SharedInfo
 func registerAllFilters(filters *filter.Filters) {
 	servicetopology.Register(filters)
 	masterservice.Register(filters)
+	discardcloudservice.Register(filters)
 }
