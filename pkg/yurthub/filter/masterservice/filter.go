@@ -29,13 +29,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
-// masterservice filter is used to mutate the ClusterIP and https port of default/kubernetes service
-// in order to pods on edge nodes can access kube-apiserver directly by inClusterConfig.
-const FilterName = "masterservice"
-
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(FilterName, func() (filter.Interface, error) {
+	filters.Register(filter.MasterServiceFilterName, func() (filter.Interface, error) {
 		return NewFilter(), nil
 	})
 }
@@ -90,5 +86,5 @@ func (msf *masterServiceFilter) Filter(req *http.Request, rc io.ReadCloser, stop
 	}
 
 	handler := NewMasterServiceFilterHandler(req, s, msf.host, msf.port)
-	return filter.NewFilterReadCloser(req, rc, handler, s, stopCh)
+	return filter.NewFilterReadCloser(req, rc, handler, s, filter.MasterServiceFilterName, stopCh)
 }

@@ -35,13 +35,9 @@ import (
 	"k8s.io/klog"
 )
 
-// servicetopology filter is used to reassemble endpointslice in order to make the service traffic
-// under the topology that defined by service.Annotation["openyurt.io/topologyKeys"]
-const FilterName = "servicetopology"
-
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(FilterName, func() (filter.Interface, error) {
+	filters.Register(filter.ServiceTopologyFilterName, func() (filter.Interface, error) {
 		return NewFilter(), nil
 	})
 }
@@ -148,5 +144,5 @@ func (ssf *serviceTopologyFilter) Filter(req *http.Request, rc io.ReadCloser, st
 	}
 
 	handler := NewServiceTopologyFilterHandler(ssf.nodeName, s, ssf.serviceLister, ssf.nodepoolLister, ssf.nodeGetter)
-	return filter.NewFilterReadCloser(req, rc, handler, s, stopCh)
+	return filter.NewFilterReadCloser(req, rc, handler, s, filter.ServiceTopologyFilterName, stopCh)
 }

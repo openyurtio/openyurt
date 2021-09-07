@@ -123,6 +123,7 @@ type filterReadCloser struct {
 	handler    Handler
 	isWatch    bool
 	serializer *serializer.Serializer
+	ownerName  string
 	stopCh     <-chan struct{}
 }
 
@@ -132,6 +133,7 @@ func NewFilterReadCloser(
 	rc io.ReadCloser,
 	handler Handler,
 	serializer *serializer.Serializer,
+	ownerName string,
 	stopCh <-chan struct{}) (int, io.ReadCloser, error) {
 
 	ctx := req.Context()
@@ -144,6 +146,7 @@ func NewFilterReadCloser(
 		handler:    handler,
 		isWatch:    info.Verb == "watch",
 		serializer: serializer,
+		ownerName:  ownerName,
 		stopCh:     stopCh,
 	}
 
@@ -151,7 +154,7 @@ func NewFilterReadCloser(
 		go func(req *http.Request, rc io.ReadCloser, ch chan watch.Event) {
 			err := handler.StreamResponseFilter(rc, ch)
 			if err != nil && err != io.EOF && err != context.Canceled {
-				klog.Errorf("filter watch response ended with error, %v", err)
+				klog.Errorf("filter(%s) watch response ended with error, %v", dr.ownerName, err)
 			}
 		}(req, rc, dr.ch)
 		return 0, dr, nil
@@ -180,12 +183,12 @@ func (dr *filterReadCloser) Read(p []byte) (int, error) {
 			buf := &bytes.Buffer{}
 			n, err := dr.serializer.WatchEncode(buf, &watchEvent)
 			if err != nil {
-				klog.Errorf("failed to encode resource in Reader %v", err)
+				klog.Errorf("filter(%s) failed to encode resource in Reader %v", dr.ownerName, err)
 				return 0, err
 			}
 			copied := copy(p, buf.Bytes())
 			if copied != n {
-				return 0, fmt.Errorf("expect copy %d bytes, but only %d bytes copyied", n, copied)
+				return 0, fmt.Errorf("filter(%s) expect copy %d bytes, but only %d bytes copyied", dr.ownerName, n, copied)
 			}
 
 			return n, nil
