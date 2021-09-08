@@ -27,13 +27,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
-// discardcloudservice filter is used to discard cloud service(like loadBalancer service)
-// on kube-proxy list/watch service request from edge nodes.
-const FilterName = "discardcloudservice"
-
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(FilterName, func() (filter.Interface, error) {
+	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.Interface, error) {
 		return NewFilter(), nil
 	})
 }
@@ -62,5 +58,5 @@ func (sf *discardCloudServiceFilter) Filter(req *http.Request, rc io.ReadCloser,
 	}
 
 	handler := NewDiscardCloudServiceFilterHandler(s)
-	return filter.NewFilterReadCloser(req, rc, handler, s, stopCh)
+	return filter.NewFilterReadCloser(req, rc, handler, s, filter.DiscardCloudServiceFilterName, stopCh)
 }

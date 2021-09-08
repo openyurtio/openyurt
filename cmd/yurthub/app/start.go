@@ -29,7 +29,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -167,7 +166,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 
 	// start shared informers here
-	if filterChain != nil && cfg.Filters.Enabled(servicetopology.FilterName) {
+	if filterChain != nil && cfg.Filters.Enabled(filter.ServiceTopologyFilterName) {
 		cfg.SharedFactory.Start(stopCh)
 		cfg.YurtSharedFactory.Start(stopCh)
 	}
