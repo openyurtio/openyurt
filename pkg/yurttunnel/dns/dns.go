@@ -82,30 +82,22 @@ type coreDNSRecordController struct {
 	cmInformerSynced     cache.InformerSynced
 	queue                workqueue.RateLimitingInterface
 	tunnelServerIP       string
-	insecurePort         int
 	syncPeriod           int
+	listenInsecureAddr   string
+	listenSecureAddr     string
 }
 
 // NewCoreDNSRecordController create a CoreDNSRecordController that synchronizes node dns records with CoreDNS configuration
 func NewCoreDNSRecordController(client clientset.Interface,
 	informerFactory informers.SharedInformerFactory,
 	listenInsecureAddr string,
+	listenSecureAddr string,
 	syncPeriod int) (DNSRecordController, error) {
-
-	_, insecurePortStr, err := net.SplitHostPort(listenInsecureAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	insecurePort, err := strconv.Atoi(insecurePortStr)
-	if err != nil {
-		return nil, err
-	}
-
 	dnsctl := &coreDNSRecordController{
 		kubeClient:           client,
 		syncPeriod:           syncPeriod,
-		insecurePort:         insecurePort,
+		listenInsecureAddr:   listenInsecureAddr,
+		listenSecureAddr:     listenSecureAddr,
 		sharedInformerFactor: informerFactory,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
 	}
@@ -321,11 +313,11 @@ func (dnsctl *coreDNSRecordController) ensureCoreDNSRecordConfigMap() error {
 
 func (dnsctl *coreDNSRecordController) syncTunnelServerServiceAsWhole() error {
 	klog.V(2).Info("sync tunnel server service as whole")
-	dnatPorts, err := util.GetConfiguredDnatPorts(dnsctl.kubeClient, strconv.Itoa(dnsctl.insecurePort))
+	dnatPorts, portMappings, err := util.GetConfiguredProxyPortsAndMappings(dnsctl.kubeClient, dnsctl.listenInsecureAddr, dnsctl.listenSecureAddr)
 	if err != nil {
 		return err
 	}
-	return dnsctl.updateTunnelServerSvcDnatPorts(dnatPorts)
+	return dnsctl.updateTunnelServerSvcDnatPorts(dnatPorts, portMappings)
 }
 
 func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
@@ -403,52 +395,14 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 	return nil
 }
 
-func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []string) error {
+func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []string, portMappings map[string]string) error {
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
 		Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to sync tunnel server internal service, %v", err)
 	}
 
-	changed := false
-
-	svcPortMap := make(map[int32]corev1.ServicePort)
-	for i := range svc.Spec.Ports {
-		port := svc.Spec.Ports[i]
-		svcPortMap[port.Port] = port
-	}
-
-	dnatPortMap := make(map[int]bool)
-	for _, dnatPort := range ports {
-		portInt, err := strconv.Atoi(dnatPort)
-		if err != nil {
-			klog.Errorf("failed to parse dnat port %q, %v", dnatPort, err)
-			continue
-		}
-		dnatPortMap[portInt] = true
-
-		if p, ok := svcPortMap[int32(portInt)]; !ok || p.Protocol != corev1.ProtocolTCP {
-			port := corev1.ServicePort{
-				Name:       fmt.Sprintf("%v%v", dnatPortPrefix, dnatPort),
-				Port:       int32(portInt),
-				Protocol:   corev1.ProtocolTCP,
-				TargetPort: intstr.FromInt(dnsctl.insecurePort),
-			}
-			svc.Spec.Ports = append(svc.Spec.Ports, port)
-			changed = true
-		}
-	}
-
-	updatedSvcPorts := make([]corev1.ServicePort, 0, len(svc.Spec.Ports))
-	for i := range svc.Spec.Ports {
-		port := svc.Spec.Ports[i]
-		if strings.HasPrefix(port.Name, dnatPortPrefix) && !dnatPortMap[int(port.Port)] {
-			changed = true
-			continue
-		}
-		updatedSvcPorts = append(updatedSvcPorts, port)
-	}
-
+	changed, updatedSvcPorts := resolveServicePorts(svc, ports, portMappings)
 	if !changed {
 		return nil
 	}
@@ -459,4 +413,77 @@ func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []st
 		return fmt.Errorf("failed to sync tunnel server service, %v", err)
 	}
 	return nil
+}
+
+// resolveServicePorts get service ports from specified service and ports.
+func resolveServicePorts(svc *corev1.Service, ports []string, portMappings map[string]string) (bool, []corev1.ServicePort) {
+	changed := false
+
+	svcPortMap := make(map[string]corev1.ServicePort)
+	for i := range svc.Spec.Ports {
+		port := svc.Spec.Ports[i]
+		svcPortMap[fmt.Sprintf("%s:%d", port.Protocol, port.Port)] = port
+	}
+
+	dnatPortMap := make(map[string]bool)
+	for _, dnatPort := range ports {
+		portInt, err := strconv.Atoi(dnatPort)
+		if err != nil {
+			klog.Errorf("failed to parse dnat port %q, %v", dnatPort, err)
+			continue
+		}
+
+		dst, ok := portMappings[dnatPort]
+		if !ok {
+			klog.Errorf("failed to find proxy destination for port: %s", dnatPort)
+			continue
+		}
+
+		_, targetPort, err := net.SplitHostPort(dst)
+		if err != nil {
+			klog.Errorf("failed to split target port, %v", err)
+			continue
+		}
+		targetPortInt, err := strconv.Atoi(targetPort)
+		if err != nil {
+			klog.Errorf("failed to parse target port, %v", err)
+			continue
+		}
+
+		tcpPort := fmt.Sprintf("%s:%s", corev1.ProtocolTCP, dnatPort)
+		dnatPortMap[tcpPort] = true
+
+		p, ok := svcPortMap[tcpPort]
+		// new port or has not tcp protocol port, add a new port for service
+		if !ok {
+			svcPortMap[tcpPort] = corev1.ServicePort{
+				Name:       fmt.Sprintf("%v%v", dnatPortPrefix, dnatPort),
+				Port:       int32(portInt),
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(targetPortInt),
+			}
+			changed = true
+		} else if p.TargetPort.String() != targetPort { // target port is changed, overwrite the old port in service
+			svcPortMap[tcpPort] = corev1.ServicePort{
+				Name:       p.Name,
+				Port:       p.Port,
+				Protocol:   p.Protocol,
+				TargetPort: intstr.FromInt(targetPortInt),
+			}
+			changed = true
+		}
+	}
+
+	updatedSvcPorts := make([]corev1.ServicePort, 0, len(svc.Spec.Ports))
+	for tcpPort, svcPort := range svcPortMap {
+		if strings.HasPrefix(tcpPort, string(corev1.ProtocolTCP)) &&
+			strings.HasPrefix(svcPort.Name, dnatPortPrefix) &&
+			!dnatPortMap[tcpPort] {
+			changed = true
+			continue
+		}
+		updatedSvcPorts = append(updatedSvcPorts, svcPort)
+	}
+
+	return changed, updatedSvcPorts
 }

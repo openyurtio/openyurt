@@ -39,8 +39,6 @@ import (
 )
 
 const (
-	kubeletSecurePort         = "10250"
-	kubeletInsecurePort       = "10255"
 	loopbackAddr              = "127.0.0.1"
 	reqReturnComment          = "return request to access node directly"
 	dnatToTunnelComment       = "dnat to tunnel for access node"
@@ -85,7 +83,6 @@ type iptablesManager struct {
 	conntrackPath    string
 	secureDnatDest   string
 	insecureDnatDest string
-	insecurePort     string
 	lastNodesIP      []string
 	lastDnatPorts    []string
 	syncPeriod       int
@@ -108,11 +105,6 @@ func NewIptablesManager(client clientset.Interface,
 		syncPeriod = defaultSyncPeriod
 	}
 
-	_, insecurePort, err := net.SplitHostPort(listenInsecureAddr)
-	if err != nil {
-		return nil
-	}
-
 	im := &iptablesManager{
 		kubeClient:       client,
 		iptables:         iptInterface,
@@ -120,7 +112,6 @@ func NewIptablesManager(client clientset.Interface,
 		nodeInformer:     nodeInformer,
 		secureDnatDest:   listenAddr,
 		insecureDnatDest: listenInsecureAddr,
-		insecurePort:     insecurePort,
 		lastNodesIP:      make([]string, 0),
 		lastDnatPorts:    make([]string, 0),
 		syncPeriod:       syncPeriod,
@@ -172,7 +163,7 @@ func (im *iptablesManager) cleanupIptableSetting() {
 	for _, port := range im.lastDnatPorts {
 		deletedJumpChains = append(deletedJumpChains, iptables.Chain(fmt.Sprintf("%s%s", yurttunnelPortChainPrefix, port)))
 	}
-	for _, port := range []string{kubeletSecurePort, kubeletInsecurePort} {
+	for _, port := range []string{util.KubeletHTTPSPort, util.KubeletHTTPPort} {
 		deletedJumpChains = append(deletedJumpChains, iptables.Chain(fmt.Sprintf("%s%s", yurttunnelPortChainPrefix, port)))
 	}
 
@@ -287,7 +278,7 @@ func getNodeInternalIPs(node *corev1.Node) []string {
 
 // ensurePortsIptables ensures jump chains and rules for active dnat ports, and
 // delete the jump chains if their corresponding dnat ports are removed
-func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, currentIPs, deletedIPs []string) error {
+func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, currentIPs, deletedIPs []string, portMappings map[string]string) error {
 	// for each dnat port, we create a jump chain
 	jumpChains := iptablesJumpChains
 	for _, port := range currentPorts {
@@ -306,7 +297,7 @@ func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, curre
 
 	// ensure iptable rule for each dnat port
 	for _, port := range currentPorts {
-		err := im.ensurePortIptables(port, currentIPs, deletedIPs)
+		err := im.ensurePortIptables(port, currentIPs, deletedIPs, portMappings)
 		if err != nil {
 			return err
 		}
@@ -335,7 +326,7 @@ func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, curre
 	return nil
 }
 
-func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIPs []string) error {
+func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIPs []string, portMappings map[string]string) error {
 	portChain := iptables.Chain(fmt.Sprintf("%s%s", yurttunnelPortChainPrefix, port))
 
 	if len(currentIPs) == 0 {
@@ -351,11 +342,15 @@ func (im *iptablesManager) ensurePortIptables(port string, currentIPs, deletedIP
 
 	// decide the proxy destination based on the port number
 	proxyDest := im.insecureDnatDest
-	if port == kubeletSecurePort {
+	if port == util.KubeletHTTPSPort {
 		proxyDest = im.secureDnatDest
+	} else if port == util.KubeletHTTPPort {
+		proxyDest = im.insecureDnatDest
+	} else if dst, ok := portMappings[port]; ok {
+		proxyDest = dst
 	}
 
-	// do not proxy packets, whose destination node doesn't has agent running
+	// do not proxy packets, those destination node doesn't has agent running
 	for _, ip := range currentIPs {
 		reqReturnPortIptablesArgs := reqReturnIptablesArgs(reqReturnComment, port, ip)
 		_, err := im.iptables.EnsureRule(
@@ -495,21 +490,21 @@ func parametersWithFamily(isIPv6 bool, parameters ...string) []string {
 // while the request to access the cloud node is returned
 func (im *iptablesManager) syncIptableSetting() {
 	// check if there are new dnat ports
-	dnatPorts, err := util.GetConfiguredDnatPorts(im.kubeClient, im.insecurePort)
+	dnatPorts, portMappings, err := util.GetConfiguredProxyPortsAndMappings(im.kubeClient, im.insecureDnatDest, im.secureDnatDest)
 	if err != nil {
 		klog.Errorf("failed to sync iptables rules, %v", err)
 		return
 	}
 	portsChanged, deletedDnatPorts := im.getDeletedPorts(dnatPorts)
-	currentDnatPorts := append(dnatPorts, kubeletSecurePort, kubeletInsecurePort)
+	currentDnatPorts := append(dnatPorts, util.KubeletHTTPSPort, util.KubeletHTTPPort)
 
 	// check if there are new nodes
 	nodesIP := im.getIPOfNodesWithoutAgent()
 	nodesChanged, addedNodesIP, deletedNodesIP := im.getAddedAndDeletedNodes(nodesIP)
 	currentNodesIP := append(nodesIP, loopbackAddr)
 
-	// update the iptable setting if necessary
-	err = im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP)
+	// update the iptables setting if necessary
+	err = im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP, portMappings)
 	if err != nil {
 		klog.Errorf("failed to ensurePortsIptables: %v", err)
 		return
