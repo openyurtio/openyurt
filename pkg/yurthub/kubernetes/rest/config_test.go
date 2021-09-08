@@ -134,7 +134,7 @@ func TestGetRestConfig(t *testing.T) {
 			}
 
 			var rc *rest.Config
-			rc = rcm.GetRestConfig()
+			rc = rcm.GetRestConfig(true)
 			if tt.mode == "hubself" {
 				if rc.Host != u.String() || rc.TLSClientConfig.CertFile != yurthubCurrent || rc.TLSClientConfig.KeyFile != yurthubCurrent {
 					t.Errorf("The information in rest.Config is not correct: %s", tt.mode)
