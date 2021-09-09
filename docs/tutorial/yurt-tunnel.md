@@ -88,7 +88,7 @@ will hang.
 ### 5. Setup the yurt-tunnel manually
 
 It is recommended to use `yurtctl` tool to deploy yurt-tunnel components by
-adding the `--deploy-yurttunnel` option when coverting a Kubernetes cluster. For example,
+adding the `--deploy-yurttunnel` option when converting a Kubernetes cluster. For example,
 ```bash
 yurtctl convert --cloud-nodes minikube --provider minikube --deploy-yurttunnel
 ```

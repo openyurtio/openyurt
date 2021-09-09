@@ -81,7 +81,7 @@ func NewConvertEdgeNodeCmd() *cobra.Command {
 				klog.Fatalf("fail to complete the convert edgenode option: %s", err)
 			}
 			if err := c.RunConvertEdgeNode(); err != nil {
-				klog.Fatalf("fail to covert the kubernetes node to a yurt node: %s", err)
+				klog.Fatalf("fail to convert the kubernetes node to a yurt node: %s", err)
 			}
 		},
 	}
