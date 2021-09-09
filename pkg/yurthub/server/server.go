@@ -172,7 +172,12 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 // create a certificate manager for the yurthub server and run the csr approver for both yurthub
 // and generate a TLS configuration
 func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificateMgr interfaces.YurtCertificateManager, certDir, proxyServerSecureDummyAddr string, stopCh <-chan struct{}) (*tls.Config, error) {
-	clientSet, err := kubernetes.NewForConfig(restConfigMgr.GetRestConfig())
+	cfg := restConfigMgr.GetRestConfig(false)
+	if cfg == nil {
+		return nil, fmt.Errorf("failed to prepare rest config based ong hub agent client certificate")
+	}
+
+	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

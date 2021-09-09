@@ -73,7 +73,7 @@ func (m *GCManager) Run() {
 	go wait.JitterUntil(func() {
 		klog.V(2).Infof("start gc events after waiting %v from previous gc", time.Since(m.lastTime))
 		m.lastTime = time.Now()
-		cfg := m.restConfigManager.GetRestConfig()
+		cfg := m.restConfigManager.GetRestConfig(true)
 		if cfg == nil {
 			klog.Errorf("could not get rest config, so skip gc")
 			return
@@ -96,7 +96,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 	}
 	klog.Infof("list pod keys from storage, total: %d", len(localPodKeys))
 
-	cfg := m.restConfigManager.GetRestConfig()
+	cfg := m.restConfigManager.GetRestConfig(true)
 	if cfg == nil {
 		klog.Errorf("could not get rest config, so skip gc pods when restart")
 		return err
