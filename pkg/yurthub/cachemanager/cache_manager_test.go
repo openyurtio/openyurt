@@ -43,8 +43,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 var (
@@ -62,7 +64,7 @@ func TestCacheGetResponse(t *testing.T) {
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
-		cacheAgents:       make(map[string]bool),
+		cacheAgents:       sets.String{},
 		restMapperManager: restRESTMapperMgr,
 	}
 
@@ -550,7 +552,7 @@ func TestCacheWatchResponse(t *testing.T) {
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
-		cacheAgents:       make(map[string]bool),
+		cacheAgents:       sets.String{},
 		restMapperManager: restRESTMapperMgr,
 	}
 
@@ -855,7 +857,7 @@ func TestCacheListResponse(t *testing.T) {
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
-		cacheAgents:       make(map[string]bool),
+		cacheAgents:       sets.String{},
 		restMapperManager: restRESTMapperMgr,
 	}
 
@@ -1342,7 +1344,7 @@ func TestQueryCacheForGet(t *testing.T) {
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
-		cacheAgents:       make(map[string]bool),
+		cacheAgents:       sets.String{},
 		restMapperManager: restRESTMapperMgr,
 	}
 
@@ -1874,7 +1876,7 @@ func TestQueryCacheForList(t *testing.T) {
 	yurtCM := &cacheManager{
 		storage:           sWrapper,
 		serializerManager: serializerM,
-		cacheAgents:       make(map[string]bool),
+		cacheAgents:       sets.String{},
 		restMapperManager: restRESTMapperMgr,
 	}
 
@@ -2353,7 +2355,7 @@ func TestCanCacheFor(t *testing.T) {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
 	s := NewStorageWrapper(dStorage)
-	m, _ := NewCacheManager(s, nil, nil)
+	m, _ := NewCacheManager(s, nil, nil, nil)
 
 	type proxyRequest struct {
 		userAgent string
@@ -2606,4 +2608,11 @@ func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[s
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
 	return reqCanCache
+}
+
+func newTestRequestInfoResolver() *request.RequestInfoFactory {
+	return &request.RequestInfoFactory{
+		APIPrefixes:          sets.NewString("api", "apis"),
+		GrouplessAPIPrefixes: sets.NewString("api"),
+	}
 }

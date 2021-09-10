@@ -126,7 +126,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager)
+	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	if err != nil {
 		return fmt.Errorf("could not new cache manager, %v", err)
 	}

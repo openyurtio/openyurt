@@ -59,7 +59,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
 	fn := func() bool {
 		return false
@@ -147,7 +147,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
 	cnt := 0
 	fn := func() bool {
@@ -229,7 +229,7 @@ func TestServeHTTPForPost(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
 	fn := func() bool {
 		return false
@@ -305,7 +305,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
 	fn := func() bool {
 		return false
@@ -368,7 +368,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
 	fn := func() bool {
 		return false
@@ -504,7 +504,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
-	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr)
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, nil)
 
 	fn := func() bool {
 		return false

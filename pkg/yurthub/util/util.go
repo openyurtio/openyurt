@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 
@@ -63,6 +64,13 @@ const (
 	ProxyReqCanCache
 	// ProxyListSelector represents label selector and filed selector string for list request
 	ProxyListSelector
+	YurtHubNamespace   = "kube-system"
+	CacheUserAgentsKey = "cache_agents"
+)
+
+var (
+	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", projectinfo.GetAgentName(), projectinfo.GetHubName()}
+	YurthubConfigMapName = fmt.Sprintf("%s-hub-cfg", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 )
 
 // WithValue returns a copy of parent in which the value associated with key is val.
