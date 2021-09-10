@@ -128,7 +128,7 @@ us-west-1.192.168.0.87   Ready    <none>   19h   v1.14.8-aliyun.1
 us-west-1.192.168.0.88   Ready    <none>   19h   v1.14.8-aliyun.1
 ```
 
-2. You can convert only one node to edge node(i.e., minikube-m02) by using this command:
+2. You can convert only one node to non-edge node(i.e., us-west-1.192.168.0.87) by using this command:
 ```bash
 $ _output/bin/yurtctl convert --provider ack --cloud-nodes us-west-1.192.168.0.87
 I0529 11:21:05.835781    9231 convert.go:145] mark us-west-1.192.168.0.87 as the cloud-node
@@ -137,6 +137,8 @@ I0529 11:21:05.951483    9231 convert.go:183] deploy the yurt controller manager
 I0529 11:21:05.974443    9231 convert.go:195] deploying the yurt-hub and resetting the kubelet service...
 I0529 11:21:26.075075    9231 util.go:147] servant job(yurtctl-servant-convert-us-west-1.192.168.0.88) has succeeded
 ```
+
+Note: use "," to add more nodes (i.e., --cloud-nodes us-west-1.192.168.0.87,us-west-1.192.168.0.88).
 
 3. Node `us-west-1.192.168.0.87` will be marked as a non-edge node. You can verify this by inspecting its labels:
 ```bash
