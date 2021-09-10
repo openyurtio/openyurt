@@ -7,10 +7,10 @@ metadata:
   namespace: kube-system
 spec:
   volumes:
-  - name: pki
+  - name: hub-dir
     hostPath:
-      path: __pki_path__
-      type: Directory
+      path: /var/lib/yurthub
+      type: DirectoryOrCreate
   - name: kubernetes
     hostPath:
       path: /etc/kubernetes
@@ -24,17 +24,18 @@ spec:
     image: __repo__/__project_prefix__hub:__tag__
     imagePullPolicy: Always
     volumeMounts:
+    - name: hub-dir
+      mountPath: /var/lib/yurthub
     - name: kubernetes
       mountPath: /etc/kubernetes
-    - name: pki
-      mountPath: /etc/kubernetes/pki
     - name: pem-dir
       mountPath: /var/lib/kubelet/pki
     command:
     - __project_prefix__hub
     - --v=2
-    - --server-addr=__server_addr__
+    - --server-addr=https://__kubernetes_master_address__
     - --node-name=$(NODE_NAME)
+    - --join-token=__bootstrap_token__
     livenessProbe:
       httpGet:
         host: 127.0.0.1

@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: yurt-hub
+  name: __project_prefix__-hub
 rules:
   - apiGroups:
       - ""
@@ -20,11 +20,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: yurt-hub
+  name: __project_prefix__-hub
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: yurt-hub
+  name: __project_prefix__-hub
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
