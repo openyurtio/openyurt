@@ -87,7 +87,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
-		AccessServerThroughHub:    false,
+		AccessServerThroughHub:    true,
 		EnableResourceFilter:      true,
 		DisabledResourceFilters:   make([]string, 0),
 	}
