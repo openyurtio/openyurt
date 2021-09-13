@@ -45,7 +45,6 @@ type RevertEdgeNodeOptions struct {
 	clientSet           *kubernetes.Clientset
 	EdgeNodes           []string
 	YurtctlServantImage string
-	PodMainfestPath     string
 	KubeadmConfPath     string
 	openyurtDir         string
 }
@@ -75,8 +74,6 @@ func NewRevertEdgeNodeCmd() *cobra.Command {
 		"The list of edge nodes wanted to be revert.(e.g. -e edgenode1,edgenode2)")
 	cmd.Flags().String("yurtctl-servant-image", "openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
-	cmd.Flags().String("pod-manifest-path", "",
-		"Path to the directory on edge node containing static pod files.")
 	cmd.Flags().String("kubeadm-conf-path", "",
 		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 
@@ -98,18 +95,6 @@ func (r *RevertEdgeNodeOptions) Complete(flags *pflag.FlagSet) (err error) {
 		return err
 	}
 	r.YurtctlServantImage = ycsi
-
-	podMainfestPath, err := flags.GetString("pod-manifest-path")
-	if err != nil {
-		return err
-	}
-	if podMainfestPath == "" {
-		podMainfestPath = os.Getenv("STATIC_POD_PATH")
-	}
-	if podMainfestPath == "" {
-		podMainfestPath = enutil.StaticPodPath
-	}
-	r.PodMainfestPath = podMainfestPath
 
 	kubeadmConfPath, err := flags.GetString("kubeadm-conf-path")
 	if err != nil {
@@ -187,7 +172,6 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			map[string]string{
 				"action":                "revert",
 				"yurtctl_servant_image": r.YurtctlServantImage,
-				"pod_manifest_path":     r.PodMainfestPath,
 				"kubeadm_conf_path":     r.KubeadmConfPath,
 			},
 			r.EdgeNodes); err != nil {
@@ -206,8 +190,13 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			klog.Errorf("fail to get file %s, should revise the %s directly", kubeletSvcBk, r.KubeadmConfPath)
 			return err
 		}
-		yurthubYaml := r.getYurthubYaml()
-		if ok, err := enutil.FileExists(yurthubYaml); !ok {
+		podManifestPath, err := enutil.GetPodManifestPath(r.KubeadmConfPath)
+		if err != nil {
+			klog.Errorf("get podManifestPath fail: %v", err)
+			return err
+		}
+		yurthubYamlPath := getYurthubYaml(podManifestPath)
+		if ok, err := enutil.FileExists(yurthubYamlPath); !ok {
 			return err
 		}
 
@@ -232,7 +221,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 		if err := r.RevertKubelet(); err != nil {
 			return fmt.Errorf("fail to revert kubelet: %v", err)
 		}
-		if err := r.RemoveYurthub(); err != nil {
+		if err := r.RemoveYurthub(yurthubYamlPath); err != nil {
 			return err
 		}
 
@@ -289,16 +278,15 @@ func (r *RevertEdgeNodeOptions) RevertKubelet() error {
 }
 
 // RemoveYurthub deletes the yurt-hub pod
-func (r *RevertEdgeNodeOptions) RemoveYurthub() error {
+func (r *RevertEdgeNodeOptions) RemoveYurthub(yurthubYamlPath string) error {
 	// 1. remove the yurt-hub.yaml to delete the yurt-hub
-	yurthubYaml := r.getYurthubYaml()
-	err := os.Remove(yurthubYaml)
+	err := os.Remove(yurthubYamlPath)
 	if err != nil {
 		return err
 	}
 
 	// 2. remove yurt-hub config directory and certificates in it
-	yurthubConf := r.getYurthubConf()
+	yurthubConf := getYurthubConf()
 	err = os.RemoveAll(yurthubConf)
 	if err != nil {
 		return err
@@ -315,10 +303,10 @@ func (r *RevertEdgeNodeOptions) getKubeletSvcBackup() string {
 	return fmt.Sprintf(enutil.KubeletSvcBackup, r.KubeadmConfPath)
 }
 
-func (r *RevertEdgeNodeOptions) getYurthubYaml() string {
-	return filepath.Join(r.PodMainfestPath, enutil.YurthubYamlName)
+func getYurthubYaml(podManifestPath string) string {
+	return filepath.Join(podManifestPath, enutil.YurthubYamlName)
 }
 
-func (r *RevertEdgeNodeOptions) getYurthubConf() string {
+func getYurthubConf() string {
 	return filepath.Join(hubself.HubRootDir, hubself.HubName)
 }

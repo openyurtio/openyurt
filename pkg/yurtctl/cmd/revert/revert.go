@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
@@ -70,9 +71,6 @@ func NewRevertCmd() *cobra.Command {
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
-	cmd.Flags().String("pod-manifest-path",
-		"/etc/kubernetes/manifests",
-		"Path to the directory on edge node containing static pod files.")
 	cmd.Flags().String("kubeadm-conf-path",
 		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
@@ -88,17 +86,17 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	ro.YurtctlServantImage = ycsi
 
-	pmp, err := flags.GetString("pod-manifest-path")
-	if err != nil {
-		return err
-	}
-	ro.PodMainfestPath = pmp
-
 	kcp, err := flags.GetString("kubeadm-conf-path")
 	if err != nil {
 		return err
 	}
 	ro.KubeadmConfPath = kcp
+
+	podManifestPath, err := enutil.GetPodManifestPath(ro.KubeadmConfPath)
+	if err != nil {
+		return err
+	}
+	ro.PodMainfestPath = podManifestPath
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -237,7 +235,6 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		map[string]string{
 			"action":                "revert",
 			"yurtctl_servant_image": ro.YurtctlServantImage,
-			"pod_manifest_path":     ro.PodMainfestPath,
 			"kubeadm_conf_path":     ro.KubeadmConfPath,
 		},
 		edgeNodeNames); err != nil {

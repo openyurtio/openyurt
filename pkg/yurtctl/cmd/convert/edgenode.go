@@ -59,7 +59,6 @@ type ConvertEdgeNodeOptions struct {
 	YurthubImage              string
 	YurthubHealthCheckTimeout time.Duration
 	YurctlServantImage        string
-	PodMainfestPath           string
 	JoinToken                 string
 	KubeadmConfPath           string
 	openyurtDir               string
@@ -94,8 +93,6 @@ func NewConvertEdgeNodeCmd() *cobra.Command {
 		"The timeout for yurthub health check.")
 	cmd.Flags().String("yurtctl-servant-image", "openyurt/yurtctl-servant:latest",
 		"The yurtctl-servant image.")
-	cmd.Flags().String("pod-manifest-path", "",
-		"Path to the directory on edge node containing static pod files.")
 	cmd.Flags().String("kubeadm-conf-path", "",
 		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 	cmd.Flags().String("join-token", "", "The token used by yurthub for joining the cluster.")
@@ -130,18 +127,6 @@ func (c *ConvertEdgeNodeOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	c.YurctlServantImage = ycsi
-
-	podMainfestPath, err := flags.GetString("pod-manifest-path")
-	if err != nil {
-		return err
-	}
-	if podMainfestPath == "" {
-		podMainfestPath = os.Getenv("STATIC_POD_PATH")
-	}
-	if podMainfestPath == "" {
-		podMainfestPath = enutil.StaticPodPath
-	}
-	c.PodMainfestPath = podMainfestPath
 
 	kubeadmConfPath, err := flags.GetString("kubeadm-conf-path")
 	if err != nil {
@@ -230,7 +215,6 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			"yurtctl_servant_image": c.YurctlServantImage,
 			"yurthub_image":         c.YurthubImage,
 			"joinToken":             c.JoinToken,
-			"pod_manifest_path":     c.PodMainfestPath,
 			"kubeadm_conf_path":     c.KubeadmConfPath,
 		}
 
@@ -246,9 +230,6 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 		// 3. local edgenode convert
 		// 3.1. check if critical files exist
 		if _, err := enutil.FileExists(c.KubeadmConfPath); err != nil {
-			return err
-		}
-		if ok, err := enutil.DirExists(c.PodMainfestPath); !ok {
 			return err
 		}
 
@@ -335,15 +316,18 @@ func (c *ConvertEdgeNodeOptions) SetupYurthub() error {
 		})
 
 	// 1-3. create yurthub.yaml
-	_, err = enutil.DirExists(c.PodMainfestPath)
+	podManifestPath, err := enutil.GetPodManifestPath(c.KubeadmConfPath)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(c.getYurthubYaml(), []byte(yurthubTemplate), filemode)
+	if err = enutil.EnsureDir(podManifestPath); err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), filemode)
 	if err != nil {
 		return err
 	}
-	klog.Infof("create the %s/yurt-hub.yaml", c.PodMainfestPath)
+	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)
 
 	// 2. wait yurthub pod to be ready
 	err = hubHealthcheck(c.YurthubHealthCheckTimeout)
@@ -403,16 +387,16 @@ func (c *ConvertEdgeNodeOptions) ResetKubelet() error {
 	return nil
 }
 
-func (c *ConvertEdgeNodeOptions) getYurthubYaml() string {
-	return filepath.Join(c.PodMainfestPath, enutil.YurthubYamlName)
-}
-
 func (c *ConvertEdgeNodeOptions) getYurthubKubeletConf() string {
 	return filepath.Join(c.openyurtDir, enutil.KubeletConfName)
 }
 
 func (c *ConvertEdgeNodeOptions) getKubeletSvcBackup() string {
 	return fmt.Sprintf(enutil.KubeletSvcBackup, c.KubeadmConfPath)
+}
+
+func getYurthubYaml(podManifestPath string) string {
+	return filepath.Join(podManifestPath, enutil.YurthubYamlName)
 }
 
 // hubHealthcheck will check the status of yurthub pod
