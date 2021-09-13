@@ -41,7 +41,7 @@ node/us-west-1.192.168.0.88 annotated
 Next, we need to deploy the Yurt controller manager, which prevents apiserver from evicting pods running on the
 autonomous edge nodes during disconnection.
 ```bash
-$ kc ap -f config/setup/yurt-controller-manager.yaml
+$ kubectl apply -f config/setup/yurt-controller-manager.yaml
 deployment.apps/yurt-controller-manager created
 ```
 ### Note
@@ -74,14 +74,21 @@ restarted automatically.
 
 ## Setup Yurthub
 
-After the Yurt controller manager is up and running, we will setup Yurthub as the static pod. Before proceeding,
-please get the apiserver's address (i.e., ip:port), which will be used to replace the place holder in the template
-file `config/setup/yurthub.yaml`. In the following command, we assume that the address of the apiserver is 1.2.3.4:5678
+After the Yurt controller manager is up and running, we will setup Yurthub as the static pod.
+
+Before proceeding, we need to prepare the following items:
+1. Deploy global settings(i.e., RBAC, configmap) for yurthub.
+```bash
+$ kubectl apply -f config/setup/yurthub-cfg.yaml
+```
+2. Get the apiserver's address (i.e., ip:port) and a [bootstrap token](https://kubernetes.io/docs/reference/access-authn-authz/bootstrap-tokens/), which will be used to replace the place holder in the template
+file `config/setup/yurthub.yaml`.
+
+In the following command, we assume that the address of the apiserver is 1.2.3.4:5678 and bootstrap token is 07401b.f395accd246ae52d
 ```bash
 $ cat config/setup/yurthub.yaml |
-sed 's|__pki_path__|/etc/kubernetes/pki|;
-s|__kubernetes_service_host__|1.2.3.4|;
-s|__kubernetes_service_port_https__|5678|' > /tmp/yurthub-ack.yaml &&
+sed 's|__kubernetes_master_address__|1.2.3.4:5678|;
+s|__bootstrap_token__|07401b.f395accd246ae52d|' > /tmp/yurthub-ack.yaml &&
 scp -i <yourt-ssh-identity-file> /tmp/yurthub-ack.yaml root@us-west-1.192.168.0.88:/etc/kubernetes/manifests
 ```
 and the Yurthub will be ready in minutes.

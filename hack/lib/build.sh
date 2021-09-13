@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 # Copyright 2020 The OpenYurt Authors.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,7 +38,7 @@ readonly YURT_YAML_TARGETS=(
 #GIT_COMMIT=$(git rev-parse HEAD)
 #BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
-# project_info generates the project information and the corresponding valuse 
+# project_info generates the project information and the corresponding value
 # for 'ldflags -X' option
 project_info() {
     PROJECT_INFO_PKG=${YURT_MOD}/pkg/projectinfo
@@ -86,36 +86,24 @@ build_binaries() {
           -ldflags "${goldflags:-}" \
           -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
-    
+
     if [[ $(host_platform) == ${HOST_PLATFORM} ]]; then
       rm -f "${YURT_BIN_DIR}"
       ln -s "${target_bin_dir}" "${YURT_BIN_DIR}"
     fi
 }
 
-# gen_yamls generates yaml files for user specified components by 
+# gen_yamls generates yaml files for user specified components by
 # subsituting the place holders with envs
 gen_yamls() {
-    REPO=${REPO:-openyurt}
-    TAG=${TAG:-latest}
-    PKI_PATH=${PKI_PATH:-/etc/kubernetes/pki}
-    # we use the serivce/kubernetes's DNS as the server address for hub
-    kube_svc_addr=${KUBE_SVC_ADDR:-kubernetes}
-    kube_svc_port=${KUBE_SVC_PORT:-}
-    
-    server_addr=https://$kube_svc_addr
-    if [ ! -z $kube_svc_port ]; then
-        server_addr=https://$kube_svc_addr:$kube_svc_port
-    fi
-
-    local -a yaml_targets=() 
+    local -a yaml_targets=()
     for arg; do
-        # ignoring go flags 
+        # ignoring go flags
         [[ "$arg" == -* ]] && continue
         target=$(basename $arg)
         # only add target that is in the ${YURT_YAML_TARGETS} list
         if [[ "${YURT_YAML_TARGETS[@]}" =~ "$target" ]]; then
-            yaml_targets+=("$target")        
+            yaml_targets+=("$target")
         fi
     done
     # if not specified, generate yaml for default yaml targets
@@ -123,7 +111,7 @@ gen_yamls() {
         yaml_targets=("${YURT_YAML_TARGETS[@]}")
     fi
     echo $yaml_targets
-    
+
     local yaml_dir=$YURT_OUTPUT_DIR/setup/
     mkdir -p $yaml_dir
     for yaml_target in "${yaml_targets[@]}"; do
@@ -132,9 +120,7 @@ gen_yamls() {
         sed "s|__project_prefix__|${PROJECT_PREFIX}|g;
         s|__label_prefix__|$LABEL_PREFIX|g;
         s|__repo__|$REPO|g;
-        s|__tag__|$TAG|g;
-        s|__pki_path__|$PKI_PATH|g;
-        s|__server_addr__|$server_addr|g;" \
+        s|__tag__|$TAG|g;" \
             $YURT_ROOT/config/yaml-template/$yaml_target.yaml > \
             $yaml_dir/$oup_file.yaml
     done

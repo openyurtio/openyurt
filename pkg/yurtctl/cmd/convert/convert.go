@@ -381,7 +381,12 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		klog.Info("yurt-app-manager is deployed")
 	}
 
-	// 8. deploy yurt-hub and reset the kubelet service
+	// 8. deploy global settings(like RBAC, configmap) for yurthub
+	if err = kubeutil.DeployYurthubSetting(co.clientSet); err != nil {
+		return err
+	}
+
+	// 9. deploy yurt-hub and reset the kubelet service
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
 	if err != nil {

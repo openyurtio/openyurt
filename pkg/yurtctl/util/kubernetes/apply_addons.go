@@ -22,6 +22,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
 func DeployYurtControllerManager(client *kubernetes.Clientset, yurtControllerManagerImage string) error {
@@ -198,5 +199,20 @@ func DeployYurttunnelAgent(
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
+	return nil
+}
+
+// DeployYurthubSetting deploy clusterrole, clusterrolebinding for yurthub static pod.
+func DeployYurthubSetting(client *kubernetes.Clientset) error {
+	// 1. create the ClusterRole
+	if err := CreateClusterRoleFromYaml(client, edgenode.YurthubClusterRole); err != nil {
+		return err
+	}
+
+	// 2. create the ClusterRoleBinding
+	if err := CreateClusterRoleBindingFromYaml(client, edgenode.YurthubClusterRoleBinding); err != nil {
+		return err
+	}
+
 	return nil
 }
