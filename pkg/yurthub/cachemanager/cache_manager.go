@@ -39,9 +39,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
 )
@@ -50,7 +52,7 @@ import (
 type CacheManager interface {
 	CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error
 	QueryCache(req *http.Request) (runtime.Object, error)
-	UpdateCacheAgents(agents []string) error
+	UpdateCacheAgents(agents, action string) sets.String
 	ListCacheAgents() []string
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
@@ -61,8 +63,9 @@ type cacheManager struct {
 	storage               StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
-	cacheAgents           map[string]bool
+	cacheAgents           sets.String
 	listSelectorCollector map[string]string
+	sharedFactory         informers.SharedInformerFactory
 }
 
 // NewCacheManager creates a new CacheManager
@@ -70,13 +73,15 @@ func NewCacheManager(
 	storage StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
+	sharedFactory informers.SharedInformerFactory,
 ) (CacheManager, error) {
 	cm := &cacheManager{
 		storage:               storage,
 		serializerManager:     serializerMgr,
 		restMapperManager:     restMapperMgr,
-		cacheAgents:           make(map[string]bool),
+		cacheAgents:           sets.NewString(util.DefaultCacheAgents...),
 		listSelectorCollector: make(map[string]string),
+		sharedFactory:         sharedFactory,
 	}
 
 	err := cm.initCacheAgents()
@@ -567,7 +572,7 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 		// request with Edge-Cache header, continue verification
 	} else {
 		cm.RLock()
-		if _, found := cm.cacheAgents[comp]; !found {
+		if !cm.cacheAgents.Has(comp) {
 			cm.RUnlock()
 			return false
 		}

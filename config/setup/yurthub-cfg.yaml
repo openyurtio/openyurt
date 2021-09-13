@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yurt-hub-cfg
+  namespace: kube-system
+data:
+  cache_agents: ""

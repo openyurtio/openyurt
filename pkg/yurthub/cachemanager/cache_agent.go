@@ -18,94 +18,65 @@ package cachemanager
 
 import (
 	"strings"
+	"time"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
+	coreinformers "k8s.io/client-go/informers/core/v1"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
-	defaultCacheAgents = []string{
-		"kubelet",
-		"kube-proxy",
-		"flanneld",
-		"coredns",
-		projectinfo.GetAgentName(),
-		projectinfo.GetHubName(),
-	}
-	cacheAgentsKey = "_internal/cache-manager/cache-agent.conf"
-	sepForAgent    = ","
+	sepForAgent = ","
 )
 
 func (cm *cacheManager) initCacheAgents() error {
-	agents := make([]string, 0)
-	b, err := cm.storage.GetRaw(cacheAgentsKey)
-	if err == nil && len(b) != 0 {
-		localAgents := strings.Split(string(b), sepForAgent)
-		if len(localAgents) < len(defaultCacheAgents) {
-			err = cm.storage.Delete(cacheAgentsKey)
-			if err != nil {
-				klog.Errorf("failed to delete agents cache, %v", err)
-				return err
-			}
-		} else {
-			agents = append(agents, localAgents...)
-			for _, agent := range localAgents {
-				cm.cacheAgents[agent] = false
-			}
-		}
+	if cm.sharedFactory == nil {
+		return nil
 	}
-	for _, agent := range defaultCacheAgents {
-		if cm.cacheAgents == nil {
-			cm.cacheAgents = make(map[string]bool)
-		}
+	configmapInformer := cm.sharedFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
+	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    cm.addConfigmap,
+		UpdateFunc: cm.updateConfigmap,
+	})
 
-		if _, ok := cm.cacheAgents[agent]; !ok {
-			agents = append(agents, agent)
-		}
-		cm.cacheAgents[agent] = true
-	}
-
-	klog.Infof("reset cache agents to %v", agents)
-	return cm.storage.UpdateRaw(cacheAgentsKey, []byte(strings.Join(agents, sepForAgent)))
+	klog.Infof("init cache agents to %v", cm.cacheAgents)
+	return nil
 }
 
 // UpdateCacheAgents update cache agents
-func (cm *cacheManager) UpdateCacheAgents(agents []string) error {
-	if len(agents) == 0 {
-		klog.Infof("no cache agent is set for update")
-		return nil
-	}
+func (cm *cacheManager) UpdateCacheAgents(cache_agents, action string) sets.String {
+	userAgents := strings.TrimSpace(cache_agents)
+	agents := strings.Split(userAgents, sepForAgent)
+	newAgents := sets.NewString(agents...)
 
-	hasUpdated := false
-	updatedAgents := append(defaultCacheAgents, agents...)
 	cm.Lock()
 	defer cm.Unlock()
-	if len(updatedAgents) != len(cm.cacheAgents) {
-		hasUpdated = true
-	} else {
-		for _, agent := range agents {
-			if _, ok := cm.cacheAgents[agent]; !ok {
-				hasUpdated = true
-				break
-			}
-		}
+	oldAgents := cm.cacheAgents.Delete(util.DefaultCacheAgents...)
+
+	if oldAgents.Equal(newAgents) {
+		// add default cache agents
+		cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
+		return sets.String{}
 	}
 
-	if hasUpdated {
-		for k, v := range cm.cacheAgents {
-			if !v {
-				// not default agent
-				delete(cm.cacheAgents, k)
-			}
-		}
+	// get deleted agents
+	deletedAgents := oldAgents.Difference(newAgents)
 
-		for _, agent := range agents {
-			cm.cacheAgents[agent] = false
-		}
-		return cm.storage.UpdateRaw(cacheAgentsKey, []byte(strings.Join(updatedAgents, sepForAgent)))
-	}
-	return nil
+	// construct new cache agents
+	cm.cacheAgents = cm.cacheAgents.Delete(deletedAgents.List()...)
+	cm.cacheAgents = cm.cacheAgents.Insert(agents...)
+	cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
+	klog.Infof("current cache agents after %s are: %v", action, cm.cacheAgents)
+
+	// return deleted agents
+	return deletedAgents
 }
 
 // ListCacheAgents get all of cache agents
@@ -117,4 +88,56 @@ func (cm *cacheManager) ListCacheAgents() []string {
 		agents = append(agents, k)
 	}
 	return agents
+}
+
+func newConfigmapInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	selector := fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.FieldSelector = selector
+	}
+
+	return coreinformers.NewFilteredConfigMapInformer(cs, util.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+}
+
+func (cm *cacheManager) addConfigmap(obj interface{}) {
+	cfg, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	deletedAgents := cm.UpdateCacheAgents(cfg.Data[util.CacheUserAgentsKey], "add")
+	cm.deleteAgentCache(deletedAgents)
+}
+
+func (cm *cacheManager) updateConfigmap(oldObj, newObj interface{}) {
+	oldCfg, ok := oldObj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	newCfg, ok := newObj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	if oldCfg.Data[util.CacheUserAgentsKey] == newCfg.Data[util.CacheUserAgentsKey] {
+		return
+	}
+
+	deletedAgents := cm.UpdateCacheAgents(newCfg.Data[util.CacheUserAgentsKey], "update")
+	cm.deleteAgentCache(deletedAgents)
+}
+
+func (cm *cacheManager) deleteAgentCache(deletedAgents sets.String) {
+	// delete cache data for deleted agents
+	if deletedAgents.Len() > 0 {
+		keys := deletedAgents.List()
+		for i := range keys {
+			if err := cm.storage.DeleteCollection(keys[i]); err != nil {
+				klog.Errorf("failed to cleanup cache for deleted agent(%s), %v", keys[i], err)
+			} else {
+				klog.Infof("cleanup cache for agent(%s) successfully", keys[i])
+			}
+		}
+	}
 }
