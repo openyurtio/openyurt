@@ -32,7 +32,10 @@ func main() {
 	klog.InitFlags(nil)
 	defer klog.Flush()
 
-	s := make(chan os.Signal)
+	// Set up channel on which to send signal notifications.
+	// We must use a buffered channel or risk missing the signal
+	// if we're not ready to receive when the signal is sent.
+	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGILL, syscall.SIGTRAP, syscall.SIGABRT)
 	stop := make(chan struct{})
