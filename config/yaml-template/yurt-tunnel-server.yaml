@@ -6,26 +6,27 @@ metadata:
   name: __project_prefix__-tunnel-server
 rules:
 - apiGroups:
-  - certificates.k8s.io
+    - certificates.k8s.io
   resources:
-  - certificatesigningrequests
-  - certificatesigningrequests/approval
+    - certificatesigningrequests
   verbs:
-  - create
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - patch
+    - get
+    - list
+    - watch
 - apiGroups:
-  - certificates.k8s.io
+    - certificates.k8s.io
   resources:
-  - signers
-  resourceNames:
-  - "kubernetes.io/legacy-unknown"
+    - certificatesigningrequests/approval
   verbs:
-  - approve
+    - update
+- apiGroups:
+    - certificates.k8s.io
+  resourceNames:
+    - kubernetes.io/legacy-unknown
+  resources:
+    - signers
+  verbs:
+    - approve
 - apiGroups:
     - ""
   resources:
