@@ -135,6 +135,15 @@ rules:
     verbs:
       - list
       - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - yurt-hub-cfg
+    verbs:
+      - list
+      - watch
 `
 	YurthubClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1

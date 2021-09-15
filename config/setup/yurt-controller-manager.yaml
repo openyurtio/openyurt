@@ -85,11 +85,7 @@ rules:
     resources:
       - certificatesigningrequests/approval
     verbs:
-      - get
-      - list
-      - watch
       - update
-      - patch
   - apiGroups:
       - certificates.k8s.io
     resources:

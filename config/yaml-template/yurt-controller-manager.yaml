@@ -85,17 +85,13 @@ rules:
     resources:
       - certificatesigningrequests/approval
     verbs:
-      - get
-      - list
-      - watch
       - update
-      - patch
   - apiGroups:
       - certificates.k8s.io
+    resourceNames:
+      - kubernetes.io/legacy-unknown
     resources:
       - signers
-    resourceNames:
-      - "kubernetes.io/legacy-unknown"
     verbs:
       - approve
 ---
