@@ -17,6 +17,10 @@ limitations under the License.
 package util
 
 import (
+	"context"
+	"net"
+	"net/http"
+	"net/url"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -207,4 +211,64 @@ func TestResolveProxyPortsAndMappings(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunMetaServer(t *testing.T) {
+	var addr string = ":9090"
+	RunMetaServer(addr)
+
+	c := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				// When I use 127.0.0.0:9090, the unit test will occur 404 not found error but the page works healthily
+				return net.Dial("tcp", "localhost:9090")
+			},
+		},
+	}
+
+	tests := []struct {
+		desc string
+		req  *http.Request
+		code int
+	}{
+		{
+			desc: "test metrics page",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:9090",
+					Path:   "/metrics",
+				},
+				Body: nil,
+			},
+			code: http.StatusOK,
+		},
+		{
+			desc: "test pprof index page",
+			req: &http.Request{
+				Method: http.MethodGet,
+				URL: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:9090",
+					Path:   "/debug/pprof",
+				},
+				Body: nil,
+			},
+			code: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			resp, err := c.Do(tt.req)
+			if err != nil {
+				t.Fatalf("fail to send request to the server: %v", err)
+			}
+			if resp.StatusCode != tt.code {
+				t.Fatalf("the response status code is incorrect, expect: %d, get: %d", tt.code, resp.StatusCode)
+			}
+		})
+	}
+
 }

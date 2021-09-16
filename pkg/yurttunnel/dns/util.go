@@ -70,12 +70,12 @@ func getNodeHostIP(node *v1.Node) (string, error) {
 
 func removeRecordByHostname(records []string, hostname string) (result []string, changed bool) {
 	result = make([]string, 0, len(records))
-	for _, v := range result {
+	for _, v := range records {
 		if !strings.HasSuffix(v, hostname) {
 			result = append(result, v)
 		}
 	}
-	return result, len(records) == len(result)
+	return result, len(records) != len(result)
 }
 
 func parseHostnameFromDNSRecord(record string) (string, error) {
