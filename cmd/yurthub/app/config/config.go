@@ -158,6 +158,10 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 }
 
 func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
+	if serverAddr == "" {
+		return make([]*url.URL, 0, 0)
+	}
+	
 	servers := strings.Split(serverAddr, ",")
 	us := make([]*url.URL, 0, len(servers))
 	remoteServers := make([]string, 0, len(servers))
