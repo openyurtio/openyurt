@@ -51,29 +51,34 @@ func (cm *cacheManager) initCacheAgents() error {
 }
 
 // UpdateCacheAgents update cache agents
-func (cm *cacheManager) UpdateCacheAgents(cache_agents, action string) sets.String {
-	userAgents := strings.TrimSpace(cache_agents)
-	agents := strings.Split(userAgents, sepForAgent)
-	newAgents := sets.NewString(agents...)
+func (cm *cacheManager) UpdateCacheAgents(cacheAgents, action string) sets.String {
+	newAgents := sets.NewString()
+	for _, agent := range strings.Split(cacheAgents, sepForAgent) {
+		agent = strings.TrimSpace(agent)
+		if len(agent) != 0 {
+			newAgents.Insert(agent)
+		}
+	}
 
 	cm.Lock()
 	defer cm.Unlock()
-	oldAgents := cm.cacheAgents.Delete(util.DefaultCacheAgents...)
+	cm.cacheAgents = cm.cacheAgents.Delete(util.DefaultCacheAgents...)
 
-	if oldAgents.Equal(newAgents) {
+	if cm.cacheAgents.Equal(newAgents) {
 		// add default cache agents
 		cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
 		return sets.String{}
 	}
 
-	// get deleted agents
-	deletedAgents := oldAgents.Difference(newAgents)
+	// get deleted and added agents
+	deletedAgents := cm.cacheAgents.Difference(newAgents)
+	addedAgents := newAgents.Difference(cm.cacheAgents)
 
 	// construct new cache agents
 	cm.cacheAgents = cm.cacheAgents.Delete(deletedAgents.List()...)
-	cm.cacheAgents = cm.cacheAgents.Insert(agents...)
+	cm.cacheAgents = cm.cacheAgents.Insert(addedAgents.List()...)
 	cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
-	klog.Infof("current cache agents after %s are: %v", action, cm.cacheAgents)
+	klog.Infof("current cache agents: %v after %s, deleted agents: %v", cm.cacheAgents, action, deletedAgents)
 
 	// return deleted agents
 	return deletedAgents
