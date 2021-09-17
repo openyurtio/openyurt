@@ -94,7 +94,7 @@ func Register() {
 				spec := apiv1.PodSpec{}
 				container := apiv1.Container{}
 				spec.HostNetwork = true
-				spec.NodeSelector = map[string]string{"alibabacloud.com/is-edge-worker": "true"}
+				spec.NodeSelector = map[string]string{"openyurt.io/is-edge-worker": "true"}
 				container.Name = "yurt-test-busybox"
 				container.Image = "busybox"
 				container.Command = []string{"sleep", "3600"}

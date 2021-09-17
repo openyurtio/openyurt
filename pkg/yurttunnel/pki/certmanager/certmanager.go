@@ -87,7 +87,13 @@ func NewYurttunnelServerCertManager(
 		fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName()),
 		constants.YurttunneServerCSRCN,
 		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
-		dnsNames, ips)
+		dnsNames,
+		[]certificates.KeyUsage{
+			certificates.UsageKeyEncipherment,
+			certificates.UsageDigitalSignature,
+			certificates.UsageServerAuth,
+		},
+		ips)
 }
 
 // NewYurttunnelAgentCertManager creates a certificate manager for
@@ -109,6 +115,11 @@ func NewYurttunnelAgentCertManager(
 		constants.YurttunnelAgentCSRCN,
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
+		[]certificates.KeyUsage{
+			certificates.UsageKeyEncipherment,
+			certificates.UsageDigitalSignature,
+			certificates.UsageClientAuth,
+		},
 		[]net.IP{net.ParseIP(nodeIP)})
 }
 
@@ -120,7 +131,9 @@ func newCertManager(
 	certDir,
 	commonName string,
 	organizations,
-	dnsNames []string, ipAddrs []net.IP) (certificate.Manager, error) {
+	dnsNames []string,
+	keyUsages []certificates.KeyUsage,
+	ipAddrs []net.IP) (certificate.Manager, error) {
 	certificateStore, err :=
 		store.NewFileStoreWrapper(componentName, certDir, certDir, "", "")
 	if err != nil {
@@ -142,11 +155,9 @@ func newCertManager(
 		ClientFn: func(current *tls.Certificate) (clicert.CertificateSigningRequestInterface, error) {
 			return clientset.CertificatesV1beta1().CertificateSigningRequests(), nil
 		},
-		SignerName:  certificates.LegacyUnknownSignerName,
-		GetTemplate: getTemplate,
-		Usages: []certificates.KeyUsage{
-			certificates.UsageAny,
-		},
+		SignerName:       certificates.LegacyUnknownSignerName,
+		GetTemplate:      getTemplate,
+		Usages:           keyUsages,
 		CertificateStore: certificateStore,
 	})
 	if err != nil {

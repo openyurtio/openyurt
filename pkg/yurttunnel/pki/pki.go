@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 )
 
-// GenTGenTLSConfigUseCertMgrAndCertPool generates a TLS configuration
+// GenTLSConfigUseCertMgrAndCertPool generates a TLS configuration
 // using the given certificate manager and x509 CertPool
 func GenTLSConfigUseCertMgrAndCertPool(
 	m certificate.Manager,
@@ -110,7 +110,7 @@ func GenRootCertPool(kubeConfig, caFile string) (*x509.CertPool, error) {
 	return GenCertPoolUseCA(caFile)
 }
 
-// GenTGenTLSConfigUseCertMgrAndCA generates a TLS configuration based on the
+// GenTLSConfigUseCertMgrAndCA generates a TLS configuration based on the
 // given certificate manager and the CA file
 func GenTLSConfigUseCertMgrAndCA(
 	m certificate.Manager,
