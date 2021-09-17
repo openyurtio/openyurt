@@ -50,6 +50,12 @@ func TestUpdateCacheAgents(t *testing.T) {
 			resultAgents:  sets.NewString(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
 			deletedAgents: sets.String{},
 		},
+		"empty agents added ": {
+			initAgents:    []string{},
+			cacheAgents:   "",
+			resultAgents:  sets.NewString(util.DefaultCacheAgents...),
+			deletedAgents: sets.String{},
+		},
 	}
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
