@@ -24,12 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +33,12 @@ import (
 	"k8s.io/klog"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 )
 
 // Provider signifies the provider type
@@ -134,9 +134,6 @@ func NewConvertCmd() *cobra.Command {
 		"The yurt-tunnel-agent image.")
 	cmd.Flags().BoolP("deploy-yurttunnel", "t", false,
 		"if set, yurttunnel will be deployed.")
-	cmd.Flags().String("pod-manifest-path",
-		"/etc/kubernetes/manifests",
-		"Path to the directory on edge node containing static pod files.")
 	cmd.Flags().BoolP("enable-app-manager", "e", false,
 		"if set, yurtappmanager will be deployed.")
 	cmd.Flags().String("yurt-app-manager-image",
@@ -221,17 +218,17 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.YurtAppManagerImage = yami
 
-	pmp, err := flags.GetString("pod-manifest-path")
-	if err != nil {
-		return err
-	}
-	co.PodMainfestPath = pmp
-
 	kcp, err := flags.GetString("kubeadm-conf-path")
 	if err != nil {
 		return err
 	}
 	co.KubeadmConfPath = kcp
+
+	podManifestPath, err := enutil.GetPodManifestPath(co.KubeadmConfPath)
+	if err != nil {
+		return err
+	}
+	co.PodMainfestPath = podManifestPath
 
 	sa, err := flags.GetString("system-architecture")
 	if err != nil {
@@ -399,7 +396,6 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		"yurtctl_servant_image": co.YurctlServantImage,
 		"yurthub_image":         co.YurhubImage,
 		"joinToken":             joinToken,
-		"pod_manifest_path":     co.PodMainfestPath,
 		"kubeadm_conf_path":     co.KubeadmConfPath,
 	}
 

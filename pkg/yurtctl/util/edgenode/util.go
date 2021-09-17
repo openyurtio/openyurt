@@ -17,6 +17,7 @@ limitations under the License.
 package edgenode
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -71,16 +72,14 @@ func GetSingleContentFromFile(filename string, regularExpression string) (string
 	return contents[0], nil
 }
 
-// DirExists determines whether the directory exists
-func DirExists(dirname string) (bool, error) {
+// EnsureDir make sure dir is exists, if not create
+func EnsureDir(dirname string) error {
 	s, err := os.Stat(dirname)
-	if err != nil {
-		return false, err
+	if err == nil && s.IsDir() {
+		return nil
 	}
-	if !s.IsDir() {
-		return false, fmt.Errorf("%s is not a dir", dirname)
-	}
-	return true, nil
+
+	return os.MkdirAll(dirname, 0755)
 }
 
 // CopyFile copys sourceFile to destinationFile
@@ -200,4 +199,32 @@ func Exec(cmd *exec.Cmd) error {
 		return err
 	}
 	return nil
+}
+
+// GetPodManifestPath get path string from kubeadmConf file
+func GetPodManifestPath(kubeadmConfPath string) (string, error) {
+	configRegularExpression := "\\-\\-config=.*config.yaml"
+	podManifestPathRegularExpression := "staticPodPath: .*"
+
+	configPath, err := GetSingleContentFromFile(kubeadmConfPath, configRegularExpression)
+	if err != nil {
+		return "", err
+	}
+	arr := strings.Split(configPath, "=")
+	if len(arr) != 2 {
+		return "", errors.New("kubelet config path format incorrect: " + configPath)
+	}
+	configPath = arr[1]
+
+	podManifestPath, err := GetSingleContentFromFile(configPath, podManifestPathRegularExpression)
+	if err != nil {
+		return "", err
+	}
+	arr = strings.Split(podManifestPath, " ")
+	if len(arr) != 2 {
+		return "", errors.New("podManifestPath format incorrect: " + podManifestPath)
+	}
+	podManifestPath = arr[1]
+
+	return podManifestPath, nil
 }
