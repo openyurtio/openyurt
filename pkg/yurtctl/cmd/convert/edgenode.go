@@ -277,12 +277,6 @@ func (c *ConvertEdgeNodeOptions) RunConvertEdgeNode() (err error) {
 			return err
 		}
 
-		// 3.6. open the autonomous
-		klog.Infof("open the %s autonomous", nodeName)
-		_, err = kubeutil.AnnotateNode(c.clientSet, node, constants.AnnotationAutonomy, "true")
-		if err != nil {
-			return err
-		}
 	} else {
 		return fmt.Errorf("fail to revert edge node, flag --edge-nodes %s err", c.EdgeNodes)
 	}
