@@ -29,3 +29,6 @@ const (
 	// on kube-proxy list/watch service request from edge nodes.
 	DiscardCloudServiceFilterName = "discardcloudservice"
 )
+
+// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
+var DisabledInCloudMode = []string{DiscardCloudServiceFilterName}

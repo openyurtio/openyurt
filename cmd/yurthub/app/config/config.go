@@ -34,6 +34,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 
@@ -78,6 +79,7 @@ type YurtHubConfiguration struct {
 	Filters                           *filter.Filters
 	SharedFactory                     informers.SharedInformerFactory
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
+	WorkingMode                       util.WorkingMode
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -109,6 +111,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	var filters *filter.Filters
 	var mutatedMasterServiceAddr string
 	if options.EnableResourceFilter {
+		if options.WorkingMode == string(util.WorkingModeCloud) {
+			options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
+		}
 		filters = filter.NewFilters(options.DisabledResourceFilters)
 		registerAllFilters(filters)
 
@@ -145,6 +150,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		EnableDummyIf:                     options.EnableDummyIf,
 		EnableIptables:                    options.EnableIptables,
 		HubAgentDummyIfName:               options.HubAgentDummyIfName,
+		WorkingMode:                       util.WorkingMode(options.WorkingMode),
 		StorageWrapper:                    storageWrapper,
 		SerializerManager:                 serializerManager,
 		RESTMapperManager:                 restMapperManager,

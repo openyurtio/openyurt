@@ -130,30 +130,32 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 		}
 	}
 
-	// cache resp with storage interface
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusPartialContent {
-		if rp.cacheMgr.CanCacheFor(req) {
-			reqContentType, _ := util.ReqContentTypeFrom(ctx)
-			respContentType := resp.Header.Get("Content-Type")
-			if len(respContentType) == 0 {
-				respContentType = reqContentType
-			}
-			ctx = util.WithRespContentType(ctx, respContentType)
-			req = req.WithContext(ctx)
+		// prepare response content type
+		reqContentType, _ := util.ReqContentTypeFrom(ctx)
+		respContentType := resp.Header.Get("Content-Type")
+		if len(respContentType) == 0 {
+			respContentType = reqContentType
+		}
+		ctx = util.WithRespContentType(ctx, respContentType)
+		req = req.WithContext(ctx)
 
-			if rp.filterChain != nil {
-				size, filterRc, err := rp.filterChain.Filter(req, resp.Body, rp.stopCh)
-				if err != nil {
-					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
-					return err
-				}
-				resp.Body = filterRc
-				if size > 0 {
-					resp.ContentLength = int64(size)
-					resp.Header.Set("Content-Length", fmt.Sprint(size))
-				}
+		// filter response data
+		if rp.filterChain != nil {
+			size, filterRc, err := rp.filterChain.Filter(req, resp.Body, rp.stopCh)
+			if err != nil {
+				klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
+				return err
 			}
+			resp.Body = filterRc
+			if size > 0 {
+				resp.ContentLength = int64(size)
+				resp.Header.Set("Content-Length", fmt.Sprint(size))
+			}
+		}
 
+		// cache resp with storage interface
+		if rp.cacheMgr != nil && rp.cacheMgr.CanCacheFor(req) {
 			rc, prc := util.NewDualReadCloser(req, resp.Body, true)
 			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 				err := rp.cacheMgr.CacheResponse(req, prc, stopCh)
@@ -164,7 +166,7 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 
 			resp.Body = rc
 		}
-	} else if resp.StatusCode == http.StatusNotFound && info.Verb == "list" {
+	} else if resp.StatusCode == http.StatusNotFound && info.Verb == "list" && rp.cacheMgr != nil {
 		// 404 Not Found: The CRD may have been unregistered and should be updated locally as well.
 		// Other types of requests may return a 404 response for other reasons (for example, getting a pod that doesn't exist).
 		// And the main purpose is to return 404 when list an unregistered resource locally, so here only consider the list request.
@@ -184,7 +186,7 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 
 func (rp *RemoteProxy) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 	klog.V(2).Infof("remote proxy error handler: %s, %v", util.ReqString(req), err)
-	if !rp.cacheMgr.CanCacheFor(req) {
+	if rp.cacheMgr == nil || !rp.cacheMgr.CanCacheFor(req) {
 		rw.WriteHeader(http.StatusBadGateway)
 		return
 	}
