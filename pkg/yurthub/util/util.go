@@ -45,6 +45,16 @@ import (
 // ProxyKeyType represents the key in proxy request context
 type ProxyKeyType int
 
+// WorkingMode represents the working mode of yurthub.
+type WorkingMode string
+
+const (
+	// WorkingModeCloud represents yurthub is working in cloud mode, which means yurthub is deployed on the cloud side.
+	WorkingModeCloud WorkingMode = "cloud"
+	// WorkingModeEdge represents yurthub is working in edge mode, which means yurthub is deployed on the edge side.
+	WorkingModeEdge WorkingMode = "edge"
+)
+
 const (
 	// YurtHubCertificateManagerName represents the certificateManager name in yurthub mode
 	YurtHubCertificateManagerName = "hubself"
@@ -315,6 +325,16 @@ func IsSupportedLBMode(lbMode string) bool {
 func IsSupportedCertMode(certMode string) bool {
 	switch certMode {
 	case KubeletCertificateManagerName, YurtHubCertificateManagerName:
+		return true
+	}
+
+	return false
+}
+
+// IsSupportedWorkingMode check working mode is supported or not
+func IsSupportedWorkingMode(workingMode WorkingMode) bool {
+	switch workingMode {
+	case WorkingModeCloud, WorkingModeEdge:
 		return true
 	}
 

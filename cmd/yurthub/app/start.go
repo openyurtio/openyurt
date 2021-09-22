@@ -36,6 +36,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -125,19 +126,28 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-	cacheMgr, err := cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
-	if err != nil {
-		return fmt.Errorf("could not new cache manager, %v", err)
+	var cacheMgr cachemanager.CacheManager
+	if cfg.WorkingMode == util.WorkingModeEdge {
+		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
+		cacheMgr, err = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
+		if err != nil {
+			return fmt.Errorf("could not new cache manager, %v", err)
+		}
+	} else {
+		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}
 	trace++
 
-	klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-	gcMgr, err := gc.NewGCManager(cfg, restConfigMgr, stopCh)
-	if err != nil {
-		return fmt.Errorf("could not new gc manager, %v", err)
+	if cfg.WorkingMode == util.WorkingModeEdge {
+		klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
+		gcMgr, err := gc.NewGCManager(cfg, restConfigMgr, stopCh)
+		if err != nil {
+			return fmt.Errorf("could not new gc manager, %v", err)
+		}
+		gcMgr.Run()
+	} else {
+		klog.Infof("%d. disable gc manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}
-	gcMgr.Run()
 	trace++
 
 	klog.Infof("%d. new filter chain for mutating response body", trace)

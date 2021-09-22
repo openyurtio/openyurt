@@ -62,6 +62,7 @@ type YurtHubOptions struct {
 	AccessServerThroughHub    bool
 	EnableResourceFilter      bool
 	DisabledResourceFilters   []string
+	WorkingMode               string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -90,6 +91,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		AccessServerThroughHub:    true,
 		EnableResourceFilter:      true,
 		DisabledResourceFilters:   make([]string, 0),
+		WorkingMode:               string(util.WorkingModeEdge),
 	}
 	return o
 }
@@ -110,6 +112,10 @@ func ValidateOptions(options *YurtHubOptions) error {
 
 	if !util.IsSupportedCertMode(options.CertMgrMode) {
 		return fmt.Errorf("cert manage mode %s is not supported", options.CertMgrMode)
+	}
+
+	if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
+		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
 	}
 
 	if err := verifyDummyIP(options.HubAgentDummyIfIP); err != nil {
@@ -139,7 +145,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.JoinToken, "join-token", o.JoinToken, "the Join token for bootstrapping hub agent when --cert-mgr-mode=hubself.")
 	fs.StringVar(&o.RootDir, "root-dir", o.RootDir, "directory path for managing hub agent files(pki, cache etc).")
 	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")
-	fs.BoolVar(&o.EnableProfiling, "profiling", o.EnableProfiling, "Enable profiling via web interface host:port/debug/pprof/")
+	fs.BoolVar(&o.EnableProfiling, "profiling", o.EnableProfiling, "enable profiling via web interface host:port/debug/pprof/")
 	fs.BoolVar(&o.EnableDummyIf, "enable-dummy-if", o.EnableDummyIf, "enable dummy interface or not")
 	fs.BoolVar(&o.EnableIptables, "enable-iptables", o.EnableIptables, "enable iptables manager to setup rules for accessing hub agent")
 	fs.StringVar(&o.HubAgentDummyIfIP, "dummy-if-ip", o.HubAgentDummyIfIP, "the ip address of dummy interface that used for container connect hub agent(exclusive ips: 169.254.31.0/24, 169.254.1.1/32)")
@@ -149,6 +155,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableResourceFilter, "enable-resource-filter", o.EnableResourceFilter, "enable to filter response that comes back from reverse proxy")
 	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
 	fs.StringVar(&o.NodePoolName, "nodepool-name", o.NodePoolName, "the name of node pool that runs hub agent")
+	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
 }
 
 // verifyDummyIP verify the specified ip is valid or not

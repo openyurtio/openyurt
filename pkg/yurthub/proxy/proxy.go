@@ -73,10 +73,17 @@ func NewYurtReverseProxyHandler(
 		return nil, err
 	}
 
+	var localProxy *local.LocalProxy
+	// When yurthub is working in cloud mode, cacheMgr will be set to nil which means the local cache is disabled,
+	// so we don't need to create a LocalProxy.
+	if cacheMgr != nil {
+		localProxy = local.NewLocalProxy(cacheMgr, lb.IsHealthy)
+	}
+
 	yurtProxy := &yurtReverseProxy{
 		resolver:            resolver,
 		loadBalancer:        lb,
-		localProxy:          local.NewLocalProxy(cacheMgr, lb.IsHealthy),
+		localProxy:          localProxy,
 		cacheMgr:            cacheMgr,
 		maxRequestsInFlight: yurtHubCfg.MaxRequestInFlight,
 		stopCh:              stopCh,
@@ -88,9 +95,13 @@ func NewYurtReverseProxyHandler(
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
 	handler = util.WithRequestTrace(handler)
 	handler = util.WithRequestContentType(handler)
-	handler = util.WithCacheHeaderCheck(handler)
+	if p.cacheMgr != nil {
+		handler = util.WithCacheHeaderCheck(handler)
+	}
 	handler = util.WithRequestTimeout(handler)
-	handler = util.WithListRequestSelector(handler)
+	if p.cacheMgr != nil {
+		handler = util.WithListRequestSelector(handler)
+	}
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
 	handler = filters.WithRequestInfo(handler, p.resolver)
@@ -98,7 +109,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if !hubutil.IsKubeletLeaseReq(req) && p.loadBalancer.IsHealthy() {
+	if !hubutil.IsKubeletLeaseReq(req) && p.loadBalancer.IsHealthy() || p.localProxy == nil {
 		p.loadBalancer.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
