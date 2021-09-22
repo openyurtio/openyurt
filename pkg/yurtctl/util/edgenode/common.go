@@ -17,14 +17,17 @@ limitations under the License.
 package edgenode
 
 const (
-	KubeletSvcPath   = "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
-	OpenyurtDir      = "/var/lib/openyurt"
-	StaticPodPath    = "/etc/kubernetes/manifests"
-	KubeCondfigPath  = "/etc/kubernetes/kubelet.conf"
-	KubeCaFile       = "/etc/kubernetes/pki/ca.crt"
-	YurthubYamlName  = "yurt-hub.yaml"
-	KubeletConfName  = "kubelet.conf"
-	KubeletSvcBackup = "%s.bk"
+	KubeletSvcPath       = "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	OpenyurtDir          = "/var/lib/openyurt"
+	StaticPodPath        = "/etc/kubernetes/manifests"
+	KubeCondfigPath      = "/etc/kubernetes/kubelet.conf"
+	KubeCaFile           = "/etc/kubernetes/pki/ca.crt"
+	YurthubYamlName      = "yurt-hub.yaml"
+	YurthubComponentName = "yurt-hub"
+	YurthubNamespace     = "kube-system"
+	YurthubCmName        = "yurt-hub-cfg"
+	KubeletConfName      = "kubelet.conf"
+	KubeletSvcBackup     = "%s.bk"
 
 	Hostname               = "/etc/hostname"
 	KubeletHostname        = "--hostname-override=[^\"\\s]*"
@@ -159,4 +162,12 @@ subjects:
     kind: Group
     name: system:nodes
 `
+	YurthubConfigMap = `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yurt-hub-cfg
+  namespace: kube-system
+data:
+  cache_agents: ""`
 )
