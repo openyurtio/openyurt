@@ -164,6 +164,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 }
 
 func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
+	if serverAddr == "" {
+		return make([]*url.URL, 0), fmt.Errorf("--server-addr should be set for hub agent")
+	}
 	servers := strings.Split(serverAddr, ",")
 	us := make([]*url.URL, 0, len(servers))
 	remoteServers := make([]string, 0, len(servers))
