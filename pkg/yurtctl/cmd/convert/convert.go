@@ -154,7 +154,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	if cnStr != "" {
 		co.CloudNodes = strings.Split(cnStr, ",")
 	} else {
-		err := fmt.Errorf("The '--cloud nodes' parameter cannot be empty.Please specify the cloud node first, and then execute the yurtctl convert command")
+		err := fmt.Errorf("The '--cloud-nodes' parameter cannot be empty.Please specify the cloud node first, and then execute the yurtctl convert command")
 		return err
 	}
 
