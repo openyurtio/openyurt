@@ -41,6 +41,7 @@ const (
 // HealthChecker is an interface for checking healthy stats of server
 type HealthChecker interface {
 	IsHealthy(server *url.URL) bool
+	UpdateLastKubeletLeaseReqTime(time.Time)
 	Run()
 }
 
@@ -48,12 +49,15 @@ type setNodeLease func(*coordinationv1.Lease) error
 type getNodeLease func() *coordinationv1.Lease
 
 type healthCheckerManager struct {
-	remoteServers     []*url.URL
-	checkers          map[string]*checker
-	latestLease       *coordinationv1.Lease
-	sw                cachemanager.StorageWrapper
-	remoteServerIndex int
-	stopCh            <-chan struct{}
+	sync.RWMutex
+	remoteServers           []*url.URL
+	checkers                map[string]*checker
+	latestLease             *coordinationv1.Lease
+	sw                      cachemanager.StorageWrapper
+	remoteServerIndex       int
+	lastKubeletLeaseReqTime time.Time
+	healthCheckGracePeriod  time.Duration
+	stopCh                  <-chan struct{}
 }
 
 type checker struct {
@@ -76,11 +80,12 @@ func NewHealthChecker(cfg *config.YurtHubConfiguration, tp transport.Interface, 
 	}
 
 	hcm := &healthCheckerManager{
-		checkers:          make(map[string]*checker),
-		remoteServers:     cfg.RemoteServers,
-		remoteServerIndex: 0,
-		sw:                cfg.StorageWrapper,
-		stopCh:            stopCh,
+		checkers:               make(map[string]*checker),
+		remoteServers:          cfg.RemoteServers,
+		remoteServerIndex:      0,
+		sw:                     cfg.StorageWrapper,
+		healthCheckGracePeriod: cfg.KubeletHealthGracePeriod,
+		stopCh:                 stopCh,
 	}
 
 	for _, remoteServer := range cfg.RemoteServers {
@@ -120,10 +125,23 @@ func (hcm *healthCheckerManager) healthzCheckLoop(stopCh <-chan struct{}) {
 }
 
 func (hcm *healthCheckerManager) sync() {
+	isKubeletStoped := false
+	lastKubeletLeaseReqTime := hcm.getLastKubeletLeaseReqTime()
+	if !lastKubeletLeaseReqTime.IsZero() && hcm.healthCheckGracePeriod > 0 {
+		isKubeletStoped = time.Now().After(lastKubeletLeaseReqTime.Add(hcm.healthCheckGracePeriod))
+	}
+
 	// Ensure that the node heartbeat can be reported when there is a healthy remote server.
 	//try detect all remote server in a loop, if there is an remote server can update nodeLease, exit the loop.
 	for i := 0; i < len(hcm.remoteServers); i++ {
 		c := hcm.getChecker()
+
+		if isKubeletStoped {
+			klog.Warningf("kubelet does not post lease request for more than %v, stop renew node lease and assume remote server is unhealthy", hcm.healthCheckGracePeriod)
+			c.markAsUnhealthy()
+			continue
+		}
+
 		if c.check() {
 			break
 		}
@@ -160,6 +178,18 @@ func (hcm *healthCheckerManager) IsHealthy(server *url.URL) bool {
 	}
 	//if there is not checker for server, default unhealthy.
 	return false
+}
+
+func (hcm *healthCheckerManager) UpdateLastKubeletLeaseReqTime(lastKubeletLeaseReqTime time.Time) {
+	hcm.Lock()
+	defer hcm.Unlock()
+	hcm.lastKubeletLeaseReqTime = lastKubeletLeaseReqTime
+}
+
+func (hcm *healthCheckerManager) getLastKubeletLeaseReqTime() time.Time {
+	hcm.RLock()
+	defer hcm.RUnlock()
+	return hcm.lastKubeletLeaseReqTime
 }
 
 func newChecker(
@@ -213,6 +243,11 @@ func (c *checker) check() bool {
 	}
 
 	klog.Infof("failed to update lease: %v, remote server %s", err, c.remoteServer.String())
+	c.markAsUnhealthy()
+	return false
+}
+
+func (c *checker) markAsUnhealthy() {
 	if c.onFailureFunc != nil {
 		c.onFailureFunc(c.remoteServer.Host)
 	}
@@ -224,7 +259,6 @@ func (c *checker) check() bool {
 		c.lastTime = now
 		metrics.Metrics.ObserveServerHealthy(c.remoteServer.Host, 0)
 	}
-	return false
 }
 
 func (c *checker) isHealthy() bool {
