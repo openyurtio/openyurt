@@ -242,6 +242,15 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 	klog.Info("complete removing yurt-hub and resetting kubelet service")
+
+	// 7.1. remove yut-hub k8s config, roleBinding role
+	err = kubeutil.DeleteYurthubSetting(ro.clientSet)
+	if err != nil {
+		klog.Error("DeleteYurthubSetting err: ", err)
+		return err
+	}
+	klog.Info("delete yurthub clusterrole and clusterrolebinding")
+
 	return
 }
 

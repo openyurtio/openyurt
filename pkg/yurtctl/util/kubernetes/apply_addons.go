@@ -17,6 +17,11 @@ limitations under the License.
 package kubernetes
 
 import (
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -212,6 +217,43 @@ func DeployYurthubSetting(client *kubernetes.Clientset) error {
 	// 2. create the ClusterRoleBinding
 	if err := CreateClusterRoleBindingFromYaml(client, edgenode.YurthubClusterRoleBinding); err != nil {
 		return err
+	}
+
+	// 3. create the Configmap
+	if err := CreateConfigMapFromYaml(client,
+		"kube-system",
+		edgenode.YurthubConfigMap); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteYurthubSetting rm settings for yurthub pod
+func DeleteYurthubSetting(client *kubernetes.Clientset) error {
+
+	// 1. delete the ClusterRoleBinding
+	if err := client.RbacV1().ClusterRoleBindings().
+		Delete(context.Background(), edgenode.YurthubComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
+			edgenode.YurthubComponentName, err)
+	}
+
+	// 2. delete the ClusterRole
+	if err := client.RbacV1().ClusterRoles().
+		Delete(context.Background(), edgenode.YurthubComponentName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
+			edgenode.YurthubComponentName, err)
+	}
+
+	// 3. remove the ConfigMap
+	if err := client.CoreV1().ConfigMaps(edgenode.YurthubNamespace).
+		Delete(context.Background(), edgenode.YurthubCmName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the configmap/%s: %s",
+			edgenode.YurthubCmName, err)
 	}
 
 	return nil
