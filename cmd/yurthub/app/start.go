@@ -104,10 +104,18 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. create health checker for remote servers ", trace)
-	healthChecker, err := healthchecker.NewHealthChecker(cfg, transportManager, stopCh)
-	if err != nil {
-		return fmt.Errorf("could not new health checker, %v", err)
+	var healthChecker healthchecker.HealthChecker
+	if cfg.WorkingMode == util.WorkingModeEdge {
+		klog.Infof("%d. create health checker for remote servers ", trace)
+		healthChecker, err = healthchecker.NewHealthChecker(cfg, transportManager, stopCh)
+		if err != nil {
+			return fmt.Errorf("could not new health checker, %v", err)
+		}
+	} else {
+		klog.Infof("%d. disable health checker for node %s because it is a cloud node", trace, cfg.NodeName)
+		// In cloud mode, health checker is not needed.
+		// This fake checker will always report that the remote server is healthy.
+		healthChecker = healthchecker.NewFakeChecker(true, make(map[string]int))
 	}
 	healthChecker.Run()
 	trace++
