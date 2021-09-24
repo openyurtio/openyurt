@@ -18,6 +18,7 @@ package healthchecker
 
 import (
 	"net/url"
+	"time"
 )
 
 type fakeChecker struct {
@@ -45,6 +46,10 @@ func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
 }
 
 func (fc *fakeChecker) Run() {
+	return
+}
+
+func (fc *fakeChecker) UpdateLastKubeletLeaseReqTime(time.Time) {
 	return
 }
 

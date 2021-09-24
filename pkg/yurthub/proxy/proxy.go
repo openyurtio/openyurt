@@ -18,6 +18,7 @@ package proxy
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
@@ -39,6 +40,7 @@ import (
 type yurtReverseProxy struct {
 	resolver            apirequest.RequestInfoResolver
 	loadBalancer        remote.LoadBalancer
+	checker             healthchecker.HealthChecker
 	localProxy          *local.LocalProxy
 	cacheMgr            cachemanager.CacheManager
 	maxRequestsInFlight int
@@ -83,6 +85,7 @@ func NewYurtReverseProxyHandler(
 	yurtProxy := &yurtReverseProxy{
 		resolver:            resolver,
 		loadBalancer:        lb,
+		checker:             healthChecker,
 		localProxy:          localProxy,
 		cacheMgr:            cacheMgr,
 		maxRequestsInFlight: yurtHubCfg.MaxRequestInFlight,
@@ -109,9 +112,13 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if !hubutil.IsKubeletLeaseReq(req) && p.loadBalancer.IsHealthy() || p.localProxy == nil {
+	isKubeletLeaseReq := hubutil.IsKubeletLeaseReq(req)
+	if !isKubeletLeaseReq && p.loadBalancer.IsHealthy() || p.localProxy == nil {
 		p.loadBalancer.ServeHTTP(rw, req)
 	} else {
+		if isKubeletLeaseReq {
+			p.checker.UpdateLastKubeletLeaseReqTime(time.Now())
+		}
 		p.localProxy.ServeHTTP(rw, req)
 	}
 }

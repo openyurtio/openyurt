@@ -80,6 +80,7 @@ type YurtHubConfiguration struct {
 	SharedFactory                     informers.SharedInformerFactory
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
 	WorkingMode                       util.WorkingMode
+	KubeletHealthGracePeriod          time.Duration
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -158,6 +159,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		Filters:                           filters,
 		SharedFactory:                     sharedFactory,
 		YurtSharedFactory:                 yurtSharedFactory,
+		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 	}
 
 	return cfg, nil

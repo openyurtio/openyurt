@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"time"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -63,6 +64,7 @@ type YurtHubOptions struct {
 	EnableResourceFilter      bool
 	DisabledResourceFilters   []string
 	WorkingMode               string
+	KubeletHealthGracePeriod  time.Duration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -92,6 +94,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableResourceFilter:      true,
 		DisabledResourceFilters:   make([]string, 0),
 		WorkingMode:               string(util.WorkingModeEdge),
+		KubeletHealthGracePeriod:  time.Second * 40,
 	}
 	return o
 }
@@ -156,6 +159,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
 	fs.StringVar(&o.NodePoolName, "nodepool-name", o.NodePoolName, "the name of node pool that runs hub agent")
 	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
+	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 }
 
 // verifyDummyIP verify the specified ip is valid or not
