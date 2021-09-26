@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.4.1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.5.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 
@@ -14,6 +14,7 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
+| 2021-09-26  OpenYurt v0.5.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 2021-08-06  OpenYurt v0.4.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 2021-05-21  OpenYurt v0.4.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 2021-01-08  OpenYurt v0.3.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
@@ -34,6 +35,7 @@ OpenYurt 适合如下这些常见的边缘计算用户场景：
 - **无缝转换**。它提供了一种工具，可以轻松地将本地 Kubernetes 转换为“边缘就绪”的集群；同时 OpenYurt 组件的额外资源和维护成本非常低。
 - **节点自治**。它提供了容忍不稳定或断开连接的云边缘网络的机制。即使边缘节点脱机，在边缘节点中运行的应用程序也不会受到影响。
 - **与云平台无关**。 OpenYurt 可以轻松部署在任何公共云 Kubernetes 服务中。
+- **边缘设备管理**。与EdgeX Foundry系统非侵入式集成，并使用Kubernetes CRDs管理边缘设备。
 
 ## 架构
 
@@ -48,6 +50,12 @@ OpenYurt 的主要组件包括：
 - **Yurt App Manager**：它管理OpenYurt中引入的两个CRD资源。*[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)* 和 *[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)*. 前者为位于同一区域的节点池提供了便利的管理方法。
 后者定义了一种新的边缘应用模型以节点池为单位来管理工作负载。
 - **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
+- **Node resource manager**: 统一管理OpenYurt集群的本地节点资源。 目前支持管理LVM、QuotaPath和Pmem内存。
+  详情请参考[node-resource-manager](https://github.com/openyurtio/node-resource-manager)。
+- **Yurt-edgex-manager**: 主要用于在OpenYurt集群中管理EdgeX Foundry的生命周期(包括安装部署，删除，更新)。
+  详情请参考[yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager)。
+- **Yurt-device-controller**: Kubernetes系统和边缘计算平台(如EdgeX Foundry)的联结器，使用户可以通过Kubernetes CRDs来管理边缘设备。
+  详情请参考[yurt-device-controller](https://github.com/openyurtio/yurt-device-controller)。
 
 ## 开始之前
 
@@ -60,13 +68,13 @@ OpenYurt 支持最高版本为1.18的 Kubernetes 。使用更高版本的 Kubern
 ```bash
 git clone https://github.com/openyurtio/openyurt.git
 cd openyurt
-make WHAT=cmd/yurtctl
+make build WHAT=cmd/yurtctl
 ```
 
-`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, ack, kind 四种工具安装的kubernetes集群)：
+`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, kind 三种工具安装的kubernetes集群)：
 
 ```bash
-_output/bin/yurtctl convert --provider [minikube|kubeadm|ack|kind]
+_output/bin/yurtctl convert --provider [minikube|kubeadm|kind]
 ```
 
 要卸载 OpenYurt 并恢复为原始的 Kubernetes 集群设置，请运行以下命令：
