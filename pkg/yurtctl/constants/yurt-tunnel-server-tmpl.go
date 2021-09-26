@@ -30,6 +30,7 @@ rules:
   resources:
     - certificatesigningrequests
   verbs:
+    - create
     - get
     - list
     - watch
