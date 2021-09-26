@@ -194,14 +194,15 @@ func DeployYurttunnelServer(
 
 func DeployYurttunnelAgent(
 	client *kubernetes.Clientset,
-	tunnelAgentNodes []string,
+	tunnelServerAddress string,
 	yurttunnelAgentImage string) error {
 	// 1. Deploy the yurt-tunnel-agent DaemonSet
 	if err := CreateDaemonSetFromYaml(client,
 		constants.YurttunnelAgentDaemonSet,
 		map[string]string{
-			"image":           yurttunnelAgentImage,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+			"image":               yurttunnelAgentImage,
+			"edgeWorkerLabel":     projectinfo.GetEdgeWorkerLabelKey(),
+			"tunnelServerAddress": tunnelServerAddress}); err != nil {
 		return err
 	}
 	return nil

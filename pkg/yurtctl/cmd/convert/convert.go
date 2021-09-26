@@ -69,6 +69,7 @@ type ConvertOptions struct {
 	YurtControllerManagerImage string
 	YurctlServantImage         string
 	YurttunnelServerImage      string
+	YurttunnelServerAddress    string
 	YurttunnelAgentImage       string
 	PodMainfestPath            string
 	KubeadmConfPath            string
@@ -129,6 +130,9 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurt-tunnel-server-image",
 		"openyurt/yurt-tunnel-server:latest",
 		"The yurt-tunnel-server image.")
+	cmd.Flags().String("yurt-tunnel-server-address",
+		"",
+		"The yurt-tunnel-server address.")
 	cmd.Flags().String("yurt-tunnel-agent-image",
 		"openyurt/yurt-tunnel-agent:latest",
 		"The yurt-tunnel-agent image.")
@@ -205,6 +209,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.YurttunnelServerImage = ytsi
+
+	ytsa, err := flags.GetString("yurt-tunnel-server-address")
+	if err != nil {
+		return err
+	}
+	co.YurttunnelServerAddress = ytsa
 
 	ytai, err := flags.GetString("yurt-tunnel-agent-image")
 	if err != nil {
@@ -351,7 +361,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		klog.Info("yurt-tunnel-server is deployed")
 		// we will deploy yurt-tunnel-agent on every edge node
 		if err = kubeutil.DeployYurttunnelAgent(co.clientSet,
-			edgeNodeNames,
+			co.YurttunnelServerAddress,
 			co.YurttunnelAgentImage); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-tunnel-agent: %s", err)
 			return
