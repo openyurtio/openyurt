@@ -85,19 +85,20 @@ var (
 // Please note that this structure includes the public kubeadm config API, but only a subset of the options
 // supported by this api will be exposed as a flag.
 type initOptions struct {
-	cfgPath                  string
-	kubeconfigDir            string
-	kubeconfigPath           string
-	featureGatesString       string
-	ignorePreflightErrors    []string
-	bto                      *options.BootstrapTokenOptions
-	externalInitCfg          *kubeadmapiv1beta2.InitConfiguration
-	externalClusterCfg       *kubeadmapiv1beta2.ClusterConfiguration
-	kustomizeDir             string
-	installCNIFile           string
-	isConvertOpenYurtCluster bool
-	openyurtImageRegistry    string
-	openyurtVersion          string
+	cfgPath                     string
+	kubeconfigDir               string
+	kubeconfigPath              string
+	featureGatesString          string
+	ignorePreflightErrors       []string
+	bto                         *options.BootstrapTokenOptions
+	externalInitCfg             *kubeadmapiv1beta2.InitConfiguration
+	externalClusterCfg          *kubeadmapiv1beta2.ClusterConfiguration
+	kustomizeDir                string
+	installCNIFile              string
+	isConvertOpenYurtCluster    bool
+	openyurtImageRegistry       string
+	openyurtVersion             string
+	openyurtTunnelServerAddress string
 }
 
 // compile-time assert that the local data object satisfies the phases data interface.
@@ -106,24 +107,25 @@ var _ yurtphase.YurtInitData = &initData{}
 // initData defines all the runtime information used when running the kubeadm init workflow;
 // this data is shared across all the phases that are included in the workflow.
 type initData struct {
-	cfg                      *kubeadmapi.InitConfiguration
-	skipTokenPrint           bool
-	dryRun                   bool
-	kubeconfigDir            string
-	kubeconfigPath           string
-	ignorePreflightErrors    sets.String
-	certificatesDir          string
-	dryRunDir                string
-	externalCA               bool
-	client                   clientset.Interface
-	outputWriter             io.Writer
-	uploadCerts              bool
-	skipCertificateKeyPrint  bool
-	kustomizeDir             string
-	cniFileName              string
-	isConvertOpenYurtCluster bool
-	openyurtImageRegistry    string
-	openyurtVersion          string
+	cfg                         *kubeadmapi.InitConfiguration
+	skipTokenPrint              bool
+	dryRun                      bool
+	kubeconfigDir               string
+	kubeconfigPath              string
+	ignorePreflightErrors       sets.String
+	certificatesDir             string
+	dryRunDir                   string
+	externalCA                  bool
+	client                      clientset.Interface
+	outputWriter                io.Writer
+	uploadCerts                 bool
+	skipCertificateKeyPrint     bool
+	kustomizeDir                string
+	cniFileName                 string
+	isConvertOpenYurtCluster    bool
+	openyurtImageRegistry       string
+	openyurtVersion             string
+	openyurtTunnelServerAddress string
 }
 
 // NewCmdInit returns "kubeadm init" command.
@@ -253,6 +255,8 @@ func AddInitOtherFlags(flagSet *flag.FlagSet, initOptions *initOptions) {
 		"Choose a container registry to pull OpenYurt component images from")
 	flagSet.StringVar(&initOptions.openyurtVersion, "yurt-version", "",
 		"Choose a specific OpenYurt version")
+	flagSet.StringVar(&initOptions.openyurtTunnelServerAddress, "yurt-tunnel-server-address", "",
+		"Choose an accessible address for tunnelAgent when deployed in an isolated network")
 	flagSet.StringVar(&initOptions.installCNIFile, "install-cni-file", "",
 		"Configure install cni yaml file.")
 	flagSet.BoolVar(
@@ -362,21 +366,22 @@ func newInitData(cmd *cobra.Command, args []string, options *initOptions, out io
 	}
 
 	return &initData{
-		cfg:                      cfg,
-		certificatesDir:          cfg.CertificatesDir,
-		skipTokenPrint:           false,
-		kubeconfigDir:            options.kubeconfigDir,
-		kubeconfigPath:           options.kubeconfigPath,
-		ignorePreflightErrors:    ignorePreflightErrorsSet,
-		externalCA:               externalCA,
-		outputWriter:             out,
-		uploadCerts:              false,
-		skipCertificateKeyPrint:  false,
-		kustomizeDir:             options.kustomizeDir,
-		isConvertOpenYurtCluster: options.isConvertOpenYurtCluster,
-		openyurtVersion:          options.openyurtVersion,
-		cniFileName:              options.installCNIFile,
-		openyurtImageRegistry:    options.openyurtImageRegistry,
+		cfg:                         cfg,
+		certificatesDir:             cfg.CertificatesDir,
+		skipTokenPrint:              false,
+		kubeconfigDir:               options.kubeconfigDir,
+		kubeconfigPath:              options.kubeconfigPath,
+		ignorePreflightErrors:       ignorePreflightErrorsSet,
+		externalCA:                  externalCA,
+		outputWriter:                out,
+		uploadCerts:                 false,
+		skipCertificateKeyPrint:     false,
+		kustomizeDir:                options.kustomizeDir,
+		isConvertOpenYurtCluster:    options.isConvertOpenYurtCluster,
+		openyurtVersion:             options.openyurtVersion,
+		cniFileName:                 options.installCNIFile,
+		openyurtImageRegistry:       options.openyurtImageRegistry,
+		openyurtTunnelServerAddress: options.openyurtTunnelServerAddress,
 	}, nil
 }
 
@@ -493,6 +498,11 @@ func (d *initData) OpenYurtVersion() string {
 //CNIFileName return the cni install yaml.
 func (d *initData) CNIFileName() string {
 	return d.cniFileName
+}
+
+// YurtTunnelAddress return the openyurtTunnelServerAddress
+func (d *initData) YurtTunnelAddress() string {
+	return d.openyurtTunnelServerAddress
 }
 
 // Client returns a Kubernetes client to be used by kubeadm.

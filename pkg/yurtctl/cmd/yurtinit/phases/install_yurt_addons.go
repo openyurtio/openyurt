@@ -61,6 +61,7 @@ func runInstallYurtAddons(c workflow.RunData) error {
 	}
 	imageRegistry := data.OpenYurtImageRegistry()
 	version := data.OpenYurtVersion()
+	tunnelServerAddress := data.YurtTunnelAddress()
 
 	if len(imageRegistry) == 0 {
 		imageRegistry = YurtContants.DefaultOpenYurtImageRegistry
@@ -77,7 +78,7 @@ func runInstallYurtAddons(c workflow.RunData) error {
 	if err := kubeutil.DeployYurttunnelServer(client, nil, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelServer, version), runtime.GOARCH); err != nil {
 		return err
 	}
-	if err := kubeutil.DeployYurttunnelAgent(client, nil, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelAgent, version)); err != nil {
+	if err := kubeutil.DeployYurttunnelAgent(client, tunnelServerAddress, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelAgent, version)); err != nil {
 		return err
 	}
 	return nil

@@ -25,5 +25,6 @@ type YurtInitData interface {
 	IsConvertYurtCluster() bool
 	OpenYurtVersion() string
 	OpenYurtImageRegistry() string
+	YurtTunnelAddress() string
 	CNIFileName() string
 }

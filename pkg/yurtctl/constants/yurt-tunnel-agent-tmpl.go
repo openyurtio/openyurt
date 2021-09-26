@@ -42,6 +42,9 @@ spec:
         - yurt-tunnel-agent
         args:
         - --node-name=$(NODE_NAME)
+          {{if  .tunnelServerAddress }}
+        - --tunnelserver-addr={{.tunnelServerAddress}}
+          {{end}}
         image: {{.image}}
         imagePullPolicy: IfNotPresent
         name: yurt-tunnel-agent

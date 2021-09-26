@@ -125,6 +125,7 @@ spec:
     name: https
   - port: 10262
     targetPort: 10262
+    nodePort: 31008
     name: tcp
   selector:
     k8s-app: yurt-tunnel-server
