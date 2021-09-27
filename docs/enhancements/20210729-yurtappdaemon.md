@@ -1,5 +1,5 @@
 ---
-title: Proposal about uniteddaemonset
+title: Proposal about YurtAppDaemon
 authors:
   - "@kadisi"
 reviewers:
@@ -10,15 +10,15 @@ status: provisional
 ---
 
 
-# Proposal about UnitedDaemonSet
+# Proposal about YurtAppDaemon
 
 ## Glossary
 
-### UnitedDaemonSet:
+### YurtAppDaemon:
 
-A UnitedDaemonSet ensures that all (or some) NodePools run a copy of a Deployment or StatefulSet. As nodepools are added to the cluster, Deployment or Statefulset are added to them. As nodepools are removed from the cluster, those Deployments or Statefulset are garbage collected. Deleting a UnitedDaemonSet will clean up the Deployments or StatefulSet it created. The behavior of UnitedDaemonSet is similar to that of Daemonset, except that UnitedDaemonSet creates resources from a node pool.
+A YurtAppDaemon ensures that all (or some) NodePools run a copy of a Deployment or StatefulSet. As nodepools are added to the cluster, Deployment or Statefulset are added to them. As nodepools are removed from the cluster, those Deployments or Statefulset are garbage collected. Deleting a YurtAppDaemon will clean up the Deployments or StatefulSet it created. The behavior of YurtAppDaemon is similar to that of Daemonset, except that YurtAppDaemon creates resources from a node pool.
 
-  Some typical uses of a UnitedDaemonSet are:
+  Some typical uses of a YurtAppDaemon are:
   
     - running a deployment on every nodepool
     - running a statefulset on every nodepool
@@ -29,21 +29,21 @@ In the edge scenario, compute nodes in different regions are assigned to the sam
 
 ## Motivation
 
-### UnitedDaemonSet
+### YurtAppDaemon
 - Users can automatically deploy system components to different node pools (with specific labels) using a template that supports Deployment and Statefulset.
  
 ### Goals
-- Define the API of UnitedDaemonSet 
-- Provide UnitedDaemonSet controller
-- Provide UnitedDaemonSet webhook 
+- Define the API of YurtAppDaemon 
+- Provide YurtAppDaemon controller
+- Provide YurtAppDaemon webhook 
 
 ## Proposal
 
 - What is the plan for implementing this feature?
 
-  Provide yurtunit-manager operator to UnitedDaemonSet CRD
+  Provide yurt-app-manager operator to YurtAppDaemon CRD
 
-### UnitedDaemonSet API
+### YurtAppDaemon API
 
 ``` go
 
@@ -52,20 +52,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// UnitedDaemonSetConditionType indicates valid conditions type of a UnitedDaemonSet.
-type UnitedDaemonSetConditionType string
+// YurtAppDaemonConditionType indicates valid conditions type of a YurtAppDaemon.
+type YurtAppDaemonConditionType string
 
 const (
 	// WorkLoadProvisioned means all the expected workload are provisioned
-	WorkLoadProvisioned UnitedDaemonSetConditionType = "WorkLoadProvisioned"
+	WorkLoadProvisioned YurtAppDaemonConditionType = "WorkLoadProvisioned"
 	// WorkLoadUpdated means all the workload are updated.
-	WorkLoadUpdated UnitedDaemonSetConditionType = "WorkLoadUpdated"
-	// WorkLoadFailure is added to a UnitedDeployment when one of its workload has failure during its own reconciling.
-	WorkLoadFailure UnitedDaemonSetConditionType = "WorkLoadFailure"
+	WorkLoadUpdated YurtAppDaemonConditionType = "WorkLoadUpdated"
+	// WorkLoadFailure is added to a YurtAppDaemonConditionType when one of its workload has failure during its own reconciling.
+	WorkLoadFailure YurtAppDaemonConditionType = "WorkLoadFailure"
 )
 
-// UnitedDaemonSetSpec defines the desired state of UnitedDaemonSet.
-type UnitedDaemonSetSpec struct {
+// YurtAppDaemonSpec defines the desired state of YurtAppDaemon.
+type YurtAppDaemonSpec struct {
 	// Selector is a label query over pods that should match the replica count.
 	// It must match the pod template's labels.
 	Selector *metav1.LabelSelector `json:"selector"`
@@ -84,37 +84,37 @@ type UnitedDaemonSetSpec struct {
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
-// UnitedDaemonSetStatus defines the observed state of UnitedDaemonSet.
-type UnitedDaemonSetStatus struct {
-	// ObservedGeneration is the most recent generation observed for this UnitedDaemonSet. It corresponds to the
-	// UnitedDaemonSet's generation, which is updated on mutation by the API Server.
+// YurtAppDaemonStatus defines the observed state of YurtAppDaemon.
+type YurtAppDaemonStatus struct {
+	// ObservedGeneration is the most recent generation observed for this YurtAppDaemon. It corresponds to the
+	// YurtAppDaemon's generation, which is updated on mutation by the API Server.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// Count of hash collisions for the UnitedDaemonSet. The UnitedDaemonSet controller
+	// Count of hash collisions for the YurtAppDaemon. The YurtAppDaemon controller
 	// uses this field as a collision avoidance mechanism when it needs to
 	// create the name for the newest ControllerRevision.
 	// +optional
 	CollisionCount *int32 `json:"collisionCount,omitempty"`
 
-	// CurrentRevision, if not empty, indicates the current version of the UnitedDaemonSet.
+	// CurrentRevision, if not empty, indicates the current version of the YurtAppDaemon.
 	CurrentRevision string `json:"currentRevision"`
 
-	// Represents the latest available observations of a UnitedDaemonSet's current state.
+	// Represents the latest available observations of a YurtAppDaemon's current state.
 	// +optional
-	Conditions []UnitedDaemonSetCondition `json:"conditions,omitempty"`
+	Conditions []YurtAppDaemonCondition `json:"conditions,omitempty"`
 
 	// TemplateType indicates the type of PoolTemplate
 	TemplateType TemplateType `json:"templateType"`
 
-	// NodePools indicates the list of node pools selected by UnitedDaemonSet
+	// NodePools indicates the list of node pools selected by YurtAppDaemon
 	NodePools []string `json:"nodepools,omitempty"`
 }
 
-// UnitedDaemonSetCondition describes current state of a UnitedDaemonSet.
-type UnitedDaemonSetCondition struct {
+// YurtAppDaemonCondition describes current state of a YurtAppDaemon.
+type YurtAppDaemonCondition struct {
 	// Type of in place set condition.
-	Type UnitedDaemonSetConditionType `json:"type,omitempty"`
+	Type YurtAppDaemonConditionType `json:"type,omitempty"`
 
 	// Status of the condition, one of True, False, Unknown.
 	Status corev1.ConditionStatus `json:"status,omitempty"`
@@ -136,26 +136,26 @@ type UnitedDaemonSetCondition struct {
 // +kubebuilder:printcolumn:name="WorkloadTemplate",type="string",JSONPath=".status.templateType",description="The WorkloadTemplate Type."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 
-// UnitedDaemonSet is the Schema for the uniteddeployments API
-type UnitedDaemonSet struct {
+// YurtAppDaemon is the Schema for the YurtAppDaemon API
+type YurtAppDaemon struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   UnitedDaemonSetSpec   `json:"spec,omitempty"`
-	Status UnitedDaemonSetStatus `json:"status,omitempty"`
+	Spec   YurtAppDaemonSpec   `json:"spec,omitempty"`
+	Status YurtAppDaemonStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// UnitedDaemonSetList contains a list of UnitedDaemonSet
-type UnitedDaemonSetList struct {
+// YurtAppDaemonList contains a list of YurtAppDaemon
+type YurtAppDaemonList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []UnitedDaemonSet `json:"items"`
+	Items           []YurtAppDaemon `json:"items"`
 }
 
-// WorkloadTemplate defines the pool template under the UnitedDeployment.
-// UnitedDeployment will provision every pool based on one workload templates in WorkloadTemplate.
+// WorkloadTemplate defines the pool template under the YurtAppDaemon.
+// YurtAppDaemon will provision every pool based on one workload templates in WorkloadTemplate.
 // WorkloadTemplate now support statefulset and deployment
 // Only one of its members may be specified.
 type WorkloadTemplate struct {
@@ -185,7 +185,7 @@ type DeploymentTemplateSpec struct {
 
 ## Implementation History
 
-+ [ ] : uniteddaemonset api crd
-+ [ ] : yurtunit-manager uniteddaemonset controller
-+ [ ] : yurtunit-manager uniteddaemonset release
++ [ ] : YurtAppDaemon api crd
++ [ ] : yurt-app-manager YurtAppDaemon controller
++ [ ] : yurt-app-manager YurtAppDaemon release
 
