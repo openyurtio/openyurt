@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.4.1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.5.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 
@@ -14,6 +14,7 @@ English | [简体中文](./README.zh.md)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
+|September 26th, 2021. OpenYurt v0.5.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |August 6th, 2021. OpenYurt v0.4.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |March 21th, 2021. OpenYurt v0.4.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |January 8th, 2021. OpenYurt v0.3.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
@@ -39,6 +40,7 @@ OpenYurt has the following advantages in terms of compatibility and usability.
 - **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
   The applications run in the edge nodes are not affected even if the nodes are offline.
 - **Cloud platform agnostic**. OpenYurt can be easily deployed in any public cloud Kubernetes services.
+- **Edge Device Management**. Non-intrusively integrate with EdgeX Foundry system and use Kubernetes CRDs to manage edge devices.
 
 ## Architecture
 
@@ -71,6 +73,10 @@ The major OpenYurt components consist of:
 - **Node resource manager**: It manages local node resources of OpenYurt cluster in a unified manner.
   It currently manages LVM, QuotaPath and Pmem Memory.
   Please refer to [node-resource-manager](https://github.com/openyurtio/node-resource-manager) for more details.
+- **Yurt-edgex-manager**: It manages EdgeX Foundry lifecycle(including deploy, delete, update) in OpenYurt cluster.
+  Please refer to [yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager) for more details.
+- **Yurt-device-controller**: Leverage existing edge computing platforms, like EdgeX Foundry, and uses Kubernetes custom resources to manage edge devices.
+  Please refer to [yurt-device-controller](https://github.com/openyurtio/yurt-device-controller) for more details.
 
 ## Before you begin
 
@@ -88,14 +94,14 @@ assuming the build system has golang 1.13+ and bash installed, you can simply do
 ```bash
 git clone https://github.com/openyurtio/openyurt.git
 cd openyurt
-make WHAT=cmd/yurtctl
+make build WHAT=cmd/yurtctl
 ```
 
 The `yurtctl` binary can be found at `_output/bin`. To convert an existing Kubernetes cluster to an OpenYurt cluster,
-the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm, ACK and kind):
+the following simple command line can be used(support kubernetes clusters that managed by minikube, kubeadm, kind):
 
 ```bash
-_output/bin/yurtctl convert --provider [minikube|kubeadm|ack|kind]
+_output/bin/yurtctl convert --provider [minikube|kubeadm|kind]
 ```
 
 To uninstall OpenYurt and revert back to the original Kubernetes cluster settings, you can run the following command:
