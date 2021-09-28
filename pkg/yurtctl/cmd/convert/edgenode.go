@@ -310,10 +310,7 @@ func (c *ConvertEdgeNodeOptions) SetupYurthub() error {
 		})
 
 	// 1-3. create yurthub.yaml
-	podManifestPath, err := enutil.GetPodManifestPath(c.KubeadmConfPath)
-	if err != nil {
-		return err
-	}
+	podManifestPath := enutil.GetPodManifestPath()
 	if err = enutil.EnsureDir(podManifestPath); err != nil {
 		return err
 	}

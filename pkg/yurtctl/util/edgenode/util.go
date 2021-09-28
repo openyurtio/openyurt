@@ -17,7 +17,6 @@ limitations under the License.
 package edgenode
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -201,30 +200,7 @@ func Exec(cmd *exec.Cmd) error {
 	return nil
 }
 
-// GetPodManifestPath get path string from kubeadmConf file
-func GetPodManifestPath(kubeadmConfPath string) (string, error) {
-	configRegularExpression := "\\-\\-config=.*config.yaml"
-	podManifestPathRegularExpression := "staticPodPath: .*"
-
-	configPath, err := GetSingleContentFromFile(kubeadmConfPath, configRegularExpression)
-	if err != nil {
-		return "", err
-	}
-	arr := strings.Split(configPath, "=")
-	if len(arr) != 2 {
-		return "", errors.New("kubelet config path format incorrect: " + configPath)
-	}
-	configPath = arr[1]
-
-	podManifestPath, err := GetSingleContentFromFile(configPath, podManifestPathRegularExpression)
-	if err != nil {
-		return "", err
-	}
-	arr = strings.Split(podManifestPath, " ")
-	if len(arr) != 2 {
-		return "", errors.New("podManifestPath format incorrect: " + podManifestPath)
-	}
-	podManifestPath = arr[1]
-
-	return podManifestPath, nil
+// GetPodManifestPath return podManifestPath, use default value of kubeadm/minikube/kind. etc.
+func GetPodManifestPath() string {
+	return StaticPodPath // /etc/kubernetes/manifests
 }

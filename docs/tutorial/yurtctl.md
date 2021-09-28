@@ -332,3 +332,14 @@ running the following command in edge node directly:
 ```
 $ sudo sed -i "s|--kubeconfig=.*kubelet.conf|--kubeconfig=/etc/kubernetes/kubelet.conf|g;" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf && sudo systemctl daemon-reload && sudo systemctl restart kubelet.service
 ```
+
+### 3. Failure due to incorrect podManifests path
+
+PodManifests path is the dir where k8s static pod YAML file located.
+Tools like kubeadm/minikube/kind all set that path to /etc/kubernetes/manifests. And we choose to follow that setting.
+
+So if you manually change that setting, this will leads to a convert failure.
+To fix it, we recommend creating a soft link:
+```
+ln -s $yourSettingPath /etc/kubernetes/manifests
+```
