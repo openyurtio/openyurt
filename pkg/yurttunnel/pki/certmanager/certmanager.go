@@ -92,6 +92,7 @@ func NewYurttunnelServerCertManager(
 			certificates.UsageKeyEncipherment,
 			certificates.UsageDigitalSignature,
 			certificates.UsageServerAuth,
+			certificates.UsageClientAuth,
 		},
 		ips)
 }
