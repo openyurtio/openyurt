@@ -62,3 +62,6 @@ clean:
 
 e2e:
 	hack/make-rules/build-e2e.sh
+
+e2e-tests:
+	bash hack/run-e2e-tests.sh
