@@ -198,7 +198,7 @@ spec:
       containers:
       - name: yurt-tunnel-server
         image: {{.image}} 
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - yurt-tunnel-server
         args:

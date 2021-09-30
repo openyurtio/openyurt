@@ -170,7 +170,7 @@ spec:
       containers:
       - name: __project_prefix__-tunnel-server
         image: __repo__/__project_prefix__-tunnel-server:__tag__
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
         - __project_prefix__-tunnel-server
         args:
