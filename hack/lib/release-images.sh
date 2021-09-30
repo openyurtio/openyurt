@@ -39,10 +39,24 @@ readonly -a SUPPORTED_ARCH=(
 
 readonly SUPPORTED_OS=linux
 
-readonly -a bin_targets=(${WHAT:-${YURT_BIN_TARGETS[@]}})
+readonly -a bin_targets=(${WHAT[@]:-${YURT_BIN_TARGETS[@]}})
 readonly -a bin_targets_process_servant=("${bin_targets[@]/yurtctl-servant/yurtctl}")
-readonly -a target_arch=(${ARCH:-${SUPPORTED_ARCH[@]}})
+readonly -a target_arch=(${ARCH[@]:-${SUPPORTED_ARCH[@]}})
 readonly region=${REGION:-us}
+
+# Parameters
+# $1: component name
+# $2: arch
+function get_image_name {
+    # If ${GIT_COMMIT} is not at a tag, add commit to the image tag. 
+    if [[ -z $(git tag --points-at ${GIT_COMMIT}) ]]; then
+        yurt_component_image="${REPO}/$1:${TAG}-$2-$(expr substr ${GIT_COMMIT} 1 7)"
+    else
+        yurt_component_image="${REPO}/$1:${TAG}-$2"
+    fi    
+
+    echo ${yurt_component_image}
+}
 
 function build_multi_arch_binaries() {
     local docker_run_opts=(
@@ -123,7 +137,7 @@ ENTRYPOINT ["/usr/local/bin/${binary_name}"]
 EOF
                fi
 
-               yurt_component_image="${REPO}/${yurt_component_name}:${TAG}-${arch}"
+               yurt_component_image=$(get_image_name ${yurt_component_name} ${arch})
                ln "${binary_path}" "${docker_build_path}/${binary_name}"
                docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" ${docker_build_path}
                docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${yurt_component_name}-${SUPPORTED_OS}-${arch}.tar
