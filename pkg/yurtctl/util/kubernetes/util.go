@@ -26,11 +26,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -58,12 +59,13 @@ import (
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
+	"github.com/spf13/pflag"
+
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -594,6 +596,10 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 			klog.Warningf("%v", err)
 			continue
 		}
+		if !usagesAndGroupsAreValid(token) {
+			continue
+		}
+
 		return token.Token.String(), nil
 		// Get the human-friendly string representation for the token
 	}
@@ -608,10 +614,34 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	}
 
 	klog.V(1).Infoln("[token] creating token")
-	if err := tokenphase.CreateNewTokens(cliSet, []kubeadmapi.BootstrapToken{{Token: token, Usages: kubeadmcontants.DefaultTokenUsages, Groups: kubeadmcontants.DefaultTokenGroups}}); err != nil {
+	if err := tokenphase.CreateNewTokens(cliSet,
+		[]kubeadmapi.BootstrapToken{{
+			Token:  token,
+			Usages: kubeadmcontants.DefaultTokenUsages,
+			Groups: kubeadmcontants.DefaultTokenGroups,
+		}}); err != nil {
 		return "", err
 	}
 	return tokenStr, nil
+}
+
+// usagesAndGroupsAreValid checks if the usages and groups in the given bootstrap token are valid
+func usagesAndGroupsAreValid(token *kubeadmapi.BootstrapToken) bool {
+	sliceEqual := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		sort.Strings(a)
+		sort.Strings(b)
+		for k, v := range b {
+			if a[k] != v {
+				return false
+			}
+		}
+		return true
+	}
+
+	return sliceEqual(token.Usages, kubeadmcontants.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmcontants.DefaultTokenGroups)
 }
 
 // find kube-controller-manager deployed through static file
