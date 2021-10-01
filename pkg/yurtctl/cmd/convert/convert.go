@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -32,7 +31,6 @@ import (
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
@@ -108,7 +106,7 @@ func NewConvertCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewConvertEdgeNodeCmd())
-
+	cmd.AddCommand(NewConvertCloudNodeCmd())
 	cmd.Flags().StringP("cloud-nodes", "c", "",
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
 	cmd.Flags().StringP("provider", "p", "minikube",
@@ -304,8 +302,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 	for _, node := range nodeLst.Items {
 		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) || strutil.IsInStringLst(kcmNodeNames, node.GetName()) {
-			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
-			if condition == nil || condition.Status != v1.ConditionTrue {
+			if !isNodeReady(&node.Status) {
 				klog.Errorf("Cannot do the convert, the status of worker node or kube-controller-manager node: %s is not 'Ready'.", node.Name)
 				return
 			}
@@ -389,8 +386,6 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return err
 	}
 
-	// 9. deploy yurt-hub and reset the kubelet service
-	klog.Infof("deploying the yurt-hub and resetting the kubelet service...")
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(co.clientSet)
 	if err != nil {
 		return err
@@ -409,11 +404,23 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		ctx["yurthub_healthcheck_timeout"] = co.YurthubHealthCheckTimeout.String()
 	}
 
+	// 9. deploy yurt-hub and reset the kubelet service on edge nodes.
+	klog.Infof("deploying the yurt-hub and resetting the kubelet service on edge nodes...")
+	ctx["sub_command"] = "edgenode"
 	if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames); err != nil {
 		klog.Errorf("fail to run ServantJobs: %s", err)
 		return
 	}
-	klog.Info("complete deploying yurt-hub")
+	klog.Info("complete deploying yurt-hub on edge nodes")
+
+	// 10. deploy yurt-hub and reset the kubelet service on cloud nodes
+	klog.Infof("deploying the yurt-hub and resetting the kubelet service on cloud nodes")
+	ctx["sub_command"] = "cloudnode"
+	if err = kubeutil.RunServantJobs(co.clientSet, ctx, co.CloudNodes); err != nil {
+		klog.Errorf("fail to run ServantJobs: %s", err)
+		return
+	}
+	klog.Info("complete deploying yurt-hub on cloud nodes")
 
 	return
 }

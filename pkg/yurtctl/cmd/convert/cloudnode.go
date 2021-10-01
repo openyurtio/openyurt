@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2020 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,42 +26,40 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-// ConvertEdgeNodeOptions has the information required by sub command convert edgenode
-type ConvertEdgeNodeOptions struct {
+// ConvertCloudNodeOptions has the information required by sub command convert cloudnode
+type ConvertCloudNodeOptions struct {
 	ConvertNodeOptions
 }
 
-// NewConvertEdgeNodeOptions creates a new ConvertEdgeNodeOptions
-func NewConvertEdgeNodeOptions() *ConvertEdgeNodeOptions {
-	return &ConvertEdgeNodeOptions{}
+// NewConvertCloudNodeOptions creates a new ConvertCloudNodeOptions
+func NewConvertCloudNodeOptions() *ConvertCloudNodeOptions {
+	return &ConvertCloudNodeOptions{}
 }
 
-// NewConvertEdgeNodeCmd generates a new sub command convert edgenode
-func NewConvertEdgeNodeCmd() *cobra.Command {
-	c := NewConvertEdgeNodeOptions()
+// NewConvertCloudNodeCmd generates a new sub command convert cloudnode
+func NewConvertCloudNodeCmd() *cobra.Command {
+	c := NewConvertCloudNodeOptions()
 	cmd := &cobra.Command{
-		Use:   "edgenode",
-		Short: "Converts the kubernetes node to a yurt edge node",
+		Use:   "cloudnode",
+		Short: "Converts the kubernetes node to a yurt cloud node",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if err := c.Complete(cmd.Flags()); err != nil {
-				klog.Fatalf("fail to complete the convert edgenode option: %s", err)
+				klog.Fatalf("fail to complete the convert cloudnode option: %s", err)
 			}
-			if err := c.RunConvertNode(util.WorkingModeEdge); err != nil {
+			if err := c.RunConvertNode(util.WorkingModeCloud); err != nil {
 				klog.Fatalf("fail to convert the kubernetes node to a yurt node: %s", err)
 			}
 		},
 	}
-
-	cmd.Flags().StringP("edge-nodes", "e", "",
-		"The list of edge nodes wanted to be convert.(e.g. -e edgenode1,edgenode2)")
+	cmd.Flags().StringP("cloud-nodes", "c", "",
+		"The list of cloud nodes wanted to be convert.(e.g. -e cloudnode1,cloudnode2)")
 	commonFlags(cmd)
-
 	return cmd
 }
 
-// Complete completes all the required options
-func (c *ConvertEdgeNodeOptions) Complete(flags *pflag.FlagSet) error {
-	enStr, err := flags.GetString("edge-nodes")
+// Complete completes all the required options.
+func (c *ConvertCloudNodeOptions) Complete(flags *pflag.FlagSet) error {
+	enStr, err := flags.GetString("cloud-nodes")
 	if err != nil {
 		return err
 	}
