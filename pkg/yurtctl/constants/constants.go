@@ -314,7 +314,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl revert edgenode && rm /tmp/yurtctl"
+        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl revert {{.sub_command}} && rm /tmp/yurtctl"
         securityContext:
           privileged: true
         volumeMounts:

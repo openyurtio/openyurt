@@ -318,7 +318,7 @@ func (c *ConvertNodeOptions) RunConvertNode(workingMode util.WorkingMode) (err e
 		// convert local node
 		err = c.convertLocalNode(nodeName, workingMode)
 	} else {
-		return fmt.Errorf("fail to revert edge node, flag --edge-nodes %s err", c.Nodes)
+		return fmt.Errorf("fail to convert node, flag --edge-nodes or --cloud-nodes %s err", c.Nodes)
 	}
 	return err
 }
