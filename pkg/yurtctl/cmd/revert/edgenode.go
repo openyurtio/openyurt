@@ -190,11 +190,7 @@ func (r *RevertEdgeNodeOptions) RunRevertEdgeNode() (err error) {
 			klog.Errorf("fail to get file %s, should revise the %s directly", kubeletSvcBk, r.KubeadmConfPath)
 			return err
 		}
-		podManifestPath, err := enutil.GetPodManifestPath(r.KubeadmConfPath)
-		if err != nil {
-			klog.Errorf("get podManifestPath fail: %v", err)
-			return err
-		}
+		podManifestPath := enutil.GetPodManifestPath()
 		yurthubYamlPath := getYurthubYaml(podManifestPath)
 		if ok, err := enutil.FileExists(yurthubYamlPath); !ok {
 			return err

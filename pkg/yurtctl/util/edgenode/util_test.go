@@ -17,39 +17,12 @@ limitations under the License.
 package edgenode
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 )
 
-var kubeadmConf = `
-[Service]
-Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf"
-Environment="KUBELET_CONFIG_ARGS=--config=/tmp/openyurt-test/config.yaml"
-EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
-EnvironmentFile=-/etc/default/kubelet
-ExecStart=
-ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS`
-
-var confYaml = `serializeImagePulls: true
-staticPodPath: /etc/kubernetes/manifests
-streamingConnectionIdleTimeout: 4h0m0s
-syncFrequency: 1m0s`
-
 func Test_GetPodManifestPath(t *testing.T) {
-	err := EnsureDir("/tmp/openyurt-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll("/tmp/openyurt-test")
 
-	_ = ioutil.WriteFile("/tmp/openyurt-test/kubeadm.conf", []byte(kubeadmConf), 0755)
-	_ = ioutil.WriteFile("/tmp/openyurt-test/config.yaml", []byte(confYaml), 0755)
-
-	path, err := GetPodManifestPath("/tmp/openyurt-test/kubeadm.conf")
-	if err != nil {
-		t.Fatal(err)
-	}
+	path := GetPodManifestPath()
 	if path != "/etc/kubernetes/manifests" {
 		t.Fatal("get path err: " + path)
 	}

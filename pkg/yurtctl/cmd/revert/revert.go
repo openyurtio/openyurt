@@ -92,11 +92,7 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	ro.KubeadmConfPath = kcp
 
-	podManifestPath, err := enutil.GetPodManifestPath(ro.KubeadmConfPath)
-	if err != nil {
-		return err
-	}
-	ro.PodMainfestPath = podManifestPath
+	ro.PodMainfestPath = enutil.GetPodManifestPath()
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {

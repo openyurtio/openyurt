@@ -234,11 +234,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.KubeadmConfPath = kcp
 
-	podManifestPath, err := enutil.GetPodManifestPath(co.KubeadmConfPath)
-	if err != nil {
-		return err
-	}
-	co.PodMainfestPath = podManifestPath
+	co.PodMainfestPath = enutil.GetPodManifestPath()
 
 	sa, err := flags.GetString("system-architecture")
 	if err != nil {
