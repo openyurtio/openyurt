@@ -27,40 +27,40 @@ import (
 	"k8s.io/klog"
 )
 
-// RevertEdgeNodeOptions has the information required by sub command revert edgenode
-type RevertEdgeNodeOptions struct {
+// RevertCloudNodeOptions has the information required by sub command revert cloudnode
+type RevertCloudNodeOptions struct {
 	RevertNodeOptions
 }
 
-// NewRevertEdgeNodeOptions creates a new RevertEdgeNodeOptions
-func NewRevertEdgeNodeOptions() *RevertEdgeNodeOptions {
-	return &RevertEdgeNodeOptions{}
+// NewRevertCloudNodeOptions creates a new RevertCloudNodeOptions
+func NewRevertCloudNodeOptions() *RevertCloudNodeOptions {
+	return &RevertCloudNodeOptions{}
 }
 
-// NewRevertEdgeNodeCmd generates a new sub command revert edgenode
-func NewRevertEdgeNodeCmd() *cobra.Command {
-	r := NewRevertEdgeNodeOptions()
+// NewRevertCloudNodeCmd generates a new sub command revert edgenode and cloudnode
+func NewRevertCloudNodeCmd() *cobra.Command {
+	r := NewRevertCloudNodeOptions()
 	cmd := &cobra.Command{
-		Use:   "edgenode",
-		Short: "reverts the yurt edge node to a kubernetes node",
+		Use:   "cloudnode",
+		Short: "reverts the yurt cloud node to a kubernetes node",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if err := r.Complete(cmd.Flags()); err != nil {
-				klog.Fatalf("fail to complete the revert edgenode option: %s", err)
+				klog.Fatalf("fail to complete the revert cloudnode option: %s", err)
 			}
-			if err := r.RunRevertNode(util.WorkingModeEdge); err != nil {
+			if err := r.RunRevertNode(util.WorkingModeCloud); err != nil {
 				klog.Fatalf("fail to revert the yurt node to a kubernetes node: %s", err)
 			}
 		},
 	}
-	cmd.Flags().StringP("edge-nodes", "e", "",
-		"The list of edge nodes wanted to be revert.(e.g. -e edgenode1,edgenode2)")
+	cmd.Flags().StringP("cloud-nodes", "e", "",
+		"The list of edge nodes wanted to be revert.(e.g. -e cloudnode1,cloudnode2)")
 	commonFlags(cmd)
 	return cmd
 }
 
 // Complete completes all the required options
-func (r *RevertEdgeNodeOptions) Complete(flags *pflag.FlagSet) (err error) {
-	enStr, err := flags.GetString("edge-nodes")
+func (r *RevertCloudNodeOptions) Complete(flags *pflag.FlagSet) error {
+	enStr, err := flags.GetString("cloud-nodes")
 	if err != nil {
 		return err
 	}

@@ -93,6 +93,7 @@ spec:
     - --server-addr=__kubernetes_service_addr__
     - --node-name=$(NODE_NAME)
     - --join-token=__join_token__
+    - --working-mode=__working_mode__
     livenessProbe:
       httpGet:
         host: 127.0.0.1

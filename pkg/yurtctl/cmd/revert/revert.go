@@ -22,12 +22,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
@@ -45,7 +43,7 @@ type RevertOptions struct {
 	KubeadmConfPath     string
 }
 
-// NewConvertOptions creates a new RevertOptions
+// NewRevertOptions creates a new RevertOptions
 func NewRevertOptions() *RevertOptions {
 	return &RevertOptions{}
 }
@@ -67,6 +65,7 @@ func NewRevertCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRevertEdgeNodeCmd())
+	cmd.AddCommand(NewRevertCloudNodeCmd())
 
 	cmd.Flags().String("yurtctl-servant-image",
 		"openyurt/yurtctl-servant:latest",
@@ -134,8 +133,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	for _, node := range nodeLst.Items {
 		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
 		if ok && isEdgeNode == "true" || strutil.IsInStringLst(kcmNodeNames, node.GetName()) {
-			_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
-			if condition == nil || condition.Status != v1.ConditionTrue {
+			if !isNodeReady(&node.Status) {
 				klog.Errorf("Cannot do the revert, the status of worker or kube-controller-manager node: %s is not 'Ready'.", node.Name)
 				return
 			}
@@ -143,25 +141,19 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.V(4).Info("the status of worker nodes and kube-controller-manager nodes are satisfied")
 
-	// 2. remove labels from nodes
-	var edgeNodeNames []string
+	var edgeNodeNames, cloudNodeNames []string
 	for _, node := range nodeLst.Items {
-		isEdgeNode, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
-		if ok && isEdgeNode == "true" {
-			// cache edge nodes, we need to run servant job on each edge node later
+		isEdgeNode := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+		// cache edge nodes and cloud nodes, we need to run servant job on each node later
+		if isEdgeNode == "true" {
 			edgeNodeNames = append(edgeNodeNames, node.GetName())
 		}
-		if ok && isEdgeNode == "false" {
-			// remove the label for both the cloud node
-			delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
-			if _, err = ro.clientSet.CoreV1().Nodes().Update(context.Background(), &node, metav1.UpdateOptions{}); err != nil {
-				return
-			}
+		if isEdgeNode == "false" {
+			cloudNodeNames = append(cloudNodeNames, node.GetName())
 		}
 	}
-	klog.Info("label openyurt.io/is-edge-worker is removed")
 
-	// 3. remove the yurt controller manager
+	// 2. remove the yurt controller manager
 	if err = ro.clientSet.AppsV1().Deployments("kube-system").
 		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -171,7 +163,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("yurt controller manager is removed")
 
-	// 3.1 remove the serviceaccount for yurt-controller-manager
+	// 2.1 remove the serviceaccount for yurt-controller-manager
 	if err = ro.clientSet.CoreV1().ServiceAccounts("kube-system").
 		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -181,7 +173,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("serviceaccount for yurt controller manager is removed")
 
-	// 3.2 remove the clusterrole for yurt-controller-manager
+	// 2.2 remove the clusterrole for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoles().
 		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -191,7 +183,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("clusterrole for yurt controller manager is removed")
 
-	// 3.3 remove the clusterrolebinding for yurt-controller-manager
+	// 2.3 remove the clusterrolebinding for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoleBindings().
 		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
@@ -201,19 +193,19 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("clusterrolebinding for yurt controller manager is removed")
 
-	// 4. remove the yurt-tunnel agent
+	// 3. remove the yurt-tunnel agent
 	if err = removeYurtTunnelAgent(ro.clientSet); err != nil {
 		klog.Errorf("fail to remove the yurt tunnel agent: %s", err)
 		return
 	}
 
-	// 5. remove the yurt-tunnel server
+	// 4. remove the yurt-tunnel server
 	if err = removeYurtTunnelServer(ro.clientSet); err != nil {
 		klog.Errorf("fail to remove the yurt tunnel server: %s", err)
 		return
 	}
 
-	// 6. enable node-controller
+	// 5. enable node-controller
 	if err = kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{
 			"action":                "enable",
@@ -226,20 +218,28 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("complete enabling node-controller")
 
-	// 7. remove yurt-hub and revert kubelet service
-	if err = kubeutil.RunServantJobs(ro.clientSet,
-		map[string]string{
-			"action":                "revert",
-			"yurtctl_servant_image": ro.YurtctlServantImage,
-			"kubeadm_conf_path":     ro.KubeadmConfPath,
-		},
-		edgeNodeNames); err != nil {
+	// 6. remove yurt-hub and revert kubelet service on edge nodes
+	ctx := map[string]string{
+		"action":                "revert",
+		"yurtctl_servant_image": ro.YurtctlServantImage,
+		"kubeadm_conf_path":     ro.KubeadmConfPath,
+	}
+	ctx["sub_command"] = "edgenode"
+	if err = kubeutil.RunServantJobs(ro.clientSet, ctx, edgeNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
 		return
 	}
-	klog.Info("complete removing yurt-hub and resetting kubelet service")
+	klog.Info("complete removing yurt-hub and resetting kubelet service on edge nodes")
 
-	// 7.1. remove yut-hub k8s config, roleBinding role
+	// 7. remove yurt-hub and revert kubelet service on cloud nodes
+	ctx["sub_command"] = "cloudnode"
+	if err = kubeutil.RunServantJobs(ro.clientSet, ctx, cloudNodeNames); err != nil {
+		klog.Errorf("fail to revert edge node: %s", err)
+		return
+	}
+	klog.Info("complete removing yurt-hub and resetting kubelet service on cloud nodes")
+
+	// 8. remove yut-hub k8s config, roleBinding role
 	err = kubeutil.DeleteYurthubSetting(ro.clientSet)
 	if err != nil {
 		klog.Error("DeleteYurthubSetting err: ", err)
