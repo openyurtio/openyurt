@@ -24,7 +24,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
@@ -33,8 +32,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
-
 	"github.com/spf13/cobra"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
@@ -109,16 +108,8 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		return err
 	}
 	serverCertMgr.Start()
-	go certmanager.NewCSRApprover(cfg.Client, cfg.SharedInformerFactory.Certificates().V1beta1().CertificateSigningRequests()).
-		Run(constants.YurttunnelCSRApproverThreadiness, stopCh)
 
-	// 3. generate the TLS configuration based on the latest certificate
-	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert)
-	if err != nil {
-		return err
-	}
-
-	// 4. create handler wrappers
+	// 3. create handler wrappers
 	mInitializer := initializer.NewMiddlewareInitializer(cfg.SharedInformerFactory)
 	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
 	if err != nil {
@@ -128,7 +119,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// after all of informers are configured completed, start the shared index informer
 	cfg.SharedInformerFactory.Start(stopCh)
 
-	// 5. waiting for the certificate is generated
+	// 4. waiting for the certificate is generated
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
 		// keep polling until the certificate is signed
 		if serverCertMgr.Current() != nil {
@@ -137,6 +128,12 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetServerName())
 		return false, nil
 	}, stopCh)
+
+	// 5. generate the TLS configuration based on the latest certificate
+	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert)
+	if err != nil {
+		return err
+	}
 
 	// 6. start the server
 	ts := server.NewTunnelServer(

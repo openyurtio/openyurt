@@ -37,23 +37,25 @@ import (
 	"k8s.io/klog"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
 )
 
 const (
-	YurtHubCSRApproverThreadiness = 2
+	// yurthub PKI related constants
+	YurthubCSROrg = "openyurt:yurthub"
+	// yurttunnel PKI related constants
+	YurttunnelCSROrg           = "openyurt:yurttunnel"
+	YurtCSRApproverThreadiness = 2
 )
 
-// YurtHubCSRApprover is the controller that auto approve all
-// yurthub related CSR
-type YurtHubCSRApprover struct {
+// YurtCSRApprover is the controller that auto approve all openyurt related CSR
+type YurtCSRApprover struct {
 	csrInformer certv1beta1.CertificateSigningRequestInformer
 	csrClient   typev1beta1.CertificateSigningRequestInterface
 	workqueue   workqueue.RateLimitingInterface
 }
 
-// Run starts the YurtHubCSRApprover
-func (yca *YurtHubCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
+// Run starts the YurtCSRApprover
+func (yca *YurtCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer yca.workqueue.ShutDown()
 	klog.Info("starting the crsapprover")
@@ -69,12 +71,12 @@ func (yca *YurtHubCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
 	klog.Info("stoping the csrapprover")
 }
 
-func (yca *YurtHubCSRApprover) runWorker() {
+func (yca *YurtCSRApprover) runWorker() {
 	for yca.processNextItem() {
 	}
 }
 
-func (yca *YurtHubCSRApprover) processNextItem() bool {
+func (yca *YurtCSRApprover) processNextItem() bool {
 	key, quit := yca.workqueue.Get()
 	if quit {
 		return false
@@ -97,7 +99,7 @@ func (yca *YurtHubCSRApprover) processNextItem() bool {
 		return true
 	}
 
-	if err := approveYurtHubCSR(csr, yca.csrClient); err != nil {
+	if err := approveCSR(csr, yca.csrClient); err != nil {
 		runtime.HandleError(err)
 		enqueueObj(yca.workqueue, csr)
 		return true
@@ -119,8 +121,8 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 		return
 	}
 
-	if !isYurtHubCSR(csr) {
-		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetHubName())
+	if !isYurtCSR(csr) {
+		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetProjectPrefix())
 		return
 	}
 
@@ -133,10 +135,10 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 	klog.V(4).Infof("approved or denied csr, ignore it: %s", key)
 }
 
-// NewCSRApprover creates a new YurtHubCSRApprover
+// NewCSRApprover creates a new YurtCSRApprover
 func NewCSRApprover(
 	clientset kubernetes.Interface,
-	csrInformer certinformer.CertificateSigningRequestInformer) *YurtHubCSRApprover {
+	csrInformer certinformer.CertificateSigningRequestInformer) *YurtCSRApprover {
 
 	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -147,25 +149,26 @@ func NewCSRApprover(
 			enqueueObj(wq, new)
 		},
 	})
-	return &YurtHubCSRApprover{
+	return &YurtCSRApprover{
 		csrInformer: csrInformer,
 		csrClient:   clientset.CertificatesV1beta1().CertificateSigningRequests(),
 		workqueue:   wq,
 	}
 }
 
-// approveYurtHubCSR checks the csr status, if it is neither approved nor
+// approveCSR checks the csr status, if it is neither approved nor
 // denied, it will try to approve the csr.
-func approveYurtHubCSR(
+func approveCSR(
 	obj interface{},
 	csrClient typev1beta1.CertificateSigningRequestInterface) error {
 	csr, ok := obj.(*certificates.CertificateSigningRequest)
 	if !ok {
+		klog.Infof("object is not csr: %v", obj)
 		return nil
 	}
 
-	if !isYurtHubCSR(csr) {
-		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetHubName())
+	if !isYurtCSR(csr) {
+		klog.Infof("csr(%s) is not %s csr", csr.GetName(), projectinfo.GetProjectPrefix())
 		return nil
 	}
 
@@ -180,26 +183,26 @@ func approveYurtHubCSR(
 		return nil
 	}
 
-	// approve the yurthub related csr
+	// approve the openyurt related csr
 	csr.Status.Conditions = append(csr.Status.Conditions,
 		certificates.CertificateSigningRequestCondition{
 			Type:    certificates.CertificateApproved,
 			Reason:  "AutoApproved",
-			Message: fmt.Sprintf("self-approving %s csr", projectinfo.GetHubName()),
+			Message: fmt.Sprintf("self-approving %s csr", projectinfo.GetProjectPrefix()),
 		})
 
 	result, err := csrClient.UpdateApproval(context.Background(), csr, metav1.UpdateOptions{})
 	if err != nil {
-		klog.Errorf("failed to approve %s csr(%s), %v", projectinfo.GetHubName(), csr.GetName(), err)
+		klog.Errorf("failed to approve %s csr(%s), %v", projectinfo.GetProjectPrefix(), csr.GetName(), err)
 		return err
 	}
-	klog.Infof("successfully approve %s csr(%s)", projectinfo.GetHubName(), result.Name)
+	klog.Infof("successfully approve %s csr(%s)", projectinfo.GetProjectPrefix(), result.Name)
 	return nil
 }
 
-// isYurtHubCSR checks if given csr is a yurthub related csr, i.e.,
+// isYurtCSR checks if given csr is a openyurt related csr, i.e.,
 // the organizations' list contains "openyurt:yurthub"
-func isYurtHubCSR(csr *certificates.CertificateSigningRequest) bool {
+func isYurtCSR(csr *certificates.CertificateSigningRequest) bool {
 	pemBytes := csr.Spec.Request
 	block, _ := pem.Decode(pemBytes)
 	if block == nil || block.Type != "CERTIFICATE REQUEST" {
@@ -209,15 +212,12 @@ func isYurtHubCSR(csr *certificates.CertificateSigningRequest) bool {
 	if err != nil {
 		return false
 	}
-	for i, org := range x509cr.Subject.Organization {
-		if org == server.YurtHubCSROrg {
-			break
-		}
-		if i == len(x509cr.Subject.Organization)-1 {
-			return false
+	for _, org := range x509cr.Subject.Organization {
+		if org == YurttunnelCSROrg || org == YurthubCSROrg {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // checkCertApprovalCondition checks if the given csr's status is

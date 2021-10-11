@@ -45,46 +45,49 @@ func ShortServerVersion() string {
 	return GetServerName() + "/" + gitVersion + "-" + commit
 }
 
+// The project prefix is: yurt
 func GetProjectPrefix() string {
 	return projectPrefix
 }
 
+// Server name: yurttunnel-server
 func GetServerName() string {
 	return projectPrefix + "tunnel-server"
 }
 
+// Agent name: yurttunnel-agent
 func GetAgentName() string {
 	return projectPrefix + "tunnel-agent"
 }
 
-// GetEdgeWorkerLabelKey returns the edge-worker label, which is used to
-// identify if a node is a edge node ("true") or a cloud node ("false")
+// GetEdgeWorkerLabelKey returns the edge-worker label ("openyurt.io/is-edge-worker"),
+// which is used to identify if a node is a edge node ("true") or a cloud node ("false")
 func GetEdgeWorkerLabelKey() string {
 	return labelPrefix + "/is-edge-worker"
 }
 
-// GetHubName returns name of yurthub agent
+// GetHubName returns name of yurthub agent: yurthub
 func GetHubName() string {
 	return projectPrefix + "hub"
 }
 
-// GetEdgeEnableTunnelLabelKey returns the tunnel agent label, which is used
-// to identify if tunnel agent is running on the node or not.
+// GetEdgeEnableTunnelLabelKey returns the tunnel agent label ("openyurt.io/edge-enable-reverseTunnel-client"),
+// which is used to identify if tunnel agent is running on the node or not.
 func GetEdgeEnableTunnelLabelKey() string {
 	return labelPrefix + "/edge-enable-reverseTunnel-client"
 }
 
-// GetTunnelName returns name of tunnel
+// GetTunnelName returns name of tunnel: yurttunnel
 func GetTunnelName() string {
 	return projectPrefix + "tunnel"
 }
 
-// GetYurtControllerManagerName returns name of openyurt controller-manager
+// GetYurtControllerManagerName returns name of openyurt controller-manager: yurtcontroller-manager
 func GetYurtControllerManagerName() string {
 	return projectPrefix + "controller-manager"
 }
 
-// GetYurtAppManagerName returns name of tunnel
+// GetYurtAppManagerName returns name of tunnel: yurtapp-manager
 func GetYurtAppManagerName() string {
 	return projectPrefix + "app-manager"
 }

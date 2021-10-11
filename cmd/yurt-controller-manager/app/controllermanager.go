@@ -287,7 +287,7 @@ var ControllersDisabledByDefault = sets.NewString()
 func NewControllerInitializers() map[string]InitFunc {
 	controllers := map[string]InitFunc{}
 	controllers["nodelifecycle"] = startNodeLifecycleController
-	controllers["yurthubcsrapprover"] = startYurtHubCSRApproverController
+	controllers["yurtcsrapprover"] = startYurtCSRApproverController
 
 	return controllers
 }
