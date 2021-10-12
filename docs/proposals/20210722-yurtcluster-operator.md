@@ -76,69 +76,86 @@ CRD's definition:
 ```go
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ImageMeta allows to customize the image used for components that are not
-// originated from the openyurtio/openyurt release process
+// originated from the OpenYurt release process
 type ImageMeta struct {
 	// Repository sets the container registry to pull images from.
-	// if not set, the ImageRepository defined in YurtClusterSpec will be used instead.
+	// If not set, the ImageRepository defined in YurtClusterSpec will be used instead.
 	// +optional
 	Repository string `json:"repository,omitempty"`
 	// Tag allows to specify a tag for the image.
-	// if not set, the tag releated to the YurtVersion defined in YurtClusterSpec will be used instead.
+	// If not set, the tag related to the YurtVersion defined in YurtClusterSpec will be used instead.
 	// +optional
 	Tag string `json:"tag,omitempty"`
 }
 
 // ComponentConfig defines the common config for the yurt components
 type ComponentConfig struct {
-	// Enabled indicates whether the yurt component has been enabled
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
 	// ImageMeta allows to customize the image used for the yurt component
 	// +optional
 	ImageMeta `json:",inline"`
+
+	// Enabled indicates whether the yurt component has been enabled
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// ExtraArgs is an extra set of flags to pass to the OpenYurt component.
+	// A key in this map is the flag name as it appears on the
+	// command line except without leading dash(es).
+	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 }
 
-// YurtHubSpec defines the configuration for yurthub component
+// YurtHubSpec defines the configuration for yurthub
 type YurtHubSpec struct {
+	// Cloud defines the yurthub configuration about cloud nodes
+	// +optional
+	Cloud YurtHubSpecTemplate `json:"cloud,omitempty"`
+
+	// Edge defines the yurthub configuration about edge nodes
+	// +optional
+	Edge YurtHubSpecTemplate `json:"edge,omitempty"`
+}
+
+// YurtHubSpecTemplate defines the configuration template for yurthub
+type YurtHubSpecTemplate struct {
 	// ComponentConfig defines the common config for the yurt components
 	// +optional
 	ComponentConfig `json:",inline"`
-	// EnableResourceFilter enables to filter response that comes back from reverse proxy
+
+	// PodManifestsPath defines the path to the directory on edge node containing static pod files
 	// +optional
-	EnableResourceFilter *bool `json:"enableResourceFilter,omitempty"`
-	// AccessServerThroughHub enables pods access kube-apiserver through yurthub or not
-	// +optional
-	AccessServerThroughHub *bool `json:"accessServerThroughHub,omitempty"`
-	// AutoRestartNodePod represents whether to automatically restart the pod on the node after it was converted
-	// This will trigger the re-injection of environment variables (e.g. KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT)
-	// This should only be set when EnableResourceFilter is true.
-	// +optional
-	AutoRestartNodePod *bool `json:"autoRestartNodePod,omitempty"`
-	// PodManifestPath defines the path to the directory on edge node containing static pod files.
-	// +optional
-	PodManifestPath string `json:"podManifestPath,omitempty"`
-	// KubeadmConfPath defines the path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.
+	PodManifestsPath string `json:"podManifestsPath,omitempty"`
+
+	// KubeadmConfPath defines the path to kubelet service conf that is used by kubelet component
+	// to join the cluster on the edge node
 	// +optional
 	KubeadmConfPath string `json:"kubeadmConfPath,omitempty"`
+
+	// AutoRestartNodePod represents whether to automatically restart the pod after yurthub added or removed
+	// +optional
+	AutoRestartNodePod *bool `json:"autoRestartNodePod,omitempty"`
 }
 
-// YurtTunnelSpec defines the configuration for yurt tunnel component
+// YurtTunnelSpec defines the configuration for yurt tunnel
 type YurtTunnelSpec struct {
 	// ComponentConfig defines the common config for the yurt components
 	// +optional
 	ComponentConfig `json:",inline"`
+
 	// ServerCount defines the replicas for the tunnel server Pod.
 	// Its value should be greater than or equal to the number of API Server.
 	// Operator will automatically override this value if it is less than the number of API Server.
 	// +optional
 	ServerCount int `json:"serverCount,omitempty"`
+
 	// PublicIP defines the public IP for tunnel server listen on.
 	// If this field is empty, the tunnel agent will use NodePort Service to connect to the tunnel server.
 	// +optional
 	PublicIP string `json:"publicIP,omitempty"`
+
 	// PublicPort defines the public port for tunnel server listen on.
 	// +optional
 	PublicPort int `json:"publicPort,omitempty"`
@@ -151,15 +168,19 @@ type NodeSet struct {
 	// Names defines the node names to be selected
 	// +optional
 	Names []string `json:"names,omitempty"`
+
 	// NamePattern defines the regular expression to select nodes based on node name
 	// +optional
 	NamePattern string `json:"namePattern,omitempty"`
+
 	// Selector defines the label selector to select nodes
 	// +optional
 	Selector *corev1.NodeSelector `json:"selector,omitempty"`
+
 	// ExcludedNames defines the node names to be excluded
 	// +optional
 	ExcludedNames []string `json:"excludedNames,omitempty"`
+
 	// ExcludedNamePattern defines the regular expression to exclude nodes based on node name
 	// +optional
 	ExcludedNamePattern string `json:"excludedNamePattern,omitempty"`
@@ -171,21 +192,26 @@ type YurtClusterSpec struct {
 	// If empty, `docker.io/openyurt` will be used by default
 	// +optional
 	ImageRepository string `json:"imageRepository,omitempty"`
-	// YurtVersion is the target version of OpneYurt.
+
+	// YurtVersion is the target version of OpenYurt
 	// +optional
 	YurtVersion string `json:"yurtVersion,omitempty"`
+
 	// CloudNodes defines the node set with cloud role.
 	// +optional
 	CloudNodes NodeSet `json:"cloudNodes,omitempty"`
+
 	// EdgeNodes defines the node set with edge role.
 	// +optional
 	EdgeNodes NodeSet `json:"edgeNodes,omitempty"`
-	// YurtHubSpec defines the configuration for yurthub component.
+
+	// YurtHub defines the configuration for yurthub
 	// +optional
-	YurtHubSpec YurtHubSpec `json:"yurtHubSpec,omitempty"`
-	// YurtTunnelSpec defines the configuration for yurt tunnel component.
+	YurtHub YurtHubSpec `json:"yurtHub,omitempty"`
+
+	// YurtTunnel defines the configuration for yurt tunnel
 	// +optional
-	YurtTunnelSpec YurtTunnelSpec `json:"yurtTunnelSpec,omitempty"`
+	YurtTunnel YurtTunnelSpec `json:"yurtTunnel,omitempty"`
 }
 
 // Phase is a string representation of a YurtCluster Phase.
@@ -194,10 +220,13 @@ type Phase string
 const (
 	// PhaseInvalid is the state when the YurtCluster is invalid
 	PhaseInvalid = Phase("Invalid")
+
 	// PhaseConverting is the state when the YurtCluster is converting
 	PhaseConverting = Phase("Converting")
+
 	// PhaseDeleting is the state when the YurtCluster is deleting
 	PhaseDeleting = Phase("Deleting")
+
 	// PhaseSucceed is the state when the YurtCluster is ready
 	PhaseSucceed = Phase("Succeed")
 )
@@ -215,15 +244,19 @@ type NodeCondition struct {
 	// The status for the condition's last transition.
 	// +optional
 	Status string `json:"status,omitempty"`
+
 	// The reason for the condition's last transition.
 	// +optional
 	Reason string `json:"reason,omitempty"`
+
 	// A human readable message indicating details about the transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+
 	// The last time this condition was updated.
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
 	// The generation observed by the node agent controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -234,20 +267,33 @@ type YurtClusterStatus struct {
 	// Phase represents the current phase of the yurt cluster
 	// +optional
 	Phase Phase `json:"phase,omitempty"`
+
 	// FailureReason indicates that there is a problem reconciling the state, and
 	// will be set to a token value suitable for programmatic interpretation.
 	// +optional
 	FailureReason *YurtClusterStatusFailure `json:"failureReason,omitempty"`
+
 	// FailureMessage indicates that there is a fatal problem reconciling the
 	// state, and will be set to a descriptive error message.
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
+
 	// NodeConditions holds the info about node conditions
 	// +optional
 	NodeConditions map[string]NodeCondition `json:"nodeConditions,omitempty"`
+
 	// The generation observed by the operator controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
+
+// YurtCluster is the Schema for the yurtclusters API
+type YurtCluster struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   YurtClusterSpec   `json:"spec,omitempty"`
+	Status YurtClusterStatus `json:"status,omitempty"`
 }
 ```
 
