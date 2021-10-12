@@ -50,7 +50,7 @@ readonly region=${REGION:-us}
 function get_image_name {
     # If ${GIT_COMMIT} is not at a tag, add commit to the image tag. 
     if [[ -z $(git tag --points-at ${GIT_COMMIT}) ]]; then
-        yurt_component_image="${REPO}/$1:${TAG}-$2-$(expr substr ${GIT_COMMIT} 1 7)"
+        yurt_component_image="${REPO}/$1:${TAG}-$2-$(echo ${GIT_COMMIT} | cut -c 1-7)"
     else
         yurt_component_image="${REPO}/$1:${TAG}-$2"
     fi    
