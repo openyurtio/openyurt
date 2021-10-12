@@ -21,45 +21,45 @@ English | [简体中文](./README.zh.md)
 |August 30th, 2020. OpenYurt v0.2.0 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |May 29th, 2020. OpenYurt v0.1.0-beta.1 is **RELEASED**! Please check the [CHANGELOG](CHANGELOG.md) for details.|
 
-OpenYurt(official website: <https://openyurt.io>) is now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/). It is built based on native Kubernetes and targets to extend it to support edge computing seamlessly.
-In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were running
+OpenYurt(official website: <https://openyurt.io>) is now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/). It is built based on native Kubernetes and aims to extend it to support edge computing seamlessly.
+In a nutshell, OpenYurt enables users to manage applications that run in the edge infrastructure as if they were run
 in the cloud infrastructure.
 
 OpenYurt is suitable for common edge computing use cases whose requirements include:
-- Minimizing the network traffic over long distances between the devices and the workloads.
-- Overcoming the network bandwidth or reliability limitations.
+- Minimizing the network traffic over long distances between cloud control plane and edge nodes.
+- Resolving the network bandwidth or reliability limitations.
 - Processing data remotely to reduce latency.
 - Providing a better security model to handle sensitive data.
-- Manage edge resources and edge applications in a single cluster.
+- Manage edge resources and edge applications in the cloud control plane.
 
-OpenYurt has the following advantages in terms of compatibility and usability.
-- **Kubernetes native**. It provides full Kubernetes API compatibility. All Kubernetes workloads, services,
-  operators, CNI plugins, and CSI plugins are supported.
-- **Seamless conversion**. It provides a tool to easily convert a native Kubernetes to be "edge" ready.
-  The extra resource and maintenance costs of the OpenYurt components are very low.
-- **Node autonomy**. It provides mechanisms to tolerate unstable or disconnected cloud-edge networking.
-  The applications run in the edge nodes are not affected even if the nodes are offline.
+OpenYurt has the following advantages over state of the art edge solutions.
+- **Kubernetes native**. It preserves full Kubernetes API compatibility. All Kubernetes native workloads, services,
+  operators, plugins are supported.
+- **Seamless conversion**. It provides a tool to make a Kubernetes cluster "edge" ready.
+  The resource and maintenance overheads from OpenYurt components are low.
+- **Node autonomy**. It provides various mechanisms to tolerate unstable or disconnected cloud-edge networking.
+  Applications running in the edge nodes are not affected even if the nodes are disconnected to the cloud.
 - **Cloud platform agnostic**. OpenYurt can be easily deployed in any public cloud Kubernetes services.
-- **Edge Device Management**. Non-intrusively integrate with EdgeX Foundry system and use Kubernetes CRDs to manage edge devices.
+- **Edge Device Management**. It integrates with [EdgeX Foundry platform](https://www.edgexfoundry.org/) and uses Kubernetes CRDs to manage edge devices.
 
 ## Architecture
 
 OpenYurt follows a classic edge application architecture design -
-a centralized Kubernetes master resides in the cloud site, which
-manages multiple edge nodes reside in the edge site. Each edge node has moderate compute resources allowing
-running a number of edge applications plus the Kubernetes node daemons. The edge nodes in a cluster can span
-multiple physical regions. The terms `region` and `Pool` are interchangeable in OpenYurt.
+a centralized Kubernetes control plane residing in the cloud site, which
+manages multiple edge nodes residing in the edge site. Each edge node has moderate compute resources available in order to
+to run a number of edge applications plus the required node daemons. The edge nodes in a cluster can span
+multiple physical regions. The terms `region` and `Pool` are used interchangeably in OpenYurt.
 <div align="left">
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
 
 \
-The major OpenYurt components consist of:
+As illustrated in above figure, the core OpenYurt components consist of:
 - **YurtHub**: A node daemon that serves as a proxy for the outbound traffic from the
   Kubernetes node daemons (Kubelet, Kubeproxy, CNI plugins and so on). It caches the
   states of all the resources that the Kubernetes node daemons
-  might access in the edge node's local storage. In case the edge node is offline, those daemons can
-  recover the states upon node restarts.
+  might access in the edge node's local storage. In case the edge node is disconnected to the cloud, YurtHub can
+  recover the states when the node restarts.
 - **Yurt controller manager**: It manages a node controller for different edge computing use cases. For example,
   the Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the
   node heartbeats are missing.
@@ -70,12 +70,14 @@ The major OpenYurt components consist of:
 - **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
-- **Node resource manager**: It manages local node resources of OpenYurt cluster in a unified manner.
-  It currently manages LVM, QuotaPath and Pmem Memory.
+
+In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
+- **Node resource manager**: It manages edge node resources other than CPU/Memory of OpenYurt cluster in a unified manner.
+  It currently supports managing LVM, QuotaPath and Pmem Memory.
   Please refer to [node-resource-manager](https://github.com/openyurtio/node-resource-manager) for more details.
-- **Yurt-edgex-manager**: It manages EdgeX Foundry lifecycle(including deploy, delete, update) in OpenYurt cluster.
+- **Yurt-edgex-manager**: It manages EdgeX Foundry software suite lifecycle such as create, delete, update in OpenYurt cluster.
   Please refer to [yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager) for more details.
-- **Yurt-device-controller**: Leverage existing edge computing platforms, like EdgeX Foundry, and uses Kubernetes custom resources to manage edge devices.
+- **Yurt-device-controller**: It uses Kubernetes custom resources to manage edge devices hosted by the existing edge computing platforms, such as EdgeX Foundry.
   Please refer to [yurt-device-controller](https://github.com/openyurtio/yurt-device-controller) for more details.
 
 ## Before you begin
