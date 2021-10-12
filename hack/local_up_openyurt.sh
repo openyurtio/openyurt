@@ -182,7 +182,7 @@ function kind_load_images {
         fi
         
         echo "loading image ${imagename} to nodes"
-        local nodesarg=$(echo "${master} ${edgenodes[@]}" | sed "s/ /,/g")
+        local nodesarg=$(echo ${master} ${edgenodes[@]} | sed "s/ /,/g")
         kind load image-archive ${IMAGES_DIR}/${imagename} \
             --name ${CLUSTER_NAME} --nodes ${nodesarg}
     done
