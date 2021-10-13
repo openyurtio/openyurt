@@ -20,32 +20,30 @@
 #
 # It uses the following env variables:
 # REGION
-# Affect the GOPROXY. You can set it to "cn" to use GOPROXY="https://goproxy.cn".
-# Default value is "us", which means using GOPROXY="https://goproxy.io"
-# The default value is "us".
+# REGION affects the GOPROXY to use. You can set it to "cn" to use GOPROXY="https://goproxy.cn".
+# Default value is "us", which means using GOPROXY="https://goproxy.io".
 #
 # KIND_KUBECONFIG
 # KIND_KUBECONFIG represents the path to store the kubeconfig file of the cluster
-# which is created by this shell. The default value is "$HOME/.kube/config"
+# which is created by this shell. The default value is "$HOME/.kube/config".
 #
 # NODES_NUM
-# NODES_NUM represents the number of nodes to be included in the new-created cluster.
-# There are one control-plane node and NODES_NUM-1 worker nodes. Thus, NODES_NUM must
-# be greater than 2. The default value is 2.
+# NODES_NUM represents the number of nodes to set up in the new-created cluster.
+# There is one control-plane node and NODES_NUM-1 worker nodes. Thus, NODES_NUM must
+# not be less than 2. The default value is 2.
 #
 # KUBERNETESVERSION
-# It declares the kubernetes version the cluster will use. The format is "1.XX". 
-# Now only 1.18, 1.19 and 1.20 are supported. The default value is 1.20
+# KUBERNETESVERSION declares the kubernetes version the cluster will use. The format is "1.XX". 
+# Now only 1.18, 1.19 and 1.20 are supported. The default value is 1.20.
 #
 # TIMEOUT
-# TIMEOUT represents the time to wait for the kind control-plane, yurt-tunnel and
-# yurt-server to be ready. If it is not ready after the duration, the shell will exit.
+# TIMEOUT represents the time to wait for the kind control-plane, yurt-tunnel-server and
+# yurt-tunnel-agent to be ready. If they are not ready after the duration, the shell will exit.
 # The default value is 120s.
 #
 # YURTTUNNEL
 # If set YURTTUNNEL=disable, the yurt-tunnel-agent and yurt-tunnel-server will not be
-# deployed in the openyurt cluster.
-# The default value is "enable".
+# deployed in the openyurt cluster. The default value is "enable".
 
 
 set -x
