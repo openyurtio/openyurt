@@ -15,4 +15,18 @@ This document outlines the development roadmap for the OpenYurt project.
 
 ## v0.5.0 Roadmap
 
-It will be added after v0.4.0 released.
+- Support IOT Device Management integrated with EdgeX Foundry that comply with cloud native IOT API
+- Yurt-tunnel support more flexible settings for forwarding requests from cloud to edge
+- Add local storage statics collection and report
+- Support Pods that use `InClusterConfig` access kube-apiserver run on edge nodes without modification.
+- Improve OpenYurt user experience(yurtctl init/join/reset)
+- Support service to bound east-west traffic within a nodePool
+
+## v0.6.0 Roadmap
+
+- Launch OpenYurt Experience Center to support end users to learn openyurt easily.
+- Support Ingress controller at NodePool level.
+- Local storage supports multi-devicepath
+- Add YurtAppDaemon for managing workloads like DaemonSet at NodePool level.
+- Add YurtCluster Operator(A declarative way for kubernetes and openyurt conversion)
+- Update Docs and homepage website
