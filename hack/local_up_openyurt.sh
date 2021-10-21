@@ -120,9 +120,19 @@ function gen_kind_config {
     # fill name:tag of images and fill bin dir
     local bindir=$(escape_slash ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH})
     local node_image=$(escape_slash $(echo ${KIND_NODE_IMAGES[${minor}-18]}))
-    sed -i "s/image: |fill image here|$/image: ${node_image}/g 
+
+    # there are some differences between UNIX and Linux when executing the SED command.
+    # just add a "" blank character after the - i instruction
+    if [ $LOCAL_OS == "darwin" ]; then
+      bindir=$(escape_slash ${YURT_LOCAL_BIN_DIR}/"linux"/${LOCAL_ARCH})
+      sed -i "" "s/image: |fill image here|$/image: ${node_image}/g
+          s/- hostPath: |fill local bin dir|/- hostPath: ${bindir}/g" \
+              ${gen_config_path}
+    else
+      sed -i "s/image: |fill image here|$/image: ${node_image}/g
         s/- hostPath: |fill local bin dir|/- hostPath: ${bindir}/g" \
-            ${gen_config_path}    
+            ${gen_config_path}
+    fi
 }
 
 function install_kind {
@@ -171,6 +181,10 @@ function build_target_binaries_and_images {
 
 function kind_load_images {
     local postfix="${LOCAL_OS}-${LOCAL_ARCH}.tar"
+
+    if [[ ${LOCAL_OS} == "darwin" ]]; then
+      postfix="linux-${LOCAL_ARCH}.tar"
+    fi 
 
     for bin in ${BUILD_TARGETS[@]}; do
         local imagename="${bin}-${postfix}"
@@ -262,7 +276,7 @@ function get_kubeconfig {
 function cleanup {
     rm -rf ${YURT_ROOT}/_output
     rm -rf ${YURT_ROOT}/dockerbuild
-    rm -f ${KIND_CONFIG} 
+    rm -f ${KIND_CONFIG}
     kind delete clusters ${CLUSTER_NAME}
 }
 

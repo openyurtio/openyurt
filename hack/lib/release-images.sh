@@ -141,7 +141,6 @@ EOF
                ln "${binary_path}" "${docker_build_path}/${binary_name}"
                docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" ${docker_build_path}
                docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${yurt_component_name}-${SUPPORTED_OS}-${arch}.tar
-               rm -rf ${docker_build_path}
             fi
         done
     done

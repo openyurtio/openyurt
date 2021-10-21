@@ -137,9 +137,11 @@ func NewCoreDNSRecordController(client clientset.Interface,
 
 // newServiceInformer creates a shared index informer that returns only interested services
 func newServiceInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelServerInternalServiceName)
+	// this informer will be used by coreDNSRecordController and certificate manager,
+	// so it should return x-tunnel-server-svc and x-tunnel-server-internal-svc
+	selector := fmt.Sprintf("name=%v", projectinfo.YurtTunnelServerLabel())
 	tweakListOptions := func(options *metav1.ListOptions) {
-		options.FieldSelector = selector
+		options.LabelSelector = selector
 	}
 	return coreinformers.NewFilteredServiceInformer(cs, constants.YurttunnelServerServiceNs, resyncPeriod, nil, tweakListOptions)
 }
