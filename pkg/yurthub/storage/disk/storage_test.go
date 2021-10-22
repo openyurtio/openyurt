@@ -263,7 +263,7 @@ func TestDelete(t *testing.T) {
 						t.Errorf("%s: delete key(%s) expect error %v, but got %v", k, key, result.deleteErr, err)
 					}
 				} else if err != nil {
-					t.Errorf("%s: Got error %v, unable delete key %q", k, err, key)
+					t.Errorf("%s: Got error %v, unable to delete key %q", k, err, key)
 				}
 			}
 
@@ -279,7 +279,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 
@@ -366,7 +366,7 @@ func TestGet(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 
@@ -433,7 +433,7 @@ func TestListKeys(t *testing.T) {
 
 			keys, err := s.ListKeys(tc.listKey)
 			if err != nil {
-				t.Errorf("%s: Got error %v, unable list keys for %s", k, err, tc.listKey)
+				t.Errorf("%s: Got error %v, unable to list keys for %s", k, err, tc.listKey)
 			}
 
 			if len(tc.result) != len(keys) {
@@ -456,7 +456,7 @@ func TestListKeys(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 
@@ -549,7 +549,7 @@ func TestList(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 
@@ -626,7 +626,7 @@ func TestUpdate(t *testing.T) {
 			for key, data := range tc.result {
 				b, err := s.Get(key)
 				if err != nil {
-					t.Errorf("%s: Got error %v, unable get key %s", k, err, key)
+					t.Errorf("%s: Got error %v, unable to get key %s", k, err, key)
 				}
 
 				if data != string(b) {
@@ -644,7 +644,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 
@@ -716,7 +716,7 @@ func TestReplace(t *testing.T) {
 			for key, data := range tc.result {
 				b, err := s.Get(key)
 				if err != nil {
-					t.Errorf("%s: Got error %v, unable get key %s", k, err, key)
+					t.Errorf("%s: Got error %v, unable to get key %s", k, err, key)
 				}
 
 				if data != string(b) {
@@ -733,7 +733,7 @@ func TestReplace(t *testing.T) {
 	}
 
 	if err = os.RemoveAll(testDir); err != nil {
-		t.Errorf("Got error %v, unable remove path %s", err, testDir)
+		t.Errorf("Got error %v, unable to remove path %s", err, testDir)
 	}
 }
 

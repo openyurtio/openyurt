@@ -18,6 +18,7 @@ package healthchecker
 
 import (
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -34,6 +35,10 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+)
+
+var (
+	rootDir = "/tmp/healthz"
 )
 
 func TestHealthyCheckrWithHealthyServer(t *testing.T) {
@@ -241,9 +246,13 @@ func TestHealthyCheckrWithHealthyServer(t *testing.T) {
 		},
 	}
 
+	store, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			store, _ := disk.NewDiskStorage("/tmp/healthz")
 			stopCh := make(chan struct{})
 			hcm := &healthCheckerManager{
 				checkers:          make(map[string]*checker),
@@ -286,5 +295,9 @@ func TestHealthyCheckrWithHealthyServer(t *testing.T) {
 
 			close(stopCh)
 		})
+	}
+
+	if err := os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
