@@ -76,6 +76,11 @@ func (m *NetworkManager) Run(stopCh <-chan struct{}) {
 			select {
 			case <-stopCh:
 				klog.Infof("exit network manager run goroutine normally")
+				m.iptablesManager.CleanUpIptablesRules()
+				err := m.ifController.DeleteDummyInterface(m.dummyIfName)
+				if err != nil {
+					klog.Errorf("failed to delete dummy interface %s, %v", m.dummyIfName, err)
+				}
 				return
 			case <-ticker.C:
 				if err := m.configureNetwork(); err != nil {
