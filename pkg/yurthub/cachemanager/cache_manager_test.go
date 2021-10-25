@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -516,6 +517,10 @@ func TestCacheGetResponse(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func TestCacheWatchResponse(t *testing.T) {
@@ -842,6 +847,10 @@ func TestCacheWatchResponse(t *testing.T) {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
 
@@ -1330,6 +1339,10 @@ func TestCacheListResponse(t *testing.T) {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
 
@@ -1863,6 +1876,10 @@ func TestQueryCacheForGet(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func TestQueryCacheForList(t *testing.T) {
@@ -2311,6 +2328,10 @@ func TestQueryCacheForList(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func compareObjectsAndKeys(t *testing.T, objs []runtime.Object, namespaced bool, keys map[string]struct{}) bool {
@@ -2580,6 +2601,10 @@ func TestCanCacheFor(t *testing.T) {
 				}
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -138,6 +139,10 @@ func TestServeHTTPForWatch(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
@@ -220,6 +225,10 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func TestServeHTTPForPost(t *testing.T) {
@@ -296,6 +305,10 @@ func TestServeHTTPForPost(t *testing.T) {
 			}
 		})
 	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
 }
 
 func TestServeHTTPForDelete(t *testing.T) {
@@ -358,6 +371,10 @@ func TestServeHTTPForDelete(t *testing.T) {
 				t.Errorf("got status code %d, but expect %d", result.StatusCode, tt.code)
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
 
@@ -493,6 +510,10 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
 
@@ -680,5 +701,9 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
 		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
