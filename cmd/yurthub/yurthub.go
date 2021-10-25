@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/server"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	cmd := app.NewCmdStartYurtHub(wait.NeverStop)
+	cmd := app.NewCmdStartYurtHub(server.SetupSignalHandler())
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {
 		panic(err)
