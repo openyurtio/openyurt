@@ -134,12 +134,6 @@ func (fh *serviceTopologyFilterHandler) reassembleEndpointSlice(endpointSlice *d
 			return endpointSlice
 		}
 
-		// discard endpointSlice if service type is LoadBalancer
-		if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-			klog.Infof("endpointSlice(%s/%s) of load balancer service is discarded", endpointSlice.Namespace, endpointSlice.Name)
-			return nil
-		}
-
 		if serviceTopologyType, ok = svc.Annotations[AnnotationServiceTopologyKey]; !ok {
 			klog.Infof("skip reassemble endpointSlice, service %s/%s has no annotation %s", endpointSlice.Namespace, svcName, AnnotationServiceTopologyKey)
 			return endpointSlice
