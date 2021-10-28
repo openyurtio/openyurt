@@ -1,7 +1,7 @@
 # prometheus
 
 this tutorial shows how to setup  prometheus to collects node metrics on the  edge through yurt-tunnel with DNS mode.Yurt-tunnel maintains a ConfigMap which will resolve edge nodeName to the address of  Yurt-tunnel server,and It will proxy traffic from cloud to edge.
-
+![system-architecture](../img/prometheus.png)
 ## Local up OpenYurt cluster
 
 if you don't have the OpenYurt cluster, you can run the command [`local_up_openyurt.sh`](../../hack/local_up_openyurt.sh) to quickly set  up the OpenYurt cluster. you can reference this [turorial](./yurt-e2e-test.md) to figure out more details.
