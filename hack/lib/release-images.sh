@@ -27,6 +27,7 @@ readonly -a YURT_BIN_TARGETS=(
     yurthub
     yurt-controller-manager
     yurtctl
+    yurt-node-servant
     yurt-tunnel-server
     yurt-tunnel-agent
 )
@@ -126,6 +127,30 @@ function build_docker_image() {
                  cat << EOF > $docker_file_path
 FROM ${base_image}
 ADD ${binary_name} /usr/local/bin/yurtctl
+EOF
+               elif [[ ${binary} =~ yurt-node-servant ]];
+               then
+                   yurt_component_name="node-servant"
+                 case $arch in
+                  amd64)
+                      base_image="amd64/alpine:3.9"
+                      ;;
+                  arm64)
+                      base_image="arm64v8/alpine:3.9"
+                      ;;
+                  arm)
+                      base_image="arm32v7/alpine:3.9"
+                      ;;
+                  *)
+                      echo unknown arch $arch
+                      exit 1
+                 esac
+                 ln ./hack/lib/node-servant-entry.sh "${docker_build_path}/entry.sh"
+                 cat << EOF > $docker_file_path
+FROM ${base_image}
+ADD entry.sh /usr/local/bin/entry.sh
+RUN chmod +x /usr/local/bin/entry.sh
+ADD ${binary_name} /usr/local/bin/node-servant
 EOF
                else
                  yurt_component_name=${binary_name}

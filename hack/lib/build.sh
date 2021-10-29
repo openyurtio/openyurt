@@ -18,6 +18,7 @@ set -x
 
 readonly YURT_ALL_TARGETS=(
     yurtctl
+    yurt-node-servant
     yurthub
     yurt-controller-manager
     yurt-tunnel-server
