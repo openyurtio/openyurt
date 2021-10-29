@@ -23,19 +23,19 @@ English | [简体中文](./README.zh.md)
   <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
 </div>
 
-OpenYurt has been designed to support various DevOps requirements against typical edge infrastructures.
+OpenYurt has been designed to meet various DevOps requirements against typical edge infrastructures.
 It provides the same user experience for managing the edge applications as if they were running in the cloud infrastructure.
 It addresses specific challenges for cloud-edge orchestration in Kubernetes such as unreliable or disconnected cloud-edge networking,
-edge node autonomy, edge device management, regional-aware deployment and so on. OpenYurt preserves full Kubernetes API compatibility,
+edge node autonomy, edge device management, region-aware deployment and so on. OpenYurt preserves intact Kubernetes API compatibility,
 is vendor agnostic, and more importantly, is **SIMPLE** to use.
 
 ## Architecture
 
-OpenYurt follows a classic cloud-edge architecture design, i.e.,
-it uses a centralized Kubernetes control plane residing in the cloud site to
+OpenYurt follows a classic cloud-edge architecture design.
+It uses a centralized Kubernetes control plane residing in the cloud site to
 manage multiple edge nodes residing in the edge sites. Each edge node has moderate compute resources available in order to
-to run edge applications plus the required OpenYurt components. The edge nodes in a cluster can span
-multiple physical regions, which are referred to as `Pool` in OpenYurt.
+run edge applications plus the required OpenYurt components. The edge nodes in a cluster can span
+multiple physical regions, which are referred to as `Pools` in OpenYurt.
 <div align="left">
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
@@ -44,14 +44,14 @@ multiple physical regions, which are referred to as `Pool` in OpenYurt.
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
 - **YurtHub**: A node daemon that serves as a proxy for the outbound traffic from typical
   Kubernetes node daemons such as Kubelet, Kubeproxy, CNI plugins and so on. It caches the
-  states of all the resources that they might access in the edge node's local storage.
+  states of all the API resources that they might access in the edge node's local storage.
   In case the edge node is disconnected to the cloud, YurtHub can recover the states when the node restarts.
 - **Yurt controller manager**: It supplements the upstream node controller to support edge computing requirements. For example,
   Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the
   node heartbeats are missing.
 - **Yurt app manager**: It manages two CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)
   and [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md) (previous UnitedDeployment). The former provides a convenient
-  management experience for a pool of nodes within the same region or site. The latter defines a pool based application management workload.
+  management for a pool of nodes within the same region or site. The latter defines a pool based application management workload.
 - **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
@@ -59,14 +59,15 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
 - **Node resource manager**: It manages additional edge node resources such as LVM, QuotaPath and Persistent Memory.
   Please refer to [node-resource-manager](https://github.com/openyurtio/node-resource-manager) repo for more details.
-- **Integrating EdgeX Foundry platform and uses Kubernetes CRDs to manage edge devices!**
-OpenYurt introduces [Yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager) to manage EdgeX Foundry software suite lifecycle
-and [Yurt-device-controller](https://github.com/openyurtio/yurt-device-controller) to manage edge devices hosted by the existing platforms
+- **Integrating EdgeX Foundry platform and uses Kubernetes CRD to manage edge devices!**
+
+ OpenYurt introduces [Yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager) to manage the lifecycle of the EdgeX Foundry software suite,
+and [Yurt-device-controller](https://github.com/openyurtio/yurt-device-controller) to manage edge devices hosted by EdgeX Foundry
 via Kubernetes custom resources. Please refer to the respective repos for more details.
 
 ## Prerequisites
 
-Please check the [Resource and system requirements](./docs/resource-and-system-requirements.md) before installing OpenYurt.
+Please check the [resource and system requirements](./docs/resource-and-system-requirements.md) before installing OpenYurt.
 
 ## Getting started
 
@@ -74,7 +75,7 @@ OpenYurt supports Kubernetes versions up to 1.18. Using higher Kubernetes versio
 compatibility issues.
 
 You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start
-OpenYurt by using the `yurtctl` command line tool. To quickly build and install `yurtctl`,
+OpenYurt by using the `yurtctl` CLI tool. To quickly build and install `yurtctl`,
 assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
 
 ```bash
@@ -96,7 +97,7 @@ Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
 
 ## Tutorials
 
-To experience the power of OpenYurt, please try the detailed [**tutorials**](./docs/tutorial/README.md).
+To experience the power of OpenYurt, please try the detailed [tutorials](./docs/tutorial/README.md).
 
 ## Roadmap
 
