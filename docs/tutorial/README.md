@@ -9,3 +9,4 @@ These tutorials walk through several examples to demonstrate how to use OpenYurt
 - [Use `Yurt App Manager` to manage edge nodes and workloads](./yurt-app-manager.md)
 - [Build and deploy `Yurt App Manager`](./yurt-app-manager-dev.md)
 - [Pod network in edge scenario](./edge-pod-network.md)
+- [Set up prometheus to collect metrics through yurt-tunnel](./prometheus.md)
