@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
@@ -40,11 +39,11 @@ func formatDNSRecord(ip, host string) string {
 }
 
 // getNodeHostIP returns the provided node's "primary" IP
-func getNodeHostIP(node *v1.Node) (string, error) {
+func getNodeHostIP(node *corev1.Node) (string, error) {
 	// re-sort the addresses with InternalIPs first and then ExternalIPs
 	allIPs := make([]net.IP, 0, len(node.Status.Addresses))
 	for _, addr := range node.Status.Addresses {
-		if addr.Type == v1.NodeInternalIP {
+		if addr.Type == corev1.NodeInternalIP {
 			ip := net.ParseIP(addr.Address)
 			if ip != nil {
 				allIPs = append(allIPs, ip)
@@ -53,7 +52,7 @@ func getNodeHostIP(node *v1.Node) (string, error) {
 		}
 	}
 	for _, addr := range node.Status.Addresses {
-		if addr.Type == v1.NodeExternalIP {
+		if addr.Type == corev1.NodeExternalIP {
 			ip := net.ParseIP(addr.Address)
 			if ip != nil {
 				allIPs = append(allIPs, ip)

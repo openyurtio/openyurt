@@ -29,6 +29,9 @@ const (
 	YurttunnelServerExternalAddrKey     = "x-tunnel-server-external-addr"
 	YurttunnelEndpointsNs               = "kube-system"
 	YurttunnelEndpointsName             = "x-tunnel-server-svc"
+	YurttunnelDNSRecordConfigMapNs      = "kube-system"
+	YurttunnelDNSRecordConfigMapName    = "%s-tunnel-nodes"
+	YurttunnelDNSRecordNodeDataKey      = "tunnel-nodes"
 
 	// yurttunnel PKI related constants
 	YurttunnelCSROrg                 = "openyurt:yurttunnel"

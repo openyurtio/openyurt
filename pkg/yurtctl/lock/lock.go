@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	lockFinalizer         = "kubernetes"
 	AnnotationAcquireTime = "openyurt.io/yurtctllock.acquire.time"
 	AnnotationIsLocked    = "openyurt.io/yurtctllock.locked"
 
@@ -52,9 +51,8 @@ func AcquireLock(cli *kubernetes.Clientset) error {
 			// the lock is not exist, create one
 			cm := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       constants.YurtctlLockConfigMapName,
-					Namespace:  "kube-system",
-					Finalizers: []string{lockFinalizer},
+					Name:      constants.YurtctlLockConfigMapName,
+					Namespace: "kube-system",
 					Annotations: map[string]string{
 						AnnotationAcquireTime: strconv.FormatInt(time.Now().Unix(), 10),
 						AnnotationIsLocked:    "true",
@@ -165,5 +163,16 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 		return ErrReleaseLock
 	}
 
+	return nil
+}
+
+// DeleteLock should only be called when you've achieved the lock.
+// It will delete the yurtctl-lock configmap.
+func DeleteLock(cli *kubernetes.Clientset) error {
+	if err := cli.CoreV1().ConfigMaps("kube-system").
+		Delete(context.Background(), constants.YurtctlLockConfigMapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		klog.Error("fail to delete the yurtctl lock", err)
+		return err
+	}
 	return nil
 }
