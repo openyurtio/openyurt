@@ -14,56 +14,51 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-| 2021-09-26  OpenYurt v0.5.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
-| 2021-08-06  OpenYurt v0.4.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
-| 2021-05-21  OpenYurt v0.4.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
-| 2021-01-08  OpenYurt v0.3.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
-| 2020-08-30  OpenYurt v0.2.0  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
-| 2020-05-29  OpenYurt v0.1.0-beta.1  **正式发布**! 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 最新发布：2021-09-26  OpenYurt v0.5.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
-OpenYurt (官网: <https://openyurt.io>) 是托管在 Cloud Native Computing Foundation (CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/). 它是基于原生 Kubernetes 构建的，目标是扩展 Kubernetes 以无缝支持边缘计算场景。简而言之，OpenYurt 使客户可以像在公共云基础设施上运行应用一样管理在边缘基础设施之上运行的应用。
+OpenYurt (官网: <https://openyurt.io>) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
 
-OpenYurt 适合如下这些常见的边缘计算用户场景：
-- 使设备和负载之间的长途通信网络通讯流量最小化；
-- 克服网络带宽限制及可靠性限制；
-- 在边缘节点处理数据以减少延迟；
-- 为敏感数据的处理提供了一个更好的安全模型；
-- 在单个集群中管理分散在不同地域的边缘资源和边缘应用；
+<div align="left">
+  <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
+</div>
 
-就兼容性和可用性而言，OpenYurt 具有以下优点：
-- **Kubernetes 原生**。它提供了完整的 Kubernetes API 兼容性；支持所有 Kubernetes 工作负载，服务，运营商，CNI 插件和 CSI 插件。
-- **无缝转换**。它提供了一种工具，可以轻松地将本地 Kubernetes 转换为“边缘就绪”的集群；同时 OpenYurt 组件的额外资源和维护成本非常低。
-- **节点自治**。它提供了容忍不稳定或断开连接的云边缘网络的机制。即使边缘节点脱机，在边缘节点中运行的应用程序也不会受到影响。
-- **与云平台无关**。 OpenYurt 可以轻松部署在任何公共云 Kubernetes 服务中。
-- **边缘设备管理**。与EdgeX Foundry系统非侵入式集成，并使用Kubernetes CRDs管理边缘设备。
+OpenYurt是为满足典型边缘基础设施的各种DevOps需求而设计的。
+通过OpenYurt来管理边缘应用程序，用户可以获得与中心式云计算应用管理一致的用户体验。
+它解决了Kubernetes在云边一体化场景下的诸多挑战，如不可靠或断开的云边缘网络、边缘节点自治、边缘设备管理、跨地域业务部署等。
+OpenYurt保持了完整的Kubernetes API兼容性，无厂商绑定，更重要的是，它使用简单。
 
 ## 架构
 
-OpenYurt 遵循经典的边缘应用程序架构设计 ：Kubernetes 集群 的 master 节点集中部署于公共云中，由这些 master 节点管理位于边缘站点的多个边缘节点。每个边缘节点具有适度的计算资源，从而允许运行大量边缘应用以及 Kubernetes 节点守护进程。集群中的边缘节点可以分处于在多个物理区域中（region）。在OpenYurt 的概念中  区域（region）这个概念 和 池（Pool）这个概念 是可以相互转换的。
+OpenYurt 遵循经典的云边一体化架构。
+集群的Kubernetes管控面部署在云端(或者中心机房中)，而由集群管理的边缘节点位于靠近数据源的边缘站点中。
+每个边缘节点都具有适量的计算资源，从而可以运行边缘应用以及OpenYurt系统组件。集群中的边缘节点可以分布在多个物理区域，这些物理区域在OpenYurt中称为Pools。
+集群中的边缘节点可以分处于在多个物理区域中（region）。
 <div align="left">
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
 
-OpenYurt 的主要组件包括：
-- **YurtHub**：Kubernetes 集群中节点上运行的守护程序，它的作用是作为（Kubelet，Kubeproxy，CNI 插件等）的出站流量的代理。它在边缘节点的本地存储中缓存     Kubernetes 节点守护进程可能访问的所有资源的状态。如果边缘节点离线，则这些守护程序可以帮助节点在重新启动后恢复状态。
-- **Yurt Controller Manager**：在各种不同的边缘计算用例中 Yurt Controller Manager 负责管理一个节点控制器（ Node Controller ）。举例来说即使节点心跳丢失，处于自治模式的节点中的Pod也不会从 API Server 中被驱逐（ evicted ）。
-- **Yurt App Manager**：它管理OpenYurt中引入的两个CRD资源。*[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)* 和 *[UnitedDeployment](docs/enhancements/20201211-nodepool_uniteddeployment.md)*. 前者为位于同一区域的节点池提供了便利的管理方法。
-后者定义了一种新的边缘应用模型以节点池为单位来管理工作负载。
-- **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在公共云的控制平面 与 处于 企业内网（ Intranet ）环境的边缘节点之间建立安全的网络访问。
+上图展示了OpenYurt的核心架构。OpenYurt 的主要组件包括：
+- **YurtHub**：一个节点守护进程，充当Kubelet、Kube-Proxy、CNI插件等原生Kubernetes组件的出站流量代理。它将所有可能访问的API资源缓存到边缘节点的本地存储中。如果边缘节点离线，Yurthub可以帮助节点在重新启动后恢复状态。
+- **Yurt Controller Manager**：基于原生节点控制器增强来支持边缘计算需求。例如，即使节点心跳丢失，处于自治模式的节点中的pod也不会从APIServer中驱逐。
+- **Yurt App Manager**：它管理OpenYurt中引入的两个CRD资源:[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)和[YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(以前的UnitedDeployment)。前者为同一区域或站点内的节点资源提供了方便的管理。后者定义了一个基于节点池维度的工作负载管理模型。
+- **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在云端的控制平面与处于企业内网(Intranet)环境的边缘节点之间建立安全的网络访问。
+
+此外，OpenYurt还包括用于集成和定制的辅助控制器。
+
 - **Node resource manager**: 统一管理OpenYurt集群的本地节点资源。 目前支持管理LVM、QuotaPath和Pmem内存。
   详情请参考[node-resource-manager](https://github.com/openyurtio/node-resource-manager)。
-- **Yurt-edgex-manager**: 主要用于在OpenYurt集群中管理EdgeX Foundry的生命周期(包括安装部署，删除，更新)。
-  详情请参考[yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager)。
-- **Yurt-device-controller**: Kubernetes系统和边缘计算平台(如EdgeX Foundry)的联结器，使用户可以通过Kubernetes CRDs来管理边缘设备。
-  详情请参考[yurt-device-controller](https://github.com/openyurtio/yurt-device-controller)。
+- **集成EdgeX Foundry平台，使用Kubernetes CRD管理边缘设备!**
+
+  OpenYurt引入了[yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager)来管理EdgeX Foundry软件套件的生命周期，并通过Kubernetes自定义资源引入[yurt-device-controller](https://github.com/openyurtio/yurt-device-controller)来管理EdgeX Foundry托管的边缘设备。详情请参阅有关组件repo。
 
 ## 开始之前
 
-[资源和系统要求](./docs/resource-and-system-requirements-cn.md)
+安装OpenYurt前，请检查[资源和系统要求](./docs/resource-and-system-requirements-cn.md)
 
 ## 开始使用
-OpenYurt 支持最高版本为1.18的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
-您可以[手动](docs/tutorial/manually-setup.md)设置 OpenYurt 集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
+OpenYurt 支持最高版本为1.20的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
+您可以[手动](docs/tutorial/manually-setup.md)安装OpenYurt集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
 
 ```bash
 git clone https://github.com/openyurtio/openyurt.git
@@ -71,22 +66,19 @@ cd openyurt
 make build WHAT=cmd/yurtctl
 ```
 
-`yurtctl` 的二进制文件位于_output /bin 目录。如果需要将已存在的 Kubernetes 集群转换为 OpenYurt 集群，你可以使用如下简单的命令(目前支持minikube, kubeadm, kind 三种工具安装的kubernetes集群)：
+`yurtctl` 的二进制文件位于_output/bin 目录。常用的CLI命令包括:
 
-```bash
-_output/bin/yurtctl convert --provider [minikube|kubeadm|kind]
 ```
-
-要卸载 OpenYurt 并恢复为原始的 Kubernetes 集群设置，请运行以下命令：
-
-```bash
-_output/bin/yurtctl revert
+yurtctl convert --provider [minikube|kubeadm|kind]  // 一键式转换原生Kubernetes集群为OpenYurt集群
+yurtctl revert                                      // 一键式恢复OpenYurt集群为Kubernetes集群
+yurtctl join                                        // 往OpenYurt中接入一个节点(在边缘节点上执行)
+yurtctl reset                                       // 从OpenYurt中清除边缘节点(在边缘节点上执行)
 ```
 
 请查看 [yurtctl教程](./docs/tutorial/yurtctl.md)来获得更多使用细节。
 
 ## 使用方法
-我们提供详细的[教程](./docs/tutorial/README.md)来演示如何使用 OpenYurt 管理部署在边缘节点上的应用。
+我们提供详细的[教程](./docs/tutorial/README.md)来演示如何使用 OpenYurt。
 
 ## 发展规划
 [2021年 发展规划](docs/roadmap.md)
