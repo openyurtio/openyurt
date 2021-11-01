@@ -92,7 +92,9 @@ func newCertManager(
 		SignerName:  certificates.LegacyUnknownSignerName,
 		GetTemplate: getTemplate,
 		Usages: []certificates.KeyUsage{
-			certificates.UsageAny,
+			certificates.UsageKeyEncipherment,
+			certificates.UsageDigitalSignature,
+			certificates.UsageServerAuth,
 		},
 		CertificateStore: certificateStore,
 	})
