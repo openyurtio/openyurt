@@ -44,6 +44,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/pkg/errors"
 )
 
@@ -137,6 +138,7 @@ func addYurthubStaticYaml(cfg *kubeadmapi.JoinConfiguration, podManifestPath str
 			"__kubernetes_service_addr__": fmt.Sprintf("https://%s", cfg.Discovery.BootstrapToken.APIServerEndpoint),
 			"__yurthub_image__":           yurthubImage,
 			"__join_token__":              cfg.Discovery.BootstrapToken.Token,
+			"__working_mode__":            string(util.WorkingModeEdge),
 		})
 
 	if err := ioutil.WriteFile(filepath.Join(podManifestPath, defaultYurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
