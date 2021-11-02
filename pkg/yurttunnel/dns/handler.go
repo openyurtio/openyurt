@@ -224,10 +224,10 @@ func (dnsctl *coreDNSRecordController) getCurrentDNSRecords() ([]string, error) 
 		return nil, err
 	}
 
-	data, ok := cm.Data[yurttunnelDNSRecordNodeDataKey]
+	data, ok := cm.Data[constants.YurttunnelDNSRecordNodeDataKey]
 	if !ok {
 		return nil, fmt.Errorf("key %q not found in %s/%s ConfigMap, %v",
-			yurttunnelDNSRecordNodeDataKey, constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
+			constants.YurttunnelDNSRecordNodeDataKey, constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
 	}
 
 	return strings.Split(data, "\n"), nil

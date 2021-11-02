@@ -54,16 +54,17 @@ const (
 	maxRetries    = 15
 	minSyncPeriod = 30
 
-	yurttunnelDNSRecordConfigMapNs = "kube-system"
-	yurttunnelDNSRecordNodeDataKey = "tunnel-nodes"
-
 	dnatPortPrefix = "dnat-"
 )
 
 var (
-	yurttunnelDNSRecordConfigMapName = fmt.Sprintf("%s-tunnel-nodes",
-		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+	yurttunnelDNSRecordConfigMapName = GetYurtTunnelDNSRecordConfigMapName()
 )
+
+func GetYurtTunnelDNSRecordConfigMapName() string {
+	return fmt.Sprintf(constants.YurttunnelDNSRecordConfigMapName,
+		strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+}
 
 // DNSRecordController interface defines the method for synchronizing
 // the node dns records with k8s DNS component(such as CoreDNS)
@@ -202,7 +203,7 @@ func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
 
 	if err := dnsctl.ensureCoreDNSRecordConfigMap(); err != nil {
 		klog.Errorf("failed to ensure dns record ConfigMap %v/%v, %v",
-			yurttunnelDNSRecordConfigMapNs, yurttunnelDNSRecordConfigMapName, err)
+			constants.YurttunnelDNSRecordConfigMapNs, yurttunnelDNSRecordConfigMapName, err)
 		return
 	}
 
@@ -299,7 +300,7 @@ func (dnsctl *coreDNSRecordController) ensureCoreDNSRecordConfigMap() error {
 				Namespace: constants.YurttunnelServerServiceNs,
 			},
 			Data: map[string]string{
-				yurttunnelDNSRecordNodeDataKey: "",
+				constants.YurttunnelDNSRecordNodeDataKey: "",
 			},
 		}
 		_, err = dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Create(context.Background(), cm, metav1.CreateOptions{})
@@ -387,7 +388,7 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 	if err != nil {
 		return err
 	}
-	cm.Data[yurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
+	cm.Data[constants.YurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
 	if _, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Update(context.Background(), cm, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update configmap %v/%v, %v",
 			constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)

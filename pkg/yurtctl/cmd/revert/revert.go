@@ -33,6 +33,7 @@ import (
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	tunneldns "github.com/openyurtio/openyurt/pkg/yurttunnel/dns"
 )
 
 // RevertOptions has the information required by the revert operation
@@ -106,8 +107,8 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 	defer func() {
-		if releaseLockErr := lock.ReleaseLock(ro.clientSet); releaseLockErr != nil {
-			klog.Error(releaseLockErr)
+		if deleteLockErr := lock.DeleteLock(ro.clientSet); deleteLockErr != nil {
+			klog.Error(deleteLockErr)
 		}
 	}()
 	klog.V(4).Info("successfully acquire the lock")
@@ -304,15 +305,25 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
 			constants.YurttunnelServerComponentName, err)
 	}
+	klog.V(4).Infof("clusterrole/%s is deleted", constants.YurttunnelServerComponentName)
 
-	// 6. remove the ConfigMap
+	// 6. remove the yurt-tunnel-server-cfg
 	if err := client.CoreV1().ConfigMaps(constants.YurttunnelNamespace).
 		Delete(context.Background(), constants.YurttunnelServerCmName,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the configmap/%s: %s",
 			constants.YurttunnelServerCmName, err)
 	}
-	klog.V(4).Infof("clusterrole/%s is deleted", constants.YurttunnelServerComponentName)
+
+	// 7. remove the dns record configmap
+	yurttunnelDnsRecordConfigMapName := tunneldns.GetYurtTunnelDNSRecordConfigMapName()
+	if err := client.CoreV1().ConfigMaps(constants.YurttunnelNamespace).
+		Delete(context.Background(), yurttunnelDnsRecordConfigMapName,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete configmap/%s: %s",
+			yurttunnelDnsRecordConfigMapName, err)
+	}
+
 	return nil
 }
 
