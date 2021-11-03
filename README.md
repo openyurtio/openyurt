@@ -60,10 +60,11 @@ In addition, OpenYurt also includes auxiliary controllers for integration and cu
 - **Node resource manager**: It manages additional edge node resources such as LVM, QuotaPath and Persistent Memory.
   Please refer to [node-resource-manager](https://github.com/openyurtio/node-resource-manager) repo for more details.
 - **Integrating EdgeX Foundry platform and uses Kubernetes CRD to manage edge devices!**
-
- OpenYurt introduces [Yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager) to manage the lifecycle of the EdgeX Foundry software suite,
-and [Yurt-device-controller](https://github.com/openyurtio/yurt-device-controller) to manage edge devices hosted by EdgeX Foundry
-via Kubernetes custom resources. Please refer to the respective repos for more details.
+<table>
+<tr style="border:none">
+<td style="width:80%;border:none">OpenYurt introduces <a href="https://github.com/openyurtio/yurt-edgex-manager">Yurt-edgex-manager</a> to manage the lifecycle of the EdgeX Foundry software suite, and <a href="https://github.com/openyurtio/yurt-device-controller">Yurt-device-controller</a> to manage edge devices hosted by EdgeX Foundry via Kubernetes custom resources. Please refer to the short <b>demo</b> and the respective repos for more details.
+<td style="border:none"><a href="https://youtu.be/ngpkysNzoI0"><img src="docs/img/demo.jpeg" width=150%></a>
+</table>
 
 ## Prerequisites
 
