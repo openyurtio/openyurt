@@ -59,8 +59,10 @@ func (fh *discardCloudServiceFilterHandler) ObjectResponseFilter(b []byte) ([]by
 			nsName := fmt.Sprintf("%s/%s", serviceList.Items[i].Namespace, serviceList.Items[i].Name)
 			// remove lb service
 			if serviceList.Items[i].Spec.Type == v1.ServiceTypeLoadBalancer {
-				klog.V(2).Infof("load balancer service(%s) is discarded in ObjectResponseFilter of discardCloudServiceFilterHandler", nsName)
-				continue
+				if serviceList.Items[i].Annotations[filter.SkipDiscardServiceAnnotation] != "true" {
+					klog.V(2).Infof("load balancer service(%s) is discarded in ObjectResponseFilter of discardCloudServiceFilterHandler", nsName)
+					continue
+				}
 			}
 
 			// remove cloud clusterIP service
@@ -101,8 +103,10 @@ func (fh *discardCloudServiceFilterHandler) StreamResponseFilter(rc io.ReadClose
 			nsName := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
 			// remove cloud LoadBalancer service
 			if service.Spec.Type == v1.ServiceTypeLoadBalancer {
-				klog.V(2).Infof("load balancer service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
-				continue
+				if service.Annotations[filter.SkipDiscardServiceAnnotation] != "true" {
+					klog.V(2).Infof("load balancer service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
+					continue
+				}
 			}
 
 			// remove cloud clusterIP service

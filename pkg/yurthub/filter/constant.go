@@ -17,17 +17,22 @@ limitations under the License.
 package filter
 
 const (
-	// masterservice filter is used to mutate the ClusterIP and https port of default/kubernetes service
+	// MasterServiceFilterName filter is used to mutate the ClusterIP and https port of default/kubernetes service
 	// in order to pods on edge nodes can access kube-apiserver directly by inClusterConfig.
 	MasterServiceFilterName = "masterservice"
 
-	// servicetopology filter is used to reassemble endpointslice in order to make the service traffic
+	// ServiceTopologyFilterName filter is used to reassemble endpointslice in order to make the service traffic
 	// under the topology that defined by service.Annotation["openyurt.io/topologyKeys"]
 	ServiceTopologyFilterName = "servicetopology"
 
-	// discardcloudservice filter is used to discard cloud service(like loadBalancer service)
+	// DiscardCloudServiceFilterName filter is used to discard cloud service(like loadBalancer service)
 	// on kube-proxy list/watch service request from edge nodes.
 	DiscardCloudServiceFilterName = "discardcloudservice"
+
+	// SkipDiscardServiceAnnotation is annotation used by LB service.
+	// If end users want to use specified LB service at the edge side,
+	// End users should add annotation["openyurt.io/skip-discard"]="true" for LB service.
+	SkipDiscardServiceAnnotation = "openyurt.io/skip-discard"
 )
 
 // DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
