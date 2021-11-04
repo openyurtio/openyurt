@@ -39,10 +39,10 @@ import (
 
 // RevertOptions has the information required by the revert operation
 type RevertOptions struct {
-	clientSet           *kubernetes.Clientset
-	YurtctlServantImage string
-	PodMainfestPath     string
-	KubeadmConfPath     string
+	clientSet               *kubernetes.Clientset
+	YurtctlServantImage     string
+	PodMainfestPath         string
+	KubeadmConfPath         string
 	yurtAppManagerClientSet dynamic.Interface
 }
 
@@ -433,7 +433,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 
 	// 10. remove nodepoolcrd
 	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
-		"NodePool", "nodepools.apps.openyurt.io",[]byte(constants.YurtAppManagerNodePool)); err != nil {
+		"NodePool", "nodepools.apps.openyurt.io", []byte(constants.YurtAppManagerNodePool)); err != nil {
 		return fmt.Errorf("fail to delete the NodePoolCRD/%s: %s",
 			"nodepoolcrd", err)
 	}
@@ -442,7 +442,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 
 	// 11. remove UnitedDeploymentcrd
 	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
-		"UnitedDeployment", "uniteddeployments.apps.openyurt.io",[]byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
+		"UnitedDeployment", "uniteddeployments.apps.openyurt.io", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
 		return fmt.Errorf("fail to delete the UnitedDeploymentCRD/%s: %s",
 			"UnitedDeployment", err)
 	}
