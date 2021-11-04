@@ -49,8 +49,11 @@ OpenYurt 遵循经典的云边一体化架构。
 - **Node resource manager**: 统一管理OpenYurt集群的本地节点资源。 目前支持管理LVM、QuotaPath和Pmem内存。
   详情请参考[node-resource-manager](https://github.com/openyurtio/node-resource-manager)。
 - **集成EdgeX Foundry平台，使用Kubernetes CRD管理边缘设备!**
-
-  OpenYurt引入了[yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager)来管理EdgeX Foundry软件套件的生命周期，并通过Kubernetes自定义资源引入[yurt-device-controller](https://github.com/openyurtio/yurt-device-controller)来管理EdgeX Foundry托管的边缘设备。详情请参阅有关组件repo。
+<table>
+<tr style="border:none">
+<td style="width:80%;border:none">OpenYurt 引入了 <a href="https://github.com/openyurtio/yurt-edgex-manager">Yurt-edgex-manager</a> 来管理EdgeX Foundry软件套件的生命周期，并通过Kubernetes自定义资源引入 <a href="https://github.com/openyurtio/yurt-device-controller">Yurt-device-controller</a> 来管理EdgeX Foundry托管的边缘设备。详情请参阅简短的 <b>demo</b> 演示和有关组件的repo。
+<td style="border:none"><a href="https://www.bilibili.com/video/BV1Mh411t7Q3"><img src="docs/img/demo.jpeg" width=150%></a>
+</table>
 
 ## 开始之前
 
