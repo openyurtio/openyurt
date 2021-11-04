@@ -358,9 +358,9 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 	return nil
 }
 
-func DeleteCRD(clientset *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface, res string, name string) error {
+func DeleteCRDResource(clientset *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface, res string, name string, filebytes []byte) error {
 	var err error
-	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(constants.YurtAppManagerNodePool)), 10000)
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
 	var rawObj runtime.RawExtension
 	err = decoder.Decode(&rawObj)
 	if err != nil {

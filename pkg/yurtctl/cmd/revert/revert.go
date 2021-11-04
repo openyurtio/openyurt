@@ -341,7 +341,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		Deployments(constants.YurttunnelNamespace).
 		Delete(context.Background(), constants.YurtAppManagerComponentName,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the daemonset/%s: %s",
+		return fmt.Errorf("fail to delete the deployment/%s: %s",
 			constants.YurtAppManagerComponentName, err)
 	}
 	klog.Info("deployment for yurt app manager is removed")
@@ -426,8 +426,8 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("ValidatingWebhookConfiguration/%s is deleted", "yurt-app-validating-webhook-configuration")
 
 	// 10. remove nodepoolcrd
-	if err := kubeutil.DeleteCRD(client, yurtAppManagerClientSet,
-		"NodePool", "nodepools.apps.openyurt.io"); err != nil {
+	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
+		"NodePool", "nodepools.apps.openyurt.io",[]byte(constants.YurtAppManagerNodePool)); err != nil {
 		return fmt.Errorf("fail to delete the NodePoolCRD/%s: %s",
 			"nodepoolcrd", err)
 	}
@@ -435,8 +435,8 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("NodePoolCRD/%s is deleted", "NodePool")
 
 	// 11. remove UnitedDeploymentcrd
-	if err := kubeutil.DeleteCRD(client, yurtAppManagerClientSet,
-		"UnitedDeployment", "uniteddeployments.apps.openyurt.io"); err != nil {
+	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
+		"UnitedDeployment", "uniteddeployments.apps.openyurt.io",[]byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
 		return fmt.Errorf("fail to delete the UnitedDeploymentCRD/%s: %s",
 			"UnitedDeployment", err)
 	}
