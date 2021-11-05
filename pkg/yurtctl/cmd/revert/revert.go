@@ -350,7 +350,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the deployment/%s: %s",
 			constants.YurtAppManager, err)
 	}
-	klog.Info("deployment for yurt app manager is removed")
 	klog.V(4).Infof("deployment/%s is deleted", constants.YurtAppManager)
 
 	// 2. remove the Role
@@ -360,7 +359,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the role/%s: %s",
 			"yurt-app-leader-election-role", err)
 	}
-	klog.Info("Role for yurt app manager is removed")
 
 	// 3. remove the ClusterRole
 	if err := client.RbacV1().ClusterRoles().
@@ -369,7 +367,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
 			"yurt-app-manager-role", err)
 	}
-	klog.Info("ClusterRole for yurt app manager is removed")
 
 	// 4. remove the ClusterRoleBinding
 	if err := client.RbacV1().ClusterRoleBindings().
@@ -378,7 +375,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
 			"yurt-app-manager-rolebinding", err)
 	}
-	klog.Info("ClusterRoleBinding for yurt app manager is removed")
 	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-manager-rolebinding")
 
 	// 5. remove the RoleBinding
@@ -388,7 +384,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the rolebinding/%s: %s",
 			"yurt-app-leader-election-rolebinding", err)
 	}
-	klog.Info("RoleBinding for yurt app manager is removed")
 	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-leader-election-rolebinding")
 
 	// 6 remove the Secret
@@ -398,7 +393,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the secret/%s: %s",
 			"yurt-app-webhook-certs", err)
 	}
-	klog.Info("secret for yurt app manager is removed")
 	klog.V(4).Infof("secret/%s is deleted", "yurt-app-webhook-certs")
 
 	// 7 remove Service
@@ -408,7 +402,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the service/%s: %s",
 			"yurt-app-webhook-service", err)
 	}
-	klog.Info("Service for yurt app manager is removed")
 	klog.V(4).Infof("service/%s is deleted", "yurt-app-webhook-service")
 
 	// 8. remove the MutatingWebhookConfiguration
@@ -418,7 +411,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the MutatingWebhookConfiguration/%s: %s",
 			"yurt-app-mutating-webhook-configuration", err)
 	}
-	klog.Info("MutatingWebhookConfiguration for yurt app manager is removed")
 	klog.V(4).Infof("MutatingWebhookConfiguration/%s is deleted", "yurt-app-mutating-webhook-configuration")
 
 	// 9. remove the ValidatingWebhookConfiguration
@@ -428,7 +420,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the ValidatingWebhookConfiguration/%s: %s",
 			"yurt-app-validating-webhook-configuration", err)
 	}
-	klog.Info("ValidatingWebhookConfiguration for yurt app manager is removed")
 	klog.V(4).Infof("ValidatingWebhookConfiguration/%s is deleted", "yurt-app-validating-webhook-configuration")
 
 	// 10. remove nodepoolcrd
@@ -437,7 +428,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the NodePoolCRD/%s: %s",
 			"nodepoolcrd", err)
 	}
-	klog.Info("crd for yurt app manager is removed")
 	klog.V(4).Infof("NodePoolCRD/%s is deleted", "NodePool")
 
 	// 11. remove UnitedDeploymentcrd
@@ -446,7 +436,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the UnitedDeploymentCRD/%s: %s",
 			"UnitedDeployment", err)
 	}
-	klog.Info("UnitedDeploymentcrd for yurt app manager is removed")
+	klog.Info("removeYurtAppManager方法 for yurt app manager is finished")
 	klog.V(4).Infof("UnitedDeploymentCRD/%s is deleted", "UnitedDeployment")
 	return nil
 }

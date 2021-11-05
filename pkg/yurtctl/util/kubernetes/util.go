@@ -415,6 +415,17 @@ func DeleteCRDResource(clientset *kubernetes.Clientset, yurtAppManagerClientSet 
 	} else {
 		dri = yurtAppManagerClientSet.Resource(mapping.Resource)
 	}
+
+	var uns *unstructured.Unstructured
+	uns, err = dri.Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if uns == nil {
+		klog.Info("不存在 " + name + " 这种crd资源，不需要删除")
+		return nil
+	}
+
 	err = dri.Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil {
 		return err
