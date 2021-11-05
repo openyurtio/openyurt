@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/pflag"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
@@ -38,10 +39,11 @@ import (
 
 // RevertOptions has the information required by the revert operation
 type RevertOptions struct {
-	clientSet           *kubernetes.Clientset
-	YurtctlServantImage string
-	PodMainfestPath     string
-	KubeadmConfPath     string
+	clientSet               *kubernetes.Clientset
+	YurtctlServantImage     string
+	PodMainfestPath         string
+	KubeadmConfPath         string
+	yurtAppManagerClientSet dynamic.Interface
 }
 
 // NewRevertOptions creates a new RevertOptions
@@ -95,6 +97,11 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	ro.PodMainfestPath = enutil.GetPodManifestPath()
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
+	if err != nil {
+		return err
+	}
+
+	ro.yurtAppManagerClientSet, err = kubeutil.GenDynamicClientSet(flags)
 	if err != nil {
 		return err
 	}
@@ -206,7 +213,14 @@ func (ro *RevertOptions) RunRevert() (err error) {
 		return
 	}
 
-	// 5. enable node-controller
+	// 5. remove the yurt app manager
+	if err = removeYurtAppManager(ro.clientSet, ro.yurtAppManagerClientSet); err != nil {
+		klog.Errorf("fail to remove the yurt app manager: %s", err)
+		return
+	}
+	klog.Info("yurt app manager is removed")
+
+	// 6. enable node-controller
 	if err = kubeutil.RunServantJobs(ro.clientSet,
 		map[string]string{
 			"action":                "enable",
@@ -219,7 +233,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("complete enabling node-controller")
 
-	// 6. remove yurt-hub and revert kubelet service on edge nodes
+	// 7. remove yurt-hub and revert kubelet service on edge nodes
 	ctx := map[string]string{
 		"action":                "revert",
 		"yurtctl_servant_image": ro.YurtctlServantImage,
@@ -232,7 +246,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("complete removing yurt-hub and resetting kubelet service on edge nodes")
 
-	// 7. remove yurt-hub and revert kubelet service on cloud nodes
+	// 8. remove yurt-hub and revert kubelet service on cloud nodes
 	ctx["sub_command"] = "cloudnode"
 	if err = kubeutil.RunServantJobs(ro.clientSet, ctx, cloudNodeNames); err != nil {
 		klog.Errorf("fail to revert edge node: %s", err)
@@ -240,7 +254,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	}
 	klog.Info("complete removing yurt-hub and resetting kubelet service on cloud nodes")
 
-	// 8. remove yut-hub k8s config, roleBinding role
+	// 9. remove yut-hub k8s config, roleBinding role
 	err = kubeutil.DeleteYurthubSetting(ro.clientSet)
 	if err != nil {
 		klog.Error("DeleteYurthubSetting err: ", err)
@@ -324,6 +338,116 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 			yurttunnelDnsRecordConfigMapName, err)
 	}
 
+	return nil
+}
+
+func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface) error {
+	// 1. remove the Deployment
+	if err := client.AppsV1().
+		Deployments("kube-system").
+		Delete(context.Background(), constants.YurtAppManager,
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the deployment/%s: %s",
+			constants.YurtAppManager, err)
+	}
+	klog.Info("deployment for yurt app manager is removed")
+	klog.V(4).Infof("deployment/%s is deleted", constants.YurtAppManager)
+
+	// 2. remove the Role
+	if err := client.RbacV1().Roles("kube-system").
+		Delete(context.Background(), "yurt-app-leader-election-role",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the role/%s: %s",
+			"yurt-app-leader-election-role", err)
+	}
+	klog.Info("Role for yurt app manager is removed")
+
+	// 3. remove the ClusterRole
+	if err := client.RbacV1().ClusterRoles().
+		Delete(context.Background(), "yurt-app-manager-role",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
+			"yurt-app-manager-role", err)
+	}
+	klog.Info("ClusterRole for yurt app manager is removed")
+
+	// 4. remove the ClusterRoleBinding
+	if err := client.RbacV1().ClusterRoleBindings().
+		Delete(context.Background(), "yurt-app-manager-rolebinding",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
+			"yurt-app-manager-rolebinding", err)
+	}
+	klog.Info("ClusterRoleBinding for yurt app manager is removed")
+	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-manager-rolebinding")
+
+	// 5. remove the RoleBinding
+	if err := client.RbacV1().RoleBindings("kube-system").
+		Delete(context.Background(), "yurt-app-leader-election-rolebinding",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the rolebinding/%s: %s",
+			"yurt-app-leader-election-rolebinding", err)
+	}
+	klog.Info("RoleBinding for yurt app manager is removed")
+	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-leader-election-rolebinding")
+
+	// 6 remove the Secret
+	if err := client.CoreV1().Secrets("kube-system").
+		Delete(context.Background(), "yurt-app-webhook-certs",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the secret/%s: %s",
+			"yurt-app-webhook-certs", err)
+	}
+	klog.Info("secret for yurt app manager is removed")
+	klog.V(4).Infof("secret/%s is deleted", "yurt-app-webhook-certs")
+
+	// 7 remove Service
+	if err := client.CoreV1().Services("kube-system").
+		Delete(context.Background(), "yurt-app-webhook-service",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the service/%s: %s",
+			"yurt-app-webhook-service", err)
+	}
+	klog.Info("Service for yurt app manager is removed")
+	klog.V(4).Infof("service/%s is deleted", "yurt-app-webhook-service")
+
+	// 8. remove the MutatingWebhookConfiguration
+	if err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().
+		Delete(context.Background(), "yurt-app-mutating-webhook-configuration",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the MutatingWebhookConfiguration/%s: %s",
+			"yurt-app-mutating-webhook-configuration", err)
+	}
+	klog.Info("MutatingWebhookConfiguration for yurt app manager is removed")
+	klog.V(4).Infof("MutatingWebhookConfiguration/%s is deleted", "yurt-app-mutating-webhook-configuration")
+
+	// 9. remove the ValidatingWebhookConfiguration
+	if err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().
+		Delete(context.Background(), "yurt-app-validating-webhook-configuration",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the ValidatingWebhookConfiguration/%s: %s",
+			"yurt-app-validating-webhook-configuration", err)
+	}
+	klog.Info("ValidatingWebhookConfiguration for yurt app manager is removed")
+	klog.V(4).Infof("ValidatingWebhookConfiguration/%s is deleted", "yurt-app-validating-webhook-configuration")
+
+	// 10. remove nodepoolcrd
+	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
+		"NodePool", "nodepools.apps.openyurt.io", []byte(constants.YurtAppManagerNodePool)); err != nil {
+		return fmt.Errorf("fail to delete the NodePoolCRD/%s: %s",
+			"nodepoolcrd", err)
+	}
+	klog.Info("crd for yurt app manager is removed")
+	klog.V(4).Infof("NodePoolCRD/%s is deleted", "NodePool")
+
+	// 11. remove UnitedDeploymentcrd
+	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
+		"UnitedDeployment", "uniteddeployments.apps.openyurt.io", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
+		return fmt.Errorf("fail to delete the UnitedDeploymentCRD/%s: %s",
+			"UnitedDeployment", err)
+	}
+	klog.Info("UnitedDeploymentcrd for yurt app manager is removed")
+	klog.V(4).Infof("UnitedDeploymentCRD/%s is deleted", "UnitedDeployment")
 	return nil
 }
 

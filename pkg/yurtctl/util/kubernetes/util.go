@@ -378,6 +378,52 @@ func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dyn
 	return nil
 }
 
+func DeleteCRDResource(clientset *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface, res string, name string, filebytes []byte) error {
+	var err error
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
+	var rawObj k8sruntime.RawExtension
+	err = decoder.Decode(&rawObj)
+	if err != nil {
+		return err
+	}
+	obj, gvk, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+	if err != nil {
+		return err
+	}
+	unstructuredMap, err := k8sruntime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+	unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
+	gr, err := restmapper.GetAPIGroupResources(clientset.Discovery())
+	if err != nil {
+		return err
+	}
+
+	mapper := restmapper.NewDiscoveryRESTMapper(gr)
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return err
+	}
+
+	var dri dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		if unstructuredObj.GetNamespace() == "" {
+			unstructuredObj.SetNamespace("")
+		}
+		dri = yurtAppManagerClientSet.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
+	} else {
+		dri = yurtAppManagerClientSet.Resource(mapping.Resource)
+	}
+	err = dri.Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	} else {
+		fmt.Printf("%s/%s is deleted ", res, name)
+	}
+	return nil
+}
+
 // YamlToObject deserializes object in yaml format to a runtime.Object
 func YamlToObject(yamlContent []byte) (k8sruntime.Object, error) {
 	decode := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer().Decode
