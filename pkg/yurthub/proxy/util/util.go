@@ -61,14 +61,10 @@ func WithRequestContentType(handler http.Handler) http.Handler {
 					contentType = parts[0]
 				}
 
-				if len(contentType) == 0 {
-					klog.Errorf("no accept content type for request: %s", util.ReqString(req))
-					util.Err(errors.NewBadRequest("no accept content type is set."), w, req)
-					return
+				if len(contentType) != 0 {
+					ctx = util.WithReqContentType(ctx, contentType)
+					req = req.WithContext(ctx)
 				}
-
-				ctx = util.WithReqContentType(ctx, contentType)
-				req = req.WithContext(ctx)
 			}
 		}
 

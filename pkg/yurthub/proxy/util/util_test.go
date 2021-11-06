@@ -63,7 +63,7 @@ func TestWithRequestContentType(t *testing.T) {
 		"no accept type": {
 			Verb:        "POST",
 			Path:        "/api/v1/nodes/mynode",
-			Code:        http.StatusBadRequest,
+			Code:        http.StatusOK,
 			ContentType: "",
 		},
 	}
