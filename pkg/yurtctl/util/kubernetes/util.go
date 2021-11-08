@@ -422,7 +422,7 @@ func DeleteCRDResource(clientset *kubernetes.Clientset, yurtAppManagerClientSet 
 		return err
 	}
 	if uns == nil {
-		klog.Info("不存在 " + name + " 这种crd资源，不需要删除")
+		klog.Info("There is no CRD resource like " + name + " and it does not need to be deleted")
 		return nil
 	}
 

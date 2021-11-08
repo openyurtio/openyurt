@@ -436,7 +436,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the UnitedDeploymentCRD/%s: %s",
 			"UnitedDeployment", err)
 	}
-	klog.Info("removeYurtAppManager方法 for yurt app manager is finished")
+	klog.Info("removeYurtAppManager for yurt app manager is finished")
 	klog.V(4).Infof("UnitedDeploymentCRD/%s is deleted", "UnitedDeployment")
 	return nil
 }
