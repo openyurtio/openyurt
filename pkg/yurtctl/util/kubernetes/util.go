@@ -31,12 +31,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/pflag"
 	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,8 +60,6 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
-
-	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
@@ -417,7 +417,9 @@ func DeleteCRDResource(clientset *kubernetes.Clientset, yurtAppManagerClientSet 
 	}
 	err = dri.Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil {
-		return err
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
 	} else {
 		fmt.Printf("%s/%s is deleted ", res, name)
 	}
