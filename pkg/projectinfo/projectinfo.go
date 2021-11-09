@@ -19,6 +19,7 @@ package projectinfo
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -53,6 +54,11 @@ func GetProjectPrefix() string {
 // Server name: yurttunnel-server
 func GetServerName() string {
 	return projectPrefix + "tunnel-server"
+}
+
+// tunnel server label: yurt-tunnel-server
+func YurtTunnelServerLabel() string {
+	return strings.TrimSuffix(projectPrefix, "-") + "-tunnel-server"
 }
 
 // Agent name: yurttunnel-agent

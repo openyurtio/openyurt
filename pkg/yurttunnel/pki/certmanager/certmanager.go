@@ -32,11 +32,15 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 
 	certificates "k8s.io/api/certificates/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 )
@@ -45,15 +49,20 @@ import (
 // the yurttunnel-server
 func NewYurttunnelServerCertManager(
 	clientset kubernetes.Interface,
+	factory informers.SharedInformerFactory,
 	clCertNames []string,
 	clIPs []net.IP,
 	stopCh <-chan struct{}) (certificate.Manager, error) {
-	// get server DNS names and IPs
 	var (
 		dnsNames = []string{}
 		ips      = []net.IP{}
 		err      error
 	)
+
+	// add endPoints informer
+	factory.InformerFor(&v1.Endpoints{}, newEndPointsInformer)
+
+	// the ips and dnsNames should be acquired through api-server at the first time, because the informer factory has not started yet.
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
 		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
 		if err != nil {
@@ -76,10 +85,17 @@ func NewYurttunnelServerCertManager(
 
 		return true, nil
 	}, stopCh)
-	// add user specified DNS anems and IP addresses
+	// add user specified DNS names and IP addresses
 	dnsNames = append(dnsNames, clCertNames...)
 	ips = append(ips, clIPs...)
 	klog.Infof("subject of tunnel server certificate, ips=%#+v, dnsNames=%#+v", ips, dnsNames)
+
+	// the dynamic ip acquire func
+	getIPs := func() ([]net.IP, error) {
+		_, dynamicIPs, err := serveraddr.YurttunnelServerAddrManager(factory)
+		dynamicIPs = append(dynamicIPs, clIPs...)
+		return dynamicIPs, err
+	}
 
 	return newCertManager(
 		clientset,
@@ -94,7 +110,8 @@ func NewYurttunnelServerCertManager(
 			certificates.UsageServerAuth,
 			certificates.UsageClientAuth,
 		},
-		ips)
+		ips,
+		getIPs)
 }
 
 // NewYurttunnelAgentCertManager creates a certificate manager for
@@ -121,7 +138,8 @@ func NewYurttunnelAgentCertManager(
 			certificates.UsageDigitalSignature,
 			certificates.UsageClientAuth,
 		},
-		[]net.IP{net.ParseIP(nodeIP)})
+		[]net.IP{net.ParseIP(nodeIP)},
+		nil)
 }
 
 // NewCertManager creates a certificate manager that will generates a
@@ -134,7 +152,8 @@ func newCertManager(
 	organizations,
 	dnsNames []string,
 	keyUsages []certificates.KeyUsage,
-	ipAddrs []net.IP) (certificate.Manager, error) {
+	ips []net.IP,
+	getIPs serveraddr.GetIPs) (certificate.Manager, error) {
 	certificateStore, err :=
 		store.NewFileStoreWrapper(componentName, certDir, certDir, "", "")
 	if err != nil {
@@ -142,13 +161,21 @@ func newCertManager(
 	}
 
 	getTemplate := func() *x509.CertificateRequest {
+		// use dynamic ips
+		if getIPs != nil {
+			tmpIPs, err := getIPs()
+			if err == nil && len(tmpIPs) != 0 {
+				klog.V(3).Infof("the latest tunnel server's ips=%#+v", tmpIPs)
+				ips = tmpIPs
+			}
+		}
 		return &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   commonName,
 				Organization: organizations,
 			},
 			DNSNames:    dnsNames,
-			IPAddresses: ipAddrs,
+			IPAddresses: ips,
 		}
 	}
 
@@ -166,4 +193,13 @@ func newCertManager(
 	}
 
 	return certManager, nil
+}
+
+// newEndPointsInformer creates a shared index informer that returns only interested endpoints
+func newEndPointsInformer(cs kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelEndpointsName)
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.FieldSelector = selector
+	}
+	return coreinformers.NewFilteredEndpointsInformer(cs, constants.YurttunnelEndpointsNs, resyncPeriod, nil, tweakListOptions)
 }

@@ -103,7 +103,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// 2. create a certificate manager for the tunnel server and run the
 	// csr approver for both yurttunnel-server and yurttunnel-agent
-	serverCertMgr, err := certmanager.NewYurttunnelServerCertManager(cfg.Client, cfg.CertDNSNames, cfg.CertIPs, stopCh)
+	serverCertMgr, err := certmanager.NewYurttunnelServerCertManager(cfg.Client, cfg.SharedInformerFactory, cfg.CertDNSNames, cfg.CertIPs, stopCh)
 	if err != nil {
 		return err
 	}

@@ -54,6 +54,8 @@ rules:
   - endpoints
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
