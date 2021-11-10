@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 	apps "k8s.io/api/apps/v1"
 	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,6 +51,8 @@ import (
 	"k8s.io/kubernetes/pkg/util/node"
 	taintutils "k8s.io/kubernetes/pkg/util/taints"
 	"k8s.io/utils/pointer"
+
+	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 )
 
 const (

@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,10 +36,11 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/apis/core/helper"
 	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 
-	"k8s.io/klog"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 const (

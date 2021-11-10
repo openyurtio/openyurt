@@ -29,10 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/klog"
-
-	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
-	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -56,11 +52,15 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
+	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/controller"
 	kubefeatures "k8s.io/kubernetes/pkg/features"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 	utilnode "k8s.io/kubernetes/pkg/util/node"
 	taintutils "k8s.io/kubernetes/pkg/util/taints"
+
+	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 func init() {
