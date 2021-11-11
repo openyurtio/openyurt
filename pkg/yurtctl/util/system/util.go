@@ -19,11 +19,13 @@ package system
 import (
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 
 	"k8s.io/klog"
 
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
 const (
@@ -50,6 +52,13 @@ func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
 	if err := ioutil.WriteFile(constants.Sysctl_k8s_config, []byte(kubernetsBridgeSetting), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", constants.Sysctl_k8s_config, err)
+	}
+
+	if exist, _ := edgenode.FileExists(bridgenf); !exist {
+		cmd := exec.Command("bash", "-c", "modprobe br-netfilter")
+		if err := edgenode.Exec(cmd); err != nil {
+			return err
+		}
 	}
 	if err := ioutil.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
