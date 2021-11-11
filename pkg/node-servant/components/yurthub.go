@@ -26,13 +26,13 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
+
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 )
 
 const (

@@ -19,9 +19,9 @@ package revert
 import (
 	"os"
 
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
-
 	"github.com/spf13/pflag"
+
+	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
 // Options has the information that required by revert operation

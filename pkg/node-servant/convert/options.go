@@ -21,10 +21,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/pflag"
+
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"github.com/spf13/pflag"
 )
 
 // Options has the information that required by convert operation
