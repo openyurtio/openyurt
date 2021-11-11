@@ -19,11 +19,12 @@ package node_servant
 import (
 	"fmt"
 
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 )
 
 // RenderNodeServantJob return k8s job
