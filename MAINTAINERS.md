@@ -11,3 +11,4 @@ This file lists the maintainers of the OpenYurt project. The responsibilities of
 | [Yixing Jia](mailto:yixingjia@gmail.com) | [yixingjia](https://github.com/yixingjia) | VMware |
 | [Shaoqiang Chen](mailto:shaoqiang.chen@intel.com) | [gnunu](https://github.com/gnunu) | Intel |
 | [Tao Chen](mailto:cchentaoct@163.com) | [qclc](https://github.com/qclc) | Zhejiang University |
+| [Lifang Zhang](mailto:379342542@qq.com) | [DrmagicE](https://github.com/DrmagicE) | China Telecom |
