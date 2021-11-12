@@ -25,12 +25,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
-
-	"github.com/spf13/pflag"
 )
 
 // FileExists determines whether the file exists

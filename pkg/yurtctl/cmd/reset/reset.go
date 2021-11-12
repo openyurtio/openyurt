@@ -22,6 +22,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/lithammer/dedent"
+	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -38,10 +41,7 @@ import (
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 	utilruntime "k8s.io/kubernetes/cmd/kubeadm/app/util/runtime"
 
-	"github.com/lithammer/dedent"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset/phases"
-	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 )
 
 var (
