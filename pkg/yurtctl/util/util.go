@@ -27,9 +27,8 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/klog"
-
 	pb "gopkg.in/cheggaaa/pb.v1"
+	"k8s.io/klog"
 )
 
 // DownloadFile try to download file from URL and save to savePath multiple times.

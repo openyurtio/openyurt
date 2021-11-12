@@ -17,14 +17,13 @@ limitations under the License.
 package revert
 
 import (
-	"github.com/spf13/pflag"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // RevertEdgeNodeOptions has the information required by sub command revert edgenode

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	"k8s.io/klog"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -31,8 +33,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurtinit"
-	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 )
 
 // NewYurtctlCommand creates a new yurtctl command

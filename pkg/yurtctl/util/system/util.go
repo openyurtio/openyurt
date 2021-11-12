@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	"k8s.io/klog"
 
-	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 )
 

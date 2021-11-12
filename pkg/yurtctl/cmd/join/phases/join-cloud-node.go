@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/lithammer/dedent"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,9 +41,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 
-	"github.com/lithammer/dedent"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	"github.com/pkg/errors"
 )
 
 var (
