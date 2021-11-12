@@ -9,3 +9,4 @@ This file lists the maintainers of the OpenYurt project. The responsibilities of
 | [Linbo He](mailto:linbo.hlb@alibaba-inc.com) | [rambohe-ch](https://github.com/rambohe-ch) | Alibaba |
 | [Chao Zheng](mailto:c.zheng@alibaba-inc.com) | [charleszheng44](https://github.com/charleszheng44) | Alibaba |
 | [Yixing Jia](mailto:yixingjia@gmail.com) | [yixingjia](https://github.com/yixingjia) | VMware |
+| [Shaoqiang Chen](mailto:shaoqiang.chen@intel.com) | [gnunu](https://github.com/gnunu) | Intel |
