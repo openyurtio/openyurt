@@ -24,13 +24,13 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 )
 
 const (

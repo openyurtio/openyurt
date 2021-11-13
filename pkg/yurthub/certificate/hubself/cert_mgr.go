@@ -28,14 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	certificates "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -47,6 +39,14 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 const (

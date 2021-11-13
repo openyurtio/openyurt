@@ -28,11 +28,6 @@ import (
 	"strings"
 	"sync"
 
-	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +41,11 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
+
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
