@@ -19,9 +19,9 @@ package cachemanager
 import (
 	"testing"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 func TestUpdateCacheAgents(t *testing.T) {

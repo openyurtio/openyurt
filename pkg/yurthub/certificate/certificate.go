@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
 // Factory is a function that returns an YurtCertificateManager.

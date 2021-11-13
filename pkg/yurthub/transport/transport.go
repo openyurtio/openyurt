@@ -24,11 +24,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver

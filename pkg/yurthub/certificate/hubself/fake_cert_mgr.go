@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"k8s.io/klog"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-
-	"k8s.io/klog"
 )
 
 var (

@@ -29,14 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	v1 "k8s.io/api/core/v1"
 	nodev1beta1 "k8s.io/api/node/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,6 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
