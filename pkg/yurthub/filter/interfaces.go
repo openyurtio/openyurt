@@ -21,7 +21,6 @@ import (
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/watch"
-
 	v1 "k8s.io/api/core/v1"
 )
 

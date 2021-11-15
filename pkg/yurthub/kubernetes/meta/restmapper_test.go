@@ -23,9 +23,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
 var rootDir = "/tmp/restmapper"

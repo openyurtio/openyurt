@@ -19,11 +19,11 @@ package util
 import (
 	"net/http"
 
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
 func CreateSerializer(req *http.Request, sm *serializer.SerializerManager) *serializer.Serializer {
