@@ -27,6 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/informers"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
@@ -75,6 +76,9 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 // run starts the yurttunel-server
 func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	var wg sync.WaitGroup
+	// register informers that tunnel server need
+	informers.RegisterInformersForTunnelServer(cfg.SharedInformerFactory)
+
 	// 0. start the DNS controller
 	if cfg.EnableDNSController {
 		dnsController, err := dns.NewCoreDNSRecordController(cfg.Client,

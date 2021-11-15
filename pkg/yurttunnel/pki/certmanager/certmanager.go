@@ -32,15 +32,12 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 
 	certificates "k8s.io/api/certificates/v1beta1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 )
@@ -58,9 +55,6 @@ func NewYurttunnelServerCertManager(
 		ips      = []net.IP{}
 		err      error
 	)
-
-	// add endPoints informer
-	factory.InformerFor(&v1.Endpoints{}, newEndPointsInformer)
 
 	// the ips and dnsNames should be acquired through api-server at the first time, because the informer factory has not started yet.
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
@@ -193,13 +187,4 @@ func newCertManager(
 	}
 
 	return certManager, nil
-}
-
-// newEndPointsInformer creates a shared index informer that returns only interested endpoints
-func newEndPointsInformer(cs kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	selector := fmt.Sprintf("metadata.name=%v", constants.YurttunnelEndpointsName)
-	tweakListOptions := func(options *metav1.ListOptions) {
-		options.FieldSelector = selector
-	}
-	return coreinformers.NewFilteredEndpointsInformer(cs, constants.YurttunnelEndpointsNs, resyncPeriod, nil, tweakListOptions)
 }

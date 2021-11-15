@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	corelister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -112,7 +111,7 @@ func NewCoreDNSRecordController(client clientset.Interface,
 	dnsctl.nodeLister = nodeInformer.Lister()
 	dnsctl.nodeListerSynced = nodeInformer.Informer().HasSynced
 
-	svcInformer := informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
+	svcInformer := informerFactory.Core().V1().Services().Informer()
 	svcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    dnsctl.addService,
 		UpdateFunc: dnsctl.updateService,
@@ -120,7 +119,7 @@ func NewCoreDNSRecordController(client clientset.Interface,
 	})
 	dnsctl.svcInformerSynced = svcInformer.HasSynced
 
-	cmInformer := informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigMapInformer)
+	cmInformer := informerFactory.Core().V1().ConfigMaps().Informer()
 	cmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    dnsctl.addConfigMap,
 		UpdateFunc: dnsctl.updateConfigMap,
@@ -134,26 +133,6 @@ func NewCoreDNSRecordController(client clientset.Interface,
 	}
 
 	return dnsctl, nil
-}
-
-// newServiceInformer creates a shared index informer that returns only interested services
-func newServiceInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	// this informer will be used by coreDNSRecordController and certificate manager,
-	// so it should return x-tunnel-server-svc and x-tunnel-server-internal-svc
-	selector := fmt.Sprintf("name=%v", projectinfo.YurtTunnelServerLabel())
-	tweakListOptions := func(options *metav1.ListOptions) {
-		options.LabelSelector = selector
-	}
-	return coreinformers.NewFilteredServiceInformer(cs, constants.YurttunnelServerServiceNs, resyncPeriod, nil, tweakListOptions)
-}
-
-// newConfigMapInformer creates a shared index informer that returns only interested configmaps
-func newConfigMapInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	selector := fmt.Sprintf("metadata.name=%v", util.YurttunnelServerDnatConfigMapName)
-	tweakListOptions := func(options *metav1.ListOptions) {
-		options.FieldSelector = selector
-	}
-	return coreinformers.NewFilteredConfigMapInformer(cs, util.YurttunnelServerDnatConfigMapNs, resyncPeriod, nil, tweakListOptions)
 }
 
 func (dnsctl *coreDNSRecordController) Run(stopCh <-chan struct{}) {
