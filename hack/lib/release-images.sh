@@ -77,6 +77,10 @@ function build_multi_arch_binaries() {
     # use goproxy if build from inside mainland China
     [[ $region == "cn" ]] && docker_run_opts+=("--env GOPROXY=https://goproxy.cn")
 
+    # use proxy if set
+    [[ -n ${http_proxy+x} ]] && docker_run_opts+=("--env http_proxy=${http_proxy}")
+    [[ -n ${https_proxy+x} ]] && docker_run_opts+=("--env https_proxy=${https_proxy}")
+
     local docker_run_cmd=(
         "/bin/sh"
         "-xe"
