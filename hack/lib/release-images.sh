@@ -169,6 +169,7 @@ EOF
                yurt_component_image=$(get_image_name ${yurt_component_name} ${arch})
                ln "${binary_path}" "${docker_build_path}/${binary_name}"
                docker build --no-cache -t "${yurt_component_image}" -f "${docker_file_path}" ${docker_build_path}
+               echo ${yurt_component_image} >> ${DOCKER_BUILD_BASE_IDR}/images.list
                docker save ${yurt_component_image} > ${YURT_IMAGE_DIR}/${yurt_component_name}-${SUPPORTED_OS}-${arch}.tar
             fi
         done
@@ -185,4 +186,8 @@ build_images() {
 
     build_multi_arch_binaries
     build_docker_image
+}
+
+push_images() {
+    cat ${DOCKER_BUILD_BASE_IDR}/images.list | xargs -I % sh -c 'echo pushing %; docker push %; echo'
 }

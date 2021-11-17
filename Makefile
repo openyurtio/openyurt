@@ -56,6 +56,10 @@ vet:
 release:
 	bash hack/make-rules/release-images.sh
 
+# push generated images during 'make release'
+push:
+	bash hack/make-rules/push-images.sh
+
 clean:
 	-rm -Rf _output
 	-rm -Rf dockerbuild
