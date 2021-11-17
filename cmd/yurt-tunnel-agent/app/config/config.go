@@ -16,7 +16,11 @@ limitations under the License.
 
 package config
 
-import "k8s.io/client-go/kubernetes"
+import (
+	"time"
+
+	"k8s.io/client-go/kubernetes"
+)
 
 // Config is the main context object for yurttunel-agent
 type Config struct {
@@ -26,6 +30,7 @@ type Config struct {
 	Client           kubernetes.Interface
 	AgentIdentifiers string
 	AgentMetaAddr    string
+	ProbInterval     time.Duration
 }
 
 type completedConfig struct {

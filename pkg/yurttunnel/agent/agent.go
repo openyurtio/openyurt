@@ -18,6 +18,9 @@ package agent
 
 import (
 	"crypto/tls"
+	"time"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 // TunnelAgent sets up tunnel to TunnelServer, receive requests
@@ -28,12 +31,14 @@ type TunnelAgent interface {
 
 // NewTunnelAgent generates a new TunnelAgent
 func NewTunnelAgent(tlsCfg *tls.Config,
-	tunnelServerAddr, nodeName, agentIdentifiers string) TunnelAgent {
+	tunnelServerAddr, nodeName, agentIdentifiers string, client kubernetes.Interface, probInterval time.Duration) TunnelAgent {
 	ata := anpTunnelAgent{
 		tlsCfg:           tlsCfg,
 		tunnelServerAddr: tunnelServerAddr,
 		nodeName:         nodeName,
 		agentIdentifiers: agentIdentifiers,
+		client:           client,
+		probInterval:     probInterval,
 	}
 
 	return &ata

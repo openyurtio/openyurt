@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -46,6 +47,7 @@ type AgentOptions struct {
 	AgentIdentifiers string
 	MetaHost         string
 	MetaPort         string
+	ProbInterval     int
 }
 
 // NewAgentOptions creates a new AgentOptions with a default config.
@@ -92,6 +94,7 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.AgentIdentifiers, "agent-identifiers", o.AgentIdentifiers, "The identifiers of the agent, which will be used by the server when choosing agent.")
 	fs.StringVar(&o.MetaHost, "meta-host", o.MetaHost, "The ip address on which listen for --meta-port port.")
 	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profling, metrics")
+	fs.IntVar(&o.ProbInterval, "probe-interval", o.ProbInterval, "The interval of probing the connection to tunnel server.")
 }
 
 // agentIdentifiersIsValid verify agent identifiers are valid or not.
@@ -128,6 +131,12 @@ func (o *AgentOptions) Config() (*config.Config, error) {
 		TunnelServerAddr: o.TunnelServerAddr,
 		AgentIdentifiers: o.AgentIdentifiers,
 		AgentMetaAddr:    net.JoinHostPort(o.MetaHost, o.MetaPort),
+	}
+
+	if o.ProbInterval == 0 {
+		c.ProbInterval = 5 * time.Second
+	} else {
+		c.ProbInterval = time.Duration(o.ProbInterval * 1e+9)
 	}
 
 	if len(c.AgentIdentifiers) == 0 {

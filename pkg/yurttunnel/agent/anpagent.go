@@ -18,12 +18,16 @@ package agent
 
 import (
 	"crypto/tls"
+	"net"
+	"reflect"
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 )
@@ -35,13 +39,18 @@ type anpTunnelAgent struct {
 	tunnelServerAddr string
 	nodeName         string
 	agentIdentifiers string
+	client           kubernetes.Interface
+	probInterval     time.Duration
 }
 
 var _ TunnelAgent = &anpTunnelAgent{}
 
 // RunAgent runs the yurttunnel-agent which will try to connect yurttunnel-server
 func (ata *anpTunnelAgent) Run(stopChan <-chan struct{}) {
-	dialOption := grpc.WithTransportCredentials(credentials.NewTLS(ata.tlsCfg))
+	var (
+		csStopChan = make(chan struct{})
+		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(ata.tlsCfg))
+	)
 	cc := &anpagent.ClientSetConfig{
 		Address:                 ata.tunnelServerAddr,
 		AgentID:                 ata.nodeName,
@@ -52,8 +61,41 @@ func (ata *anpTunnelAgent) Run(stopChan <-chan struct{}) {
 		ServiceAccountTokenPath: "",
 	}
 
-	cs := cc.NewAgentClientSet(stopChan)
-	cs.Serve()
+	cc.NewAgentClientSet(csStopChan).Serve()
 	klog.Infof("start serving grpc request redirected from %s: %s",
 		projectinfo.GetServerName(), ata.tunnelServerAddr)
+
+	// probe tunnel server address and reconnect it if address changed.
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				close(csStopChan)
+				return
+			case <-time.After(ata.probInterval):
+				addr, err := serveraddr.GetTunnelServerAddr(ata.client)
+				if err != nil {
+					klog.Infof("get tunnel server addr err: %+v", err)
+					continue
+				}
+				if !reflect.DeepEqual(addr, ata.tunnelServerAddr) {
+					klog.Infof("tunnel server's ip has changed")
+					host, _, err := net.SplitHostPort(addr)
+					if err != nil {
+						klog.Infof("split host port err: %+v", err)
+					}
+					// update related filed
+					ata.tlsCfg.ServerName = host
+					ata.tunnelServerAddr = addr
+					dialOption = grpc.WithTransportCredentials(credentials.NewTLS(ata.tlsCfg))
+					cc.Address = host
+					// shutdown clientSet and recreate a new one to connect the new address
+					csStopChan <- struct{}{}
+					cc.NewAgentClientSet(csStopChan).Serve()
+					klog.Infof("restart serving grpc request redirected from %s: %s",
+						projectinfo.GetServerName(), ata.tunnelServerAddr)
+				}
+			}
+		}
+	}()
 }

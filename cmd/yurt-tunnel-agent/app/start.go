@@ -29,7 +29,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
-
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -113,7 +112,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}
 
 	// 4. start the yurttunnel-agent
-	ta := agent.NewTunnelAgent(tlsCfg, tunnelServerAddr, cfg.NodeName, cfg.AgentIdentifiers)
+	ta := agent.NewTunnelAgent(tlsCfg, tunnelServerAddr, cfg.NodeName, cfg.AgentIdentifiers, cfg.Client, cfg.ProbInterval)
 	ta.Run(stopCh)
 
 	// 5. start meta server
