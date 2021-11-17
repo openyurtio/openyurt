@@ -19,6 +19,8 @@ package phases
 import (
 	"fmt"
 
+	"k8s.io/kubernetes/cmd/kubeadm/app/constants"
+
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
@@ -38,26 +40,51 @@ func NewMarkCloudNode() workflow.Phase {
 func runMarkCloudNode(c workflow.RunData) error {
 	data, ok := c.(YurtInitData)
 	if !ok {
-		return fmt.Errorf("Label cloud node phase invoked with an invalid data struct. ")
+		return fmt.Errorf("Label cloud-node-phase invoked with an invalid data struct. ")
 	}
 	client, err := data.Client()
 	if err != nil {
 		return err
 	}
 	nodeRegistration := data.Cfg().NodeRegistration
-	return LabelCloudNode(client, nodeRegistration.Name,
-		map[string]string{projectinfo.GetEdgeWorkerLabelKey(): "false"})
+	return MarkCloudNodePhase(client, nodeRegistration.Name, nodeRegistration.Taints)
 }
 
-// LabelCloudNode set cloud-node label
-func LabelCloudNode(client clientset.Interface, nodeName string, label map[string]string) error {
-	return apiclient.PatchNode(client, nodeName, func(n *v1.Node) {
-		labelCloudNode(n, label)
+// MarkCloudNodePhase taints the control-plane and sets the control-plane label
+func MarkCloudNodePhase(client clientset.Interface, cloudName string, taints []v1.Taint) error {
+	fmt.Printf("[mark-control-plane] Marking the node %s as cloud-node-plane by adding the label \"%s=''\"\n", cloudName, constants.LabelNodeRoleMaster)
+
+	if len(taints) > 0 {
+		taintStrs := []string{}
+		for _, taint := range taints {
+			taintStrs = append(taintStrs, taint.ToString())
+		}
+		fmt.Printf("[mark-control-plane] Marking the node %s as control-plane by adding the taints %v\n", cloudName, taintStrs)
+	}
+
+	return apiclient.PatchNode(client, cloudName, func(n *v1.Node) {
+		markCloudNode(n, taints)
 	})
 }
 
-func labelCloudNode(n *v1.Node, labels map[string]string) {
-	for k, v := range labels {
-		n.ObjectMeta.Labels[k] = v
+func taintExists(taint v1.Taint, taints []v1.Taint) bool {
+	for _, t := range taints {
+		if t == taint {
+			return true
+		}
 	}
+
+	return false
+}
+
+func markCloudNode(n *v1.Node, taints []v1.Taint) {
+	n.ObjectMeta.Labels[constants.LabelNodeRoleMaster] = ""
+	n.ObjectMeta.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "false"
+	for _, nt := range n.Spec.Taints {
+		if !taintExists(nt, taints) {
+			taints = append(taints, nt)
+		}
+	}
+
+	n.Spec.Taints = taints
 }
