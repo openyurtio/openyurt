@@ -23,6 +23,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // WantsSharedInformerFactory is an interface for setting SharedInformerFactory
@@ -40,7 +41,7 @@ type WantsNodeName interface {
 	SetNodeName(nodeName string) error
 }
 
-// WantsNodeName is an interface for setting node name
+// WantsSerializerManager is an interface for setting serializer manager
 type WantsSerializerManager interface {
 	SetSerializerManager(s *serializer.SerializerManager) error
 }
@@ -55,6 +56,11 @@ type WantsMasterServiceAddr interface {
 	SetMasterServiceAddr(addr string) error
 }
 
+// WantsWorkingMode is an interface for setting working mode
+type WantsWorkingMode interface {
+	SetWorkingMode(mode util.WorkingMode) error
+}
+
 // genericFilterInitializer is responsible for initializing generic filter
 type genericFilterInitializer struct {
 	factory           informers.SharedInformerFactory
@@ -63,6 +69,7 @@ type genericFilterInitializer struct {
 	storageWrapper    cachemanager.StorageWrapper
 	nodeName          string
 	masterServiceAddr string
+	workingMode       util.WorkingMode
 }
 
 // New creates an filterInitializer object
@@ -71,7 +78,8 @@ func New(factory informers.SharedInformerFactory,
 	sm *serializer.SerializerManager,
 	sw cachemanager.StorageWrapper,
 	nodeName string,
-	masterServiceAddr string) *genericFilterInitializer {
+	masterServiceAddr string,
+	workingMode util.WorkingMode) *genericFilterInitializer {
 	return &genericFilterInitializer{
 		factory:           factory,
 		yurtFactory:       yurtFactory,
@@ -79,11 +87,18 @@ func New(factory informers.SharedInformerFactory,
 		storageWrapper:    sw,
 		nodeName:          nodeName,
 		masterServiceAddr: masterServiceAddr,
+		workingMode:       workingMode,
 	}
 }
 
 // Initialize used for executing filter initialization
 func (fi *genericFilterInitializer) Initialize(ins filter.Interface) error {
+	if wants, ok := ins.(WantsWorkingMode); ok {
+		if err := wants.SetWorkingMode(fi.workingMode); err != nil {
+			return err
+		}
+	}
+
 	if wants, ok := ins.(WantsNodeName); ok {
 		if err := wants.SetNodeName(fi.nodeName); err != nil {
 			return err

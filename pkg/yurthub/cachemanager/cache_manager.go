@@ -52,8 +52,6 @@ import (
 type CacheManager interface {
 	CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error
 	QueryCache(req *http.Request) (runtime.Object, error)
-	UpdateCacheAgents(agents, action string) sets.String
-	ListCacheAgents() []string
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
 }

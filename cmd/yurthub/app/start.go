@@ -27,8 +27,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -158,15 +156,8 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. new filter chain for mutating response body", trace)
-	filterChain, err := createFilterChain(cfg)
-	if err != nil {
-		return fmt.Errorf("could not new filter chain, %v", err)
-	}
-	trace++
-
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, filterChain, stopCh)
+	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, stopCh)
 	if err != nil {
 		return fmt.Errorf("could not create reverse proxy handler, %v", err)
 	}
@@ -183,11 +174,9 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s, secure dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr, cfg.YurtHubProxyServerSecureDummyAddr)
 	}
 
-	// start shared informers here
-	if filterChain != nil && cfg.Filters.Enabled(filter.ServiceTopologyFilterName) {
-		cfg.SharedFactory.Start(stopCh)
-		cfg.YurtSharedFactory.Start(stopCh)
-	}
+	// start shared informers before start hub server
+	cfg.SharedFactory.Start(stopCh)
+	cfg.YurtSharedFactory.Start(stopCh)
 
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
 	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler)
@@ -197,15 +186,4 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	s.Run()
 	klog.Infof("hub agent exited")
 	return nil
-}
-
-func createFilterChain(cfg *config.YurtHubConfiguration) (filter.Interface, error) {
-	if cfg.Filters == nil {
-		return nil, nil
-	}
-
-	genericInitializer := initializer.New(cfg.SharedFactory, cfg.YurtSharedFactory, cfg.SerializerManager, cfg.StorageWrapper, cfg.NodeName, cfg.MutatedMasterServiceAddr)
-	initializerChain := filter.FilterInitializers{}
-	initializerChain = append(initializerChain, genericInitializer)
-	return cfg.Filters.NewFromFilters(initializerChain)
 }

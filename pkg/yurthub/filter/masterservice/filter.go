@@ -70,14 +70,6 @@ func (msf *masterServiceFilter) SetMasterServiceAddr(addr string) error {
 	return nil
 }
 
-func (msf *masterServiceFilter) Approve(comp, resource, verb string) bool {
-	if !msf.Approver.Approve(comp, resource, verb) {
-		return false
-	}
-
-	return true
-}
-
 func (msf *masterServiceFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
 	s := filterutil.CreateSerializer(req, msf.serializerManager)
 	if s == nil {

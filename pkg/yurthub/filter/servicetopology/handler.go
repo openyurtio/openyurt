@@ -153,7 +153,7 @@ func (fh *serviceTopologyFilterHandler) reassembleEndpointSlice(endpointSlice *d
 	} else if serviceTopologyType == AnnotationServiceTopologyValueNodePool || serviceTopologyType == AnnotationServiceTopologyValueZone {
 		// if type of service Topology is openyurt.io/nodepool
 		// filter the endpoint just on the node which is in the same nodepool with current node
-		currentNode, err := fh.nodeGetter()
+		currentNode, err := fh.nodeGetter(fh.nodeName)
 		if err != nil {
 			klog.Infof("skip reassemble endpointSlice, failed to get current node %s, err: %v", fh.nodeName, err)
 			return endpointSlice
