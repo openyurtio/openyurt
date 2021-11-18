@@ -146,18 +146,24 @@ func (c *ConvertNodeOptions) SetupYurthub(workingMode util.WorkingMode) error {
 	if err != nil {
 		return err
 	}
-	kubeletConfPath = strings.Split(kubeletConfPath, "=")[1]
-	apiserverAddr, err := enutil.GetSingleContentFromFile(kubeletConfPath, apiserverAddrRegularExpression)
+	kubeletConfPathArr := strings.Split(kubeletConfPath, "=")
+	if len(kubeletConfPathArr) < 2 {
+		return fmt.Errorf("--kubeconfig-path format error")
+	}
+	apiserverAddr, err := enutil.GetSingleContentFromFile(kubeletConfPathArr[1], apiserverAddrRegularExpression)
 	if err != nil {
 		return err
 	}
-	apiserverAddr = strings.Split(apiserverAddr, " ")[1]
+	apiserverAddrArr := strings.Split(apiserverAddr, " ")
+	if len(apiserverAddrArr) < 2 {
+		return fmt.Errorf("--kubeconfig-path format error")
+	}
 
 	// 1-2. replace variables in yaml file
 	klog.Infof("setting up yurthub apiserver addr")
 	yurthubTemplate := enutil.ReplaceRegularExpression(enutil.YurthubTemplate,
 		map[string]string{
-			"__kubernetes_service_addr__": apiserverAddr,
+			"__kubernetes_service_addr__": apiserverAddrArr[1],
 			"__yurthub_image__":           c.YurthubImage,
 			"__join_token__":              c.JoinToken,
 			"__working_mode__":            string(workingMode),
