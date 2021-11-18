@@ -34,7 +34,7 @@ import (
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	tunneldns "github.com/openyurtio/openyurt/pkg/yurttunnel/dns"
+	tunneldns "github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/dns"
 )
 
 // RevertOptions has the information required by the revert operation
