@@ -24,10 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 func newTestRequestInfoResolver() *request.RequestInfoFactory {

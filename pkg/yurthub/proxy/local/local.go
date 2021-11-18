@@ -24,11 +24,6 @@ import (
 	"strconv"
 	"time"
 
-	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -36,6 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog"
+
+	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 const (

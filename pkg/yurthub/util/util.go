@@ -26,10 +26,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -40,6 +36,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 )
 
 // ProxyKeyType represents the key in proxy request context

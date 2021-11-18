@@ -25,15 +25,15 @@ import (
 	"net/url"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/klog"
+
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/klog"
 )
 
 // RemoteProxy is an reverse proxy for remote server

@@ -21,9 +21,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 )
 
 const (
