@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 )
 
 // closableConn is used to remove reference in dialer

@@ -25,8 +25,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 const (
