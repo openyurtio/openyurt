@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 var (

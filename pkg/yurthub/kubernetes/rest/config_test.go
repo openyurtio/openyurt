@@ -24,14 +24,14 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-
-	"k8s.io/client-go/rest"
 )
 
 var (

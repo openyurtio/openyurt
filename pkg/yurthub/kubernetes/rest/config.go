@@ -19,14 +19,14 @@ package rest
 import (
 	"net/url"
 
+	"k8s.io/client-go/rest"
+	"k8s.io/klog"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 )
 
 type RestConfigManager struct {

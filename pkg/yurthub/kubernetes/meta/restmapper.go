@@ -23,12 +23,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 const (

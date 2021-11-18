@@ -24,7 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured/unstructuredscheme"
@@ -37,6 +36,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	restclientwatch "k8s.io/client-go/rest/watch"
 	"k8s.io/klog"
+
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 )
 
 // YurtHubSerializer is a global serializer manager for yurthub
