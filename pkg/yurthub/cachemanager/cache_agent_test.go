@@ -64,7 +64,7 @@ func TestUpdateCacheAgents(t *testing.T) {
 			}
 
 			// add agents
-			deletedAgents := m.UpdateCacheAgents(tt.cacheAgents, "")
+			deletedAgents := m.updateCacheAgents(tt.cacheAgents, "")
 
 			if !deletedAgents.Equal(tt.deletedAgents) {
 				t.Errorf("Got deleted agents: %v, expect agents: %v", deletedAgents, tt.deletedAgents)

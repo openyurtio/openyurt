@@ -38,4 +38,4 @@ type Handler interface {
 	ObjectResponseFilter(b []byte) ([]byte, error)
 }
 
-type NodeGetter func() (*v1.Node, error)
+type NodeGetter func(name string) (*v1.Node, error)

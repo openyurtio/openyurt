@@ -29,20 +29,26 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	yurtcorev1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
+	yurtv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions/apps/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 )
@@ -75,12 +81,11 @@ type YurtHubConfiguration struct {
 	SerializerManager                 *serializer.SerializerManager
 	RESTMapperManager                 *meta.RESTMapperManager
 	TLSConfig                         *tls.Config
-	MutatedMasterServiceAddr          string
-	Filters                           *filter.Filters
 	SharedFactory                     informers.SharedInformerFactory
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
+	FilterChain                       filter.Interface
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -104,12 +109,11 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxySecureServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxySecurePort)
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr), options.NodePoolName)
-	if err != nil {
-		return nil, err
-	}
+	workingMode := util.WorkingMode(options.WorkingMode)
 
+	var filterChain filter.Interface
 	var filters *filter.Filters
+	var serviceTopologyFilterEnabled bool
 	var mutatedMasterServiceAddr string
 	if options.EnableResourceFilter {
 		if options.WorkingMode == string(util.WorkingModeCloud) {
@@ -118,6 +122,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		filters = filter.NewFilters(options.DisabledResourceFilters)
 		registerAllFilters(filters)
 
+		serviceTopologyFilterEnabled = filters.Enabled(filter.ServiceTopologyFilterName)
 		mutatedMasterServiceAddr = us[0].Host
 		if options.AccessServerThroughHub {
 			if options.EnableDummyIf {
@@ -126,6 +131,16 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 				mutatedMasterServiceAddr = proxySecureServerAddr
 			}
 		}
+	}
+
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
+	if err != nil {
+		return nil, err
+	}
+	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled, options.NodePoolName, options.NodeName)
+	filterChain, err = createFilterChain(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, workingMode, options.NodeName, mutatedMasterServiceAddr)
+	if err != nil {
+		return nil, err
 	}
 
 	cfg := &YurtHubConfiguration{
@@ -151,15 +166,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		EnableDummyIf:                     options.EnableDummyIf,
 		EnableIptables:                    options.EnableIptables,
 		HubAgentDummyIfName:               options.HubAgentDummyIfName,
-		WorkingMode:                       util.WorkingMode(options.WorkingMode),
+		WorkingMode:                       workingMode,
 		StorageWrapper:                    storageWrapper,
 		SerializerManager:                 serializerManager,
 		RESTMapperManager:                 restMapperManager,
-		MutatedMasterServiceAddr:          mutatedMasterServiceAddr,
-		Filters:                           filters,
 		SharedFactory:                     sharedFactory,
 		YurtSharedFactory:                 yurtSharedFactory,
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
+		FilterChain:                       filterChain,
 	}
 
 	return cfg, nil
@@ -196,7 +210,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createSharedInformers(proxyAddr, nodePoolName string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var err error
 	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
@@ -214,20 +228,73 @@ func createSharedInformers(proxyAddr, nodePoolName string) (informers.SharedInfo
 		return nil, nil, err
 	}
 
-	if len(nodePoolName) == 0 {
-		return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+	return informers.NewSharedInformerFactory(client, 24*time.Hour),
+		yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+}
+
+// registerInformers reconstruct node/nodePool/configmap informers
+func registerInformers(informerFactory informers.SharedInformerFactory,
+	yurtInformerFactory yurtinformers.SharedInformerFactory,
+	workingMode util.WorkingMode,
+	serviceTopologyFilterEnabled bool,
+	nodePoolName, nodeName string) {
+	// skip construct node/nodePool informers if service topology filter disabled
+	if serviceTopologyFilterEnabled {
+		if workingMode == util.WorkingModeCloud {
+			newNodeInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+				tweakListOptions := func(options *metav1.ListOptions) {
+					options.FieldSelector = fields.Set{"metadata.name": nodeName}.String()
+				}
+				return coreinformers.NewFilteredNodeInformer(client, resyncPeriod, nil, tweakListOptions)
+			}
+			informerFactory.InformerFor(&corev1.Node{}, newNodeInformer)
+		}
+
+		if len(nodePoolName) != 0 {
+			newNodePoolInformer := func(client yurtclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+				tweakListOptions := func(options *metav1.ListOptions) {
+					options.FieldSelector = fields.Set{"metadata.name": nodePoolName}.String()
+				}
+				return yurtv1alpha1.NewFilteredNodePoolInformer(client, resyncPeriod, nil, tweakListOptions)
+			}
+
+			yurtInformerFactory.InformerFor(&yurtcorev1alpha1.NodePool{}, newNodePoolInformer)
+		}
 	}
-	yurtSharedInformerFactory := yurtinformers.NewSharedInformerFactoryWithOptions(yurtClient, 24*time.Hour,
-		yurtinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.FieldSelector = fields.Set{"metadata.name": nodePoolName}.String()
-		}))
-	return informers.NewSharedInformerFactory(client, 24*time.Hour), yurtSharedInformerFactory, nil
+
+	if workingMode == util.WorkingModeEdge {
+		newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+			tweakListOptions := func(options *metav1.ListOptions) {
+				options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
+			}
+			return coreinformers.NewFilteredConfigMapInformer(client, util.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+		}
+		informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
+	}
 }
 
 // registerAllFilters by order, the front registered filter will be
-// called before the later registered ones.
+// called before the behind registered ones.
 func registerAllFilters(filters *filter.Filters) {
 	servicetopology.Register(filters)
 	masterservice.Register(filters)
 	discardcloudservice.Register(filters)
+}
+
+// createFilterChain return union filters that initializations completed.
+func createFilterChain(filters *filter.Filters,
+	sharedFactory informers.SharedInformerFactory,
+	yurtSharedFactory yurtinformers.SharedInformerFactory,
+	serializerManager *serializer.SerializerManager,
+	storageWrapper cachemanager.StorageWrapper,
+	workingMode util.WorkingMode,
+	nodeName, mutatedMasterServiceAddr string) (filter.Interface, error) {
+	if filters == nil {
+		return nil, nil
+	}
+
+	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, nodeName, mutatedMasterServiceAddr, workingMode)
+	initializerChain := filter.FilterInitializers{}
+	initializerChain = append(initializerChain, genericInitializer)
+	return filters.NewFromFilters(initializerChain)
 }

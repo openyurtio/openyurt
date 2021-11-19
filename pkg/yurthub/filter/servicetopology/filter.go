@@ -33,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	filterutil "github.com/openyurtio/openyurt/pkg/yurthub/filter/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Register registers a filter
@@ -44,8 +45,9 @@ func Register(filters *filter.Filters) {
 
 func NewFilter() *serviceTopologyFilter {
 	return &serviceTopologyFilter{
-		Approver: filter.NewApprover("kube-proxy", "endpointslices", []string{"list", "watch"}...),
-		stopCh:   make(chan struct{}),
+		Approver:    filter.NewApprover("kube-proxy", "endpointslices", []string{"list", "watch"}...),
+		workingMode: util.WorkingModeEdge,
+		stopCh:      make(chan struct{}),
 	}
 }
 
@@ -58,13 +60,25 @@ type serviceTopologyFilter struct {
 	nodeGetter        filter.NodeGetter
 	nodeSynced        cache.InformerSynced
 	nodeName          string
+	workingMode       util.WorkingMode
 	serializerManager *serializer.SerializerManager
 	stopCh            chan struct{}
+}
+
+func (ssf *serviceTopologyFilter) SetWorkingMode(mode util.WorkingMode) error {
+	ssf.workingMode = mode
+	return nil
 }
 
 func (ssf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
 	ssf.serviceLister = factory.Core().V1().Services().Lister()
 	ssf.serviceSynced = factory.Core().V1().Services().Informer().HasSynced
+
+	if ssf.workingMode == util.WorkingModeCloud {
+		klog.Infof("prepare list/watch to sync node(%s) for cloud working mode", ssf.nodeName)
+		ssf.nodeSynced = factory.Core().V1().Nodes().Informer().HasSynced
+		ssf.nodeGetter = factory.Core().V1().Nodes().Lister().Get
+	}
 
 	return nil
 }
@@ -87,6 +101,12 @@ func (ssf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 		return fmt.Errorf("node name for serviceTopologyFilter is not ready")
 	}
 
+	// hub agent will list/watch node from kube-apiserver when hub agent work as cloud mode
+	if ssf.workingMode == util.WorkingModeCloud {
+		return nil
+	}
+	klog.Infof("prepare local disk storage to sync node(%s) for edge working mode", ssf.nodeName)
+
 	nodeKey := fmt.Sprintf("kubelet/nodes/%s", ssf.nodeName)
 	ssf.nodeSynced = func() bool {
 		obj, err := s.Get(nodeKey)
@@ -101,19 +121,19 @@ func (ssf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 		return true
 	}
 
-	ssf.nodeGetter = func() (*v1.Node, error) {
-		obj, err := s.Get(nodeKey)
+	ssf.nodeGetter = func(name string) (*v1.Node, error) {
+		obj, err := s.Get(fmt.Sprintf("kubelet/nodes/%s", name))
 		if err != nil {
 			return nil, err
 		} else if obj == nil {
-			return nil, fmt.Errorf("node(%s) is not ready", ssf.nodeName)
+			return nil, fmt.Errorf("node(%s) is not ready", name)
 		}
 
 		if node, ok := obj.(*v1.Node); ok {
 			return node, nil
 		}
 
-		return nil, fmt.Errorf("node(%s) is not found", ssf.nodeName)
+		return nil, fmt.Errorf("node(%s) is not found", name)
 	}
 
 	return nil
