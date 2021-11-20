@@ -22,9 +22,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +29,9 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 type GetIPs func() ([]net.IP, error)

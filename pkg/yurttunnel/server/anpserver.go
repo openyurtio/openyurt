@@ -24,10 +24,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
-	wh "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
-
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -35,6 +31,10 @@ import (
 	"k8s.io/klog/v2"
 	anpserver "sigs.k8s.io/apiserver-network-proxy/pkg/server"
 	anpagent "sigs.k8s.io/apiserver-network-proxy/proto/agent"
+
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
+	wh "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 )
 
 // anpTunnelServer implements the TunnelServer interface using the

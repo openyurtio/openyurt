@@ -26,11 +26,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager/store"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
-
 	certificates "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +35,11 @@ import (
 	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager/store"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for

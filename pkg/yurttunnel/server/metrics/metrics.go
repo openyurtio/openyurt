@@ -19,8 +19,9 @@ package metrics
 import (
 	"strings"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 var (
