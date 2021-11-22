@@ -72,6 +72,7 @@ readonly BUILD_TARGETS=(
     yurtctl
     yurt-tunnel-server
     yurt-tunnel-agent
+    yurt-node-servant
 )
 
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
@@ -192,6 +193,10 @@ function kind_load_images {
         if [[ "${bin}" = "yurtctl" ]]; then
             imagename="yurtctl-servant-${postfix}"
         fi
+
+        if [[ "${bin}" = "yurt-node-servant" ]]; then
+            imagename="node-servant-${postfix}"
+        fi
         
         echo "loading image ${imagename} to nodes"
         local nodesarg=$(echo ${master} ${edgenodes[@]} | sed "s/ /,/g")
@@ -251,7 +256,7 @@ function convert_to_openyurt {
         ${yurtctl_dir}/yurtctl convert --provider kubeadm --cloud-nodes ${master} \
             --yurthub-image=$(get_image_name "yurthub" ${LOCAL_ARCH}) \
             --yurt-controller-manager-image=$(get_image_name "yurt-controller-manager" ${LOCAL_ARCH}) \
-            --yurtctl-servant-image=$(get_image_name "yurtctl-servant" ${LOCAL_ARCH})
+            --node-servant-image=$(get_image_name "node-servant" ${LOCAL_ARCH})
             # --yurt-tunnel-server-image=$(get_image_name "yurt-tunnel-server" ${LOCAL_ARCH}) \
             # --yurt-tunnel-agent-image=$(get_image_name "yurt-tunnel-agent" ${LOCAL_ARCH})
     

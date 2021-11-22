@@ -250,49 +250,6 @@ spec:
         command:
         - yurt-controller-manager	
 `
-	// ConvertServantJobTemplate defines the yurtctl convert servant job in yaml format
-	ConvertServantJobTemplate = `
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{.jobName}}
-  namespace: kube-system
-spec:
-  template:
-    spec:
-      hostPID: true
-      hostNetwork: true
-      restartPolicy: OnFailure
-      nodeName: {{.nodeName}}
-      volumes:
-      - name: host-var-tmp
-        hostPath:
-          path: /var/tmp
-          type: Directory
-      containers:
-      - name: yurtctl-servant
-        image: {{.yurtctl_servant_image}}
-        imagePullPolicy: IfNotPresent
-        command:
-        - /bin/sh
-        - -c
-        args:
-        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl convert {{.sub_command}} --yurthub-image {{.yurthub_image}} {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout {{.yurthub_healthcheck_timeout}} {{end}}--join-token {{.joinToken}} && rm /tmp/yurtctl"
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /tmp
-          name: host-var-tmp
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
-        - name: KUBELET_SVC
-          value: {{.kubeadm_conf_path}}
-          {{end}}
-`
 	// RevertServantJobTemplate defines the yurtctl revert servant job in yaml format
 	RevertServantJobTemplate = `
 apiVersion: batch/v1
@@ -352,7 +309,7 @@ spec:
       nodeName: {{.nodeName}}
       containers:
       - name: yurtctl-disable-node-controller
-        image: {{.yurtctl_servant_image}}
+        image: {{.node_servant_image}}
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh

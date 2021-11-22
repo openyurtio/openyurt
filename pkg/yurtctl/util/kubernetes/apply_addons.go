@@ -138,7 +138,7 @@ func DeployYurtAppManager(
 
 func DeployYurttunnelServer(
 	client *kubernetes.Clientset,
-	cloudNodes []string,
+	certIP string,
 	yurttunnelServerImage string,
 	systemArchitecture string) error {
 	// 1. create the ClusterRole
@@ -185,6 +185,7 @@ func DeployYurttunnelServer(
 		map[string]string{
 			"image":           yurttunnelServerImage,
 			"arch":            systemArchitecture,
+			"certIP":          certIP,
 			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}

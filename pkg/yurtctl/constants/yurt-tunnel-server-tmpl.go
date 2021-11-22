@@ -207,6 +207,9 @@ spec:
         - --bind-address=$(NODE_IP)
         - --insecure-bind-address=$(NODE_IP)
         - --server-count=1
+          {{if .certIP }}
+        - --cert-ips={{.certIP}}
+          {{end}}
         env:
         - name: NODE_IP
           valueFrom:
