@@ -18,10 +18,11 @@ limitations under the License.
 package config
 
 import (
-	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
 )
 
 // Config is the main context object for the controller manager.

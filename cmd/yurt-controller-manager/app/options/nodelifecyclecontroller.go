@@ -18,7 +18,6 @@ package options
 
 import (
 	"github.com/spf13/pflag"
-
 	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
 )
 
