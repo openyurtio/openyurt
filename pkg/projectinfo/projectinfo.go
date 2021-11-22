@@ -31,19 +31,11 @@ var (
 )
 
 func ShortAgentVersion() string {
-	commit := gitCommit
-	if len(gitCommit) > 7 {
-		commit = gitCommit[:7]
-	}
-	return GetAgentName() + "/" + gitVersion + "-" + commit
+	return GetAgentName() + "/" + gitVersion + "-" + normalizeGitCommit(gitCommit)
 }
 
 func ShortServerVersion() string {
-	commit := gitCommit
-	if len(gitCommit) > 7 {
-		commit = gitCommit[:7]
-	}
-	return GetServerName() + "/" + gitVersion + "-" + commit
+	return GetServerName() + "/" + gitVersion + "-" + normalizeGitCommit(gitCommit)
 }
 
 // The project prefix is: yurt
