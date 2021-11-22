@@ -32,6 +32,11 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	NODE_NAME  = "NODE_NAME"
+	KUBECONFIG = "KUBECONFIG"
+)
+
 // FileExists determines whether the file exists
 func FileExists(filename string) (bool, error) {
 	if _, err := os.Stat(filename); os.IsExist(err) {
@@ -106,7 +111,7 @@ func ReplaceRegularExpression(content string, replace map[string]string) string 
 // in the configuration file or hostname
 func GetNodeName(kubeadmConfPath string) (string, error) {
 	//1. from env NODE_NAME
-	nodename := os.Getenv("NODE_NAME")
+	nodename := os.Getenv(NODE_NAME)
 	if nodename != "" {
 		return nodename, nil
 	}
@@ -169,7 +174,7 @@ func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
 	}
 
 	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv("KUBECONFIG")
+		kbCfgPath = os.Getenv(KUBECONFIG)
 	}
 
 	if kbCfgPath == "" {
