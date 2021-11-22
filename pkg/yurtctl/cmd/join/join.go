@@ -67,6 +67,7 @@ type joinOptions struct {
 	kustomizeDir          string
 	nodeType              string
 	yurthubImage          string
+	markAutonomous        bool
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -116,8 +117,8 @@ func NewCmdJoin(out io.Writer, joinOptions *joinOptions) *cobra.Command {
 
 	joinRunner.AppendPhase(yurtphase.NewPreparePhase())
 	joinRunner.AppendPhase(kubeadmPhase.NewPreflightPhase())
-	joinRunner.AppendPhase(yurtphase.NewEdgeNodePhase())
 	joinRunner.AppendPhase(yurtphase.NewCloudNodePhase())
+	joinRunner.AppendPhase(yurtphase.NewConvertPhase())
 	joinRunner.AppendPhase(yurtphase.NewPostcheckPhase())
 
 	joinRunner.SetDataInitializer(func(cmd *cobra.Command, args []string) (workflow.RunData, error) {
@@ -157,6 +158,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.yurthubImage, "yurthub-image", "",
 		"Sets the image version of yurthub component",
 	)
+	flagSet.BoolVar(
+		&joinOptions.markAutonomous, "mark-autonomous", true,
+		"Annotate node autonomous if set true, default true.",
+	)
 	cmdutil.AddCRISocketFlag(flagSet, &joinOptions.externalcfg.NodeRegistration.CRISocket)
 }
 
@@ -170,6 +175,7 @@ type joinData struct {
 	kustomizeDir          string
 	nodeType              string
 	yurthubImage          string
+	markAutonomous        bool
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -276,6 +282,7 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		kustomizeDir:          opt.kustomizeDir,
 		nodeType:              opt.nodeType,
 		yurthubImage:          opt.yurthubImage,
+		markAutonomous:        opt.markAutonomous,
 	}, nil
 }
 
@@ -399,4 +406,9 @@ func (j *joinData) NodeType() string {
 //YurtHubImage returns the YurtHub image.
 func (j *joinData) YurtHubImage() string {
 	return j.yurthubImage
+}
+
+//MarkAutonomous returns markAutonomous setting.
+func (j *joinData) MarkAutonomous() bool {
+	return j.markAutonomous
 }

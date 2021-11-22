@@ -24,4 +24,5 @@ type YurtJoinData interface {
 	joinphases.JoinData
 	NodeType() string
 	YurtHubImage() string
+	MarkAutonomous() bool
 }

@@ -40,8 +40,6 @@ import (
 	patchnodephase "k8s.io/kubernetes/cmd/kubeadm/app/phases/patchnode"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
-
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 )
 
 var (
@@ -81,11 +79,7 @@ func NewCloudNodePhase() workflow.Phase {
 }
 
 //getCloudNodeJoinData get node configuration for cloud-node.
-func getCloudNodeJoinData(c workflow.RunData) (*kubeadmapi.JoinConfiguration, *kubeadmapi.InitConfiguration, *clientcmdapi.Config, error) {
-	data, ok := c.(YurtJoinData)
-	if !ok {
-		return nil, nil, nil, errors.New("kubelet-start phase invoked with an invalid data struct")
-	}
+func getCloudNodeJoinData(data YurtJoinData) (*kubeadmapi.JoinConfiguration, *kubeadmapi.InitConfiguration, *clientcmdapi.Config, error) {
 	cfg := data.Cfg()
 	initCfg, err := data.InitCfg()
 	if err != nil {
@@ -106,10 +100,10 @@ func runKubeletStartJoinPhase(c workflow.RunData) (returnErr error) {
 	if !ok {
 		return errors.New("kubelet-start phase invoked with an invalid data struct")
 	}
-	if data.NodeType() != constants.CloudNode {
-		return
-	}
-	cfg, initCfg, tlsBootstrapCfg, err := getCloudNodeJoinData(c)
+	//if data.NodeType() != constants.CloudNode {
+	//	return
+	//}
+	cfg, initCfg, tlsBootstrapCfg, err := getCloudNodeJoinData(data)
 	if err != nil {
 		return err
 	}

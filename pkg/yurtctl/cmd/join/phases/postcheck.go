@@ -65,7 +65,7 @@ func runPostcheck(c workflow.RunData) error {
 		if err := checkYurthubHealthz(); err != nil {
 			return err
 		}
-		return patchEdgeNode(cfg)
+		return patchEdgeNode(cfg, j.MarkAutonomous())
 	}
 	return patchCloudNode(cfg)
 }
@@ -103,7 +103,7 @@ func checkYurthubHealthz() error {
 }
 
 //patchEdgeNode patch labels and annotations for edge-node.
-func patchEdgeNode(cfg *kubeadm.JoinConfiguration) error {
+func patchEdgeNode(cfg *kubeadm.JoinConfiguration, markAutonomous bool) error {
 	client, err := kubeconfigutil.ClientSetFromFile(kubeadmconstants.GetKubeletKubeConfigPath())
 	if err != nil {
 		return err
@@ -111,6 +111,13 @@ func patchEdgeNode(cfg *kubeadm.JoinConfiguration) error {
 	if err := patchnodephase.AnnotateCRISocket(client, cfg.NodeRegistration.Name, cfg.NodeRegistration.CRISocket); err != nil {
 		return err
 	}
+
+	if markAutonomous {
+		if err := apiclient.PatchNode(client, cfg.NodeRegistration.Name, annotateNodeWithAutonomousNode); err != nil {
+			return err
+		}
+	}
+
 	if err := apiclient.PatchNode(client, cfg.NodeRegistration.Name, func(n *v1.Node) {
 		n.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "true"
 	}); err != nil {
@@ -134,4 +141,13 @@ func patchCloudNode(cfg *kubeadm.JoinConfiguration) error {
 		return err
 	}
 	return nil
+}
+
+func annotateNodeWithAutonomousNode(n *v1.Node) {
+	klog.V(1).Infof("[patchnode] mark autonomous to the Node API object %q as an annotation\n", n.Name)
+
+	if n.ObjectMeta.Annotations == nil {
+		n.ObjectMeta.Annotations = make(map[string]string)
+	}
+	n.ObjectMeta.Annotations[constants.AnnotationAutonomy] = "true"
 }
