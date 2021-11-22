@@ -24,13 +24,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/mux"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/gorilla/mux"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

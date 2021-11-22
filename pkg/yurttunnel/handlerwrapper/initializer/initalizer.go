@@ -17,8 +17,9 @@ limitations under the License.
 package initializer
 
 import (
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 	"k8s.io/client-go/informers"
+
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 )
 
 // WantsSharedInformerFactory is an interface for setting SharedInformerFactory
