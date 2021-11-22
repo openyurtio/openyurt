@@ -338,7 +338,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 			accept:    "application/json",
 			verb:      "DELETE",
 			path:      "/api/v1/nodes/mynode",
-			code:      http.StatusOK,
+			code:      http.StatusForbidden,
 		},
 	}
 

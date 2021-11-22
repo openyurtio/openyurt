@@ -91,8 +91,8 @@ func localDelete(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	s := &metav1.Status{
-		Status: metav1.StatusSuccess,
-		Code:   http.StatusOK,
+		Status: metav1.StatusFailure,
+		Code:   http.StatusForbidden,
 		Reason: metav1.StatusReasonForbidden,
 		Details: &metav1.StatusDetails{
 			Name:  info.Name,
@@ -102,7 +102,7 @@ func localDelete(w http.ResponseWriter, req *http.Request) error {
 		Message: "delete request is not supported in local cache",
 	}
 
-	util.WriteObject(http.StatusOK, s, w, req)
+	util.WriteObject(http.StatusForbidden, s, w, req)
 	return nil
 }
 
