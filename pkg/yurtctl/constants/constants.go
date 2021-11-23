@@ -16,10 +16,16 @@ limitations under the License.
 
 package constants
 
-const (
-	// AnnotationAutonomy is used to identify if a node is automous
-	AnnotationAutonomy = "node.beta.alibabacloud.com/autonomy"
+import (
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+)
 
+var (
+	// AnnotationAutonomy is used to identify if a node is autonomous
+	AnnotationAutonomy = projectinfo.GetAutonomyAnnotation()
+)
+
+const (
 	YurtctlLockConfigMapName = "yurtctl-lock"
 
 	YurttunnelServerComponentName   = "yurt-tunnel-server"
