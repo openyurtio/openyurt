@@ -32,7 +32,7 @@ import (
 // The cfg parameter provides the common info for certificate manager
 type Factory func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error)
 
-// CertificateManagerRegistry is a object for holding all of certificate managers
+// CertificateManagerRegistry is a object for holding all certificate managers
 type CertificateManagerRegistry struct {
 	sync.Mutex
 	registry map[string]Factory

@@ -134,12 +134,12 @@ func (kcm *kubeletCertManager) ServerHealthy() bool {
 	return true
 }
 
-// GetCaFile get an ca file
+// GetCaFile get a ca file
 func (kcm *kubeletCertManager) GetCaFile() string {
 	return kcm.caFile
 }
 
-// GetConfFilePath get an kube-config file path, but the kubelet mode just using the ca and pair, so return empty
+// GetConfFilePath get a kube-config file path, but the kubelet mode just using the ca and pair, so return empty
 func (kcm *kubeletCertManager) GetConfFilePath() string {
 	return ""
 }
