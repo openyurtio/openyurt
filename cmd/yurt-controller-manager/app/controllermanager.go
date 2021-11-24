@@ -30,12 +30,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
-	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
-	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/spf13/cobra"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,6 +49,11 @@ import (
 	genericcontrollermanager "k8s.io/kubernetes/cmd/controller-manager/app"
 	"k8s.io/kubernetes/pkg/controller"
 	utilflag "k8s.io/kubernetes/pkg/util/flag"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 const (
