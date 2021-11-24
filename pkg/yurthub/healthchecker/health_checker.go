@@ -132,7 +132,7 @@ func (hcm *healthCheckerManager) sync() {
 	}
 
 	// Ensure that the node heartbeat can be reported when there is a healthy remote server.
-	//try detect all remote server in a loop, if there is an remote server can update nodeLease, exit the loop.
+	// Try to detect all remote server in a loop, if there is an remote server can update nodeLease, exit the loop.
 	for i := 0; i < len(hcm.remoteServers); i++ {
 		c := hcm.getChecker()
 
@@ -176,7 +176,7 @@ func (hcm *healthCheckerManager) IsHealthy(server *url.URL) bool {
 	if checker, ok := hcm.checkers[server.String()]; ok {
 		return checker.isHealthy()
 	}
-	//if there is not checker for server, default unhealthy.
+	// If there is no checker for server, default unhealthy.
 	return false
 }
 
