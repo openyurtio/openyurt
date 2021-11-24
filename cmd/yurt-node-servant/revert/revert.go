@@ -17,9 +17,10 @@ limitations under the License.
 package revert
 
 import (
-	"github.com/openyurtio/openyurt/pkg/node-servant/revert"
 	"github.com/spf13/cobra"
 	"k8s.io/klog"
+
+	"github.com/openyurtio/openyurt/pkg/node-servant/revert"
 )
 
 // NewRevertCmd generates a new revert command
