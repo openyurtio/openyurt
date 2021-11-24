@@ -29,11 +29,11 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
 	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 )

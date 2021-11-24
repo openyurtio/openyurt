@@ -20,8 +20,9 @@ import (
 	"strings"
 
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
+
+	"github.com/openyurtio/openyurt/pkg/util/iptables"
 )
 
 type iptablesRule struct {

@@ -27,10 +27,10 @@ import (
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/kubernetes/pkg/util/iptables"
 	"k8s.io/utils/exec"
 	fakeexec "k8s.io/utils/exec/testing"
 
+	"github.com/openyurtio/openyurt/pkg/util/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 )
