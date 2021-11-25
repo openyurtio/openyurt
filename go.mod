@@ -24,6 +24,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
+	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	google.golang.org/grpc v1.27.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.25
