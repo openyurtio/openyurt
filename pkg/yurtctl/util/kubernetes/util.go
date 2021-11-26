@@ -77,6 +77,7 @@ const (
 	DisableNodeControllerJobNameBase = "yurtctl-disable-node-controller"
 	// EnableNodeControllerJobNameBase is the prefix of the EnableNodeControllerJob name
 	EnableNodeControllerJobNameBase = "yurtctl-enable-node-controller"
+	SystemNamespace                 = "kube-system"
 )
 
 var (
@@ -211,7 +212,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx in
 	if !ok {
 		return fmt.Errorf("fail to assert daemonset: %v", err)
 	}
-	_, err = cliSet.AppsV1().DaemonSets("kube-system").Create(context.Background(), ds, metav1.CreateOptions{})
+	_, err = cliSet.AppsV1().DaemonSets(SystemNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
 	}
@@ -229,7 +230,7 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 	if !ok {
 		return fmt.Errorf("fail to assert service: %v", err)
 	}
-	_, err = cliSet.CoreV1().Services("kube-system").Create(context.Background(), svc, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Services(SystemNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("fail to create the service/%s: %s", svc.Name, err)
 	}
@@ -695,7 +696,7 @@ func usagesAndGroupsAreValid(token *kubeadmapi.BootstrapToken) bool {
 // find kube-controller-manager deployed through static file
 func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, error) {
 	var kcmNodeNames []string
-	podLst, err := cliSet.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{})
+	podLst, err := cliSet.CoreV1().Pods(SystemNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
