@@ -32,7 +32,7 @@ import (
 
 func DeployYurtControllerManager(client *kubernetes.Clientset, yurtControllerManagerImage string) error {
 	if err := CreateServiceAccountFromYaml(client,
-		"kube-system", constants.YurtControllerManagerServiceAccount); err != nil {
+		SystemNamespace, constants.YurtControllerManagerServiceAccount); err != nil {
 		return err
 	}
 	// create the clusterrole
@@ -47,7 +47,7 @@ func DeployYurtControllerManager(client *kubernetes.Clientset, yurtControllerMan
 	}
 	// create the yurt-controller-manager deployment
 	if err := CreateDeployFromYaml(client,
-		"kube-system",
+		SystemNamespace,
 		constants.YurtControllerManagerDeployment,
 		map[string]string{
 			"image":         yurtControllerManagerImage,
@@ -75,7 +75,7 @@ func DeployYurtAppManager(
 	}
 
 	// 2. create the YurtAppManagerRole
-	if err := CreateRoleFromYaml(client, "kube-system",
+	if err := CreateRoleFromYaml(client, SystemNamespace,
 		constants.YurtAppManagerRole); err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func DeployYurtAppManager(
 	}
 
 	// 4. create the RoleBinding
-	if err := CreateRoleBindingFromYaml(client, "kube-system",
+	if err := CreateRoleBindingFromYaml(client, SystemNamespace,
 		constants.YurtAppManagerRolebinding); err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func DeployYurtAppManager(
 	}
 
 	// 6. create the Secret
-	if err := CreateSecretFromYaml(client, "kube-system",
+	if err := CreateSecretFromYaml(client, SystemNamespace,
 		constants.YurtAppManagerSecret); err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func DeployYurtAppManager(
 
 	// 8. create the Deployment
 	if err := CreateDeployFromYaml(client,
-		"kube-system",
+		SystemNamespace,
 		constants.YurtAppManagerDeployment,
 		map[string]string{
 			"image":           yurtappmanagerImage,
@@ -148,7 +148,7 @@ func DeployYurttunnelServer(
 	}
 
 	// 2. create the ServiceAccount
-	if err := CreateServiceAccountFromYaml(client, "kube-system",
+	if err := CreateServiceAccountFromYaml(client, SystemNamespace,
 		constants.YurttunnelServerServiceAccount); err != nil {
 		return err
 	}
@@ -173,14 +173,14 @@ func DeployYurttunnelServer(
 
 	// 6. create the Configmap
 	if err := CreateConfigMapFromYaml(client,
-		"kube-system",
+		SystemNamespace,
 		constants.YurttunnelServerConfigMap); err != nil {
 		return err
 	}
 
 	// 7. create the Deployment
 	if err := CreateDeployFromYaml(client,
-		"kube-system",
+		SystemNamespace,
 		constants.YurttunnelServerDeployment,
 		map[string]string{
 			"image":           yurttunnelServerImage,
@@ -222,7 +222,7 @@ func DeployYurthubSetting(client *kubernetes.Clientset) error {
 
 	// 3. create the Configmap
 	if err := CreateConfigMapFromYaml(client,
-		"kube-system",
+		SystemNamespace,
 		edgenode.YurthubConfigMap); err != nil {
 		return err
 	}
