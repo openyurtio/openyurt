@@ -21,6 +21,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -33,10 +37,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
-	"github.com/spf13/cobra"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
 )
 
 // NewYurttunnelServerCommand creates a new yurttunnel-server command

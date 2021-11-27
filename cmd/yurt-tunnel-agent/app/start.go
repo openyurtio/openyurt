@@ -20,6 +20,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/certificate"
+	"k8s.io/klog/v2"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -29,12 +34,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
-
-	"github.com/spf13/cobra"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/certificate"
-	"k8s.io/klog/v2"
 )
 
 // NewYurttunnelAgentCommand creates a new yurttunnel-agent command
