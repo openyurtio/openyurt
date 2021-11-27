@@ -22,10 +22,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/convert"
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/revert"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/spf13/cobra"
 )
 
 // node-servant

@@ -22,16 +22,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/pflag"
+	"k8s.io/client-go/informers"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
-
-	"github.com/spf13/pflag"
-	"k8s.io/client-go/informers"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 )
 
 // ServerOptions has the information that required by the yurttunel-server

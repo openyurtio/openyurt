@@ -22,10 +22,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"k8s.io/klog/v2"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-
-	"k8s.io/klog/v2"
 )
 
 func main() {

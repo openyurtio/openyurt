@@ -23,14 +23,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
-
-	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 )
 
 const defaultKubeconfig = "/etc/kubernetes/kubelet.conf"

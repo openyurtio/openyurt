@@ -19,11 +19,11 @@ package main
 import (
 	"flag"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func main() {
