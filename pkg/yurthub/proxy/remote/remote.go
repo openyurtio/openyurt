@@ -185,7 +185,7 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 }
 
 func (rp *RemoteProxy) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
-	klog.V(2).Infof("remote proxy error handler: %s, %v", util.ReqString(req), err)
+	klog.Errorf("remote proxy error handler: %s, %v", util.ReqString(req), err)
 	if rp.cacheMgr == nil || !rp.cacheMgr.CanCacheFor(req) {
 		rw.WriteHeader(http.StatusBadGateway)
 		return
