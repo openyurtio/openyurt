@@ -98,6 +98,11 @@ func GetYurtAppManagerName() string {
 	return projectPrefix + "app-manager"
 }
 
+// GetAutonomyAnnotation returns annotation key for node autonomy
+func GetAutonomyAnnotation() string {
+	return fmt.Sprintf("node.beta.%s/autonomy", labelPrefix)
+}
+
 // normalizeGitCommit reserve 7 characters for gitCommit
 func normalizeGitCommit(commit string) string {
 	if len(commit) > 7 {

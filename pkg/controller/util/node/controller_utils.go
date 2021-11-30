@@ -37,11 +37,13 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	nodepkg "k8s.io/kubernetes/pkg/util/node"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
-const (
+var (
 	// AnnotationKeyNodeAutonomy is an annotation key for node autonomy.
-	AnnotationKeyNodeAutonomy = "node.beta.alibabacloud.com/autonomy"
+	AnnotationKeyNodeAutonomy = projectinfo.GetAutonomyAnnotation()
 )
 
 // DeletePods will delete all pods from master running on given node,
