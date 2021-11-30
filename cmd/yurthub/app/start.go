@@ -26,7 +26,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -84,7 +83,6 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace := 1
 	klog.Infof("%d. register cert managers", trace)
 	cmr := certificate.NewCertificateManagerRegistry()
-	kubelet.Register(cmr)
 	hubself.Register(cmr)
 	trace++
 

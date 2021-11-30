@@ -58,8 +58,6 @@ const (
 const (
 	// YurtHubCertificateManagerName represents the certificateManager name in yurthub mode
 	YurtHubCertificateManagerName = "hubself"
-	// KubeletCertificateManagerName represents the certificateManager name in kubelet mode
-	KubeletCertificateManagerName = "kubelet"
 	// DefaultKubeletPairFilePath represents the default kubelet pair file path
 	DefaultKubeletPairFilePath = "/var/lib/kubelet/pki/kubelet-client-current.pem"
 	// DefaultKubeletRootCAFilePath represents the default kubelet ca file path
@@ -324,7 +322,7 @@ func IsSupportedLBMode(lbMode string) bool {
 // IsSupportedCertMode check cert mode is supported or not
 func IsSupportedCertMode(certMode string) bool {
 	switch certMode {
-	case KubeletCertificateManagerName, YurtHubCertificateManagerName:
+	case YurtHubCertificateManagerName:
 		return true
 	}
 

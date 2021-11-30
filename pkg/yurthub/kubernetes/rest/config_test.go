@@ -22,14 +22,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"k8s.io/client-go/rest"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubelet"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
@@ -126,16 +124,13 @@ func TestGetRestConfig(t *testing.T) {
 		desc string
 		mode string
 	}{
-		{desc: "kubelet mode", mode: "kubelet"},
 		{desc: "hubself mode", mode: "hubself"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			cfg.CertMgrMode = tt.mode
 			var certMgr interfaces.YurtCertificateManager
-			if tt.mode == "kubelet" {
-				certMgr, err = kubelet.NewKubeletCertManager(cfg, 10*time.Second)
-			} else if tt.mode == "hubself" {
+			if tt.mode == "hubself" {
 				certMgr, err = hubself.NewFakeYurtHubCertManager(testDir, yurthubCon, string(certificatePEM), string(keyPEM))
 				certMgr.Start()
 			}

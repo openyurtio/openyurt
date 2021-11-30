@@ -30,23 +30,19 @@ import (
 )
 
 type RestConfigManager struct {
-	remoteServers         []*url.URL
-	certMgrMode           string
-	kubeletRootCAFilePath string
-	kubeletPairFilePath   string
-	checker               healthchecker.HealthChecker
-	certManager           interfaces.YurtCertificateManager
+	remoteServers []*url.URL
+	certMgrMode   string
+	checker       healthchecker.HealthChecker
+	certManager   interfaces.YurtCertificateManager
 }
 
 // NewRestConfigManager creates a *RestConfigManager object
 func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.YurtCertificateManager, healthChecker healthchecker.HealthChecker) (*RestConfigManager, error) {
 	mgr := &RestConfigManager{
-		remoteServers:         cfg.RemoteServers,
-		certMgrMode:           cfg.CertMgrMode,
-		kubeletRootCAFilePath: cfg.KubeletRootCAFilePath,
-		kubeletPairFilePath:   cfg.KubeletPairFilePath,
-		checker:               healthChecker,
-		certManager:           certMgr,
+		remoteServers: cfg.RemoteServers,
+		certMgrMode:   cfg.CertMgrMode,
+		checker:       healthChecker,
+		certManager:   certMgr,
 	}
 	return mgr, nil
 }
@@ -57,30 +53,9 @@ func (rcm *RestConfigManager) GetRestConfig(needHealthyServer bool) *rest.Config
 	switch certMgrMode {
 	case util.YurtHubCertificateManagerName:
 		return rcm.getHubselfRestConfig(needHealthyServer)
-	case util.KubeletCertificateManagerName:
-		return rcm.getKubeletRestConfig(rcm.kubeletRootCAFilePath, rcm.kubeletPairFilePath, needHealthyServer)
 	default:
 		return nil
 	}
-}
-
-// getKubeletRestConfig gets rest client config from kubelet.conf
-func (rcm *RestConfigManager) getKubeletRestConfig(kubeletRootCAFilePath, kubeletPairFilePath string, needHealthyServer bool) *rest.Config {
-	healthyServer := rcm.remoteServers[0]
-	if needHealthyServer {
-		healthyServer = rcm.getHealthyServer()
-		if healthyServer == nil {
-			klog.Infof("all of remote servers are unhealthy, so return nil for rest config")
-			return nil
-		}
-	}
-
-	cfg, err := util.LoadKubeletRestClientConfig(healthyServer, kubeletRootCAFilePath, kubeletPairFilePath)
-	if err != nil {
-		klog.Errorf("could not load kubelet rest client config, %v", err)
-		return nil
-	}
-	return cfg
 }
 
 // getHubselfRestConfig gets rest client config from hub agent conf file.
