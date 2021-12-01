@@ -22,10 +22,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/pflag"
+
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	"github.com/spf13/pflag"
 )
 
 const (

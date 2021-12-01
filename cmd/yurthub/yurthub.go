@@ -21,8 +21,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app"
 	"k8s.io/apiserver/pkg/server"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app"
 )
 
 func main() {
