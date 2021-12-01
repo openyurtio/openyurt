@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"

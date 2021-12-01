@@ -52,7 +52,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller"
 	kubefeatures "k8s.io/kubernetes/pkg/features"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
@@ -1077,7 +1077,7 @@ func (nc *Controller) tryUpdateNodeHealth(node *v1.Node) (time.Duration, v1.Node
 		} else {
 			transitionTime = nodeHealth.readyTransitionTimestamp
 		}
-		if klog.V(5) {
+		if klog.V(5).Enabled() {
 			klog.Infof("Node %s ReadyCondition updated. Updating timestamp: %+v vs %+v.", node.Name, nodeHealth.status, node.Status)
 		} else {
 			klog.V(3).Infof("Node %s ReadyCondition updated. Updating timestamp.", node.Name)

@@ -20,7 +20,7 @@ import (
 	"io"
 	"net/http"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	filterutil "github.com/openyurtio/openyurt/pkg/yurthub/filter/util"

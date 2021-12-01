@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"

@@ -28,7 +28,7 @@ import (
 	"time"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // DownloadFile try to download file from URL and save to savePath multiple times.

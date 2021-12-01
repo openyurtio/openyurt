@@ -18,7 +18,7 @@ package revert
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/revert"
 )

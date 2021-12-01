@@ -22,7 +22,7 @@ import (
 	"os/exec"
 
 	"github.com/opencontainers/selinux/go-selinux"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"

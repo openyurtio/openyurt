@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	anpserver "sigs.k8s.io/apiserver-network-proxy/pkg/server"
 
 	ta "github.com/openyurtio/openyurt/pkg/yurttunnel/agent"

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"

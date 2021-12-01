@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	cliflag "k8s.io/component-base/cli/flag"
 	componentbaseconfig "k8s.io/component-base/config"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
 	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
 
