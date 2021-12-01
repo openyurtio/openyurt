@@ -20,6 +20,10 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/klog"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -34,10 +38,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"k8s.io/klog"
 )
 
 // NewCmdStartYurtHub creates a *cobra.Command object with default parameters
