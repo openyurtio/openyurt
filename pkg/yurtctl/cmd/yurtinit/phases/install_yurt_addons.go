@@ -18,6 +18,7 @@ package phases
 
 import (
 	"fmt"
+	"net"
 	"runtime"
 
 	"k8s.io/client-go/dynamic"
@@ -75,7 +76,11 @@ func runInstallYurtAddons(c workflow.RunData) error {
 	if err := kubeutil.DeployYurtAppManager(client, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtAppManager, version), dynamicClient, runtime.GOARCH); err != nil {
 		return err
 	}
-	if err := kubeutil.DeployYurttunnelServer(client, nil, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelServer, version), runtime.GOARCH); err != nil {
+	var certIP string
+	if data.YurtTunnelAddress() != "" {
+		certIP, _, _ = net.SplitHostPort(data.YurtTunnelAddress())
+	}
+	if err := kubeutil.DeployYurttunnelServer(client, certIP, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelServer, version), runtime.GOARCH); err != nil {
 		return err
 	}
 	if err := kubeutil.DeployYurttunnelAgent(client, tunnelServerAddress, fmt.Sprintf("%s/%s:%s", imageRegistry, YurtContants.YurtTunnelAgent, version)); err != nil {

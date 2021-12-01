@@ -19,11 +19,14 @@ package convert
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -32,11 +35,14 @@ import (
 	"k8s.io/klog"
 	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Provider signifies the provider type
@@ -59,13 +65,16 @@ const (
 
 // ConvertOptions has the information that required by convert operation
 type ConvertOptions struct {
-	clientSet                  *kubernetes.Clientset
-	CloudNodes                 []string
+	clientSet  *kubernetes.Clientset
+	CloudNodes []string
+	// AutonomousNodes stores the names of edge nodes that are going to be marked as autonomous.
+	// If empty, all edge nodes will be marked as autonomous.
+	AutonomousNodes            []string
 	Provider                   Provider
 	YurhubImage                string
 	YurthubHealthCheckTimeout  time.Duration
 	YurtControllerManagerImage string
-	YurctlServantImage         string
+	NodeServantImage           string
 	YurttunnelServerImage      string
 	YurttunnelServerAddress    string
 	YurttunnelAgentImage       string
@@ -105,8 +114,6 @@ func NewConvertCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(NewConvertEdgeNodeCmd())
-	cmd.AddCommand(NewConvertCloudNodeCmd())
 	cmd.Flags().StringP("cloud-nodes", "c", "",
 		"The list of cloud nodes.(e.g. -c cloudnode1,cloudnode2)")
 	cmd.Flags().StringP("provider", "p", "minikube",
@@ -119,9 +126,9 @@ func NewConvertCmd() *cobra.Command {
 	cmd.Flags().String("yurt-controller-manager-image",
 		"openyurt/yurt-controller-manager:latest",
 		"The yurt-controller-manager image.")
-	cmd.Flags().String("yurtctl-servant-image",
-		"openyurt/yurtctl-servant:latest",
-		"The yurtctl-servant image.")
+	cmd.Flags().String("node-servant-image",
+		"openyurt/node-servant:latest",
+		"The node-servant image.")
 	cmd.Flags().String("kubeadm-conf-path",
 		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
@@ -135,14 +142,17 @@ func NewConvertCmd() *cobra.Command {
 		"openyurt/yurt-tunnel-agent:latest",
 		"The yurt-tunnel-agent image.")
 	cmd.Flags().BoolP("deploy-yurttunnel", "t", false,
-		"if set, yurttunnel will be deployed.")
+		"If set, yurttunnel will be deployed.")
 	cmd.Flags().BoolP("enable-app-manager", "e", false,
-		"if set, yurtappmanager will be deployed.")
+		"If set, yurtappmanager will be deployed.")
 	cmd.Flags().String("yurt-app-manager-image",
 		"openyurt/yurt-app-manager:v0.4.0",
 		"The yurt-app-manager image.")
 	cmd.Flags().String("system-architecture", "amd64",
 		"The system architecture of cloud nodes.")
+	cmd.Flags().StringP("autonomous-nodes", "a", "",
+		"The list of nodes that will be marked as autonomous. If not set, all edge nodes will be marked as autonomous."+
+			"(e.g. -a autonomousnode1,autonomousnode2)")
 
 	return cmd
 }
@@ -158,6 +168,16 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	} else {
 		err := fmt.Errorf("The '--cloud-nodes' parameter cannot be empty.Please specify the cloud node first, and then execute the yurtctl convert command")
 		return err
+	}
+
+	anStr, err := flags.GetString("autonomous-nodes")
+	if err != nil {
+		return err
+	}
+	if anStr == "" {
+		co.AutonomousNodes = []string{}
+	} else {
+		co.AutonomousNodes = strings.Split(anStr, ",")
 	}
 
 	dt, err := flags.GetBool("deploy-yurttunnel")
@@ -196,11 +216,11 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.YurtControllerManagerImage = ycmi
 
-	ycsi, err := flags.GetString("yurtctl-servant-image")
+	nsi, err := flags.GetString("node-servant-image")
 	if err != nil {
 		return err
 	}
-	co.YurctlServantImage = ycsi
+	co.NodeServantImage = nsi
 
 	ytsi, err := flags.GetString("yurt-tunnel-server-image")
 	if err != nil {
@@ -267,6 +287,11 @@ func (co *ConvertOptions) Validate() error {
 		return fmt.Errorf("unknown provider: %s, valid providers are: minikube, ack, kubeadm, kind",
 			co.Provider)
 	}
+	if co.YurttunnelServerAddress != "" {
+		if _, _, err := net.SplitHostPort(co.YurttunnelServerAddress); err != nil {
+			return fmt.Errorf("invalid --yurt-tunnel-server-address: %s", err)
+		}
+	}
 
 	return nil
 }
@@ -295,23 +320,46 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return
 	}
 
-	// 1.2. check the state of worker nodes and kcm nodes
+	// edgeNodeNames stores the node names of all edge nodes.
+	var edgeNodeNames []string
+	// 1.2 check the nodes status and label
 	nodeLst, err := co.clientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return
 	}
 	for _, node := range nodeLst.Items {
-		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) || strutil.IsInStringLst(kcmNodeNames, node.GetName()) {
-			if !isNodeReady(&node.Status) {
-				klog.Errorf("Cannot do the convert, the status of worker node or kube-controller-manager node: %s is not 'Ready'.", node.Name)
-				return
-			}
+		if !isNodeReady(&node.Status) {
+			err = fmt.Errorf("the status of node: %s is not 'Ready'", node.Name)
+			return
+		}
+		_, ok := node.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+		if ok {
+			return fmt.Errorf("the node %s has already been labeled as a OpenYurt node", node.GetName())
+		}
+		if !strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
+			edgeNodeNames = append(edgeNodeNames, node.GetName())
 		}
 	}
-	klog.V(4).Info("the status of worker nodes and kube-controller-manager nodes are satisfied")
+	klog.V(4).Info("the status of all nodes are satisfied")
+
+	var autonomousNodes []string
+	// 1.3 check if autonomous nodes are valid
+	for _, v := range co.AutonomousNodes {
+		if strutil.IsInStringLst(co.CloudNodes, v) {
+			return fmt.Errorf("can't make cloud node %s autonomous", v)
+		}
+		if !strutil.IsInStringLst(edgeNodeNames, v) {
+			return fmt.Errorf("can't make unknown node %s autonomous", v)
+		}
+		autonomousNodes = append(autonomousNodes, v)
+	}
+	// If empty, mark all edge nodes as autonomous
+	if len(co.AutonomousNodes) == 0 {
+		autonomousNodes = make([]string, len(edgeNodeNames))
+		copy(autonomousNodes, edgeNodeNames)
+	}
 
 	// 2. label nodes as cloud node or edge node
-	var edgeNodeNames []string
 	for _, node := range nodeLst.Items {
 		if strutil.IsInStringLst(co.CloudNodes, node.GetName()) {
 			// label node as cloud node
@@ -320,32 +368,48 @@ func (co *ConvertOptions) RunConvert() (err error) {
 				&node, projectinfo.GetEdgeWorkerLabelKey(), "false"); err != nil {
 				return
 			}
-			continue
+		} else {
+			// label node as edge node
+			var updatedNode *v1.Node
+			klog.Infof("mark %s as the edge-node", node.GetName())
+			if updatedNode, err = kubeutil.LabelNode(co.clientSet,
+				&node, projectinfo.GetEdgeWorkerLabelKey(), "true"); err != nil {
+				return
+			}
+			if strutil.IsInStringLst(autonomousNodes, node.GetName()) {
+				// mark edge node as autonomous
+				klog.Infof("mark %s as autonomous", node.GetName())
+				if _, err = kubeutil.AnnotateNode(co.clientSet,
+					updatedNode, constants.AnnotationAutonomy, "true"); err != nil {
+					return
+				}
+			}
 		}
-		edgeNodeNames = append(edgeNodeNames, node.GetName())
 	}
 
 	// 3. deploy yurt controller manager
 	if err = kubeutil.DeployYurtControllerManager(co.clientSet, co.YurtControllerManagerImage); err != nil {
-		klog.Errorf("fail to deploy yurtcontrollermanager: %s", err)
-		return
+		return fmt.Errorf("fail to deploy yurtcontrollermanager: %s", err)
 	}
 	// 4. disable node-controller
 	ctx := map[string]string{
-		"action":                "disable",
-		"yurtctl_servant_image": co.YurctlServantImage,
-		"pod_manifest_path":     co.PodMainfestPath,
+		"action":             "disable",
+		"node_servant_image": co.NodeServantImage,
+		"pod_manifest_path":  co.PodMainfestPath,
 	}
 	if err = kubeutil.RunServantJobs(co.clientSet, ctx, kcmNodeNames); err != nil {
-		klog.Errorf("fail to run DisableNodeControllerJobs: %s", err)
-		return
+		return fmt.Errorf("fail to run DisableNodeControllerJobs: %s", err)
 	}
 	klog.Info("complete disabling node-controller")
 
 	// 5. deploy the yurttunnel if required
 	if co.DeployTunnel {
+		var certIP string
+		if co.YurttunnelServerAddress != "" {
+			certIP, _, _ = net.SplitHostPort(co.YurttunnelServerAddress)
+		}
 		if err = kubeutil.DeployYurttunnelServer(co.clientSet,
-			co.CloudNodes,
+			certIP,
 			co.YurttunnelServerImage,
 			co.SystemArchitecture); err != nil {
 			err = fmt.Errorf("fail to deploy the yurt-tunnel-server: %s", err)
@@ -365,8 +429,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	// 6. prepare kube-public/cluster-info configmap before convert
 	err = prepareClusterInfoConfigMap(co.clientSet, co.kubeConfigPath)
 	if err != nil {
-		klog.Errorf("fail to prepre cluster-info configmap, %v", err)
-		return
+		return fmt.Errorf("fail to prepre cluster-info configmap, %v", err)
 	}
 
 	//7. deploy the yurtappmanager if required
@@ -392,12 +455,11 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 
 	ctx = map[string]string{
-		"provider":              string(co.Provider),
-		"action":                "convert",
-		"yurtctl_servant_image": co.YurctlServantImage,
-		"yurthub_image":         co.YurhubImage,
-		"joinToken":             joinToken,
-		"kubeadm_conf_path":     co.KubeadmConfPath,
+		"action":             "convert",
+		"node_servant_image": co.NodeServantImage,
+		"yurthub_image":      co.YurhubImage,
+		"joinToken":          joinToken,
+		"kubeadm_conf_path":  co.KubeadmConfPath,
 	}
 
 	if co.YurthubHealthCheckTimeout != defaultYurthubHealthCheckTimeout {
@@ -405,20 +467,20 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	}
 
 	// 9. deploy yurt-hub and reset the kubelet service on edge nodes.
-	klog.Infof("deploying the yurt-hub and resetting the kubelet service on edge nodes...")
-	ctx["sub_command"] = "edgenode"
-	if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames); err != nil {
-		klog.Errorf("fail to run ServantJobs: %s", err)
-		return
+	if len(edgeNodeNames) != 0 {
+		klog.Infof("deploying the yurt-hub and resetting the kubelet service on edge nodes...")
+		ctx["working_mode"] = string(util.WorkingModeEdge)
+		if err = kubeutil.RunServantJobs(co.clientSet, ctx, edgeNodeNames); err != nil {
+			return fmt.Errorf("fail to run ServantJobs: %s", err)
+		}
+		klog.Info("complete deploying yurt-hub on edge nodes")
 	}
-	klog.Info("complete deploying yurt-hub on edge nodes")
 
 	// 10. deploy yurt-hub and reset the kubelet service on cloud nodes
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service on cloud nodes")
-	ctx["sub_command"] = "cloudnode"
+	ctx["working_mode"] = string(util.WorkingModeCloud)
 	if err = kubeutil.RunServantJobs(co.clientSet, ctx, co.CloudNodes); err != nil {
-		klog.Errorf("fail to run ServantJobs: %s", err)
-		return
+		return fmt.Errorf("fail to run ServantJobs: %s", err)
 	}
 	klog.Info("complete deploying yurt-hub on cloud nodes")
 
@@ -437,11 +499,15 @@ func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) erro
 			return fmt.Errorf("error creating clusterinfo RBAC rules, %v", err)
 		}
 	} else if err != nil || info == nil {
-		klog.Errorf("fail to get configmap, %v", err)
 		return fmt.Errorf("fail to get configmap, %v", err)
 	} else {
 		klog.Infof("%s/%s configmap already exists, skip to prepare it", info.Namespace, info.Name)
 	}
 
 	return nil
+}
+
+func isNodeReady(status *v1.NodeStatus) bool {
+	_, condition := nodeutil.GetNodeCondition(status, v1.NodeReady)
+	return condition != nil && condition.Status == v1.ConditionTrue
 }

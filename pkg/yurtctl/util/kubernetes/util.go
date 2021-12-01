@@ -61,6 +61,7 @@ import (
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
+	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
@@ -69,8 +70,6 @@ import (
 )
 
 const (
-	// ConvertJobNameBase is the prefix of the convert ServantJob name
-	ConvertJobNameBase = "yurtctl-servant-convert"
 	// RevertJobNameBase is the prefix of the revert ServantJob name
 	RevertJobNameBase = "yurtctl-servant-revert"
 	// DisableNodeControllerJobNameBase is the prefix of the DisableNodeControllerJob name
@@ -502,8 +501,9 @@ func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, nod
 	}
 	switch action {
 	case "convert":
-		servantJobTemplate = constants.ConvertServantJobTemplate
-		jobBaseName = ConvertJobNameBase
+		// TODO use nodeservant.RenderNodeServantJob
+		servantJobTemplate = nodeservant.ConvertServantJobTemplate
+		jobBaseName = nodeservant.ConvertJobNameBase
 	case "revert":
 		servantJobTemplate = constants.RevertServantJobTemplate
 		jobBaseName = RevertJobNameBase

@@ -63,7 +63,7 @@ func NewMarkAutonomousCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringP("autonomous-nodes", "a", "",
-		"The list of nodes that will be marked as autonomous."+
+		"The list of nodes that will be marked as autonomous. If not set, all edge nodes will be marked as autonomous."+
 			"(e.g. -a autonomousnode1,autonomousnode2)")
 
 	return cmd

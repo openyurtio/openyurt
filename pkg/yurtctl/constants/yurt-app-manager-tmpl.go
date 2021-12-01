@@ -667,7 +667,7 @@ spec:
         - --v=4
         command:
         - /usr/local/bin/yurt-app-manager
-        image: openyurt/yurt-app-manager:v0.4.0
+        image: {{.image}}
         imagePullPolicy: Always
         name: manager
         ports:

@@ -95,7 +95,12 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	if err != nil {
 		return err
 	}
-	o.workingMode = util.WorkingMode(workingMode)
+
+	wm := util.WorkingMode(workingMode)
+	if !util.IsSupportedWorkingMode(wm) {
+		return fmt.Errorf("invalid working mode: %s", workingMode)
+	}
+	o.workingMode = wm
 
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -362,6 +363,13 @@ func newInitData(cmd *cobra.Command, args []string, options *initOptions, out io
 		// returns, because kubeadm can't regenerate them without the Front-Proxy CA Key
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid or incomplete external front-proxy CA")
+		}
+	}
+
+	if options.openyurtTunnelServerAddress != "" {
+		_, _, err = net.SplitHostPort(options.openyurtTunnelServerAddress)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid yurt tunnel server address")
 		}
 	}
 
