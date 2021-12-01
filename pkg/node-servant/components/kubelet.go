@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
