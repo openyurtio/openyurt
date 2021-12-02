@@ -21,21 +21,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
 
 // Server is an interface for providing http service for yurthub
@@ -169,45 +163,18 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
-// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-// and generate a TLS configuration
-func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificateMgr interfaces.YurtCertificateManager, certDir, proxyServerSecureDummyAddr string, stopCh <-chan struct{}) (*tls.Config, error) {
-	cfg := restConfigMgr.GetRestConfig(false)
-	if cfg == nil {
-		return nil, fmt.Errorf("failed to prepare rest config based ong hub agent client certificate")
-	}
-
-	clientSet, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-	serverCertMgr, err := server.NewYurtHubServerCertManager(clientSet, certDir, proxyServerSecureDummyAddr)
-	if err != nil {
-		return nil, err
-	}
-	serverCertMgr.Start()
-
+// GenUseCertMgrAndTLSConfig generate a TLS configuration by using the hub certificate manager(which is used for server and client).
+func GenUseCertMgrAndTLSConfig(certificateMgr interfaces.YurtCertificateManager, certDir string) (*tls.Config, error) {
 	// generate the TLS configuration based on the latest certificate
 	rootCert, err := certificate.GenCertPoolUseCA(certificateMgr.GetCaFile())
 	if err != nil {
 		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
 		return nil, err
 	}
-	tlsCfg, err := certificate.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
+	tlsCfg, err := certificate.GenTLSConfigUseCertMgrAndCertPool(certificateMgr, certDir, rootCert)
 	if err != nil {
 		return nil, err
 	}
-
-	// waiting for the certificate is generated
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		// keep polling until the certificate is signed
-		if serverCertMgr.Current() != nil {
-			return true, nil
-		}
-		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetHubName())
-		return false, nil
-	}, stopCh)
 
 	return tlsCfg, nil
 }
