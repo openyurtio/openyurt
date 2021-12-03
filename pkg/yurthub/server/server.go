@@ -24,11 +24,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
@@ -161,20 +159,4 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "OK")
-}
-
-// GenUseCertMgrAndTLSConfig generate a TLS configuration by using the hub certificate manager(which is used for server and client).
-func GenUseCertMgrAndTLSConfig(certificateMgr interfaces.YurtCertificateManager, certDir string) (*tls.Config, error) {
-	// generate the TLS configuration based on the latest certificate
-	rootCert, err := certificate.GenCertPoolUseCA(certificateMgr.GetCaFile())
-	if err != nil {
-		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
-		return nil, err
-	}
-	tlsCfg, err := certificate.GenTLSConfigUseCertMgrAndCertPool(certificateMgr, certDir, rootCert)
-	if err != nil {
-		return nil, err
-	}
-
-	return tlsCfg, nil
 }

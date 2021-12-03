@@ -29,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
 // hubServerCertMgr is the certificate manager for server usage, which will cache the old hub-server-certificate,
@@ -88,18 +89,21 @@ func (scm *hubServerCertMgr) Current() *tls.Certificate {
 	return &tls.Certificate{Certificate: nil}
 }
 
-// GenTLSConfigUseCertMgrAndCertPool generates a TLS configuration
-// using the given certificate manager and x509 CertPool
-func GenTLSConfigUseCertMgrAndCertPool(
-	m certificate.Manager,
-	certDir string,
-	root *x509.CertPool) (*tls.Config, error) {
+// GenTLSConfigUseCertMgr generates a TLS configuration by using the given certificate manager
+func GenTLSConfigUseCertMgr(m interfaces.YurtCertificateManager, certDir string) (*tls.Config, error) {
+	// generate the TLS configuration based on the latest certificate
+	rootCert, err := GenCertPoolUseCA(m.GetCaFile())
+	if err != nil {
+		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
+		return nil, err
+	}
+
 	tlsConfig := &tls.Config{
 		// Can't use SSLv3 because of POODLE and BEAST
 		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
 		// Can't use TLSv1.1 because of RC4 cipher usage
 		MinVersion: tls.VersionTLS12,
-		ClientCAs:  root,
+		ClientCAs:  rootCert,
 		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 

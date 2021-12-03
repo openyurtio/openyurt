@@ -124,7 +124,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. create tls config for secure servers ", trace)
-	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(certManager, filepath.Join(cfg.RootDir, "pki"))
+	cfg.TLSConfig, err = certificate.GenTLSConfigUseCertMgr(certManager, filepath.Join(cfg.RootDir, "pki"))
 	if err != nil {
 		return fmt.Errorf("could not create tls config, %v", err)
 	}
