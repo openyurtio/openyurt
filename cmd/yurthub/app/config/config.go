@@ -58,6 +58,7 @@ type YurtHubConfiguration struct {
 	LBMode                            string
 	RemoteServers                     []*url.URL
 	YurtHubServerAddr                 string
+	YurtHubCertOrganizations          []string
 	YurtHubProxyServerAddr            string
 	YurtHubProxyServerSecureAddr      string
 	YurtHubProxyServerDummyAddr       string
@@ -93,6 +94,13 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	hubCertOrgs := make([]string, 0)
+	if options.YurtHubCertOrganizations != "" {
+		for _, orgStr := range strings.Split(options.YurtHubCertOrganizations, ",") {
+			hubCertOrgs = append(hubCertOrgs, orgStr)
+		}
 	}
 
 	storageManager, err := factory.CreateStorage(options.DiskCachePath)
@@ -147,6 +155,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		LBMode:                            options.LBMode,
 		RemoteServers:                     us,
 		YurtHubServerAddr:                 hubServerAddr,
+		YurtHubCertOrganizations:          hubCertOrgs,
 		YurtHubProxyServerAddr:            proxyServerAddr,
 		YurtHubProxyServerSecureAddr:      proxySecureServerAddr,
 		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,

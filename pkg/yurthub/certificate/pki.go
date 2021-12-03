@@ -23,40 +23,92 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"k8s.io/client-go/util/certificate"
+	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
-// GenTGenTLSConfigUseCertMgrAndCertPool generates a TLS configuration
-// using the given certificate manager and x509 CertPool
-func GenTLSConfigUseCertMgrAndCertPool(
-	m certificate.Manager,
-	root *x509.CertPool) (*tls.Config, error) {
+// hubServerCertMgr is the certificate manager for server usage, which will cache the old hub-server-certificate,
+type hubServerCertMgr struct {
+	// the path of old hub server certificate
+	oldCertFile string
+	// the cached old hub server certificate
+	oldCert *tls.Certificate
+	// the actual hub certMgr
+	hubCertMgr certificate.Manager
+}
+
+// newHubServerCertMgr creates a certificate manager for the yurthub-server
+func newHubServerCertMgr(certDir string, hubCertMgr certificate.Manager) hubServerCertMgr {
+	var oldCertFile string
+	var oldCert *tls.Certificate
+
+	store, err := certificate.NewFileStore(fmt.Sprintf("%s-server", projectinfo.GetHubName()), certDir, certDir, "", "")
+	if err != nil {
+		oldCertFile = ""
+		oldCert = nil
+	} else {
+		oldCertFile = store.CurrentPath()
+		oldCert, err = store.Current()
+		if err != nil {
+			oldCert = nil
+		}
+	}
+
+	return hubServerCertMgr{
+		oldCertFile: oldCertFile,
+		oldCert:     oldCert,
+		hubCertMgr:  hubCertMgr,
+	}
+}
+
+// Current is used to obtain the certificate for hub server usage.
+// If the current certificate of hub certMgr is invalid (if the key usages of certificate doesn't contain the UsageServerAuth),
+// the old certificate in the yurthub-server-current.pem will be used.
+func (scm *hubServerCertMgr) Current() *tls.Certificate {
+	cert := scm.hubCertMgr.Current()
+	if cert == nil {
+		return &tls.Certificate{Certificate: nil}
+	}
+
+	if hasServerAuthUsage(cert) {
+		return cert
+	}
+
+	klog.V(3).Infof("the %s certificate is not valid for server, try to use the old server certificate in %s",
+		projectinfo.GetHubName(), scm.oldCertFile)
+	if scm.oldCert != nil && time.Now().Before(scm.oldCert.Leaf.NotAfter) {
+		return scm.oldCert
+	} else {
+		klog.V(3).Infof("failed to get the old %s server certificate, wait for the new hub certificate", projectinfo.GetHubName())
+	}
+	return &tls.Certificate{Certificate: nil}
+}
+
+// GenTLSConfigUseCertMgr generates a TLS configuration by using the given certificate manager
+func GenTLSConfigUseCertMgr(m interfaces.YurtCertificateManager, certDir string) (*tls.Config, error) {
+	// generate the TLS configuration based on the latest certificate
+	rootCert, err := GenCertPoolUseCA(m.GetCaFile())
+	if err != nil {
+		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
+		return nil, err
+	}
+
 	tlsConfig := &tls.Config{
 		// Can't use SSLv3 because of POODLE and BEAST
 		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
 		// Can't use TLSv1.1 because of RC4 cipher usage
 		MinVersion: tls.VersionTLS12,
-		ClientCAs:  root,
+		ClientCAs:  rootCert,
 		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 
-	tlsConfig.GetClientCertificate =
-		func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert := m.Current()
-			if cert == nil {
-				return &tls.Certificate{Certificate: nil}, nil
-			}
-			return cert, nil
-		}
-	tlsConfig.GetCertificate =
-		func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert := m.Current()
-			if cert == nil {
-				return &tls.Certificate{Certificate: nil}, nil
-			}
-			return cert, nil
-		}
+	scm := newHubServerCertMgr(certDir, m)
+	tlsConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return scm.Current(), nil }
 
 	return tlsConfig, nil
 }
@@ -82,4 +134,18 @@ func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(caData)
 	return certPool, nil
+}
+
+// hasServerAuthUsage checks whether the certificate is valid or not
+func hasServerAuthUsage(cert *tls.Certificate) bool {
+	if cert == nil {
+		return false
+	}
+	// if the key usages of certificate doesn't contain the UsageServerAuth, it means the cert is invalid
+	for _, v := range cert.Leaf.ExtKeyUsage {
+		if v == x509.ExtKeyUsageServerAuth {
+			return true
+		}
+	}
+	return false
 }
