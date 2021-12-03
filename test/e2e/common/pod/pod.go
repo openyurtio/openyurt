@@ -18,12 +18,18 @@ package pod
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/onsi/ginkgo"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
-	framepod "k8s.io/kubernetes/test/e2e/framework/pod"
+	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/test/e2e/util"
 )
 
 func ListPods(c clientset.Interface, ns string) (pods *apiv1.PodList, err error) {
@@ -47,9 +53,101 @@ func DeletePod(c clientset.Interface, ns, podName string) (err error) {
 }
 
 func VerifyPodsRunning(c clientset.Interface, ns, podName string, wantName bool, replicas int32) error {
-	return framepod.VerifyPodsRunning(c, ns, podName, wantName, replicas)
+	pods, err := PodsCreated(c, ns, podName, replicas)
+	if err != nil {
+		return err
+	}
+	e := podsRunning(c, pods)
+	if len(e) > 0 {
+		return fmt.Errorf("failed to wait for pods running: %v", e)
+	}
+	return nil
 }
 
 func WaitTimeoutForPodRunning(c clientset.Interface, podName, ns string, timeout time.Duration) error {
-	return framepod.WaitTimeoutForPodRunningInNamespace(c, podName, ns, timeout)
+	return wait.PollImmediate(2*time.Second, timeout, podRunning(c, podName, ns))
+}
+
+// PodsCreated returns a pod list matched by the given name.
+func PodsCreated(c clientset.Interface, ns, name string, replicas int32) (*apiv1.PodList, error) {
+	label := labels.SelectorFromSet(labels.Set(map[string]string{"name": name}))
+	return PodsCreatedByLabel(c, ns, name, replicas, label)
+}
+
+// PodsCreatedByLabel returns a created pod list matched by the given label.
+func PodsCreatedByLabel(c clientset.Interface, ns, name string, replicas int32, label labels.Selector) (*apiv1.PodList, error) {
+	timeout := 2 * time.Minute
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(5 * time.Second) {
+		options := metav1.ListOptions{LabelSelector: label.String()}
+
+		// List the pods, making sure we observe all the replicas.
+		pods, err := c.CoreV1().Pods(ns).List(context.TODO(), options)
+		if err != nil {
+			return nil, err
+		}
+
+		created := []apiv1.Pod{}
+		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+			created = append(created, pod)
+		}
+		klog.Infof("Pod name %s: Found %d pods out of %d", name, len(created), replicas)
+
+		if int32(len(created)) == replicas {
+			pods.Items = created
+			return pods, nil
+		}
+	}
+	return nil, fmt.Errorf("Pod name %s: Gave up waiting %v for %d pods to come up", name, timeout, replicas)
+}
+
+func podsRunning(c clientset.Interface, pods *apiv1.PodList) []error {
+	// Wait for the pods to enter the running state. Waiting loops until the pods
+	// are running so non-running pods cause a timeout for this test.
+	ginkgo.By("ensuring each pod is running")
+	e := []error{}
+	errorChan := make(chan error)
+
+	for _, pod := range pods.Items {
+		go func(p apiv1.Pod) {
+			errorChan <- WaitForPodRunningInNamespace(c, &p)
+		}(pod)
+	}
+
+	for range pods.Items {
+		err := <-errorChan
+		if err != nil {
+			e = append(e, err)
+		}
+	}
+
+	return e
+}
+
+// WaitForPodRunningInNamespace waits default amount of time (podStartTimeout) for the specified pod to become running.
+// Returns an error if timeout occurs first, or pod goes in to failed state.
+func WaitForPodRunningInNamespace(c clientset.Interface, pod *apiv1.Pod) error {
+	if pod.Status.Phase == apiv1.PodRunning {
+		return nil
+	}
+
+	return wait.PollImmediate(2*time.Second, util.PodStartTimeout, podRunning(c, pod.Name, pod.Namespace))
+}
+
+func podRunning(c clientset.Interface, podName, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		pod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		switch pod.Status.Phase {
+		case apiv1.PodRunning:
+			return true, nil
+		case apiv1.PodFailed, apiv1.PodSucceeded:
+			return false, fmt.Errorf("pod ran to completion")
+		}
+		return false, nil
+	}
 }

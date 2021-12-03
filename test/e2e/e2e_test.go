@@ -26,16 +26,17 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
+
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/util"
 	"github.com/openyurtio/openyurt/test/e2e/yurt"
 	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 	"github.com/openyurtio/openyurt/test/e2e/yurthub"
 	"github.com/openyurtio/openyurt/test/e2e/yurttunnel"
-	apiv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/kubernetes/test/e2e/framework/config"
 )
 
 func IsEmptyString(s string) bool {
@@ -47,11 +48,13 @@ var RegionID = flag.String("region-id", "", "aliyun region id for ailunyun:ecs/e
 var NodeType = flag.String("node-type", "minikube", "node type such as ailunyun:ecs/ens, minikube and user_self")
 var AccessKeyID = flag.String("access-key-id", "", "aliyun AccessKeyId  for ailunyun:ecs/ens")
 var AccessKeySecret = flag.String("access-key-secret", "", "aliyun AccessKeySecret  for ailunyun:ecs/ens")
+var Kubeconfig = flag.String("kubeconfig", "", "kubeconfig file path for OpenYurt cluster")
+var ReportDir = flag.String("report-dir", "", "Path to the directory where the JUnit XML reports should be saved. Default is empty, which doesn't generate these reports.")
 
 func handleFlags() {
-	config.CopyFlags(config.Flags, flag.CommandLine)
-	framework.RegisterCommonFlags(flag.CommandLine)
-	framework.RegisterClusterFlags(flag.CommandLine)
+	//config.CopyFlags(config.Flags, flag.CommandLine)
+	//framework.RegisterCommonFlags(flag.CommandLine)
+	//framework.RegisterClusterFlags(flag.CommandLine)
 	flag.Parse()
 }
 
@@ -76,16 +79,16 @@ func IsvalidYurtArg() bool {
 		klog.Errorf("if enable-yurt-autonomy is set true and node type is aliyun related, region-id && access-key-id && access-key-secret must not be empty")
 		return false
 	}
+
+	if IsEmptyString(*Kubeconfig) {
+		klog.Errorf("no kubeconfig is set for OpenYurt cluster testing")
+		return false
+	}
 	return true
 }
 
 func PreCheckOk() bool {
-	c, err := framework.LoadClientset()
-	if err != nil {
-		klog.Errorf("pre_check_load_client_set failed errmsg:%v", err)
-		return false
-	}
-
+	c := yurtconfig.YurtE2eCfg.KubeClient
 	nodes, err := c.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("pre_check_get_nodes failed errmsg:%v", err)
@@ -93,8 +96,8 @@ func PreCheckOk() bool {
 	}
 
 	for _, node := range nodes.Items {
-		status := node.Status.Conditions[len(node.Status.Conditions)-1].Type
-		if status != apiv1.NodeReady {
+		_, readyCondition := nodeutil.GetNodeCondition(&node.Status, apiv1.NodeReady)
+		if readyCondition == nil || readyCondition.Status != apiv1.ConditionTrue {
 			klog.Errorf("pre_check_get_node_status: not_ready, so exit")
 			return false
 		}
@@ -102,12 +105,23 @@ func PreCheckOk() bool {
 	return true
 }
 
-func SetYurtE2eCfg() {
+func SetYurtE2eCfg() error {
 	yurtconfig.YurtE2eCfg.NodeType = strings.ToLower(*NodeType)
 	yurtconfig.YurtE2eCfg.RegionID = *RegionID
 	yurtconfig.YurtE2eCfg.EnableYurtAutonomy = *EnableYurtAutonomy
 	yurtconfig.YurtE2eCfg.AccessKeyID = *AccessKeyID
 	yurtconfig.YurtE2eCfg.AccessKeySecret = *AccessKeySecret
+
+	config, client, err := util.LoadRestConfigAndClientset(*Kubeconfig)
+	if err != nil {
+		klog.Errorf("pre_check_load_client_set failed errmsg:%v", err)
+		return err
+	}
+	yurtconfig.YurtE2eCfg.KubeClient = client
+	yurtconfig.YurtE2eCfg.RestConfig = config
+	yurtconfig.YurtE2eCfg.ReportDir = *ReportDir
+
+	return nil
 }
 
 func TestMain(m *testing.M) {
@@ -119,13 +133,15 @@ func TestMain(m *testing.M) {
 		os.Exit(-1)
 	}
 
+	if err := SetYurtE2eCfg(); err != nil {
+		os.Exit(-1)
+	}
+
 	if !PreCheckOk() {
 		os.Exit(-1)
 	}
 
-	SetYurtE2eCfg()
-
-	framework.AfterReadingAllFlags(&framework.TestContext)
+	//framework.AfterReadingAllFlags(&framework.TestContext)
 	rand.Seed(time.Now().UnixNano())
 
 	yurt.Register()

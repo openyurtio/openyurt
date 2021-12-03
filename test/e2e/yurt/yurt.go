@@ -21,14 +21,16 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"github.com/openyurtio/openyurt/test/e2e/common/ns"
-	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/kubernetes/test/e2e/framework/ginkgowrapper"
+
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	"github.com/openyurtio/openyurt/test/e2e/util"
+	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
+	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
 
 const (
@@ -40,24 +42,24 @@ const (
 )
 
 func Register() {
-	var _ = framework.KubeDescribe(YurtE2ENamespaceName, func() {
+	var _ = util.YurtDescribe(YurtE2ENamespaceName, func() {
 		gomega.RegisterFailHandler(ginkgowrapper.Fail)
 		defer ginkgo.GinkgoRecover()
 		var (
 			c   clientset.Interface
 			err error
 		)
-		c, err = framework.LoadClientset()
+		c = yurtconfig.YurtE2eCfg.KubeClient
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
 
 		err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
-		framework.ExpectNoError(err)
+		util.ExpectNoError(err)
 
 		ginkgo.By(YurtE2ETestDesc + "yurt_test_create namespace")
 		_, err = ns.CreateNameSpace(c, YurtE2ENamespaceName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-		framework.KubeDescribe(YurtE2ETestDesc+": cluster_info", func() {
+		util.YurtDescribe(YurtE2ETestDesc+": cluster_info", func() {
 			ginkgo.It(YurtE2ETestDesc+": should get cluster pod num", func() {
 				cs := c
 				ginkgo.By("get current pod num")
@@ -83,7 +85,7 @@ func Register() {
 
 		})
 
-		framework.KubeDescribe(YurtE2ETestDesc+": pod_operate_test", func() {
+		util.YurtDescribe(YurtE2ETestDesc+": pod_operate_test", func() {
 			ginkgo.It("pod_operate", func() {
 				cs := c
 				podName := "yurt-test-busybox"
@@ -122,7 +124,7 @@ func Register() {
 				ginkgo.By("delete namespace: " + YurtE2ENamespaceName)
 				err = ns.DeleteNameSpace(cs, YurtE2ENamespaceName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YurtE2ENamespaceName)
-				framework.ExpectNoError(err)
+				util.ExpectNoError(err)
 			})
 
 		})

@@ -24,18 +24,19 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
-	"github.com/openyurtio/openyurt/test/e2e/common/ns"
-	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
-	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/test/e2e/framework"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	nd "github.com/openyurtio/openyurt/test/e2e/common/node"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	"github.com/openyurtio/openyurt/test/e2e/util"
+	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
 
 const (
@@ -49,17 +50,17 @@ func Register() {
 		klog.Infof("not enable yurt node autonomy test, so yurt-node-autonomy will not run, and will return.")
 		return
 	}
-	var _ = framework.KubeDescribe(YurtHubNamespaceName, func() {
+	var _ = util.YurtDescribe(YurtHubNamespaceName, func() {
 		var (
 			c   clientset.Interface
 			err error
 		)
 		defer ginkgo.GinkgoRecover()
-		c, err = framework.LoadClientset()
+		c = ycfg.YurtE2eCfg.KubeClient
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get client set")
 
 		err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
-		framework.ExpectNoError(err)
+		util.ExpectNoError(err)
 
 		ginkgo.By("yurthub create namespace")
 		_, err = ns.CreateNameSpace(c, YurtHubNamespaceName)
@@ -71,10 +72,10 @@ func Register() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
 		})
 
-		framework.KubeDescribe("node autonomy", func() {
+		util.YurtDescribe("node autonomy", func() {
 			ginkgo.It("yurt node autonomy", func() {
 				NodeManager, err := nd.NewNodeController(ycfg.YurtE2eCfg.NodeType, ycfg.YurtE2eCfg.RegionID, ycfg.YurtE2eCfg.AccessKeyID, ycfg.YurtE2eCfg.AccessKeySecret)
-				framework.ExpectNoError(err)
+				util.ExpectNoError(err)
 
 				podName := "test-yurthub-busybox"
 				objectMeta := metav1.ObjectMeta{}
