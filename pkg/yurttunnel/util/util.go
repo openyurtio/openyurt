@@ -47,6 +47,9 @@ const (
 
 	KubeletHTTPSPort = "10250"
 	KubeletHTTPPort  = "10255"
+
+	MinPort = 1
+	MaxPort = 65535
 )
 
 var (
@@ -161,7 +164,7 @@ func resolvePorts(portsStr, insecurePort string) []string {
 			if err != nil {
 				klog.Errorf("failed to parse port %s, %v", port, err)
 				continue
-			} else if portInt < 1 || portInt > 65535 {
+			} else if portInt < MinPort || portInt > MaxPort {
 				klog.Errorf("port %s is not invalid port(should be range 1~65535)", port)
 				continue
 			}
