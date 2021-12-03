@@ -69,3 +69,11 @@ e2e:
 
 e2e-tests:
 	bash hack/run-e2e-tests.sh
+
+# create multi-arch manifest
+manifest:
+	bash hack/make-rules/release-manifest.sh
+
+# push generated manifest during 'make manifest'
+push_manifest:
+	bash hack/make-rules/push-manifest.sh

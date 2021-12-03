@@ -48,3 +48,19 @@ canonicalize_target() {
 host_platform() {
   echo "$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
 }
+
+# Parameters
+# $1: binary_name
+get_component_name() {
+  local yurt_component_name
+  if [[ $1 =~ yurtctl ]]
+  then
+    yurt_component_name="yurtctl-servant"
+  elif [[ $1 =~ yurt-node-servant ]];
+  then
+    yurt_component_name="node-servant"
+  else
+    yurt_component_name=${binary_name}
+  fi
+  echo $yurt_component_name
+}
