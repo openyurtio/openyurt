@@ -61,7 +61,6 @@ import (
 	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
-	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
@@ -70,8 +69,6 @@ import (
 )
 
 const (
-	// RevertJobNameBase is the prefix of the revert ServantJob name
-	RevertJobNameBase = "yurtctl-servant-revert"
 	// DisableNodeControllerJobNameBase is the prefix of the DisableNodeControllerJob name
 	DisableNodeControllerJobNameBase = "yurtctl-disable-node-controller"
 	// EnableNodeControllerJobNameBase is the prefix of the EnableNodeControllerJob name
@@ -491,56 +488,58 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 	}
 }
 
-// RunServantJobs launch servant jobs on specified nodes
-func RunServantJobs(cliSet *kubernetes.Clientset, tmplCtx map[string]string, nodeNames []string) error {
-	var wg sync.WaitGroup
-	var servantJobTemplate, jobBaseName string
-	action, exist := tmplCtx["action"]
-	if !exist {
-		return errors.New("action is not specified")
-	}
+// RenderServantJob renders servant job for a specified node.
+func RenderServantJob(action string, tmplCtx map[string]string, nodeName string) (*batchv1.Job, error) {
+	var jobTemplate string
 	switch action {
-	case "convert":
-		// TODO use nodeservant.RenderNodeServantJob
-		servantJobTemplate = nodeservant.ConvertServantJobTemplate
-		jobBaseName = nodeservant.ConvertJobNameBase
-	case "revert":
-		servantJobTemplate = constants.RevertServantJobTemplate
-		jobBaseName = RevertJobNameBase
-	case "disable":
-		servantJobTemplate = constants.DisableNodeControllerJobTemplate
-		jobBaseName = DisableNodeControllerJobNameBase
 	case "enable":
-		servantJobTemplate = constants.EnableNodeControllerJobTemplate
-		jobBaseName = EnableNodeControllerJobNameBase
+		jobTemplate = constants.EnableNodeControllerJobTemplate
+		tmplCtx["jobName"] = EnableNodeControllerJobNameBase + "-" + nodeName
+	case "disable":
+		jobTemplate = constants.DisableNodeControllerJobTemplate
+		tmplCtx["jobName"] = DisableNodeControllerJobNameBase + "-" + nodeName
 	default:
-		return fmt.Errorf("unknown action: %s", action)
+		return nil, fmt.Errorf("unknown action: %s", action)
 	}
+	tmplCtx["nodeName"] = nodeName
+	jobYaml, err := tmplutil.SubsituteTemplate(jobTemplate, tmplCtx)
+	if err != nil {
+		return nil, err
+	}
+	srvJobObj, err := YamlToObject([]byte(jobYaml))
+	if err != nil {
+		return nil, err
+	}
+	srvJob, ok := srvJobObj.(*batchv1.Job)
+	if !ok {
+		return nil, errors.New("fail to assert yurtctl-servant job")
+	}
+	return srvJob, nil
+}
 
+// RunServantJobs launch servant jobs on specified nodes and wait all jobs to finish.
+// Succeed jobs will be deleted when finished. Failed jobs are preserved for diagnosis.
+func RunServantJobs(cliSet *kubernetes.Clientset, getJob func(nodeName string) (*batchv1.Job, error), nodeNames []string) error {
+	var wg sync.WaitGroup
+	jobByNodeName := make(map[string]*batchv1.Job)
 	for _, nodeName := range nodeNames {
-		tmplCtx["jobName"] = jobBaseName + "-" + nodeName
-		tmplCtx["nodeName"] = nodeName
-		jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
+		job, err := getJob(nodeName)
 		if err != nil {
-			return err
+			return fmt.Errorf("fail to get job for node %s: %s", nodeName, err)
 		}
-		srvJobObj, err := YamlToObject([]byte(jobYaml))
-		if err != nil {
-			return err
-		}
-		srvJob, ok := srvJobObj.(*batchv1.Job)
-		if !ok {
-			return errors.New("fail to assert yurtctl-servant job")
-		}
+		jobByNodeName[nodeName] = job
+	}
+	for _, nodeName := range nodeNames {
 		wg.Add(1)
+		job := jobByNodeName[nodeName]
 		go func() {
 			defer wg.Done()
-			if err := RunJobAndCleanup(cliSet, srvJob,
+			if err := RunJobAndCleanup(cliSet, job,
 				WaitServantJobTimeout, CheckServantJobPeriod); err != nil {
 				klog.Errorf("fail to run servant job(%s): %s",
-					srvJob.GetName(), err)
+					job.GetName(), err)
 			} else {
-				klog.Infof("servant job(%s) has succeeded", srvJob.GetName())
+				klog.Infof("servant job(%s) has succeeded", job.GetName())
 			}
 		}()
 	}

@@ -250,49 +250,7 @@ spec:
         command:
         - yurt-controller-manager	
 `
-	// RevertServantJobTemplate defines the yurtctl revert servant job in yaml format
-	RevertServantJobTemplate = `
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{.jobName}}
-  namespace: kube-system
-spec:
-  template:
-    spec:
-      hostPID: true
-      hostNetwork: true
-      restartPolicy: OnFailure
-      nodeName: {{.nodeName}}
-      volumes:
-      - name: host-var-tmp
-        hostPath:
-          path: /var/tmp
-          type: Directory
-      containers:
-      - name: yurtctl-servant
-        image: {{.yurtctl_servant_image}}
-        imagePullPolicy: IfNotPresent
-        command:
-        - /bin/sh
-        - -c
-        args:
-        - "cp /usr/local/bin/yurtctl /tmp && nsenter -t 1 -m -u -n -i -- /var/tmp/yurtctl revert {{.sub_command}} && rm /tmp/yurtctl"
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /tmp
-          name: host-var-tmp
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
-        - name: KUBELET_SVC
-          value: {{.kubeadm_conf_path}}
-          {{end}}
-`
+
 	// DisableNodeControllerJobTemplate defines the node-controller disable job in yaml format
 	DisableNodeControllerJobTemplate = `
 apiVersion: batch/v1
@@ -335,7 +293,7 @@ spec:
       nodeName: {{.nodeName}}
       containers:
       - name: yurtctl-enable-node-controller
-        image: {{.yurtctl_servant_image}}
+        image: {{.node_servant_image}}
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
