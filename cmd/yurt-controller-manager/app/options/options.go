@@ -38,10 +38,9 @@ import (
 	"k8s.io/klog/v2"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
 	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
+	_ "k8s.io/kubernetes/pkg/features"
 
 	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
-	// add the kubernetes feature gates
-	_ "k8s.io/kubernetes/pkg/features"
 )
 
 const (
