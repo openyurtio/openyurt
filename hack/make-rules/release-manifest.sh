@@ -14,25 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+set -x
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-YURT_MOD="$(head -1 $YURT_ROOT/go.mod | awk '{print $2}')"
-YURT_OUTPUT_DIR=${YURT_ROOT}/_output
-YURT_BIN_DIR=${YURT_OUTPUT_DIR}/bin
-YURT_LOCAL_BIN_DIR=${YURT_OUTPUT_DIR}/local/bin
+source "${YURT_ROOT}/hack/lib/init.sh"
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
-PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
-LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION=${GIT_VERSION:-v0.5.0}
-GIT_COMMIT=$(git rev-parse HEAD)
-BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-REPO=${REPO:-openyurt}
-TAG=$GIT_VERSION
-
-source "${YURT_ROOT}/hack/lib/common.sh"
-source "${YURT_ROOT}/hack/lib/build.sh"
-source "${YURT_ROOT}/hack/lib/release-images.sh"
-source "${YURT_ROOT}/hack/lib/release-manifest.sh"
+build_docker_manifest

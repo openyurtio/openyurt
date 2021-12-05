@@ -49,7 +49,7 @@ readonly region=${REGION:-us}
 # $1: component name
 # $2: arch
 function get_image_name {
-    # If ${GIT_COMMIT} is not at a tag, add commit to the image tag. 
+    # If ${GIT_COMMIT} is not at a tag, add commit to the image tag.
     if [[ -z $(git tag --points-at ${GIT_COMMIT}) ]]; then
         yurt_component_image="${REPO}/$1:${TAG}-$2-$(echo ${GIT_COMMIT} | cut -c 1-7)"
     else
@@ -58,6 +58,7 @@ function get_image_name {
 
     echo ${yurt_component_image}
 }
+
 
 function build_multi_arch_binaries() {
     local docker_run_opts=(
@@ -108,12 +109,10 @@ function build_docker_image() {
                local docker_build_path=${DOCKER_BUILD_BASE_IDR}/${SUPPORTED_OS}/${arch}
                local docker_file_path=${docker_build_path}/Dockerfile.${binary_name}-${arch}
                mkdir -p ${docker_build_path}
-
-               local yurt_component_name
+               local yurt_component_name=$(get_component_name $binary_name)
                local base_image
                if [[ ${binary} =~ yurtctl ]]
                then
-                 yurt_component_name="yurtctl-servant"
                  case $arch in
                   amd64)
                       base_image="amd64/alpine:3.9"
@@ -134,7 +133,6 @@ ADD ${binary_name} /usr/local/bin/yurtctl
 EOF
                elif [[ ${binary} =~ yurt-node-servant ]];
                then
-                   yurt_component_name="node-servant"
                  case $arch in
                   amd64)
                       base_image="amd64/alpine:3.9"
@@ -157,7 +155,6 @@ RUN chmod +x /usr/local/bin/entry.sh
 ADD ${binary_name} /usr/local/bin/node-servant
 EOF
                else
-                 yurt_component_name=${binary_name}
                  base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
                  cat <<EOF > "${docker_file_path}"
 FROM ${base_image}
