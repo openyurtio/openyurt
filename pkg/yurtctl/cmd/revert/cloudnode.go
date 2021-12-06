@@ -51,8 +51,8 @@ func NewRevertCloudNodeCmd() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringP("cloud-nodes", "e", "",
-		"The list of edge nodes wanted to be revert.(e.g. -e cloudnode1,cloudnode2)")
+	cmd.Flags().StringP("cloud-nodes", "c", "",
+		"The list of cloud nodes wanted to be revert.(e.g. -e cloudnode1,cloudnode2)")
 	commonFlags(cmd)
 	return cmd
 }
