@@ -28,9 +28,6 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/test/e2e/common/ns"
-	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -38,8 +35,13 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/kubernetes/test/e2e/framework/ginkgowrapper"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/test/e2e/common/ns"
+	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
+	"github.com/openyurtio/openyurt/test/e2e/util"
+	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
+	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
 
 const (
@@ -99,11 +101,7 @@ func PreCheckTunnelPod(c clientset.Interface) error {
 }
 
 func RunExecWithOutPut(c clientset.Interface, ns, podName, containerName string) (string, string, error) {
-	config, err := framework.LoadConfig()
-	if err != nil {
-		klog.Infof("load_config_failed:%v", err)
-		return "", "", err
-	}
+	config := yurtconfig.YurtE2eCfg.RestConfig
 
 	const tty = false
 	req := c.CoreV1().RESTClient().Post().
@@ -122,7 +120,7 @@ func RunExecWithOutPut(c clientset.Interface, ns, podName, containerName string)
 	}, scheme.ParameterCodec)
 
 	var buffStdout, buffStderr bytes.Buffer
-	err = execute("POST", req.URL(), config, nil, &buffStdout, &buffStderr, tty)
+	err := execute("POST", req.URL(), config, nil, &buffStdout, &buffStderr, tty)
 	if err != nil {
 		return "", "", err
 	}
@@ -143,14 +141,14 @@ func execute(method string, url *url.URL, config *restclient.Config, stdin io.Re
 }
 
 func Register() {
-	var _ = framework.KubeDescribe(YurttunnelE2eNamespaceName, func() {
+	var _ = util.YurtDescribe(YurttunnelE2eNamespaceName, func() {
 		gomega.RegisterFailHandler(ginkgowrapper.Fail)
 		defer ginkgo.GinkgoRecover()
 		var (
 			c   clientset.Interface
 			err error
 		)
-		c, err = framework.LoadClientset()
+		c = yurtconfig.YurtE2eCfg.KubeClient
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
 
 		err = PreCheckNode(c)
@@ -160,13 +158,13 @@ func Register() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_pod_not_ok")
 
 		err = ns.DeleteNameSpace(c, YurttunnelE2eNamespaceName)
-		framework.ExpectNoError(err)
+		util.ExpectNoError(err)
 
 		ginkgo.By(YurttunnelE2eTestDesc + "yurttunnel_test_create namespace")
 		_, err = ns.CreateNameSpace(c, YurttunnelE2eNamespaceName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-		framework.KubeDescribe(YurttunnelE2eTestDesc+": pod_operate_test_on_edge", func() {
+		util.YurtDescribe(YurttunnelE2eTestDesc+": pod_operate_test_on_edge", func() {
 			ginkgo.It("yurttunnel_e2e_test_pod_run_on_edge", func() {
 				cs := c
 				podName := "test-po-on-edge"
@@ -208,7 +206,7 @@ func Register() {
 				ginkgo.By("delete namespace: " + YurttunnelE2eNamespaceName)
 				err = ns.DeleteNameSpace(cs, YurttunnelE2eNamespaceName)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YurttunnelE2eNamespaceName)
-				framework.ExpectNoError(err)
+				util.ExpectNoError(err)
 			})
 		})
 

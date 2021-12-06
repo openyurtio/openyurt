@@ -16,12 +16,20 @@ limitations under the License.
 
 package yurtconfig
 
+import (
+	clientset "k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
+)
+
 type YurtE2eConfig struct {
 	NodeType           string
 	RegionID           string
 	AccessKeyID        string
 	AccessKeySecret    string
 	EnableYurtAutonomy bool
+	KubeClient         *clientset.Clientset
+	RestConfig         *restclient.Config
+	ReportDir          string
 }
 
 var YurtE2eCfg YurtE2eConfig

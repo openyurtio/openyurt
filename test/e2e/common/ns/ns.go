@@ -24,7 +24,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/test/e2e/framework"
+
+	"github.com/openyurtio/openyurt/test/e2e/util"
 )
 
 func DeleteNameSpace(c clientset.Interface, ns string) (err error) {
@@ -35,7 +36,7 @@ func DeleteNameSpace(c clientset.Interface, ns string) (err error) {
 	if !apierrs.IsNotFound(err) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces:"+ns)
 	}
-	err = framework.WaitForNamespacesDeleted(c, []string{ns}, framework.DefaultNamespaceDeletionTimeout)
+	err = util.WaitForNamespacesDeleted(c, []string{ns}, util.DefaultNamespaceDeletionTimeout)
 	return
 }
 
