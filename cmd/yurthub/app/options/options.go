@@ -23,8 +23,11 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/register"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -36,37 +39,39 @@ const (
 
 // YurtHubOptions is the main settings for the yurthub
 type YurtHubOptions struct {
-	ServerAddr                string
-	YurtHubHost               string
-	YurtHubPort               string
-	YurtHubProxyPort          string
-	YurtHubProxySecurePort    string
-	GCFrequency               int
-	CertMgrMode               string
-	YurtHubCertOrganizations  string
-	KubeletRootCAFilePath     string
-	KubeletPairFilePath       string
-	NodeName                  string
-	NodePoolName              string
-	LBMode                    string
-	HeartbeatFailedRetry      int
-	HeartbeatHealthyThreshold int
-	HeartbeatTimeoutSeconds   int
-	MaxRequestInFlight        int
-	JoinToken                 string
-	RootDir                   string
-	Version                   bool
-	EnableProfiling           bool
-	EnableDummyIf             bool
-	EnableIptables            bool
-	HubAgentDummyIfIP         string
-	HubAgentDummyIfName       string
-	DiskCachePath             string
-	AccessServerThroughHub    bool
-	EnableResourceFilter      bool
-	DisabledResourceFilters   []string
-	WorkingMode               string
-	KubeletHealthGracePeriod  time.Duration
+	ServerAddr                   string
+	YurtHubHost                  string
+	YurtHubPort                  string
+	YurtHubProxyPort             string
+	YurtHubProxySecurePort       string
+	GCFrequency                  int
+	CertMgrMode                  string
+	YurtHubCertOrganizations     string
+	KubeletRootCAFilePath        string
+	KubeletPairFilePath          string
+	NodeName                     string
+	NodePoolName                 string
+	LBMode                       string
+	HeartbeatFailedRetry         int
+	HeartbeatHealthyThreshold    int
+	HeartbeatTimeoutSeconds      int
+	MaxRequestInFlight           int
+	JoinToken                    string
+	RootDir                      string
+	Version                      bool
+	EnableProfiling              bool
+	EnableDummyIf                bool
+	EnableIptables               bool
+	HubAgentDummyIfIP            string
+	HubAgentDummyIfName          string
+	DiskCachePath                string
+	AccessServerThroughHub       bool
+	EnableResourceFilter         bool
+	DisabledResourceFilters      []string
+	WorkingMode                  string
+	KubeletHealthGracePeriod     time.Duration
+	Filters                      *filter.Filters
+	ServiceTopologyFilterEnabled bool
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -97,34 +102,50 @@ func NewYurtHubOptions() *YurtHubOptions {
 		DisabledResourceFilters:   make([]string, 0),
 		WorkingMode:               string(util.WorkingModeEdge),
 		KubeletHealthGracePeriod:  time.Second * 40,
+
+		ServiceTopologyFilterEnabled: false,
+		Filters:                      nil,
 	}
 	return o
 }
 
 // ValidateOptions validates YurtHubOptions
-func ValidateOptions(options *YurtHubOptions) error {
-	if len(options.NodeName) == 0 {
+func (o *YurtHubOptions) ValidateOptions() error {
+	if len(o.NodeName) == 0 {
 		return fmt.Errorf("node name is empty")
 	}
 
-	if len(options.ServerAddr) == 0 {
+	if len(o.ServerAddr) == 0 {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if !util.IsSupportedLBMode(options.LBMode) {
-		return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
+	if !util.IsSupportedLBMode(o.LBMode) {
+		return fmt.Errorf("lb mode(%s) is not supported", o.LBMode)
 	}
 
-	if !util.IsSupportedCertMode(options.CertMgrMode) {
-		return fmt.Errorf("cert manage mode %s is not supported", options.CertMgrMode)
+	if !util.IsSupportedCertMode(o.CertMgrMode) {
+		return fmt.Errorf("cert manage mode %s is not supported", o.CertMgrMode)
 	}
 
-	if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
-		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
+	if !util.IsSupportedWorkingMode(util.WorkingMode(o.WorkingMode)) {
+		return fmt.Errorf("working mode %s is not supported", o.WorkingMode)
 	}
 
-	if err := verifyDummyIP(options.HubAgentDummyIfIP); err != nil {
-		return fmt.Errorf("dummy ip %s is not invalid, %v", options.HubAgentDummyIfIP, err)
+	if err := verifyDummyIP(o.HubAgentDummyIfIP); err != nil {
+		return fmt.Errorf("dummy ip %s is not invalid, %v", o.HubAgentDummyIfIP, err)
+	}
+
+	if o.EnableResourceFilter {
+		invalidFilters := []string{}
+		registeredFilters := sets.NewString(o.Filters.Registered()...)
+		for _, name := range o.DisabledResourceFilters {
+			if !registeredFilters.Has(name) && name != "*" {
+				invalidFilters = append(invalidFilters, name)
+			}
+		}
+		if len(invalidFilters) != 0 {
+			return fmt.Errorf("disable-resource-filters %v is unknown", invalidFilters)
+		}
 	}
 
 	return nil
@@ -196,4 +217,24 @@ func verifyDummyIP(dummyIP string) error {
 	}
 
 	return nil
+}
+
+// CompletedYurtHubOptions is a wrapper that enforces a call of Complete().
+type CompletedYurtHubOptions struct {
+	*YurtHubOptions
+}
+
+func Complete(o *YurtHubOptions) *CompletedYurtHubOptions {
+	if o.EnableResourceFilter {
+		o.Filters = filter.NewFilters()
+		register.RegisterAllFilters(o.Filters)
+
+		if o.WorkingMode == string(util.WorkingModeCloud) {
+			o.DisabledResourceFilters = append(o.DisabledResourceFilters, filter.DisabledInCloudMode...)
+		}
+
+		disableFilters := sets.NewString(o.DisabledResourceFilters...)
+		o.ServiceTopologyFilterEnabled = filter.Enabled(disableFilters, filter.ServiceTopologyFilterName)
+	}
+	return &CompletedYurtHubOptions{o}
 }

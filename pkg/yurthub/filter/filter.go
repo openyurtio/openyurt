@@ -36,23 +36,21 @@ type Factory func() (Interface, error)
 
 type Filters struct {
 	sync.Mutex
-	names           []string
-	registry        map[string]Factory
-	disabledFilters sets.String
+	names    []string
+	registry map[string]Factory
 }
 
-func NewFilters(disabledFilters []string) *Filters {
+func NewFilters() *Filters {
 	return &Filters{
-		names:           make([]string, 0),
-		registry:        make(map[string]Factory),
-		disabledFilters: sets.NewString(disabledFilters...),
+		names:    make([]string, 0),
+		registry: make(map[string]Factory),
 	}
 }
 
-func (fs *Filters) NewFromFilters(initializer FilterInitializer) (Interface, error) {
+func (fs *Filters) NewFromFilters(disableFilterNames sets.String, initializer FilterInitializer) (Interface, error) {
 	var filters []Interface
 	for _, name := range fs.names {
-		if fs.Enabled(name) {
+		if Enabled(disableFilterNames, name) {
 			factory, found := fs.registry[name]
 			if !found {
 				return nil, fmt.Errorf("Filter %s has not registered", name)
@@ -95,12 +93,16 @@ func (fs *Filters) Register(name string, fn Factory) {
 	fs.names = append(fs.names, name)
 }
 
-func (fs *Filters) Enabled(name string) bool {
-	if fs.disabledFilters.Len() == 1 && fs.disabledFilters.Has("*") {
+func Enabled(disableFilterNames sets.String, name string) bool {
+	if disableFilterNames.Has("*") {
 		return false
 	}
+	return !disableFilterNames.Has(name)
+}
 
-	return !fs.disabledFilters.Has(name)
+// Registered enumerates the names of all registered plugins.
+func (fs *Filters) Registered() []string {
+	return fs.names
 }
 
 type FilterInitializers []FilterInitializer

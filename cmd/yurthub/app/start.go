@@ -58,11 +58,12 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
-			if err := options.ValidateOptions(yurtHubOptions); err != nil {
+			completedOptions := options.Complete(yurtHubOptions)
+			if err := completedOptions.ValidateOptions(); err != nil {
 				klog.Fatalf("validate options: %v", err)
 			}
 
-			yurtHubCfg, err := config.Complete(yurtHubOptions)
+			yurtHubCfg, err := config.Complete(completedOptions)
 			if err != nil {
 				klog.Fatalf("complete %s configuration error, %v", projectinfo.GetHubName(), err)
 			}

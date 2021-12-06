@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -43,10 +44,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
@@ -90,7 +88,7 @@ type YurtHubConfiguration struct {
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
-func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
+func Complete(options *options.CompletedYurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
@@ -119,19 +117,17 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
 
-	var filterChain filter.Interface
-	var filters *filter.Filters
-	var serviceTopologyFilterEnabled bool
-	var mutatedMasterServiceAddr string
-	if options.EnableResourceFilter {
-		if options.WorkingMode == string(util.WorkingModeCloud) {
-			options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
-		}
-		filters = filter.NewFilters(options.DisabledResourceFilters)
-		registerAllFilters(filters)
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
+	if err != nil {
+		return nil, err
+	}
+	registerInformers(sharedFactory, yurtSharedFactory, workingMode, options.ServiceTopologyFilterEnabled, options.NodePoolName, options.NodeName)
 
-		serviceTopologyFilterEnabled = filters.Enabled(filter.ServiceTopologyFilterName)
-		mutatedMasterServiceAddr = us[0].Host
+	var filterChain filter.Interface
+	if options.EnableResourceFilter {
+		disableFilters := sets.NewString(options.DisabledResourceFilters...)
+
+		mutatedMasterServiceAddr := us[0].Host
 		if options.AccessServerThroughHub {
 			if options.EnableDummyIf {
 				mutatedMasterServiceAddr = proxySecureServerDummyAddr
@@ -139,16 +135,10 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 				mutatedMasterServiceAddr = proxySecureServerAddr
 			}
 		}
-	}
-
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
-	if err != nil {
-		return nil, err
-	}
-	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled, options.NodePoolName, options.NodeName)
-	filterChain, err = createFilterChain(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, workingMode, options.NodeName, mutatedMasterServiceAddr)
-	if err != nil {
-		return nil, err
+		filterChain, err = createFilterChain(options.Filters, disableFilters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, workingMode, options.NodeName, mutatedMasterServiceAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	cfg := &YurtHubConfiguration{
@@ -282,16 +272,9 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 	}
 }
 
-// registerAllFilters by order, the front registered filter will be
-// called before the behind registered ones.
-func registerAllFilters(filters *filter.Filters) {
-	servicetopology.Register(filters)
-	masterservice.Register(filters)
-	discardcloudservice.Register(filters)
-}
-
 // createFilterChain return union filters that initializations completed.
 func createFilterChain(filters *filter.Filters,
+	disableFilterNames sets.String,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
 	serializerManager *serializer.SerializerManager,
@@ -305,5 +288,5 @@ func createFilterChain(filters *filter.Filters,
 	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, nodeName, mutatedMasterServiceAddr, workingMode)
 	initializerChain := filter.FilterInitializers{}
 	initializerChain = append(initializerChain, genericInitializer)
-	return filters.NewFromFilters(initializerChain)
+	return filters.NewFromFilters(disableFilterNames, initializerChain)
 }
