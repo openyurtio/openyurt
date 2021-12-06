@@ -30,7 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
-	"k8s.io/kubernetes/pkg/controller/testutil"
+
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/testutil"
 )
 
 var timeForControllerToProgress = 500 * time.Millisecond

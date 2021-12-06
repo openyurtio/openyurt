@@ -27,6 +27,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,8 +38,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/apis/core/helper"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
@@ -299,7 +298,7 @@ func (tc *NoExecuteTaintManager) PodUpdated(oldPod *v1.Pod, newPod *v1.Pod) {
 		newTolerations = newPod.Spec.Tolerations
 	}
 
-	if oldPod != nil && newPod != nil && helper.Semantic.DeepEqual(oldTolerations, newTolerations) && oldPod.Spec.NodeName == newPod.Spec.NodeName {
+	if oldPod != nil && newPod != nil && equality.Semantic.DeepEqual(oldTolerations, newTolerations) && oldPod.Spec.NodeName == newPod.Spec.NodeName {
 		return
 	}
 	updateItem := podUpdateItem{
@@ -326,7 +325,7 @@ func (tc *NoExecuteTaintManager) NodeUpdated(oldNode *v1.Node, newNode *v1.Node)
 		newTaints = getNoExecuteTaints(newNode.Spec.Taints)
 	}
 
-	if oldNode != nil && newNode != nil && helper.Semantic.DeepEqual(oldTaints, newTaints) {
+	if oldNode != nil && newNode != nil && equality.Semantic.DeepEqual(oldTaints, newTaints) {
 		return
 	}
 
@@ -367,7 +366,7 @@ func (tc *NoExecuteTaintManager) processPodOnNode(
 	if len(taints) == 0 {
 		tc.cancelWorkWithEvent(podNamespacedName)
 	}
-	allTolerated, usedTolerations := v1helper.GetMatchingTolerations(taints, tolerations)
+	allTolerated, usedTolerations := GetMatchingTolerations(taints, tolerations)
 	if !allTolerated {
 		klog.V(2).Infof("Not all taints are tolerated after update for Pod %v on %v", podNamespacedName.String(), nodeName)
 		// We're canceling scheduled work (if any), as we're going to delete the Pod right away.
@@ -513,4 +512,29 @@ func (tc *NoExecuteTaintManager) emitCancelPodDeletionEvent(nsName types.Namespa
 		Namespace: nsName.Namespace,
 	}
 	tc.recorder.Eventf(ref, v1.EventTypeNormal, "TaintManagerEviction", "Cancelling deletion of Pod %s", nsName.String())
+}
+
+// GetMatchingTolerations Returns true and list of Tolerations matching all Taints if all are tolerated, or false otherwise.
+func GetMatchingTolerations(taints []v1.Taint, tolerations []v1.Toleration) (bool, []v1.Toleration) {
+	if len(taints) == 0 {
+		return true, []v1.Toleration{}
+	}
+	if len(tolerations) == 0 && len(taints) > 0 {
+		return false, []v1.Toleration{}
+	}
+	result := []v1.Toleration{}
+	for i := range taints {
+		tolerated := false
+		for j := range tolerations {
+			if tolerations[j].ToleratesTaint(&taints[i]) {
+				result = append(result, tolerations[j])
+				tolerated = true
+				break
+			}
+		}
+		if !tolerated {
+			return false, []v1.Toleration{}
+		}
+	}
+	return true, result
 }

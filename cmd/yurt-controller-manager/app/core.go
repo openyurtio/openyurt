@@ -46,7 +46,7 @@ func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, er
 		ctx.ComponentConfig.NodeLifecycleController.SecondaryNodeEvictionRate,
 		ctx.ComponentConfig.NodeLifecycleController.LargeClusterSizeThreshold,
 		ctx.ComponentConfig.NodeLifecycleController.UnhealthyZoneThreshold,
-		ctx.ComponentConfig.NodeLifecycleController.EnableTaintManager,
+		*ctx.ComponentConfig.NodeLifecycleController.EnableTaintManager,
 	)
 	if err != nil {
 		return nil, true, err

@@ -36,9 +36,9 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
+	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
-	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
-	_ "k8s.io/kubernetes/pkg/features"
+	utilpointer "k8s.io/utils/pointer"
 
 	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 )
@@ -83,7 +83,7 @@ func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
 		Generic: NewGenericControllerManagerConfigurationOptions(&generic),
 		NodeLifecycleController: &NodeLifecycleControllerOptions{
 			NodeLifecycleControllerConfiguration: &nodelifecycleconfig.NodeLifecycleControllerConfiguration{
-				EnableTaintManager:     true,
+				EnableTaintManager:     utilpointer.BoolPtr(true),
 				PodEvictionTimeout:     metav1.Duration{Duration: 5 * time.Minute},
 				NodeMonitorGracePeriod: metav1.Duration{Duration: 40 * time.Second},
 				NodeStartupGracePeriod: metav1.Duration{Duration: 60 * time.Second},

@@ -18,8 +18,8 @@ package config
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
-	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
 )
 
 // YurtControllerManagerConfiguration contains elements describing yurt-controller manager.

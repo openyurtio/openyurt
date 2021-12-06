@@ -8,6 +8,7 @@ require (
 	github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200531234253-77e06fda0c94+incompatible // indirect
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
+	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
@@ -21,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299
@@ -36,11 +37,12 @@ require (
 	k8s.io/client-go v0.19.2
 	k8s.io/cluster-bootstrap v0.0.0
 	k8s.io/component-base v0.18.8
-	k8s.io/klog/v2 v2.4.0
+	k8s.io/klog/v2 v2.9.0
+	k8s.io/kube-controller-manager v0.0.0
 	k8s.io/kubectl v0.0.0
 	k8s.io/kubelet v0.0.0
 	k8s.io/kubernetes v1.18.8
-	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
+	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/apiserver-network-proxy v0.0.15
 )
 

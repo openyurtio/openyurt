@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,13 +47,12 @@ import (
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
-	genericcontrollermanager "k8s.io/kubernetes/cmd/controller-manager/app"
-	"k8s.io/kubernetes/pkg/controller"
-	utilflag "k8s.io/kubernetes/pkg/util/flag"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
 	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	genericcontrollermanager "github.com/openyurtio/openyurt/pkg/controller/kubernetes/cmd/controller-manager/app"
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -84,7 +84,7 @@ current state towards the desired state. now only nodelifecycle controller is pr
 			}
 			fmt.Printf("%s version: %#v\n", projectinfo.GetYurtControllerManagerName(), projectinfo.Get())
 
-			utilflag.PrintFlags(cmd.Flags())
+			PrintFlags(cmd.Flags())
 
 			c, err := s.Config(KnownControllers(), ControllersDisabledByDefault.List())
 			if err != nil {
@@ -345,4 +345,11 @@ func StartControllers(ctx ControllerContext, controllers map[string]InitFunc, un
 	}
 
 	return nil
+}
+
+// PrintFlags logs the flags in the flagset
+func PrintFlags(flags *pflag.FlagSet) {
+	flags.VisitAll(func(flag *pflag.Flag) {
+		klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+	})
 }
