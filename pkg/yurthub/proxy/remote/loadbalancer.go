@@ -177,13 +177,14 @@ func (lb *loadBalancer) IsHealthy() bool {
 }
 
 func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	b := lb.algo.PickOne()
-	if b == nil {
+	// pick a remote proxy based on the load balancing algorithm.
+	rp := lb.algo.PickOne()
+	if rp == nil {
 		// exceptional case
 		klog.Errorf("could not pick one healthy backends by %s for request %s", lb.algo.Name(), util.ReqString(req))
 		http.Error(rw, "could not pick one healthy backends, try again to go through local proxy.", http.StatusInternalServerError)
 		return
 	}
-	klog.V(3).Infof("picked backend %s by %s for request %s", b.Name(), lb.algo.Name(), util.ReqString(req))
-	b.ServeHTTP(rw, req)
+	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), util.ReqString(req))
+	rp.ServeHTTP(rw, req)
 }
