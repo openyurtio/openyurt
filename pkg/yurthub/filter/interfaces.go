@@ -24,17 +24,29 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-type Interface interface {
-	Approve(comp, resource, verb string) bool
-	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
-}
-
 type FilterInitializer interface {
 	Initialize(filter Interface) error
 }
 
+// Interface of data filtering framework.
+type Interface interface {
+	// Approve is used to determine whether the data returned
+	// from the cloud needs to enter the filtering framework for processing.
+	Approve(comp, resource, verb string) bool
+
+	// Filter is used to filter data returned from the cloud.
+	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
+}
+
+// Handler customizes data filtering processing interface for each handler.
+// In the data filtering framework, data is mainly divided into two types:
+// 	Object data: data returned by list/get request.
+// 	Streaming data: The data returned by the watch request will be continuously pushed to the edge by the cloud.
 type Handler interface {
+	// StreamResponseFilter is used to filter processing of streaming data.
 	StreamResponseFilter(rc io.ReadCloser, ch chan watch.Event) error
+
+	// ObjectResponseFilter is used to filter processing of object data.
 	ObjectResponseFilter(b []byte) ([]byte, error)
 }
 
