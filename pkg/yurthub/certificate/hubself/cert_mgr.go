@@ -23,7 +23,6 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -71,32 +70,26 @@ func Register(cmr *hubcert.CertificateManagerRegistry) {
 }
 
 type yurtHubCertManager struct {
-	remoteServers              []*url.URL
-	hubCertOrganizations       []string
-	proxyServerSecureDummyHost string
-	bootstrapConfStore         storage.Store
-	hubClientCertManager       certificate.Manager
-	hubClientCertPath          string
-	joinToken                  string
-	caFile                     string
-	nodeName                   string
-	rootDir                    string
-	hubName                    string
-	kubeletRootCAFilePath      string
-	kubeletPairFilePath        string
-	dialer                     *util.Dialer
-	stopCh                     chan struct{}
+	remoteServers         []*url.URL
+	hubCertOrganizations  []string
+	bootstrapConfStore    storage.Store
+	hubClientCertManager  certificate.Manager
+	hubClientCertPath     string
+	joinToken             string
+	caFile                string
+	nodeName              string
+	rootDir               string
+	hubName               string
+	kubeletRootCAFilePath string
+	kubeletPairFilePath   string
+	dialer                *util.Dialer
+	stopCh                chan struct{}
 }
 
 // NewYurtHubCertManager new a YurtCertificateManager instance
 func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
 	if cfg == nil || len(cfg.NodeName) == 0 || len(cfg.RemoteServers) == 0 {
 		return nil, fmt.Errorf("hub agent configuration is invalid, could not new hub agent cert manager")
-	}
-
-	proxyServerSecureDummyHost, _, err := net.SplitHostPort(cfg.YurtHubProxyServerSecureDummyAddr)
-	if err != nil {
-		return nil, fmt.Errorf("hub agent proxyServerSecureDummyHost is invalid, could not new hub agent cert manager: %v", err)
 	}
 
 	hn := projectinfo.GetHubName()
@@ -110,17 +103,16 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 	}
 
 	ycm := &yurtHubCertManager{
-		remoteServers:              cfg.RemoteServers,
-		hubCertOrganizations:       cfg.YurtHubCertOrganizations,
-		proxyServerSecureDummyHost: proxyServerSecureDummyHost,
-		nodeName:                   cfg.NodeName,
-		joinToken:                  cfg.JoinToken,
-		kubeletRootCAFilePath:      cfg.KubeletRootCAFilePath,
-		kubeletPairFilePath:        cfg.KubeletPairFilePath,
-		rootDir:                    rootDir,
-		hubName:                    hn,
-		dialer:                     util.NewDialer("hub certificate manager"),
-		stopCh:                     make(chan struct{}),
+		remoteServers:         cfg.RemoteServers,
+		hubCertOrganizations:  cfg.YurtHubCertOrganizations,
+		nodeName:              cfg.NodeName,
+		joinToken:             cfg.JoinToken,
+		kubeletRootCAFilePath: cfg.KubeletRootCAFilePath,
+		kubeletPairFilePath:   cfg.KubeletPairFilePath,
+		rootDir:               rootDir,
+		hubName:               hn,
+		dialer:                util.NewDialer("hub certificate manager"),
+		stopCh:                make(chan struct{}),
 	}
 
 	return ycm, nil
@@ -301,11 +293,11 @@ func (ycm *yurtHubCertManager) initBootstrap() error {
 	}
 }
 
-// initClientCertificateManager init hub agent certificate manager
+// initClientCertificateManager init hub client certificate manager
 func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	s, err := certificate.NewFileStore(ycm.hubName, ycm.getPkiDir(), ycm.getPkiDir(), "", "")
 	if err != nil {
-		klog.Errorf("failed to init %s cert store, %v", ycm.hubName, err)
+		klog.Errorf("failed to init %s client cert store, %v", ycm.hubName, err)
 		return err
 
 	}
@@ -328,18 +320,17 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 				CommonName:   fmt.Sprintf("system:node:%s", ycm.nodeName),
 				Organization: orgs,
 			},
-			IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP(ycm.proxyServerSecureDummyHost)},
 		},
 		Usages: []certificates.KeyUsage{
 			certificates.UsageDigitalSignature,
 			certificates.UsageKeyEncipherment,
-			certificates.UsageServerAuth,
 			certificates.UsageClientAuth,
 		},
+
 		CertificateStore: s,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize %s certificate manager: %v", ycm.hubName, err)
+		return fmt.Errorf("failed to initialize client certificate manager: %v", err)
 	}
 	ycm.hubClientCertManager = m
 	m.Start()
