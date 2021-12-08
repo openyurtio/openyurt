@@ -33,11 +33,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	utilpod "k8s.io/kubernetes/pkg/api/v1/pod"
-	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/kubelet/util/format"
-	nodepkg "k8s.io/kubernetes/pkg/util/node"
 
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller"
+	ctlnode "github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/util/node"
+	nodepkg "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/node"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -69,7 +68,7 @@ func DeletePods(kubeClient clientset.Interface, pods []*v1.Pod, recorder record.
 		if _, err := SetPodTerminationReason(kubeClient, pod, nodeName); err != nil {
 			if apierrors.IsConflict(err) {
 				updateErrList = append(updateErrList,
-					fmt.Errorf("update status failed for pod %q: %v", format.Pod(pod), err))
+					fmt.Errorf("update status failed for pod %q: %v", ctlnode.Pod(pod), err))
 				continue
 			}
 		}
@@ -144,7 +143,7 @@ func MarkPodsNotReady(kubeClient clientset.Interface, pods []*v1.Pod, nodeName s
 		for _, cond := range pod.Status.Conditions {
 			if cond.Type == v1.PodReady {
 				cond.Status = v1.ConditionFalse
-				if !utilpod.UpdatePodCondition(&pod.Status, &cond) {
+				if !UpdatePodCondition(&pod.Status, &cond) {
 					break
 				}
 				klog.V(2).Infof("Updating ready status of pod %v to false", pod.Name)
@@ -155,7 +154,7 @@ func MarkPodsNotReady(kubeClient clientset.Interface, pods []*v1.Pod, nodeName s
 						// There is nothing left to do with this pod.
 						continue
 					}
-					klog.Warningf("Failed to update status for pod %q: %v", format.Pod(pod), err)
+					klog.Warningf("Failed to update status for pod %q: %v", ctlnode.Pod(pod), err)
 					errMsg = append(errMsg, fmt.Sprintf("%v", err))
 				}
 				break
@@ -305,4 +304,56 @@ func GetNodeCondition(status *v1.NodeStatus, conditionType v1.NodeConditionType)
 		}
 	}
 	return -1, nil
+}
+
+// GetPodCondition extracts the provided condition from the given status and returns that.
+// Returns nil and -1 if the condition is not present, and the index of the located condition.
+func GetPodCondition(status *v1.PodStatus, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if status == nil {
+		return -1, nil
+	}
+	return GetPodConditionFromList(status.Conditions, conditionType)
+}
+
+// GetPodConditionFromList extracts the provided condition from the given list of condition and
+// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
+func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if conditions == nil {
+		return -1, nil
+	}
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return i, &conditions[i]
+		}
+	}
+	return -1, nil
+}
+
+// UpdatePodCondition updates existing pod condition or creates a new one. Sets LastTransitionTime to now if the
+// status has changed.
+// Returns true if pod condition has changed or has been added.
+func UpdatePodCondition(status *v1.PodStatus, condition *v1.PodCondition) bool {
+	condition.LastTransitionTime = metav1.Now()
+	// Try to find this pod condition.
+	conditionIndex, oldCondition := GetPodCondition(status, condition.Type)
+
+	if oldCondition == nil {
+		// We are adding new pod condition.
+		status.Conditions = append(status.Conditions, *condition)
+		return true
+	}
+	// We are updating an existing condition, so we need to check if it has changed.
+	if condition.Status == oldCondition.Status {
+		condition.LastTransitionTime = oldCondition.LastTransitionTime
+	}
+
+	isEqual := condition.Status == oldCondition.Status &&
+		condition.Reason == oldCondition.Reason &&
+		condition.Message == oldCondition.Message &&
+		condition.LastProbeTime.Equal(&oldCondition.LastProbeTime) &&
+		condition.LastTransitionTime.Equal(&oldCondition.LastTransitionTime)
+
+	status.Conditions[conditionIndex] = *condition
+	// Return true if one of the fields have changed.
+	return !isEqual
 }

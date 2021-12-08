@@ -43,15 +43,14 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	testcore "k8s.io/client-go/testing"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
-	"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/controller/testutil"
-	nodeutil "k8s.io/kubernetes/pkg/controller/util/node"
-	"k8s.io/kubernetes/pkg/features"
-	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
-	"k8s.io/kubernetes/pkg/util/node"
-	taintutils "k8s.io/kubernetes/pkg/util/taints"
 	"k8s.io/utils/pointer"
 
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller"
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/testutil"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/util/node"
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/features"
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/node"
+	taintutils "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/taints"
 	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 )
 
@@ -3296,16 +3295,16 @@ func TestReconcileNodeLabels(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						kubeletapis.LabelOS:   "linux",
-						kubeletapis.LabelArch: "amd64",
+						LabelOS:   "linux",
+						LabelArch: "amd64",
 					},
 				},
 			},
 			ExpectedLabels: map[string]string{
-				kubeletapis.LabelOS:   "linux",
-				kubeletapis.LabelArch: "amd64",
-				v1.LabelOSStable:      "linux",
-				v1.LabelArchStable:    "amd64",
+				LabelOS:            "linux",
+				LabelArch:          "amd64",
+				v1.LabelOSStable:   "linux",
+				v1.LabelArchStable: "amd64",
 			},
 		},
 		{
@@ -3315,18 +3314,18 @@ func TestReconcileNodeLabels(t *testing.T) {
 					Name:              "node0",
 					CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
 					Labels: map[string]string{
-						kubeletapis.LabelOS:   "linux",
-						kubeletapis.LabelArch: "amd64",
-						v1.LabelOSStable:      "windows",
-						v1.LabelArchStable:    "arm",
+						LabelOS:            "linux",
+						LabelArch:          "amd64",
+						v1.LabelOSStable:   "windows",
+						v1.LabelArchStable: "arm",
 					},
 				},
 			},
 			ExpectedLabels: map[string]string{
-				kubeletapis.LabelOS:   "linux",
-				kubeletapis.LabelArch: "amd64",
-				v1.LabelOSStable:      "linux",
-				v1.LabelArchStable:    "amd64",
+				LabelOS:            "linux",
+				LabelArch:          "amd64",
+				v1.LabelOSStable:   "linux",
+				v1.LabelArchStable: "amd64",
 			},
 		},
 	}

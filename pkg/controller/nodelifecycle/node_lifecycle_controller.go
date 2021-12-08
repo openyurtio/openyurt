@@ -53,12 +53,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/controller"
-	kubefeatures "k8s.io/kubernetes/pkg/features"
-	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
-	utilnode "k8s.io/kubernetes/pkg/util/node"
-	taintutils "k8s.io/kubernetes/pkg/util/taints"
 
+	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller"
+	kubefeatures "github.com/openyurtio/openyurt/pkg/controller/kubernetes/features"
+	utilnode "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/node"
+	taintutils "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/taints"
 	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
@@ -67,6 +66,15 @@ func init() {
 	// Register prometheus metrics
 	Register()
 }
+
+const (
+	// LabelOS is a label to indicate the operating system of the node.
+	// The OS labels are promoted to GA in 1.14. kubelet applies GA labels and stop applying the beta OS labels in Kubernetes 1.19.
+	LabelOS = "beta.kubernetes.io/os"
+	// LabelArch is a label to indicate the architecture of the node.
+	// The Arch labels are promoted to GA in 1.14. kubelet applies GA labels and stop applying the beta Arch labels in Kubernetes 1.19.
+	LabelArch = "beta.kubernetes.io/arch"
+)
 
 var (
 	// UnreachableTaintTemplate is the taint for when a node becomes unreachable.
@@ -150,7 +158,7 @@ var labelReconcileInfo = []struct {
 		// the source of truth.
 		// TODO(#73084): switch to using the stable label as the source of
 		// truth in v1.18.
-		primaryKey:            kubeletapis.LabelOS,
+		primaryKey:            LabelOS,
 		secondaryKey:          v1.LabelOSStable,
 		ensureSecondaryExists: true,
 	},
@@ -159,7 +167,7 @@ var labelReconcileInfo = []struct {
 		// the source of truth.
 		// TODO(#73084): switch to using the stable label as the source of
 		// truth in v1.18.
-		primaryKey:            kubeletapis.LabelArch,
+		primaryKey:            LabelArch,
 		secondaryKey:          v1.LabelArchStable,
 		ensureSecondaryExists: true,
 	},
