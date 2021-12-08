@@ -37,10 +37,10 @@ import (
 	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
-	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
 	utilpointer "k8s.io/utils/pointer"
 
 	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
+	kubectrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/apis/config"
 )
 
 const (
