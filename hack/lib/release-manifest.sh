@@ -31,14 +31,14 @@ function get_manifest_name() {
 
 function build_docker_manifest() {
     # Always clean first
-    rm -Rf ${DOCKER_BUILD_BASE_IDR}
-    mkdir -p ${DOCKER_BUILD_BASE_IDR}
+    rm -Rf ${DOCKER_BUILD_BASE_DIR}
+    mkdir -p ${DOCKER_BUILD_BASE_DIR}
 
     for binary in "${bin_targets_process_servant[@]}"; do
       local binary_name=$(get_output_name $binary)
       local yurt_component_name=$(get_component_name $binary_name)
       local yurt_component_manifest=$(get_manifest_name $yurt_component_name)
-      echo ${yurt_component_manifest} >> ${DOCKER_BUILD_BASE_IDR}/manifest.list
+      echo ${yurt_component_manifest} >> ${DOCKER_BUILD_BASE_DIR}/manifest.list
       # Remove existing manifest.
       docker manifest rm ${yurt_component_manifest} || true
       for arch in ${target_arch[@]}; do
@@ -61,5 +61,5 @@ function build_docker_manifest() {
 }
 
 push_manifest() {
-    cat ${DOCKER_BUILD_BASE_IDR}/manifest.list | xargs -I % sh -c 'echo pushing manifest %; docker manifest push --purge %; echo'
+    cat ${DOCKER_BUILD_BASE_DIR}/manifest.list | xargs -I % sh -c 'echo pushing manifest %; docker manifest push --purge %; echo'
 }
