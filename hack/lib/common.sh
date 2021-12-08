@@ -60,7 +60,7 @@ get_component_name() {
   then
     yurt_component_name="node-servant"
   else
-    yurt_component_name=${binary_name}
+    yurt_component_name=$1
   fi
   echo $yurt_component_name
 }
