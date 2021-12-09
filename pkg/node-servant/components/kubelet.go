@@ -152,7 +152,7 @@ func (op *kubeletOperator) undoAppendConfig() error {
 		return err
 	}
 
-	content := strings.Replace(string(contentbyte), kubeConfigSetup, "", -1)
+	content := strings.ReplaceAll(string(contentbyte), kubeConfigSetup, "")
 	err = ioutil.WriteFile(kubeAdmFlagsEnvFile, []byte(content), fileMode)
 	if err != nil {
 		return err

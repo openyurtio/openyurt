@@ -32,7 +32,7 @@ node/us-west-1.192.168.0.88 labeled
 
 To active the autonomous mode, we annotate the edge node by typing following command
 ```bash
-$ kubectl annotate node us-west-1.192.168.0.88 node.beta.alibabacloud.com/autonomy=true
+$ kubectl annotate node us-west-1.192.168.0.88 node.beta.openyurt.io/autonomy=true
 node/us-west-1.192.168.0.88 annotated
 ```
 

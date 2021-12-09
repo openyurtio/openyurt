@@ -19,7 +19,7 @@ $ _output/bin/yurtctl convert --provider minikube
 convert.go:148] mark minikube as the edge-node
 convert.go:178] deploy the yurt controller manager
 convert.go:190] deploying the yurt-hub and resetting the kubelet service...
-util.go:137] servant job(yurtctl-servant-convert-minikube) has succeeded
+util.go:137] servant job(node-servant-convert-minikube) has succeeded
 ```
 
 3. yurt controller manager and yurthub Pods will be up and running in one minute. Let us verify them:
@@ -32,18 +32,13 @@ NAME                READY   STATUS    RESTARTS   AGE
 yurt-hub-minikube   1/1     Running   0          23h
 ```
 
-4. Next, we mark desired edge nodes as autonomous (only pods running on the autonomous edge nodes will be prevented from being evicted during disconnection):
-```bash
-$ _output/bin/yurtctl markautonomous
-I0602 14:11:08.610222   89160 markautonomous.go:149] mark minikube-m02 as autonomous
-```
-
-5. As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
+4. `yurtctl` will mark all edge nodes as autonomous (only pods running on the autonomous edge nodes will be prevented from being evicted during disconnection) by default.
+As the minikube cluster only contains one node, the node will be marked as an autonomous edge node. Let us verify this by inspecting the node's labels and annotations:
 ```
 $ kubectl describe node | grep Labels -A 5
 Labels:      openyurt.io/is-edge-worker=true
 $ kubectl describe node | grep Annotations -A 5
-Annotations: node.beta.alibabacloud.com/autonomy: true
+Annotations: node.beta.openyurt.io/autonomy: true
 ```
 
 By now, the OpenYurt cluster is ready. Users will not notice any differences compared to native Kubernetes when operating the cluster.
@@ -135,7 +130,7 @@ I0529 11:21:05.835781    9231 convert.go:145] mark us-west-1.192.168.0.87 as the
 I0529 11:21:05.861064    9231 convert.go:153] mark us-west-1.192.168.0.88 as the edge-node
 I0529 11:21:05.951483    9231 convert.go:183] deploy the yurt controller manager
 I0529 11:21:05.974443    9231 convert.go:195] deploying the yurt-hub and resetting the kubelet service...
-I0529 11:21:26.075075    9231 util.go:147] servant job(yurtctl-servant-convert-us-west-1.192.168.0.88) has succeeded
+I0529 11:21:26.075075    9231 util.go:147] servant job(node-servant-convert-us-west-1.192.168.0.88) has succeeded
 ```
 
 Note: use "," to add more nodes (i.e., --cloud-nodes us-west-1.192.168.0.87,us-west-1.192.168.0.88).
@@ -146,13 +141,8 @@ $ kubectl describe node us-west-1.192.168.0.87 | grep Labels
 Labels:             openyurt.io/is-edge-worker=false
 ```
 
-4. Same as before, we make desired edge nodes autonomous:
-```bash
-$ _output/bin/yurtctl markautonomous
-I0602 11:22:05.610222   89160 markautonomous.go:149] mark us-west-1.192.168.0.88 as autonomous
-```
-
-5. When the OpenYurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this case, the node `us-west-1.192.168.0.87`):
+4. When the OpenYurt cluster contains cloud nodes, yurt controller manager will be deployed on the cloud node (in this
+case, the node `us-west-1.192.168.0.87`):
 ```bash
 $ kubectl get pods -A -o=custom-columns='NAME:.metadata.name,NODE:.spec.nodeName'
 NAME                                               NODE
@@ -183,7 +173,7 @@ I0831 12:35:51.753830   77322 convert.go:251] the yurt-controller-manager is dep
 I0831 12:35:51.910440   77322 convert.go:270] yurt-tunnel-server is deployed
 I0831 12:35:51.999384   77322 convert.go:278] yurt-tunnel-agent is deployed
 I0831 12:35:51.999409   77322 convert.go:282] deploying the yurt-hub and resetting the kubelet service...
-I0831 12:36:22.109338   77322 util.go:173] servant job(yurtctl-servant-convert-minikube-m02) has succeeded
+I0831 12:36:22.109338   77322 util.go:173] servant job(node-servant-convert-minikube-m02) has succeeded
 I0831 12:36:22.109368   77322 convert.go:292] the yurt-hub is deployed
 ```
 
@@ -198,7 +188,7 @@ $ _output/bin/yurtctl revert
 revert.go:100] label openyurt.io/is-edge-worker is removed
 revert.go:110] yurt controller manager is removed
 revert.go:124] ServiceAccount node-controller is created
-util.go:137] servant job(yurtctl-servant-revert-minikube-m02) has succeeded
+util.go:137] servant job(node-servant-revert-minikube-m02) has succeeded
 revert.go:133] yurt-hub is removed, kubelet service is reset
 ```
 Note that before performing the uninstall, please make sure all edge nodes are reachable from the apiserver.
@@ -259,54 +249,6 @@ option `--pod-manifest-path`.
 $ _output/bin/yurtctl convert --pod-manifest-path /etc/kubernetes/manifests
 ```
 
-## Subcommand
-### Convert a Kubernetes node to Yurt edge node
-
-You can use the subcommand `yurtctl convert edgenode` to convert a Kubernetes node to Yurt edge node separately.
-
-This command can convert the node locally or remotely. One or more nodes that need to be converted can be specified
-by the option `--edge-nodes`. If this option is not used, the local node will be converted.
-
-Convert the Kubernetes node n80 to an Yurt edge node:
-```
-$ _output/bin/yurtctl convert edgenode --edge-nodes n80
-I0209 11:03:30.101308   13729 edgenode.go:251] mark n80 as the edge-node
-I0209 11:03:30.136313   13729 edgenode.go:279] setting up yurthub on node
-I0209 11:03:30.137013   13729 edgenode.go:294] setting up yurthub apiserver addr
-I0209 11:03:30.137500   13729 edgenode.go:311] create the /etc/kubernetes/manifests/yurt-hub.yaml
-I0209 11:03:40.140073   13729 edgenode.go:403] yurt-hub healthz is OK
-I0209 11:03:40.140555   13729 edgenode.go:330] revised kubeconfig /var/lib/openyurt/kubelet.conf is generated
-I0209 11:03:40.141592   13729 edgenode.go:351] kubelet.service drop-in file is revised
-I0209 11:03:40.141634   13729 edgenode.go:354] systemctl daemon-reload
-I0209 11:03:40.403453   13729 edgenode.go:359] systemctl restart kubelet
-I0209 11:03:40.469911   13729 edgenode.go:364] kubelet has been restarted
-```
-You can verify this by inspecting its labels and getting the status of pod yurt-hub.
-
-### Revert an Yurt edge node to Kubernetes node
-
-The subcommand `yurtctl revert edgenode` can revert a Yurt edge node. The option `--edge-nodes` of command can be used
-to specify one or more nodes to be reverted which is the same as the `yurtctl convert edgenode`.
-
-Assume that the cluster is an OpenYurt cluster and has an Yurt edge node n80:
-```
-$ kubectl describe node n80 | grep Labels
-Labels:             openyurt.io/is-edge-worker=true
-$ kubectl get pod -A | grep yurt-hub
-kube-system   yurt-hub-n80               1/1     Running   0          7m32s
-```
-Using `yurtctl revert edgenode` to revert:
-```
-$ _output/bin/yurtctl revert edgenode --edge-nodes n80
-I0209 11:01:46.837812   12217 edgenode.go:225] label openyurt.io/is-edge-worker is removed
-I0209 11:01:46.838454   12217 edgenode.go:252] found backup file /etc/systemd/system/kubelet.service.d/10-kubeadm.conf.bk, will use it to revert the node
-I0209 11:01:46.838689   12217 edgenode.go:259] systemctl daemon-reload
-I0209 11:01:47.085554   12217 edgenode.go:265] systemctl restart kubelet
-I0209 11:01:47.153388   12217 edgenode.go:270] kubelet has been reset back to default
-I0209 11:01:47.153680   12217 edgenode.go:282] yurt-hub has been removed
-```
-You can verify this by inspecting its labels and getting the status of pod yurt-hub.
-
 ## Troubleshooting
 
 ### 1. Failure due to pulling image timeout
@@ -319,7 +261,7 @@ $ _output/bin/yurtctl convert --provider minikube \
   --yurt-controller-manager-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-controller-manager:latest \
   --yurt-tunnel-agent-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-tunnel-agent:latest \
   --yurt-tunnel-server-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurt-tunnel-server:latest \
-  --yurtctl-servant-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurtctl-servant:latest \
+  --node-servant-image registry.cn-hangzhou.aliyuncs.com/openyurt/node-servant:latest \
   --yurthub-image registry.cn-hangzhou.aliyuncs.com/openyurt/yurthub:latest
 ```
   - or pull all images on the node manually
