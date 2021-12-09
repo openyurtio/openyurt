@@ -22,6 +22,7 @@ TODO
 
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ens"
+
 	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
 )
 
