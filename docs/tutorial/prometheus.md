@@ -73,6 +73,7 @@ $ kubectl edit configmap coredns -n kube-system
         loadbalance
     }
 ```
+**Tips: The CoreDNS version minimum version is 1.6.8**
 
 After this we should restart the coreDNS
 
