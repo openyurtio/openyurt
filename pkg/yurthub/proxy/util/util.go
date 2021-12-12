@@ -170,6 +170,7 @@ type wrapperResponseWriter struct {
 	http.ResponseWriter
 	http.Flusher
 	http.CloseNotifier
+	http.Hijacker
 	statusCode int
 }
 
@@ -184,10 +185,16 @@ func newWrapperResponseWriter(w http.ResponseWriter) *wrapperResponseWriter {
 		klog.Error("can not get http.Flusher")
 	}
 
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		klog.Error("can not get http.Hijacker")
+	}
+
 	return &wrapperResponseWriter{
 		ResponseWriter: w,
 		Flusher:        flusher,
 		CloseNotifier:  cn,
+		Hijacker:       hijacker,
 	}
 }
 
