@@ -26,6 +26,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/apimachinery/pkg/util/proxy"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
@@ -45,7 +47,15 @@ type RemoteProxy struct {
 	filterChain      filter.Interface
 	currentTransport http.RoundTripper
 	bearerTransport  http.RoundTripper
+	upgradeHandler   *proxy.UpgradeAwareHandler
 	stopCh           <-chan struct{}
+}
+
+type responder struct{}
+
+func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
+	klog.Errorf("failed while proxying request %s, %v", req.URL, err)
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 // NewRemoteProxy creates an *RemoteProxy object, and will be used by LoadBalancer
@@ -64,6 +74,9 @@ func NewRemoteProxy(remoteServer *url.URL,
 		return nil, fmt.Errorf("could not get bearer transport when init proxy backend(%s)", remoteServer.String())
 	}
 
+	upgradeAwareHandler := proxy.NewUpgradeAwareHandler(remoteServer, nil, false, true, &responder{})
+	upgradeAwareHandler.UseRequestLocation = true
+
 	proxyBackend := &RemoteProxy{
 		checker:          healthChecker,
 		reverseProxy:     httputil.NewSingleHostReverseProxy(remoteServer),
@@ -72,6 +85,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 		filterChain:      filterChain,
 		currentTransport: currentTransport,
 		bearerTransport:  bearerTransport,
+		upgradeHandler:   upgradeAwareHandler,
 		stopCh:           stopCh,
 	}
 
@@ -89,17 +103,23 @@ func (rp *RemoteProxy) Name() string {
 }
 
 func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if httpstream.IsUpgradeRequest(req) {
+		klog.V(5).Infof("get upgrade request %s", req.URL)
+		if isBearerRequest(req) {
+			rp.upgradeHandler.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(rp.bearerTransport, proxy.MirrorRequest)
+		} else {
+			rp.upgradeHandler.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(rp.currentTransport, proxy.MirrorRequest)
+		}
+		rp.upgradeHandler.ServeHTTP(rw, req)
+		return
+	}
+
 	rp.reverseProxy.Transport = rp.currentTransport
 	// when edge client(like kube-proxy, flannel, etc) use service account(default InClusterConfig) to access yurthub,
 	// Authorization header will be set in request. and when edge client(like kubelet) use x509 certificate to access
 	// yurthub, Authorization header in request will be empty.
-	auth := strings.TrimSpace(req.Header.Get("Authorization"))
-	if auth != "" {
-		parts := strings.Split(auth, " ")
-		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-			klog.V(5).Infof("request: %s with bearer token: %s", util.ReqString(req), parts[1])
-			rp.reverseProxy.Transport = rp.bearerTransport
-		}
+	if isBearerRequest(req) {
+		rp.reverseProxy.Transport = rp.bearerTransport
 	}
 	rp.reverseProxy.ServeHTTP(rw, req)
 }
@@ -201,4 +221,16 @@ func (rp *RemoteProxy) errorHandler(rw http.ResponseWriter, req *http.Request, e
 		}
 	}
 	rw.WriteHeader(http.StatusBadGateway)
+}
+
+func isBearerRequest(req *http.Request) bool {
+	auth := strings.TrimSpace(req.Header.Get("Authorization"))
+	if auth != "" {
+		parts := strings.Split(auth, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			klog.V(5).Infof("request: %s with bearer token: %s", util.ReqString(req), parts[1])
+			return true
+		}
+	}
+	return false
 }
