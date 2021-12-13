@@ -16,7 +16,9 @@ limitations under the License.
 
 package preflight
 
-import v1 "k8s.io/api/core/v1"
+import (
+	v1 "k8s.io/api/core/v1"
+)
 
 type ImageOperator interface {
 	GetCRISocket() string

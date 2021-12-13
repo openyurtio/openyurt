@@ -63,6 +63,6 @@ func setFlags(cmd *cobra.Command) {
 	cmd.Flags().String("yurt-tunnel-agent-image", latestYurtTunnelAgentImage, "The yurt-tunnel-agent image.")
 	cmd.Flags().BoolP("deploy-yurttunnel", "t", false, "If set, yurt-tunnel-agent will be deployed.")
 	cmd.Flags().String("ignore-preflight-errors", "", "A list of checks whose errors will be shown as warnings. "+
-		"And value needs to be lowercase. Example: 'isprivilegeduser,imagepull'.Value 'all' ignores errors from all checks.",
+		"Example: 'isprivilegeduser,imagepull'.Value 'all' ignores errors from all checks.",
 	)
 }
