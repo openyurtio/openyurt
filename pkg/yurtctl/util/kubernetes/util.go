@@ -710,6 +710,21 @@ func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, er
 	return kcmNodeNames, nil
 }
 
+// FilterPodWithSubStr filter pod with substring
+func FilterPodWithSubStr(cliSet *kubernetes.Clientset, subStr string) (*v1.PodList, error) {
+	result := &v1.PodList{}
+	podList, err := cliSet.CoreV1().Pods(SystemNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Name, subStr) {
+			result.Items = append(result.Items, pod)
+		}
+	}
+	return result, nil
+}
+
 //CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
 func CheckAndInstallKubelet(clusterVersion string) error {
 	klog.Info("Check and install kubelet.")

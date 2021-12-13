@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -406,14 +408,28 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return fmt.Errorf("fail to deploy yurtcontrollermanager: %s", err)
 	}
 	// 4. disable node-controller
-	if err = kubeutil.RunServantJobs(co.clientSet, func(nodeName string) (*batchv1.Job, error) {
-		ctx := map[string]string{
-			"node_servant_image": co.NodeServantImage,
-			"pod_manifest_path":  co.PodMainfestPath,
+	ok, _ := enutil.FileExists(co.PodMainfestPath + "/kube-controller-manager.yaml")
+	if ok {
+		// static pod
+		if err = kubeutil.RunServantJobs(co.clientSet, func(nodeName string) (*batchv1.Job, error) {
+			ctx := map[string]string{
+				"node_servant_image": co.NodeServantImage,
+				"pod_manifest_path":  co.PodMainfestPath,
+			}
+			return kubeutil.RenderServantJob("disable", ctx, nodeName)
+		}, kcmNodeNames); err != nil {
+			return fmt.Errorf("fail to run DisableNodeControllerJobs: %s", err)
 		}
-		return kubeutil.RenderServantJob("disable", ctx, nodeName)
-	}, kcmNodeNames); err != nil {
-		return fmt.Errorf("fail to run DisableNodeControllerJobs: %s", err)
+	} else {
+		// normal pod
+		patchFmt := `{"spec":{"containers":[{"command":["--controllers=-nodelifecycle,*,bootstrapsigner,tokencleaner"]}]}}`
+		podList, err := kubeutil.FilterPodWithSubStr(co.clientSet, "kube-controller-manager")
+		if err != nil {
+			klog.Error("get normal kube-controller-manager pod fail")
+		}
+		for _, pod := range podList.Items {
+			co.clientSet.CoreV1().Pods("kube-system").Patch(context.TODO(), pod.Name, types.StrategicMergePatchType, []byte(patchFmt), metav1.PatchOptions{})
+		}
 	}
 	klog.Info("complete disabling node-controller")
 
