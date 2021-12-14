@@ -91,7 +91,9 @@ var (
 		"1.14", "1.14+",
 		"1.16", "1.16+",
 		"1.18", "1.18+",
-		"1.20", "1.20+"}
+		"1.19", "1.19+",
+		"1.20", "1.20+",
+		"1.21", "1.21+"}
 )
 
 // CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
