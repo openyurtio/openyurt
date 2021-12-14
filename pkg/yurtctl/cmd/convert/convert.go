@@ -35,11 +35,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
-	clusterinfophase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/kubeadmapi"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
@@ -510,10 +510,10 @@ func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) erro
 	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
-		if err := clusterinfophase.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
+		if err := kubeadmapi.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
 			return fmt.Errorf("error creating bootstrap ConfigMap, %v", err)
 		}
-		if err := clusterinfophase.CreateClusterInfoRBACRules(client); err != nil {
+		if err := kubeadmapi.CreateClusterInfoRBACRules(client); err != nil {
 			return fmt.Errorf("error creating clusterinfo RBAC rules, %v", err)
 		}
 	} else if err != nil || info == nil {

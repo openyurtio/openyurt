@@ -57,10 +57,8 @@ import (
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog/v2"
-	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
-	kubeadmcontants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
-	tokenphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubeadmapi"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
@@ -662,11 +660,11 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	}
 
 	klog.V(1).Infoln("[token] creating token")
-	if err := tokenphase.CreateNewTokens(cliSet,
+	if err := kubeadmapi.CreateNewTokens(cliSet,
 		[]kubeadmapi.BootstrapToken{{
 			Token:  token,
-			Usages: kubeadmcontants.DefaultTokenUsages,
-			Groups: kubeadmcontants.DefaultTokenGroups,
+			Usages: kubeadmapi.DefaultTokenUsages,
+			Groups: kubeadmapi.DefaultTokenGroups,
 		}}); err != nil {
 		return "", err
 	}
@@ -689,7 +687,7 @@ func usagesAndGroupsAreValid(token *kubeadmapi.BootstrapToken) bool {
 		return true
 	}
 
-	return sliceEqual(token.Usages, kubeadmcontants.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmcontants.DefaultTokenGroups)
+	return sliceEqual(token.Usages, kubeadmapi.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmapi.DefaultTokenGroups)
 }
 
 // find kube-controller-manager deployed through static file
