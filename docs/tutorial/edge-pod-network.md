@@ -78,3 +78,39 @@ git reset --hard 9ebe139e77e82afb122e335328007bca86905ae4;
 wget https://raw.githubusercontent.com/openyurtio/openyurt/master/docs/tutorial/0002-ipam-keep-pod-ip.patch;
 git am 0002-ipam-keep-pod-ip.patch;
 ```
+# Add additional RBAC role for flannel
+After patch, flannel now needs to get node resource. The original RBAC granted to flannel does not permit for "get
+node" operation. So, we need to grant flannel permission to get nodes. Take the official installation as an example:
+```bash
+$ kubectl get clusterrole flannel
+NAME      CREATED AT
+flannel   2021-11-16T07:05:00Z
+```
+We need to edit the flannel `clusterrole`, add "get" into the related verbs list:
+```diff
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: flannel
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
++     - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/status
+    verbs:
+      - patch
+```
