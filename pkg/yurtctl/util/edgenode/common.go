@@ -17,7 +17,7 @@ limitations under the License.
 package edgenode
 
 const (
-	KubeletSvcPath       = "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	KubeletSvcPath       = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
 	OpenyurtDir          = "/var/lib/openyurt"
 	StaticPodPath        = "/etc/kubernetes/manifests"
 	KubeCondfigPath      = "/etc/kubernetes/kubelet.conf"

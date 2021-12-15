@@ -50,7 +50,7 @@ func (n *nodeReverter) Do() error {
 }
 
 func (n *nodeReverter) revertKubelet() error {
-	op := components.NewKubeletOperator(n.openyurtDir, n.kubeadmConfPath)
+	op := components.NewKubeletOperator(n.openyurtDir)
 	return op.UndoRedirectTrafficToYurtHub()
 }
 

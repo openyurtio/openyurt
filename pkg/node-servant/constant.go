@@ -23,6 +23,9 @@ const (
 	// RevertJobNameBase is the prefix of the revert ServantJob name
 	RevertJobNameBase = "node-servant-revert"
 
+	//ConvertPreflightJobNameBase is the prefix of the preflight-convert ServantJob name
+	ConvertPreflightJobNameBase = "node-servant-preflight-convert"
+
 	// ConvertServantJobTemplate defines the yurtctl convert servant job in yaml format
 	ConvertServantJobTemplate = `
 apiVersion: batch/v1
@@ -94,6 +97,49 @@ spec:
         - -c
         args:
         - "/usr/local/bin/entry.sh revert"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /openyurt
+          name: host-root
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+          {{if  .kubeadm_conf_path }}
+        - name: KUBELET_SVC
+          value: {{.kubeadm_conf_path}}
+          {{end}}
+`
+	// ConvertPreflightJobTemplate defines the yurtctl convert preflight checks servant job in yaml format
+	ConvertPreflightJobTemplate = `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.jobName}}
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      hostPID: true
+      hostNetwork: true
+      restartPolicy: OnFailure
+      nodeName: {{.nodeName}}
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+          type: Directory
+      containers:
+      - name: node-servant
+        image: {{.node_servant_image}}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - "/usr/local/bin/entry.sh preflight-convert"
         securityContext:
           privileged: true
         volumeMounts:

@@ -19,29 +19,32 @@ package convert
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
 
+	"github.com/openyurtio/openyurt/pkg/node-servant/components"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Options has the information that required by convert operation
 type Options struct {
 	yurthubImage              string
 	yurthubHealthCheckTimeout time.Duration
-	workingMode               util.WorkingMode
+	workingMode               hubutil.WorkingMode
 
-	joinToken       string
-	kubeadmConfPath string
-	openyurtDir     string
-	nodeName        string
+	joinToken        string
+	kubeadmConfPaths []string
+	openyurtDir      string
 }
 
 // NewConvertOptions creates a new Options
 func NewConvertOptions() *Options {
-	return &Options{}
+	return &Options{
+		kubeadmConfPaths: components.GetDefaultKubeadmConfPath(),
+	}
 }
 
 // Complete completes all the required options.
@@ -58,23 +61,13 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	}
 	o.yurthubHealthCheckTimeout = yurthubHealthCheckTimeout
 
-	kubeadmConfPath, err := flags.GetString("kubeadm-conf-path")
+	kubeadmConfPaths, err := flags.GetString("kubeadm-conf-path")
 	if err != nil {
 		return err
 	}
-	if kubeadmConfPath == "" {
-		kubeadmConfPath = os.Getenv("KUBELET_SVC")
+	if kubeadmConfPaths != "" {
+		o.kubeadmConfPaths = strings.Split(kubeadmConfPaths, ",")
 	}
-	if kubeadmConfPath == "" {
-		kubeadmConfPath = enutil.KubeletSvcPath
-	}
-	o.kubeadmConfPath = kubeadmConfPath
-
-	nodeName, err := enutil.GetNodeName(kubeadmConfPath)
-	if err != nil {
-		return err
-	}
-	o.nodeName = nodeName
 
 	joinToken, err := flags.GetString("join-token")
 	if err != nil {
@@ -96,8 +89,8 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 
-	wm := util.WorkingMode(workingMode)
-	if !util.IsSupportedWorkingMode(wm) {
+	wm := hubutil.WorkingMode(workingMode)
+	if !hubutil.IsSupportedWorkingMode(wm) {
 		return fmt.Errorf("invalid working mode: %s", workingMode)
 	}
 	o.workingMode = wm

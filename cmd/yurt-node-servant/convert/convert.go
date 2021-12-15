@@ -59,8 +59,10 @@ func setFlags(cmd *cobra.Command) {
 		"The yurthub image.")
 	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
 		"The timeout for yurthub health check.")
-	cmd.Flags().String("kubeadm-conf-path", "",
-		"The path to kubelet service conf that is used by kubelet component to join the cluster on the work node.")
+	cmd.Flags().StringP("kubeadm-conf-path", "k", "",
+		"The path to kubelet service conf that is used by kubelet component to join the cluster on the work node."+
+			"Support multiple values, will search in order until get the file.(e.g -k kbcfg1,kbcfg2)",
+	)
 	cmd.Flags().String("join-token", "", "The token used by yurthub for joining the cluster.")
 	cmd.Flags().String("working-mode", "edge", "The node type cloud/edge, effect yurthub workingMode.")
 }

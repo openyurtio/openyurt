@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -42,9 +41,6 @@ func (n *nodeConverter) Do() error {
 	if err := n.validateOptions(); err != nil {
 		return err
 	}
-	if err := n.preflightCheck(); err != nil {
-		return err
-	}
 
 	if err := n.installYurtHub(); err != nil {
 		return err
@@ -64,17 +60,8 @@ func (n *nodeConverter) validateOptions() error {
 	return nil
 }
 
-func (n *nodeConverter) preflightCheck() error {
-	// 1. check if critical files exist
-	if _, err := enutil.FileExists(n.kubeadmConfPath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (n *nodeConverter) installYurtHub() error {
-	apiServerAddress, err := components.GetApiServerAddress(n.kubeadmConfPath)
+	apiServerAddress, err := components.GetApiServerAddress(n.kubeadmConfPaths)
 	if err != nil {
 		return err
 	}
@@ -87,6 +74,6 @@ func (n *nodeConverter) installYurtHub() error {
 }
 
 func (n *nodeConverter) convertKubelet() error {
-	op := components.NewKubeletOperator(n.openyurtDir, n.kubeadmConfPath)
+	op := components.NewKubeletOperator(n.openyurtDir)
 	return op.RedirectTrafficToYurtHub()
 }
