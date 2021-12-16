@@ -42,7 +42,7 @@ func (c *closableConn) Close() error {
 	remain := len(c.dialer.addrConns[c.addr])
 	if remain >= 1 {
 		delete(c.dialer.addrConns[c.addr], c)
-		remain--
+		remain = len(c.dialer.addrConns[c.addr])
 	}
 	c.dialer.mu.Unlock()
 	klog.Infof("close connection from %s to %s for %s dialer, remain %d connections", c.Conn.LocalAddr().String(), c.addr, c.dialer.name, remain)
@@ -124,7 +124,12 @@ func (d *Dialer) Dial(network, address string) (net.Conn, error) {
 func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	conn, err := d.dial(ctx, network, address)
 	if err != nil {
-		klog.V(3).Infof("%s dialer failed to dial: %v, and total connections: %d", d.name, err, len(d.addrConns[address]))
+		if klog.V(3).Enabled() {
+			d.mu.Lock()
+			size := len(d.addrConns[address])
+			d.mu.Unlock()
+			klog.Infof("%s dialer failed to dial: %v, and total connections: %d", d.name, err, size)
+		}
 		return nil, err
 	}
 
@@ -140,9 +145,10 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 		d.addrConns[address] = make(map[*closableConn]struct{})
 	}
 	d.addrConns[address][closable] = struct{}{}
+	size := len(d.addrConns[address])
 	d.mu.Unlock()
 
-	klog.Infof("create a connection from %s to %s, total %d connections in %s dialer", conn.LocalAddr().String(), address, len(d.addrConns[address]), d.name)
+	klog.Infof("create a connection from %s to %s, total %d connections in %s dialer", conn.LocalAddr().String(), address, size, d.name)
 	metrics.Metrics.IncClosableConns(address)
 	return closable, nil
 }

@@ -40,15 +40,16 @@ import (
 
 // RemoteProxy is an reverse proxy for remote server
 type RemoteProxy struct {
-	checker          healthchecker.HealthChecker
-	reverseProxy     *httputil.ReverseProxy
-	cacheMgr         cachemanager.CacheManager
-	remoteServer     *url.URL
-	filterChain      filter.Interface
-	currentTransport http.RoundTripper
-	bearerTransport  http.RoundTripper
-	upgradeHandler   *proxy.UpgradeAwareHandler
-	stopCh           <-chan struct{}
+	checker              healthchecker.HealthChecker
+	reverseProxy         *httputil.ReverseProxy
+	cacheMgr             cachemanager.CacheManager
+	remoteServer         *url.URL
+	filterChain          filter.Interface
+	currentTransport     http.RoundTripper
+	bearerTransport      http.RoundTripper
+	upgradeHandler       *proxy.UpgradeAwareHandler
+	bearerUpgradeHandler *proxy.UpgradeAwareHandler
+	stopCh               <-chan struct{}
 }
 
 type responder struct{}
@@ -74,22 +75,25 @@ func NewRemoteProxy(remoteServer *url.URL,
 		return nil, fmt.Errorf("could not get bearer transport when init proxy backend(%s)", remoteServer.String())
 	}
 
-	upgradeAwareHandler := proxy.NewUpgradeAwareHandler(remoteServer, nil, false, true, &responder{})
+	upgradeAwareHandler := proxy.NewUpgradeAwareHandler(remoteServer, currentTransport, false, true, &responder{})
 	upgradeAwareHandler.UseRequestLocation = true
+	bearerUpgradeAwareHandler := proxy.NewUpgradeAwareHandler(remoteServer, bearerTransport, false, true, &responder{})
+	bearerUpgradeAwareHandler.UseRequestLocation = true
 
 	proxyBackend := &RemoteProxy{
-		checker:          healthChecker,
-		reverseProxy:     httputil.NewSingleHostReverseProxy(remoteServer),
-		cacheMgr:         cacheMgr,
-		remoteServer:     remoteServer,
-		filterChain:      filterChain,
-		currentTransport: currentTransport,
-		bearerTransport:  bearerTransport,
-		upgradeHandler:   upgradeAwareHandler,
-		stopCh:           stopCh,
+		checker:              healthChecker,
+		reverseProxy:         httputil.NewSingleHostReverseProxy(remoteServer),
+		cacheMgr:             cacheMgr,
+		remoteServer:         remoteServer,
+		filterChain:          filterChain,
+		currentTransport:     currentTransport,
+		bearerTransport:      bearerTransport,
+		upgradeHandler:       upgradeAwareHandler,
+		bearerUpgradeHandler: bearerUpgradeAwareHandler,
+		stopCh:               stopCh,
 	}
 
-	proxyBackend.reverseProxy.Transport = currentTransport
+	proxyBackend.reverseProxy.Transport = proxyBackend
 	proxyBackend.reverseProxy.ModifyResponse = proxyBackend.modifyResponse
 	proxyBackend.reverseProxy.FlushInterval = -1
 	proxyBackend.reverseProxy.ErrorHandler = proxyBackend.errorHandler
@@ -106,21 +110,13 @@ func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if httpstream.IsUpgradeRequest(req) {
 		klog.V(5).Infof("get upgrade request %s", req.URL)
 		if isBearerRequest(req) {
-			rp.upgradeHandler.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(rp.bearerTransport, proxy.MirrorRequest)
+			rp.bearerUpgradeHandler.ServeHTTP(rw, req)
 		} else {
-			rp.upgradeHandler.UpgradeTransport = proxy.NewUpgradeRequestRoundTripper(rp.currentTransport, proxy.MirrorRequest)
+			rp.upgradeHandler.ServeHTTP(rw, req)
 		}
-		rp.upgradeHandler.ServeHTTP(rw, req)
 		return
 	}
 
-	rp.reverseProxy.Transport = rp.currentTransport
-	// when edge client(like kube-proxy, flannel, etc) use service account(default InClusterConfig) to access yurthub,
-	// Authorization header will be set in request. and when edge client(like kubelet) use x509 certificate to access
-	// yurthub, Authorization header in request will be empty.
-	if isBearerRequest(req) {
-		rp.reverseProxy.Transport = rp.bearerTransport
-	}
 	rp.reverseProxy.ServeHTTP(rw, req)
 }
 
@@ -221,6 +217,18 @@ func (rp *RemoteProxy) errorHandler(rw http.ResponseWriter, req *http.Request, e
 		}
 	}
 	rw.WriteHeader(http.StatusBadGateway)
+}
+
+// RoundTrip is used to implement http.RoundTripper for RemoteProxy.
+func (rp *RemoteProxy) RoundTrip(req *http.Request) (*http.Response, error) {
+	// when edge client(like kube-proxy, flannel, etc) use service account(default InClusterConfig) to access yurthub,
+	// Authorization header will be set in request. and when edge client(like kubelet) use x509 certificate to access
+	// yurthub, Authorization header in request will be empty.
+	if isBearerRequest(req) {
+		return rp.bearerTransport.RoundTrip(req)
+	}
+
+	return rp.currentTransport.RoundTrip(req)
 }
 
 func isBearerRequest(req *http.Request) bool {
