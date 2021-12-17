@@ -103,7 +103,7 @@ yurtctl reset                                       // 从OpenYurt中清除边�
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - 邮件组: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-rc5ecz4h-sEWU1vYx5gzc3_zx3En0jg)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-10dxeg3v9-PRApjbfTWN6G3sIIHan2kA)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
