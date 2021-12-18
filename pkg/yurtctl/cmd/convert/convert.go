@@ -129,6 +129,8 @@ func NewConvertCmd() *cobra.Command {
 		"The yurthub image.")
 	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
 		"The timeout for yurthub health check.")
+	cmd.Flags().Duration("wait-servant-job-timeout", kubeutil.WaitServantJobTimeout,
+		"The timeout for servant-job run check.")
 	cmd.Flags().String("yurt-controller-manager-image",
 		"openyurt/yurt-controller-manager:latest",
 		"The yurt-controller-manager image.")
