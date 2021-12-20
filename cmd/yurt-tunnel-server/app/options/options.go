@@ -41,6 +41,7 @@ type ServerOptions struct {
 	InsecureBindAddr       string
 	CertDNSNames           string
 	CertIPs                string
+	CertDir                string
 	Version                bool
 	EnableIptables         bool
 	EnableDNSController    bool
@@ -91,6 +92,7 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.InsecureBindAddr, "insecure-bind-address", o.InsecureBindAddr, fmt.Sprintf("the ip address on which the %s will listen for --insecure-port port.", projectinfo.GetServerName()))
 	fs.StringVar(&o.CertDNSNames, "cert-dns-names", o.CertDNSNames, "DNS names that will be added into server's certificate. (e.g., dns1,dns2)")
 	fs.StringVar(&o.CertIPs, "cert-ips", o.CertIPs, "IPs that will be added into server's certificate. (e.g., ip1,ip2)")
+	fs.StringVar(&o.CertDir, "cert-dir", o.CertDir, "The directory of certificate stored at.")
 	fs.BoolVar(&o.EnableIptables, "enable-iptables", o.EnableIptables, "If allow iptable manager to set the dnat rule.")
 	fs.BoolVar(&o.EnableDNSController, "enable-dns-controller", o.EnableDNSController, "If allow DNS controller to set the dns rules.")
 	fs.BoolVar(&o.EgressSelectorEnabled, "egress-selector-enable", o.EgressSelectorEnabled, "If the apiserver egress selector has been enabled.")
@@ -114,6 +116,7 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 		DNSSyncPeriod:         o.DNSSyncPeriod,
 		CertDNSNames:          make([]string, 0),
 		CertIPs:               make([]net.IP, 0),
+		CertDir:               o.CertDir,
 		ServerCount:           o.ServerCount,
 		ProxyStrategy:         o.ProxyStrategy,
 	}

@@ -18,7 +18,11 @@ package config
 
 import (
 	"crypto/x509"
+	"fmt"
 	"net"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -33,6 +37,7 @@ type Config struct {
 	DNSSyncPeriod               int
 	CertDNSNames                []string
 	CertIPs                     []net.IP
+	CertDir                     string
 	ListenAddrForAgent          string
 	ListenAddrForMaster         string
 	ListenInsecureAddrForMaster string
@@ -61,6 +66,9 @@ func (c *Config) Complete() *CompletedConfig {
 
 	if cc.InterceptorServerUDSFile == "" {
 		cc.InterceptorServerUDSFile = "/tmp/interceptor-proxier.sock"
+	}
+	if cc.CertDir == "" {
+		cc.CertDir = fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName())
 	}
 	return &CompletedConfig{&cc}
 }
