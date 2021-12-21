@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/convert"
+	preflightconvert "github.com/openyurtio/openyurt/cmd/yurt-node-servant/preflight-convert"
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/revert"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
@@ -38,12 +39,13 @@ func main() {
 	version := fmt.Sprintf("%#v", projectinfo.Get())
 	rootCmd := &cobra.Command{
 		Use:     "node-servant",
-		Short:   "node-servant do convert/revert specific node",
+		Short:   "node-servant do preflight-convert/convert/revert specific node",
 		Version: version,
 	}
 	rootCmd.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
 	rootCmd.AddCommand(convert.NewConvertCmd())
 	rootCmd.AddCommand(revert.NewRevertCmd())
+	rootCmd.AddCommand(preflightconvert.NewxPreflightConvertCmd())
 
 	if err := rootCmd.Execute(); err != nil { // run command
 		os.Exit(1)

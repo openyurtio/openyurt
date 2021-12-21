@@ -42,6 +42,9 @@ func RenderNodeServantJob(action string, tmplCtx map[string]string, nodeName str
 	case "revert":
 		servantJobTemplate = RevertServantJobTemplate
 		jobBaseName = RevertJobNameBase
+	case "preflight-convert":
+		servantJobTemplate = ConvertPreflightJobTemplate
+		jobBaseName = ConvertPreflightJobNameBase
 	}
 
 	tmplCtx["jobName"] = jobBaseName + "-" + nodeName
@@ -83,6 +86,9 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 		keysMustHave := []string{"node_servant_image", "yurthub_image", "joinToken"}
 		return checkKeys(keysMustHave, tmplCtx)
 	case "revert":
+		keysMustHave := []string{"node_servant_image"}
+		return checkKeys(keysMustHave, tmplCtx)
+	case "preflight-convert":
 		keysMustHave := []string{"node_servant_image"}
 		return checkKeys(keysMustHave, tmplCtx)
 	default:
