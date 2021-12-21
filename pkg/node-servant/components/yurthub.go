@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -68,21 +69,22 @@ func (op *yurtHubOperator) Install() error {
 
 	// 1-1. replace variables in yaml file
 	klog.Infof("setting up yurthub apiServer addr")
-	yurthubTemplate := enutil.ReplaceRegularExpression(enutil.YurthubTemplate,
-		map[string]string{
-			"__kubernetes_service_addr__": op.apiServerAddr,
-			"__yurthub_image__":           op.yurthubImage,
-			"__join_token__":              op.joinToken,
-			"__working_mode__":            string(op.workingMode),
-		})
+	yurthubTemplate, err := templates.SubsituteTemplate(enutil.YurthubTemplate, map[string]string{
+		"kubernetesServerAddr": op.apiServerAddr,
+		"image":                op.yurthubImage,
+		"joinToken":            op.joinToken,
+		"workingMode":          string(op.workingMode),
+	})
+	if err != nil {
+		return err
+	}
 
 	// 1-2. create yurthub.yaml
 	podManifestPath := enutil.GetPodManifestPath()
 	if err := enutil.EnsureDir(podManifestPath); err != nil {
 		return err
 	}
-	err := ioutil.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode)
-	if err != nil {
+	if err := ioutil.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
 		return err
 	}
 	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)

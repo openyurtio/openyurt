@@ -36,7 +36,7 @@ import (
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/preflight"
-	"github.com/openyurtio/openyurt/pkg/util/kubeadmapi"
+	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"

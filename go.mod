@@ -3,6 +3,7 @@ module github.com/openyurtio/openyurt
 go 1.13
 
 require (
+	github.com/Microsoft/go-winio v0.4.14
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.355
 	github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd
@@ -15,7 +16,6 @@ require (
 	github.com/lithammer/dedent v1.1.0
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/selinux v1.3.1-0.20190929122143-5215b1806f52
 	github.com/openyurtio/yurt-app-manager-api v0.18.8
 	github.com/pkg/errors v0.8.1
@@ -42,6 +42,7 @@ require (
 	k8s.io/kubectl v0.0.0
 	k8s.io/kubelet v0.0.0
 	k8s.io/kubernetes v1.18.8
+	k8s.io/system-validators v1.0.4
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/apiserver-network-proxy v0.0.15
 )

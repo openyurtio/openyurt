@@ -17,6 +17,7 @@ limitations under the License.
 package kubernetes
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -32,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,14 +55,19 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/util/kubeadmapi"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/apis/kubeadm"
+	kubeadmconstants "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/constants"
+	nodetoken "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/phases/bootstraptoken/node"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/util/apiclient"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
@@ -93,6 +100,8 @@ var (
 		"1.19", "1.19+",
 		"1.20", "1.20+",
 		"1.21", "1.21+"}
+
+	ErrClusterVersionEmpty = errors.New("Cluster version should not be empty")
 )
 
 func processCreateErr(kind string, name string, err error) error {
@@ -655,11 +664,11 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	}
 
 	klog.V(1).Infoln("[token] creating token")
-	if err := kubeadmapi.CreateNewTokens(cliSet,
+	if err := nodetoken.CreateNewTokens(cliSet,
 		[]kubeadmapi.BootstrapToken{{
 			Token:  token,
-			Usages: kubeadmapi.DefaultTokenUsages,
-			Groups: kubeadmapi.DefaultTokenGroups,
+			Usages: kubeadmconstants.DefaultTokenUsages,
+			Groups: kubeadmconstants.DefaultTokenGroups,
 		}}); err != nil {
 		return "", err
 	}
@@ -682,7 +691,7 @@ func usagesAndGroupsAreValid(token *kubeadmapi.BootstrapToken) bool {
 		return true
 	}
 
-	return sliceEqual(token.Usages, kubeadmapi.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmapi.DefaultTokenGroups)
+	return sliceEqual(token.Usages, kubeadmconstants.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmconstants.DefaultTokenGroups)
 }
 
 // find kube-controller-manager deployed through static file
@@ -703,7 +712,14 @@ func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, er
 
 //CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
 func CheckAndInstallKubelet(clusterVersion string) error {
-	klog.Info("Check and install kubelet.")
+	if strings.Contains(clusterVersion, "-") {
+		clusterVersion = strings.Split(clusterVersion, "-")[0]
+	}
+
+	klog.Infof("Check and install kubelet %s", clusterVersion)
+	if clusterVersion == "" {
+		return ErrClusterVersionEmpty
+	}
 	kubeletExist := false
 	if _, err := exec.LookPath("kubelet"); err == nil {
 		if b, err := exec.Command("kubelet", "--version").CombinedOutput(); err == nil {
@@ -735,11 +751,6 @@ func CheckAndInstallKubelet(clusterVersion string) error {
 			if err := edgenode.CopyFile(constants.TmpDownloadDir+"/kubernetes/node/bin/"+comp, target, 0755); err != nil {
 				return err
 			}
-		}
-	}
-	if _, err := os.Stat(constants.StaticPodPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(constants.StaticPodPath, 0755); err != nil {
-			return err
 		}
 	}
 
@@ -786,9 +797,9 @@ func SetKubeletService() error {
 	return nil
 }
 
-//SetKubeletUnitConfig configure kubelet startup parameters.
-func SetKubeletUnitConfig(nodeType string) error {
-	kubeletUnitDir := filepath.Dir(edgenode.KubeletSvcPath)
+// SetKubeletUnitConfig configure kubelet startup parameters.
+func SetKubeletUnitConfig() error {
+	kubeletUnitDir := filepath.Dir(constants.KubeletServiceConfPath)
 	if _, err := os.Stat(kubeletUnitDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(kubeletUnitDir, os.ModePerm); err != nil {
@@ -800,15 +811,91 @@ func SetKubeletUnitConfig(nodeType string) error {
 			return err
 		}
 	}
-	if nodeType == constants.EdgeNode {
-		if err := ioutil.WriteFile(edgenode.KubeletSvcPath, []byte(constants.EdgeKubeletUnitConfig), 0600); err != nil {
+
+	if err := ioutil.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SetKubeletConfigForNode write kubelet.conf for join node.
+func SetKubeletConfigForNode() error {
+	kubeconfigFilePath := filepath.Join(kubeadmconstants.KubernetesDir, kubeadmconstants.KubeletKubeConfigFileName)
+	kubeletConfigDir := filepath.Dir(kubeconfigFilePath)
+	if _, err := os.Stat(kubeletConfigDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeletConfigDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeletConfigDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeletConfigDir, err)
 			return err
 		}
-	} else {
-		if err := ioutil.WriteFile(edgenode.KubeletSvcPath, []byte(constants.CloudKubeletUnitConfig), 0600); err != nil {
+	}
+	if err := ioutil.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetKubeletCaCert write ca.crt for join node.
+func SetKubeletCaCert(config *clientcmdapi.Config) error {
+	kubeletCaCertPath := filepath.Join(kubeadmconstants.KubernetesDir, "pki", kubeadmconstants.CACertName)
+	kubeletCaCertDir := filepath.Dir(kubeletCaCertPath)
+	if _, err := os.Stat(kubeletCaCertDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeletCaCertDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeletCaCertDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeletCaCertDir, err)
 			return err
 		}
 	}
 
+	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(config)
+	if err := ioutil.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), 0755); err != nil {
+		return err
+	}
 	return nil
+}
+
+// GetKubernetesVersionFromCluster get kubernetes cluster version from master.
+func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error) {
+	var kubernetesVersion string
+	// Also, the config map really should be KubeadmConfigConfigMap...
+	configMap, err := apiclient.GetConfigMapWithRetry(client, metav1.NamespaceSystem, kubeadmconstants.KubeadmConfigConfigMap)
+	if err != nil {
+		return kubernetesVersion, pkgerrors.Wrap(err, "failed to get config map")
+	}
+
+	// gets ClusterConfiguration from kubeadm-config
+	clusterConfigurationData, ok := configMap.Data[kubeadmconstants.ClusterConfigurationConfigMapKey]
+	if !ok {
+		return kubernetesVersion, pkgerrors.Errorf("unexpected error when reading kubeadm-config ConfigMap: %s key value pair missing", kubeadmconstants.ClusterConfigurationConfigMapKey)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(clusterConfigurationData))
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, ":")
+		if len(parts) != 2 {
+			continue
+		}
+
+		if strings.Contains(parts[0], "kubernetesVersion") {
+			kubernetesVersion = strings.TrimSpace(parts[1])
+			break
+		}
+	}
+
+	if len(kubernetesVersion) == 0 {
+		return kubernetesVersion, errors.New("failed to get Kubernetes version")
+	}
+
+	klog.Infof("kubernetes version: %s", kubernetesVersion)
+	return kubernetesVersion, nil
 }

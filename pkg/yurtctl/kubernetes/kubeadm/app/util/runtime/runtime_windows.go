@@ -1,5 +1,7 @@
+// +build windows
+
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +16,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package phases
+package util
 
 import (
-	joinphases "k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/join"
+	winio "github.com/Microsoft/go-winio"
 )
 
-type YurtJoinData interface {
-	joinphases.JoinData
-	NodeType() string
-	YurtHubImage() string
+const (
+	dockerSocket     = "//./pipe/docker_engine"         // The Docker socket is not CRI compatible
+	containerdSocket = "//./pipe/containerd-containerd" // Proposed containerd named pipe for Windows
+)
+
+// isExistingSocket checks if path exists and is domain socket
+func isExistingSocket(path string) bool {
+	_, err := winio.DialPipe(path, nil)
+	if err != nil {
+		return false
+	}
+
+	return true
 }

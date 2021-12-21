@@ -20,21 +20,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
-	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
-	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
-	patchnodephase "k8s.io/kubernetes/cmd/kubeadm/app/phases/patchnode"
-	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
-	"k8s.io/kubernetes/cmd/kubeadm/app/util/initsystem"
-	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join/joindata"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/cmd/phases/workflow"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/util/apiclient"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/util/initsystem"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
@@ -43,13 +42,16 @@ func NewPostcheckPhase() workflow.Phase {
 	return workflow.Phase{
 		Name:  "postcheck",
 		Short: "postcheck",
-		Run:   runPostcheck,
+		Run:   runPostCheck,
+		InheritFlags: []string{
+			options.TokenStr,
+		},
 	}
 }
 
-//runPostcheck executes the node health check process.
-func runPostcheck(c workflow.RunData) error {
-	j, ok := c.(YurtJoinData)
+// runPostCheck executes the node health check process.
+func runPostCheck(c workflow.RunData) error {
+	j, ok := c.(joindata.YurtJoinData)
 	if !ok {
 		return fmt.Errorf("Postcheck edge-node phase invoked with an invalid data struct. ")
 	}
@@ -58,16 +60,16 @@ func runPostcheck(c workflow.RunData) error {
 	if err := checkKubeletStatus(); err != nil {
 		return err
 	}
+	klog.V(1).Infof("kubelet service is active")
 
-	cfg := j.Cfg()
-	if j.NodeType() == constants.EdgeNode {
-		klog.V(1).Infof("waiting yurt hub ready.")
-		if err := checkYurthubHealthz(); err != nil {
-			return err
-		}
-		return patchEdgeNode(cfg)
+	klog.V(1).Infof("waiting hub agent ready.")
+	if err := checkYurthubHealthz(); err != nil {
+		return err
 	}
-	return patchCloudNode(cfg)
+	klog.V(1).Infof("hub agent is ready")
+
+	nodeRegistration := j.NodeRegistration()
+	return patchNode(nodeRegistration.Name, nodeRegistration.CRISocket)
 }
 
 //checkKubeletStatus check if kubelet is healthy.
@@ -102,36 +104,17 @@ func checkYurthubHealthz() error {
 	})
 }
 
-//patchEdgeNode patch labels and annotations for edge-node.
-func patchEdgeNode(cfg *kubeadm.JoinConfiguration) error {
-	client, err := kubeconfigutil.ClientSetFromFile(kubeadmconstants.GetKubeletKubeConfigPath())
+//patchNode patch annotations for worker node.
+func patchNode(nodeName, criSocket string) error {
+	client, err := kubeconfig.ClientSetFromFile(filepath.Join(constants.KubernetesDir, constants.KubeletKubeConfigFileName))
 	if err != nil {
 		return err
 	}
-	if err := patchnodephase.AnnotateCRISocket(client, cfg.NodeRegistration.Name, cfg.NodeRegistration.CRISocket); err != nil {
-		return err
-	}
-	if err := apiclient.PatchNode(client, cfg.NodeRegistration.Name, func(n *v1.Node) {
-		n.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "true"
-	}); err != nil {
-		return err
-	}
-	return nil
-}
 
-//patchCloudNode patch labels and annotations for cloud-node.
-func patchCloudNode(cfg *kubeadm.JoinConfiguration) error {
-	client, err := kubeconfigutil.ClientSetFromFile(kubeadmconstants.GetKubeletKubeConfigPath())
-	if err != nil {
-		return err
-	}
-	if err := patchnodephase.AnnotateCRISocket(client, cfg.NodeRegistration.Name, cfg.NodeRegistration.CRISocket); err != nil {
-		return err
-	}
-	if err := apiclient.PatchNode(client, cfg.NodeRegistration.Name, func(n *v1.Node) {
-		n.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "false"
-	}); err != nil {
-		return err
-	}
-	return nil
+	return apiclient.PatchNode(client, nodeName, func(n *v1.Node) {
+		if n.ObjectMeta.Annotations == nil {
+			n.ObjectMeta.Annotations = make(map[string]string)
+		}
+		n.ObjectMeta.Annotations[constants.AnnotationKubeadmCRISocket] = criSocket
+	})
 }

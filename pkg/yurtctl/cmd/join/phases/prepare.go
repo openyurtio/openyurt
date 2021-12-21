@@ -18,32 +18,42 @@ package phases
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
-	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
+	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join/joindata"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/cmd/phases/workflow"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/system"
 )
 
-// NewEdgeNodePhase creates a yurtctl workflow phase that initialize the node environment.
+// NewPreparePhase creates a yurtctl workflow phase that initialize the node environment.
 func NewPreparePhase() workflow.Phase {
 	return workflow.Phase{
 		Name:  "Initialize system environment.",
 		Short: "Initialize system environment.",
 		Run:   runPrepare,
+		InheritFlags: []string{
+			options.TokenStr,
+		},
 	}
 }
 
 //runPrepare executes the node initialization process.
 func runPrepare(c workflow.RunData) error {
-	data, ok := c.(YurtJoinData)
+	data, ok := c.(joindata.YurtJoinData)
 	if !ok {
 		return fmt.Errorf("Prepare phase invoked with an invalid data struct. ")
 	}
 
-	initCfg, err := data.InitCfg()
-	if err != nil {
-		return err
+	// cleanup at first
+	staticPodsPath := filepath.Join(constants.KubernetesDir, constants.ManifestsSubDirName)
+	if err := os.RemoveAll(staticPodsPath); err != nil {
+		klog.Warningf("remove %s: %v", staticPodsPath, err)
 	}
 
 	if err := system.SetIpv4Forward(); err != nil {
@@ -55,13 +65,19 @@ func runPrepare(c workflow.RunData) error {
 	if err := system.SetSELinux(); err != nil {
 		return err
 	}
-	if err := kubernetes.CheckAndInstallKubelet(initCfg.ClusterConfiguration.KubernetesVersion); err != nil {
+	if err := kubernetes.CheckAndInstallKubelet(data.KubernetesVersion()); err != nil {
 		return err
 	}
 	if err := kubernetes.SetKubeletService(); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletUnitConfig(data.NodeType()); err != nil {
+	if err := kubernetes.SetKubeletUnitConfig(); err != nil {
+		return err
+	}
+	if err := kubernetes.SetKubeletConfigForNode(); err != nil {
+		return err
+	}
+	if err := kubernetes.SetKubeletCaCert(data.TLSBootstrapCfg()); err != nil {
 		return err
 	}
 	return nil
