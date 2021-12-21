@@ -218,6 +218,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	}
 	co.YurthubHealthCheckTimeout = yurthubHealthCheckTimeout
 
+	waitServantJobTimeout, err := flags.GetDuration("wait-servant-job-timeout")
+	if err != nil {
+		return err
+	}
+	kubeutil.WaitServantJobTimeout = waitServantJobTimeout
+
 	ycmi, err := flags.GetString("yurt-controller-manager-image")
 	if err != nil {
 		return err
