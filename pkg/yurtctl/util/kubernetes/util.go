@@ -72,13 +72,13 @@ const (
 	// EnableNodeControllerJobNameBase is the prefix of the EnableNodeControllerJob name
 	EnableNodeControllerJobNameBase = "yurtctl-enable-node-controller"
 	SystemNamespace                 = "kube-system"
+	// DefaultWaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
+	DefaultWaitServantJobTimeout    = time.Minute * 5
 )
 
 var (
 	// PropagationPolicy defines the propagation policy used when deleting a resource
 	PropagationPolicy = metav1.DeletePropagationBackground
-	// WaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
-	WaitServantJobTimeout = time.Minute * 5
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersions contains all compatible server version
@@ -519,7 +519,7 @@ func RenderServantJob(action string, tmplCtx map[string]string, nodeName string)
 
 // RunServantJobs launch servant jobs on specified nodes and wait all jobs to finish.
 // Succeed jobs will be deleted when finished. Failed jobs are preserved for diagnosis.
-func RunServantJobs(cliSet *kubernetes.Clientset, getJob func(nodeName string) (*batchv1.Job, error), nodeNames []string) error {
+func RunServantJobs(cliSet *kubernetes.Clientset, waitServantJobTimeout time.Duration, getJob func(nodeName string) (*batchv1.Job, error), nodeNames []string) error {
 	var wg sync.WaitGroup
 	jobByNodeName := make(map[string]*batchv1.Job)
 	for _, nodeName := range nodeNames {
@@ -535,7 +535,7 @@ func RunServantJobs(cliSet *kubernetes.Clientset, getJob func(nodeName string) (
 		go func() {
 			defer wg.Done()
 			if err := RunJobAndCleanup(cliSet, job,
-				WaitServantJobTimeout, CheckServantJobPeriod); err != nil {
+				waitServantJobTimeout, CheckServantJobPeriod); err != nil {
 				klog.Errorf("fail to run servant job(%s): %s",
 					job.GetName(), err)
 			} else {

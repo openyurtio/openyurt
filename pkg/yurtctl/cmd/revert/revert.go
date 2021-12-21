@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -44,6 +45,7 @@ import (
 // RevertOptions has the information required by the revert operation
 type RevertOptions struct {
 	clientSet               *kubernetes.Clientset
+	waitServantJobTimeout   time.Duration
 	NodeServantImage        string
 	PodMainfestPath         string
 	KubeadmConfPath         string
@@ -79,7 +81,8 @@ func NewRevertCmd() *cobra.Command {
 	cmd.Flags().String("kubeadm-conf-path",
 		"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
-
+	cmd.Flags().Duration("wait-servant-job-timeout", kubeutil.DefaultWaitServantJobTimeout,
+		"The timeout for servant-job run check.")
 	return cmd
 }
 
@@ -98,6 +101,12 @@ func (ro *RevertOptions) Complete(flags *pflag.FlagSet) error {
 	ro.KubeadmConfPath = kcp
 
 	ro.PodMainfestPath = enutil.GetPodManifestPath()
+
+	waitServantJobTimeout, err := flags.GetDuration("wait-servant-job-timeout")
+	if err != nil {
+		return err
+	}
+	ro.waitServantJobTimeout = waitServantJobTimeout
 
 	ro.clientSet, err = kubeutil.GenClientSet(flags)
 	if err != nil {
@@ -203,7 +212,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	klog.Info("yurt app manager is removed")
 
 	// 6. enable node-controller
-	if err = kubeutil.RunServantJobs(ro.clientSet,
+	if err = kubeutil.RunServantJobs(ro.clientSet, ro.waitServantJobTimeout,
 		func(nodeName string) (*batchv1.Job, error) {
 			ctx := map[string]string{
 				"node_servant_image": ro.NodeServantImage,
@@ -217,7 +226,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	klog.Info("complete enabling node-controller")
 
 	// 7. remove yurt-hub and revert kubelet service on edge nodes
-	if err = kubeutil.RunServantJobs(ro.clientSet, func(nodeName string) (*batchv1.Job, error) {
+	if err = kubeutil.RunServantJobs(ro.clientSet, ro.waitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 		ctx := map[string]string{
 			"node_servant_image": ro.NodeServantImage,
 			"kubeadm_conf_path":  ro.KubeadmConfPath,
