@@ -87,7 +87,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// 2. create a certificate manager
 	agentCertMgr, err =
-		certmanager.NewYurttunnelAgentCertManager(cfg.Client)
+		certmanager.NewYurttunnelAgentCertManager(cfg.Client, cfg.CertDir)
 	if err != nil {
 		return err
 	}

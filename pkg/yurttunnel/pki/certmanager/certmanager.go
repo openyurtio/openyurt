@@ -47,6 +47,7 @@ import (
 func NewYurttunnelServerCertManager(
 	clientset kubernetes.Interface,
 	factory informers.SharedInformerFactory,
+	certDir string,
 	clCertNames []string,
 	clIPs []net.IP,
 	stopCh <-chan struct{}) (certificate.Manager, error) {
@@ -94,7 +95,7 @@ func NewYurttunnelServerCertManager(
 	return newCertManager(
 		clientset,
 		projectinfo.GetServerName(),
-		fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName()),
+		certDir,
 		constants.YurttunneServerCSRCN,
 		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
 		dnsNames,
@@ -111,7 +112,8 @@ func NewYurttunnelServerCertManager(
 // NewYurttunnelAgentCertManager creates a certificate manager for
 // the yurttunel-agent
 func NewYurttunnelAgentCertManager(
-	clientset kubernetes.Interface) (certificate.Manager, error) {
+	clientset kubernetes.Interface,
+	certDir string) (certificate.Manager, error) {
 	// As yurttunnel-agent will run on the edge node with Host network mode,
 	// we can use the status.podIP as the node IP
 	nodeIP := os.Getenv(constants.YurttunnelAgentPodIPEnv)
@@ -123,7 +125,7 @@ func NewYurttunnelAgentCertManager(
 	return newCertManager(
 		clientset,
 		projectinfo.GetAgentName(),
-		fmt.Sprintf(constants.YurttunnelAgentCertDir, projectinfo.GetAgentName()),
+		certDir,
 		constants.YurttunnelAgentCSRCN,
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},

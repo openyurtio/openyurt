@@ -16,7 +16,14 @@ limitations under the License.
 
 package config
 
-import "k8s.io/client-go/kubernetes"
+import (
+	"fmt"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+
+	"k8s.io/client-go/kubernetes"
+)
 
 // Config is the main context object for yurttunel-agent
 type Config struct {
@@ -26,6 +33,7 @@ type Config struct {
 	Client           kubernetes.Interface
 	AgentIdentifiers string
 	AgentMetaAddr    string
+	CertDir          string
 }
 
 type completedConfig struct {
@@ -42,5 +50,8 @@ type CompletedConfig struct {
 func (c *Config) Complete() *CompletedConfig {
 	cc := completedConfig{c}
 
+	if cc.CertDir == "" {
+		cc.CertDir = fmt.Sprintf(constants.YurttunnelAgentCertDir, projectinfo.GetAgentName())
+	}
 	return &CompletedConfig{&cc}
 }
