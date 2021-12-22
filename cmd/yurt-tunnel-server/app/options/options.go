@@ -29,9 +29,9 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
 )
 
 // ServerOptions has the information that required by the yurttunel-server
@@ -140,7 +140,7 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	cfg.ListenAddrForMaster = net.JoinHostPort(o.BindAddr, o.SecurePort)
 	cfg.ListenInsecureAddrForMaster = net.JoinHostPort(o.InsecureBindAddr, o.InsecurePort)
 	cfg.ListenMetaAddr = net.JoinHostPort(o.InsecureBindAddr, o.MetaPort)
-	cfg.RootCert, err = pki.GenRootCertPool(o.KubeConfig, constants.YurttunnelCAFile)
+	cfg.RootCert, err = certmanager.GenRootCertPool(o.KubeConfig, constants.YurttunnelCAFile)
 	if err != nil {
 		return nil, fmt.Errorf("fail to generate the rootCertPool: %s", err)
 	}
