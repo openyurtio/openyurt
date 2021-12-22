@@ -19,10 +19,10 @@ package config
 import (
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-
-	"k8s.io/client-go/kubernetes"
 )
 
 // Config is the main context object for yurttunel-agent

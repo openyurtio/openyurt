@@ -23,7 +23,6 @@ import (
 	"net"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -51,7 +50,7 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 		return "", err
 	}
 
-	dnsNames, ips, err := extractTunnelServerDNSandIPs(svc, []*v1.Endpoints{eps}, NodeListToNodes(nodeLst))
+	dnsNames, ips, err := extractTunnelServerDNSandIPs(svc, []*corev1.Endpoints{eps}, NodeListToNodes(nodeLst))
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +105,7 @@ func GetYurttunelServerDNSandIP(
 		return []string{}, []net.IP{}, err
 	}
 
-	return extractTunnelServerDNSandIPs(svc, []*v1.Endpoints{eps}, NodeListToNodes(nodeLst))
+	return extractTunnelServerDNSandIPs(svc, []*corev1.Endpoints{eps}, NodeListToNodes(nodeLst))
 }
 
 // YurttunelServerAddrManager list the latest tunnel server resources, extract ips and dnsNames from them
@@ -165,11 +164,11 @@ func YurttunnelServerAddrManager(factory informers.SharedInformerFactory) ([]str
 }
 
 // getTunnelServerResources get service, endpoints, and cloud nodes of tunnel server
-func getTunnelServerResources(clientset kubernetes.Interface) (*v1.Service, *v1.Endpoints, *v1.NodeList, error) {
+func getTunnelServerResources(clientset kubernetes.Interface) (*corev1.Service, *corev1.Endpoints, *corev1.NodeList, error) {
 	var (
-		svc     *v1.Service
-		eps     *v1.Endpoints
-		nodeLst *v1.NodeList
+		svc     *corev1.Service
+		eps     *corev1.Endpoints
+		nodeLst *corev1.NodeList
 		err     error
 	)
 	// get x-tunnel-server-svc service
@@ -202,7 +201,7 @@ func getTunnelServerResources(clientset kubernetes.Interface) (*v1.Service, *v1.
 }
 
 // extractTunnelServerDNSandIPs extract tunnel server dnsNames and ips from service and endpoints
-func extractTunnelServerDNSandIPs(svc *v1.Service, eps []*v1.Endpoints, nodes []*v1.Node) ([]string, []net.IP, error) {
+func extractTunnelServerDNSandIPs(svc *corev1.Service, eps []*corev1.Endpoints, nodes []*corev1.Node) ([]string, []net.IP, error) {
 	var (
 		dnsNames = make([]string, 0)
 		ips      = make([]net.IP, 0)
@@ -304,7 +303,7 @@ func getDNSandIPFromAnnotations(svc *corev1.Service) ([]string, []net.IP, error)
 }
 
 // getClusterIPDNSandIP gets the DNS names and IPs from the NodePort service
-func getNodePortDNSandIP(nodes []*v1.Node) ([]string, []net.IP, error) {
+func getNodePortDNSandIP(nodes []*corev1.Node) ([]string, []net.IP, error) {
 	var (
 		dnsNames = make([]string, 0)
 		ips      = make([]net.IP, 0)
@@ -350,8 +349,8 @@ func GetDefaultDomainsForSvc(ns, name string) []string {
 	return domains
 }
 
-func NodeListToNodes(nodeLst *v1.NodeList) []*v1.Node {
-	nodes := make([]*v1.Node, 0)
+func NodeListToNodes(nodeLst *corev1.NodeList) []*corev1.Node {
+	nodes := make([]*corev1.Node, 0)
 	for _, node := range nodeLst.Items {
 		nodes = append(nodes, &node)
 	}

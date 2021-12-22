@@ -45,7 +45,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: ${{ env.GOLANGCI_VERSION }}
-          args: --disable-all  -E deadcode -E gofmt -E goimports -E ineffassign -E misspell -E vet --timeout=15m
+          args: -v
 
   markdownlint-misspell-shellcheck:
     runs-on: ubuntu-18.04

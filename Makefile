@@ -90,4 +90,4 @@ GOLINT_BIN=$(shell which golangci-lint)
 endif
 
 lint: install-golint ## Run go lint against code.
-	$(GOLINT_BIN) run --disable-all  -E deadcode -E gofmt -E goimports -E ineffassign -E misspell -E vet --timeout=15m
+	$(GOLINT_BIN) run -v

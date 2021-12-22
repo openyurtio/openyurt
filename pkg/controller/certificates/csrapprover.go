@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	certinformer "k8s.io/client-go/informers/certificates/v1beta1"
 	certv1beta1 "k8s.io/client-go/informers/certificates/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	typev1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
@@ -138,7 +137,7 @@ func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
 // NewCSRApprover creates a new YurtCSRApprover
 func NewCSRApprover(
 	clientset kubernetes.Interface,
-	csrInformer certinformer.CertificateSigningRequestInformer) *YurtCSRApprover {
+	csrInformer certv1beta1.CertificateSigningRequestInformer) *YurtCSRApprover {
 
 	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

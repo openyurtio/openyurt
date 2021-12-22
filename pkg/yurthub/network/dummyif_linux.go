@@ -21,9 +21,8 @@ import (
 	"net"
 	"strings"
 
-	"k8s.io/klog/v2"
-
 	"github.com/vishvananda/netlink"
+	"k8s.io/klog/v2"
 )
 
 type DummyInterfaceController interface {

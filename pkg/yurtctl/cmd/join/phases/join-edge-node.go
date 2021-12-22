@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +46,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	"github.com/pkg/errors"
 )
 
 // NewEdgeNodePhase creates a yurtctl workflow phase that start kubelet on a edge node.
