@@ -76,6 +76,7 @@ type ConvertOptions struct {
 	Provider                   Provider
 	YurhubImage                string
 	YurthubHealthCheckTimeout  time.Duration
+	waitServantJobTimeout      time.Duration
 	YurtControllerManagerImage string
 	NodeServantImage           string
 	YurttunnelServerImage      string
@@ -129,6 +130,8 @@ func NewConvertCmd() *cobra.Command {
 		"The yurthub image.")
 	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
 		"The timeout for yurthub health check.")
+	cmd.Flags().Duration("wait-servant-job-timeout", kubeutil.DefaultWaitServantJobTimeout,
+		"The timeout for servant-job run check.")
 	cmd.Flags().String("yurt-controller-manager-image",
 		"openyurt/yurt-controller-manager:latest",
 		"The yurt-controller-manager image.")
@@ -215,6 +218,12 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	co.YurthubHealthCheckTimeout = yurthubHealthCheckTimeout
+
+	waitServantJobTimeout, err := flags.GetDuration("wait-servant-job-timeout")
+	if err != nil {
+		return err
+	}
+	co.waitServantJobTimeout = waitServantJobTimeout
 
 	ycmi, err := flags.GetString("yurt-controller-manager-image")
 	if err != nil {
@@ -406,7 +415,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 		return fmt.Errorf("fail to deploy yurtcontrollermanager: %s", err)
 	}
 	// 4. disable node-controller
-	if err = kubeutil.RunServantJobs(co.clientSet, func(nodeName string) (*batchv1.Job, error) {
+	if err = kubeutil.RunServantJobs(co.clientSet, co.waitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 		ctx := map[string]string{
 			"node_servant_image": co.NodeServantImage,
 			"pod_manifest_path":  co.PodMainfestPath,
@@ -484,7 +493,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	if len(edgeNodeNames) != 0 {
 		klog.Infof("deploying the yurt-hub and resetting the kubelet service on edge nodes...")
 		convertCtx["working_mode"] = string(util.WorkingModeEdge)
-		if err = kubeutil.RunServantJobs(co.clientSet, func(nodeName string) (*batchv1.Job, error) {
+		if err = kubeutil.RunServantJobs(co.clientSet, co.waitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 			return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 		}, edgeNodeNames); err != nil {
 			return fmt.Errorf("fail to run ServantJobs: %s", err)
@@ -495,7 +504,7 @@ func (co *ConvertOptions) RunConvert() (err error) {
 	// 10. deploy yurt-hub and reset the kubelet service on cloud nodes
 	klog.Infof("deploying the yurt-hub and resetting the kubelet service on cloud nodes")
 	convertCtx["working_mode"] = string(util.WorkingModeCloud)
-	if err = kubeutil.RunServantJobs(co.clientSet, func(nodeName string) (*batchv1.Job, error) {
+	if err = kubeutil.RunServantJobs(co.clientSet, co.waitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 		return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 	}, co.CloudNodes); err != nil {
 		return fmt.Errorf("fail to run ServantJobs: %s", err)
