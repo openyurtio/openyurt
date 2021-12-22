@@ -44,6 +44,7 @@ const (
 	yurttunnelServerHTTPProxyPorts  = "http-proxy-ports"
 	yurttunnelServerHTTPSProxyPorts = "https-proxy-ports"
 	PortsSeparator                  = ","
+	PortPairSeparator               = "="
 
 	KubeletHTTPSPort = "10250"
 	KubeletHTTPPort  = "10255"
@@ -146,12 +147,12 @@ func resolvePorts(portsStr, insecurePort string) []string {
 		return ports
 	}
 
-	isPortPair := strings.Contains(portsStr, "=")
+	isPortPair := strings.Contains(portsStr, PortPairSeparator)
 	parts := strings.Split(portsStr, PortsSeparator)
 	for _, port := range parts {
 		var proxyPort string
 		if isPortPair {
-			subParts := strings.Split(port, "=")
+			subParts := strings.Split(port, PortPairSeparator)
 			if len(subParts) == 2 && strings.TrimSpace(subParts[1]) == insecurePort {
 				proxyPort = strings.TrimSpace(subParts[0])
 			}
