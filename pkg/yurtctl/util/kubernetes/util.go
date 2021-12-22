@@ -73,7 +73,7 @@ const (
 	EnableNodeControllerJobNameBase = "yurtctl-enable-node-controller"
 	SystemNamespace                 = "kube-system"
 	// DefaultWaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
-	DefaultWaitServantJobTimeout    = time.Minute * 5
+	DefaultWaitServantJobTimeout = time.Minute * 5
 )
 
 var (
