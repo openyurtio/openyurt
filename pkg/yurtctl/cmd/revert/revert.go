@@ -161,7 +161,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 2. remove the yurt controller manager
 	if err = ro.clientSet.AppsV1().Deployments("kube-system").
-		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
+		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to remove yurt controller manager: %s", err)
@@ -170,7 +170,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 2.1 remove the serviceaccount for yurt-controller-manager
 	if err = ro.clientSet.CoreV1().ServiceAccounts("kube-system").
-		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
+		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to remove serviceaccount for yurt controller manager: %s", err)
@@ -179,7 +179,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 2.2 remove the clusterrole for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoles().
-		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
+		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to remove clusterrole for yurt controller manager: %s", err)
@@ -188,7 +188,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	// 2.3 remove the clusterrolebinding for yurt-controller-manager
 	if err = ro.clientSet.RbacV1().ClusterRoleBindings().
-		Delete(context.Background(), "yurt-controller-manager", metav1.DeleteOptions{
+		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to remove clusterrolebinding for yurt controller manager: %s", err)
