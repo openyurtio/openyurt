@@ -73,9 +73,9 @@ type YurtHubOptions struct {
 func NewYurtHubOptions() *YurtHubOptions {
 	o := &YurtHubOptions{
 		YurtHubHost:               "127.0.0.1",
-		YurtHubProxyPort:          "10261",
-		YurtHubPort:               "10267",
-		YurtHubProxySecurePort:    "10268",
+		YurtHubProxyPort:          util.YurtHubProxyPort,
+		YurtHubPort:               util.YurtHubPort,
+		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
 		GCFrequency:               120,
 		CertMgrMode:               util.YurtHubCertificateManagerName,
 		KubeletRootCAFilePath:     util.DefaultKubeletRootCAFilePath,
