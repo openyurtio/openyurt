@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 // Config is the main context object for yurttunel-server

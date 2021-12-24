@@ -35,7 +35,9 @@ import (
 	"k8s.io/apiserver/pkg/server/routes"
 	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/component-base/metrics/legacyregistry"
-	_ "k8s.io/component-base/metrics/prometheus/workqueue" // for workqueue metric registration
+
+	// for workqueue metric registration
+	_ "k8s.io/component-base/metrics/prometheus/workqueue"
 )
 
 var (

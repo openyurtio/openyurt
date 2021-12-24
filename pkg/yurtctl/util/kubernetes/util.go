@@ -36,7 +36,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -154,7 +153,7 @@ func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) er
 	if err != nil {
 		return err
 	}
-	cm, ok := obj.(*v1.ConfigMap)
+	cm, ok := obj.(*corev1.ConfigMap)
 	if !ok {
 		return fmt.Errorf("fail to assert configmap: %v", err)
 	}
@@ -434,7 +433,7 @@ func YamlToObject(yamlContent []byte) (k8sruntime.Object, error) {
 }
 
 // LabelNode add a new label (<key>=<val>) to the given node
-func LabelNode(cliSet *kubernetes.Clientset, node *v1.Node, key, val string) (*v1.Node, error) {
+func LabelNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val string) (*corev1.Node, error) {
 	node.Labels[key] = val
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
 	if err != nil {
@@ -444,7 +443,7 @@ func LabelNode(cliSet *kubernetes.Clientset, node *v1.Node, key, val string) (*v
 }
 
 // AnnotateNode add a new annotation (<key>=<val>) to the given node
-func AnnotateNode(cliSet *kubernetes.Clientset, node *v1.Node, key, val string) (*v1.Node, error) {
+func AnnotateNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val string) (*corev1.Node, error) {
 	node.Annotations[key] = val
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
 	if err != nil {

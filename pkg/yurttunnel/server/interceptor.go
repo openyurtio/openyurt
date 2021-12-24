@@ -28,12 +28,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apiserver/pkg/util/flushwriter"
 	"k8s.io/apiserver/pkg/util/wsstream"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 var (

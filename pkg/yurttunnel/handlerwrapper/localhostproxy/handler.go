@@ -26,7 +26,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -125,15 +124,15 @@ func (plm *localHostProxyMiddleware) SetSharedInformerFactory(factory informers.
 		return err
 	}
 
-	plm.getNodesByIP = func(nodeIP string) ([]*v1.Node, error) {
+	plm.getNodesByIP = func(nodeIP string) ([]*corev1.Node, error) {
 		objs, err := nodeInformer.Informer().GetIndexer().ByIndex(constants.NodeIPKeyIndex, nodeIP)
 		if err != nil {
 			return nil, err
 		}
 
-		nodes := make([]*v1.Node, 0, len(objs))
+		nodes := make([]*corev1.Node, 0, len(objs))
 		for _, obj := range objs {
-			if node, ok := obj.(*v1.Node); ok {
+			if node, ok := obj.(*corev1.Node); ok {
 				nodes = append(nodes, node)
 			}
 		}
