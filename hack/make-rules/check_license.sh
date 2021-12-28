@@ -23,7 +23,7 @@ set -u
 
 licRes=$(
     find . -type f -regex '.*\.go\|.*\.sh' ! -path '*/vendor/*' -exec \
-         sh -c 'head -n4 $1 | grep -Eq "(Copyright|generated|GENERATED)" || echo -e  $1' {} {} \;
+         sh -c 'head -n5 $1 | grep -Eq "(Copyright|generated|GENERATED)" || echo -e  $1' {} {} \;
 )
 
 if [ -n "${licRes}" ]; then
