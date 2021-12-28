@@ -113,6 +113,7 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 		return err
 	}
 	if ipStr != "" {
+		ipStr = strings.ToLower(ipStr)
 		o.IgnorePreflightErrors = sets.NewString(strings.Split(ipStr, ",")...)
 	}
 

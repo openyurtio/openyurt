@@ -139,7 +139,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "/usr/local/bin/entry.sh preflight-convert"
+        - "/usr/local/bin/entry.sh preflight-convert if {{.ignore_preflight_errors}} {{if .ignore_preflight_errors}}--ignore-preflight-errors {{.ignore_preflight_errors}} {{end}}"
         securityContext:
           privileged: true
         volumeMounts:

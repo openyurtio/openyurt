@@ -220,7 +220,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			}
 			return kubeutil.RenderServantJob("enable", ctx, nodeName)
 		},
-		kcmNodeNames); err != nil {
+		kcmNodeNames, os.Stderr); err != nil {
 		return fmt.Errorf("fail to run EnableNodeControllerJobs: %s", err)
 	}
 	klog.Info("complete enabling node-controller")
@@ -232,7 +232,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 			"kubeadm_conf_path":  ro.KubeadmConfPath,
 		}
 		return nodeservant.RenderNodeServantJob("revert", ctx, nodeName)
-	}, nodeNames); err != nil {
+	}, nodeNames, os.Stderr); err != nil {
 		klog.Errorf("fail to revert node: %s", err)
 		return
 	}

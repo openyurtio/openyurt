@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -57,6 +58,7 @@ import (
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/kubeadmapi"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
@@ -93,6 +95,18 @@ var (
 		"1.21", "1.21+"}
 )
 
+func processCreateErr(kind string, name string, err error) error {
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			klog.V(4).Infof("[WARNING] %s/%s is already in cluster, skip to prepare it", kind, name)
+			return nil
+		}
+		return fmt.Errorf("fail to create the %s/%s: %v", kind, name, err)
+	}
+	klog.V(4).Infof("%s/%s is created", kind, name)
+	return nil
+}
+
 // CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
 func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
 	obj, err := YamlToObject([]byte(saTmpl))
@@ -104,11 +118,7 @@ func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl strin
 		return fmt.Errorf("fail to assert serviceaccount: %v", err)
 	}
 	_, err = cliSet.CoreV1().ServiceAccounts(ns).Create(context.Background(), sa, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the serviceaccount/%s: %v", sa.Name, err)
-	}
-	klog.V(4).Infof("serviceaccount/%s is created", sa.Name)
-	return nil
+	return processCreateErr("serviceaccount", sa.Name, err)
 }
 
 // CreateClusterRoleFromYaml creates the ClusterRole from the yaml template.
@@ -122,11 +132,7 @@ func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) erro
 		return fmt.Errorf("fail to assert clusterrole: %v", err)
 	}
 	_, err = cliSet.RbacV1().ClusterRoles().Create(context.Background(), cr, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the clusterrole/%s: %v", cr.Name, err)
-	}
-	klog.V(4).Infof("clusterrole/%s is created", cr.Name)
-	return nil
+	return processCreateErr("clusterrole", cr.Name, err)
 }
 
 // CreateClusterRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
@@ -140,11 +146,7 @@ func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl stri
 		return fmt.Errorf("fail to assert clusterrolebinding: %v", err)
 	}
 	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the clusterrolebinding/%s: %v", crb.Name, err)
-	}
-	klog.V(4).Infof("clusterrolebinding/%s is created", crb.Name)
-	return nil
+	return processCreateErr("clusterrolebinding", crb.Name, err)
 }
 
 // CreateConfigMapFromYaml creates the ConfigMap from the yaml template.
@@ -158,11 +160,7 @@ func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) er
 		return fmt.Errorf("fail to assert configmap: %v", err)
 	}
 	_, err = cliSet.CoreV1().ConfigMaps(ns).Create(context.Background(), cm, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the configmap/%s: %v", cm.Name, err)
-	}
-	klog.V(4).Infof("configmap/%s is created", cm.Name)
-	return nil
+	return processCreateErr("configmap", cm.Name, err)
 }
 
 // CreateDeployFromYaml creates the Deployment from the yaml template.
@@ -226,11 +224,7 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 		return fmt.Errorf("fail to assert service: %v", err)
 	}
 	_, err = cliSet.CoreV1().Services(SystemNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the service/%s: %s", svc.Name, err)
-	}
-	klog.V(4).Infof("service/%s is created", svc.Name)
-	return nil
+	return processCreateErr("service", svc.Name, err)
 }
 
 //add by yanyhui at 20210611
@@ -240,16 +234,12 @@ func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
 	if err != nil {
 		return err
 	}
-	cr, ok := obj.(*rbacv1.Role)
+	ro, ok := obj.(*rbacv1.Role)
 	if !ok {
 		return fmt.Errorf("fail to assert role: %v", err)
 	}
-	_, err = cliSet.RbacV1().Roles(ns).Create(context.Background(), cr, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the role/%s: %v", cr.Name, err)
-	}
-	klog.V(4).Infof("role/%s is created", cr.Name)
-	return nil
+	_, err = cliSet.RbacV1().Roles(ns).Create(context.Background(), ro, metav1.CreateOptions{})
+	return processCreateErr("role", ro.Name, err)
 }
 
 // CreateRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
@@ -258,16 +248,12 @@ func CreateRoleBindingFromYaml(cliSet *kubernetes.Clientset, ns, crbTmpl string)
 	if err != nil {
 		return err
 	}
-	crb, ok := obj.(*rbacv1.RoleBinding)
+	rb, ok := obj.(*rbacv1.RoleBinding)
 	if !ok {
 		return fmt.Errorf("fail to assert rolebinding: %v", err)
 	}
-	_, err = cliSet.RbacV1().RoleBindings(ns).Create(context.Background(), crb, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the rolebinding/%s: %v", crb.Name, err)
-	}
-	klog.V(4).Infof("rolebinding/%s is created", crb.Name)
-	return nil
+	_, err = cliSet.RbacV1().RoleBindings(ns).Create(context.Background(), rb, metav1.CreateOptions{})
+	return processCreateErr("rolebinding", rb.Name, err)
 }
 
 // CreateSecretFromYaml creates the Secret from the yaml template.
@@ -276,17 +262,13 @@ func CreateSecretFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error
 	if err != nil {
 		return err
 	}
-	sa, ok := obj.(*corev1.Secret)
+	se, ok := obj.(*corev1.Secret)
 	if !ok {
 		return fmt.Errorf("fail to assert secret: %v", err)
 	}
-	_, err = cliSet.CoreV1().Secrets(ns).Create(context.Background(), sa, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the secret/%s: %v", sa.Name, err)
-	}
-	klog.V(4).Infof("secret/%s is created", sa.Name)
+	_, err = cliSet.CoreV1().Secrets(ns).Create(context.Background(), se, metav1.CreateOptions{})
 
-	return nil
+	return processCreateErr("secret", se.Name, err)
 }
 
 // CreateMutatingWebhookConfigurationFromYaml creates the Service from the yaml template.
@@ -295,17 +277,12 @@ func CreateMutatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, sv
 	if err != nil {
 		return err
 	}
-	svc, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
+	mw, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %v", err)
 	}
-	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), svc, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the mutatingwebhookconfiguration/%s: %s", svc.Name, err)
-	}
-	klog.V(4).Infof("mutatingwebhookconfiguration/%s is created", svc.Name)
-
-	return nil
+	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), mw, metav1.CreateOptions{})
+	return processCreateErr("mutatingwebhookconfiguration", mw.Name, err)
 }
 
 // CreateValidatingWebhookConfigurationFromYaml creates the Service from the yaml template.
@@ -314,17 +291,12 @@ func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, 
 	if err != nil {
 		return err
 	}
-	svc, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
+	vw, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %v", err)
 	}
-	_, err = cliSet.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), svc, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the validatingwebhookconfiguration/%s: %s", svc.Name, err)
-	}
-	klog.V(4).Infof("validatingwebhookconfiguration/%s is created", svc.Name)
-
-	return nil
+	_, err = cliSet.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), vw, metav1.CreateOptions{})
+	return processCreateErr("validatingwebhookconfiguration", vw.Name, err)
 }
 
 func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string, filebytes []byte) error {
@@ -452,6 +424,16 @@ func AnnotateNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val stri
 	return newNode, nil
 }
 
+func AddEdgeWorkerLableAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
+	node.Labels[projectinfo.GetEdgeWorkerLabelKey()] = lVal
+	node.Annotations[projectinfo.GetAutonomyAnnotation()] = aVal
+	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return newNode, nil
+}
+
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
 func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, period time.Duration) error {
 	job, err := cliSet.BatchV1().Jobs(job.GetNamespace()).Create(context.Background(), job, metav1.CreateOptions{})
@@ -518,8 +500,13 @@ func RenderServantJob(action string, tmplCtx map[string]string, nodeName string)
 
 // RunServantJobs launch servant jobs on specified nodes and wait all jobs to finish.
 // Succeed jobs will be deleted when finished. Failed jobs are preserved for diagnosis.
-func RunServantJobs(cliSet *kubernetes.Clientset, waitServantJobTimeout time.Duration, getJob func(nodeName string) (*batchv1.Job, error), nodeNames []string) error {
+func RunServantJobs(
+	cliSet *kubernetes.Clientset,
+	waitServantJobTimeout time.Duration,
+	getJob func(nodeName string) (*batchv1.Job, error),
+	nodeNames []string, ww io.Writer) error {
 	var wg sync.WaitGroup
+
 	jobByNodeName := make(map[string]*batchv1.Job)
 	for _, nodeName := range nodeNames {
 		job, err := getJob(nodeName)
@@ -528,6 +515,8 @@ func RunServantJobs(cliSet *kubernetes.Clientset, waitServantJobTimeout time.Dur
 		}
 		jobByNodeName[nodeName] = job
 	}
+
+	res := make(chan string, len(nodeNames))
 	for _, nodeName := range nodeNames {
 		wg.Add(1)
 		job := jobByNodeName[nodeName]
@@ -535,14 +524,19 @@ func RunServantJobs(cliSet *kubernetes.Clientset, waitServantJobTimeout time.Dur
 			defer wg.Done()
 			if err := RunJobAndCleanup(cliSet, job,
 				waitServantJobTimeout, CheckServantJobPeriod); err != nil {
-				klog.Errorf("fail to run servant job(%s): %s",
-					job.GetName(), err)
+				msg := fmt.Sprintf("\t[ERROR] fail to run servant job(%s): %s\n", job.GetName(), err)
+				res <- msg
 			} else {
-				klog.Infof("servant job(%s) has succeeded", job.GetName())
+				msg := fmt.Sprintf("\t[INFO] servant job(%s) has succeeded\n", job.GetName())
+				res <- msg
 			}
 		}()
 	}
 	wg.Wait()
+	close(res)
+	for m := range res {
+		io.WriteString(ww, m)
+	}
 	return nil
 }
 
