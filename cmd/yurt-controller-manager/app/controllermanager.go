@@ -59,6 +59,8 @@ import (
 const (
 	// ControllerStartJitter used when starting controller managers
 	ControllerStartJitter = 1.0
+
+	YurtControllerManager = "yurt-controller-manager"
 )
 
 // NewControllerManagerCommand creates a *cobra.Command object with default parameters
@@ -69,7 +71,7 @@ func NewControllerManagerCommand() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use: "yurt-controller-manager",
+		Use: YurtControllerManager,
 		Long: `The yurt controller manager is a daemon that embeds
 the core control loops shipped with openyurt. In applications of robotics and
 automation, a control loop is a non-terminating loop that regulates the state of
@@ -206,7 +208,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	id = id + "_" + string(uuid.NewUUID())
 	rl, err := resourcelock.New(c.ComponentConfig.Generic.LeaderElection.ResourceLock,
 		"kube-system",
-		"yurt-controller-manager",
+		YurtControllerManager,
 		c.LeaderElectionClient.CoreV1(),
 		c.LeaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
@@ -229,7 +231,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 			},
 		},
 		WatchDog: electionChecker,
-		Name:     "yurt-controller-manager",
+		Name:     YurtControllerManager,
 	})
 	panic("unreachable")
 }
