@@ -17,6 +17,7 @@ limitations under the License.
 package hubself
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -24,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -118,8 +120,46 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 	return ycm, nil
 }
 
+func removeDirContents(dir string) error {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, d := range files {
+		err = os.RemoveAll(filepath.Join(dir, d.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ycm *yurtHubCertManager) verifyServerAddrOrCleanup() {
+	nServer := ycm.remoteServers[0].String()
+
+	bcf := ycm.getBootstrapConfFile()
+	if existed, _ := util.FileExists(bcf); existed {
+		curKubeConfig, err := util.LoadKubeConfig(bcf)
+		if err == nil && curKubeConfig != nil {
+			oServer := curKubeConfig.Clusters[defaultClusterName].Server
+			if nServer == oServer {
+				klog.Infof("apiServer name %s not changed", oServer)
+				return
+			} else {
+				klog.Infof("config for apiServer %s found, need to recycle for new server %s", oServer, nServer)
+			}
+		}
+	}
+
+	klog.Infof("clean up any stale files")
+	removeDirContents(ycm.rootDir)
+}
+
 // Start init certificate manager and certs for hub agent
 func (ycm *yurtHubCertManager) Start() {
+	// 0. verify, cleanup if needed
+	ycm.verifyServerAddrOrCleanup()
+
 	// 1. create ca file for hub certificate manager
 	err := ycm.initCaCert()
 	if err != nil {
@@ -211,10 +251,11 @@ func (ycm *yurtHubCertManager) NotExpired() bool {
 func (ycm *yurtHubCertManager) initCaCert() error {
 	caFile := ycm.getCaFile()
 	ycm.caFile = caFile
+	caExisted := false
 
 	if exists, err := util.FileExists(caFile); exists {
-		klog.Infof("%s file already exists, so skip to create ca file", caFile)
-		return nil
+		caExisted = true
+		klog.Infof("%s file already exists, check with server", caFile)
 	} else if err != nil {
 		klog.Errorf("could not stat ca file %s, %v", caFile, err)
 		return err
@@ -237,6 +278,10 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 	// make sure configMap kube-public/cluster-info in k8s cluster beforehand
 	insecureClusterInfo, err := insecureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), clusterInfoName, metav1.GetOptions{})
 	if err != nil {
+		if caExisted {
+			klog.Errorf("couldn't reach server, use existed %s file", caFile)
+			return nil
+		}
 		klog.Errorf("failed to get cluster-info configmap, %v", err)
 		return err
 	}
@@ -258,6 +303,21 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 	var clusterCABytes []byte
 	for _, cluster := range kubeConfig.Clusters {
 		clusterCABytes = cluster.CertificateAuthorityData
+	}
+
+	if caExisted {
+		var curCABytes []byte
+		if curCABytes, err = ioutil.ReadFile(caFile); err != nil {
+			klog.Infof("could not read existed %s file, %v, ", caFile, err)
+		}
+
+		if bytes.Equal(clusterCABytes, curCABytes) {
+			klog.Infof("%s file matched with server's, reuse it", caFile)
+			return nil
+		} else {
+			klog.Infof("%s file is outdated, need to create a new one", caFile)
+			removeDirContents(ycm.rootDir)
+		}
 	}
 
 	if err := certutil.WriteCert(caFile, clusterCABytes); err != nil {
