@@ -37,9 +37,15 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager/store"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
+)
+
+const (
+	YurtHubServerCSROrg = "system:masters"
+	YurtHubCSROrg       = "openyurt:yurthub"
+	YurtHubServerCSRCN  = "kube-apiserver-kubelet-client"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
@@ -135,6 +141,35 @@ func NewYurttunnelAgentCertManager(
 			certificates.UsageClientAuth,
 		},
 		[]net.IP{net.ParseIP(nodeIP)},
+		nil)
+}
+
+// NewYurtHubServerCertManager creates a certificate manager for
+// the yurthub-server
+func NewYurtHubServerCertManager(
+	clientset kubernetes.Interface,
+	certDir,
+	proxyServerSecureDummyAddr string) (certificate.Manager, error) {
+
+	klog.Infof("subject of yurthub server certificate")
+	host, _, err := net.SplitHostPort(proxyServerSecureDummyAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return newCertManager(
+		clientset,
+		fmt.Sprintf("%s-server", projectinfo.GetHubName()),
+		certDir,
+		YurtHubServerCSRCN,
+		[]string{YurtHubServerCSROrg, YurtHubCSROrg},
+		nil,
+		[]certificates.KeyUsage{
+			certificates.UsageKeyEncipherment,
+			certificates.UsageDigitalSignature,
+			certificates.UsageServerAuth,
+		},
+		[]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP(host)},
 		nil)
 }
 

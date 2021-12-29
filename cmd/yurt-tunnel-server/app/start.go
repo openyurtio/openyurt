@@ -28,11 +28,10 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/informers"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/iptables"
@@ -134,7 +133,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}, stopCh)
 
 	// 5. generate the TLS configuration based on the latest certificate
-	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert)
+	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert)
 	if err != nil {
 		return err
 	}
