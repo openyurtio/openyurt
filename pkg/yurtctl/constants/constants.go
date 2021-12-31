@@ -17,12 +17,15 @@ limitations under the License.
 package constants
 
 import (
+	"k8s.io/apimachinery/pkg/util/version"
+
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 var (
 	// AnnotationAutonomy is used to identify if a node is autonomous
-	AnnotationAutonomy = projectinfo.GetAutonomyAnnotation()
+	AnnotationAutonomy    = projectinfo.GetAutonomyAnnotation()
+	MinimumKubeletVersion = version.MustParseSemantic("v1.17.0")
 )
 
 const (
@@ -35,24 +38,26 @@ const (
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
 
-	Sysctl_k8s_config              = "/etc/sysctl.d/k8s.conf"
-	StaticPodPath                  = "/etc/kubernetes/manifests"
-	KubeletConfigureDir            = "/etc/kubernetes"
-	KubeletWorkdir                 = "/var/lib/kubelet"
-	YurtHubWorkdir                 = "/var/lib/yurthub"
-	YurttunnelAgentWorkdir         = "/var/lib/yurttunnel-agent"
-	YurttunnelServerWorkdir        = "/var/lib/yurttunnel-server"
-	KubeCniDir                     = "/opt/cni/bin"
-	KubeCniVersion                 = "v0.8.0"
-	KubeletServiceFilepath  string = "/etc/systemd/system/kubelet.service"
+	Sysctl_k8s_config        = "/etc/sysctl.d/k8s.conf"
+	KubeletConfigureDir      = "/etc/kubernetes"
+	KubeletWorkdir           = "/var/lib/kubelet"
+	YurtHubWorkdir           = "/var/lib/yurthub"
+	YurttunnelAgentWorkdir   = "/var/lib/yurttunnel-agent"
+	YurttunnelServerWorkdir  = "/var/lib/yurttunnel-server"
+	KubeCniDir               = "/opt/cni/bin"
+	KubeCniVersion           = "v0.8.0"
+	KubeletServiceFilepath   = "/etc/systemd/system/kubelet.service"
+	KubeletServiceConfPath   = "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	YurthubStaticPodFileName = "yurthub.yaml"
+	PauseImagePath           = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 
 	CniUrlFormat      = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
 	KubeUrlFormat     = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"
 	TmpDownloadDir    = "/tmp"
 	FlannelIntallFile = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/flannel.yaml"
 
-	EdgeNode  = "edge-node"
-	CloudNode = "cloud-node"
+	EdgeNode  = "edge"
+	CloudNode = "cloud"
 
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
 	DefaultOpenYurtVersion       = "latest"
@@ -76,7 +81,7 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target`
 
-	EdgeKubeletUnitConfig = `
+	KubeletUnitConfig = `
 [Service]
 Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf"
 Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
@@ -85,14 +90,22 @@ EnvironmentFile=-/etc/default/kubelet
 ExecStart=
 ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
 `
-	CloudKubeletUnitConfig = `
-[Service]
-Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
-Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
-EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
-EnvironmentFile=-/etc/default/kubelet
-ExecStart=
-ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+
+	KubeletConfForNode = `
+apiVersion: v1
+clusters:
+- cluster:
+    server: http://127.0.0.1:10261
+  name: default-cluster
+contexts:
+- context:
+    cluster: default-cluster
+    namespace: default
+    user: default-auth
+  name: default-context
+current-context: default-context
+kind: Config
+preferences: {}
 `
 
 	YurtControllerManagerServiceAccount = `

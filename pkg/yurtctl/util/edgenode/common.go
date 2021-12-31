@@ -78,7 +78,7 @@ spec:
       type: Directory
   containers:
   - name: yurt-hub
-    image: __yurthub_image__
+    image: {{.image}}
     imagePullPolicy: IfNotPresent
     volumeMounts:
     - name: hub-dir
@@ -90,10 +90,13 @@ spec:
     command:
     - yurthub
     - --v=2
-    - --server-addr=__kubernetes_service_addr__
+    - --server-addr={{.kubernetesServerAddr}}
     - --node-name=$(NODE_NAME)
-    - --join-token=__join_token__
-    - --working-mode=__working_mode__
+    - --join-token={{.joinToken}}
+    - --working-mode={{.workingMode}}
+      {{if .organizations }}
+    - --hub-cert-organizations={{.organizations}}
+      {{end}}
     livenessProbe:
       httpGet:
         host: 127.0.0.1

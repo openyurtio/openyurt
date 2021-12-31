@@ -21,16 +21,16 @@ import (
 	"os"
 
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases/workflow"
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 )
 
-func NewCleanfilePhase() workflow.Phase {
+func NewCleanYurtFilePhase() workflow.Phase {
 	return workflow.Phase{
-		Name:  "Clean up the directories and files related to kubelet and yurthub.",
-		Short: "Clean up the directories and files related to kubelet and yurthub.",
+		Name:  "Clean up the directories and files related to openyurt.",
+		Short: "Clean up the directories and files related to openyurt.",
 		Run:   runCleanfile,
 	}
 }
