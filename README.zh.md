@@ -76,6 +76,7 @@ yurtctl convert --provider [minikube|kubeadm|kind]  // 一键式转换原生Kube
 yurtctl revert                                      // 一键式恢复OpenYurt集群为Kubernetes集群
 yurtctl join                                        // 往OpenYurt中接入一个节点(在边缘节点上执行)
 yurtctl reset                                       // 从OpenYurt中清除边缘节点(在边缘节点上执行)
+yurtctl init                                        // 初始化OpenYurt集群
 ```
 
 请查看 [yurtctl教程](./docs/tutorial/yurtctl.md)来获得更多使用细节。
