@@ -92,6 +92,7 @@ yurtctl convert --provider [minikube|kubeadm|kind]  // To convert an existing Ku
 yurtctl revert                                      // To uninstall and revert back to the original cluster settings
 yurtctl join                                        // To allow a new node to join OpenYurt
 yurtctl reset                                       // To revert changes to the node made by the join command
+yurtctl init                                        // To init an OpenYurt Cluster
 ```
 
 Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
