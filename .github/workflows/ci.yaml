@@ -129,8 +129,8 @@ jobs:
       
       - name: Install Required Commands
         run: |
-          go get sigs.k8s.io/kind@v0.11.1
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.20.7/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go get sigs.k8s.io/kind@v0.12.0
+          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.22.3/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind

@@ -105,15 +105,21 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		go iptablesMgr.Run(stopCh, &wg)
 	}
 
-	// 2. create a certificate manager for the tunnel server and run the
-	// csr approver for both yurttunnel-server and yurttunnel-agent
+	// 2. create a certificate manager for the tunnel server
 	serverCertMgr, err := certmanager.NewYurttunnelServerCertManager(cfg.Client, cfg.SharedInformerFactory, cfg.CertDir, cfg.CertDNSNames, cfg.CertIPs, stopCh)
 	if err != nil {
 		return err
 	}
 	serverCertMgr.Start()
 
-	// 3. create handler wrappers
+	// 3. create a certificate manager for the tunnel proxy client
+	tunnelProxyCertMgr, err := certmanager.NewTunnelProxyClientCertManager(cfg.Client, cfg.CertDir)
+	if err != nil {
+		return err
+	}
+	tunnelProxyCertMgr.Start()
+
+	// 4. create handler wrappers
 	mInitializer := initializer.NewMiddlewareInitializer(cfg.SharedInformerFactory)
 	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
 	if err != nil {
@@ -124,23 +130,28 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// after all of informers are configured completed, start the shared index informer
 	cfg.SharedInformerFactory.Start(stopCh)
 
-	// 4. waiting for the certificate is generated
+	// 5. waiting for the certificate is generated
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
 		// keep polling until the certificate is signed
-		if serverCertMgr.Current() != nil {
+		if serverCertMgr.Current() != nil && tunnelProxyCertMgr.Current() != nil {
 			return true, nil
 		}
 		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetServerName())
 		return false, nil
 	}, stopCh)
 
-	// 5. generate the TLS configuration based on the latest certificate
-	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert)
+	// 6. generate the TLS configuration based on the latest certificate
+	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert, "server")
 	if err != nil {
 		return err
 	}
 
-	// 6. start the server
+	proxyClientTlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(tunnelProxyCertMgr, cfg.RootCert, "client")
+	if err != nil {
+		return err
+	}
+
+	// 7. start the server
 	ts := server.NewTunnelServer(
 		cfg.EgressSelectorEnabled,
 		cfg.InterceptorServerUDSFile,
@@ -149,13 +160,14 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		cfg.ListenAddrForAgent,
 		cfg.ServerCount,
 		tlsCfg,
+		proxyClientTlsCfg,
 		wrappers,
 		cfg.ProxyStrategy)
 	if err := ts.Run(); err != nil {
 		return err
 	}
 
-	// 7. start meta server
+	// 8. start meta server
 	util.RunMetaServer(cfg.ListenMetaAddr)
 
 	<-stopCh

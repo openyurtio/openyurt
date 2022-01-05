@@ -182,7 +182,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	if _, err := apiserver.RunServer(insecureServer, listener, 0, stopCh); err != nil {
+	if _, _, err := apiserver.RunServer(insecureServer, listener, 0, stopCh); err != nil {
 		klog.Fatalf("error run http server: %v", err)
 		return err
 	}

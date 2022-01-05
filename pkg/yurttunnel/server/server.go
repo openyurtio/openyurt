@@ -37,6 +37,7 @@ func NewTunnelServer(
 	serverAgentAddr string,
 	serverCount int,
 	tlsCfg *tls.Config,
+	proxyClientTlsCfg *tls.Config,
 	wrappers hw.HandlerWrappers,
 	proxyStrategy string) TunnelServer {
 	ats := anpTunnelServer{
@@ -47,6 +48,7 @@ func NewTunnelServer(
 		serverAgentAddr:          serverAgentAddr,
 		serverCount:              serverCount,
 		tlsCfg:                   tlsCfg,
+		proxyClientTlsCfg:        proxyClientTlsCfg,
 		wrappers:                 wrappers,
 		proxyStrategy:            proxyStrategy,
 	}

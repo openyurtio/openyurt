@@ -42,7 +42,7 @@ func TestValidateKubernetesVersion(t *testing.T) {
 		},
 		"unsupported 2-dot format": {
 			"v1.23.122",
-			"unsupported kubernetes version: v1.23.122",
+			"",
 		},
 		"unsupported 1-dot format": {
 			"v1.0",

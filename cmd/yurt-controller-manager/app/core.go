@@ -56,12 +56,12 @@ func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, er
 }
 
 func startYurtCSRApproverController(ctx ControllerContext) (http.Handler, bool, error) {
-	clientSet := ctx.ClientBuilder.ClientOrDie("csr-controller")
+	clientSet := ctx.ClientBuilder.ClientOrDie("yurt-csr-controller")
 	csrApprover, err := certificates.NewCSRApprover(clientSet, ctx.InformerFactory)
 	if err != nil {
 		return nil, false, err
 	}
-	go csrApprover.Run(certificates.YurtCSRApproverThreadiness, ctx.Stop)
+	go csrApprover.Run(2, ctx.Stop)
 
 	return nil, true, nil
 }

@@ -90,7 +90,7 @@ var (
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersions contains all compatible server version
-	// yurtctl only support Kubernetes 1.12+ - 1.21+ for now
+	// yurtctl only support Kubernetes 1.12+ - 1.23+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",
 		"1.13", "1.13+",
@@ -99,7 +99,9 @@ var (
 		"1.18", "1.18+",
 		"1.19", "1.19+",
 		"1.20", "1.20+",
-		"1.21", "1.21+"}
+		"1.21", "1.21+",
+		"1.22", "1.22+",
+		"1.23", "1.23+"}
 
 	ErrClusterVersionEmpty = errors.New("cluster version should not be empty")
 )

@@ -147,6 +147,10 @@ func DeployYurttunnelServer(
 		constants.YurttunnelServerClusterRole); err != nil {
 		return err
 	}
+	if err := CreateClusterRoleFromYaml(client,
+		constants.YurttunnelProxyClientClusterRole); err != nil {
+		return err
+	}
 
 	// 2. create the ServiceAccount
 	if err := CreateServiceAccountFromYaml(client, SystemNamespace,
@@ -157,6 +161,11 @@ func DeployYurttunnelServer(
 	// 3. create the ClusterRoleBinding
 	if err := CreateClusterRoleBindingFromYaml(client,
 		constants.YurttunnelServerClusterRolebinding); err != nil {
+		return err
+	}
+
+	if err := CreateClusterRoleBindingFromYaml(client,
+		constants.YurttunnelProxyClientClusterRolebinding); err != nil {
 		return err
 	}
 

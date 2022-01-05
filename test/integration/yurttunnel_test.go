@@ -170,8 +170,9 @@ func startTunnelServer(t *testing.T) {
 		fmt.Sprintf(":%d", ServerAgentPort),          /* serverAgentAddr */
 		1,                                            /* serverCount */
 		&tlsCfg,                                      /* tlsCfg */
-		wrappers,                                     /* hw.HandlerWrappers */
-		string(anpserver.ProxyStrategyDestHost),      /* proxyStrategy */
+		&tlsCfg,
+		wrappers,                                /* hw.HandlerWrappers */
+		string(anpserver.ProxyStrategyDestHost), /* proxyStrategy */
 	)
 	tunnelServer.Run()
 	klog.Info("[TEST] Yurttunnel Server is running")
