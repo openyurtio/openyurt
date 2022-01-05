@@ -17,43 +17,22 @@ limitations under the License.
 package certificates
 
 import (
-	"crypto/rand"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"log"
+	"net"
 	"testing"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
-)
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/util/cert"
+	"k8s.io/klog/v2"
 
-var rsaPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA3xVbRYwmRaFAVUHRm/ynFbOe6pDNEsDIoEE2+7LDrlRndp1w
-hzrOd9DPWBcEJIO6ga1U9TdCP1HnOWQLaoM4c4Tngb26ieZYNW2PKhij3wdoN5eO
-t7jKupAD1eEChDjsZSN2/OJVLi9/82vAxjmfCzz9icRGlUd2E4Ixtd+EUxz4gCjQ
-elNyjEPO28/6TfL3o18jX4UKonk+CKEIotrf1hph0I2/Feb+DeUQIRjvhwzoaauk
-2epAUAeunMpatLkwQp6BfDTu/+MkJgcgyHv2qlb+2zYSvvzbVm3lNIa4Mkoe8Bqe
-ecLxrp07uxp13SVtJE9EeyVdAIwNg0H7DJ6QDQIDAQABAoIBAA2scHC922avMJNJ
-OoDWJqOk49u6zmcU2/c+qBEbbvUThVf25HvVdexQJzVeC8n1LQxfxHJXVb8t1P9m
-i3CW5HHoNox0RafIL6XutjS9V+YGvTOTHZNTR1HSG/oTFaVnG85DMzri4Je5H52b
-ADDmPUJiFaRJHI5v1+PwOf3M2n6BjcRh9rIwDX/1eSyCWwKc10ZcXWcGTwyXtDz5
-lwIyKrUvmuQvjS6Wq84J6dTDQfk2LrXHk92UYaUyrpdQ5lvuOAAfvO8XoOmJvFf+
-h1RLnFdk5DB7aWH+DbQvfVEuoTgbhWgRHku/KpdITjTE0ZHp945hINnN/071W5aq
-dHo5kx0CgYEA+HE05pV9eAlblq534H586wsCJHKB70Fi3yN2eQdJelwIeBkRwulW
-hfLkaXQM/I8BsGgVviBfREq7Zzaz3v5UYirjJOe/X11b9mn7HGcVlNR0ilOKmVrH
-SAWr/ZkjIiza25SRYJ/I1y0HE3GMGOdiwj52E4mEMXaExPW762p/AKMCgYEA5d6p
-yqguhKzoBRFFA0CXARxu2uTfipfIYIJFAnYVg1fkJocV7mZP8z+qLc1qWUm8Enje
-QagAbEZH5SDpEKiHGIGqmODl+qAg9vHXrMOcQabmwGhXK0wn1E3QRoVHQ8N90weB
-9A/Mc7LKxDpSwTkWgVMJWxK29U75CXWfWjeAR48CgYAncqI5sqbXdnTqeg1iwfLH
-x1mxu9TRzooKcDERioyqNw7JMwHU9wPcBPMro1ekinh0MDKzm6REzbDv9Ime8Lcp
-VzH13C5Q0BwYBj/vBJcyqIFQrW8mZnmZ//yNKdGgTYr6rp5ev0A+mlGzTqY2Fhdi
-TFSnSYCJ8g2m0HXkLWa5DQKBgQCZxJlQN7Dmj8OloCfKRSq+U4bUZsYir+YaqQoA
-230In4K/Qx4om8hfr/bnLMI3eFuW/8Otp/SgeWMeoyVFP3cfrZ2xJsCxJuzmRGFB
-8JhWUo+JpkKpdAgwvNzWT9GcQumogR0tZmQeATwih+FT4Bxt5l4bzikVb/6nlUdD
-0ly9gQKBgBMBjd83IEJDBrUtWaxtPlt8HDFgTlqgZJxIckW3bnF+7iPTlO7hLpOD
-dbALa7x9+2ydqd9lpyd8txi57gYMHuVi1KaBvMDbKAo0SXLNV1Kv73HNO3k/o2+w
-k6IJMsIcAOOuF9N1A6awc8mEKiQ53slCbdosjes2Zurzv6gJGLQ+
------END RSA PRIVATE KEY-----`
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+)
 
 func TestIsYurtCSR(t *testing.T) {
 	tests := []struct {
@@ -87,40 +66,77 @@ func TestIsYurtCSR(t *testing.T) {
 			exp: false,
 		},
 		{
-			desc: "is not a openyurt related certificate request",
+			desc: "is yurthub server related certificate request",
 			csr: &certificatesv1.CertificateSigningRequest{
 				Spec: certificatesv1.CertificateSigningRequestSpec{
-					Request: pem.EncodeToMemory(
-						&pem.Block{
-							Type:  "CERTIFICATE REQUEST",
-							Bytes: newCSR([]string{"not_openyurt_organization"}),
-						}),
-				},
-			},
-			exp: false,
-		},
-		{
-			desc: "is yurttunnel related certificate request",
-			csr: &certificatesv1.CertificateSigningRequest{
-				Spec: certificatesv1.CertificateSigningRequestSpec{
-					Request: pem.EncodeToMemory(
-						&pem.Block{
-							Type:  "CERTIFICATE REQUEST",
-							Bytes: newCSR([]string{YurttunnelCSROrg}),
-						}),
+					SignerName: certificatesv1.KubeletServingSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageServerAuth,
+					},
+					Request: newCSRData("system:node:xxx", []string{user.NodesGroup}, []string{}, []net.IP{net.ParseIP("127.0.0.1")}),
 				},
 			},
 			exp: true,
 		},
 		{
-			desc: "is yurthub related certificate request",
+			desc: "is yurthub node client related certificate request",
 			csr: &certificatesv1.CertificateSigningRequest{
 				Spec: certificatesv1.CertificateSigningRequestSpec{
-					Request: pem.EncodeToMemory(
-						&pem.Block{
-							Type:  "CERTIFICATE REQUEST",
-							Bytes: newCSR([]string{YurthubCSROrg}),
-						}),
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:xxx", []string{certmanager.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
+				},
+			},
+			exp: true,
+		},
+		{
+			desc: "yurthub node client csr with unknown org",
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:xxx", []string{certmanager.YurtHubCSROrg, user.NodesGroup, "unknown org"}, []string{}, []net.IP{}),
+				},
+			},
+			exp: false,
+		},
+		{
+			desc: "is yurt-tunnel-server related certificate request",
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+						certificatesv1.UsageServerAuth,
+					},
+					Request: newCSRData(certmanager.YurtTunnelServerCSRCN, []string{user.SystemPrivilegedGroup, certmanager.YurtTunnelCSROrg}, []string{"x-tunnel-server-svc"}, []net.IP{net.ParseIP("127.0.0.1")}),
+				},
+			},
+			exp: true,
+		},
+		{
+			desc: "is yurt-tunnel-agent related certificate request",
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData(certmanager.YurtTunnelAgentCSRCN, []string{certmanager.YurtTunnelCSROrg}, []string{"node-name-xxx"}, []net.IP{net.ParseIP("127.0.0.1")}),
 				},
 			},
 			exp: true,
@@ -129,9 +145,9 @@ func TestIsYurtCSR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			act := isYurtCSR(tt.csr)
+			act, msg := isYurtCSR(tt.csr)
 			if act != tt.exp {
-				t.Errorf("the value we want is %v, but the actual value is %v", tt.exp, act)
+				t.Errorf("the value we want is %v, but the actual value is %v, and the message: %s", tt.exp, act, msg)
 			}
 		})
 	}
@@ -207,24 +223,27 @@ func TestCheckCertApprovalCondition(t *testing.T) {
 	}
 }
 
-func newCSR(organizations []string) []byte {
-	block, _ := pem.Decode([]byte(rsaPrivateKey))
-	rsaPriv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+func newCSRData(commonName string, organizations, dnsNames []string, ipAddresses []net.IP) []byte {
+	// Generate a new private key.
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 	if err != nil {
-		log.Fatalf("Failed to parse private key: %s", err)
+		klog.Errorf("failed to create private key, %v", err)
+		return []byte{}
 	}
 
 	req := &x509.CertificateRequest{
 		Subject: pkix.Name{
+			CommonName:   commonName,
 			Organization: organizations,
 		},
-		DNSNames: []string{
-			"openyurt.io",
-		},
+		DNSNames:    dnsNames,
+		IPAddresses: ipAddresses,
 	}
-	csr, err := x509.CreateCertificateRequest(rand.Reader, req, rsaPriv)
+
+	csr, err := cert.MakeCSRFromTemplate(privateKey, req)
 	if err != nil {
-		log.Fatalf("unable to create CSR: %s", err)
+		klog.Errorf("failed to make csr, %v", err)
+		return []byte{}
 	}
 	return csr
 }

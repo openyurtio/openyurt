@@ -31,9 +31,9 @@ import (
 	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
-	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -44,6 +44,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
@@ -364,10 +365,10 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	}
 	ycm.hubClientCertPath = s.CurrentPath()
 
-	orgs := []string{"openyurt:yurthub", "system:nodes"}
+	orgs := []string{certmanager.YurtHubCSROrg, user.NodesGroup}
 	if len(ycm.hubCertOrganizations) > 0 {
 		for _, v := range ycm.hubCertOrganizations {
-			if v != "openyurt:yurthub" && v != "system:nodes" {
+			if v != certmanager.YurtHubCSROrg && v != user.NodesGroup {
 				orgs = append(orgs, v)
 			}
 		}
@@ -375,7 +376,7 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 
 	m, err := certificate.NewManager(&certificate.Config{
 		ClientsetFn: ycm.generateCertClientFn,
-		SignerName:  certificatesv1beta1.LegacyUnknownSignerName,
+		SignerName:  certificatesv1.KubeAPIServerClientSignerName,
 		Template: &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   fmt.Sprintf("system:node:%s", ycm.nodeName),

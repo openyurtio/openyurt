@@ -27,10 +27,10 @@ import (
 	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
-	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/certificate"
@@ -43,9 +43,10 @@ import (
 )
 
 const (
-	YurtHubServerCSROrg = "system:masters"
-	YurtHubCSROrg       = "openyurt:yurthub"
-	YurtHubServerCSRCN  = "kube-apiserver-kubelet-client"
+	YurtHubCSROrg         = "openyurt:yurthub"
+	YurtTunnelCSROrg      = "openyurt:yurttunnel"
+	YurtTunnelServerCSRCN = "tunnel-server"
+	YurtTunnelAgentCSRCN  = "tunnel-agent-client"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
@@ -105,8 +106,9 @@ func NewYurttunnelServerCertManager(
 		clientset,
 		projectinfo.GetServerName(),
 		certDir,
-		constants.YurttunneServerCSRCN,
-		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
+		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelServerCSRCN,
+		[]string{user.SystemPrivilegedGroup, YurtTunnelCSROrg},
 		dnsNames,
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
@@ -135,8 +137,9 @@ func NewYurttunnelAgentCertManager(
 		clientset,
 		projectinfo.GetAgentName(),
 		certDir,
-		constants.YurttunnelAgentCSRCN,
-		[]string{constants.YurttunnelCSROrg},
+		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelAgentCSRCN,
+		[]string{YurtTunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
@@ -148,13 +151,13 @@ func NewYurttunnelAgentCertManager(
 }
 
 // NewYurtHubServerCertManager creates a certificate manager for
-// the yurthub-server
+// the yurthub server
 func NewYurtHubServerCertManager(
 	clientset kubernetes.Interface,
 	certDir,
+	nodeName,
 	proxyServerSecureDummyAddr string) (certificate.Manager, error) {
 
-	klog.Infof("subject of yurthub server certificate")
 	host, _, err := net.SplitHostPort(proxyServerSecureDummyAddr)
 	if err != nil {
 		return nil, err
@@ -164,8 +167,9 @@ func NewYurtHubServerCertManager(
 		clientset,
 		fmt.Sprintf("%s-server", projectinfo.GetHubName()),
 		certDir,
-		YurtHubServerCSRCN,
-		[]string{YurtHubServerCSROrg, YurtHubCSROrg},
+		certificatesv1.KubeletServingSignerName,
+		fmt.Sprintf("system:node:%s", nodeName),
+		[]string{user.NodesGroup},
 		nil,
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
@@ -182,6 +186,7 @@ func newCertManager(
 	clientset kubernetes.Interface,
 	componentName,
 	certDir,
+	signerName,
 	commonName string,
 	organizations,
 	dnsNames []string,
@@ -217,7 +222,7 @@ func newCertManager(
 		ClientsetFn: func(current *tls.Certificate) (kubernetes.Interface, error) {
 			return clientset, nil
 		},
-		SignerName:       certificatesv1beta1.LegacyUnknownSignerName,
+		SignerName:       signerName,
 		GetTemplate:      getTemplate,
 		Usages:           keyUsages,
 		CertificateStore: certificateStore,
