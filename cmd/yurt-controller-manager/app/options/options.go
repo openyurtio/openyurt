@@ -35,12 +35,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	cliflag "k8s.io/component-base/cli/flag"
 	componentbaseconfig "k8s.io/component-base/config"
+	cmconfig "k8s.io/controller-manager/config"
+	cmoptions "k8s.io/controller-manager/options"
 	"k8s.io/klog/v2"
 	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 	utilpointer "k8s.io/utils/pointer"
 
 	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
-	kubectrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/apis/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 const (
@@ -50,7 +52,7 @@ const (
 
 // YurtControllerManagerOptions is the main context object for the kube-controller manager.
 type YurtControllerManagerOptions struct {
-	Generic                 *GenericControllerManagerConfigurationOptions
+	Generic                 *cmoptions.GenericControllerManagerConfigurationOptions
 	NodeLifecycleController *NodeLifecycleControllerOptions
 	Master                  string
 	Kubeconfig              string
@@ -59,7 +61,7 @@ type YurtControllerManagerOptions struct {
 
 // NewYurtControllerManagerOptions creates a new YurtControllerManagerOptions with a default config.
 func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
-	generic := kubectrlmgrconfig.GenericControllerManagerConfiguration{
+	generic := cmconfig.GenericControllerManagerConfiguration{
 		Address:                 "0.0.0.0",
 		Port:                    10266,
 		MinResyncPeriod:         metav1.Duration{Duration: 12 * time.Hour},
@@ -80,7 +82,7 @@ func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
 	}
 
 	s := YurtControllerManagerOptions{
-		Generic: NewGenericControllerManagerConfigurationOptions(&generic),
+		Generic: cmoptions.NewGenericControllerManagerConfigurationOptions(&generic),
 		NodeLifecycleController: &NodeLifecycleControllerOptions{
 			NodeLifecycleControllerConfiguration: &nodelifecycleconfig.NodeLifecycleControllerConfiguration{
 				EnableTaintManager:     utilpointer.BoolPtr(true),
@@ -144,11 +146,13 @@ func (s YurtControllerManagerOptions) Config(allControllers []string, disabledBy
 	if err != nil {
 		return nil, err
 	}
+	kubeconfig.DisableCompression = true
+	kubeconfig.ContentConfig.AcceptContentTypes = s.Generic.ClientConnection.AcceptContentTypes
 	kubeconfig.ContentConfig.ContentType = s.Generic.ClientConnection.ContentType
 	kubeconfig.QPS = s.Generic.ClientConnection.QPS
 	kubeconfig.Burst = int(s.Generic.ClientConnection.Burst)
 
-	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeconfig, YurtControllerManagerUserAgent))
+	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeconfig, projectinfo.GetYurtControllerManagerName()))
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +162,7 @@ func (s YurtControllerManagerOptions) Config(allControllers []string, disabledBy
 	config.Timeout = s.Generic.LeaderElection.RenewDeadline.Duration
 	leaderElectionClient := clientset.NewForConfigOrDie(restclient.AddUserAgent(&config, "leader-election"))
 
-	eventRecorder := createRecorder(client, YurtControllerManagerUserAgent)
+	eventRecorder := createRecorder(client, projectinfo.GetYurtControllerManagerName())
 
 	c := &yurtcontrollerconfig.Config{
 		Client:               client,

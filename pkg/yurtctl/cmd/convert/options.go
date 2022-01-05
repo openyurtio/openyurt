@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -51,18 +50,6 @@ const (
 	Amd64 string = "amd64"
 	Arm64 string = "arm64"
 	Arm   string = "arm"
-)
-
-var (
-	// ValidServerVersions contains all compatible server version
-	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
-	ValidServerVersions = []string{
-		"1.12", "1.12+",
-		"1.13", "1.13+",
-		"1.14", "1.14+",
-		"1.16", "1.16+",
-		"1.18", "1.18+",
-		"1.20", "1.20+"}
 )
 
 // ConvertOptions has the information that required by convert operation
@@ -243,7 +230,7 @@ func (co *ConvertOptions) Validate() error {
 		return err
 	}
 
-	if err := ValidateServerVersion(co.ClientSet); err != nil {
+	if err := kubeutil.ValidateServerVersion(co.ClientSet); err != nil {
 		return err
 	}
 
@@ -284,20 +271,6 @@ func (co *ConvertOptions) Validate() error {
 		return err
 	}
 
-	return nil
-}
-
-// ValidateServerVersion checks if the target server's version is supported
-func ValidateServerVersion(cliSet *kubernetes.Clientset) error {
-	serverVersion, err := discovery.NewDiscoveryClient(cliSet.RESTClient()).ServerVersion()
-	if err != nil {
-		return err
-	}
-	completeVersion := serverVersion.Major + "." + serverVersion.Minor
-	if !strutil.IsInStringLst(ValidServerVersions, completeVersion) {
-		return fmt.Errorf("server version(%s) is not supported, valid server versions are %v",
-			completeVersion, ValidServerVersions)
-	}
 	return nil
 }
 

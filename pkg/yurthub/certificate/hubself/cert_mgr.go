@@ -30,11 +30,11 @@ import (
 	"strings"
 	"time"
 
-	certificates "k8s.io/api/certificates/v1beta1"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
-	certificatesclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -44,6 +44,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -355,7 +356,7 @@ func (ycm *yurtHubCertManager) initBootstrap() error {
 
 // initClientCertificateManager init hub client certificate manager
 func (ycm *yurtHubCertManager) initClientCertificateManager() error {
-	s, err := certificate.NewFileStore(ycm.hubName, ycm.getPkiDir(), ycm.getPkiDir(), "", "")
+	s, err := store.NewFileStoreWrapper(ycm.hubName, ycm.getPkiDir(), ycm.getPkiDir(), "", "")
 	if err != nil {
 		klog.Errorf("failed to init %s client cert store, %v", ycm.hubName, err)
 		return err
@@ -373,18 +374,18 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	}
 
 	m, err := certificate.NewManager(&certificate.Config{
-		ClientFn:   ycm.generateCertClientFn,
-		SignerName: certificates.LegacyUnknownSignerName,
+		ClientsetFn: ycm.generateCertClientFn,
+		SignerName:  certificatesv1beta1.LegacyUnknownSignerName,
 		Template: &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   fmt.Sprintf("system:node:%s", ycm.nodeName),
 				Organization: orgs,
 			},
 		},
-		Usages: []certificates.KeyUsage{
-			certificates.UsageDigitalSignature,
-			certificates.UsageKeyEncipherment,
-			certificates.UsageClientAuth,
+		Usages: []certificatesv1.KeyUsage{
+			certificatesv1.UsageDigitalSignature,
+			certificatesv1.UsageKeyEncipherment,
+			certificatesv1.UsageClientAuth,
 		},
 
 		CertificateStore: s,
@@ -419,7 +420,7 @@ func (ycm *yurtHubCertManager) getBootstrapClientConfig(healthyServer *url.URL) 
 	return util.LoadKubeletRestClientConfig(healthyServer, ycm.kubeletRootCAFilePath, ycm.kubeletPairFilePath)
 }
 
-func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (certificatesclient.CertificateSigningRequestInterface, error) {
+func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (clientset.Interface, error) {
 	var cfg *restclient.Config
 	var healthyServer *url.URL
 	hubConfFile := ycm.getHubConfFile()
@@ -469,11 +470,7 @@ func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (c
 	klog.V(2).Infof("avoid tcp conn leak, close old tcp conn that used to rotate certificate")
 	ycm.dialer.Close(strings.Trim(cfg.Host, "https://"))
 
-	client, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return client.CertificatesV1beta1().CertificateSigningRequests(), nil
+	return clientset.NewForConfig(cfg)
 }
 
 // initHubConf init hub agent conf file.

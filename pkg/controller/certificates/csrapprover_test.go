@@ -24,7 +24,7 @@ import (
 	"log"
 	"testing"
 
-	certificates "k8s.io/api/certificates/v1beta1"
+	certificatesv1 "k8s.io/api/certificates/v1"
 )
 
 var rsaPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
@@ -58,13 +58,13 @@ k6IJMsIcAOOuF9N1A6awc8mEKiQ53slCbdosjes2Zurzv6gJGLQ+
 func TestIsYurtCSR(t *testing.T) {
 	tests := []struct {
 		desc string
-		csr  *certificates.CertificateSigningRequest
+		csr  *certificatesv1.CertificateSigningRequest
 		exp  bool
 	}{
 		{
 			desc: "is not certificate request",
-			csr: &certificates.CertificateSigningRequest{
-				Spec: certificates.CertificateSigningRequestSpec{
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
 					Request: pem.EncodeToMemory(
 						&pem.Block{
 							Type: "PUBLIC KEY",
@@ -75,8 +75,8 @@ func TestIsYurtCSR(t *testing.T) {
 		},
 		{
 			desc: "can not parse certificate request",
-			csr: &certificates.CertificateSigningRequest{
-				Spec: certificates.CertificateSigningRequestSpec{
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
 					Request: pem.EncodeToMemory(
 						&pem.Block{
 							Type:  "CERTIFICATE REQUEST",
@@ -88,8 +88,8 @@ func TestIsYurtCSR(t *testing.T) {
 		},
 		{
 			desc: "is not a openyurt related certificate request",
-			csr: &certificates.CertificateSigningRequest{
-				Spec: certificates.CertificateSigningRequestSpec{
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
 					Request: pem.EncodeToMemory(
 						&pem.Block{
 							Type:  "CERTIFICATE REQUEST",
@@ -101,8 +101,8 @@ func TestIsYurtCSR(t *testing.T) {
 		},
 		{
 			desc: "is yurttunnel related certificate request",
-			csr: &certificates.CertificateSigningRequest{
-				Spec: certificates.CertificateSigningRequestSpec{
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
 					Request: pem.EncodeToMemory(
 						&pem.Block{
 							Type:  "CERTIFICATE REQUEST",
@@ -114,8 +114,8 @@ func TestIsYurtCSR(t *testing.T) {
 		},
 		{
 			desc: "is yurthub related certificate request",
-			csr: &certificates.CertificateSigningRequest{
-				Spec: certificates.CertificateSigningRequestSpec{
+			csr: &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
 					Request: pem.EncodeToMemory(
 						&pem.Block{
 							Type:  "CERTIFICATE REQUEST",
@@ -140,7 +140,7 @@ func TestIsYurtCSR(t *testing.T) {
 func TestCheckCertApprovalCondition(t *testing.T) {
 	tests := []struct {
 		desc   string
-		status *certificates.CertificateSigningRequestStatus
+		status *certificatesv1.CertificateSigningRequestStatus
 		exp    struct {
 			approved bool
 			denied   bool
@@ -148,10 +148,10 @@ func TestCheckCertApprovalCondition(t *testing.T) {
 	}{
 		{
 			desc: "approved",
-			status: &certificates.CertificateSigningRequestStatus{
-				Conditions: []certificates.CertificateSigningRequestCondition{
+			status: &certificatesv1.CertificateSigningRequestStatus{
+				Conditions: []certificatesv1.CertificateSigningRequestCondition{
 					{
-						Type: certificates.CertificateApproved,
+						Type: certificatesv1.CertificateApproved,
 					},
 				},
 			},
@@ -162,10 +162,10 @@ func TestCheckCertApprovalCondition(t *testing.T) {
 		},
 		{
 			desc: "denied",
-			status: &certificates.CertificateSigningRequestStatus{
-				Conditions: []certificates.CertificateSigningRequestCondition{
+			status: &certificatesv1.CertificateSigningRequestStatus{
+				Conditions: []certificatesv1.CertificateSigningRequestCondition{
 					{
-						Type: certificates.CertificateDenied,
+						Type: certificatesv1.CertificateDenied,
 					},
 				},
 			},
@@ -176,13 +176,13 @@ func TestCheckCertApprovalCondition(t *testing.T) {
 		},
 		{
 			desc: "approved and denied",
-			status: &certificates.CertificateSigningRequestStatus{
-				Conditions: []certificates.CertificateSigningRequestCondition{
+			status: &certificatesv1.CertificateSigningRequestStatus{
+				Conditions: []certificatesv1.CertificateSigningRequestCondition{
 					{
-						Type: certificates.CertificateApproved,
+						Type: certificatesv1.CertificateApproved,
 					},
 					{
-						Type: certificates.CertificateDenied,
+						Type: certificatesv1.CertificateDenied,
 					},
 				},
 			},
