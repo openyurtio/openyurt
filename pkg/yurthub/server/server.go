@@ -32,9 +32,8 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
 
@@ -182,19 +181,19 @@ func GenUseCertMgrAndTLSConfig(restConfigMgr *rest.RestConfigManager, certificat
 		return nil, err
 	}
 	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-	serverCertMgr, err := server.NewYurtHubServerCertManager(clientSet, certDir, proxyServerSecureDummyAddr)
+	serverCertMgr, err := certmanager.NewYurtHubServerCertManager(clientSet, certDir, proxyServerSecureDummyAddr)
 	if err != nil {
 		return nil, err
 	}
 	serverCertMgr.Start()
 
 	// generate the TLS configuration based on the latest certificate
-	rootCert, err := certificate.GenCertPoolUseCA(certificateMgr.GetCaFile())
+	rootCert, err := certmanager.GenCertPoolUseCA(certificateMgr.GetCaFile())
 	if err != nil {
 		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
 		return nil, err
 	}
-	tlsCfg, err := certificate.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
+	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert)
 	if err != nil {
 		return nil, err
 	}

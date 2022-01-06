@@ -28,10 +28,9 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/agent"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/pki/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 )
@@ -105,7 +104,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	klog.Infof("certificate %s ok", projectinfo.GetAgentName())
 
 	// 3. generate a TLS configuration for securing the connection to server
-	tlsCfg, err := pki.GenTLSConfigUseCertMgrAndCA(agentCertMgr,
+	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCA(agentCertMgr,
 		tunnelServerAddr, constants.YurttunnelCAFile)
 	if err != nil {
 		return err

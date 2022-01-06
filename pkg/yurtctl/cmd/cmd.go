@@ -51,9 +51,9 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
+	cmds.AddCommand(yurtinit.NewCmdInit())
 	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
-	cmds.AddCommand(yurtinit.NewCmdInit(os.Stdout, nil))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
