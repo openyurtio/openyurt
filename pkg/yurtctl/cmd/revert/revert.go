@@ -160,7 +160,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	klog.V(4).Info("the status of all nodes are satisfied")
 
 	// 2. remove the yurt controller manager
-	if err = ro.clientSet.AppsV1().Deployments("kube-system").
+	if err = ro.clientSet.AppsV1().Deployments(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
@@ -169,7 +169,7 @@ func (ro *RevertOptions) RunRevert() (err error) {
 	klog.Info("yurt controller manager is removed")
 
 	// 2.1 remove the serviceaccount for yurt-controller-manager
-	if err = ro.clientSet.CoreV1().ServiceAccounts("kube-system").
+	if err = ro.clientSet.CoreV1().ServiceAccounts(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), constants.YurtControllerManager, metav1.DeleteOptions{
 			PropagationPolicy: &kubeutil.PropagationPolicy,
 		}); err != nil && !apierrors.IsNotFound(err) {
@@ -347,7 +347,7 @@ func removeYurtTunnelServer(client *kubernetes.Clientset) error {
 func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet dynamic.Interface) error {
 	// 1. remove the Deployment
 	if err := client.AppsV1().
-		Deployments("kube-system").
+		Deployments(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), constants.YurtAppManager,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the deployment/%s: %s",
@@ -357,7 +357,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("deployment/%s is deleted", constants.YurtAppManager)
 
 	// 2. remove the Role
-	if err := client.RbacV1().Roles("kube-system").
+	if err := client.RbacV1().Roles(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), "yurt-app-leader-election-role",
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the role/%s: %s",
@@ -385,7 +385,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-manager-rolebinding")
 
 	// 5. remove the RoleBinding
-	if err := client.RbacV1().RoleBindings("kube-system").
+	if err := client.RbacV1().RoleBindings(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), "yurt-app-leader-election-rolebinding",
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the rolebinding/%s: %s",
@@ -395,7 +395,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("clusterrolebinding/%s is deleted", "yurt-app-leader-election-rolebinding")
 
 	// 6 remove the Secret
-	if err := client.CoreV1().Secrets("kube-system").
+	if err := client.CoreV1().Secrets(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), "yurt-app-webhook-certs",
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the secret/%s: %s",
@@ -405,7 +405,7 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	klog.V(4).Infof("secret/%s is deleted", "yurt-app-webhook-certs")
 
 	// 7 remove Service
-	if err := client.CoreV1().Services("kube-system").
+	if err := client.CoreV1().Services(constants.YurtAppManagerNamespace).
 		Delete(context.Background(), "yurt-app-webhook-service",
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the service/%s: %s",

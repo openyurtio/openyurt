@@ -66,6 +66,7 @@ const (
 	YurtTunnelAgent              = "yurt-tunnel-agent"
 	Yurthub                      = "yurthub"
 	YurtAppManager               = "yurt-app-manager"
+	YurtAppManagerNamespace      = "kube-system"
 	KubeletServiceContent        = `
 [Unit]
 Description=kubelet: The Kubernetes Node Agent
