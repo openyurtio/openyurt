@@ -90,7 +90,7 @@ var (
 	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
 	CheckServantJobPeriod = time.Second * 10
 	// ValidServerVersions contains all compatible server version
-	// yurtctl only support Kubernetes 1.12+ - 1.16+ for now
+	// yurtctl only support Kubernetes 1.12+ - 1.21+ for now
 	ValidServerVersions = []string{
 		"1.12", "1.12+",
 		"1.13", "1.13+",
@@ -101,7 +101,7 @@ var (
 		"1.20", "1.20+",
 		"1.21", "1.21+"}
 
-	ErrClusterVersionEmpty = errors.New("Cluster version should not be empty")
+	ErrClusterVersionEmpty = errors.New("cluster version should not be empty")
 )
 
 func processCreateErr(kind string, name string, err error) error {

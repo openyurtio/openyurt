@@ -243,9 +243,16 @@ func unmarshalDynamicRESTMapper(data []byte) map[schema.GroupVersionResource]sch
 
 // IsSchemeResource is used to determine whether gvr is a built-in resource
 func IsSchemeResource(gvr schema.GroupVersionResource) bool {
-	_, kindErr := unsafeSchemeRESTMapper.KindFor(gvr)
+	gvks, kindErr := unsafeSchemeRESTMapper.KindsFor(gvr)
 	if kindErr != nil {
 		return false
 	}
-	return true
+
+	for i := range gvks {
+		if gvks[i].Group == gvr.Group && gvks[i].Version == gvr.Version {
+			return true
+		}
+	}
+
+	return false
 }

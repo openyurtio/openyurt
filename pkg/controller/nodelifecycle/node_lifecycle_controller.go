@@ -25,7 +25,6 @@ package nodelifecycle
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	coordinformers "k8s.io/client-go/informers/coordination/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -52,11 +50,10 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics/prometheus/ratelimiter"
+	utilnode "k8s.io/component-helpers/node/topology"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller"
-	kubefeatures "github.com/openyurtio/openyurt/pkg/controller/kubernetes/features"
-	utilnode "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/node"
 	taintutils "github.com/openyurtio/openyurt/pkg/controller/kubernetes/util/taints"
 	"github.com/openyurtio/openyurt/pkg/controller/nodelifecycle/scheduler"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
@@ -881,7 +878,7 @@ func (nc *Controller) processTaintBaseEviction(node *v1.Node, observedReadyCondi
 			if !nodeutil.SwapNodeControllerTaint(nc.kubeClient, []*v1.Taint{&taintToAdd}, []*v1.Taint{UnreachableTaintTemplate}, node) {
 				klog.Errorf("Failed to instantly swap UnreachableTaint to NotReadyTaint. Will try again in the next cycle.")
 			}
-		} else if nc.markNodeForTainting(node) {
+		} else if nc.markNodeForTainting(node, v1.ConditionFalse) {
 			klog.V(2).Infof("Node %v is NotReady as of %v. Adding it to the Taint queue.",
 				node.Name,
 				decisionTimestamp,
@@ -894,7 +891,7 @@ func (nc *Controller) processTaintBaseEviction(node *v1.Node, observedReadyCondi
 			if !nodeutil.SwapNodeControllerTaint(nc.kubeClient, []*v1.Taint{&taintToAdd}, []*v1.Taint{NotReadyTaintTemplate}, node) {
 				klog.Errorf("Failed to instantly swap NotReadyTaint to UnreachableTaint. Will try again in the next cycle.")
 			}
-		} else if nc.markNodeForTainting(node) {
+		} else if nc.markNodeForTainting(node, v1.ConditionUnknown) {
 			klog.V(2).Infof("Node %v is unresponsive as of %v. Adding it to the Taint queue.",
 				node.Name,
 				decisionTimestamp,
@@ -962,36 +959,8 @@ func (nc *Controller) processNoTaintBaseEviction(node *v1.Node, observedReadyCon
 const labelNodeDisruptionExclusion = "node.kubernetes.io/exclude-disruption"
 
 func isNodeExcludedFromDisruptionChecks(node *v1.Node) bool {
-	// DEPRECATED: will be removed in 1.19
-	if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.LegacyNodeRoleBehavior) {
-		if legacyIsMasterNode(node.Name) {
-			return true
-		}
-	}
-	if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.NodeDisruptionExclusion) {
-		if _, ok := node.Labels[labelNodeDisruptionExclusion]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// legacyIsMasterNode returns true if given node is a registered master according
-// to the logic historically used for this function. This code path is deprecated
-// and the node disruption exclusion label should be used in the future.
-// This code will not be allowed to update to use the node-role label, since
-// node-roles may not be used for feature enablement.
-// DEPRECATED: Will be removed in 1.19
-func legacyIsMasterNode(nodeName string) bool {
-	// We are trying to capture "master(-...)?$" regexp.
-	// However, using regexp.MatchString() results even in more than 35%
-	// of all space allocations in ControllerManager spent in this function.
-	// That's why we are trying to be a bit smarter.
-	if strings.HasSuffix(nodeName, "master") {
+	if _, ok := node.Labels[labelNodeDisruptionExclusion]; ok {
 		return true
-	}
-	if len(nodeName) >= 10 {
-		return strings.HasSuffix(nodeName[:len(nodeName)-3], "master-")
 	}
 	return false
 }
@@ -1491,9 +1460,21 @@ func (nc *Controller) evictPods(node *v1.Node, pods []*v1.Pod) (bool, error) {
 	return nc.zonePodEvictor[utilnode.GetZoneKey(node)].Add(node.Name, string(node.UID)), nil
 }
 
-func (nc *Controller) markNodeForTainting(node *v1.Node) bool {
+func (nc *Controller) markNodeForTainting(node *v1.Node, status v1.ConditionStatus) bool {
 	nc.evictorLock.Lock()
 	defer nc.evictorLock.Unlock()
+	if status == v1.ConditionFalse {
+		if !taintutils.TaintExists(node.Spec.Taints, NotReadyTaintTemplate) {
+			nc.zoneNoExecuteTainter[utilnode.GetZoneKey(node)].Remove(node.Name)
+		}
+	}
+
+	if status == v1.ConditionUnknown {
+		if !taintutils.TaintExists(node.Spec.Taints, UnreachableTaintTemplate) {
+			nc.zoneNoExecuteTainter[utilnode.GetZoneKey(node)].Remove(node.Name)
+		}
+	}
+
 	return nc.zoneNoExecuteTainter[utilnode.GetZoneKey(node)].Add(node.Name, string(node.UID))
 }
 

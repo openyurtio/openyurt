@@ -26,13 +26,13 @@ import (
 	"os"
 	"time"
 
-	certificates "k8s.io/api/certificates/v1beta1"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	clicert "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 
@@ -105,11 +105,11 @@ func NewYurttunnelServerCertManager(
 		constants.YurttunneServerCSRCN,
 		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
 		dnsNames,
-		[]certificates.KeyUsage{
-			certificates.UsageKeyEncipherment,
-			certificates.UsageDigitalSignature,
-			certificates.UsageServerAuth,
-			certificates.UsageClientAuth,
+		[]certificatesv1.KeyUsage{
+			certificatesv1.UsageKeyEncipherment,
+			certificatesv1.UsageDigitalSignature,
+			certificatesv1.UsageServerAuth,
+			certificatesv1.UsageClientAuth,
 		},
 		ips,
 		getIPs)
@@ -135,10 +135,10 @@ func NewYurttunnelAgentCertManager(
 		constants.YurttunnelAgentCSRCN,
 		[]string{constants.YurttunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
-		[]certificates.KeyUsage{
-			certificates.UsageKeyEncipherment,
-			certificates.UsageDigitalSignature,
-			certificates.UsageClientAuth,
+		[]certificatesv1.KeyUsage{
+			certificatesv1.UsageKeyEncipherment,
+			certificatesv1.UsageDigitalSignature,
+			certificatesv1.UsageClientAuth,
 		},
 		[]net.IP{net.ParseIP(nodeIP)},
 		nil)
@@ -164,10 +164,10 @@ func NewYurtHubServerCertManager(
 		YurtHubServerCSRCN,
 		[]string{YurtHubServerCSROrg, YurtHubCSROrg},
 		nil,
-		[]certificates.KeyUsage{
-			certificates.UsageKeyEncipherment,
-			certificates.UsageDigitalSignature,
-			certificates.UsageServerAuth,
+		[]certificatesv1.KeyUsage{
+			certificatesv1.UsageKeyEncipherment,
+			certificatesv1.UsageDigitalSignature,
+			certificatesv1.UsageServerAuth,
 		},
 		[]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP(host)},
 		nil)
@@ -182,7 +182,7 @@ func newCertManager(
 	commonName string,
 	organizations,
 	dnsNames []string,
-	keyUsages []certificates.KeyUsage,
+	keyUsages []certificatesv1.KeyUsage,
 	ips []net.IP,
 	getIPs serveraddr.GetIPs) (certificate.Manager, error) {
 	certificateStore, err :=
@@ -211,10 +211,10 @@ func newCertManager(
 	}
 
 	certManager, err := certificate.NewManager(&certificate.Config{
-		ClientFn: func(current *tls.Certificate) (clicert.CertificateSigningRequestInterface, error) {
-			return clientset.CertificatesV1beta1().CertificateSigningRequests(), nil
+		ClientsetFn: func(current *tls.Certificate) (kubernetes.Interface, error) {
+			return clientset, nil
 		},
-		SignerName:       certificates.LegacyUnknownSignerName,
+		SignerName:       certificatesv1beta1.LegacyUnknownSignerName,
 		GetTemplate:      getTemplate,
 		Usages:           keyUsages,
 		CertificateStore: certificateStore,
