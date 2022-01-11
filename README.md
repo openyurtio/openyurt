@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.5.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.6.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 
@@ -14,7 +14,7 @@ English | [简体中文](./README.zh.md)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-|Latest Release: September 26th, 2021. OpenYurt v0.5.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
+|Latest Release: January 11th, 2022. OpenYurt v0.6.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1 |
 
 [OpenYurt](https://openyurt.io>) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
@@ -49,9 +49,12 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
 - **Yurt controller manager**: It supplements the upstream node controller to support edge computing requirements. For example,
   Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the
   node heartbeats are missing.
-- **Yurt app manager**: It manages two CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)
-  and [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md) (previous UnitedDeployment). The former provides a convenient
-  management for a pool of nodes within the same region or site. The latter defines a pool based application management workload.
+- **Yurt app manager**: It manages four CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md),
+  [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(previous UnitedDeployment), [YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md), [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md).
+  `NodePool` provides a convenient management for a pool of nodes within the same region or site.
+  `YurtAppSet` defines a new edge application management methodology of using per node pool workload.
+  `YurtAppDaemon` provides a similar K8S DaemonSet support for user app workload from the NodePool level.
+  `YurtIngress` is responsible to deploy configurable ingress controller to the user specified NodePools.
 - **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
@@ -72,34 +75,22 @@ Please check the [resource and system requirements](./docs/resource-and-system-r
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions up to 1.20. Using higher Kubernetes versions may cause
+OpenYurt supports Kubernetes versions up to 1.21. Using higher Kubernetes versions may cause
 compatibility issues.
 
-You can setup the OpenYurt cluster [manually](docs/tutorial/manually-setup.md), but we recommend to start
-OpenYurt by using the `yurtctl` CLI tool. To quickly build and install `yurtctl`,
-assuming the build system has golang 1.13+ and bash installed, you can simply do the following:
+In order to use OpenYurt conveniently, There are several ways to install OpenYurt cluster and you can choose the way that matches your situation.
 
-```bash
-git clone https://github.com/openyurtio/openyurt.git
-cd openyurt
-make build WHAT=cmd/yurtctl
-```
-
-The `yurtctl` binary can be found at `_output/bin`. The commonly used CLI commands include:
-
-```bash
-yurtctl convert --provider [minikube|kubeadm|kind]  // To convert an existing Kubernetes cluster to an OpenYurt cluster
-yurtctl revert                                      // To uninstall and revert back to the original cluster settings
-yurtctl join                                        // To allow a new node to join OpenYurt
-yurtctl reset                                       // To revert changes to the node made by the join command
-yurtctl init                                        // To init an OpenYurt Cluster
-```
-
-Please check [yurtctl tutorial](./docs/tutorial/yurtctl.md) for more details.
+| Situations                                                   | Installation               | Link                                                         | installation time |
+| ------------------------------------------------------------ | -------------------------- | :----------------------------------------------------------- | ---------- |
+| apply a test account  | OpenYurt Experience Center | https://openyurt.io/docs/next/installation/openyurt-experience-center/overview | < 1min     |
+| install an OpenYurt cluster from scratch                     | yurtctl init/join          | https://openyurt.io/docs/next/installation/yurtctl-init-join | <5min      |
+| convert a Kubernetes cluster to OpenYurt cluster in a declarative way | yurtcluster-operator       | https://openyurt.io/docs/next/installation/yurtcluster       | <5min      |
+| convert a Kubernetes cluster to OpenYurt cluster in a imperative way | yurtctl convert/revert     | https://openyurt.io/docs/next/installation/yurtctl-convert-revert | <5min      |
+| convert a Kubernetes cluster to OpenYurt cluster in manual way | -                          | https://openyurt.io/docs/next/installation/manually-setup    | >10min     |
 
 ## Tutorials
 
-To experience the power of OpenYurt, please try the detailed [tutorials](./docs/tutorial/README.md).
+To experience the power of OpenYurt, please try the detailed [tutorials](https://openyurt.io/docs/next/).
 
 ## Roadmap
 
