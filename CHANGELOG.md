@@ -1,5 +1,78 @@
 # CHANGELOG
 
+## v0.6.0
+
+### What's New
+
+**Support YurtAppDaemon to deploy workload to different NodePools**
+
+A YurtAppDaemon ensures that all (or some) NodePools run a copy of a Deployment or StatefulSet. As nodepools are added to the cluster,
+Deployment or StatefulSet are added to them. As nodepools are removed from the cluster, those Deployments or StatefulSet are garbage collected.
+The behavior of YurtAppDaemon is similar to that of DaemonSet, except that YurtAppDaemon creates workloads from a node pool.
+More information can be found at: ([#422](https://github.com/openyurtio/openyurt/pull/422), [yurt-app-manager](https://github.com/openyurtio/yurt-app-manager), [@kadisi](https://github.com/kadisi))
+
+**Using YurtIngress to unify service across NodePools**
+
+YurtIngress acts as a unified interface for services access request from outside the NodePool, it abstracts and simplifies
+service access logic to users, it also reduces the complexity of NodePool services management. More information can be
+found at: ([#373](https://github.com/openyurtio/openyurt/pull/373), [#645](https://github.com/openyurtio/openyurt/pull/645), [yurt-app-manager](https://github.com/openyurtio/yurt-app-manager), [@zzguang](https://github.com/zzguang), [@gnunu](https://github.com/gnunu), [@LindaYu17](https://github.com/LindaYu17))
+
+**Improve the user experience of OpenYurt**
+
+- OpenYurt Experience Center
+
+New users who want to try out OpenYurt's capabilities do not need to install an OpenYurt cluster from scratch.
+They can apply for a test account on the OpenYurt Experience Center and immediately have an OpenYurt cluster available.
+More information can be found at: ([OpenYurt Experience Center Introduction](https://openyurt.io/zh/docs/next/installation/openyurt-experience-center/overview/), [@luc99hen](https://github.com/luc99hen), [@qclc](https://github.com/qclc), [@Peeknut](https://github.com/Peeknut))
+
+- YurtCluster
+
+This YurtCluster Operator is to translate a vanilla Kubernetes cluster into an OpenYurt cluster, through a simple API (YurtCluster CRD).
+And we recommend that you do the cluster conversion based on the declarative API of YurtCluster Operator. More information can be
+found at: ([#389](https://github.com/openyurtio/openyurt/pull/389), [#518](https://github.com/openyurtio/openyurt/pull/518), [yurtcluster-operator](https://github.com/openyurtio/yurtcluster-operator), [@SataQiu](https://github.com/SataQiu), [@gnunu](https://github.com/gnunu))
+
+- Yurtctl init/join
+
+In order to improve efficiency of creating OpenYurt cluster, a new tool named [sealer](https://github.com/alibaba/sealer) has
+been integrated into `yurtctl init` command. and OpenYurt cluster image(based on Kubernetes v1.19.7 version) has been prepared.
+Users can use `yurtctl init` command to create OpenYurt cluster control-plane, and use `yurtctl join` to add worker nodes(including
+cloud nodes and edge nodes). More information can be found at: ([#704](https://github.com/openyurtio/openyurt/pull/704), [#697](https://github.com/openyurtio/openyurt/pull/697), [@Peeknut](https://github.com/Peeknut), [@rambohe-ch](https://github.com/rambohe-ch), [@adamzhoul](https://github.com/adamzhoul))
+
+**Update docs of OpenYurt**
+
+The docs of OpenYurt installation, core concepts, user manuals, developer manuals etc. have been updated, and all of them are located at [OpenYurt Docs](https://openyurt.io/zh/docs/next/).
+Thanks to all contributors for maintaining docs for OpenYurt. ([@huangyuqi](https://github.com/huangyuqi), [@kadisi](https://github.com/kadisi), [@luc99hen](https://github.com/orgs/openyurtio/people/luc99hen), [@SataQiu](https://github.com/SataQiu), [@mowangdk](https://github.com/orgs/openyurtio/people/mowangdk), [@rambohe-ch](https://github.com/rambohe-ch), [@zyjhtangtang](https://github.com/zyjhtangtang), [@qclc](https://github.com/qclc), [@Peeknut](https://github.com/Peeknut), [@Congrool](https://github.com/Congrool), [@zzguang](https://github.com/zzguang), [@adamzhoul](https://github.com/adamzhoul), [@windydayc](https://github.com/windydayc), [@villanel](https://github.com/villanel))
+
+### Other Notable Changes
+
+- Proposal: enhance cluster networking capabilities ([#637](https://github.com/openyurtio/openyurt/pull/637), [@DrmagicE](https://github.com/DrmagicE), [@BSWANG](https://github.com/BSWANG))
+- add node-servant ([#516](https://github.com/openyurtio/openyurt/pull/516), [adamzhoul](https://github.com/adamzhoul))
+- improve yurt-tunnel-server to automatically update server certificates when service address changed ([#525](https://github.com/openyurtio/openyurt/pull/525), [@YRXING](https://github.com/YRXING))
+- automatically clean dummy interface and iptables rule when yurthub is stopped by k8s ([#530](https://github.com/openyurtio/openyurt/pull/530), [@Congrool](https://github.com/Congrool))
+- enhancement: add openyurt.io/skip-discard annotation verify for discardcloudservice filter ([#524](https://github.com/openyurtio/openyurt/pull/542), [@rambohe-ch](https://github.com/rambohe-ch))
+- inject working_mode ([#552](https://github.com/openyurtio/openyurt/pull/552), [@ngau66](https://github.com/ngau66))
+- Yurtctl revert adds the function of deleting yurt app manager ([#555](https://github.com/openyurtio/openyurt/pull/555), [@yanyhui](https://github.com/yanyhui))
+- Add edge device demo in the README.md ([#553](https://github.com/openyurtio/openyurt/pull/553), [#554](https://github.com/openyurtio/openyurt/pull/554), [@Fei-Guo](https://github.com/Fei-Guo), [@qclc](https://github.com/qclc), [@lwmqwer](https://github.com/lwmqwer))
+- Refactor: separate the creation of informers from tunnel server component ([#585](https://github.com/openyurtio/openyurt/pull/585), [@YRXING](https://github.com/YRXING))
+- add make push for pushing images generated during make release ([#601](https://github.com/openyurtio/openyurt/pull/601), [@gnunu](https://github.com/gnunu))
+- add trafficforward that contains two diversion modes: DNAT and DNS ([#606](https://github.com/openyurtio/openyurt/pull/606), [@JcJinChen](https://github.com/JcJinChen))
+- yurthub verify bootstrap ca on start ([#631](https://github.com/openyurtio/openyurt/pull/631), [@gnunu](https://github.com/gnunu))
+- deprecate kubelet certificate management mode ([#639](https://github.com/openyurtio/openyurt/pull/639), [@qclc](https://github.com/qclc))
+- remove k8s.io/kubernetes dependency from OpenYurt ([#650](https://github.com/openyurtio/openyurt/pull/650), [#664](https://github.com/openyurtio/openyurt/pull/664), [#681](https://github.com/openyurtio/openyurt/pull/681), [#697](https://github.com/openyurtio/openyurt/pull/697), [#704](https://github.com/openyurtio/openyurt/pull/704), [@rambohe-ch](https://github.com/rambohe-ch), [@qclc](https://github.com/qclc), [@Peeknut](https://github.com/Peeknut), [@Rachel-Shao](https://github.com/Rachel-Shao))
+- add unit tests for yurthub data filtering framework ([#670](https://github.com/openyurtio/openyurt/pull/670), [@windydayc](https://github.com/windydayc))
+- enable yurthub to handle upgrade request ([#673](https://github.com/openyurtio/openyurt/pull/673), [@Congrool](https://github.com/Congrool))
+- Yurtctl: add precheck for reducing convert failure ([#675](https://github.com/openyurtio/openyurt/pull/675), [@Peeknut](https://github.com/Peeknut))
+- ingress: add nodepool endpoints filtering for nginx ingress controller ([#696](https://github.com/openyurtio/openyurt/pull/696), [@zzguang](https://github.com/zzguang))
+
+### Bug Fixes
+
+- fix some bugs when local up openyurt  ([#517](https://github.com/openyurtio/openyurt/pull/517), [@Congrool](https://github.com/Congrool))
+- reject delete pod request by yurthub when cloud-edge network disconnected ([#593](https://github.com/openyurtio/openyurt/pull/593), [@rambohe-ch](https://github.com/rambohe-ch))
+- service topology filter can not work when hub agent work on cloud mode ([#607](https://github.com/openyurtio/openyurt/pull/607), [@rambohe-ch](https://github.com/rambohe-ch))
+- fix transport race conditions in yurthub ([#683](https://github.com/openyurtio/openyurt/pull/683), [@rambohe-ch](https://github.com/rambohe-ch), [@DrmagicE](https://github.com/DrmagicE))
+
+---
+
 ## v0.5.0
 
 ### What's New

@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.5.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v0.6.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 
@@ -14,7 +14,7 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-| 最新发布：2021-09-26  OpenYurt v0.5.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 最新发布：2022-01-11  OpenYurt v0.6.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
 OpenYurt (官网: <https://openyurt.io>) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
@@ -41,7 +41,8 @@ OpenYurt 遵循经典的云边一体化架构。
 上图展示了OpenYurt的核心架构。OpenYurt 的主要组件包括：
 - **YurtHub**：一个节点守护进程，充当Kubelet、Kube-Proxy、CNI插件等原生Kubernetes组件的出站流量代理。它将所有可能访问的API资源缓存到边缘节点的本地存储中。如果边缘节点离线，Yurthub可以帮助节点在重新启动后恢复状态。
 - **Yurt Controller Manager**：基于原生节点控制器增强来支持边缘计算需求。例如，即使节点心跳丢失，处于自治模式的节点中的pod也不会从APIServer中驱逐。
-- **Yurt App Manager**：它管理OpenYurt中引入的两个CRD资源:[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)和[YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(以前的UnitedDeployment)。前者为同一区域或站点内的节点资源提供了方便的管理。后者定义了一个基于节点池维度的工作负载管理模型。
+- **Yurt App Manager**：它管理OpenYurt中引入的四个CRD资源:[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)，[YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(以前的UnitedDeployment)，[YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)， [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md)。
+`NodePool`为同一区域或站点内的节点资源提供了方便的管理。`YurtAppSet`定义了一个基于节点池维度的工作负载管理模型。`YurtAppDaemon`从节点池维度提供一种类似K8s DaemonSet的工作负载管理模型。`YurtIngress`负责将Ingress Controller部署到用户指定的节点池。
 - **Yurt Tunnel (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在云端的控制平面与处于企业内网(Intranet)环境的边缘节点之间建立安全的网络访问。
 
 此外，OpenYurt还包括用于集成和定制的辅助控制器。
@@ -60,29 +61,20 @@ OpenYurt 遵循经典的云边一体化架构。
 安装OpenYurt前，请检查[资源和系统要求](./docs/resource-and-system-requirements-cn.md)
 
 ## 开始使用
-OpenYurt 支持最高版本为1.20的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
-您可以[手动](docs/tutorial/manually-setup.md)安装OpenYurt集群，但是我们建议使用 `yurtctl` 命令行工具启动 OpenYurt 。要快速构建和安装设置 `yurtctl` ，在编译系统已安装了 golang 1.13+ 和 bash 的前提下你可以执行以下命令来完成安装：
+OpenYurt 支持最高版本为1.21的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
 
-```bash
-git clone https://github.com/openyurtio/openyurt.git
-cd openyurt
-make build WHAT=cmd/yurtctl
-```
+为了用户更方便的使用OpenYurt，用户可以根据下表，选择合适的方法来安装OpenYurt。
 
-`yurtctl` 的二进制文件位于_output/bin 目录。常用的CLI命令包括:
-
-```
-yurtctl convert --provider [minikube|kubeadm|kind]  // 一键式转换原生Kubernetes集群为OpenYurt集群
-yurtctl revert                                      // 一键式恢复OpenYurt集群为Kubernetes集群
-yurtctl join                                        // 往OpenYurt中接入一个节点(在边缘节点上执行)
-yurtctl reset                                       // 从OpenYurt中清除边缘节点(在边缘节点上执行)
-yurtctl init                                        // 初始化OpenYurt集群
-```
-
-请查看 [yurtctl教程](./docs/tutorial/yurtctl.md)来获得更多使用细节。
+| 使用场景                                 | 安装方式               | 参考链接                                                     | 安装时间 |
+| ---------------------------------------- | ---------------------- | :----------------------------------------------------------- | -------- |
+| 申请一个测试账号 | OpenYurt体验中心       | https://openyurt.io/docs/next/installation/openyurt-experience-center/overview | < 1min   |
+| 从零安装一个OpenYurt集群                 | yurtctl init/join      | https://openyurt.io/docs/next/installation/yurtctl-init-join | <5min    |
+| 转换K8s集群为OpenYurt集群(声明式)        | yurtcluster-operator   | https://openyurt.io/docs/next/installation/yurtcluster       | <5min    |
+| 转换K8s集群为OpenYurt集群(命令式)        | yurtctl convert/revert | https://openyurt.io/docs/next/installation/yurtctl-convert-revert | <5min    |
+| 手动转换K8s集群为OpenYurt集群            | -                      | https://openyurt.io/docs/next/installation/manually-setup    | >10min   |
 
 ## 使用方法
-我们提供详细的[教程](./docs/tutorial/README.md)来演示如何使用 OpenYurt。
+OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示如何使用 OpenYurt。
 
 ## 发展规划
 [2021年 发展规划](docs/roadmap.md)
