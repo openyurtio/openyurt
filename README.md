@@ -50,11 +50,12 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
   Pods in the nodes that are in the `autonomy` mode will not be evicted from APIServer even if the
   node heartbeats are missing.
 - **Yurt app manager**: It manages four CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md),
-  [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(previous UnitedDeployment), [YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md), [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md).
+  [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md), [YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)
+  and [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md).
   `NodePool` provides a convenient management for a pool of nodes within the same region or site.
-  `YurtAppSet` defines a new edge application management methodology of using per node pool workload.
-  `YurtAppDaemon` provides a similar K8S DaemonSet support for user app workload from the NodePool level.
-  `YurtIngress` is responsible to deploy configurable ingress controller to the user specified NodePools.
+  `YurtAppSet` defines a new edge application management methodology of using per NodePool workload.
+  `YurtAppDaemon` enables to deploy workload for every matching NodePool.
+  `YurtIngress` ocherstrates the deployment of multiple ingress controllers to the respective NodePools.
 - **Yurt tunnel (server/agent)**: `TunnelServer` connects with the `TunnelAgent` daemon running in each edge node via a
   reverse proxy to establish a secure network access between the cloud site control plane and the edge nodes
   that are connected to the intranet.
@@ -76,17 +77,14 @@ Please check the [resource and system requirements](./docs/resource-and-system-r
 ## Getting started
 
 OpenYurt supports Kubernetes versions up to 1.21. Using higher Kubernetes versions may cause
-compatibility issues.
+compatibility issues. OpenYurt can be installed using any of the following methods:
 
-In order to use OpenYurt conveniently, There are several ways to install OpenYurt cluster and you can choose the way that matches your situation.
-
-| Situations                                                   | Installation               | Link                                                         | installation time |
-| ------------------------------------------------------------ | -------------------------- | :----------------------------------------------------------- | ---------- |
-| apply a test account  | OpenYurt Experience Center | https://openyurt.io/docs/next/installation/openyurt-experience-center/overview | < 1min     |
-| install an OpenYurt cluster from scratch                     | yurtctl init/join          | https://openyurt.io/docs/next/installation/yurtctl-init-join | <5min      |
-| convert a Kubernetes cluster to OpenYurt cluster in a declarative way | yurtcluster-operator       | https://openyurt.io/docs/next/installation/yurtcluster       | <5min      |
-| convert a Kubernetes cluster to OpenYurt cluster in a imperative way | yurtctl convert/revert     | https://openyurt.io/docs/next/installation/yurtctl-convert-revert | <5min      |
-| convert a Kubernetes cluster to OpenYurt cluster in manual way | -                          | https://openyurt.io/docs/next/installation/manually-setup    | >10min     |
+| Methods                                                   | Instruction                     | Estimated time |
+| --------------------------------------------------------- | -------------------------- | ---------- |
+| Try via OpenYurt experience center  | [OpenYurt experience center](https://openyurt.io/docs/next/installation/openyurt-experience-center/overview) | < 1 minutes     |
+| Install a new Kubernetes cluster with all OpenYurt components from scratch | [yurtctl]( https://openyurt.io/docs/next/installation/yurtctl-init-join) | < 5 minutes     |
+| Convert a Kubernetes cluster to an OpenYurt cluster using operator | [yurtcluster-operator]( https://openyurt.io/docs/next/installation/yurtcluster)       | < 5 minutes      |
+| Convert a Kubernetes cluster to an OpenYurt cluster manually  | [manual]( https://openyurt.io/docs/next/installation/manually-setup)    | > 10 minutes     |
 
 ## Tutorials
 
