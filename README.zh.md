@@ -65,13 +65,12 @@ OpenYurt 支持最高版本为1.21的 Kubernetes 。使用更高版本的 Kubern
 
 为了用户更方便的使用OpenYurt，用户可以根据下表，选择合适的方法来安装OpenYurt。
 
-| 使用场景                                 | 安装方式               | 参考链接                                                     | 安装时间 |
-| ---------------------------------------- | ---------------------- | :----------------------------------------------------------- | -------- |
-| 申请一个测试账号 | OpenYurt体验中心       | https://openyurt.io/docs/next/installation/openyurt-experience-center/overview | < 1min   |
-| 从零安装一个OpenYurt集群                 | yurtctl init/join      | https://openyurt.io/docs/next/installation/yurtctl-init-join | <5min    |
-| 转换K8s集群为OpenYurt集群(声明式)        | yurtcluster-operator   | https://openyurt.io/docs/next/installation/yurtcluster       | <5min    |
-| 转换K8s集群为OpenYurt集群(命令式)        | yurtctl convert/revert | https://openyurt.io/docs/next/installation/yurtctl-convert-revert | <5min    |
-| 手动转换K8s集群为OpenYurt集群            | -                      | https://openyurt.io/docs/next/installation/manually-setup    | >10min   |
+| 体验方法                                 | 参考链接                                                     | 预计时间 |
+| ---------------------------------------- | ---------------------- | -------- |
+| 通过OpenYurt体验中心 | [OpenYurt体验中心](https://openyurt.io/docs/next/installation/openyurt-experience-center/overview) | < 1min   |
+| 从零安装一个OpenYurt集群                 | [yurtctl](https://openyurt.io/docs/next/installation/yurtctl-init-join) | <5min    |
+| 通过Operator把K8s集群转换为OpenYurt集群        | [yurtcluster-operator](https://openyurt.io/docs/next/installation/yurtcluster)       | <5min    |
+| 手动转换K8s集群为OpenYurt集群            | [manual](https://openyurt.io/docs/next/installation/manually-setup)    | 10min   |
 
 ## 使用方法
 OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示如何使用 OpenYurt。
