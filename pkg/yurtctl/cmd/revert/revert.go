@@ -152,9 +152,9 @@ func (ro *RevertOptions) RunRevert() (err error) {
 
 	var nodeNames []string
 	for _, node := range nodeLst.Items {
-		if !isNodeReady(&node.Status) {
-			return fmt.Errorf("cannot do the revert, the status of worker or kube-controller-manager node: %s is not 'Ready'", node.Name)
-		}
+		// if !isNodeReady(&node.Status) {
+		// 	return fmt.Errorf("cannot do the revert, the status of worker or kube-controller-manager node: %s is not 'Ready'", node.Name)
+		// }
 		nodeNames = append(nodeNames, node.GetName())
 	}
 	klog.V(4).Info("the status of all nodes are satisfied")

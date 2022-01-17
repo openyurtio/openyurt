@@ -364,7 +364,7 @@ func RunConvertClusterChecks(cliSet *kubernetes.Clientset, ignorePreflightErrors
 	}
 
 	checks := []Checker{
-		NodeReadyCheck{NodeLst: nodeLst},
+		// NodeReadyCheck{NodeLst: nodeLst},
 		NodeEdgeWorkerLabelCheck{NodeLst: nodeLst},
 		JobExistCheck{JobLst: jobLst, Prefix: kubeutil.DisableNodeControllerJobNameBase, Label: "DisableNodeController"},
 		JobExistCheck{JobLst: jobLst, Prefix: nodeservant.ConvertJobNameBase, Label: "NodeServantConvert"},
