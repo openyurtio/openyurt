@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	kubeletConfigRegularExpression = "\\-\\-kubeconfig=.*kubelet.conf"
+	kubeletConfigRegularExpression = "\\-\\-kubeconfig[=|\\s+].*kubelet.conf"
 	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][-\\w]{0,62}(\\.[\\w][-\\w]{0,62})*(:[\\d]{1,5})?"
 
 	kubeAdmFlagsEnvFile = "/var/lib/kubelet/kubeadm-flags.env"
@@ -202,7 +202,14 @@ func GetApiServerAddress(kubeadmConfPaths []string) (string, error) {
 		return "", err
 	}
 
-	confArr := strings.Split(kubeletConfPath, "=")
+	var confArr []string
+	switch {
+	case strings.Contains(kubeletConfPath, "="):
+		confArr = strings.Split(kubeletConfPath, "=")
+	default:
+		confArr = strings.Fields(kubeletConfPath)
+	}
+
 	if len(confArr) != 2 {
 		return "", fmt.Errorf("get kubeletConfPath format err:%s", kubeletConfPath)
 	}
