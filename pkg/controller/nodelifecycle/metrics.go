@@ -29,6 +29,7 @@ const (
 	zoneSizeKey             = "zone_size"
 	zoneNoUnhealthyNodesKey = "unhealthy_nodes_in_zone"
 	evictionsNumberKey      = "evictions_number"
+	zone                    = "zone"
 )
 
 var (
@@ -39,7 +40,7 @@ var (
 			Help:           "Gauge measuring percentage of healthy nodes per zone.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"zone"},
+		[]string{zone},
 	)
 	zoneSize = metrics.NewGaugeVec(
 		&metrics.GaugeOpts{
@@ -48,7 +49,7 @@ var (
 			Help:           "Gauge measuring number of registered Nodes per zones.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"zone"},
+		[]string{zone},
 	)
 	unhealthyNodes = metrics.NewGaugeVec(
 		&metrics.GaugeOpts{
@@ -57,7 +58,7 @@ var (
 			Help:           "Gauge measuring number of not Ready Nodes per zones.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"zone"},
+		[]string{zone},
 	)
 	evictionsNumber = metrics.NewCounterVec(
 		&metrics.CounterOpts{
@@ -66,7 +67,7 @@ var (
 			Help:           "Number of Node evictions that happened since current instance of NodeController started.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"zone"},
+		[]string{zone},
 	)
 )
 
