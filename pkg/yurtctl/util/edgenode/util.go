@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	NODE_NAME  = "NODE_NAME"
-	KUBECONFIG = "KUBECONFIG"
+	NODE_NAME     = "NODE_NAME"
+	KUBECONFIG    = "KUBECONFIG"
+	NodeNameSplit = "="
 )
 
 // FileExists determines whether the file exists
@@ -119,7 +120,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	//2. find --hostname-override in 10-kubeadm.conf
 	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, KubeletHostname)
 	if nodeName != "" {
-		nodeName = strings.Split(nodeName, "=")[1]
+		nodeName = strings.Split(nodeName, NodeNameSplit)[1]
 		return nodeName, nil
 	} else {
 		klog.V(4).Info("get nodename err: ", err)
@@ -134,7 +135,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 		ef = strings.Split(ef, "-")[1]
 		nodeName, err = GetSingleContentFromFile(ef, KubeletHostname)
 		if nodeName != "" {
-			nodeName = strings.Split(nodeName, "=")[1]
+			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
 			return nodeName, nil
 		} else {
 			klog.V(4).Info("get nodename err: ", err)
