@@ -232,7 +232,7 @@ func CheckAndInstallSealer() error {
 		}
 		comp := "sealer"
 		target := fmt.Sprintf("/usr/bin/%s", comp)
-		if err := edgenode.CopyFile(TmpDownloadDir+"/"+comp, target, 0755); err != nil {
+		if err := edgenode.CopyFile(TmpDownloadDir+"/"+comp, target, dirMode); err != nil {
 			return err
 		}
 	}
