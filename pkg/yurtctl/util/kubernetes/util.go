@@ -748,7 +748,7 @@ func CheckAndInstallKubelet(clusterVersion string) error {
 		}
 		for _, comp := range []string{"kubectl", "kubeadm", "kubelet"} {
 			target := fmt.Sprintf("/usr/bin/%s", comp)
-			if err := edgenode.CopyFile(constants.TmpDownloadDir+"/kubernetes/node/bin/"+comp, target, 0755); err != nil {
+			if err := edgenode.CopyFile(constants.TmpDownloadDir+"/kubernetes/node/bin/"+comp, target, constants.DirMode); err != nil {
 				return err
 			}
 		}
@@ -834,7 +834,7 @@ func SetKubeletConfigForNode() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), 0755); err != nil {
+	if err := ioutil.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
@@ -857,7 +857,7 @@ func SetKubeletCaCert(config *clientcmdapi.Config) error {
 	}
 
 	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(config)
-	if err := ioutil.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), 0755); err != nil {
+	if err := ioutil.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
