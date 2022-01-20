@@ -116,6 +116,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	mInitializer := initializer.NewMiddlewareInitializer(cfg.SharedInformerFactory)
 	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
 	if err != nil {
+		klog.Errorf("failed to init handler wrappers, %v", err)
 		return err
 	}
 
