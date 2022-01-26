@@ -196,7 +196,7 @@ func newCertManager(
 		if getIPs != nil {
 			tmpIPs, err := getIPs()
 			if err == nil && len(tmpIPs) != 0 {
-				klog.V(3).Infof("the latest tunnel server's ips=%#+v", tmpIPs)
+				klog.V(4).Infof("the latest tunnel server's ips=%#+v", tmpIPs)
 				ips = tmpIPs
 			}
 		}

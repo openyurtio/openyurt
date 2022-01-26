@@ -67,6 +67,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		klog.V(3).Infof("request header in traceReqMiddleware: %v with host: %s and urL: %s", req.Header, req.Host, req.URL.String())
 		scheme := "https"
 		if req.TLS == nil {
 			scheme = "http"
@@ -89,6 +90,18 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 			if err := trm.modifyRequest(req, host, port); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
+			}
+		} else {
+			// access tunnel-server directly with specified ProxyDestHeaderKey,
+			// request's Host should be modified to specified destination.
+			proxyDest := req.Header.Get(constants.ProxyDestHeaderKey)
+			if len(proxyDest) != 0 {
+				destHost, destPort, err := net.SplitHostPort(proxyDest)
+				if err == nil && (destHost != host || destPort != port) {
+					req.Host = proxyDest
+					req.Header.Set("Host", proxyDest)
+					req.URL.Host = proxyDest
+				}
 			}
 		}
 
