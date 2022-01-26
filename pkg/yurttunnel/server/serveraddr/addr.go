@@ -351,8 +351,10 @@ func GetDefaultDomainsForSvc(ns, name string) []string {
 
 func NodeListToNodes(nodeLst *corev1.NodeList) []*corev1.Node {
 	nodes := make([]*corev1.Node, 0)
-	for _, node := range nodeLst.Items {
-		nodes = append(nodes, &node)
+	if nodeLst != nil {
+		for _, node := range nodeLst.Items {
+			nodes = append(nodes, &node)
+		}
 	}
 	return nodes
 }
