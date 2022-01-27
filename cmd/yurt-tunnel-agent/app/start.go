@@ -61,6 +61,7 @@ func NewYurttunnelAgentCommand(stopCh <-chan struct{}) *cobra.Command {
 			}
 			return nil
 		},
+		Args: cobra.NoArgs,
 	}
 
 	agentOptions.AddFlags(cmd.Flags())
