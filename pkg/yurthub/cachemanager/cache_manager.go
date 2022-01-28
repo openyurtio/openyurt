@@ -570,7 +570,7 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 		// request with Edge-Cache header, continue verification
 	} else {
 		cm.RLock()
-		if !cm.cacheAgents.Has(comp) {
+		if !cm.cacheAgents.HasAny("*", comp) {
 			cm.RUnlock()
 			return false
 		}

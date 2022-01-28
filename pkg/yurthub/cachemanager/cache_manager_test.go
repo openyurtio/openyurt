@@ -18,6 +18,7 @@ package cachemanager
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -40,6 +41,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
@@ -2376,7 +2380,6 @@ func TestCanCacheFor(t *testing.T) {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
 	s := NewStorageWrapper(dStorage)
-	m, _ := NewCacheManager(s, nil, nil, nil)
 
 	type proxyRequest struct {
 		userAgent string
@@ -2386,6 +2389,7 @@ func TestCanCacheFor(t *testing.T) {
 	}
 
 	testcases := map[string]struct {
+		cacheAgents    string
 		preRequest     *proxyRequest
 		preExpectCache bool
 		request        *proxyRequest
@@ -2583,19 +2587,53 @@ func TestCanCacheFor(t *testing.T) {
 			},
 			expectCache: false,
 		},
+		"cacheAgents *": {
+			request: &proxyRequest{
+				userAgent: "lc",
+				verb:      "GET",
+				path:      "/api/v1/namespaces/default/pods/test/status",
+			},
+			cacheAgents: "*",
+			expectCache: true,
+		},
+		"cacheAgents *  for old": {
+			request: &proxyRequest{
+				userAgent: "lc",
+				verb:      "GET",
+				path:      "/api/v1/namespaces/default/pods/test/status",
+			},
+			cacheAgents: "*,xxx",
+			expectCache: true,
+		},
+		"cacheAgents without *": {
+			request: &proxyRequest{
+				userAgent: "lc",
+				verb:      "GET",
+				path:      "/api/v1/namespaces/default/pods/test/status",
+			},
+			cacheAgents: "xxx",
+			expectCache: false,
+		},
 	}
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
+			stop := make(chan struct{})
+			defer close(stop)
+			client := fake.NewSimpleClientset()
+			informerFactory := informers.NewSharedInformerFactory(client, 0)
+			m, _ := NewCacheManager(s, nil, nil, informerFactory)
+			informerFactory.Start(nil)
+			cache.WaitForCacheSync(stop, informerFactory.Core().V1().ConfigMaps().Informer().HasSynced)
 			if tt.preRequest != nil {
-				reqCanCache := checkReqCanCache(m, tt.preRequest.userAgent, tt.preRequest.verb, tt.preRequest.path, tt.preRequest.header)
+				reqCanCache := checkReqCanCache(m, tt.preRequest.userAgent, tt.preRequest.verb, tt.preRequest.path, tt.preRequest.header, tt.cacheAgents, client)
 				if reqCanCache != tt.preExpectCache {
 					t.Errorf("Got request pre can cache %v, but expect request pre can cache %v", reqCanCache, tt.preExpectCache)
 				}
 			}
 
 			if tt.request != nil {
-				reqCanCache := checkReqCanCache(m, tt.request.userAgent, tt.request.verb, tt.request.path, tt.request.header)
+				reqCanCache := checkReqCanCache(m, tt.request.userAgent, tt.request.verb, tt.request.path, tt.request.header, tt.cacheAgents, client)
 				if reqCanCache != tt.expectCache {
 					t.Errorf("Got request can cache %v, but expect request can cache %v", reqCanCache, tt.expectCache)
 				}
@@ -2608,7 +2646,7 @@ func TestCanCacheFor(t *testing.T) {
 	}
 }
 
-func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[string]string) bool {
+func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[string]string, cacheAgents string, testClient *fake.Clientset) bool {
 	req, _ := http.NewRequest(verb, path, nil)
 	if len(userAgent) != 0 {
 		req.Header.Set("User-Agent", userAgent)
@@ -2619,7 +2657,22 @@ func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[s
 	}
 
 	req.RemoteAddr = "127.0.0.1"
-
+	if cacheAgents != "" {
+		_, err := testClient.CoreV1().ConfigMaps(util.YurtHubNamespace).Create(context.Background(), &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      util.YurthubConfigMapName,
+				Namespace: util.YurtHubNamespace,
+			},
+			Data: map[string]string{
+				util.CacheUserAgentsKey: cacheAgents,
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return false
+		}
+		// waiting for create event
+		time.Sleep(2 * time.Second)
+	}
 	var reqCanCache bool
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		reqCanCache = m.CanCacheFor(req)
