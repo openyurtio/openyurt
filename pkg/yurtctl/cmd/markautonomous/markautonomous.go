@@ -60,6 +60,7 @@ func NewMarkAutonomousCmd() *cobra.Command {
 				klog.Fatalf("fail to make nodes autonomous: %s", err)
 			}
 		},
+		Args: cobra.NoArgs,
 	}
 
 	cmd.Flags().StringP("autonomous-nodes", "a", "",

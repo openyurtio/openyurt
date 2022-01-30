@@ -48,6 +48,7 @@ func NewxPreflightConvertCmd() *cobra.Command {
 			}
 			klog.Info("convert pre-flight checks success")
 		},
+		Args: cobra.NoArgs,
 	}
 	setFlags(cmd)
 
