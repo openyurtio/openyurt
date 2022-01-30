@@ -47,6 +47,7 @@ func NewConvertCmd() *cobra.Command {
 			}
 			klog.Info("convert success")
 		},
+		Args: cobra.NoArgs,
 	}
 	setFlags(cmd)
 

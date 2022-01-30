@@ -65,6 +65,7 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 			}
 			return nil
 		},
+		Args: cobra.NoArgs,
 	}
 
 	serverOptions.AddFlags(cmd.Flags())
