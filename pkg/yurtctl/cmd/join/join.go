@@ -205,7 +205,7 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		return nil, errors.Errorf("when --discovery-token-ca-cert-hash is not specified, --discovery-token-unsafe-skip-ca-verification should be true")
 	}
 
-	var ignoreErrors sets.String
+	ignoreErrors := sets.String{}
 	for i := range opt.ignorePreflightErrors {
 		ignoreErrors.Insert(opt.ignorePreflightErrors[i])
 	}
