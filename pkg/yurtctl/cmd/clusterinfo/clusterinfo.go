@@ -66,6 +66,7 @@ func NewClusterInfoCmd() *cobra.Command {
 				klog.Fatalf("fail to run cluster-info cmd: %s", err)
 			}
 		},
+		Args: cobra.NoArgs,
 	}
 
 	return cmd

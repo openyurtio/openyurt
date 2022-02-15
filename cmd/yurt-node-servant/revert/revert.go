@@ -40,6 +40,7 @@ func NewRevertCmd() *cobra.Command {
 			}
 			klog.Info("revert success")
 		},
+		Args: cobra.NoArgs,
 	}
 	setFlags(cmd)
 

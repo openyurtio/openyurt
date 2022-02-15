@@ -73,6 +73,7 @@ func NewRevertCmd() *cobra.Command {
 				os.Exit(1)
 			}
 		},
+		Args: cobra.NoArgs,
 	}
 
 	cmd.Flags().String("node-servant-image",

@@ -87,6 +87,7 @@ func NewConvertCmd() *cobra.Command {
 				os.Exit(1)
 			}
 		},
+		Args: cobra.NoArgs,
 	}
 
 	setFlags(cmd)
