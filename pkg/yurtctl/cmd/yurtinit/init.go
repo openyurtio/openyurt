@@ -55,7 +55,7 @@ const (
 	TmpDownloadDir = "/tmp"
 
 	SealerUrlFormat      = "https://github.com/alibaba/sealer/releases/download/%s/sealer-%s-linux-%s.tar.gz"
-	DefaultSealerVersion = "v0.6.0"
+	DefaultSealerVersion = "v0.6.1"
 
 	InitClusterImage = "%s/openyurt-cluster:%s"
 	SealerRunCmd     = "sealer apply -f %s/Clusterfile"
@@ -79,6 +79,8 @@ spec:
     passwd: {{.passwd}}
     pk: /root/.ssh/id_rsa
     user: root
+  env:
+  - YurttunnelServerAddress={{.yurttunnel_server_address}}
 ---
 apiVersion: sealer.cloud/v2
 kind: KubeadmConfig
@@ -95,27 +97,12 @@ spec:
   controllerManager:
     extraArgs:
       controllers: -nodelifecycle,*,bootstrapsigner,tokencleaner
----
-apiVersion: kubeproxy.config.k8s.io/v1alpha1
-kind: KubeProxyConfiguration
-featureGates:
-  EndpointSliceProxying: true
----
-apiVersion: sealer.aliyun.com/v1alpha1
-kind: Plugin
-metadata:
-  name: MyShell
-spec:
-  type: SHELL
-  action: PostInstall # PreInit PreInstall PostInstall
-  data: |
-    sed -i 's/${YurttunnelServerAddress}/{{.yurttunnel_server_address}}/g' manifests/yurttunnel-server.yaml && kubectl apply -f manifests/.
 `
 )
 
 var (
 	ValidSealerVersions = []string{
-		"v0.6.0",
+		"v0.6.1",
 	}
 )
 
