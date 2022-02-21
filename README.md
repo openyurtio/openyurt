@@ -116,7 +116,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-10dxeg3v9-PRApjbfTWN6G3sIIHan2kA)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-16x9do2sj-_3_koBAQOf5JsAzHwWdDEA)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
