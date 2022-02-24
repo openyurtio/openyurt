@@ -27,11 +27,9 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/clusterinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/convert"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurtinit"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurttest"
 )
@@ -48,8 +46,6 @@ func NewYurtctlCommand() *cobra.Command {
 	setVersion(cmds)
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
-	cmds.AddCommand(convert.NewConvertCmd())
-	cmds.AddCommand(revert.NewRevertCmd())
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
 	cmds.AddCommand(yurtinit.NewCmdInit())
