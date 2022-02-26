@@ -173,5 +173,10 @@ metadata:
   name: yurt-hub-cfg
   namespace: kube-system
 data:
-  cache_agents: ""`
+  cache_agents: ""
+  filter_endpoints: coredns/endpoints#list;watch
+  filter_servicetopology: coredns/endpointslices#list;watch
+  filter_discardcloudservice: ""
+  filter_masterservice: ""
+`
 )

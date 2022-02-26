@@ -29,19 +29,16 @@ import (
 
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.Interface, error) {
+	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.Runner, error) {
 		return NewFilter(), nil
 	})
 }
 
 func NewFilter() *discardCloudServiceFilter {
-	return &discardCloudServiceFilter{
-		Approver: filter.NewApprover("kube-proxy", "services", []string{"list", "watch"}...),
-	}
+	return &discardCloudServiceFilter{}
 }
 
 type discardCloudServiceFilter struct {
-	*filter.Approver
 	serializerManager *serializer.SerializerManager
 }
 

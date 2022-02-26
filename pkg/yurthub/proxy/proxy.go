@@ -67,7 +67,7 @@ func NewYurtReverseProxyHandler(
 		transportMgr,
 		healthChecker,
 		certManager,
-		yurtHubCfg.FilterChain,
+		yurtHubCfg.FilterManager,
 		stopCh)
 	if err != nil {
 		return nil, err
