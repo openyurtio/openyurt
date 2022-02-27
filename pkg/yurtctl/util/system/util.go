@@ -50,8 +50,8 @@ func SetIpv4Forward() error {
 //setBridgeSetting turn on the node bridge-nf-call-iptables.
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
-	if err := ioutil.WriteFile(constants.Sysctl_k8s_config, []byte(kubernetsBridgeSetting), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %v ", constants.Sysctl_k8s_config, err)
+	if err := ioutil.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
+		return fmt.Errorf("Write file %s fail: %v ", constants.SysctlK8sConfig, err)
 	}
 
 	if exist, _ := edgenode.FileExists(bridgenf); !exist {

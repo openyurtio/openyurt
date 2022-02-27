@@ -51,7 +51,7 @@ func runCleanfile(c workflow.RunData) error {
 		constants.KubeletServiceFilepath,
 		constants.KubeCniDir,
 		constants.KubeletConfigureDir,
-		constants.Sysctl_k8s_config} {
+		constants.SysctlK8sConfig} {
 		if err := os.RemoveAll(file); err != nil {
 			klog.Warningf("Clean file %s fail: %v, please clean it manually.", file, err)
 		}

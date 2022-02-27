@@ -38,7 +38,7 @@ const (
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
 
-	Sysctl_k8s_config        = "/etc/sysctl.d/k8s.conf"
+	SysctlK8sConfig          = "/etc/sysctl.d/k8s.conf"
 	KubeletConfigureDir      = "/etc/kubernetes"
 	KubeletWorkdir           = "/var/lib/kubelet"
 	YurtHubWorkdir           = "/var/lib/yurthub"
