@@ -242,7 +242,7 @@ func (c *checker) check() bool {
 		return true
 	}
 
-	klog.Infof("failed to update lease: %v, remote server %s", err, c.remoteServer.String())
+	klog.Errorf("failed to update lease: %v, remote server %s", err, c.remoteServer.String())
 	c.markAsUnhealthy()
 	return false
 }
