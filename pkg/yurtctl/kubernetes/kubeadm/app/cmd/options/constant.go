@@ -74,4 +74,7 @@ const (
 
 	// YurtHubImage flag sets the yurthub image for worker node.
 	YurtHubImage = "yurthub-image"
+
+	// KubernetesResourceServer flag sets the address for download k8s node resources.
+	KubernetesResourceServer = "kubernetes-resource-server"
 )
