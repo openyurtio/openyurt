@@ -70,6 +70,11 @@ spec:
               fieldPath: status.hostIP
       hostNetwork: true
       restartPolicy: Always
+      tolerations:
+        - operator: Exists
+        - operator: Equal
+          key: node-role.openyurt.io/edge
+          effect: NoSchedule
       volumes:
       - name: k8s-dir
         hostPath:
