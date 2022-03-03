@@ -45,6 +45,9 @@ const (
 	yurttunnelServerPortChain = "TUNNEL-PORT"
 	yurttunnelPortChainPrefix = "TUNNEL-PORT-"
 	defaultSyncPeriod         = 15
+
+	// NoConnectionToDelete is the error string returned by conntrack when no matching connections are found
+	NoConnectionToDelete = "0 flow entries have been deleted"
 )
 
 var (
@@ -449,19 +452,22 @@ func toCIDR(ip net.IP) string {
 	return fmt.Sprintf("%s/%d", ip.String(), size)
 }
 
-func (im *iptablesManager) clearConnTrackEntries(ips, ports []string) {
+func (im *iptablesManager) clearConnTrackEntries(ips, ports []string) error {
 	if len(im.conntrackPath) == 0 {
-		return
+		return nil
 	}
 	klog.Infof("clear conntrack entries for ports %q and nodes %q", ports, ips)
 	for _, port := range ports {
 		for _, ip := range ips {
-			im.clearConnTrackEntriesForIPPort(ip, port)
+			if err := im.clearConnTrackEntriesForIPPort(ip, port); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) {
+func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) error {
 	parameters := parametersWithFamily(utilnet.IsIPv6String(ip),
 		"-D", "--orig-dst",
 		ip, "-p",
@@ -469,13 +475,14 @@ func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) {
 	output, err := im.execer.
 		Command(im.conntrackPath, parameters...).
 		CombinedOutput()
-	if err != nil {
+
+	if err != nil && !strings.Contains(err.Error(), NoConnectionToDelete) {
 		klog.Errorf("clear conntrack for %s:%s failed: %q, error message: %s",
 			ip, port, string(output), err)
-		return
+		return fmt.Errorf("clear conntrack for %s:%s failed: %q, error message: %s",
+			ip, port, string(output), err)
 	}
-	klog.Infof("clear conntrack for %s:%s successfully: %q",
-		ip, port, string(output))
+	return nil
 }
 
 func parametersWithFamily(isIPv6 bool, parameters ...string) []string {
