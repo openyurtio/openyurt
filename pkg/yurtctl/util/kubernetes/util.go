@@ -711,7 +711,7 @@ func GetKubeControllerManagerHANodes(cliSet *kubernetes.Clientset) ([]string, er
 }
 
 //CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
-func CheckAndInstallKubelet(clusterVersion string) error {
+func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) error {
 	if strings.Contains(clusterVersion, "-") {
 		clusterVersion = strings.Split(clusterVersion, "-")[0]
 	}
@@ -737,7 +737,7 @@ func CheckAndInstallKubelet(clusterVersion string) error {
 
 	if !kubeletExist {
 		//download and install kubernetes-node
-		packageUrl := fmt.Sprintf(constants.KubeUrlFormat, clusterVersion, runtime.GOARCH)
+		packageUrl := fmt.Sprintf(constants.KubeUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
 		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {

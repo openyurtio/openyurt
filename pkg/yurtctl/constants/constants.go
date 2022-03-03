@@ -51,10 +51,11 @@ const (
 	YurthubStaticPodFileName = "yurthub.yaml"
 	PauseImagePath           = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 
-	CniUrlFormat      = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
-	KubeUrlFormat     = "https://dl.k8s.io/%s/kubernetes-node-linux-%s.tar.gz"
-	TmpDownloadDir    = "/tmp"
-	FlannelIntallFile = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/flannel.yaml"
+	CniUrlFormat                    = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
+	DefaultKubernetesResourceServer = "dl.k8s.io"
+	KubeUrlFormat                   = "https://%s/%s/kubernetes-node-linux-%s.tar.gz"
+	TmpDownloadDir                  = "/tmp"
+	FlannelIntallFile               = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/flannel.yaml"
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"

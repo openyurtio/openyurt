@@ -66,6 +66,7 @@ type joinOptions struct {
 	unsafeSkipCAVerification bool
 	ignorePreflightErrors    []string
 	nodeLabels               string
+	kubernetesResourceServer string
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -78,6 +79,7 @@ func newJoinOptions() *joinOptions {
 		caCertHashes:             make([]string, 0),
 		unsafeSkipCAVerification: false,
 		ignorePreflightErrors:    make([]string, 0),
+		kubernetesResourceServer: yurtconstants.DefaultKubernetesResourceServer,
 	}
 }
 
@@ -159,21 +161,26 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.nodeLabels, options.NodeLabels, joinOptions.nodeLabels,
 		"Sets the labels for joining node",
 	)
+	flagSet.StringVar(
+		&joinOptions.kubernetesResourceServer, options.KubernetesResourceServer, joinOptions.kubernetesResourceServer,
+		"Sets the address for downloading k8s node resources",
+	)
 }
 
 type joinData struct {
-	joinNodeData          *joindata.NodeRegistration
-	apiServerEndpoint     string
-	token                 string
-	tlsBootstrapCfg       *clientcmdapi.Config
-	clientSet             *clientset.Clientset
-	ignorePreflightErrors sets.String
-	organizations         string
-	pauseImage            string
-	yurthubImage          string
-	kubernetesVersion     string
-	caCertHashes          sets.String
-	nodeLabels            map[string]string
+	joinNodeData             *joindata.NodeRegistration
+	apiServerEndpoint        string
+	token                    string
+	tlsBootstrapCfg          *clientcmdapi.Config
+	clientSet                *clientset.Clientset
+	ignorePreflightErrors    sets.String
+	organizations            string
+	pauseImage               string
+	yurthubImage             string
+	kubernetesVersion        string
+	caCertHashes             sets.String
+	nodeLabels               map[string]string
+	kubernetesResourceServer string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -238,6 +245,7 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 			CRISocket:     opt.criSocket,
 			Organizations: opt.organizations,
 		},
+		kubernetesResourceServer: opt.kubernetesResourceServer,
 	}
 
 	// parse node labels
@@ -330,4 +338,8 @@ func (j *joinData) CaCertHashes() sets.String {
 
 func (j *joinData) NodeLabels() map[string]string {
 	return j.nodeLabels
+}
+
+func (j *joinData) KubernetesResourceServer() string {
+	return j.kubernetesResourceServer
 }

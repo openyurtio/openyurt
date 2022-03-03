@@ -65,7 +65,7 @@ func runPrepare(c workflow.RunData) error {
 	if err := system.SetSELinux(); err != nil {
 		return err
 	}
-	if err := kubernetes.CheckAndInstallKubelet(data.KubernetesVersion()); err != nil {
+	if err := kubernetes.CheckAndInstallKubelet(data.KubernetesResourceServer(), data.KubernetesVersion()); err != nil {
 		return err
 	}
 	if err := kubernetes.SetKubeletService(); err != nil {

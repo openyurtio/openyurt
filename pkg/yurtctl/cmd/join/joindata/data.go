@@ -41,4 +41,5 @@ type YurtJoinData interface {
 	CaCertHashes() sets.String
 	NodeLabels() map[string]string
 	IgnorePreflightErrors() sets.String
+	KubernetesResourceServer() string
 }
