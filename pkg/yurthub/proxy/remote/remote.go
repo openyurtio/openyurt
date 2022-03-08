@@ -159,7 +159,8 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 		// filter response data
 		if rp.filterManager != nil {
 			if rp.filterManager.Approve(req) {
-				size, filterRc, err := rp.filterManager.Filter(req, resp.Body, rp.stopCh)
+				wrapBody, needUncompressed := util.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
+				size, filterRc, err := rp.filterManager.Filter(req, wrapBody, rp.stopCh)
 				if err != nil {
 					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
 					return err
@@ -169,18 +170,25 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 					resp.ContentLength = int64(size)
 					resp.Header.Set("Content-Length", fmt.Sprint(size))
 				}
+
+				// after gunzip in filter, the header content encoding should be removed.
+				// because there's no need to gunzip response.body again.
+				if needUncompressed {
+					resp.Header.Del("Content-Encoding")
+				}
 			}
 		}
 
 		// cache resp with storage interface
 		if rp.cacheMgr != nil && rp.cacheMgr.CanCacheFor(req) {
 			rc, prc := util.NewDualReadCloser(req, resp.Body, true)
+			wrapPrc, _ := util.NewGZipReaderCloser(resp.Header, prc, req, "cache-manager")
 			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 				err := rp.cacheMgr.CacheResponse(req, prc, stopCh)
 				if err != nil && err != io.EOF && err != context.Canceled {
 					klog.Errorf("%s response cache ended with error, %v", util.ReqString(req), err)
 				}
-			}(req, prc, rp.stopCh)
+			}(req, wrapPrc, rp.stopCh)
 
 			resp.Body = rc
 		}
