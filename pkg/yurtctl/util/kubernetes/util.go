@@ -433,7 +433,7 @@ func AnnotateNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val stri
 	return newNode, nil
 }
 
-func AddEdgeWorkerLableAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
+func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
 	node.Labels[projectinfo.GetEdgeWorkerLabelKey()] = lVal
 	node.Annotations[projectinfo.GetAutonomyAnnotation()] = aVal
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})

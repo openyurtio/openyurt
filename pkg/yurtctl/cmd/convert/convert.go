@@ -196,7 +196,7 @@ func (c *ClusterConverter) RunConvert() (err error) {
 	for _, node := range nodeLst.Items {
 		isEdge := strutil.IsInStringLst(edgeNodeNames, node.Name)
 		isAuto := strutil.IsInStringLst(c.AutonomousNodes, node.Name)
-		if _, err = kubeutil.AddEdgeWorkerLableAndAutonomyAnnotation(c.ClientSet, &node,
+		if _, err = kubeutil.AddEdgeWorkerLabelAndAutonomyAnnotation(c.ClientSet, &node,
 			strconv.FormatBool(isEdge), strconv.FormatBool(isAuto)); err != nil {
 			return
 		}
