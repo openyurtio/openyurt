@@ -237,7 +237,7 @@ func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
 		clusterScoped = false
 	}
 
-	prefix := "/" + path.Join(info.APIGroup, info.APIGroup)
+	prefix := "/" + path.Join(info.APIGroup, info.APIVersion)
 	namer := handlers.ContextBasedNaming{
 		SelfLinker:         runtime.SelfLinker(meta.NewAccessor()),
 		SelfLinkPathPrefix: path.Join(prefix, info.Resource) + "/",
