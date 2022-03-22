@@ -44,7 +44,7 @@ type RemoteProxy struct {
 	reverseProxy         *httputil.ReverseProxy
 	cacheMgr             cachemanager.CacheManager
 	remoteServer         *url.URL
-	filterChain          filter.Interface
+	filterManager        *filter.Manager
 	currentTransport     http.RoundTripper
 	bearerTransport      http.RoundTripper
 	upgradeHandler       *proxy.UpgradeAwareHandler
@@ -64,7 +64,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
 	healthChecker healthchecker.HealthChecker,
-	filterChain filter.Interface,
+	filterManager *filter.Manager,
 	stopCh <-chan struct{}) (*RemoteProxy, error) {
 	currentTransport := transportMgr.CurrentTransport()
 	if currentTransport == nil {
@@ -85,7 +85,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 		reverseProxy:         httputil.NewSingleHostReverseProxy(remoteServer),
 		cacheMgr:             cacheMgr,
 		remoteServer:         remoteServer,
-		filterChain:          filterChain,
+		filterManager:        filterManager,
 		currentTransport:     currentTransport,
 		bearerTransport:      bearerTransport,
 		upgradeHandler:       upgradeAwareHandler,
@@ -157,16 +157,18 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 		req = req.WithContext(ctx)
 
 		// filter response data
-		if rp.filterChain != nil {
-			size, filterRc, err := rp.filterChain.Filter(req, resp.Body, rp.stopCh)
-			if err != nil {
-				klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
-				return err
-			}
-			resp.Body = filterRc
-			if size > 0 {
-				resp.ContentLength = int64(size)
-				resp.Header.Set("Content-Length", fmt.Sprint(size))
+		if rp.filterManager != nil {
+			if rp.filterManager.Approve(req) {
+				size, filterRc, err := rp.filterManager.Filter(req, resp.Body, rp.stopCh)
+				if err != nil {
+					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
+					return err
+				}
+				resp.Body = filterRc
+				if size > 0 {
+					resp.ContentLength = int64(size)
+					resp.Header.Set("Content-Length", fmt.Sprint(size))
+				}
 			}
 		}
 

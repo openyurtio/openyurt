@@ -32,7 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
-type Factory func() (Interface, error)
+type Factory func() (Runner, error)
 
 type Filters struct {
 	sync.Mutex
@@ -49,8 +49,8 @@ func NewFilters(disabledFilters []string) *Filters {
 	}
 }
 
-func (fs *Filters) NewFromFilters(initializer FilterInitializer) (Interface, error) {
-	var filters []Interface
+func (fs *Filters) NewFromFilters(initializer FilterInitializer) (map[string]Runner, error) {
+	var filterMapping = make(map[string]Runner)
 	for _, name := range fs.names {
 		if fs.Enabled(name) {
 			factory, found := fs.registry[name]
@@ -68,16 +68,15 @@ func (fs *Filters) NewFromFilters(initializer FilterInitializer) (Interface, err
 				return nil, err
 			}
 			klog.V(2).Infof("Filter %s initialize successfully", name)
-
-			filters = append(filters, ins)
+			filterMapping[name] = ins
 		}
 	}
 
-	if len(filters) == 0 {
+	if len(filterMapping) == 0 {
 		return nil, nil
 	}
 
-	return filterChain(filters), nil
+	return filterMapping, nil
 }
 
 func (fs *Filters) Register(name string, fn Factory) {
@@ -105,7 +104,7 @@ func (fs *Filters) Enabled(name string) bool {
 
 type FilterInitializers []FilterInitializer
 
-func (fis FilterInitializers) Initialize(ins Interface) error {
+func (fis FilterInitializers) Initialize(ins Runner) error {
 	for _, fi := range fis {
 		if err := fi.Initialize(ins); err != nil {
 			return err

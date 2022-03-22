@@ -17,48 +17,75 @@ limitations under the License.
 package filter
 
 import (
+	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func TestApprove(t *testing.T) {
+func TestUpdateFilterConfig(t *testing.T) {
 	testcases := map[string]struct {
-		comp           string
-		resource       string
-		verbs          []string
-		comp2          string
-		resource2      string
-		verb2          string
-		expectedResult bool
+		defaultFilterCfg map[string]string
+		filterCfgKey     string
+		filterCfgValue   string
+		result           map[string][]*requestInfo
 	}{
-		"normal case": {
-			"kubelet", "services", []string{"list", "watch"},
-			"kubelet", "services", "list",
-			true,
+		"update filter_cfg when profile exists": {
+			filterCfgKey:   "filter_discardcloudservice",
+			filterCfgValue: "w1/services#list;watch,w2/services#list",
+			result: map[string][]*requestInfo{
+				"discardcloudservice": {
+					{
+						comp:     "kube-proxy",
+						resource: "services",
+						verbs:    sets.NewString([]string{"list", "watch"}...),
+					},
+					{
+						comp:     "w1",
+						resource: "services",
+						verbs:    sets.NewString([]string{"list", "watch"}...),
+					},
+					{
+						comp:     "w2",
+						resource: "services",
+						verbs:    sets.NewString([]string{"list"}...),
+					},
+				},
+			},
 		},
-		"components are not equal": {
-			"kubelet", "services", []string{"list", "watch"},
-			"kube-proxy", "services", "list",
-			false,
-		},
-		"resources are not equal": {
-			"kubelet", "services", []string{"list", "watch"},
-			"kubelet", "pods", "list",
-			false,
-		},
-		"verb is not in verbs set": {
-			"kubelet", "services", []string{"list", "watch"},
-			"kubelet", "services", "get",
-			false,
+		"when the configuration file is empty": {
+			filterCfgKey:   "filter_endpoints",
+			filterCfgValue: "",
+			result: map[string][]*requestInfo{
+				"endpoints": {
+					{
+						comp:     "nginx-ingress-controller",
+						resource: "endpoints",
+						verbs:    sets.NewString([]string{"list", "watch"}...),
+					},
+				},
+			},
 		},
 	}
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			approver := NewApprover(tt.comp, tt.resource, tt.verbs...)
-			result := approver.Approve(tt.comp2, tt.resource2, tt.verb2)
-
-			if result != tt.expectedResult {
-				t.Errorf("Approve error: expected %v, but got %v\n", tt.expectedResult, result)
+			m := &approver{
+				nameToRequests: make(map[string][]*requestInfo),
+			}
+			m.updateYurtHubFilterCfg(tt.filterCfgKey, tt.filterCfgValue, "")
+			fileType := strings.Split(tt.filterCfgKey, "_")[1]
+			reqs := m.nameToRequests[fileType]
+			for _, req := range reqs {
+				var flag bool
+				for _, res := range tt.result[fileType] {
+					if req.comp == res.comp && req.resource == res.resource && req.verbs.Equal(res.verbs) {
+						flag = true
+					}
+				}
+				if !flag {
+					t.Errorf("After updating the results do not match: %v, Results to be returneds: %v", reqs, tt.result[tt.filterCfgKey])
+				}
 			}
 		})
 	}

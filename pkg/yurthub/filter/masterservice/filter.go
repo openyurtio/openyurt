@@ -31,24 +31,19 @@ import (
 
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(filter.MasterServiceFilterName, func() (filter.Interface, error) {
+	filters.Register(filter.MasterServiceFilterName, func() (filter.Runner, error) {
 		return NewFilter(), nil
 	})
 }
 
 func NewFilter() *masterServiceFilter {
-	return &masterServiceFilter{
-		Approver: filter.NewApprover("kubelet", "services", []string{"list", "watch"}...),
-		stopCh:   make(chan struct{}),
-	}
+	return &masterServiceFilter{}
 }
 
 type masterServiceFilter struct {
-	*filter.Approver
 	serializerManager *serializer.SerializerManager
 	host              string
 	port              int32
-	stopCh            chan struct{}
 }
 
 func (msf *masterServiceFilter) SetSerializerManager(s *serializer.SerializerManager) error {

@@ -25,17 +25,19 @@ import (
 )
 
 type FilterInitializer interface {
-	Initialize(filter Interface) error
+	Initialize(filter Runner) error
 }
 
-// Interface of data filtering framework.
-type Interface interface {
-	// Approve is used to determine whether the data returned
-	// from the cloud needs to enter the filtering framework for processing.
-	Approve(comp, resource, verb string) bool
-
+// Runner of data filtering framework.
+type Runner interface {
 	// Filter is used to filter data returned from the cloud.
 	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
+}
+
+// Runner of data Approver filter.
+type Approver interface {
+	Approve(comp, resource, verb string) bool
+	GetFilterName(req *http.Request) string
 }
 
 // Handler customizes data filtering processing interface for each handler.

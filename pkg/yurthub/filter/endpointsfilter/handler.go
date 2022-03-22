@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingresscontroller
+package endpointsfilter
 
 import (
 	"io"
@@ -30,7 +30,7 @@ import (
 	appslisters "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/listers/apps/v1alpha1"
 )
 
-type ingressControllerFilterHandler struct {
+type endpointsFilterHandler struct {
 	nodeName       string
 	serializer     *serializer.Serializer
 	serviceLister  listers.ServiceLister
@@ -38,13 +38,13 @@ type ingressControllerFilterHandler struct {
 	nodeGetter     filter.NodeGetter
 }
 
-func NewIngressControllerFilterHandler(
+func NewEndpointsFilterHandler(
 	nodeName string,
 	serializer *serializer.Serializer,
 	serviceLister listers.ServiceLister,
 	nodePoolLister appslisters.NodePoolLister,
 	nodeGetter filter.NodeGetter) filter.Handler {
-	return &ingressControllerFilterHandler{
+	return &endpointsFilterHandler{
 		nodeName:       nodeName,
 		serializer:     serializer,
 		serviceLister:  serviceLister,
@@ -54,10 +54,10 @@ func NewIngressControllerFilterHandler(
 }
 
 // ObjectResponseFilter filter the endpoints from get response object and return the bytes
-func (fh *ingressControllerFilterHandler) ObjectResponseFilter(b []byte) ([]byte, error) {
+func (fh *endpointsFilterHandler) ObjectResponseFilter(b []byte) ([]byte, error) {
 	eps, err := fh.serializer.Decode(b)
 	if err != nil || eps == nil {
-		klog.Errorf("skip filter, failed to decode response in ObjectResponseFilter of ingressControllerFilterHandler, %v", err)
+		klog.Errorf("skip filter, failed to decode response in ObjectResponseFilter of endpointsFilterHandler, %v", err)
 		return b, nil
 	}
 
@@ -79,14 +79,14 @@ func (fh *ingressControllerFilterHandler) ObjectResponseFilter(b []byte) ([]byte
 }
 
 // FilterWatchObject filter the endpoints from watch response object and return the bytes
-func (fh *ingressControllerFilterHandler) StreamResponseFilter(rc io.ReadCloser, ch chan watch.Event) error {
+func (fh *endpointsFilterHandler) StreamResponseFilter(rc io.ReadCloser, ch chan watch.Event) error {
 	defer func() {
 		close(ch)
 	}()
 
 	d, err := fh.serializer.WatchDecoder(rc)
 	if err != nil {
-		klog.Errorf("StreamResponseFilter of ingressControllerFilterHandler ended with error, %v", err)
+		klog.Errorf("StreamResponseFilter of endpointsFilterHandler ended with error, %v", err)
 		return err
 	}
 	for {
@@ -112,7 +112,7 @@ func (fh *ingressControllerFilterHandler) StreamResponseFilter(rc io.ReadCloser,
 }
 
 // reassembleEndpoints will filter the valid endpoints to its nodepool
-func (fh *ingressControllerFilterHandler) reassembleEndpoint(endpoints *v1.Endpoints) *v1.Endpoints {
+func (fh *endpointsFilterHandler) reassembleEndpoint(endpoints *v1.Endpoints) *v1.Endpoints {
 	svcName := endpoints.Name
 	_, err := fh.serviceLister.Services(endpoints.Namespace).Get(svcName)
 	if err != nil {

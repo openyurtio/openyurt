@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingresscontroller
+package endpointsfilter
 
 import (
 	"fmt"
@@ -38,21 +38,18 @@ import (
 
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(filter.IngressControllerFilterName, func() (filter.Interface, error) {
+	filters.Register(filter.EndpointsFilterName, func() (filter.Runner, error) {
 		return NewFilter(), nil
 	})
 }
 
-func NewFilter() *ingressControllerFilter {
-	return &ingressControllerFilter{
-		Approver:    filter.NewApprover("nginx-ingress-controller", "endpoints", []string{"list", "watch"}...),
+func NewFilter() *endpointsFilter {
+	return &endpointsFilter{
 		workingMode: util.WorkingModeEdge,
-		stopCh:      make(chan struct{}),
 	}
 }
 
-type ingressControllerFilter struct {
-	*filter.Approver
+type endpointsFilter struct {
 	serviceLister     listers.ServiceLister
 	serviceSynced     cache.InformerSynced
 	nodepoolLister    appslisters.NodePoolLister
@@ -62,15 +59,14 @@ type ingressControllerFilter struct {
 	nodeName          string
 	serializerManager *serializer.SerializerManager
 	workingMode       util.WorkingMode
-	stopCh            chan struct{}
 }
 
-func (ssf *ingressControllerFilter) SetWorkingMode(mode util.WorkingMode) error {
+func (ssf *endpointsFilter) SetWorkingMode(mode util.WorkingMode) error {
 	ssf.workingMode = mode
 	return nil
 }
 
-func (ssf *ingressControllerFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
+func (ssf *endpointsFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
 	ssf.serviceLister = factory.Core().V1().Services().Lister()
 	ssf.serviceSynced = factory.Core().V1().Services().Informer().HasSynced
 
@@ -83,22 +79,22 @@ func (ssf *ingressControllerFilter) SetSharedInformerFactory(factory informers.S
 	return nil
 }
 
-func (ssf *ingressControllerFilter) SetYurtSharedInformerFactory(yurtFactory yurtinformers.SharedInformerFactory) error {
+func (ssf *endpointsFilter) SetYurtSharedInformerFactory(yurtFactory yurtinformers.SharedInformerFactory) error {
 	ssf.nodepoolLister = yurtFactory.Apps().V1alpha1().NodePools().Lister()
 	ssf.nodePoolSynced = yurtFactory.Apps().V1alpha1().NodePools().Informer().HasSynced
 
 	return nil
 }
 
-func (ssf *ingressControllerFilter) SetNodeName(nodeName string) error {
+func (ssf *endpointsFilter) SetNodeName(nodeName string) error {
 	ssf.nodeName = nodeName
 
 	return nil
 }
 
-func (ssf *ingressControllerFilter) SetStorageWrapper(s cachemanager.StorageWrapper) error {
+func (ssf *endpointsFilter) SetStorageWrapper(s cachemanager.StorageWrapper) error {
 	if len(ssf.nodeName) == 0 {
-		return fmt.Errorf("node name for ingressControllerFilter is not ready")
+		return fmt.Errorf("node name for endpointsFilter is not ready")
 	}
 
 	// hub agent will list/watch node from kube-apiserver when hub agent work as cloud mode
@@ -139,30 +135,22 @@ func (ssf *ingressControllerFilter) SetStorageWrapper(s cachemanager.StorageWrap
 	return nil
 }
 
-func (ssf *ingressControllerFilter) SetSerializerManager(s *serializer.SerializerManager) error {
+func (ssf *endpointsFilter) SetSerializerManager(s *serializer.SerializerManager) error {
 	ssf.serializerManager = s
 	return nil
 }
 
-func (ssf *ingressControllerFilter) Approve(comp, resource, verb string) bool {
-	if !ssf.Approver.Approve(comp, resource, verb) {
-		return false
-	}
-
-	if ok := cache.WaitForCacheSync(ssf.stopCh, ssf.nodeSynced, ssf.serviceSynced, ssf.nodePoolSynced); !ok {
-		return false
-	}
-
-	return true
-}
-
-func (ssf *ingressControllerFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	s := filterutil.CreateSerializer(req, ssf.serializerManager)
-	if s == nil {
-		klog.Errorf("skip filter, failed to create serializer in ingressControllerFilter")
+func (ssf *endpointsFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
+	if ok := cache.WaitForCacheSync(stopCh, ssf.nodeSynced, ssf.serviceSynced, ssf.nodePoolSynced); !ok {
 		return 0, rc, nil
 	}
 
-	handler := NewIngressControllerFilterHandler(ssf.nodeName, s, ssf.serviceLister, ssf.nodepoolLister, ssf.nodeGetter)
-	return filter.NewFilterReadCloser(req, rc, handler, s, filter.IngressControllerFilterName, stopCh)
+	s := filterutil.CreateSerializer(req, ssf.serializerManager)
+	if s == nil {
+		klog.Errorf("skip filter, failed to create serializer in endpointsFilter")
+		return 0, rc, nil
+	}
+
+	handler := NewEndpointsFilterHandler(ssf.nodeName, s, ssf.serviceLister, ssf.nodepoolLister, ssf.nodeGetter)
+	return filter.NewFilterReadCloser(req, rc, handler, s, filter.EndpointsFilterName, stopCh)
 }

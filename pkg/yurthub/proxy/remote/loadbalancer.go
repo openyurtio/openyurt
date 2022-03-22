@@ -129,11 +129,11 @@ func NewLoadBalancer(
 	transportMgr transport.Interface,
 	healthChecker healthchecker.HealthChecker,
 	certManager interfaces.YurtCertificateManager,
-	filterChain filter.Interface,
+	filterManager *filter.Manager,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	backends := make([]*RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
-		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, healthChecker, filterChain, stopCh)
+		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, healthChecker, filterManager, stopCh)
 		if err != nil {
 			klog.Errorf("could not new proxy backend(%s), %v", remoteServers[i].String(), err)
 			continue

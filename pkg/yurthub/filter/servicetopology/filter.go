@@ -38,21 +38,18 @@ import (
 
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(filter.ServiceTopologyFilterName, func() (filter.Interface, error) {
+	filters.Register(filter.ServiceTopologyFilterName, func() (filter.Runner, error) {
 		return NewFilter(), nil
 	})
 }
 
 func NewFilter() *serviceTopologyFilter {
 	return &serviceTopologyFilter{
-		Approver:    filter.NewApprover("kube-proxy", "endpointslices", []string{"list", "watch"}...),
 		workingMode: util.WorkingModeEdge,
-		stopCh:      make(chan struct{}),
 	}
 }
 
 type serviceTopologyFilter struct {
-	*filter.Approver
 	serviceLister     listers.ServiceLister
 	serviceSynced     cache.InformerSynced
 	nodepoolLister    appslisters.NodePoolLister
@@ -62,7 +59,6 @@ type serviceTopologyFilter struct {
 	nodeName          string
 	workingMode       util.WorkingMode
 	serializerManager *serializer.SerializerManager
-	stopCh            chan struct{}
 }
 
 func (ssf *serviceTopologyFilter) SetWorkingMode(mode util.WorkingMode) error {
@@ -144,19 +140,10 @@ func (ssf *serviceTopologyFilter) SetSerializerManager(s *serializer.SerializerM
 	return nil
 }
 
-func (ssf *serviceTopologyFilter) Approve(comp, resource, verb string) bool {
-	if !ssf.Approver.Approve(comp, resource, verb) {
-		return false
-	}
-
-	if ok := cache.WaitForCacheSync(ssf.stopCh, ssf.nodeSynced, ssf.serviceSynced, ssf.nodePoolSynced); !ok {
-		return false
-	}
-
-	return true
-}
-
 func (ssf *serviceTopologyFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
+	if ok := cache.WaitForCacheSync(stopCh, ssf.nodeSynced, ssf.serviceSynced, ssf.nodePoolSynced); !ok {
+		return 0, rc, nil
+	}
 	s := filterutil.CreateSerializer(req, ssf.serializerManager)
 	if s == nil {
 		klog.Errorf("skip filter, failed to create serializer in serviceTopologyFilter")
