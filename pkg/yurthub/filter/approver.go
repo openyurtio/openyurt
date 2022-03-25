@@ -19,11 +19,11 @@ package filter
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -33,45 +33,43 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-type requestInfo struct {
-	comp     string
-	resource string
-	verbs    sets.String
-}
-
 type approver struct {
 	sync.Mutex
-	nameToRequests    map[string][]*requestInfo
-	whiteListRequests []*requestInfo
-	configMapSynced   cache.InformerSynced
-	stopCh            chan struct{}
+	reqKeyToName    map[string]string
+	configMapSynced cache.InformerSynced
+	stopCh          chan struct{}
 }
 
 var (
-	defaultWhiteListRequests = []*requestInfo{
-		{
-			comp:     projectinfo.GetHubName(),
-			resource: "configmaps",
-			verbs:    sets.NewString("list", "watch"),
-		},
+	supportedVerbs = map[string]struct{}{
+		"get":   {},
+		"list":  {},
+		"watch": {},
 	}
-	defaultFilterCfg = map[string]string{
-		MasterServiceFilterName:       "kubelet/services#list;watch",
-		EndpointsFilterName:           "nginx-ingress-controller/endpoints#list;watch",
-		DiscardCloudServiceFilterName: "kube-proxy/services#list;watch",
-		ServiceTopologyFilterName:     "kube-proxy/endpointslices#list;watch",
+	defaultWhiteListRequests = map[string]struct{}{
+		reqKey(projectinfo.GetHubName(), "configmaps", "list"):  {},
+		reqKey(projectinfo.GetHubName(), "configmaps", "watch"): {},
+	}
+	defaultReqKeyToName = map[string]string{
+		reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
+		reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
+		reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
+		reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
+		reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
+		reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
+		reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
+		reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
 	}
 )
 
 func newApprover(sharedFactory informers.SharedInformerFactory) *approver {
 	configMapInformer := sharedFactory.Core().V1().ConfigMaps().Informer()
 	na := &approver{
-		nameToRequests:    make(map[string][]*requestInfo),
-		configMapSynced:   configMapInformer.HasSynced,
-		whiteListRequests: make([]*requestInfo, 0),
-		stopCh:            make(chan struct{}),
+		reqKeyToName:    make(map[string]string),
+		configMapSynced: configMapInformer.HasSynced,
+		stopCh:          make(chan struct{}),
 	}
-	na.whiteListRequests = append(na.whiteListRequests, defaultWhiteListRequests...)
+	na.merge("init", defaultReqKeyToName)
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    na.addConfigMap,
 		UpdateFunc: na.updateConfigMap,
@@ -79,148 +77,203 @@ func newApprover(sharedFactory informers.SharedInformerFactory) *approver {
 	return na
 }
 
-func (a *approver) Approve(comp, resource, verb string) bool {
-	if a.isWhitelistReq(comp, resource, verb) {
+func (a *approver) Approve(req *http.Request) bool {
+	if isWhitelistReq(req) {
 		return false
 	}
 	if ok := cache.WaitForCacheSync(a.stopCh, a.configMapSynced); !ok {
-		panic("wait for configMap cache sync timeout")
+		return false
 	}
+
+	key := getKeyByRequest(req)
+	if len(key) == 0 {
+		return false
+	}
+
 	a.Lock()
 	defer a.Unlock()
-	for _, requests := range a.nameToRequests {
-		for _, request := range requests {
-			if request.Equal(comp, resource, verb) {
-
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (a *approver) GetFilterName(req *http.Request) string {
-	ctx := req.Context()
-	comp, ok := util.ClientComponentFrom(ctx)
-	if !ok {
-		return ""
-	}
-
-	info, ok := apirequest.RequestInfoFrom(ctx)
-	if !ok {
-		return ""
-	}
-	a.Lock()
-	defer a.Unlock()
-	for name, requests := range a.nameToRequests {
-		for _, request := range requests {
-			if request.Equal(comp, info.Resource, info.Verb) {
-				return name
-			}
-		}
-	}
-	return ""
-}
-
-// Determine whether it is a whitelist resource
-func (a *approver) isWhitelistReq(comp, resource, verb string) bool {
-	for _, req := range a.whiteListRequests {
-		if req.Equal(comp, resource, verb) {
-			return true
-		}
-	}
-	return false
-}
-
-// Parse the special format of filter config: filter_{name}: user-agent1/resource#verb1;verb2, user-agent2/resource#verb1;verb2.
-func (a *approver) parseFilterConfig(cfg string, filterType string) []*requestInfo {
-	var reqs []*requestInfo
-	cfg = a.mergeFilterConfig(cfg, filterType)
-	for _, configArr := range strings.Split(cfg, ",") {
-		cfg := strings.Split(configArr, "#")
-		if len(cfg) != 2 {
-			continue
-		}
-
-		v := strings.Split(cfg[0], "/")
-		if len(v) != 2 {
-			continue
-		}
-
-		req := &requestInfo{
-			comp:     v[0],
-			resource: v[1],
-			verbs:    sets.NewString(strings.Split(cfg[1], ";")...),
-		}
-		reqs = append(reqs, req)
-	}
-	return reqs
-}
-
-// merge default filter to custom filter
-func (a *approver) mergeFilterConfig(cfg, filterType string) string {
-	if config, ok := defaultFilterCfg[filterType]; ok {
-		if len(cfg) != 0 {
-			return fmt.Sprintf("%v,%v", config, cfg)
-		}
-	}
-
-	return cfg
-}
-
-func (a *approver) addConfigMap(obj interface{}) {
-	cfg, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		return
-	}
-	for key, value := range cfg.Data {
-		if strings.HasPrefix(key, "filter_") {
-			a.updateYurtHubFilterCfg(key, value, "add")
-		}
-	}
-}
-
-func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
-	oldCfg, ok := oldObj.(*corev1.ConfigMap)
-	if !ok {
-		return
-	}
-
-	newCfg, ok := newObj.(*corev1.ConfigMap)
-	if !ok {
-		return
-	}
-
-	for key, value := range newCfg.Data {
-		if _, ok := oldCfg.Data[key]; !ok {
-			if strings.HasPrefix(key, "filter_") {
-				a.updateYurtHubFilterCfg(key, value, "update")
-				continue
-			}
-		}
-
-		if oldCfg.Data[key] != value {
-			if strings.HasPrefix(key, "filter_") {
-				a.updateYurtHubFilterCfg(key, value, "update")
-			}
-		}
-	}
-}
-
-// update filter cfg
-func (a *approver) updateYurtHubFilterCfg(filterCfgKey, filterCfgValue, action string) {
-	a.Lock()
-	defer a.Unlock()
-	s := strings.Split(filterCfgKey, "_")
-	a.nameToRequests[s[1]] = a.parseFilterConfig(filterCfgValue, s[1])
-	klog.Infof("current filter config: %v after %s", a.nameToRequests, action)
-}
-
-// Judge whether the request is allowed to be filtered
-func (req *requestInfo) Equal(comp, resource, verb string) bool {
-	if req.comp == comp && req.resource == resource && req.verbs.Has(verb) {
+	if _, ok := a.reqKeyToName[key]; ok {
 		return true
 	}
 
 	return false
+}
+
+func (a *approver) GetFilterName(req *http.Request) string {
+	key := getKeyByRequest(req)
+	if len(key) == 0 {
+		return ""
+	}
+
+	a.Lock()
+	defer a.Unlock()
+	return a.reqKeyToName[key]
+}
+
+// Determine whether it is a whitelist resource
+func isWhitelistReq(req *http.Request) bool {
+	key := getKeyByRequest(req)
+	if _, ok := defaultWhiteListRequests[key]; ok {
+		return true
+	}
+	return false
+}
+
+func (a *approver) addConfigMap(obj interface{}) {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	// get reqKeyToName of user request setting from configmap
+	reqKeyToNameFromCM := make(map[string]string)
+	for key, setting := range cm.Data {
+		if name, ok := hasFilterName(key); ok {
+			for _, key := range parseRequestSetting(setting) {
+				reqKeyToNameFromCM[key] = name
+			}
+		}
+	}
+
+	// update reqKeyToName by merging user setting
+	a.merge("add", reqKeyToNameFromCM)
+}
+
+func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
+	oldCM, ok := oldObj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	newCM, ok := newObj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	// request settings are changed or not
+	needUpdated := requestSettingsUpdated(oldCM.Data, newCM.Data)
+	if !needUpdated {
+		return
+	}
+
+	// get reqKeyToName of user request setting from new configmap
+	reqKeyToNameFromCM := make(map[string]string)
+	for key, setting := range newCM.Data {
+		if name, ok := hasFilterName(key); ok {
+			for _, key := range parseRequestSetting(setting) {
+				reqKeyToNameFromCM[key] = name
+			}
+		}
+	}
+
+	// update reqKeyToName by merging user setting
+	a.merge("update", reqKeyToNameFromCM)
+}
+
+// merge is used to add specified setting into reqKeyToName map.
+func (a *approver) merge(action string, keyToNameSetting map[string]string) {
+	a.Lock()
+	defer a.Unlock()
+	// remove current user setting from reqKeyToName and left default setting only
+	for key := range a.reqKeyToName {
+		if _, ok := defaultReqKeyToName[key]; !ok {
+			delete(a.reqKeyToName, key)
+		}
+	}
+
+	// merge new user setting
+	for key, name := range keyToNameSetting {
+		// if filter setting is duplicated, only recognize the first setting.
+		if currentName, ok := a.reqKeyToName[key]; !ok {
+			a.reqKeyToName[key] = name
+		} else {
+			klog.Warningf("request %s has already used filter %s, so skip filter %s setting", key, currentName, name)
+		}
+	}
+	klog.Infof("current filter setting: %v after %s", a.reqKeyToName, action)
+}
+
+// parseRequestSetting extract comp, resource, verbs from setting, and
+// make up request keys.
+func parseRequestSetting(setting string) []string {
+	reqKeys := make([]string, 0)
+	for _, reqSetting := range strings.Split(setting, ",") {
+		parts := strings.Split(reqSetting, "#")
+		if len(parts) != 2 {
+			continue
+		}
+
+		items := strings.Split(parts[0], "/")
+		if len(items) != 2 {
+			continue
+		}
+		comp := strings.TrimSpace(items[0])
+		resource := strings.TrimSpace(items[1])
+		verbs := strings.Split(parts[1], ";")
+
+		if len(comp) != 0 && len(resource) != 0 && len(verbs) != 0 {
+			for i := range verbs {
+				verb := strings.TrimSpace(verbs[i])
+				if _, ok := supportedVerbs[verb]; ok {
+					reqKeys = append(reqKeys, reqKey(comp, resource, verb))
+				}
+			}
+		}
+	}
+	return reqKeys
+}
+
+// hasFilterName check the key that includes a filter name or not.
+// and return filter name and check result.
+func hasFilterName(key string) (string, bool) {
+	if strings.HasPrefix(key, "filter_") {
+		name := strings.TrimSpace(strings.TrimPrefix(key, "filter_"))
+		return name, len(name) != 0
+	}
+
+	return "", false
+}
+
+// requestSettingsUpdated is used to verify filter setting is changed or not.
+func requestSettingsUpdated(old, new map[string]string) bool {
+	for key := range old {
+		if _, ok := hasFilterName(key); !ok {
+			delete(old, key)
+		}
+	}
+
+	for key := range new {
+		if _, ok := hasFilterName(key); !ok {
+			delete(new, key)
+		}
+	}
+
+	// if filter setting of old and new equal, return false.
+	// vice versa, return true.
+	return !reflect.DeepEqual(old, new)
+}
+
+// getKeyByRequest returns reqKey for specified request.
+func getKeyByRequest(req *http.Request) string {
+	var key string
+	ctx := req.Context()
+	comp, ok := util.ClientComponentFrom(ctx)
+	if !ok {
+		return key
+	}
+
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok {
+		return key
+	}
+
+	return reqKey(comp, info.Resource, info.Verb)
+}
+
+// reqKey is made up by comp and resource, verb
+func reqKey(comp, resource, verb string) string {
+	if len(comp) == 0 || len(resource) == 0 || len(verb) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/%s", comp, resource, verb)
 }
