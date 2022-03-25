@@ -69,6 +69,7 @@ const (
 	YurtAppManager               = "yurt-app-manager"
 	YurtAppManagerNamespace      = "kube-system"
 	DirMode                      = 0755
+	FileMode                     = 0666
 	KubeletServiceContent        = `
 [Unit]
 Description=kubelet: The Kubernetes Node Agent

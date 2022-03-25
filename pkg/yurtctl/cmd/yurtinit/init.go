@@ -30,6 +30,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
 	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
@@ -59,9 +60,6 @@ const (
 
 	InitClusterImage = "%s/openyurt-cluster:%s"
 	SealerRunCmd     = "sealer apply -f %s/Clusterfile"
-
-	fileMode = 0666
-	dirMode  = 0755
 
 	OpenYurtClusterfile = `
 apiVersion: sealer.cloud/v2
@@ -219,7 +217,7 @@ func CheckAndInstallSealer() error {
 		}
 		comp := "sealer"
 		target := fmt.Sprintf("/usr/bin/%s", comp)
-		if err := edgenode.CopyFile(TmpDownloadDir+"/"+comp, target, dirMode); err != nil {
+		if err := edgenode.CopyFile(TmpDownloadDir+"/"+comp, target, constants.DirMode); err != nil {
 			return err
 		}
 	}
@@ -237,7 +235,7 @@ func (ci *clusterInitializer) InstallCluster() error {
 // PrepareClusterfile fill the template and write the Clusterfile to the /tmp
 func (ci *clusterInitializer) PrepareClusterfile() error {
 	klog.Infof("generate Clusterfile for openyurt")
-	err := os.MkdirAll(TmpDownloadDir, dirMode)
+	err := os.MkdirAll(TmpDownloadDir, constants.DirMode)
 	if err != nil {
 		return err
 	}
@@ -254,7 +252,7 @@ func (ci *clusterInitializer) PrepareClusterfile() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/Clusterfile", TmpDownloadDir), []byte(clusterfile), fileMode)
+	err = ioutil.WriteFile(fmt.Sprintf("%s/Clusterfile", TmpDownloadDir), []byte(clusterfile), constants.FileMode)
 	if err != nil {
 		return err
 	}
