@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2022 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,18 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package jwt
 
-package factory
+import "gopkg.in/square/go-jose.v2/jwt"
 
-import (
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-)
-
-// CreateStorage create a storage.Store for backend storage
-// Singleton mode
-func CreateStorage(cachePath string) (storage.Store, error) {
-
-	return disk.NewDiskStorage(cachePath)
-
+type BearerClaims struct {
+	jwt.Claims
+	ServiceAccountName string `json:"kubernetes.io/serviceaccount/service-account.name"`
+	ServiceAccountUID  string `json:"kubernetes.io/serviceaccount/service-account.uid"`
+	SecretName         string `json:"kubernetes.io/serviceaccount/secret.name"`
+	Namespace          string `json:"kubernetes.io/serviceaccount/namespace"`
 }

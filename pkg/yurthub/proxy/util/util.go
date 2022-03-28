@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2022 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"gopkg.in/square/go-jose.v2/jwt"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -32,6 +34,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
+	jwt2 "github.com/openyurtio/openyurt/pkg/yurthub/tenant/jwt"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -147,6 +151,7 @@ func WithRequestClientComponent(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+
 			if info.IsResourceRequest {
 				var comp string
 				userAgent := strings.ToLower(req.Header.Get("User-Agent"))
@@ -292,6 +297,34 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 				}
 			}
 		}
+		handler.ServeHTTP(w, req)
+	})
+}
+
+func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+		if tenantMgr.GetTenantToken() == "" {
+			klog.V(2).Info("tenant token is empty.")
+		} else if oldToken := util.ParseBearerToken(req.Header.Get("Authorization")); oldToken != "" { //bearer token is not empty&valid
+
+			if jsonWebToken, err := jwt.ParseSigned(oldToken); err != nil {
+
+				klog.Errorf("invaled bearer token %s, err: %v", oldToken, err)
+			} else {
+				oldClaim := jwt2.BearerClaims{}
+
+				if err := jsonWebToken.UnsafeClaimsWithoutVerification(&oldClaim); err == nil {
+					if tenantMgr.GetTenantNs() != oldClaim.Namespace && oldClaim.Namespace == "kube-system" { // token is not from tenant's namespace
+						req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tenantMgr.GetTenantToken()))
+						klog.V(2).Infof("replace token, old: %s, new: %s", oldToken, tenantMgr.GetTenantToken())
+					}
+				}
+			}
+
+		}
+
 		handler.ServeHTTP(w, req)
 	})
 }

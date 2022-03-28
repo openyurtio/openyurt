@@ -26,6 +26,7 @@ require (
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 	google.golang.org/grpc v1.27.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.25
+	gopkg.in/square/go-jose.v2 v2.2.2
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3
 	k8s.io/apiserver v0.20.11

@@ -473,3 +473,46 @@ func NewGZipReaderCloser(header http.Header, body io.ReadCloser, req *http.Reque
 		body: body,
 	}, true
 }
+func ParseTenantNs(certOrg string) string {
+
+	if !strings.Contains(certOrg, "openyurt:tenant:") {
+		return ""
+	}
+
+	idx := strings.LastIndex(certOrg, "openyurt:tenant:") + len("openyurt:tenant:")
+	return certOrg[idx:]
+}
+
+func ParseTenantNsFromOrgs(orgs []string) string {
+
+	if len(orgs) == 0 {
+
+		return ""
+	}
+
+	ns := ""
+	for _, v := range orgs {
+
+		tns := ParseTenantNs(v)
+
+		if tns != "" {
+			ns = tns
+			break
+		}
+	}
+
+	return ns
+}
+
+func ParseBearerToken(token string) string {
+
+	if token == "" {
+		return ""
+	}
+
+	if !strings.HasPrefix(token, "Bearer ") { //not invalid bearer token
+		return ""
+	}
+
+	return strings.TrimPrefix(token, "Bearer ")
+}

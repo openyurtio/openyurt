@@ -18,16 +18,19 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -377,6 +380,193 @@ func TestWithListRequestSelector(t *testing.T) {
 			if selector != tc.Selector {
 				t.Errorf("expect list selector %v, but got %v", tc.Selector, selector)
 			}
+		})
+	}
+}
+
+func TestWithSaTokenSubsitute(t *testing.T) {
+	//jwt token with algorithm RS256
+	tenantToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjpbeyJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L25hbWVzcGFjZSI6ImlvdC10ZXN0In0seyJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCJ9XSwiaWF0IjoxNjQ4NzkzNTI3LCJleHAiOjM3MzE1ODcxOTksImF1ZCI6IiIsImlzcyI6Imt1YmVybmV0ZXMvc2VydmljZWFjY291bnQiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.9N5ChVgM67BbUDmW2B5ziRyW5JTJYxLKPfFd57wbC-c"
+
+	testcases := map[string]struct {
+		Verb          string
+		Path          string
+		Token         string
+		NeedSubsitute bool
+	}{
+		"1.no token, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/pods?resourceVersion=1494416105",
+			Token:         "",
+			NeedSubsitute: false,
+		},
+		"2.iot-test, no token, GET, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/iot-test/pods?resourceVersion=1494416105&fieldSelector=metadata.name=test",
+			NeedSubsitute: false,
+		},
+		"3.iot-test, tenant token,  LIST, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/iot-test/pods?resourceVersion=1494416105",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.TYA_QK5OUN1Hmnurf27zPj-Xmh6Fxe67EzEtNI0OouElA_6FEYfuD98g2xBaUcSFZrc97ILC102gtRYX5a_IPvAgeke9WuqwoaxaA-DxMj_cUt5FUri1PEcSmtIUNM3XPgL3UebZxFn_bG_sZwYePIb7ryq4E_1XfaEA3uYO27BwuDbMxhmU6Hwsz4yKQfJDts-2SRnmG8uEc70svtgfqSBhv7EZim1S7lFY87je28sES2w-WXvWTszaUx8707QdVJjntqcxAvFUGskXQoO_hEI88xnz_-F4NX2Wiv1Mew52Srmpyh2vwTRW3TWn9_-4Lh0X9OBqnlWV0ZjElvJZig",
+			NeedSubsitute: false,
+		},
+		"4.kube-system, GET, invalid token, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&fieldSelector=metadata.name=test",
+			Token:         "invalidToken",
+			NeedSubsitute: false,
+		},
+		"5.kube-system, tenantNs iot-test001, LIST, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdDAwMSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.HrjxSSuvb-MncngvIL1rh4FnGWVZYtNfB-l8rvysP9nqGcTbKnOw5KF0SDiCvoZEK_SNYi2gJH84onsOnG7Wh7ZIjv0KbptQpVrG0dFSW6qElH_5wr2LL1_YLUalHYMmFl9jq9cD7YmXBh9B38ApuCyBIbRxOlk3QiB_ZEoSSNJX-oivHPDmoXFM2ehxaJA9cMl_i-8OSaFKaW8ptn4hN5LobI14LG2QDTNspmJqeIS5SIucl4cBJ5rRtmY6SVatGqUDsUekL-KfK0RrX4H30cTaDDJF2yLRoUvHt7fa6hDZFwvg-dh3af2aYg1_C0vGqAuLc26V12DKYPp_EIoGrg",
+			NeedSubsitute: false,
+		},
+		"6.kube-system, WATCH, tenantNs iot-test001, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&watch=true",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdDAwMSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.HrjxSSuvb-MncngvIL1rh4FnGWVZYtNfB-l8rvysP9nqGcTbKnOw5KF0SDiCvoZEK_SNYi2gJH84onsOnG7Wh7ZIjv0KbptQpVrG0dFSW6qElH_5wr2LL1_YLUalHYMmFl9jq9cD7YmXBh9B38ApuCyBIbRxOlk3QiB_ZEoSSNJX-oivHPDmoXFM2ehxaJA9cMl_i-8OSaFKaW8ptn4hN5LobI14LG2QDTNspmJqeIS5SIucl4cBJ5rRtmY6SVatGqUDsUekL-KfK0RrX4H30cTaDDJF2yLRoUvHt7fa6hDZFwvg-dh3af2aYg1_C0vGqAuLc26V12DKYPp_EIoGrg",
+			NeedSubsitute: false,
+		},
+		"7.kube-system, WATCH, tenantNs kube-system, need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&watch=true",
+			Token:         "eyJhbGciOiJSUzI1NiIsImtpZCI6InVfTVZpZWIySUFUTzQ4NjlkM0VwTlBRb0xJOWVKUGg1ZXVzbEdaY0ZxckEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06ZGVmYXVsdCJ9.sFpHHg4o88Z0CBJseMBvBeP00bS5isLBmQJpAOiYs3BTkEAD63YLTnDURt0r3I9QjtcP0DZAb5wSOccGChMAFVtxMIoIoZC6Mk4FSB720kawRxFVujNFR1T7uVV_dbpEU-wsxSb9-Y4ILVknuJR9t35x6lUbRkUE9tN1wDy4DH296C3gEGNJf8sbJMERZzOckc82_BamlCzaieo1nX396KafxdQGVIgxstx88hm_rgpjDy3LA1GNsx6x2pqXdzZ8mufQt7sTljRorXUk-rNU6y9wX2RvIMO8tNiPClNkdIpgpmeQo-g7XZivpEeq3VzoeExphRbusgCtO9T9tgU64w",
+			NeedSubsitute: true,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
+
+	tenantMgr := tenant.New(orgs, nil)
+
+	data := make(map[string][]byte)
+	data["token"] = []byte(tenantToken)
+	secret := v1.Secret{
+		Data: data,
+	}
+	tenantMgr.SetSecret(&secret)
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+			req.RemoteAddr = "127.0.0.1"
+			if tc.Token != "" {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tc.Token))
+
+			}
+
+			var needSubsitute bool
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				rToken := req.Header.Get("Authorization")
+				if rToken == fmt.Sprintf("Bearer %s", tenantToken) {
+					needSubsitute = true
+				}
+
+			})
+
+			handler = WithSaTokenSubstitute(handler, tenantMgr)
+			handler = filters.WithRequestInfo(handler, resolver)
+
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if tc.NeedSubsitute != needSubsitute {
+				t.Errorf("expect needSubsited %v, but got %v", tc.NeedSubsitute, needSubsitute)
+			}
+
+		})
+	}
+}
+
+func TestWithSaTokenSubsituteTenantTokenEmpty(t *testing.T) {
+
+	//jwt token with algorithm RS256
+	tenantToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjpbeyJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L25hbWVzcGFjZSI6ImlvdC10ZXN0In0seyJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCJ9XSwiaWF0IjoxNjQ4NzkzNTI3LCJleHAiOjM3MzE1ODcxOTksImF1ZCI6IiIsImlzcyI6Imt1YmVybmV0ZXMvc2VydmljZWFjY291bnQiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.9N5ChVgM67BbUDmW2B5ziRyW5JTJYxLKPfFd57wbC-c"
+	testcases := map[string]struct {
+		Verb          string
+		Path          string
+		Token         string
+		NeedSubsitute bool
+	}{
+		"no token, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/pods?resourceVersion=1494416105",
+			Token:         "",
+			NeedSubsitute: false,
+		},
+		"iot-test, no token, GET, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/iot-test/pods?resourceVersion=1494416105&fieldSelector=metadata.name=test",
+			NeedSubsitute: false,
+		},
+		"iot-test, tenant token,  LIST, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/iot-test/pods?resourceVersion=1494416105",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.TYA_QK5OUN1Hmnurf27zPj-Xmh6Fxe67EzEtNI0OouElA_6FEYfuD98g2xBaUcSFZrc97ILC102gtRYX5a_IPvAgeke9WuqwoaxaA-DxMj_cUt5FUri1PEcSmtIUNM3XPgL3UebZxFn_bG_sZwYePIb7ryq4E_1XfaEA3uYO27BwuDbMxhmU6Hwsz4yKQfJDts-2SRnmG8uEc70svtgfqSBhv7EZim1S7lFY87je28sES2w-WXvWTszaUx8707QdVJjntqcxAvFUGskXQoO_hEI88xnz_-F4NX2Wiv1Mew52Srmpyh2vwTRW3TWn9_-4Lh0X9OBqnlWV0ZjElvJZig",
+			NeedSubsitute: false,
+		},
+		"kube-system, GET, invalid token, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&fieldSelector=metadata.name=test",
+			Token:         "invalidToken",
+			NeedSubsitute: false,
+		},
+		"kube-system, tenantNs iot-test001, LIST, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdDAwMSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.HrjxSSuvb-MncngvIL1rh4FnGWVZYtNfB-l8rvysP9nqGcTbKnOw5KF0SDiCvoZEK_SNYi2gJH84onsOnG7Wh7ZIjv0KbptQpVrG0dFSW6qElH_5wr2LL1_YLUalHYMmFl9jq9cD7YmXBh9B38ApuCyBIbRxOlk3QiB_ZEoSSNJX-oivHPDmoXFM2ehxaJA9cMl_i-8OSaFKaW8ptn4hN5LobI14LG2QDTNspmJqeIS5SIucl4cBJ5rRtmY6SVatGqUDsUekL-KfK0RrX4H30cTaDDJF2yLRoUvHt7fa6hDZFwvg-dh3af2aYg1_C0vGqAuLc26V12DKYPp_EIoGrg",
+			NeedSubsitute: false,
+		},
+		"kube-system, WATCH, tenantNs iot-test001, no need to subsitute bearer token": {
+			Verb:          "GET",
+			Path:          "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105&watch=true",
+			Token:         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJpb3QtdGVzdDAwMSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6aW90LXRlc3Q6ZGVmYXVsdCJ9.HrjxSSuvb-MncngvIL1rh4FnGWVZYtNfB-l8rvysP9nqGcTbKnOw5KF0SDiCvoZEK_SNYi2gJH84onsOnG7Wh7ZIjv0KbptQpVrG0dFSW6qElH_5wr2LL1_YLUalHYMmFl9jq9cD7YmXBh9B38ApuCyBIbRxOlk3QiB_ZEoSSNJX-oivHPDmoXFM2ehxaJA9cMl_i-8OSaFKaW8ptn4hN5LobI14LG2QDTNspmJqeIS5SIucl4cBJ5rRtmY6SVatGqUDsUekL-KfK0RrX4H30cTaDDJF2yLRoUvHt7fa6hDZFwvg-dh3af2aYg1_C0vGqAuLc26V12DKYPp_EIoGrg",
+			NeedSubsitute: false,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
+
+	tenantMgr := tenant.New(orgs, nil)
+
+	data := make(map[string][]byte)
+	data["token"] = []byte(tenantToken)
+	secret := v1.Secret{
+		Data: data,
+	}
+	tenantMgr.SetSecret(&secret)
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+			req.RemoteAddr = "127.0.0.1"
+			if tc.Token != "" {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tc.Token))
+
+			}
+
+			var needSubsitute bool
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				rToken := req.Header.Get("Authorization")
+				if rToken == fmt.Sprintf("Bearer %s", tenantToken) {
+
+					needSubsitute = true
+				}
+
+			})
+
+			handler = WithSaTokenSubstitute(handler, tenantMgr)
+			handler = filters.WithRequestInfo(handler, resolver)
+
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if tc.NeedSubsitute != needSubsitute {
+				t.Errorf("expect needSubsited %v, but got %v", tc.NeedSubsitute, needSubsitute)
+			}
+
 		})
 	}
 }

@@ -18,6 +18,7 @@ package util
 
 import (
 	"bytes"
+	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"testing"
@@ -217,4 +218,26 @@ func TestSplitKey(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseTenantNs(t *testing.T) {
+
+	testCases := map[string]string{
+		"a": "",
+		"system:bootstrappers:openyurt:tenant:myspace": "myspace",
+	}
+
+	for k, v := range testCases {
+
+		ns := ParseTenantNs(k)
+		if v != ns {
+			t.Errorf("%s is not equal to %s", v, ns)
+		}
+
+	}
+
+	token := "ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkluVmZUVlpwWldJeVNVRlVUelE0Tmpsa00wVndUbEJSYjB4Sk9XVktVR2cxWlhWemJFZGFZMFp4Y2tFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUpwYjNRdGRHVnpkQ0lzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUprWldaaGRXeDBMWFJ2YTJWdUxYRjNjMlp0SWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXpaWEoyYVdObExXRmpZMjkxYm5RdWJtRnRaU0k2SW1SbFptRjFiSFFpTENKcmRXSmxjbTVsZEdWekxtbHZMM05sY25acFkyVmhZMk52ZFc1MEwzTmxjblpwWTJVdFlXTmpiM1Z1ZEM1MWFXUWlPaUk0TTJFd016YzRaUzFtWTJVeExUUm1aREV0T0dJMU5DMDBNVEUyTWpVell6TmtZV01pTENKemRXSWlPaUp6ZVhOMFpXMDZjMlZ5ZG1salpXRmpZMjkxYm5RNmFXOTBMWFJsYzNRNlpHVm1ZWFZzZENKOS5QM2xuc3NWSTZvVUg2U19CX2thYU1QWmV5Vm8xM2xCQU50aGVvb3ByY1ZnQWlIWXpNOVdBcUFPTi12c2h5RTBBcUFHTFl3Q1FsY0FReXhKNDZqbEd0TXJxUlhpRWIyMldobXVtRkswc3NNTGJkbHBOWmJjNzc5WmxoeXUyVDJnRTlKSExFMHUyUFkwQm5sQUlQZmtGYzZPZk9veklybDBGZUxGWklFY1MzQi1yTlUwYUZDekJZNEpsMThYdUpKOEhubHA4N3V1Q2FlLUZzWHJWajFIZUd4MWw4S2JzZVJwSkFrN0Q0aklPNDFndXRlSHV5MnE3SldHLUwyWWZ0VG1peWdEb2pqMlhFTkEyTkxrRXFLbG5NQ3BlSjFwUl82UjRKZ21OaTUzLWktTE5mTVNGWXNnckNMUWNNTkhiZkg1MEpBOXp0cHd1Y2xmWUl3WjBPZkdPOWc="
+
+	out, _ := base64.StdEncoding.DecodeString(token)
+	t.Logf("token: %s", string(out))
 }

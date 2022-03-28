@@ -79,10 +79,10 @@ func startDummyServer(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		n, err := w.Write([]byte(DummyServerResponse))
 		if err != nil {
-			t.Fatalf("fail to write response: %v", err)
+			t.Errorf("fail to write response: %v", err)
 		}
 		if n != len([]byte(DummyServerResponse)) {
-			t.Fatalf("fail to write response: write %d of the %d bytes",
+			t.Errorf("fail to write response: write %d of the %d bytes",
 				n, len([]byte(DummyServerResponse)))
 		}
 	})
@@ -100,7 +100,7 @@ func startDummyServer(t *testing.T) {
 
 	klog.Infof("[TEST] dummy-server is listening on :%d", DummyServerPort)
 	if err := s.ListenAndServeTLS("", ""); err != nil {
-		t.Fatalf("the dummy-server failed: %v", err)
+		t.Errorf("the dummy-server failed: %v", err)
 	}
 }
 
@@ -122,24 +122,24 @@ func startDummyClient(t *testing.T, wg *sync.WaitGroup) {
 
 	r, err := http.NewRequest(http.MethodGet, "https://127.0.0.1:9515/"+HTTPPath, nil)
 	if err != nil {
-		t.Fatalf("fail to generate http request: %v", err)
+		t.Errorf("fail to generate http request: %v", err)
 	}
 
 	rep, err := c.Do(r)
 	if err != nil {
-		t.Fatalf("fail to send request to the server: %v", err)
+		t.Errorf("fail to send request to the server: %v", err)
 	}
 	if rep.StatusCode != http.StatusOK {
-		t.Fatalf("the response status code is incorrect, expect: %d, get: %d",
+		t.Errorf("the response status code is incorrect, expect: %d, get: %d",
 			http.StatusOK, r.Response.StatusCode)
 	}
 	defer rep.Body.Close()
 	content, err := ioutil.ReadAll(rep.Body)
 	if err != nil {
-		t.Fatalf("fail to read from the response body: %v", err)
+		t.Errorf("fail to read from the response body: %v", err)
 	}
 	if string(content) != DummyServerResponse {
-		t.Fatalf("fail to read from the response body: expect %s, get %s",
+		t.Errorf("fail to read from the response body: expect %s, get %s",
 			DummyServerResponse, string(content))
 	}
 

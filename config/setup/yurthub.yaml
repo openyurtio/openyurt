@@ -33,9 +33,9 @@ spec:
     command:
     - yurthub
     - --v=2
-    - --server-addr=https://__kubernetes_master_address__
+    - --server-addr=https://47.110.228.191:6443
     - --node-name=$(NODE_NAME)
-    - --join-token=__bootstrap_token__
+    - --join-token=pbquwo.ajmim4wek23efyzo
     livenessProbe:
       httpGet:
         host: 127.0.0.1
