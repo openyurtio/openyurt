@@ -16,6 +16,8 @@ limitations under the License.
 package tenant
 
 import (
+	"sync"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -29,42 +31,58 @@ type Interface interface {
 
 	GetTenantToken() string
 
-	InformerSynced() cache.InformerSynced
+	WaitForCacheSync() bool
 
 	SetSecret(sec *v1.Secret)
 }
 
 type tenantManager struct {
-	Informer cache.SharedIndexInformer
-
 	secretSynced cache.InformerSynced
 
 	TenantSecret *v1.Secret
 
 	TenantNs string
+
+	StopCh <-chan struct{}
+
+	IsSynced bool
+
+	mutex sync.Mutex
 }
 
-func New(orgs []string, factory informers.SharedInformerFactory) Interface {
+func (mgr *tenantManager) WaitForCacheSync() bool {
+
+	if mgr.IsSynced || mgr.TenantSecret != nil { //try to do sync for just one time， fast return
+		return true
+	}
+
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	mgr.IsSynced = cache.WaitForCacheSync(mgr.StopCh, mgr.secretSynced)
+
+	return mgr.IsSynced
+}
+
+func New(orgs []string, factory informers.SharedInformerFactory, stopCh <-chan struct{}) Interface {
 
 	tenantNs := util.ParseTenantNsFromOrgs(orgs)
-
 	klog.Infof("parse tenant ns: %s", tenantNs)
 	if tenantNs == "" {
 		return nil
 	}
 
-	tenantMgr := &tenantManager{TenantNs: tenantNs}
+	tenantMgr := &tenantManager{TenantNs: tenantNs, StopCh: stopCh}
 
 	if factory != nil {
-		tenantMgr.Informer = factory.InformerFor(&v1.Secret{}, nil) //get registered secret informer
-		tenantMgr.secretSynced = tenantMgr.Informer.HasSynced
+		informer := factory.InformerFor(&v1.Secret{}, nil) //get registered secret informer
 
+		tenantMgr.secretSynced = informer.HasSynced
 		//add handlers
-		tenantMgr.Informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    tenantMgr.addSecret,
 			UpdateFunc: tenantMgr.updateSecret,
 			DeleteFunc: tenantMgr.deleteSecret})
-
 	}
 
 	return tenantMgr
@@ -78,9 +96,7 @@ func (mgr *tenantManager) GetTenantToken() string {
 		return ""
 	}
 
-	tokenStr := string(mgr.TenantSecret.Data["token"])
-
-	return tokenStr
+	return string(mgr.TenantSecret.Data["token"])
 }
 
 func (mgr *tenantManager) GetTenantNs() string {

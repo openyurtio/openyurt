@@ -440,7 +440,8 @@ func TestWithSaTokenSubsitute(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
 
-	tenantMgr := tenant.New(orgs, nil)
+	stopCh := make(<-chan struct{})
+	tenantMgr := tenant.New(orgs, nil, stopCh)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)
@@ -530,7 +531,8 @@ func TestWithSaTokenSubsituteTenantTokenEmpty(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
 
-	tenantMgr := tenant.New(orgs, nil)
+	stopCh := make(<-chan struct{})
+	tenantMgr := tenant.New(orgs, nil, stopCh)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)
@@ -552,7 +554,6 @@ func TestWithSaTokenSubsituteTenantTokenEmpty(t *testing.T) {
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				rToken := req.Header.Get("Authorization")
 				if rToken == fmt.Sprintf("Bearer %s", tenantToken) {
-
 					needSubsitute = true
 				}
 

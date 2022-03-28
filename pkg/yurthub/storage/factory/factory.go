@@ -22,9 +22,6 @@ import (
 )
 
 // CreateStorage create a storage.Store for backend storage
-// Singleton mode
 func CreateStorage(cachePath string) (storage.Store, error) {
-
 	return disk.NewDiskStorage(cachePath)
-
 }

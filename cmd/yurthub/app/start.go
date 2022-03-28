@@ -156,7 +156,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. new tenant sa manager", trace)
-	tenantMgr := tenant.New(cfg.YurtHubCertOrganizations, cfg.SharedFactory)
+	tenantMgr := tenant.New(cfg.YurtHubCertOrganizations, cfg.SharedFactory, stopCh)
 	trace++
 
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)

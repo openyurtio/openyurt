@@ -30,12 +30,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
-	jwt2 "github.com/openyurtio/openyurt/pkg/yurthub/tenant/jwt"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -305,20 +305,25 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 
-		if tenantMgr.GetTenantToken() == "" {
-			klog.V(2).Info("tenant token is empty.")
-		} else if oldToken := util.ParseBearerToken(req.Header.Get("Authorization")); oldToken != "" { //bearer token is not empty&valid
+		if oldToken := util.ParseBearerToken(req.Header.Get("Authorization")); oldToken != "" { //bearer token is not empty&valid
 
 			if jsonWebToken, err := jwt.ParseSigned(oldToken); err != nil {
 
 				klog.Errorf("invaled bearer token %s, err: %v", oldToken, err)
 			} else {
-				oldClaim := jwt2.BearerClaims{}
+				oldClaim := jwt.Claims{}
 
 				if err := jsonWebToken.UnsafeClaimsWithoutVerification(&oldClaim); err == nil {
-					if tenantMgr.GetTenantNs() != oldClaim.Namespace && oldClaim.Namespace == "kube-system" { // token is not from tenant's namespace
-						req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tenantMgr.GetTenantToken()))
-						klog.V(2).Infof("replace token, old: %s, new: %s", oldToken, tenantMgr.GetTenantToken())
+
+					if tenantNs, _, err := serviceaccount.SplitUsername(oldClaim.Subject); err == nil {
+
+						if tenantMgr.GetTenantNs() != tenantNs && tenantNs == "kube-system" && tenantMgr.WaitForCacheSync() { // token is not from tenant's namespace
+							req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tenantMgr.GetTenantToken()))
+							klog.V(2).Infof("replace token, old: %s, new: %s", oldToken, tenantMgr.GetTenantToken())
+						}
+
+					} else {
+						klog.Errorf("failed to parse tenant ns from token, token %s, sub: %s", oldToken, oldClaim.Subject)
 					}
 				}
 			}

@@ -473,14 +473,14 @@ func NewGZipReaderCloser(header http.Header, body io.ReadCloser, req *http.Reque
 		body: body,
 	}, true
 }
+
 func ParseTenantNs(certOrg string) string {
 
 	if !strings.Contains(certOrg, "openyurt:tenant:") {
 		return ""
 	}
 
-	idx := strings.LastIndex(certOrg, "openyurt:tenant:") + len("openyurt:tenant:")
-	return certOrg[idx:]
+	return strings.TrimPrefix(certOrg, "openyurt:tenant:")
 }
 
 func ParseTenantNsFromOrgs(orgs []string) string {

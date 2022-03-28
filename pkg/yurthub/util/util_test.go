@@ -223,8 +223,8 @@ func TestSplitKey(t *testing.T) {
 func TestParseTenantNs(t *testing.T) {
 
 	testCases := map[string]string{
-		"a": "",
-		"system:bootstrappers:openyurt:tenant:myspace": "myspace",
+		"a":                       "",
+		"openyurt:tenant:myspace": "myspace",
 	}
 
 	for k, v := range testCases {

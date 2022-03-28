@@ -88,7 +88,6 @@ type YurtHubConfiguration struct {
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
 	FilterManager                     *filter.Manager
-	DiskCachePath                     string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -165,7 +164,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtSharedFactory:                 yurtSharedFactory,
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
-		DiskCachePath:                     options.DiskCachePath,
 	}
 
 	return cfg, nil
