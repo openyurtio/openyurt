@@ -20,10 +20,7 @@ import (
 	"io"
 	"net/http"
 
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type Manager struct {
@@ -53,15 +50,5 @@ func (m *Manager) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan stru
 }
 
 func (m *Manager) Approve(req *http.Request) bool {
-	ctx := req.Context()
-	comp, ok := util.ClientComponentFrom(ctx)
-	if !ok {
-		return false
-	}
-
-	info, ok := apirequest.RequestInfoFrom(ctx)
-	if !ok {
-		return false
-	}
-	return m.Approver.Approve(comp, info.Resource, info.Verb)
+	return m.Approver.Approve(req)
 }

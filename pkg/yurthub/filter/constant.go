@@ -34,7 +34,7 @@ const (
 	// End users should add annotation["openyurt.io/skip-discard"]="true" for LB service.
 	SkipDiscardServiceAnnotation = "openyurt.io/skip-discard"
 
-	// endpoints filter is used to reassemble endpoints in order to make the data traffic be
+	// EndpointsFilterName is used to reassemble endpoints in order to make the data traffic be
 	// load balanced only to the nodepool valid endpoints.
 	EndpointsFilterName = "endpoints"
 )

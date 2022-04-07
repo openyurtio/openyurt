@@ -119,41 +119,16 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
-
-	var filterMapping map[string]filter.Runner
-	var filters *filter.Filters
-	var serviceTopologyFilterEnabled bool
-	var mutatedMasterServiceAddr string
-	var filterManager *filter.Manager
-	if options.EnableResourceFilter {
-		if options.WorkingMode == string(util.WorkingModeCloud) {
-			options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
-		}
-		filters = filter.NewFilters(options.DisabledResourceFilters)
-		registerAllFilters(filters)
-		serviceTopologyFilterEnabled = filters.Enabled(filter.ServiceTopologyFilterName)
-		mutatedMasterServiceAddr = us[0].Host
-		if options.AccessServerThroughHub {
-			if options.EnableDummyIf {
-				mutatedMasterServiceAddr = proxySecureServerDummyAddr
-			} else {
-				mutatedMasterServiceAddr = proxySecureServerAddr
-			}
-		}
-	}
-
 	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
 	if err != nil {
 		return nil, err
 	}
-	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled, options.NodePoolName, options.NodeName)
-	filterMapping, err = generateNameToFilterMapping(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, workingMode, options.NodeName, mutatedMasterServiceAddr)
-	if err != nil {
-		return nil, err
-	}
+	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName)
 
-	if options.EnableResourceFilter {
-		filterManager = filter.NewFilterManager(sharedFactory, filterMapping)
+	filterManager, err := createFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host, proxySecureServerDummyAddr, proxySecureServerAddr)
+	if err != nil {
+		klog.Errorf("could not create filter manager, %v", err)
+		return nil, err
 	}
 
 	cfg := &YurtHubConfiguration{
@@ -310,4 +285,64 @@ func generateNameToFilterMapping(filters *filter.Filters,
 	initializerChain := filter.FilterInitializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
+}
+
+// createFilterManager will create a filter manager for data filtering framework.
+func createFilterManager(options *options.YurtHubOptions,
+	sharedFactory informers.SharedInformerFactory,
+	yurtSharedFactory yurtinformers.SharedInformerFactory,
+	serializerManager *serializer.SerializerManager,
+	storageWrapper cachemanager.StorageWrapper,
+	apiserverAddr string,
+	proxySecureServerDummyAddr string,
+	proxySecureServerAddr string,
+) (*filter.Manager, error) {
+	if !options.EnableResourceFilter {
+		return nil, nil
+	}
+
+	if options.WorkingMode == string(util.WorkingModeCloud) {
+		options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
+	}
+	filters := filter.NewFilters(options.DisabledResourceFilters)
+	registerAllFilters(filters)
+
+	mutatedMasterServiceAddr := apiserverAddr
+	if options.AccessServerThroughHub {
+		if options.EnableDummyIf {
+			mutatedMasterServiceAddr = proxySecureServerDummyAddr
+		} else {
+			mutatedMasterServiceAddr = proxySecureServerAddr
+		}
+	}
+
+	filterMapping, err := generateNameToFilterMapping(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return filter.NewFilterManager(sharedFactory, filterMapping), nil
+}
+
+// serviceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.
+func serviceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
+	if !options.EnableResourceFilter {
+		return false
+	}
+
+	for _, filterName := range options.DisabledResourceFilters {
+		if filterName == filter.ServiceTopologyFilterName {
+			return false
+		}
+	}
+
+	if options.WorkingMode == string(util.WorkingModeCloud) {
+		for i := range filter.DisabledInCloudMode {
+			if filter.DisabledInCloudMode[i] == filter.ServiceTopologyFilterName {
+				return false
+			}
+		}
+	}
+
+	return true
 }
