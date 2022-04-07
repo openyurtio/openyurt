@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -41,16 +42,9 @@ type approver struct {
 }
 
 var (
-	supportedVerbs = map[string]struct{}{
-		"get":   {},
-		"list":  {},
-		"watch": {},
-	}
-	defaultWhiteListRequests = map[string]struct{}{
-		reqKey(projectinfo.GetHubName(), "configmaps", "list"):  {},
-		reqKey(projectinfo.GetHubName(), "configmaps", "watch"): {},
-	}
-	defaultReqKeyToName = map[string]string{
+	supportedVerbs           = sets.NewString("get", "list", "watch")
+	defaultWhiteListRequests = sets.NewString(reqKey(projectinfo.GetHubName(), "configmaps", "list"), reqKey(projectinfo.GetHubName(), "configmaps", "watch"))
+	defaultReqKeyToName      = map[string]string{
 		reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
 		reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
 		reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
@@ -73,6 +67,7 @@ func newApprover(sharedFactory informers.SharedInformerFactory) *approver {
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    na.addConfigMap,
 		UpdateFunc: na.updateConfigMap,
+		DeleteFunc: na.deleteConfigMap,
 	})
 	return na
 }
@@ -113,7 +108,7 @@ func (a *approver) GetFilterName(req *http.Request) string {
 // Determine whether it is a whitelist resource
 func isWhitelistReq(req *http.Request) bool {
 	key := getKeyByRequest(req)
-	if _, ok := defaultWhiteListRequests[key]; ok {
+	if ok := defaultWhiteListRequests.Has(key); ok {
 		return true
 	}
 	return false
@@ -170,6 +165,16 @@ func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
 	a.merge("update", reqKeyToNameFromCM)
 }
 
+func (a *approver) deleteConfigMap(obj interface{}) {
+	_, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	// update reqKeyToName by merging user setting
+	a.merge("delete", map[string]string{})
+}
+
 // merge is used to add specified setting into reqKeyToName map.
 func (a *approver) merge(action string, keyToNameSetting map[string]string) {
 	a.Lock()
@@ -214,7 +219,7 @@ func parseRequestSetting(setting string) []string {
 		if len(comp) != 0 && len(resource) != 0 && len(verbs) != 0 {
 			for i := range verbs {
 				verb := strings.TrimSpace(verbs[i])
-				if _, ok := supportedVerbs[verb]; ok {
+				if ok := supportedVerbs.Has(verb); ok {
 					reqKeys = append(reqKeys, reqKey(comp, resource, verb))
 				}
 			}
