@@ -39,6 +39,7 @@ func (cm *cacheManager) initCacheAgents() error {
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    cm.addConfigmap,
 		UpdateFunc: cm.updateConfigmap,
+		DeleteFunc: cm.deleteConfigmap,
 	})
 
 	klog.Infof("init cache agents to %v", cm.cacheAgents)
@@ -71,6 +72,16 @@ func (cm *cacheManager) updateConfigmap(oldObj, newObj interface{}) {
 	}
 
 	deletedAgents := cm.updateCacheAgents(newCfg.Data[util.CacheUserAgentsKey], "update")
+	cm.deleteAgentCache(deletedAgents)
+}
+
+func (cm *cacheManager) deleteConfigmap(obj interface{}) {
+	_, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return
+	}
+
+	deletedAgents := cm.updateCacheAgents("", "delete")
 	cm.deleteAgentCache(deletedAgents)
 }
 
