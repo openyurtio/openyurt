@@ -69,7 +69,7 @@ type ConvertOptions struct {
 	EnableAppManager          bool
 
 	SystemArchitecture         string
-	YurhubImage                string
+	YurthubImage               string
 	YurtControllerManagerImage string
 	NodeServantImage           string
 	YurttunnelServerImage      string
@@ -169,7 +169,7 @@ func (co *ConvertOptions) Complete(flags *pflag.FlagSet) error {
 	if err != nil {
 		return err
 	}
-	co.YurhubImage = yhi
+	co.YurthubImage = yhi
 
 	ycmi, err := flags.GetString("yurt-controller-manager-image")
 	if err != nil {

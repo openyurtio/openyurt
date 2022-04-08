@@ -35,7 +35,7 @@ func NewReverterWithOptions(o *Options) *nodeReverter {
 	}
 }
 
-// Do, do the convert job
+// Do, do the revert job
 // shall be implemented as idempotent, can execute multiple times with no side-affect.
 func (n *nodeReverter) Do() error {
 

@@ -268,7 +268,7 @@ func (c *ClusterConverter) RunConvert() (err error) {
 
 	convertCtx := map[string]string{
 		"node_servant_image": c.NodeServantImage,
-		"yurthub_image":      c.YurhubImage,
+		"yurthub_image":      c.YurthubImage,
 		"joinToken":          joinToken,
 		"kubeadm_conf_path":  c.KubeadmConfPath,
 		"working_mode":       string(util.WorkingModeEdge),
