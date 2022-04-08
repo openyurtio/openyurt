@@ -696,10 +696,9 @@ spec:
 `
 	//todo
 	YurtAppManagerMutatingWebhookConfiguration = `
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: yurt-app-mutating-webhook-configuration
 webhooks:
 - clientConfig:
@@ -741,10 +740,9 @@ webhooks:
 `
 	//todo
 	YurtAppManagerValidatingWebhookConfiguration = `
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: yurt-app-validating-webhook-configuration
 webhooks:
 - clientConfig:
