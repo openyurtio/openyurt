@@ -191,7 +191,11 @@ func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
 	go wait.Until(dnsctl.worker, time.Second, stopCh)
 
 	// sync dns hosts as a whole
-	go wait.Until(dnsctl.syncDNSRecordAsWhole, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
+	go wait.Until(func() {
+		if err := dnsctl.syncDNSRecordAsWhole(); err != nil {
+			klog.Errorf("failed to sync dns record, %v", err)
+		}
+	}, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
 
 	// sync tunnel server svc
 	go wait.Until(func() {
@@ -302,7 +306,7 @@ func (dnsctl *coreDNSRecordController) syncTunnelServerServiceAsWhole() error {
 	return dnsctl.updateTunnelServerSvcDnatPorts(dnatPorts, portMappings)
 }
 
-func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
+func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() error {
 	klog.V(2).Info("sync dns record as whole")
 
 	dnsctl.lock.Lock()
@@ -311,13 +315,13 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
 	tunnelServerIP, err := dnsctl.getTunnelServerIP(false)
 	if err != nil {
 		klog.Errorf("failed to sync dns record as whole, %v", err)
-		return
+		return err
 	}
 
 	nodes, err := dnsctl.nodeLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to sync dns record as whole, %v", err)
-		return
+		return err
 	}
 
 	records := make([]string, 0, len(nodes))
@@ -327,7 +331,7 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
 			ip, err = getNodeHostIP(node)
 			if err != nil {
 				klog.Errorf("failed to parse node address for %v, %v", node.Name, err)
-				continue
+				return err
 			}
 		}
 		records = append(records, formatDNSRecord(ip, node.Name))
@@ -335,7 +339,9 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() {
 
 	if err := dnsctl.updateDNSRecords(records); err != nil {
 		klog.Errorf("failed to sync dns record as whole, %v", err)
+		return err
 	}
+	return nil
 }
 
 func (dnsctl *coreDNSRecordController) getTunnelServerIP(useCache bool) (string, error) {

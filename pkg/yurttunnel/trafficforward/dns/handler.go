@@ -235,8 +235,7 @@ func (dnsctl *coreDNSRecordController) getCurrentDNSRecords() ([]string, error) 
 }
 
 func (dnsctl *coreDNSRecordController) onServiceAdd(svc *corev1.Service) error {
-	dnsctl.syncDNSRecordAsWhole()
-	return nil
+	return dnsctl.syncDNSRecordAsWhole()
 }
 
 func (dnsctl *coreDNSRecordController) onServiceUpdate(svc *corev1.Service) error {
