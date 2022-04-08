@@ -30,3 +30,20 @@ This document outlines the development roadmap for the OpenYurt project.
 - Add YurtAppDaemon for managing workloads like DaemonSet at NodePool level.
 - Add YurtCluster Operator(A declarative way for kubernetes and openyurt conversion)
 - Update Docs and homepage website
+
+## v0.7.0/v0.8.0 Roadmap
+
+- Adapt kubernetes v1.22+ version
+- Release edge network project [raven](https://github.com/openyurtio/raven)
+  - inter-pods and service communication across public network
+  - integrate yurt-tunnel component into raven
+- Support more features for edge device
+  - define `YurtDeviceInterface` for integrating IOT systems seamlessly
+  - improve Yurt-Device-Controller version and stability
+  - support EdgeX TLS version
+- Improve O&M capabilities from NodePool level
+- Improve OpenYurt Experience Center
+  - support github id as user name to register
+  - support deploy EdgeX Foundry on the edge site
+- Rename UnitedDeployment to YurtAppSet
+- Update english version docs for homepage docs.
