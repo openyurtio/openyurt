@@ -33,17 +33,8 @@
 # not be less than 2. The default value is 2.
 #
 # KUBERNETESVERSION
-# KUBERNETESVERSION declares the kubernetes version the cluster will use. The format is "1.XX". 
-# Now only 1.18, 1.19 and 1.20 are supported. The default value is 1.20.
-#
-# TIMEOUT
-# TIMEOUT represents the time to wait for the kind control-plane, yurt-tunnel-server and
-# yurt-tunnel-agent to be ready. If they are not ready after the duration, the shell will exit.
-# The default value is 120s.
-#
-# YURTTUNNEL
-# If set YURTTUNNEL=disable, the yurt-tunnel-agent and yurt-tunnel-server will not be
-# deployed in the openyurt cluster. The default value is "enable".
+# KUBERNETESVERSION declares the kubernetes version the cluster will use. The format is "v1.XX". 
+# Now only v1.17, v1.18, v1.19, v1.20 and v1.21 are supported. The default value is v1.21.
 
 
 set -x
@@ -51,13 +42,6 @@ set -e
 set -u
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
-
-readonly KIND_NODE_IMAGES=(
-    kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c
-    kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729
-    kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9
-)
 
 readonly REQUIRED_CMD=(
     go
@@ -77,64 +61,10 @@ readonly BUILD_TARGETS=(
 
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
 readonly LOCAL_OS=$(go env GOHOSTOS)
-readonly IMAGES_DIR=${YURT_ROOT}/_output/images
 readonly CLUSTER_NAME="openyurt-e2e-test"
-readonly TIMEOUT=${TIMEOUT:-"120s"}
-readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"1.20"}
-readonly KIND_CONFIG=${YURT_ROOT}/_output/kind-config-v${KUBERNETESVERSION}.yaml
+readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.21"}
 readonly NODES_NUM=${NODES_NUM:-2}
-readonly KIND_CONTEXT="kind-${CLUSTER_NAME}"
-
-master=
-edgenodes=
-
-# $1 string to escape
-function escape_slash {
-    echo $1 | sed "s/\//\\\\\//g"
-}
-
-function gen_kind_config {
-    # check if number of nodes is valid
-    if [[ ${NODES_NUM} -lt 2 ]]; then
-        echo "NODES_NUM should be greater than 2"
-        exit -1 
-    fi
-       
-    # check if kubernetes version is valid
-    local k8s_version=($(echo ${KUBERNETESVERSION} | sed "s/\./ /g"))
-    local major=${k8s_version[0]}
-    local minor=${k8s_version[1]}
-    if [[ ${major} -ne 1 ]] || [[ ${minor} -gt 20 ]] || [[ ${minor} -lt 18 ]]; then
-        echo "Invalid KUBERNETESVERSION, it should be between 1.18 and 1.20."
-        exit -1
-    fi
-
-    # create and init kind config file
-    local gen_config_path=${KIND_CONFIG}
-    cat ${YURT_ROOT}/hack/kind-config-template.yaml > ${gen_config_path}
-    
-    # add additional node spec into kind config
-    for ((count=2; count<${NODES_NUM}; count++)); do
-        echo -e "\n  - role: worker\n    image: |fill image here|" >> ${gen_config_path}
-    done
-
-    # fill name:tag of images and fill bin dir
-    local bindir=$(escape_slash ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH})
-    local node_image=$(escape_slash $(echo ${KIND_NODE_IMAGES[${minor}-18]}))
-
-    # there are some differences between UNIX and Linux when executing the SED command.
-    # just add a "" blank character after the - i instruction
-    if [ $LOCAL_OS == "darwin" ]; then
-      bindir=$(escape_slash ${YURT_LOCAL_BIN_DIR}/"linux"/${LOCAL_ARCH})
-      sed -i "" "s/image: |fill image here|$/image: ${node_image}/g
-          s/- hostPath: |fill local bin dir|/- hostPath: ${bindir}/g" \
-              ${gen_config_path}
-    else
-      sed -i "s/image: |fill image here|$/image: ${node_image}/g
-        s/- hostPath: |fill local bin dir|/- hostPath: ${bindir}/g" \
-            ${gen_config_path}
-    fi
-}
+readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 
 function install_kind {
     echo "Begin to install kind"
@@ -180,108 +110,18 @@ function build_target_binaries_and_images {
     source ${YURT_ROOT}/hack/make-rules/release-images.sh    
 }
 
-function kind_load_images {
-    local postfix="${LOCAL_OS}-${LOCAL_ARCH}.tar"
-
-    if [[ ${LOCAL_OS} == "darwin" ]]; then
-      postfix="linux-${LOCAL_ARCH}.tar"
-    fi 
-
-    for bin in ${BUILD_TARGETS[@]}; do
-        local imagename="${bin}-${postfix}"
-        
-        if [[ "${bin}" = "yurtctl" ]]; then
-            imagename="yurtctl-servant-${postfix}"
-        fi
-
-        if [[ "${bin}" = "yurt-node-servant" ]]; then
-            imagename="node-servant-${postfix}"
-        fi
-        
-        echo "loading image ${imagename} to nodes"
-        local nodesarg=$(echo ${master} ${edgenodes[@]} | sed "s/ /,/g")
-        kind load image-archive ${IMAGES_DIR}/${imagename} \
-            --name ${CLUSTER_NAME} --nodes ${nodesarg}
-    done
-}
-
-function local_up_cluster {
-    echo "Creating kubernetes cluster with ${NODES_NUM} nodes"
-    gen_kind_config
-    
-    # output kind config before kind cmd for the convenience of debugging
-    echo $(cat ${KIND_CONFIG})
-    kind create cluster --config ${KIND_CONFIG}
-
-    echo "Waiting for the control-plane ready..."
-    kubectl wait --for=condition=Ready node/${CLUSTER_NAME}-control-plane --context ${KIND_CONTEXT} --timeout=${TIMEOUT}
-    master=$(kubectl get node -A -o custom-columns=NAME:.metadata.name --context ${KIND_CONTEXT} | grep control-plane)
-    edgenodes=$(kubectl get node -A -o custom-columns=NAME:.metadata.name --context ${KIND_CONTEXT} | grep work)
-}
-
-# $1 yurt-tunnel-agent image with the format of "name:tag"
-function deploy_yurt_tunnel_agent {
-    local yurt_tunnel_agent_yaml=${YURT_OUTPUT_DIR}/yurt-tunnel-agent.yaml
-    # revise the yurt-tunnel-agent.yaml
-    cat ${YURT_ROOT}/config/setup/yurt-tunnel-agent.yaml |
-        sed "s/image: openyurt\/yurt-tunnel-agent:latest/image: $(escape_slash ${1})/" |
-            tee ${yurt_tunnel_agent_yaml}
-            
-    kubectl apply -f ${yurt_tunnel_agent_yaml} --context ${KIND_CONTEXT}
-}
-
-# $1 yurt-tunnel-server image with the format of "name:tag"
-function deploy_yurt_tunnel_server {
-    local yurt_tunnel_server_yaml=${YURT_OUTPUT_DIR}/yurt-tunnel-server.yaml
-    # revise the yurt-tunnel-server.yaml
-    cat ${YURT_ROOT}/config/setup/yurt-tunnel-server.yaml | 
-        sed "s/image: openyurt\/yurt-tunnel-server:latest/image: $(escape_slash ${1})/;
-            s/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/" | 
-                tee ${yurt_tunnel_server_yaml}
-
-    kubectl apply -f ${yurt_tunnel_server_yaml} --context ${KIND_CONTEXT}
-}
-
-function deploy_yurt_tunnel {
-    deploy_yurt_tunnel_agent $(get_image_name "yurt-tunnel-agent" ${LOCAL_ARCH})
-    deploy_yurt_tunnel_server $(get_image_name "yurt-tunnel-server" ${LOCAL_ARCH})
-}
-
-function convert_to_openyurt {
-    echo "converting to openyurt cluster "
-    
-    local yurtctl_dir="/root/openyurt"
-    # local yurtctl_dir=${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH}
-    docker exec ${master} \
-        ${yurtctl_dir}/yurtctl convert --provider kubeadm --cloud-nodes ${master} \
-            --yurthub-image=$(get_image_name "yurthub" ${LOCAL_ARCH}) \
-            --yurt-controller-manager-image=$(get_image_name "yurt-controller-manager" ${LOCAL_ARCH}) \
-            --node-servant-image=$(get_image_name "node-servant" ${LOCAL_ARCH})
-            # --yurt-tunnel-server-image=$(get_image_name "yurt-tunnel-server" ${LOCAL_ARCH}) \
-            # --yurt-tunnel-agent-image=$(get_image_name "yurt-tunnel-agent" ${LOCAL_ARCH})
-    
-    local nodearg=$(echo ${edgenodes[@]} | sed "s/ /,/g")
-    docker exec ${master} \
-        ${yurtctl_dir}/yurtctl markautonomous -a "${nodearg}"
-    
-    if [ ! "${YURTTUNNEL:-"enable"}" = "disable" ]; then
-        deploy_yurt_tunnel    
-        kubectl rollout status deploy yurt-tunnel-server -n kube-system \
-            --timeout=${TIMEOUT} --context ${KIND_CONTEXT}
-        kubectl rollout status daemonset yurt-tunnel-agent -n kube-system \
-            --timeout=${TIMEOUT} --context ${KIND_CONTEXT}
-    fi
-}
-
-function get_kubeconfig {
-    mkdir -p ${HOME}/.kube 
-    kind get kubeconfig --name ${CLUSTER_NAME} > ${KIND_KUBECONFIG} 
+function local_up_openyurt {
+    echo "Begin to setup OpenYurt cluster"
+    openyurt_version=$(get_version ${LOCAL_ARCH})
+    ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH}/yurtctl test init \
+      --kubernetes-version=${KUBERNETESVERSION} --kube-config=${KIND_KUBECONFIG} \
+      --cluster-name=${CLUSTER_NAME} --openyurt-version=${openyurt_version} --use-local-images --ignore-error \
+      --node-num=${NODES_NUM}
 }
 
 function cleanup {
     rm -rf ${YURT_ROOT}/_output
     rm -rf ${YURT_ROOT}/dockerbuild
-    rm -f ${KIND_CONFIG}
     kind delete clusters ${CLUSTER_NAME}
 }
 
@@ -297,7 +137,4 @@ trap cleanup_on_err EXIT
 cleanup
 preflight
 build_target_binaries_and_images
-local_up_cluster
-kind_load_images
-convert_to_openyurt
-get_kubeconfig
+local_up_openyurt
