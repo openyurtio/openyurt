@@ -67,6 +67,7 @@ func NewYurttunnelServerCertManager(
 	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
 		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
 		if err != nil {
+			klog.Errorf("failed to get yurt tunnel server dns and ip, %v", err)
 			return false, err
 		}
 
@@ -74,8 +75,10 @@ func NewYurttunnelServerCertManager(
 		svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			// compatible with versions that not supported x-tunnel-server-internal-svc
+			klog.Warningf("get service: %s not found", constants.YurttunnelServerInternalServiceName)
 			return true, nil
 		} else if err != nil {
+			klog.Warningf("get service: %s err, %v", constants.YurttunnelServerInternalServiceName, err)
 			return false, err
 		}
 
