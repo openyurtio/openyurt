@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	coreinformer "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -534,64 +535,15 @@ func (im *iptablesManager) syncIptableSetting() {
 }
 
 func (im *iptablesManager) getAddedAndDeletedNodes(currentNodesIP []string) (bool, []string, []string) {
-	changed := false
-	if len(im.lastNodesIP) != len(currentNodesIP) {
-		changed = true
-	}
-	addedNodesIP := make([]string, 0)
-	for i := range currentNodesIP {
-		found := false
-		for j := range im.lastNodesIP {
-			if currentNodesIP[i] == im.lastNodesIP[j] {
-				found = true
-				break
-			}
-		}
+	currentNodesIPSet := sets.NewString(currentNodesIP...)
+	lastNodesIpSet := sets.NewString(im.lastNodesIP...)
 
-		if !found {
-			addedNodesIP = append(addedNodesIP, currentNodesIP[i])
-			changed = true
-		}
-	}
-
-	deletedNodesIP := make([]string, 0)
-	for i := range im.lastNodesIP {
-		found := false
-		for j := range currentNodesIP {
-			if im.lastNodesIP[i] == currentNodesIP[j] {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			deletedNodesIP = append(deletedNodesIP, im.lastNodesIP[i])
-			changed = true
-		}
-	}
-
-	return changed, addedNodesIP, deletedNodesIP
+	return currentNodesIPSet.Equal(lastNodesIpSet), currentNodesIPSet.Difference(lastNodesIpSet).List(), lastNodesIpSet.Difference(currentNodesIPSet).List()
 }
 
 func (im *iptablesManager) getDeletedPorts(currentPorts []string) (bool, []string) {
-	changed := false
-	if len(im.lastDnatPorts) != len(currentPorts) {
-		changed = true
-	}
-	var deletedPorts []string
-	for i := range im.lastDnatPorts {
-		found := false
-		for j := range currentPorts {
-			if im.lastDnatPorts[i] == currentPorts[j] {
-				found = true
-				break
-			}
-		}
+	currentPortsSet := sets.NewString(currentPorts...)
+	lastDnatPortsSet := sets.NewString(im.lastDnatPorts...)
 
-		if !found {
-			deletedPorts = append(deletedPorts, im.lastDnatPorts[i])
-			changed = true
-		}
-	}
-	return changed, deletedPorts
+	return currentPortsSet.Equal(lastDnatPortsSet), lastDnatPortsSet.Difference(currentPortsSet).List()
 }
