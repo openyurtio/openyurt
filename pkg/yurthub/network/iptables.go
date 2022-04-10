@@ -19,6 +19,7 @@ package network
 import (
 	"strings"
 
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/exec"
 
@@ -76,21 +77,26 @@ func makeupIptablesRules(ifIP, ifPort string) []iptablesRule {
 }
 
 func (im *IptablesManager) EnsureIptablesRules() error {
+	var errs []error
 	for _, rule := range im.rules {
 		_, err := im.iptables.EnsureRule(rule.pos, rule.table, rule.chain, rule.args...)
 		if err != nil {
+			errs = append(errs, err)
 			klog.Errorf("could not ensure iptables rule(%s -t %s %s %s), %v", rule.pos, rule.table, rule.chain, strings.Join(rule.args, ","), err)
 			continue
 		}
 	}
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
 
-func (im *IptablesManager) CleanUpIptablesRules() {
+func (im *IptablesManager) CleanUpIptablesRules() error {
+	var errs []error
 	for _, rule := range im.rules {
 		err := im.iptables.DeleteRule(rule.table, rule.chain, rule.args...)
 		if err != nil {
+			errs = append(errs, err)
 			klog.Errorf("failed to delete iptables rule(%s -t %s %s %s), %v", rule.pos, rule.table, rule.chain, strings.Join(rule.args, " "), err)
 		}
 	}
+	return utilerrors.NewAggregate(errs)
 }
