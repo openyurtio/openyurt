@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -432,4 +433,43 @@ func CreateKubeConfigFile(kubeClientConfig *rest.Config, kubeconfigPath string) 
 
 	// Marshal to disk
 	return clientcmd.WriteToFile(kubeconfigData, kubeconfigPath)
+}
+
+// gzipReaderCloser will gunzip the data if response header
+// contains Content-Encoding=gzip header.
+type gzipReaderCloser struct {
+	body io.ReadCloser
+	zr   *gzip.Reader
+	zerr error
+}
+
+func (grc *gzipReaderCloser) Read(b []byte) (n int, err error) {
+	if grc.zerr != nil {
+		return 0, grc.zerr
+	}
+
+	if grc.zr == nil {
+		grc.zr, err = gzip.NewReader(grc.body)
+		if err != nil {
+			grc.zerr = err
+			return 0, err
+		}
+	}
+
+	return grc.zr.Read(b)
+}
+
+func (grc *gzipReaderCloser) Close() error {
+	return grc.body.Close()
+}
+
+func NewGZipReaderCloser(header http.Header, body io.ReadCloser, req *http.Request, caller string) (io.ReadCloser, bool) {
+	if header.Get("Content-Encoding") != "gzip" {
+		return body, false
+	}
+
+	klog.Infof("response of %s will be ungzip at %s", ReqString(req), caller)
+	return &gzipReaderCloser{
+		body: body,
+	}, true
 }

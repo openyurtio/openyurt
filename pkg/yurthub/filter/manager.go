@@ -42,8 +42,8 @@ func NewFilterManager(sharedFactory informers.SharedInformerFactory, filters map
 }
 
 func (m *Manager) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	reqName := m.Approver.GetFilterName(req)
-	if runner, ok := m.NameToFilter[reqName]; ok {
+	filterName := m.Approver.GetFilterName(req)
+	if runner, ok := m.NameToFilter[filterName]; ok {
 		return runner.Filter(req, rc, stopCh)
 	}
 	return 0, rc, nil
