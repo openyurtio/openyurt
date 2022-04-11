@@ -33,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/revert"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurtinit"
+	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurttest"
 )
 
 // NewYurtctlCommand creates a new yurtctl command
@@ -54,6 +55,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.AddCommand(yurtinit.NewCmdInit())
 	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
+	cmds.AddCommand(yurttest.NewCmdTest())
 
 	klog.InitFlags(nil)
 	// goflag.Parse()

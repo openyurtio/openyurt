@@ -49,14 +49,24 @@ readonly region=${REGION:-us}
 # $1: component name
 # $2: arch
 function get_image_name {
-    # If ${GIT_COMMIT} is not at a tag, add commit to the image tag.
+    tag=$(get_version $2)
+    echo "${REPO}/$1:${tag}"
+}
+
+# Parameters
+# $1: arch
+# The format is like: 
+# "v0.6.0-amd64-a955ecc" if the HEAD is not at a tag,
+# "v0.6.0-amd64" otherwise.
+function get_version {
+    # If ${GIT_COMMIT} does not point at a tag, add commit suffix to the image tag.
     if [[ -z $(git tag --points-at ${GIT_COMMIT}) ]]; then
-        yurt_component_image="${REPO}/$1:${TAG}-$2-$(echo ${GIT_COMMIT} | cut -c 1-7)"
+        tag="${TAG}-$1-$(echo ${GIT_COMMIT} | cut -c 1-7)"
     else
-        yurt_component_image="${REPO}/$1:${TAG}-$2"
+        tag="${TAG}-$1"
     fi    
 
-    echo ${yurt_component_image}
+    echo "${tag}"
 }
 
 
