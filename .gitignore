@@ -8,3 +8,4 @@ vendor
 .vscode
 *.out
 logs
+test-prow
