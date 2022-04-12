@@ -74,6 +74,16 @@ func DeployYurtAppManager(
 		return err
 	}
 
+	// 1.3 yurtappdaemon
+	if err := CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerYurtAppDaemon)); err != nil {
+		return err
+	}
+
+	// 1.4 yurtingress
+	if err := CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerYurtIngress)); err != nil {
+		return err
+	}
+
 	// 2. create the YurtAppManagerRole
 	if err := CreateRoleFromYaml(client, SystemNamespace,
 		constants.YurtAppManagerRole); err != nil {

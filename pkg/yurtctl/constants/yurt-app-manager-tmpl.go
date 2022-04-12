@@ -365,6 +365,350 @@ status:
   conditions: []
   storedVersions: []
 `
+	YurtAppManagerYurtAppDaemon = `
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.9
+  creationTimestamp: null
+  name: yurtappdaemons.apps.openyurt.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.templateType
+    description: The WorkloadTemplate Type.
+    name: WorkloadTemplate
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+    name: AGE
+    type: date
+  group: apps.openyurt.io
+  names:
+    kind: YurtAppDaemon
+    listKind: YurtAppDaemonList
+    plural: yurtappdaemons
+    shortNames:
+    - yad
+    singular: yurtappdaemon
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: YurtAppDaemon is the Schema for the YurtAppDaemon API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: YurtAppDaemonSpec defines the desired state of YurtAppDaemon.
+          properties:
+            nodepoolSelector:
+              description: NodePoolSelector is a label query over nodepool that should match the replica count. It must match the nodepool's labels.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                  type: object
+              type: object
+            revisionHistoryLimit:
+              description: Indicates the number of histories to be conserved. If unspecified, defaults to 10.
+              format: int32
+              type: integer
+            selector:
+              description: Selector is a label query over pods that should match the replica count. It must match the pod template's labels.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                  type: object
+              type: object
+            workloadTemplate:
+              description: WorkloadTemplate describes the pool that will be created.
+              properties:
+                deploymentTemplate:
+                  description: Deployment template
+                  properties:
+                    metadata:
+                      type: object
+                    spec:
+                      description: DeploymentSpec is the specification of the desired behavior of the Deployment.
+                      type: object
+                  required:
+                  - spec
+                  type: object
+                statefulSetTemplate:
+                  description: StatefulSet template
+                  properties:
+                    metadata:
+                      type: object
+                    spec:
+                      description: A StatefulSetSpec is the specification of a StatefulSet.
+                      type: object
+                  required:
+                  - spec
+                  type: object
+              type: object
+          required:
+          - nodepoolSelector
+          - selector
+          type: object
+        status:
+          description: YurtAppDaemonStatus defines the observed state of YurtAppDaemon.
+          properties:
+            collisionCount:
+              description: Count of hash collisions for the YurtAppDaemon. The YurtAppDaemon controller uses this field as a collision avoidance mechanism when it needs to create the name for the newest ControllerRevision.
+              format: int32
+              type: integer
+            conditions:
+              description: Represents the latest available observations of a YurtAppDaemon's current state.
+              items:
+                description: YurtAppDaemonCondition describes current state of a YurtAppDaemon.
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status to another.
+                    format: date-time
+                    type: string
+                  message:
+                    description: A human readable message indicating details about the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: Type of in place set condition.
+                    type: string
+                type: object
+              type: array
+            currentRevision:
+              description: CurrentRevision, if not empty, indicates the current version of the YurtAppDaemon.
+              type: string
+            nodepools:
+              description: NodePools indicates the list of node pools selected by YurtAppDaemon
+              items:
+                type: string
+              type: array
+            observedGeneration:
+              description: ObservedGeneration is the most recent generation observed for this YurtAppDaemon. It corresponds to the YurtAppDaemon's generation, which is updated on mutation by the API Server.
+              format: int64
+              type: integer
+            templateType:
+              description: TemplateType indicates the type of PoolTemplate
+              type: string
+          required:
+          - currentRevision
+          - templateType
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+`
+	YurtAppManagerYurtIngress = `
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.9
+  creationTimestamp: null
+  name: yurtingresses.apps.openyurt.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.nginx_ingress_controller_version
+    description: The nginx ingress controller version
+    name: Nginx-Ingress-Version
+    type: string
+  - JSONPath: .status.ingress_controller_replicas_per_pool
+    description: The nginx ingress controller replicas per pool
+    name: Replicas-Per-Pool
+    type: integer
+  - JSONPath: .status.readyNum
+    description: The number of pools on which ingress is enabled
+    name: ReadyNum
+    type: integer
+  - JSONPath: .status.unreadyNum
+    description: The number of pools on which ingress is enabling or enable failed
+    name: NotReadyNum
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: apps.openyurt.io
+  names:
+    categories:
+    - all
+    kind: YurtIngress
+    listKind: YurtIngressList
+    plural: yurtingresses
+    shortNames:
+    - ying
+    singular: yurtingress
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: YurtIngress is the Schema for the yurtingresses API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: YurtIngressSpec defines the desired state of YurtIngress
+          properties:
+            ingress_controller_replicas_per_pool:
+              description: Indicates the number of the ingress controllers to be deployed under all the specified nodepools.
+              format: int32
+              type: integer
+            pools:
+              description: Indicates all the nodepools on which to enable ingress.
+              items:
+                description: IngressPool defines the details of a Pool for ingress
+                properties:
+                  name:
+                    description: Indicates the pool name.
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
+          type: object
+        status:
+          description: YurtIngressStatus defines the observed state of YurtIngress
+          properties:
+            conditions:
+              description: Indicates all the nodepools on which to enable ingress.
+              properties:
+                ingressreadypools:
+                  description: Indicates the pools that ingress controller is deployed successfully.
+                  items:
+                    type: string
+                  type: array
+                ingressunreadypools:
+                  description: Indicates the pools that ingress controller is being deployed or deployed failed.
+                  items:
+                    description: IngressNotReadyPool defines the condition details of an ingress not ready Pool
+                    properties:
+                      name:
+                        description: Indicates the pool name.
+                        type: string
+                      poolinfo:
+                        description: Info of ingress not ready condition.
+                        properties:
+                          lastTransitionTime:
+                            description: Last time the condition transitioned from one status to another.
+                            format: date-time
+                            type: string
+                          message:
+                            description: A human readable message indicating details about the transition.
+                            type: string
+                          reason:
+                            description: The reason for the condition's last transition.
+                            type: string
+                          type:
+                            description: Type of ingress not ready condition.
+                            type: string
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  type: array
+              type: object
+            ingress_controller_replicas_per_pool:
+              description: Indicates the number of the ingress controllers deployed under all the specified nodepools.
+              format: int32
+              type: integer
+            nginx_ingress_controller_version:
+              description: Indicates the nginx ingress controller version deployed under all the specified nodepools.
+              type: string
+            readyNum:
+              description: Total number of ready pools on which ingress is enabled.
+              format: int32
+              type: integer
+            unreadyNum:
+              description: Total number of unready pools on which ingress is enabling or enable failed.
+              format: int32
+              type: integer
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+`
 	YurtAppManagerRole = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -523,6 +867,58 @@ rules:
   - patch
   - update
 - apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtappdaemons
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtappdaemons/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtingresses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -537,7 +933,31 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - create
   - delete
@@ -592,6 +1012,54 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - '*'
 `
 	YurtAppManagerRolebinding = `
 apiVersion: rbac.authorization.k8s.io/v1
@@ -667,7 +1135,7 @@ spec:
         - --v=4
         command:
         - /usr/local/bin/yurt-app-manager
-        image: {{.image}}
+        image: openyurt/yurt-app-manager:v0.5.0
         imagePullPolicy: Always
         name: manager
         ports:
@@ -679,14 +1147,17 @@ spec:
           name: cert
           readOnly: true
       nodeSelector:
-        openyurt.io/is-edge-worker: "false"
-        beta.kubernetes.io/arch: {{.arch}}
+        beta.kubernetes.io/arch: amd64
         beta.kubernetes.io/os: linux
+        openyurt.io/is-edge-worker: "false"
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 10
       tolerations:
       - effect: NoSchedule
-        key: node-role.openyurt.io/addon
+        key: node-role.alibabacloud.com/addon
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
         operator: Exists
       volumes:
       - name: cert
@@ -696,9 +1167,11 @@ spec:
 `
 	//todo
 	YurtAppManagerMutatingWebhookConfiguration = `
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
+  annotations:
+    template: ""
   name: yurt-app-mutating-webhook-configuration
 webhooks:
 - clientConfig:
@@ -737,12 +1210,32 @@ webhooks:
     - UPDATE
     resources:
     - uniteddeployments
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: yurt-app-webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtappdaemon
+  failurePolicy: Fail
+  name: myurtappdaemon.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappdaemons
 `
 	//todo
 	YurtAppManagerValidatingWebhookConfiguration = `
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
+  annotations:
+    template: ""
   name: yurt-app-validating-webhook-configuration
 webhooks:
 - clientConfig:
@@ -782,5 +1275,42 @@ webhooks:
     - UPDATE
     resources:
     - uniteddeployments
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: yurt-app-webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-yurtappdaemon
+  failurePolicy: Fail
+  name: vyurtappdaemon.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappdaemons
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: yurt-app-webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-yurtingress
+  failurePolicy: Fail
+  name: vyurtingress.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - yurtingresses
 `
 )
