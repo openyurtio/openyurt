@@ -452,24 +452,6 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 	}
 	klog.Info("UnitedDeploymentcrd for yurt app manager is removed")
 	klog.V(4).Infof("UnitedDeploymentCRD/%s is deleted", "UnitedDeployment")
-
-	// 12. remove YurtAppDaemon
-	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
-		"YurtAppDaemon", "yurtappdaemons.apps.openyurt.io", []byte(constants.YurtAppManagerYurtAppDaemon)); err != nil {
-		return fmt.Errorf("fail to delete the YurtAppDaemonCRD/%s: %s",
-			"YurtAppDaemon", err)
-	}
-	klog.Info("YurtAppDaemonCRD for yurt app manager is removed")
-	klog.V(4).Infof("YurtAppDaemonCRD/%s is deleted", "YurtAppDaemon")
-
-	// 13. remove YurtIngress
-	if err := kubeutil.DeleteCRDResource(client, yurtAppManagerClientSet,
-		"YurtIngress", "yurtingresses.apps.openyurt.io", []byte(constants.YurtAppManagerYurtIngress)); err != nil {
-		return fmt.Errorf("fail to delete the YurtIngressCRD/%s: %s",
-			"YurtIngress", err)
-	}
-	klog.Info("YurtIngressCRD for yurt app manager is removed")
-	klog.V(4).Infof("YurtIngressCRD/%s is deleted", "YurtIngress")
 	return nil
 }
 
