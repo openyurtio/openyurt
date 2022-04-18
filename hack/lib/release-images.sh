@@ -71,11 +71,12 @@ function get_version {
 
 
 function build_multi_arch_binaries() {
+    local docker_yurt_root="/opt/src"
     local docker_run_opts=(
         "-i"
         "--rm"
         "--network host"
-        "-v ${YURT_ROOT}:/opt/src"
+        "-v ${YURT_ROOT}:${docker_yurt_root}"
         "--env CGO_ENABLED=0"
         "--env GOOS=${SUPPORTED_OS}"
         "--env PROJECT_PREFIX=${PROJECT_PREFIX}"
@@ -100,12 +101,13 @@ function build_multi_arch_binaries() {
 
     local sub_commands="sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories; \
         apk --no-cache add bash git; \
-        cd /opt/src; umask 0022; \
-        rm -rf ${YURT_LOCAL_BIN_DIR}/* ;"
+        cd ${docker_yurt_root}; umask 0022; \
+        rm -rf ${YURT_LOCAL_BIN_DIR}/* ; \
+        git config --global --add safe.directory ${docker_yurt_root};"
     for arch in ${target_arch[@]}; do
         sub_commands+="GOARCH=$arch bash ./hack/make-rules/build.sh $(echo ${bin_targets_process_servant[@]}); "
     done
-    sub_commands+="chown -R $(id -u):$(id -g) /opt/src/_output"
+    sub_commands+="chown -R $(id -u):$(id -g) ${docker_yurt_root}/_output"
 
     docker run ${docker_run_opts[@]} ${YURT_BUILD_IMAGE} ${docker_run_cmd[@]} "${sub_commands}"
 }
