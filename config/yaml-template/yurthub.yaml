@@ -22,7 +22,7 @@ spec:
   containers:
   - name: __project_prefix__-hub
     image: __repo__/__project_prefix__hub:__tag__
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     volumeMounts:
     - name: hub-dir
       mountPath: /var/lib/yurthub
