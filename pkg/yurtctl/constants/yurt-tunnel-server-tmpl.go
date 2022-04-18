@@ -194,7 +194,6 @@ spec:
       tolerations:
       - operator: "Exists"
       nodeSelector:
-        beta.kubernetes.io/arch: {{.arch}}
         beta.kubernetes.io/os: linux
         {{.edgeWorkerLabel}}: "false"
       containers:
