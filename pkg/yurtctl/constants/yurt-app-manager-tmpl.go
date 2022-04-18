@@ -668,7 +668,7 @@ spec:
         command:
         - /usr/local/bin/yurt-app-manager
         image: {{.image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: manager
         ports:
         - containerPort: 9443
