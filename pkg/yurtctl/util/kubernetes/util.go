@@ -194,7 +194,7 @@ func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx
 }
 
 // CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
-func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx interface{}) error {
+func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ctx interface{}) error {
 	var ytadstmp string
 	var err error
 	if ctx != nil {
@@ -214,7 +214,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx in
 	if !ok {
 		return fmt.Errorf("fail to assert daemonset: %v", err)
 	}
-	_, err = cliSet.AppsV1().DaemonSets(SystemNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
+	_, err = cliSet.AppsV1().DaemonSets(ns).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
 	}
@@ -223,7 +223,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx in
 }
 
 // CreateServiceFromYaml creates the Service from the yaml template.
-func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+func CreateServiceFromYaml(cliSet *kubernetes.Clientset, ns, svcTmpl string) error {
 	obj, err := YamlToObject([]byte(svcTmpl))
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 	if !ok {
 		return fmt.Errorf("fail to assert service: %v", err)
 	}
-	_, err = cliSet.CoreV1().Services(SystemNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Services(ns).Create(context.Background(), svc, metav1.CreateOptions{})
 	return processCreateErr("service", svc.Name, err)
 }
 
