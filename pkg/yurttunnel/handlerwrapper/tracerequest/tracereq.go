@@ -20,6 +20,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +40,7 @@ import (
 // handling the request
 type traceReqMiddleware struct {
 	nodeLister      corelisters.NodeLister
+	podLister       corelisters.PodLister
 	informersSynced []cache.InformerSynced
 }
 
@@ -55,7 +58,9 @@ func (trm *traceReqMiddleware) Name() string {
 // SetSharedInformerFactory set nodeLister and nodeSynced for WrapHandler
 func (trm *traceReqMiddleware) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
 	trm.nodeLister = factory.Core().V1().Nodes().Lister()
+	trm.podLister = factory.Core().V1().Pods().Lister()
 	trm.informersSynced = append(trm.informersSynced, factory.Core().V1().Nodes().Informer().HasSynced)
+	trm.informersSynced = append(trm.informersSynced, factory.Core().V1().Pods().Informer().HasSynced)
 	return nil
 }
 
@@ -82,6 +87,12 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		//TODO hack code as https://github.com/kubernetes/enhancements/issues/1558
+		if execHost, execPort, isExec := trm.hackExecReq(req); isExec {
+			host = execHost
+			port = execPort
+		}
+		klog.V(3).Infof("traceReqMiddleware after hackExec host: %s and port %s", host, port)
 
 		// host for accessing edge component(like kubelet) is hostname, not node ip.
 		if ip := net.ParseIP(host); ip == nil {
@@ -111,6 +122,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 
 		klog.V(2).Infof("start handling request %s %s, from %s to %s",
 			req.Method, req.URL.String(), req.RemoteAddr, req.Host)
+
 		start := time.Now()
 		handler.ServeHTTP(w, req)
 		klog.V(2).Infof("stop handling request %s %s, request handling lasts %v",
@@ -158,4 +170,39 @@ func getNodeIP(node *corev1.Node) string {
 		}
 	}
 	return nodeIP
+}
+
+// for `kubectl exec` request, get pod's node name and proxy the request to the node
+func (trm *traceReqMiddleware) hackExecReq(req *http.Request) (host string, port string, isExec bool) {
+
+	if !strings.HasPrefix(req.URL.Path, "/exec") {
+		return "", "", false
+	}
+
+	paths := strings.Split(req.URL.Path, "/")
+
+	if len(paths) == 5 && paths[1] == "exec" {
+		isUpgradeRequest := false
+		connHeaderVals := req.Header.Values("Connection")
+		for _, tmp := range connHeaderVals {
+			if "Upgrade" == tmp {
+				isUpgradeRequest = true
+			}
+		}
+		if isUpgradeRequest {
+			if execPod, err := trm.podLister.Pods(paths[2]).Get(paths[3]); err == nil {
+				klog.Infof("podname: %s", execPod.Name)
+				if node, nerr := trm.nodeLister.Get(execPod.Spec.NodeName); nerr == nil {
+					klog.Infof("node: %v", node.Status.DaemonEndpoints.KubeletEndpoint.Port)
+					return execPod.Spec.NodeName, strconv.Itoa(int(node.Status.DaemonEndpoints.KubeletEndpoint.Port)), true
+				} else {
+					klog.Errorf("hacexec %v", nerr)
+				}
+			} else {
+				klog.Errorf("hacexec %v", err)
+			}
+		}
+
+	}
+	return "", "", false
 }

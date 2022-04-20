@@ -47,6 +47,8 @@ const (
 	YurtTunnelCSROrg      = "openyurt:yurttunnel"
 	YurtTunnelServerCSRCN = "tunnel-server"
 	YurtTunnelAgentCSRCN  = "tunnel-agent-client"
+	// use custom signer for k8s1.22, detail in https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+	YurtTunnelSignerName = "openyurt.io/yurt-tunnel"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
@@ -106,7 +108,7 @@ func NewYurttunnelServerCertManager(
 		clientset,
 		projectinfo.GetServerName(),
 		certDir,
-		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelSignerName,
 		YurtTunnelServerCSRCN,
 		[]string{user.SystemPrivilegedGroup, YurtTunnelCSROrg},
 		dnsNames,
@@ -132,12 +134,11 @@ func NewYurttunnelAgentCertManager(
 		return nil, fmt.Errorf("env %s is not set",
 			constants.YurttunnelAgentPodIPEnv)
 	}
-
 	return newCertManager(
 		clientset,
 		projectinfo.GetAgentName(),
 		certDir,
-		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelSignerName,
 		YurtTunnelAgentCSRCN,
 		[]string{YurtTunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},

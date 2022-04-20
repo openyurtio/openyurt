@@ -114,7 +114,7 @@ func TestIsYurtCSR(t *testing.T) {
 			desc: "is yurt-tunnel-server related certificate request",
 			csr: &certificatesv1.CertificateSigningRequest{
 				Spec: certificatesv1.CertificateSigningRequestSpec{
-					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					SignerName: certmanager.YurtTunnelSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
 						certificatesv1.UsageKeyEncipherment,
@@ -130,7 +130,7 @@ func TestIsYurtCSR(t *testing.T) {
 			desc: "is yurt-tunnel-agent related certificate request",
 			csr: &certificatesv1.CertificateSigningRequest{
 				Spec: certificatesv1.CertificateSigningRequestSpec{
-					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					SignerName: certmanager.YurtTunnelSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
 						certificatesv1.UsageKeyEncipherment,

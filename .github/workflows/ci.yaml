@@ -136,3 +136,29 @@ jobs:
         
       - name: Run e2e Tests
         run: make e2e-tests
+  e2e-tests-oldk8s:
+    runs-on: ubuntu-18.04
+    env:
+      KUBERNETESVERSION: v1.21
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Install Required Commands
+        run: |
+          go get sigs.k8s.io/kind@v0.11.1
+          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.20.7/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+      - name: Local Up Openyurt Cluster With Kind
+        run: bash hack/local_up_openyurt.sh
+
+      - name: Run e2e Tests
+        run: make e2e-tests

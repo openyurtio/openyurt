@@ -290,6 +290,9 @@ func (yca *YurtCSRApprover) updateApproval(ctx context.Context, csr *certificate
 
 	v1beta1Csr := v1Csr2v1beta1Csr(csr)
 	_, v1beta1err := yca.client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
+	if apierrors.IsNotFound(v1beta1err) {
+		return nil
+	}
 	return v1beta1err
 }
 
@@ -306,6 +309,8 @@ func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string) {
 	if err != nil {
 		return false, successMsg
 	}
+
+	klog.V(2).Infof("csr: %s, SignerName: %s, Organization: %v, CommonName: %s,Usages: %v \n", csr.Name, csr.Spec.SignerName, x509cr.Subject.Organization, x509cr.Subject.CommonName, csr.Spec.Usages)
 
 	for _, r := range recognizers {
 		if r.recognize(csr, x509cr) {
@@ -448,7 +453,7 @@ func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x5
 
 // isYurtTunnelServerCert is used to recognize csr for yurt-tunnel-server
 func isYurtTunnelServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+	if csr.Spec.SignerName != certmanager.YurtTunnelSignerName {
 		return false
 	}
 
@@ -475,7 +480,7 @@ func isYurtTunnelServerCert(csr *certificatesv1.CertificateSigningRequest, x509c
 
 // isYurtTunnelAgentCert is used to recognize csr for yurt-tunnel-agent component
 func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+	if csr.Spec.SignerName != certmanager.YurtTunnelSignerName {
 		return false
 	}
 

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
+	"github.com/openyurtio/openyurt/pkg/controller/certificates/signer"
 	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
 )
 
@@ -62,6 +63,22 @@ func startYurtCSRApproverController(ctx ControllerContext) (http.Handler, bool, 
 		return nil, false, err
 	}
 	go csrApprover.Run(2, ctx.Stop)
+
+	return nil, true, nil
+}
+
+func startYurtCSRSignerController(ctx ControllerContext) (http.Handler, bool, error) {
+	clientSet := ctx.ClientBuilder.ClientOrDie("yurt-signer-controller")
+
+	certTTL := 100 * 365 * 24 * time.Hour
+	certFile := "/etc/kubernetes/pki/ca.crt"
+	keyFile := "/etc/kubernetes/pki/ca.key"
+	yurtSigner, err := signer.NewKubeAPIServerClientCSRSigningController(clientSet, ctx.InformerFactory, certFile, keyFile, certTTL)
+
+	if err != nil {
+		return nil, false, err
+	}
+	go yurtSigner.Run(2, ctx.Stop)
 
 	return nil, true, nil
 }
