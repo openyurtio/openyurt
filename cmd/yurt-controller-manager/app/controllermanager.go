@@ -305,7 +305,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers := map[string]InitFunc{}
 	controllers["nodelifecycle"] = startNodeLifecycleController
 	controllers["yurtcsrapprover"] = startYurtCSRApproverController
-
+	controllers["yurtcsrsigner"] = startYurtCSRSignerController
 	return controllers
 }
 

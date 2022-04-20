@@ -35,6 +35,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/pflag"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -288,12 +289,19 @@ func CreateMutatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, sv
 	if err != nil {
 		return err
 	}
-	mw, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
+
+	mwv1, ok := obj.(*admissionv1.MutatingWebhookConfiguration)
+	if ok {
+		_, err = cliSet.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), mwv1, metav1.CreateOptions{})
+		return processCreateErr("mutatingwebhookconfiguration", mwv1.Name, err)
+	}
+
+	mv, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %v", err)
 	}
-	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), mw, metav1.CreateOptions{})
-	return processCreateErr("mutatingwebhookconfiguration", mw.Name, err)
+	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), mv, metav1.CreateOptions{})
+	return processCreateErr("mutatingwebhookconfiguration", mv.Name, err)
 }
 
 // CreateValidatingWebhookConfigurationFromYaml creates the Service from the yaml template.
@@ -302,6 +310,13 @@ func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, 
 	if err != nil {
 		return err
 	}
+
+	vwv1, ok := obj.(*admissionv1.ValidatingWebhookConfiguration)
+	if ok {
+		_, err = cliSet.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), vwv1, metav1.CreateOptions{})
+		return processCreateErr("validatingwebhookconfiguration", vwv1.Name, err)
+	}
+
 	vw, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %v", err)

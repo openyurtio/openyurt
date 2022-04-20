@@ -203,16 +203,19 @@ rules:
     - certificates.k8s.io
   resources:
     - certificatesigningrequests/approval
+    - certificatesigningrequests/status
   verbs:
     - update
 - apiGroups:
     - certificates.k8s.io
   resourceNames:
-    - kubernetes.io/legacy-unknown
+    - kubernetes.io/*
+    - openyurt.io/*
   resources:
     - signers
   verbs:
     - approve
+    - sign
 `
 	YurtControllerManagerClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1
@@ -247,6 +250,8 @@ spec:
         app: yurt-controller-manager
     spec:
       serviceAccountName: yurt-controller-manager
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
       hostNetwork: true
       tolerations:
       - operator: "Exists"
@@ -266,6 +271,15 @@ spec:
         image: {{.image}}
         command:
         - yurt-controller-manager	
+        volumeMounts:
+        - mountPath: /etc/kubernetes/pki
+          name: k8s-certs
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /etc/kubernetes/pki
+          type: DirectoryOrCreate
+        name: k8s-certs
 `
 
 	// DisableNodeControllerJobTemplate defines the node-controller disable job in yaml format

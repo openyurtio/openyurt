@@ -130,7 +130,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		if serverCertMgr.Current() != nil {
 			return true, nil
 		}
-		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetServerName())
+		klog.Infof("waiting for the master to sign the %s certificate", certmanager.YurtTunnelServerCSRCN)
 		return false, nil
 	}, stopCh)
 
