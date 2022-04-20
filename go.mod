@@ -5,9 +5,10 @@ go 1.16
 require (
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.579
+	github.com/daixiang0/gci v0.3.3 // indirect
 	github.com/daviddengcn/go-colortext v1.0.0
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
-	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52 // indirect
+	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.4
 	github.com/lithammer/dedent v1.1.0
@@ -17,12 +18,12 @@ require (
 	github.com/openyurtio/yurt-app-manager-api v0.18.8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.3.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
-	google.golang.org/grpc v1.40.0
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+	google.golang.org/grpc v1.42.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.25
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3

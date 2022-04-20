@@ -62,7 +62,7 @@ readonly BUILD_TARGETS=(
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
 readonly LOCAL_OS=$(go env GOHOSTOS)
 readonly CLUSTER_NAME="openyurt-e2e-test"
-readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.21"}
+readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.22"}
 readonly NODES_NUM=${NODES_NUM:-2}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 

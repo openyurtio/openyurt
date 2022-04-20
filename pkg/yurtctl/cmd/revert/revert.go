@@ -422,11 +422,23 @@ func removeYurtAppManager(client *kubernetes.Clientset, yurtAppManagerClientSet 
 		return fmt.Errorf("fail to delete the MutatingWebhookConfiguration/%s: %s",
 			"yurt-app-mutating-webhook-configuration", err)
 	}
+	if err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Delete(context.Background(), "yurt-app-mutating-webhook-configuration",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the MutatingWebhookConfiguration/%s: %s",
+			"yurt-app-mutating-webhook-configuration", err)
+	}
 	klog.Info("MutatingWebhookConfiguration for yurt app manager is removed")
 	klog.V(4).Infof("MutatingWebhookConfiguration/%s is deleted", "yurt-app-mutating-webhook-configuration")
 
 	// 9. remove the ValidatingWebhookConfiguration
 	if err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().
+		Delete(context.Background(), "yurt-app-validating-webhook-configuration",
+			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("fail to delete the ValidatingWebhookConfiguration/%s: %s",
+			"yurt-app-validating-webhook-configuration", err)
+	}
+	if err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().
 		Delete(context.Background(), "yurt-app-validating-webhook-configuration",
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the ValidatingWebhookConfiguration/%s: %s",
