@@ -18,7 +18,15 @@ set -x
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 source "${YURT_ROOT}/hack/lib/init.sh"
+source "${YURT_ROOT}/hack/lib/build.sh"
 
-HOST_PLATFORM=${HOST_PLATFORM:-"$(go env GOOS)/$(go env GOARCH)"}
+readonly YURT_ALL_TARGETS=(
+    yurtctl
+    yurt-node-servant
+    yurthub
+    yurt-controller-manager
+    yurt-tunnel-server
+    yurt-tunnel-agent
+)
 
 build_binaries "$@"

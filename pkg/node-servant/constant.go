@@ -26,6 +26,9 @@ const (
 	//ConvertPreflightJobNameBase is the prefix of the preflight-convert ServantJob name
 	ConvertPreflightJobNameBase = "node-servant-preflight-convert"
 
+	// ConfigControlPlaneJobNameBase is the prefix of the config control-plane ServantJob name
+	ConfigControlPlaneJobNameBase = "config-control-plane"
+
 	// ConvertServantJobTemplate defines the yurtctl convert servant job in yaml format
 	ConvertServantJobTemplate = `
 apiVersion: batch/v1
@@ -53,7 +56,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "/usr/local/bin/entry.sh convert --working-mode {{.working_mode}} --yurthub-image {{.yurthub_image}} {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout {{.yurthub_healthcheck_timeout}} {{end}}--join-token {{.joinToken}}"
+        - "/usr/local/bin/entry.sh convert --working-mode={{.working_mode}} --yurthub-image={{.yurthub_image}} {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout={{.yurthub_healthcheck_timeout}} {{end}}--join-token={{.joinToken}} {{if .enable_dummy_if}}--enable-dummy-if={{.enable_dummy_if}}{{end}} {{if .enable_node_pool}}--enable-node-pool={{.enable_node_pool}}{{end}}"
         securityContext:
           privileged: true
         volumeMounts:
@@ -154,5 +157,40 @@ spec:
         - name: KUBELET_SVC
           value: {{.kubeadm_conf_path}}
           {{end}}
+`
+
+	// ConfigControlPlaneJobTemplate defines the node-servant config control-plane for configuring kube-apiserver and kube-controller-manager
+	ConfigControlPlaneJobTemplate = `
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.jobName}}
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      hostPID: true
+      hostNetwork: true
+      restartPolicy: OnFailure
+      nodeName: {{.nodeName}}
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+          type: Directory
+      containers:
+      - name: node-servant
+        image: {{.node_servant_image}}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - "/usr/local/bin/entry.sh config control-plane"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /openyurt
+          name: host-root
 `
 )

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2022 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package convert
+package config
 
 import (
 	"fmt"
@@ -23,20 +23,33 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
-	nodeconverter "github.com/openyurtio/openyurt/pkg/node-servant/convert"
+	"github.com/openyurtio/openyurt/pkg/node-servant/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
-// NewConvertCmd generates a new convert command
-func NewConvertCmd() *cobra.Command {
-	o := nodeconverter.NewConvertOptions()
+// NewConfigCmd generates a new config command
+func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "convert --working-mode",
-		Short: "",
-		Run: func(cmd *cobra.Command, args []string) {
+		Use:       "config",
+		Short:     "manage configuration of OpenYurt cluster",
+		RunE:      cobra.OnlyValidArgs,
+		ValidArgs: []string{"control-plane"},
+		Args:      cobra.MaximumNArgs(1),
+	}
+	cmd.AddCommand(newCmdConfigControlPlane())
+
+	return cmd
+}
+
+func newCmdConfigControlPlane() *cobra.Command {
+	o := config.NewControlPlaneOptions()
+	cmd := &cobra.Command{
+		Use:   "control-plane",
+		Short: "configure control-plane components like kube-apiserver and kube-controller-manager",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("node-servant version: %#v\n", projectinfo.Get())
 			if o.Version {
-				return
+				return nil
 			}
 
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
@@ -47,15 +60,19 @@ func NewConvertCmd() *cobra.Command {
 				klog.Fatalf("validate options: %v", err)
 			}
 
-			converter := nodeconverter.NewConverterWithOptions(o)
-			if err := converter.Do(); err != nil {
-				klog.Fatalf("fail to convert the kubernetes node to a yurt node: %s", err)
+			runner, err := config.NewControlPlaneRunner(o)
+			if err != nil {
+				return err
 			}
-			klog.Info("convert success")
+			if err := runner.Do(); err != nil {
+				return fmt.Errorf("failed to config control-plane, %v", err)
+			}
+
+			klog.Info("node-servant config control-plane success")
+			return nil
 		},
 		Args: cobra.NoArgs,
 	}
 	o.AddFlags(cmd.Flags())
-
 	return cmd
 }

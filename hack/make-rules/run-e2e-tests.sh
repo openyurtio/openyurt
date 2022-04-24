@@ -14,25 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-source "${YURT_ROOT}/hack/lib/init.sh" 
+set -x
+set -e
+set -u
 
+YURT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+source "${YURT_ROOT}/hack/lib/init.sh"
+source "${YURT_ROOT}/hack/lib/build.sh"
+
+readonly LOCAL_ARCH=$(go env GOHOSTARCH)
+readonly LOCAL_OS=$(go env GOHOSTOS)
 readonly YURT_E2E_TARGETS="test/e2e/yurt-e2e-test"
+KUBECONFIG=${KUBECONFIG:-${HOME}/.kube/config}
 
-function build_e2e() {
-    local goflags goldflags gcflags
-    goldflags="${GOLDFLAGS:--s -w $(project_info)}"
-    gcflags="${GOGCFLAGS:-}"
-    goflags=${GOFLAGS:-}
-
+# run e2e tests
+function run_e2e_tests {
+    # check kubeconfig
+    if [ ! -f "${KUBECONFIG}" ]; then
+        echo "kubeconfig does not exist at ${KUBECONFIG}"
+        exit -1
+    fi
 
     local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
-    mkdir -p ${target_bin_dir}
-    cd ${target_bin_dir}
-    echo "Building ${YURT_E2E_TARGETS}"
-    local testpkg="$(dirname ${YURT_E2E_TARGETS})"
-    local filename="$(basename ${YURT_E2E_TARGETS})"
-    go test -c  -gcflags "${gcflags:-}" ${goflags} -o $filename "$YURT_ROOT/${testpkg}"
+    local e2e_test_file_name=$(basename ${YURT_E2E_TARGETS})
+    ${target_bin_dir}/${e2e_test_file_name} -kubeconfig ${KUBECONFIG}
 }
 
-build_e2e 
+GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} build_e2e
+run_e2e_tests

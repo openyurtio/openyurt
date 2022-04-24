@@ -94,6 +94,8 @@ spec:
     - --node-name=$(NODE_NAME)
     - --join-token={{.joinToken}}
     - --working-mode={{.workingMode}}
+    - --enable-dummy-if={{.enableDummyIf}}
+    - --enable-node-pool={{.enableNodePool}}
       {{if .organizations }}
     - --hub-cert-organizations={{.organizations}}
       {{end}}

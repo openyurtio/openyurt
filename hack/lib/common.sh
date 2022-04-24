@@ -44,9 +44,15 @@ canonicalize_target() {
     echo $target
 }
 
-# host_platform returns the host platform determined by golang
-host_platform() {
-  echo "$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
+# is_build_on_host is used to verify binary build on host or not
+is_build_on_host() {
+  if [[ "$(go env GOOS)" == "$(go env GOHOSTOS)" && "$(go env GOARCH)" == "$(go env GOHOSTARCH)" ]]; then
+      # build binary on the host
+      return 0
+  else
+      # do not build binary on the host
+      return 1
+  fi
 }
 
 # Parameters
@@ -63,4 +69,21 @@ get_component_name() {
     yurt_component_name=$1
   fi
   echo $yurt_component_name
+}
+
+# project_info generates the project information and the corresponding value
+# for 'ldflags -X' option
+project_info() {
+    PROJECT_INFO_PKG=${YURT_MOD}/pkg/projectinfo
+    echo "-X ${PROJECT_INFO_PKG}.projectPrefix=${PROJECT_PREFIX}"
+    echo "-X ${PROJECT_INFO_PKG}.labelPrefix=${LABEL_PREFIX}"
+    echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
+    echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
+    echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
+}
+
+# get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
+# eg: ./_output/bin/darwin/arm64/
+get_binary_dir_with_arch(){
+    echo $1/$(go env GOOS)/$(go env GOARCH)
 }

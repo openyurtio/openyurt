@@ -16,47 +16,6 @@
 
 set -x
 
-readonly YURT_ALL_TARGETS=(
-    yurtadm
-    yurtctl
-    yurt-node-servant
-    yurthub
-    yurt-controller-manager
-    yurt-tunnel-server
-    yurt-tunnel-agent
-)
-
-# we will generates setup yaml files for following components
-readonly YURT_YAML_TARGETS=(
-    yurthub
-    yurt-controller-manager
-    yurt-tunnel-server
-    yurt-tunnel-agent
-)
-
-#PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
-#LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-#GIT_VERSION="v0.1.1"
-#GIT_COMMIT=$(git rev-parse HEAD)
-#BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-
-# project_info generates the project information and the corresponding value
-# for 'ldflags -X' option
-project_info() {
-    PROJECT_INFO_PKG=${YURT_MOD}/pkg/projectinfo
-    echo "-X ${PROJECT_INFO_PKG}.projectPrefix=${PROJECT_PREFIX}"
-    echo "-X ${PROJECT_INFO_PKG}.labelPrefix=${LABEL_PREFIX}"
-    echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
-    echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
-    echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
-}
-
-# get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
-# eg: ./_output/bin/darwin/arm64/
-get_binary_dir_with_arch(){
-    echo $1/$(go env GOOS)/$(go env GOARCH)/
-}
-
 build_binaries() {
     local goflags goldflags gcflags
     goldflags="${GOLDFLAGS:--s -w $(project_info)}"
@@ -80,6 +39,7 @@ build_binaries() {
     fi
 
     local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
+    rm -rf ${target_bin_dir}
     mkdir -p ${target_bin_dir}
     cd ${target_bin_dir}
     for binary in "${targets[@]}"; do
@@ -89,9 +49,13 @@ build_binaries() {
           -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
 
-    if [[ $(host_platform) == ${HOST_PLATFORM} ]]; then
-      rm -f "${YURT_BIN_DIR}"
-      ln -s "${target_bin_dir}" "${YURT_BIN_DIR}"
+    local yurtctl_binary=$(get_output_name yurtctl)
+    if is_build_on_host; then
+      if [ -f ${target_bin_dir}/${yurtctl_binary} ]; then
+          rm -rf "${YURT_BIN_DIR}"
+          mkdir -p "${YURT_BIN_DIR}"
+          ln -s "${target_bin_dir}/${yurtctl_binary}" "${YURT_BIN_DIR}/${yurtctl_binary}"
+      fi
     fi
 }
 
@@ -126,4 +90,19 @@ gen_yamls() {
             $YURT_ROOT/config/yaml-template/$yaml_target.yaml > \
             $yaml_dir/$oup_file.yaml
     done
+}
+
+function build_e2e() {
+    local goflags goldflags gcflags
+    goldflags="${GOLDFLAGS:--s -w $(project_info)}"
+    gcflags="${GOGCFLAGS:-}"
+    goflags=${GOFLAGS:-}
+
+    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
+    mkdir -p ${target_bin_dir}
+    cd ${target_bin_dir}
+    echo "Building ${YURT_E2E_TARGETS}"
+    local testpkg="$(dirname ${YURT_E2E_TARGETS})"
+    local filename="$(basename ${YURT_E2E_TARGETS})"
+    go test -c  -gcflags "${gcflags:-}" ${goflags} -o $filename "$YURT_ROOT/${testpkg}"
 }

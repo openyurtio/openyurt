@@ -41,6 +41,7 @@ spec:
       - command:
         - yurt-tunnel-agent
         args:
+        - --v=2
         - --node-name=$(NODE_NAME)
           {{if  .tunnelServerAddress }}
         - --tunnelserver-addr={{.tunnelServerAddress}}
