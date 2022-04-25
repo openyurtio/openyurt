@@ -18,7 +18,7 @@ package system
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 
 	"github.com/opencontainers/selinux/go-selinux"
@@ -41,7 +41,7 @@ net.bridge.bridge-nf-call-iptables = 1`
 //setIpv4Forward turn on the node ipv4 forward.
 func SetIpv4Forward() error {
 	klog.Infof("Setting ipv4 forward")
-	if err := ioutil.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
+	if err := os.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
 		return fmt.Errorf("Write content 1 to file %s fail: %v ", ip_forward, err)
 	}
 	return nil
@@ -50,7 +50,7 @@ func SetIpv4Forward() error {
 //setBridgeSetting turn on the node bridge-nf-call-iptables.
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
-	if err := ioutil.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
+	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", constants.SysctlK8sConfig, err)
 	}
 
@@ -60,10 +60,10 @@ func SetBridgeSetting() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
+	if err := os.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
 	}
-	if err := ioutil.WriteFile(bridgenf6, []byte("1"), 0644); err != nil {
+	if err := os.WriteFile(bridgenf6, []byte("1"), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
 	}
 	return nil

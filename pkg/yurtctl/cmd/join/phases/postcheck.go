@@ -18,7 +18,7 @@ package phases
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -96,7 +96,7 @@ func checkYurthubHealthz() error {
 		if err != nil {
 			return false, nil
 		}
-		ok, err := ioutil.ReadAll(resp.Body)
+		ok, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return false, nil
 		}

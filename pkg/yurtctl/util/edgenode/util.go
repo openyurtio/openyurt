@@ -18,7 +18,6 @@ package edgenode
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,7 +49,7 @@ func FileExists(filename string) (bool, error) {
 
 // GetContentFormFile returns all strings that match the regular expression regularExpression
 func GetContentFormFile(filename string, regularExpression string) ([]string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +87,11 @@ func EnsureDir(dirname string) error {
 
 // CopyFile copys sourceFile to destinationFile
 func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error {
-	content, err := ioutil.ReadFile(sourceFile)
+	content, err := os.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read source file %s: %v", sourceFile, err)
 	}
-	err = ioutil.WriteFile(destinationFile, content, perm)
+	err = os.WriteFile(destinationFile, content, perm)
 	if err != nil {
 		return fmt.Errorf("failed to write destination file %s: %v", destinationFile, err)
 	}
@@ -143,7 +142,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 
 	//4. read nodeName from /etc/hostname
-	content, err := ioutil.ReadFile(Hostname)
+	content, err := os.ReadFile(Hostname)
 	if err != nil {
 		return "", err
 	}
