@@ -18,7 +18,7 @@ package components
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -84,7 +84,7 @@ func (op *yurtHubOperator) Install() error {
 	if err := enutil.EnsureDir(podManifestPath); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
+	if err := os.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
 		return err
 	}
 	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)
@@ -196,7 +196,7 @@ func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
 		return false, err
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
 		return false, fmt.Errorf("failed to read response of cluster healthz, %v", err)

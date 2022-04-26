@@ -19,7 +19,6 @@ package disk
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,7 +206,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("failed to get bytes from %s, %v", path, err)
 	} else if info.Mode().IsRegular() {
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			return []byte{}, err
 		}

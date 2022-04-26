@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -462,7 +461,7 @@ func TestCacheGetResponse(t *testing.T) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
 				req = req.WithContext(ctx)
-				prc := ioutil.NopCloser(buf)
+				prc := io.NopCloser(buf)
 				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 
@@ -811,7 +810,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			req.RemoteAddr = "127.0.0.1"
 
 			var err error
-			rc := ioutil.NopCloser(r)
+			rc := io.NopCloser(r)
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
@@ -1301,7 +1300,7 @@ func TestCacheListResponse(t *testing.T) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
 				req = req.WithContext(ctx)
-				prc := ioutil.NopCloser(buf)
+				prc := io.NopCloser(buf)
 				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 

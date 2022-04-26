@@ -21,7 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -53,7 +53,7 @@ const (
 )
 
 func genCAPool(t *testing.T, CAPath string) *x509.CertPool {
-	caCertPEM, err := ioutil.ReadFile(CAPath)
+	caCertPEM, err := os.ReadFile(CAPath)
 	if err != nil {
 		t.Fatalf("fail to load the CA: %v", err)
 	}
@@ -134,7 +134,7 @@ func startDummyClient(t *testing.T, wg *sync.WaitGroup) {
 			http.StatusOK, r.Response.StatusCode)
 	}
 	defer rep.Body.Close()
-	content, err := ioutil.ReadAll(rep.Body)
+	content, err := io.ReadAll(rep.Body)
 	if err != nil {
 		t.Fatalf("fail to read from the response body: %v", err)
 	}

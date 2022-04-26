@@ -19,7 +19,6 @@ package phases
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -148,7 +147,7 @@ func writeConfigBytesToDisk(b []byte, kubeletDir string) error {
 		return errors.Wrapf(err, "failed to create directory %q", kubeletDir)
 	}
 
-	if err := ioutil.WriteFile(configFile, b, 0644); err != nil {
+	if err := os.WriteFile(configFile, b, 0644); err != nil {
 		return errors.Wrapf(err, "failed to write kubelet configuration to the file %q", configFile)
 	}
 	return nil
@@ -182,7 +181,7 @@ func addYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 		return err
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(podManifestPath, yurtconstants.YurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(podManifestPath, yurtconstants.YurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
 		return err
 	}
 	klog.Info("[join-node] Add hub agent static yaml is ok")
