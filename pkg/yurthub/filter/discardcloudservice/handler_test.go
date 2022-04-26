@@ -19,7 +19,6 @@ package discardcloudservice
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -389,7 +388,7 @@ func TestStreamResponseFilter(t *testing.T) {
 				w.Close()
 			}(w)
 
-			rc := ioutil.NopCloser(r)
+			rc := io.NopCloser(r)
 			ch := make(chan watch.Event, len(tt.inputObj))
 
 			go func(rc io.ReadCloser, ch chan watch.Event) {

@@ -20,8 +20,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -175,7 +175,7 @@ func rootCertPool(caFile string) (*x509.CertPool, error) {
 		if caFileExists, err := util.FileExists(caFile); err != nil {
 			return nil, err
 		} else if caFileExists {
-			caData, err := ioutil.ReadFile(caFile)
+			caData, err := os.ReadFile(caFile)
 			if err != nil {
 				return nil, err
 			}

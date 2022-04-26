@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -790,7 +789,7 @@ func SetKubeletService() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(constants.KubeletServiceFilepath, []byte(constants.KubeletServiceContent), 0644); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceFilepath, []byte(constants.KubeletServiceContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", constants.KubeletServiceFilepath, err)
 		return err
 	}
@@ -812,7 +811,7 @@ func SetKubeletUnitConfig() error {
 		}
 	}
 
-	if err := ioutil.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
 		return err
 	}
 
@@ -834,7 +833,7 @@ func SetKubeletConfigForNode() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
+	if err := os.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
@@ -857,7 +856,7 @@ func SetKubeletCaCert(config *clientcmdapi.Config) error {
 	}
 
 	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(config)
-	if err := ioutil.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
+	if err := os.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
