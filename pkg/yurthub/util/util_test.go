@@ -19,14 +19,13 @@ package util
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"testing"
 )
 
 func TestDualReader(t *testing.T) {
 	src := []byte("hello, world")
 	rb := bytes.NewBuffer(src)
-	rc := ioutil.NopCloser(rb)
+	rc := io.NopCloser(rb)
 	drc, prc := NewDualReadCloser(nil, rc, true)
 	rc = drc
 	dst1 := make([]byte, len(src))
@@ -66,7 +65,7 @@ func TestDualReader(t *testing.T) {
 func TestDualReaderByPreClose(t *testing.T) {
 	src := []byte("hello, world")
 	rb := bytes.NewBuffer(src)
-	rc := ioutil.NopCloser(rb)
+	rc := io.NopCloser(rb)
 	drc, prc := NewDualReadCloser(nil, rc, true)
 	rc = drc
 	dst := make([]byte, len(src))

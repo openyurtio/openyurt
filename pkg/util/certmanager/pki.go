@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 
@@ -167,7 +166,7 @@ func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
 		return nil, fmt.Errorf("fail to stat the CA file(%s): %s", caFile, err)
 	}
 
-	caData, err := ioutil.ReadFile(caFile)
+	caData, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, err
 	}

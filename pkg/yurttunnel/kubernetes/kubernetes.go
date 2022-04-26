@@ -19,7 +19,6 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"k8s.io/client-go/kubernetes"
@@ -75,7 +74,7 @@ func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, 
 		return nil, errors.New("apiserver addr can't be empty")
 	}
 
-	token, err := ioutil.ReadFile(constants.YurttunnelTokenFile)
+	token, err := os.ReadFile(constants.YurttunnelTokenFile)
 	if err != nil {
 		return nil, err
 	}
