@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -252,7 +251,7 @@ func (ci *clusterInitializer) PrepareClusterfile() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/Clusterfile", TmpDownloadDir), []byte(clusterfile), constants.FileMode)
+	err = os.WriteFile(fmt.Sprintf("%s/Clusterfile", TmpDownloadDir), []byte(clusterfile), constants.FileMode)
 	if err != nil {
 		return err
 	}

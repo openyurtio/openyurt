@@ -106,6 +106,7 @@ func DeployYurtAppManager(
 
 	// 7. create the Service
 	if err := CreateServiceFromYaml(client,
+		SystemNamespace,
 		constants.YurtAppManagerService); err != nil {
 		return err
 	}
@@ -161,12 +162,14 @@ func DeployYurttunnelServer(
 
 	// 4. create the Service
 	if err := CreateServiceFromYaml(client,
+		SystemNamespace,
 		constants.YurttunnelServerService); err != nil {
 		return err
 	}
 
 	// 5. create the internal Service(type=ClusterIP)
 	if err := CreateServiceFromYaml(client,
+		SystemNamespace,
 		constants.YurttunnelServerInternalService); err != nil {
 		return err
 	}
@@ -199,6 +202,7 @@ func DeployYurttunnelAgent(
 	yurttunnelAgentImage string) error {
 	// 1. Deploy the yurt-tunnel-agent DaemonSet
 	if err := CreateDaemonSetFromYaml(client,
+		SystemNamespace,
 		constants.YurttunnelAgentDaemonSet,
 		map[string]string{
 			"image":               yurttunnelAgentImage,

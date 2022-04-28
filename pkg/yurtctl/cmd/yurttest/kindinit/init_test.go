@@ -18,7 +18,6 @@ package kindinit
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -149,7 +148,7 @@ nodes:
 			t.Errorf("TestPrepareKindConfigFile failed at case %s for %s", name, err)
 			continue
 		}
-		buf, err := ioutil.ReadFile(c.kindConfigPath)
+		buf, err := os.ReadFile(c.kindConfigPath)
 		if err != nil {
 			t.Errorf("TestPrepareKindConfigFile failed at case %s, when reading file %s, %s", name, c.kindConfigPath, err)
 			continue

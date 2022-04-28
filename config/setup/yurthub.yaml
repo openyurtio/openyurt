@@ -22,7 +22,7 @@ spec:
   containers:
   - name: yurt-hub
     image: openyurt/yurthub:latest
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     volumeMounts:
     - name: hub-dir
       mountPath: /var/lib/yurthub

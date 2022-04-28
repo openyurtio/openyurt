@@ -23,7 +23,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -122,7 +121,7 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 }
 
 func removeDirContents(dir string) error {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -308,7 +307,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 
 	if caExisted {
 		var curCABytes []byte
-		if curCABytes, err = ioutil.ReadFile(caFile); err != nil {
+		if curCABytes, err = os.ReadFile(caFile); err != nil {
 			klog.Infof("could not read existed %s file, %v, ", caFile, err)
 		}
 
@@ -572,7 +571,7 @@ func createBootstrapConf(apiServerAddr, caFile, joinToken string) *clientcmdapi.
 		return nil
 	}
 
-	caCert, err := ioutil.ReadFile(caFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
 		klog.Errorf("could not read ca file(%s), %v", caFile, err)
 		return nil

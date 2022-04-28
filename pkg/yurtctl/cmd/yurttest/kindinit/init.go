@@ -18,7 +18,6 @@ package kindinit
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -321,7 +320,7 @@ func (i *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 		kindConfigContent = strings.Join([]string{kindConfigContent, worker}, "\n")
 	}
 
-	if err = ioutil.WriteFile(kindConfigPath, []byte(kindConfigContent), constants.FileMode); err != nil {
+	if err = os.WriteFile(kindConfigPath, []byte(kindConfigContent), constants.FileMode); err != nil {
 		return err
 	}
 	klog.V(1).Infof("generated new kind config file at %s", kindConfigPath)

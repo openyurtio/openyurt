@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,7 +193,7 @@ func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx
 }
 
 // CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
-func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx interface{}) error {
+func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ctx interface{}) error {
 	var ytadstmp string
 	var err error
 	if ctx != nil {
@@ -214,7 +213,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx in
 	if !ok {
 		return fmt.Errorf("fail to assert daemonset: %v", err)
 	}
-	_, err = cliSet.AppsV1().DaemonSets(SystemNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
+	_, err = cliSet.AppsV1().DaemonSets(ns).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
 	}
@@ -223,7 +222,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, dsTmpl string, ctx in
 }
 
 // CreateServiceFromYaml creates the Service from the yaml template.
-func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+func CreateServiceFromYaml(cliSet *kubernetes.Clientset, ns, svcTmpl string) error {
 	obj, err := YamlToObject([]byte(svcTmpl))
 	if err != nil {
 		return err
@@ -232,7 +231,7 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
 	if !ok {
 		return fmt.Errorf("fail to assert service: %v", err)
 	}
-	_, err = cliSet.CoreV1().Services(SystemNamespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Services(ns).Create(context.Background(), svc, metav1.CreateOptions{})
 	return processCreateErr("service", svc.Name, err)
 }
 
@@ -790,7 +789,7 @@ func SetKubeletService() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(constants.KubeletServiceFilepath, []byte(constants.KubeletServiceContent), 0644); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceFilepath, []byte(constants.KubeletServiceContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", constants.KubeletServiceFilepath, err)
 		return err
 	}
@@ -812,7 +811,7 @@ func SetKubeletUnitConfig() error {
 		}
 	}
 
-	if err := ioutil.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
 		return err
 	}
 
@@ -834,7 +833,7 @@ func SetKubeletConfigForNode() error {
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
+	if err := os.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
@@ -857,7 +856,7 @@ func SetKubeletCaCert(config *clientcmdapi.Config) error {
 	}
 
 	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(config)
-	if err := ioutil.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
+	if err := os.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
 		return err
 	}
 	return nil

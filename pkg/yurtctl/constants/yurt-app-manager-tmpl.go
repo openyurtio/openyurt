@@ -668,7 +668,7 @@ spec:
         command:
         - /usr/local/bin/yurt-app-manager
         image: {{.image}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: manager
         ports:
         - containerPort: 9443
@@ -680,7 +680,6 @@ spec:
           readOnly: true
       nodeSelector:
         openyurt.io/is-edge-worker: "false"
-        beta.kubernetes.io/arch: {{.arch}}
         beta.kubernetes.io/os: linux
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 10
