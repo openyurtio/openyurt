@@ -139,7 +139,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "/usr/local/bin/entry.sh preflight-convert {{if .ignore_preflight_errors}}--ignore-preflight-errors {{.ignore_preflight_errors}} {{end}}"
+        - "/usr/local/bin/entry.sh preflight-convert --deploy-yurt-tunnel={{.deploy_tunnel}} --deploy-app-manager={{.enable_app_manager}} --yurthub-image {{.yurthub_image}} --yurt-controller-manager-image {{.yurt_controller_manager_image}} --yurt-tunnel-agent-image {{.yurt_tunnel_agent_image}} --yurt-tunnel-server-image {{.yurt_tunnel_server_image}} --yurt-app-manager-image {{.yurt_app_manager_image}} {{if .ignore_preflight_errors}}--ignore-preflight-errors {{.ignore_preflight_errors}} {{end}}"
         securityContext:
           privileged: true
         volumeMounts:

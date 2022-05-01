@@ -26,8 +26,11 @@ import (
 )
 
 const (
-	latestYurtHubImage         = "openyurt/yurthub:latest"
-	latestYurtTunnelAgentImage = "openyurt/yurt-tunnel-agent:latest"
+	latestYurtHubImage               = "openyurt/yurthub:latest"
+	latestYurtTunnelAgentImage       = "openyurt/yurt-tunnel-agent:latest"
+	latestYurtTunnelServerImage      = "openyurt/yurt-tunnel-server:latest"
+	latestYurtControllerManagerImage = "openyurt/yurt-controller-manager:latest"
+	latestYurtAppManagerImage        = "openyurt/yurt-app-manager:latest"
 )
 
 // NewxPreflightConvertCmd generates a new preflight-convert check command
@@ -61,8 +64,12 @@ func setFlags(cmd *cobra.Command) {
 			"Support multiple values, will search in order until get the file.(e.g -k kbcfg1,kbcfg2)",
 	)
 	cmd.Flags().String("yurthub-image", latestYurtHubImage, "The yurthub image.")
+	cmd.Flags().String("yurt-controller-manager-image", latestYurtControllerManagerImage, "The yurthub image.")
+	cmd.Flags().String("yurt-app-manager-image", latestYurtAppManagerImage, "The yurthub image.")
 	cmd.Flags().String("yurt-tunnel-agent-image", latestYurtTunnelAgentImage, "The yurt-tunnel-agent image.")
-	cmd.Flags().BoolP("deploy-yurttunnel", "t", false, "If set, yurt-tunnel-agent will be deployed.")
+	cmd.Flags().String("yurt-tunnel-server-image", latestYurtTunnelServerImage, "The yurt-tunnel-server image.")
+	cmd.Flags().BoolP("deploy-yurt-tunnel", "t", false, "If set, yurt-tunnel-agent will be deployed.")
+	cmd.Flags().BoolP("deploy-app-manager", "e", false, "If set, yurt-app-manager will be deployed.")
 	cmd.Flags().String("ignore-preflight-errors", "", "A list of checks whose errors will be shown as warnings. "+
 		"Example: 'isprivilegeduser,imagepull'.Value 'all' ignores errors from all checks.",
 	)

@@ -17,6 +17,7 @@ limitations under the License.
 package preflight_convert
 
 import (
+	"os"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -32,11 +33,15 @@ const (
 
 // Options has the information that required by preflight-convert operation
 type Options struct {
-	KubeadmConfPaths      []string
-	YurthubImage          string
-	YurttunnelAgentImage  string
-	DeployTunnel          bool
-	IgnorePreflightErrors sets.String
+	KubeadmConfPaths           []string
+	YurthubImage               string
+	YurttunnelAgentImage       string
+	YurttunnelServerImage      string
+	YurtAppManagerImage        string
+	YurtControllerManagerImage string
+	DeployTunnel               bool
+	DeployAppManager           bool
+	IgnorePreflightErrors      sets.String
 
 	KubeAdmFlagsEnvFile string
 	ImagePullPolicy     v1.PullPolicy
@@ -50,9 +55,24 @@ func (o *Options) GetCRISocket() string {
 func (o *Options) GetImageList() []string {
 	imgs := []string{}
 
+	// should we consider images for worker node and master node seperately?
+	isCloudNode := false
+	if os.Getenv("IS_CLOUD_NODE") == "TRUE" {
+		isCloudNode = true
+	}
 	imgs = append(imgs, o.YurthubImage)
 	if o.DeployTunnel {
-		imgs = append(imgs, o.YurttunnelAgentImage)
+		if isCloudNode {
+			imgs = append(imgs, o.YurttunnelServerImage)
+		} else {
+			imgs = append(imgs, o.YurttunnelAgentImage)
+		}
+	}
+	if isCloudNode {
+		imgs = append(imgs, o.YurtControllerManagerImage)
+		if o.DeployAppManager {
+			imgs = append(imgs, o.YurtAppManagerImage)
+		}
 	}
 	return imgs
 }
@@ -96,17 +116,41 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	}
 	o.YurthubImage = yurthubImage
 
+	yurtControllerManagerImage, err := flags.GetString("yurt-controller-manager-image")
+	if err != nil {
+		return err
+	}
+	o.YurtControllerManagerImage = yurtControllerManagerImage
+
+	yurtAppManagerImage, err := flags.GetString("yurt-app-manager-image")
+	if err != nil {
+		return err
+	}
+	o.YurtAppManagerImage = yurtAppManagerImage
+
 	yurttunnelAgentImage, err := flags.GetString("yurt-tunnel-agent-image")
 	if err != nil {
 		return err
 	}
 	o.YurttunnelAgentImage = yurttunnelAgentImage
 
-	dt, err := flags.GetBool("deploy-yurttunnel")
+	yurttunnelServerImage, err := flags.GetString("yurt-tunnel-server-image")
+	if err != nil {
+		return err
+	}
+	o.YurttunnelServerImage = yurttunnelServerImage
+
+	dt, err := flags.GetBool("deploy-yurt-tunnel")
 	if err != nil {
 		return err
 	}
 	o.DeployTunnel = dt
+
+	et, err := flags.GetBool("deploy-app-manager")
+	if err != nil {
+		return err
+	}
+	o.DeployAppManager = et
 
 	ipStr, err := flags.GetString("ignore-preflight-errors")
 	if err != nil {

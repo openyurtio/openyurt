@@ -324,9 +324,16 @@ func prepareYurthubStart(cliSet *kubernetes.Clientset, kcfg string) (string, err
 func (c *ClusterConverter) generatePreflightJobs() ([]*batchv1.Job, error) {
 	jobLst := make([]*batchv1.Job, 0)
 	preflightCtx := map[string]string{
-		"node_servant_image":      c.NodeServantImage,
-		"kubeadm_conf_path":       c.KubeadmConfPath,
-		"ignore_preflight_errors": strings.Join(c.IgnorePreflightErrors.List(), ","),
+		"node_servant_image":            c.NodeServantImage,
+		"kubeadm_conf_path":             c.KubeadmConfPath,
+		"ignore_preflight_errors":       strings.Join(c.IgnorePreflightErrors.List(), ","),
+		"yurthub_image":                 c.YurthubImage,
+		"yurt_tunnel_agent_image":       c.YurttunnelAgentImage,
+		"yurt_tunnel_server_image":      c.YurttunnelServerImage,
+		"yurt_controller_manager_image": c.YurtControllerManagerImage,
+		"yurt_app_manager_image":        c.YurtAppManagerImage,
+		"deploy_tunnel":                 fmt.Sprintf("%t", c.DeployTunnel),
+		"enable_app_manager":            fmt.Sprintf("%t", c.EnableAppManager),
 	}
 
 	nodeLst, err := c.ClientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
