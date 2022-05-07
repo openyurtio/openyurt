@@ -27,10 +27,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -50,6 +52,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtcorev1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
+	"github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 	yurtv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions/apps/v1alpha1"
 )
@@ -119,7 +122,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr))
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr), options.EnableNodePool)
 	if err != nil {
 		return nil, err
 	}
@@ -199,8 +202,9 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+func createSharedInformers(proxyAddr string, enableNodePool bool) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
+	var yurtClient yurtclientset.Interface
 	var err error
 	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
 	if err != nil {
@@ -212,9 +216,16 @@ func createSharedInformers(proxyAddr string) (informers.SharedInformerFactory, y
 		return nil, nil, err
 	}
 
-	yurtClient, err := yurtclientset.NewForConfig(kubeConfig)
-	if err != nil {
-		return nil, nil, err
+	fakeYurtClient := &fake.Clientset{}
+	fakeWatch := watch.NewFake()
+	fakeYurtClient.AddWatchReactor("nodepools", core.DefaultWatchReactor(fakeWatch, nil))
+	// init yurtClient by fake client
+	yurtClient = fakeYurtClient
+	if enableNodePool {
+		yurtClient, err = yurtclientset.NewForConfig(kubeConfig)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	return informers.NewSharedInformerFactory(client, 24*time.Hour),

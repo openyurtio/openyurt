@@ -67,6 +67,7 @@ type YurtHubOptions struct {
 	DisabledResourceFilters   []string
 	WorkingMode               string
 	KubeletHealthGracePeriod  time.Duration
+	EnableNodePool            bool
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -97,6 +98,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		DisabledResourceFilters:   make([]string, 0),
 		WorkingMode:               string(util.WorkingModeEdge),
 		KubeletHealthGracePeriod:  time.Second * 40,
+		EnableNodePool:            true,
 	}
 	return o
 }
@@ -163,6 +165,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.NodePoolName, "nodepool-name", o.NodePoolName, "the name of node pool that runs hub agent")
 	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
+	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
 }
 
 // verifyDummyIP verify the specified ip is valid or not
