@@ -36,6 +36,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
+	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -154,8 +155,13 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
+	klog.Infof("%d. new tenant sa manager", trace)
+	tenantMgr := tenant.New(cfg.YurtHubCertOrganizations, cfg.SharedFactory, stopCh)
+	trace++
+
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, stopCh)
+	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, tenantMgr, stopCh)
+
 	if err != nil {
 		return fmt.Errorf("could not create reverse proxy handler, %v", err)
 	}

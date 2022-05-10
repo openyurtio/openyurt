@@ -52,7 +52,7 @@ vet:
 #   make release WHAT="yurthub yurt-controller-manager yurtctl-servant" ARCH="arm64 arm" REGION=cn
 #
 #   # compile all components with all architectures (i.e., amd64, arm64, arm)
-#   make relase
+#   make release
 release:
 	bash hack/make-rules/release-images.sh
 
