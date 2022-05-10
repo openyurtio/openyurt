@@ -123,9 +123,10 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	if err != nil {
 		return nil, err
 	}
-	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName)
-
+	tenantNs := util.ParseTenantNs(options.YurtHubCertOrganizations)
+	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName, tenantNs)
 	filterManager, err := createFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host, proxySecureServerDummyAddr, proxySecureServerAddr)
+
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -226,7 +227,8 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 	yurtInformerFactory yurtinformers.SharedInformerFactory,
 	workingMode util.WorkingMode,
 	serviceTopologyFilterEnabled bool,
-	nodePoolName, nodeName string) {
+	nodePoolName, nodeName string,
+	tenantNs string) {
 	// skip construct node/nodePool informers if service topology filter disabled
 	if serviceTopologyFilterEnabled {
 		if workingMode == util.WorkingModeCloud {
@@ -258,6 +260,15 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 		return coreinformers.NewFilteredConfigMapInformer(client, util.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
 	}
 	informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
+
+	if tenantNs != "" {
+		newSecretInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+
+			return coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
+		}
+		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
+	}
+
 }
 
 // registerAllFilters by order, the front registered filter will be

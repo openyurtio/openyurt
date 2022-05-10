@@ -24,6 +24,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
@@ -32,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -43,6 +45,7 @@ type yurtReverseProxy struct {
 	localProxy          *local.LocalProxy
 	cacheMgr            cachemanager.CacheManager
 	maxRequestsInFlight int
+	tenantMgr           tenant.Interface
 	stopCh              <-chan struct{}
 }
 
@@ -54,6 +57,7 @@ func NewYurtReverseProxyHandler(
 	transportMgr transport.Interface,
 	healthChecker healthchecker.HealthChecker,
 	certManager interfaces.YurtCertificateManager,
+	tenantMgr tenant.Interface,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -87,6 +91,7 @@ func NewYurtReverseProxyHandler(
 		localProxy:          localProxy,
 		cacheMgr:            cacheMgr,
 		maxRequestsInFlight: yurtHubCfg.MaxRequestInFlight,
+		tenantMgr:           tenantMgr,
 		stopCh:              stopCh,
 	}
 
@@ -105,7 +110,15 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	}
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
+
+	if p.tenantMgr != nil && p.tenantMgr.GetTenantNs() != "" {
+		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
+	} else {
+		klog.V(2).Info("tenant ns is empty, no need to substitute ")
+	}
+
 	handler = filters.WithRequestInfo(handler, p.resolver)
+
 	return handler
 }
 
