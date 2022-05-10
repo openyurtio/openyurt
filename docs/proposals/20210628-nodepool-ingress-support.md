@@ -241,10 +241,10 @@ layer-4 kube-proxy.
 ### Implementation Details/Notes/Constraints
 #### 1). Yurt-app-manager
 
-Implement a standalone `YurtIngress` operator to support the NodePool ingress feature, which means that `YurtIngress`
-together with `NodePool/YurtAppSet(UnitedDeployment)/YurtAppDaemon` will compose the the current OpenYurt unitization
-capability, and they are all managed by Yurt-app-manager. The responsibility of `YurtIngress` is to monitor the update
-of `YurtIngress` CR and trigger the corresponding operations to nginx ingress controller related components.
+Implement a standalone `YurtIngress` operator to support the ingress feature from NodePool level, so that
+`YurtIngress` together with `NodePool/YurtAppSet/YurtAppDaemon` will compose the OpenYurt unitization capability,
+and they are all managed by Yurt-app-manager. The responsibility of `YurtIngress` is to monitor all the `YurtIngress`
+CRs and trigger the corresponding operations to the nginx ingress controller related components.
 
 `YurtIngress` CRD definition:
 
@@ -261,14 +261,12 @@ type IngressPool struct {
 	// Indicates the pool name.
 	Name string `json:"name"`
 
-	// Pool specific configuration will be supported in future.
+	// IngressIPs is a list of IP addresses for which nodes will also accept traffic for this service.
+	IngressIPs []string `json:"ingress_ips,omitempty"`
 }
 
-// IngressNotReadyPool defines the condition details of an ingress not ready Pool
-type IngressNotReadyPool struct {
-	// Indicates the pool name.
-	Name string `json:"name"`
-
+// IngressNotReadyConditionInfo defines the details info of an ingress not ready Pool
+type IngressNotReadyConditionInfo struct {
 	// Type of ingress not ready condition.
 	Type IngressNotReadyType `json:"type,omitempty"`
 
@@ -282,11 +280,28 @@ type IngressNotReadyPool struct {
 	Message string `json:"message,omitempty"`
 }
 
+// IngressNotReadyPool defines the condition details of an ingress not ready Pool
+type IngressNotReadyPool struct {
+	// Indicates the base pool info.
+	Pool IngressPool `json:"pool"`
+
+	// Info of ingress not ready condition.
+	Info *IngressNotReadyConditionInfo `json:"unreadyinfo,omitempty"`
+}
+
 // YurtIngressSpec defines the desired state of YurtIngress
 type YurtIngressSpec struct {
 	// Indicates the number of the ingress controllers to be deployed under all the specified nodepools.
 	// +optional
 	Replicas int32 `json:"ingress_controller_replicas_per_pool,omitempty"`
+
+	// Indicates the ingress controller image url.
+	// +optional
+	IngressControllerImage string `json:"ingress_controller_image,omitempty"`
+
+	// Indicates the ingress webhook image url.
+	// +optional
+	IngressWebhookCertGenImage string `json:"ingress_webhook_certgen_image,omitempty"`
 
 	// Indicates all the nodepools on which to enable ingress.
 	// +optional
@@ -308,13 +323,17 @@ type YurtIngressStatus struct {
 	// +optional
 	Replicas int32 `json:"ingress_controller_replicas_per_pool,omitempty"`
 
-	// Indicates all the nodepools conditions on which to enable ingress.
+	// Indicates all the nodepools on which to enable ingress.
 	// +optional
 	Conditions YurtIngressCondition `json:"conditions,omitempty"`
 
-	// Indicates the nginx ingress controller version deployed under all the specified nodepools.
+	// Indicates the ingress controller image url.
 	// +optional
-	Version string `json:"nginx_ingress_controller_version,omitempty"`
+	IngressControllerImage string `json:"ingress_controller_image"`
+
+	// Indicates the ingress webhook image url.
+	// +optional
+	IngressWebhookCertGenImage string `json:"ingress_webhook_certgen_image"`
 
 	// Total number of ready pools on which ingress is enabled.
 	// +optional
@@ -327,9 +346,15 @@ type YurtIngressStatus struct {
 ```
 Some other details about the design:
 - The `YurtIngress` CR is a cluster level instead of namespace level resource.
-- The `YurtIngress` CR should be singleton CR which means there should be only one instance in the cluster,
-  otherwise, it may lead to conflict if users create different `YurtIngress` CR for same NodePools. We can implement
-  the related admission webhook to control it.
+- Users can define different `YurtIngress` CRs to make personalized configurations for different nodepools.
+  For example in the `YurtIngress` spec:
+  `Replicas` aims to provide users the flexibility to set different ingress controller replicas for different pools,
+  it means for a group of pools, users can deploy only 1 ingress controller replicas, but for another group of pools,
+  users can deploy multiple ingress controller replicas for HA usage scenarios. If not set, the default value is 1.
+  `IngressControllerImage` and `IngressWebhookCertGenImage` aim to provide users the flexibility to set nginx ingress
+  controller docker images location themselves. If not set, the default value is a default image from dockerhub.
+  `IngressIPs` aims to provide the capability for a specific nodepool which may need to expose the nginx ingress
+  controller service through externalIPs. If not set, it will be exposed through a general NodePort service.
 - In Cloud Edge usage scenarios, admission webhook should be deployed on the Cloud side for Edge network limitation,
   so when `YurtIngress Controller` tries to deploy nginx ingress controller, the upstream nginx ingress controller
   will be divided into 2 parts: one part is deployed on the Cloud side focusing on admission webhook, the other part
@@ -385,3 +410,4 @@ if nodePoolName, ok := currentNode.Labels[nodepoolv1alpha1.LabelCurrentNodePool]
 - [ ] 09/15/2021: Second round of feedback from community
 - [ ] 10/20/2021: Third round of feedback from community
 - [ ] 12/08/2021: Present proposal at a community meeting
+- [ ] 04/24/2022: Add YurtIngress enhancement capabilities
