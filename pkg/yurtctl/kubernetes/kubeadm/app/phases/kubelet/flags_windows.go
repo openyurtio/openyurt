@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 /*
@@ -18,8 +19,10 @@ limitations under the License.
 
 package kubelet
 
+import "github.com/openyurtio/openyurt/pkg/yurtctl/cmd/join/joindata"
+
 // buildKubeletArgMap takes a kubeletFlagsOpts object and builds based on that a string-string map with flags
 // that should be given to the local Windows kubelet daemon.
-func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
-	return buildKubeletArgMapCommon(opts)
+func buildKubeletArgMap(data joindata.YurtJoinData) map[string]string {
+	return buildKubeletArgMapCommon(data)
 }
