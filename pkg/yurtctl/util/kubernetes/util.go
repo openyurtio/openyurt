@@ -185,11 +185,8 @@ func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx
 	if !ok {
 		return errors.New("fail to assert Deployment")
 	}
-	if _, err = cliSet.AppsV1().Deployments(ns).Create(context.Background(), dply, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	klog.V(4).Infof("the deployment/%s is deployed", dply.Name)
-	return nil
+	_, err = cliSet.AppsV1().Deployments(ns).Create(context.Background(), dply, metav1.CreateOptions{})
+	return processCreateErr("deployment", dply.Name, err)
 }
 
 // CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
@@ -214,11 +211,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ct
 		return fmt.Errorf("fail to assert daemonset: %v", err)
 	}
 	_, err = cliSet.AppsV1().DaemonSets(ns).Create(context.Background(), ds, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("fail to create the daemonset/%s: %v", ds.Name, err)
-	}
-	klog.V(4).Infof("daemonset/%s is created", ds.Name)
-	return nil
+	return processCreateErr("daemonset", ds.Name, err)
 }
 
 // CreateServiceFromYaml creates the Service from the yaml template.
