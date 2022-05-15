@@ -9,3 +9,4 @@ vendor
 *.out
 logs
 test-prow
+/bin

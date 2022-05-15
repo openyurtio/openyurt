@@ -14,6 +14,8 @@
 
 .PHONY: clean all release build
 
+BIN := $(shell pwd)/bin/
+
 all: test build
 
 # Build binaries in the host environment
@@ -25,7 +27,7 @@ gen-yaml:
 	hack/make-rules/genyaml.sh $(WHAT)
 
 # Run test
-test: fmt vet
+test: fmt vet setup-envtest
 	go test -v -short ./pkg/... ./cmd/... -coverprofile cover.out
 	go test -v  -coverpkg=./pkg/yurttunnel/...  -coverprofile=yurttunnel-cover.out ./test/integration/yurttunnel_test.go
 
@@ -88,6 +90,21 @@ GOLINT_BIN=$(shell go env GOPATH)/bin/golangci-lint
 else
 GOLINT_BIN=$(shell which golangci-lint)
 endif
+
+install-setup-envtest: ## check setup-envtest if not exist install setup-envtest tools
+ifeq (, $(shell which setup-envtest))
+	@{ \
+	set -e ;\
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.12.0 ;\
+	}
+SETUP_ENVTEST_BIN=$(shell go env GOPATH)/bin/setup-envtest
+else
+SETUP_ENVTEST_BIN=$(shell which setup-envtest)
+endif
+
+setup-envtest: install-setup-envtest
+	$(SETUP_ENVTEST_BIN) use --bin-dir $(BIN) 1.21.x
+	export PATH="$(BIN):$${PATH}"
 
 lint: install-golint ## Run go lint against code.
 	$(GOLINT_BIN) run -v
