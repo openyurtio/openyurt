@@ -91,7 +91,7 @@ func DecodeKubeletConfiguration(kubeletCodecs *serializer.CodecFactory, data []b
 		if lenientErr != nil {
 			// Lenient decoding failed with the current version, return the
 			// original strict error.
-			return nil, fmt.Errorf("failed lenient decoding: %v", err)
+			return nil, fmt.Errorf("failed lenient decoding: %w", err)
 		}
 		// Continue with the v1beta1 object that was decoded leniently, but emit a warning.
 		klog.Warningf("using lenient decoding as strict decoding failed: %v", err)

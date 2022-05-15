@@ -19,6 +19,7 @@ package cachemanager
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -482,7 +483,7 @@ func TestCacheGetResponse(t *testing.T) {
 
 			obj, err := sWrapper.Get(tt.key)
 			if err != nil || obj == nil {
-				if tt.expectResult.err != err {
+				if !errors.Is(tt.expectResult.err, err) {
 					t.Errorf("expect get error %v, but got %v", tt.expectResult.err, err)
 				}
 				t.Logf("get expected err %v for key %s", tt.expectResult.err, tt.key)
@@ -1321,7 +1322,7 @@ func TestCacheListResponse(t *testing.T) {
 				objs, err := sWrapper.List(tt.key)
 				if err != nil {
 					// If error is storage.ErrStorageNotFound, it means that no object is cached in the hard disk
-					if err == storage.ErrStorageNotFound {
+					if errors.Is(err, storage.ErrStorageNotFound) {
 						if len(tt.expectResult.data) != 0 {
 							t.Errorf("expect %v objects, but get nothing.", len(tt.expectResult.data))
 						}
@@ -2305,7 +2306,7 @@ func TestQueryCacheForList(t *testing.T) {
 					t.Errorf("Got no error, but expect err")
 				}
 
-				if tt.expectResult.queryErr != nil && tt.expectResult.queryErr != err {
+				if tt.expectResult.queryErr != nil && !errors.Is(tt.expectResult.queryErr, err) {
 					t.Errorf("expect err %v, but got %v", tt.expectResult.queryErr, err)
 				}
 			} else {

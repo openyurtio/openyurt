@@ -191,7 +191,7 @@ func CheckAndInstallSealer() error {
 		if b, err := exec.Command("sealer", "version").CombinedOutput(); err == nil {
 			info := make(map[string]string)
 			if err := json.Unmarshal(b, &info); err != nil {
-				return fmt.Errorf("Can't get the existing sealer version: %v", err)
+				return fmt.Errorf("Can't get the existing sealer version: %w", err)
 			}
 			sealerVersion := info["gitVersion"]
 			if strutil.IsInStringLst(ValidSealerVersions, sealerVersion) {
@@ -209,7 +209,7 @@ func CheckAndInstallSealer() error {
 		savePath := fmt.Sprintf("%s/sealer-%s-linux-%s.tar.gz", TmpDownloadDir, DefaultSealerVersion, runtime.GOARCH)
 		klog.V(1).Infof("Download sealer from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download sealer fail: %v", err)
+			return fmt.Errorf("Download sealer fail: %w", err)
 		}
 		if err := util.Untar(savePath, TmpDownloadDir); err != nil {
 			return err

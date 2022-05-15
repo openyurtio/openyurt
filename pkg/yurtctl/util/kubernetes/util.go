@@ -109,7 +109,7 @@ func processCreateErr(kind string, name string, err error) error {
 			klog.V(4).Infof("[WARNING] %s/%s is already in cluster, skip to prepare it", kind, name)
 			return nil
 		}
-		return fmt.Errorf("fail to create the %s/%s: %v", kind, name, err)
+		return fmt.Errorf("fail to create the %s/%s: %w", kind, name, err)
 	}
 	klog.V(4).Infof("%s/%s is created", kind, name)
 	return nil
@@ -123,7 +123,7 @@ func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl strin
 	}
 	sa, ok := obj.(*corev1.ServiceAccount)
 	if !ok {
-		return fmt.Errorf("fail to assert serviceaccount: %v", err)
+		return fmt.Errorf("fail to assert serviceaccount: %w", err)
 	}
 	_, err = cliSet.CoreV1().ServiceAccounts(ns).Create(context.Background(), sa, metav1.CreateOptions{})
 	return processCreateErr("serviceaccount", sa.Name, err)
@@ -137,7 +137,7 @@ func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) erro
 	}
 	cr, ok := obj.(*rbacv1.ClusterRole)
 	if !ok {
-		return fmt.Errorf("fail to assert clusterrole: %v", err)
+		return fmt.Errorf("fail to assert clusterrole: %w", err)
 	}
 	_, err = cliSet.RbacV1().ClusterRoles().Create(context.Background(), cr, metav1.CreateOptions{})
 	return processCreateErr("clusterrole", cr.Name, err)
@@ -151,7 +151,7 @@ func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl stri
 	}
 	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
 	if !ok {
-		return fmt.Errorf("fail to assert clusterrolebinding: %v", err)
+		return fmt.Errorf("fail to assert clusterrolebinding: %w", err)
 	}
 	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
 	return processCreateErr("clusterrolebinding", crb.Name, err)
@@ -165,7 +165,7 @@ func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) er
 	}
 	cm, ok := obj.(*corev1.ConfigMap)
 	if !ok {
-		return fmt.Errorf("fail to assert configmap: %v", err)
+		return fmt.Errorf("fail to assert configmap: %w", err)
 	}
 	_, err = cliSet.CoreV1().ConfigMaps(ns).Create(context.Background(), cm, metav1.CreateOptions{})
 	return processCreateErr("configmap", cm.Name, err)
@@ -208,7 +208,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ct
 	}
 	ds, ok := obj.(*appsv1.DaemonSet)
 	if !ok {
-		return fmt.Errorf("fail to assert daemonset: %v", err)
+		return fmt.Errorf("fail to assert daemonset: %w", err)
 	}
 	_, err = cliSet.AppsV1().DaemonSets(ns).Create(context.Background(), ds, metav1.CreateOptions{})
 	return processCreateErr("daemonset", ds.Name, err)
@@ -222,7 +222,7 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, ns, svcTmpl string) err
 	}
 	svc, ok := obj.(*corev1.Service)
 	if !ok {
-		return fmt.Errorf("fail to assert service: %v", err)
+		return fmt.Errorf("fail to assert service: %w", err)
 	}
 	_, err = cliSet.CoreV1().Services(ns).Create(context.Background(), svc, metav1.CreateOptions{})
 	return processCreateErr("service", svc.Name, err)
@@ -237,7 +237,7 @@ func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
 	}
 	ro, ok := obj.(*rbacv1.Role)
 	if !ok {
-		return fmt.Errorf("fail to assert role: %v", err)
+		return fmt.Errorf("fail to assert role: %w", err)
 	}
 	_, err = cliSet.RbacV1().Roles(ns).Create(context.Background(), ro, metav1.CreateOptions{})
 	return processCreateErr("role", ro.Name, err)
@@ -251,7 +251,7 @@ func CreateRoleBindingFromYaml(cliSet *kubernetes.Clientset, ns, crbTmpl string)
 	}
 	rb, ok := obj.(*rbacv1.RoleBinding)
 	if !ok {
-		return fmt.Errorf("fail to assert rolebinding: %v", err)
+		return fmt.Errorf("fail to assert rolebinding: %w", err)
 	}
 	_, err = cliSet.RbacV1().RoleBindings(ns).Create(context.Background(), rb, metav1.CreateOptions{})
 	return processCreateErr("rolebinding", rb.Name, err)
@@ -265,7 +265,7 @@ func CreateSecretFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error
 	}
 	se, ok := obj.(*corev1.Secret)
 	if !ok {
-		return fmt.Errorf("fail to assert secret: %v", err)
+		return fmt.Errorf("fail to assert secret: %w", err)
 	}
 	_, err = cliSet.CoreV1().Secrets(ns).Create(context.Background(), se, metav1.CreateOptions{})
 
@@ -280,7 +280,7 @@ func CreateMutatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, sv
 	}
 	mw, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
 	if !ok {
-		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %v", err)
+		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %w", err)
 	}
 	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), mw, metav1.CreateOptions{})
 	return processCreateErr("mutatingwebhookconfiguration", mw.Name, err)
@@ -294,7 +294,7 @@ func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, 
 	}
 	vw, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
 	if !ok {
-		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %v", err)
+		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %w", err)
 	}
 	_, err = cliSet.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), vw, metav1.CreateOptions{})
 	return processCreateErr("validatingwebhookconfiguration", vw.Name, err)
@@ -512,7 +512,7 @@ func RunServantJobs(
 	for _, nodeName := range nodeNames {
 		job, err := getJob(nodeName)
 		if err != nil {
-			return fmt.Errorf("fail to get job for node %s: %s", nodeName, err)
+			return fmt.Errorf("fail to get job for node %s: %w", nodeName, err)
 		}
 		jobByNodeName[nodeName] = job
 	}
@@ -627,7 +627,7 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	klog.V(1).Infoln("[token] retrieving list of bootstrap tokens")
 	secrets, err := cliSet.CoreV1().Secrets(metav1.NamespaceSystem).List(context.Background(), listOptions)
 	if err != nil {
-		return "", fmt.Errorf("%v%s", err, "failed to list bootstrap tokens")
+		return "", fmt.Errorf("%w%s", err, "failed to list bootstrap tokens")
 	}
 
 	for _, secret := range secrets.Items {
@@ -648,7 +648,7 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 
 	tokenStr, err := bootstraputil.GenerateBootstrapToken()
 	if err != nil {
-		return "", fmt.Errorf("couldn't generate random token, %v", err)
+		return "", fmt.Errorf("couldn't generate random token, %w", err)
 	}
 	token, err := kubeadmapi.NewBootstrapTokenString(tokenStr)
 	if err != nil {
@@ -733,7 +733,7 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
 		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download kuelet fail: %v", err)
+			return fmt.Errorf("Download kuelet fail: %w", err)
 		}
 		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
 			return err

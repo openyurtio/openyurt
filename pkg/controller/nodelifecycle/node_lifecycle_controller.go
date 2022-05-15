@@ -735,7 +735,7 @@ func (nc *Controller) doEvictionPass() {
 			nodeUID, _ := value.UID.(string)
 			pods, err := nc.getPodsAssignedToNode(value.Value)
 			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("unable to list pods from node %q: %v", value.Value, err))
+				utilruntime.HandleError(fmt.Errorf("unable to list pods from node %q: %w", value.Value, err))
 				return false, 0
 			}
 			remaining, err := nodeutil.DeletePods(nc.kubeClient, pods, nc.recorder, value.Value, nodeUID, nc.daemonSetStore)
@@ -743,7 +743,7 @@ func (nc *Controller) doEvictionPass() {
 				// We are not setting eviction status here.
 				// New pods will be handled by zonePodEvictor retry
 				// instead of immediate pod eviction.
-				utilruntime.HandleError(fmt.Errorf("unable to evict node %q: %v", value.Value, err))
+				utilruntime.HandleError(fmt.Errorf("unable to evict node %q: %w", value.Value, err))
 				return false, 0
 			}
 			if !nc.nodeEvictionMap.setStatus(value.Value, evicted) {
@@ -829,7 +829,7 @@ func (nc *Controller) monitorNodeHealth() error {
 		if currentReadyCondition != nil {
 			pods, err := nc.getPodsAssignedToNode(node.Name)
 			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("unable to list pods of node %v: %v", node.Name, err))
+				utilruntime.HandleError(fmt.Errorf("unable to list pods of node %v: %w", node.Name, err))
 				if currentReadyCondition.Status != v1.ConditionTrue && observedReadyCondition.Status == v1.ConditionTrue {
 					// If error happened during node status transition (Ready -> NotReady)
 					// we need to mark node for retry to force MarkPodsNotReady execution
@@ -842,7 +842,7 @@ func (nc *Controller) monitorNodeHealth() error {
 				nc.processTaintBaseEviction(node, &observedReadyCondition)
 			} else {
 				if err := nc.processNoTaintBaseEviction(node, &observedReadyCondition, gracePeriod, pods); err != nil {
-					utilruntime.HandleError(fmt.Errorf("unable to evict all pods from node %v: %v; queuing for retry", node.Name, err))
+					utilruntime.HandleError(fmt.Errorf("unable to evict all pods from node %v: %w; queuing for retry", node.Name, err))
 				}
 			}
 
@@ -854,7 +854,7 @@ func (nc *Controller) monitorNodeHealth() error {
 				fallthrough
 			case needsRetry && observedReadyCondition.Status != v1.ConditionTrue:
 				if err = nodeutil.MarkPodsNotReady(nc.kubeClient, pods, node.Name, node); err != nil {
-					utilruntime.HandleError(fmt.Errorf("unable to mark all pods NotReady on node %v: %v; queuing for retry", node.Name, err))
+					utilruntime.HandleError(fmt.Errorf("unable to mark all pods NotReady on node %v: %w; queuing for retry", node.Name, err))
 					nc.nodesToRetry.Store(node.Name, struct{}{})
 					continue
 				}
@@ -1450,7 +1450,7 @@ func (nc *Controller) evictPods(node *v1.Node, pods []*v1.Pod) (bool, error) {
 		// Handling immediate pod deletion.
 		_, err := nodeutil.DeletePods(nc.kubeClient, pods, nc.recorder, node.Name, string(node.UID), nc.daemonSetStore)
 		if err != nil {
-			return false, fmt.Errorf("unable to delete pods from node %q: %v", node.Name, err)
+			return false, fmt.Errorf("unable to delete pods from node %q: %w", node.Name, err)
 		}
 		return false, nil
 	}

@@ -95,7 +95,7 @@ func GetConfiguredProxyPortsAndMappings(client clientset.Interface, insecureList
 				YurttunnelServerDnatConfigMapNs,
 				YurttunnelServerDnatConfigMapName)
 		} else {
-			return []string{}, map[string]string{}, fmt.Errorf("fail to get configmap %s/%s: %v",
+			return []string{}, map[string]string{}, fmt.Errorf("fail to get configmap %s/%s: %w",
 				YurttunnelServerDnatConfigMapNs,
 				YurttunnelServerDnatConfigMapName, err)
 		}

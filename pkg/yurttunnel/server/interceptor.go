@@ -78,7 +78,7 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 		klog.V(4).Infof("Sending request to %q.", addr)
 		proxyConn, err := net.Dial("unix", udsSockFile)
 		if err != nil {
-			return nil, fmt.Errorf("dialing proxy %q failed: %v", udsSockFile, err)
+			return nil, fmt.Errorf("dialing proxy %q failed: %w", udsSockFile, err)
 		}
 
 		var connectHeaders string
@@ -94,7 +94,7 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 		res, err := http.ReadResponse(br, nil)
 		if err != nil {
 			proxyConn.Close()
-			return nil, fmt.Errorf("reading HTTP response from CONNECT to %s via proxy %s failed: %v", addr, udsSockFile, err)
+			return nil, fmt.Errorf("reading HTTP response from CONNECT to %s via proxy %s failed: %w", addr, udsSockFile, err)
 		}
 		if res.StatusCode != 200 {
 			proxyConn.Close()
@@ -107,7 +107,7 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 			tlsTunnelConn := tls.Client(proxyConn, cfg)
 			if err := tlsTunnelConn.Handshake(); err != nil {
 				proxyConn.Close()
-				return nil, fmt.Errorf("fail to setup TLS handshake through the Tunnel: %s", err)
+				return nil, fmt.Errorf("fail to setup TLS handshake through the Tunnel: %w", err)
 			}
 			klog.V(4).Infof("successfully setup TLS connection to %q with headers: %s", addr, connectHeaders)
 			return tlsTunnelConn, nil

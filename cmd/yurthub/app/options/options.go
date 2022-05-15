@@ -126,7 +126,7 @@ func ValidateOptions(options *YurtHubOptions) error {
 	}
 
 	if err := verifyDummyIP(options.HubAgentDummyIfIP); err != nil {
-		return fmt.Errorf("dummy ip %s is not invalid, %v", options.HubAgentDummyIfIP, err)
+		return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
 	}
 
 	return nil
@@ -178,7 +178,7 @@ func verifyDummyIP(dummyIP string) error {
 
 	_, dummyIfIPNet, err := net.ParseCIDR(DummyIfCIDR)
 	if err != nil {
-		return fmt.Errorf("cidr(%s) is invalid, %v", DummyIfCIDR, err)
+		return fmt.Errorf("cidr(%s) is invalid, %w", DummyIfCIDR, err)
 	}
 
 	if !dummyIfIPNet.Contains(dip) {
@@ -187,7 +187,7 @@ func verifyDummyIP(dummyIP string) error {
 
 	_, exclusiveIPNet, err := net.ParseCIDR(ExclusiveCIDR)
 	if err != nil {
-		return fmt.Errorf("cidr(%s) is invalid, %v", ExclusiveCIDR, err)
+		return fmt.Errorf("cidr(%s) is invalid, %w", ExclusiveCIDR, err)
 	}
 
 	if exclusiveIPNet.Contains(dip) {

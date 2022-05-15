@@ -181,7 +181,7 @@ func (nc NodeServantJobCheck) Check() (warnings []error, errorList []error) {
 			defer wg.Done()
 			if err := kubeutil.RunJobAndCleanup(nc.cliSet, &entity,
 				nc.waitServantJobTimeout, nc.checkServantJobPeriod); err != nil {
-				msg := fmt.Errorf("fail to run servant job(%s): %s\n", entity.GetName(), err)
+				msg := fmt.Errorf("fail to run servant job(%s): %w\n", entity.GetName(), err)
 				res <- msg
 			} else {
 				klog.V(1).Infof("servant job(%s) has succeeded\n", entity.GetName())

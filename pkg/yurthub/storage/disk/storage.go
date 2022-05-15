@@ -204,7 +204,7 @@ func (ds *diskStorage) get(path string) ([]byte, error) {
 		if os.IsNotExist(err) {
 			return []byte{}, storage.ErrStorageNotFound
 		}
-		return nil, fmt.Errorf("failed to get bytes from %s, %v", path, err)
+		return nil, fmt.Errorf("failed to get bytes from %s, %w", path, err)
 	} else if info.Mode().IsRegular() {
 		b, err := os.ReadFile(path)
 		if err != nil {

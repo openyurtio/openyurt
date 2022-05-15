@@ -19,6 +19,7 @@ package util
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"io"
 	"testing"
 )
@@ -75,7 +76,7 @@ func TestDualReaderByPreClose(t *testing.T) {
 		t.Errorf("prc.Close failed %v", err)
 	}
 
-	if n, err := io.ReadFull(rc, dst); n != 0 || err != io.ErrClosedPipe {
+	if n, err := io.ReadFull(rc, dst); n != 0 || !errors.Is(err, io.ErrClosedPipe) {
 		t.Errorf("closed dualReadCloser: ReadFull(r, dst) = %d, %v; want 0, EPIPE", n, err)
 	}
 }

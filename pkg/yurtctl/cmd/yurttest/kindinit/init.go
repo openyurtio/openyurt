@@ -374,7 +374,7 @@ func (i *Initializer) loadImagesToKindNodes(images, nodes []string) error {
 func getGoBinPath() (string, error) {
 	gopath, err := exec.Command("bash", "-c", "go env GOPATH").CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get GOPATH, %s", err)
+		return "", fmt.Errorf("failed to get GOPATH, %w", err)
 	}
 	return filepath.Join(string(gopath), "bin"), nil
 }

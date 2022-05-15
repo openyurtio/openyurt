@@ -68,7 +68,7 @@ func DeletePods(kubeClient clientset.Interface, pods []*v1.Pod, recorder record.
 		if _, err := SetPodTerminationReason(kubeClient, pod, nodeName); err != nil {
 			if apierrors.IsConflict(err) {
 				updateErrList = append(updateErrList,
-					fmt.Errorf("update status failed for pod %q: %v", ctlnode.Pod(pod), err))
+					fmt.Errorf("update status failed for pod %q: %w", ctlnode.Pod(pod), err))
 				continue
 			}
 		}
@@ -205,7 +205,7 @@ func SwapNodeControllerTaint(kubeClient clientset.Interface, taintsToAdd, taints
 	if err != nil {
 		utilruntime.HandleError(
 			fmt.Errorf(
-				"unable to taint %+v unresponsive Node %q: %v",
+				"unable to taint %+v unresponsive Node %q: %w",
 				taintsToAdd,
 				node.Name,
 				err))
@@ -217,7 +217,7 @@ func SwapNodeControllerTaint(kubeClient clientset.Interface, taintsToAdd, taints
 	if err != nil {
 		utilruntime.HandleError(
 			fmt.Errorf(
-				"unable to remove %+v unneeded taint from unresponsive Node %q: %v",
+				"unable to remove %+v unneeded taint from unresponsive Node %q: %w",
 				taintsToRemove,
 				node.Name,
 				err))
@@ -235,7 +235,7 @@ func AddOrUpdateLabelsOnNode(kubeClient clientset.Interface, labelsToUpdate map[
 	if err != nil {
 		utilruntime.HandleError(
 			fmt.Errorf(
-				"unable to update labels %+v for Node %q: %v",
+				"unable to update labels %+v for Node %q: %w",
 				labelsToUpdate,
 				node.Name,
 				err))
@@ -250,7 +250,7 @@ func CreateAddNodeHandler(f func(node *v1.Node) error) func(obj interface{}) {
 	return func(originalObj interface{}) {
 		node := originalObj.(*v1.Node).DeepCopy()
 		if err := f(node); err != nil {
-			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add: %v", err))
+			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add: %w", err))
 		}
 	}
 }
@@ -262,7 +262,7 @@ func CreateUpdateNodeHandler(f func(oldNode, newNode *v1.Node) error) func(oldOb
 		prevNode := origOldObj.(*v1.Node).DeepCopy()
 
 		if err := f(prevNode, node); err != nil {
-			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add/Delete: %v", err))
+			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add/Delete: %w", err))
 		}
 	}
 }
@@ -287,7 +287,7 @@ func CreateDeleteNodeHandler(f func(node *v1.Node) error) func(obj interface{}) 
 		}
 		node := originalNode.DeepCopy()
 		if err := f(node); err != nil {
-			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add/Delete: %v", err))
+			utilruntime.HandleError(fmt.Errorf("Error while processing Node Add/Delete: %w", err))
 		}
 	}
 }

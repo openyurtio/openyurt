@@ -114,7 +114,7 @@ func (nl *nodeLeaseImpl) backoffEnsureLease() (*coordinationv1.Lease, bool, erro
 		}
 		sleep = sleep * 2
 		if sleep > maxBackoff {
-			return nil, false, fmt.Errorf("backoff ensure lease error: %v", err)
+			return nil, false, fmt.Errorf("backoff ensure lease error: %w", err)
 		}
 		nl.clock.Sleep(sleep)
 	}
