@@ -85,12 +85,12 @@ metadata:
   name: default-kubernetes-config
 spec:
   networking:
-    {{if .pod_subnet }}
+    {{- if .pod_subnet }}
     podSubnet: {{.pod_subnet}}
-    {{end}}
-    {{if .service_subnet}}
+    {{- end}}
+    {{- if .service_subnet}}
     serviceSubnet: {{.service_subnet}}
-    {{end}}
+    {{- end}}
   controllerManager:
     extraArgs:
       controllers: -nodelifecycle,*,bootstrapsigner,tokencleaner

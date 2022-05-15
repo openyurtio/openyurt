@@ -94,9 +94,9 @@ spec:
     - --node-name=$(NODE_NAME)
     - --join-token={{.joinToken}}
     - --working-mode={{.workingMode}}
-      {{if .organizations }}
+      {{- if .organizations }}
     - --hub-cert-organizations={{.organizations}}
-      {{end}}
+      {{- end}}
     livenessProbe:
       httpGet:
         host: 127.0.0.1
