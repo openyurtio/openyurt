@@ -64,10 +64,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
+          {{- if .kubeadm_conf_path }}
         - name: KUBELET_SVC
           value: {{.kubeadm_conf_path}}
-          {{end}}
+          {{- end}}
 `
 	// RevertServantJobTemplate defines the yurtctl revert servant job in yaml format
 	RevertServantJobTemplate = `
@@ -107,10 +107,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
+          {{- if  .kubeadm_conf_path }}
         - name: KUBELET_SVC
           value: {{.kubeadm_conf_path}}
-          {{end}}
+          {{- end}}
 `
 	// ConvertPreflightJobTemplate defines the yurtctl convert preflight checks servant job in yaml format
 	ConvertPreflightJobTemplate = `
@@ -150,9 +150,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
+          {{- if  .kubeadm_conf_path }}
         - name: KUBELET_SVC
           value: {{.kubeadm_conf_path}}
-          {{end}}
+          {{- end}}
 `
 )
