@@ -45,6 +45,12 @@ func (n *nodeReverter) Do() error {
 	if err := n.unInstallYurtHub(); err != nil {
 		return err
 	}
+	if err := n.unInstallYurtTunnelAgent(); err != nil {
+		return err
+	}
+	if err := n.unInstallYurtTunnelServer(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -58,4 +64,12 @@ func (n *nodeReverter) unInstallYurtHub() error {
 	op := components.NewYurthubOperator("", "", "",
 		util.WorkingModeCloud, time.Duration(1)) // params is not important here
 	return op.UnInstall()
+}
+
+func (n *nodeReverter) unInstallYurtTunnelAgent() error {
+	return components.UnInstallYurtTunnelAgent()
+}
+
+func (n *nodeReverter) unInstallYurtTunnelServer() error {
+	return components.UnInstallYurtTunnelServer()
 }
