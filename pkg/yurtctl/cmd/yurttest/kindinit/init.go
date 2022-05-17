@@ -30,11 +30,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
 )
 
 var (

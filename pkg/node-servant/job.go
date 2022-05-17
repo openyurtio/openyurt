@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
+	tmplutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 )
 
 // RenderNodeServantJob return k8s job

@@ -14,22 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package constants
+package main
 
-import "github.com/openyurtio/openyurt/pkg/projectinfo"
+import (
+	"os"
 
-var (
-	// AnnotationAutonomy is used to identify if a node is autonomous
-	AnnotationAutonomy = projectinfo.GetAutonomyAnnotation()
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd"
 )
 
-const (
-	YurtctlLockConfigMapName = "yurtctl-lock"
-
-	DefaultOpenYurtVersion = "latest"
-
-	TmpDownloadDir = "/tmp"
-
-	DirMode  = 0755
-	FileMode = 0666
-)
+func main() {
+	cmd := cmd.NewYurtadmCommand()
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}

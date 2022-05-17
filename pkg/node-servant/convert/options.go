@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 

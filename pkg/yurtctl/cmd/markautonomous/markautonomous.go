@@ -29,9 +29,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 )
 
 // MarkAutonomousOptions has the information that required by convert operation

@@ -17,6 +17,7 @@
 set -x
 
 readonly YURT_ALL_TARGETS=(
+    yurtadm
     yurtctl
     yurt-node-servant
     yurthub

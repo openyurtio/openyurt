@@ -31,10 +31,10 @@ import (
 	"k8s.io/klog/v2"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
-	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
