@@ -42,12 +42,12 @@ const (
 func LoadRestConfigAndClientset(kubeconfig string) (*restclient.Config, *clientset.Clientset, error) {
 	config, err := util.LoadRESTClientConfig(kubeconfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error load rest client config: %v", err)
+		return nil, nil, fmt.Errorf("error load rest client config: %w", err)
 	}
 
 	client, err := clientset.NewForConfig(config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error new clientset: %v", err)
+		return nil, nil, fmt.Errorf("error new clientset: %w", err)
 	}
 
 	return config, client, nil

@@ -17,6 +17,7 @@ limitations under the License.
 package cachemanager
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -160,14 +161,14 @@ func TestStorageWrapper(t *testing.T) {
 			t.Errorf("failed to delete obj, %v", err)
 		}
 		_, err = sWrapper.Get("kubelet/pods/default/mypod1")
-		if err != storage.ErrStorageNotFound {
+		if !errors.Is(err, storage.ErrStorageNotFound) {
 			t.Errorf("unexpected error, %v", err)
 		}
 	})
 
 	t.Run("Test list obj in empty path", func(t *testing.T) {
 		_, err = sWrapper.List("kubelet/pods/default")
-		if err != storage.ErrStorageNotFound {
+		if !errors.Is(err, storage.ErrStorageNotFound) {
 			t.Errorf("failed to list obj, %v", err)
 		}
 	})

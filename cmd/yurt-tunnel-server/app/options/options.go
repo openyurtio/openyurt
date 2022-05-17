@@ -142,7 +142,7 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	cfg.ListenMetaAddr = net.JoinHostPort(o.InsecureBindAddr, o.MetaPort)
 	cfg.RootCert, err = certmanager.GenRootCertPool(o.KubeConfig, constants.YurttunnelCAFile)
 	if err != nil {
-		return nil, fmt.Errorf("fail to generate the rootCertPool: %s", err)
+		return nil, fmt.Errorf("fail to generate the rootCertPool: %w", err)
 	}
 
 	// function 'kubeutil.CreateClientSet' will try to create the clientset

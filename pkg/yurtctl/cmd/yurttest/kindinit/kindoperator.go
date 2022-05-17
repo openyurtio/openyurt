@@ -103,7 +103,7 @@ func (k *KindOperator) KindInstall() error {
 	}
 	minorVer, err := k.goMinorVersion()
 	if err != nil {
-		return fmt.Errorf("failed to get go minor version, %s", err)
+		return fmt.Errorf("failed to get go minor version, %w", err)
 	}
 	installCMD := k.getInstallCmd(minorVer, defaultKindVersion)
 	klog.V(1).Infof("start to install kind, running command: %s", installCMD)

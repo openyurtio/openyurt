@@ -480,7 +480,7 @@ func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) error
 	if err != nil && !strings.Contains(err.Error(), NoConnectionToDelete) {
 		klog.Errorf("clear conntrack for %s:%s failed: %q, error message: %s",
 			ip, port, string(output), err)
-		return fmt.Errorf("clear conntrack for %s:%s failed: %q, error message: %s",
+		return fmt.Errorf("clear conntrack for %s:%s failed: %q, error message: %w",
 			ip, port, string(output), err)
 	}
 	return nil

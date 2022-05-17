@@ -18,6 +18,7 @@ package kubeconfig
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -169,7 +170,7 @@ func TestWriteKubeconfigToDisk(t *testing.T) {
 			)
 			configPath := fmt.Sprintf("%s/etc/kubernetes/%s.conf", tmpdir, rt.name)
 			err := WriteToDisk(configPath, c)
-			if err != rt.expected {
+			if !errors.Is(err, rt.expected) {
 				t.Errorf(
 					"failed WriteToDisk with an error:\n\texpected: %s\n\t  actual: %s",
 					rt.expected,

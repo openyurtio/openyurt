@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -293,7 +294,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 
 	kubeConfig, err := clientcmd.Load([]byte(kubeconfigStr))
 	if err != nil {
-		return fmt.Errorf("could not load kube config string, %v", err)
+		return fmt.Errorf("could not load kube config string, %w", err)
 	}
 
 	if len(kubeConfig.Clusters) != 1 {
@@ -338,7 +339,7 @@ func (ycm *yurtHubCertManager) initBootstrap() error {
 	ycm.bootstrapConfStore = bootstrapConfStore
 
 	contents, err := ycm.bootstrapConfStore.Get(bootstrapConfigFileName)
-	if err == storage.ErrStorageNotFound {
+	if errors.Is(err, storage.ErrStorageNotFound) {
 		klog.Infof("%s bootstrap conf file does not exist, so create it", ycm.hubName)
 		return ycm.createBootstrapConfFile(ycm.joinToken)
 	} else if err != nil {
@@ -390,7 +391,7 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 		CertificateStore: s,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize client certificate manager: %v", err)
+		return fmt.Errorf("failed to initialize client certificate manager: %w", err)
 	}
 	ycm.hubClientCertManager = m
 	m.Start()
@@ -554,7 +555,7 @@ func createInsecureRestClientConfig(remoteServer *url.URL) (*restclient.Config, 
 
 	restConfig, err := clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create insecure rest client configuration, %v", err)
+		return nil, fmt.Errorf("failed to create insecure rest client configuration, %w", err)
 	}
 	return restConfig, nil
 }
@@ -625,7 +626,7 @@ func (ycm *yurtHubCertManager) updateBootstrapConfFile(joinToken string) error {
 	curKubeConfig, err := util.LoadKubeConfig(ycm.getBootstrapConfFile())
 	if err != nil || curKubeConfig == nil {
 		klog.Errorf("could not get current bootstrap config for %s, %v", ycm.hubName, err)
-		return fmt.Errorf("could not load bootstrap conf file(%s), %v", ycm.getBootstrapConfFile(), err)
+		return fmt.Errorf("could not load bootstrap conf file(%s), %w", ycm.getBootstrapConfFile(), err)
 	}
 
 	if curKubeConfig.AuthInfos[bootstrapUser] != nil {

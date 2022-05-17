@@ -191,7 +191,7 @@ func newCertManager(
 	certificateStore, err :=
 		store.NewFileStoreWrapper(componentName, certDir, certDir, "", "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize the server certificate store: %v", err)
+		return nil, fmt.Errorf("failed to initialize the server certificate store: %w", err)
 	}
 
 	getTemplate := func() *x509.CertificateRequest {
@@ -223,7 +223,7 @@ func newCertManager(
 		CertificateStore: certificateStore,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize server certificate manager: %v", err)
+		return nil, fmt.Errorf("failed to initialize server certificate manager: %w", err)
 	}
 
 	return certManager, nil

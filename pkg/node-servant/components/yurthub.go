@@ -199,7 +199,7 @@ func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
 	b, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
-		return false, fmt.Errorf("failed to read response of cluster healthz, %v", err)
+		return false, fmt.Errorf("failed to read response of cluster healthz, %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

@@ -105,13 +105,13 @@ func (c *ClusterConverter) Run() error {
 func (c *ClusterConverter) labelEdgeNodes() error {
 	nodeLst, err := c.ClientSet.CoreV1().Nodes().List(context.Background(), v1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list nodes, %s", err)
+		return fmt.Errorf("failed to list nodes, %w", err)
 	}
 	for _, node := range nodeLst.Items {
 		isEdge := strutil.IsInStringLst(c.EdgeNodes, node.Name)
 		if _, err = kubeutil.AddEdgeWorkerLabelAndAutonomyAnnotation(
 			c.ClientSet, &node, strconv.FormatBool(isEdge), "false"); err != nil {
-			return fmt.Errorf("failed to add label to edge node %s, %s", node.Name, err)
+			return fmt.Errorf("failed to add label to edge node %s, %w", node.Name, err)
 		}
 	}
 	return nil
@@ -206,7 +206,7 @@ func prepareYurthubStart(cliSet *kubernetes.Clientset, kcfg string) (string, err
 	// prepare join-token for yurthub
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(cliSet)
 	if err != nil || joinToken == "" {
-		return "", fmt.Errorf("fail to get join token: %v", err)
+		return "", fmt.Errorf("fail to get join token: %w", err)
 	}
 	return joinToken, nil
 }
@@ -217,13 +217,13 @@ func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) erro
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
 		if err := kubeadmapi.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
-			return fmt.Errorf("error creating bootstrap ConfigMap, %v", err)
+			return fmt.Errorf("error creating bootstrap ConfigMap, %w", err)
 		}
 		if err := kubeadmapi.CreateClusterInfoRBACRules(client); err != nil {
-			return fmt.Errorf("error creating clusterinfo RBAC rules, %v", err)
+			return fmt.Errorf("error creating clusterinfo RBAC rules, %w", err)
 		}
 	} else if err != nil || info == nil {
-		return fmt.Errorf("fail to get configmap, %v", err)
+		return fmt.Errorf("fail to get configmap, %w", err)
 	} else {
 		klog.V(4).Infof("%s/%s configmap already exists, skip to prepare it", info.Namespace, info.Name)
 	}

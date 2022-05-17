@@ -153,7 +153,7 @@ func RemoveTaintOffNode(c clientset.Interface, nodeName string, node *v1.Node, t
 func PatchNodeTaints(c clientset.Interface, nodeName string, oldNode *v1.Node, newNode *v1.Node) error {
 	oldData, err := json.Marshal(oldNode)
 	if err != nil {
-		return fmt.Errorf("failed to marshal old node %#v for node %q: %v", oldNode, nodeName, err)
+		return fmt.Errorf("failed to marshal old node %#v for node %q: %w", oldNode, nodeName, err)
 	}
 
 	newTaints := newNode.Spec.Taints
@@ -161,12 +161,12 @@ func PatchNodeTaints(c clientset.Interface, nodeName string, oldNode *v1.Node, n
 	newNodeClone.Spec.Taints = newTaints
 	newData, err := json.Marshal(newNodeClone)
 	if err != nil {
-		return fmt.Errorf("failed to marshal new node %#v for node %q: %v", newNodeClone, nodeName, err)
+		return fmt.Errorf("failed to marshal new node %#v for node %q: %w", newNodeClone, nodeName, err)
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, v1.Node{})
 	if err != nil {
-		return fmt.Errorf("failed to create patch for node %q: %v", nodeName, err)
+		return fmt.Errorf("failed to create patch for node %q: %w", nodeName, err)
 	}
 
 	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
@@ -201,18 +201,18 @@ func AddOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 
 		oldData, err := json.Marshal(node)
 		if err != nil {
-			return fmt.Errorf("failed to marshal the existing node %#v: %v", node, err)
+			return fmt.Errorf("failed to marshal the existing node %#v: %w", node, err)
 		}
 		newData, err := json.Marshal(newNode)
 		if err != nil {
-			return fmt.Errorf("failed to marshal the new node %#v: %v", newNode, err)
+			return fmt.Errorf("failed to marshal the new node %#v: %w", newNode, err)
 		}
 		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &v1.Node{})
 		if err != nil {
-			return fmt.Errorf("failed to create a two-way merge patch: %v", err)
+			return fmt.Errorf("failed to create a two-way merge patch: %w", err)
 		}
 		if _, err := kubeClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return fmt.Errorf("failed to patch the node: %v", err)
+			return fmt.Errorf("failed to patch the node: %w", err)
 		}
 		return nil
 	})

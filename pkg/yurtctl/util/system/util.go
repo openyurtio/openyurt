@@ -42,7 +42,7 @@ net.bridge.bridge-nf-call-iptables = 1`
 func SetIpv4Forward() error {
 	klog.Infof("Setting ipv4 forward")
 	if err := os.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write content 1 to file %s fail: %v ", ip_forward, err)
+		return fmt.Errorf("Write content 1 to file %s fail: %w ", ip_forward, err)
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ func SetIpv4Forward() error {
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
 	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %v ", constants.SysctlK8sConfig, err)
+		return fmt.Errorf("Write file %s fail: %w ", constants.SysctlK8sConfig, err)
 	}
 
 	if exist, _ := edgenode.FileExists(bridgenf); !exist {
@@ -61,10 +61,10 @@ func SetBridgeSetting() error {
 		}
 	}
 	if err := os.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
+		return fmt.Errorf("Write file %s fail: %w ", bridgenf, err)
 	}
 	if err := os.WriteFile(bridgenf6, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %v ", bridgenf, err)
+		return fmt.Errorf("Write file %s fail: %w ", bridgenf, err)
 	}
 	return nil
 }

@@ -242,7 +242,7 @@ func DeleteYurthubSetting(client *kubernetes.Clientset) error {
 	if err := client.RbacV1().ClusterRoleBindings().
 		Delete(context.Background(), edgenode.YurthubComponentName,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %s",
+		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %w",
 			edgenode.YurthubComponentName, err)
 	}
 
@@ -250,7 +250,7 @@ func DeleteYurthubSetting(client *kubernetes.Clientset) error {
 	if err := client.RbacV1().ClusterRoles().
 		Delete(context.Background(), edgenode.YurthubComponentName,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the clusterrole/%s: %s",
+		return fmt.Errorf("fail to delete the clusterrole/%s: %w",
 			edgenode.YurthubComponentName, err)
 	}
 
@@ -258,7 +258,7 @@ func DeleteYurthubSetting(client *kubernetes.Clientset) error {
 	if err := client.CoreV1().ConfigMaps(edgenode.YurthubNamespace).
 		Delete(context.Background(), edgenode.YurthubCmName,
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the configmap/%s: %s",
+		return fmt.Errorf("fail to delete the configmap/%s: %w",
 			edgenode.YurthubCmName, err)
 	}
 

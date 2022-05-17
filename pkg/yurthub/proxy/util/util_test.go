@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -310,7 +311,7 @@ func TestWithRequestTimeout(t *testing.T) {
 		handler = filters.WithRequestInfo(handler, resolver)
 		handler.ServeHTTP(httptest.NewRecorder(), req)
 
-		if ctxErr != tc.Err {
+		if !errors.Is(ctxErr, tc.Err) {
 			t.Errorf("%s: expect context cancel error %v, but got %v", k, tc.Err, ctxErr)
 		}
 	}

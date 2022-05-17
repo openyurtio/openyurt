@@ -404,7 +404,7 @@ func (tc *NoExecuteTaintManager) handlePodUpdate(podUpdate podUpdateItem) {
 			tc.cancelWorkWithEvent(podNamespacedName)
 			return
 		}
-		utilruntime.HandleError(fmt.Errorf("could not get pod %s/%s: %v", podUpdate.podName, podUpdate.podNamespace, err))
+		utilruntime.HandleError(fmt.Errorf("could not get pod %s/%s: %w", podUpdate.podName, podUpdate.podNamespace, err))
 		return
 	}
 
@@ -445,7 +445,7 @@ func (tc *NoExecuteTaintManager) handleNodeUpdate(nodeUpdate nodeUpdateItem) {
 			delete(tc.taintedNodes, nodeUpdate.nodeName)
 			return
 		}
-		utilruntime.HandleError(fmt.Errorf("cannot get node %s: %v", nodeUpdate.nodeName, err))
+		utilruntime.HandleError(fmt.Errorf("cannot get node %s: %w", nodeUpdate.nodeName, err))
 		return
 	}
 

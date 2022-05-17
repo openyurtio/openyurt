@@ -18,13 +18,14 @@ package local
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +83,7 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		klog.Errorf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))
-		util.Err(errors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))), w, req)
+		util.Err(apierrors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))), w, req)
 	}
 }
 
@@ -154,12 +155,12 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		err := fmt.Errorf("unable to start watch - can't get http.Flusher: %#v", w)
-		return errors.NewInternalError(err)
+		return apierrors.NewInternalError(err)
 	}
 
 	opts := metainternalversion.ListOptions{}
 	if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
-		return errors.NewBadRequest(err.Error())
+		return apierrors.NewBadRequest(err.Error())
 	}
 
 	ctx := req.Context()
@@ -201,20 +202,20 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) error {
 	if !lp.cacheMgr.CanCacheFor(req) {
 		klog.Errorf("can not cache for %s", util.ReqString(req))
-		return errors.NewBadRequest(fmt.Sprintf("can not cache for %s", util.ReqString(req)))
+		return apierrors.NewBadRequest(fmt.Sprintf("can not cache for %s", util.ReqString(req)))
 	}
 
 	obj, err := lp.cacheMgr.QueryCache(req)
-	if err == storage.ErrStorageNotFound || err == hubmeta.ErrGVRNotRecognized {
+	if errors.Is(err, storage.ErrStorageNotFound) || errors.Is(err, hubmeta.ErrGVRNotRecognized) {
 		klog.Errorf("object not found for %s", util.ReqString(req))
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
-		return errors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
+		return apierrors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
 		klog.Errorf("failed to query cache for %s, %v", util.ReqString(req), err)
-		return errors.NewInternalError(err)
+		return apierrors.NewInternalError(err)
 	} else if obj == nil {
 		klog.Errorf("no cache object for %s", util.ReqString(req))
-		return errors.NewInternalError(fmt.Errorf("no cache object for %s", util.ReqString(req)))
+		return apierrors.NewInternalError(fmt.Errorf("no cache object for %s", util.ReqString(req)))
 	}
 
 	return util.WriteObject(http.StatusOK, obj, w, req)
