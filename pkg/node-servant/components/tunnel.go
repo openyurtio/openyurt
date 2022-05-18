@@ -23,7 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 func UnInstallYurtTunnelAgent() error {

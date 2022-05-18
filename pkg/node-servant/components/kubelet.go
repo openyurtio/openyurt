@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 const (

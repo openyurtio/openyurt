@@ -1,5 +1,8 @@
+//go:build windows
+// +build windows
+
 /*
-Copyright 2022 The OpenYurt Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,22 +17,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package constants
+package kubelet
 
-import "github.com/openyurtio/openyurt/pkg/projectinfo"
+import "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 
-var (
-	// AnnotationAutonomy is used to identify if a node is autonomous
-	AnnotationAutonomy = projectinfo.GetAutonomyAnnotation()
-)
-
-const (
-	YurtctlLockConfigMapName = "yurtctl-lock"
-
-	DefaultOpenYurtVersion = "latest"
-
-	TmpDownloadDir = "/tmp"
-
-	DirMode  = 0755
-	FileMode = 0666
-)
+// buildKubeletArgMap takes a kubeletFlagsOpts object and builds based on that a string-string map with flags
+// that should be given to the local Windows kubelet daemon.
+func buildKubeletArgMap(data joindata.YurtJoinData) map[string]string {
+	return buildKubeletArgMapCommon(data)
+}
