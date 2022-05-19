@@ -1,1 +1,0 @@
-The yurt-app-manager has been moved to https://github.com/openyurtio/yurt-app-manager. You can reference the [tutorial](https://github.com/openyurtio/yurt-app-manager/blob/master/docs/yurt-app-manager-dev-tutorial.md) to build yurt-app-manager image.
