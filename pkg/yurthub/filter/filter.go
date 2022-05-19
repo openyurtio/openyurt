@@ -66,6 +66,7 @@ func (fs *Filters) NewFromFilters(initializer FilterInitializer) (map[string]Run
 			}
 
 			if err = initializer.Initialize(ins); err != nil {
+				klog.Errorf("Filter %s initialize failed, %v", name, err)
 				return nil, err
 			}
 			klog.V(2).Infof("Filter %s initialize successfully", name)
