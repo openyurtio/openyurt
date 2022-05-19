@@ -2,14 +2,14 @@
 
 There's a `Makefile` in the root folder. Here are some common options:
 
-Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtctl`)
+Build all binaries (`yurt-controller-manager`, `yurthub`, `yurtadm`)
 ```bash
 make build
 ```
 
 Build specific binary for specific architecture. (`amd64`,`arm`,`arm64`)
 ```bash
-GOOS=linux GOARCH=arm64 make build WHAT=cmd/yurtctl
+GOOS=linux GOARCH=arm64 make build WHAT=cmd/yurtadm
 ```
 
 Build all docker images for all supported architectures.
