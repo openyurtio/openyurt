@@ -105,7 +105,7 @@ We have also prepared a developer [guide](./docs/developer-guide.md) to help the
 
 | Item        | Value  |
 |---------------------|---|
-| APAC Friendly Community meeting | [Bi-weekly APAC (Starting Sep 2, 2020), Wednesday 11:00AM GMT+8](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
+| APAC Friendly Community meeting | [Adjust to weekly APAC (Starting May 11, 2022), Wednesday 11:00AM GMT+8](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
 | Meeting link APAC Friendly meeting | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09 |
 | Meeting notes| [Notes and agenda](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
 | Meeting recordings| [OpenYurt bilibili Channel](https://space.bilibili.com/484245424/video) |
@@ -116,7 +116,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-16x9do2sj-_3_koBAQOf5JsAzHwWdDEA)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-18vazbptv-GpJpz572cnq0H3KyiUNM1A)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">

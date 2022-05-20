@@ -86,7 +86,7 @@ OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 
 | Item        | Value  |
 |---------------------|---|
-| 社区会议 | [从2020.9.2开始双周会议，周三上午11:00～12：00(北京时间)](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
+| 社区会议 | [从2022.5.11开始从双周会调整为周会，周三上午11:00～12：00(北京时间)](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
 | 会议链接 | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09 |
 | 会议纪要| [会议议程及纪要](https://shimo.im/docs/rGK3cXYWYkPrvWp8) |
 | 会议视频| [B站 OpenYurt](https://space.bilibili.com/484245424/video) |
@@ -95,7 +95,7 @@ OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - 邮件组: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-16x9do2sj-_3_koBAQOf5JsAzHwWdDEA)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-18vazbptv-GpJpz572cnq0H3KyiUNM1A)
 - Dingtalk Group (钉钉讨论群)
 
 <div align="left">
