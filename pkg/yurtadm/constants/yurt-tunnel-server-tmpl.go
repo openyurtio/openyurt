@@ -203,9 +203,11 @@ spec:
         command:
         - yurt-tunnel-server
         args:
+        - --v=2
         - --bind-address=$(NODE_IP)
         - --insecure-bind-address=$(NODE_IP)
         - --server-count=1
+        - --enable-iptables=false
           {{if .certIP }}
         - --cert-ips={{.certIP}}
           {{end}}

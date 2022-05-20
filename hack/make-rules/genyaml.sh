@@ -15,6 +15,15 @@
 # limitations under the License.
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-source "${YURT_ROOT}/hack/lib/init.sh" 
+source "${YURT_ROOT}/hack/lib/init.sh"
+source "${YURT_ROOT}/hack/lib/build.sh"
+
+# we will generates setup yaml files for following components
+readonly YURT_YAML_TARGETS=(
+    yurthub
+    yurt-controller-manager
+    yurt-tunnel-server
+    yurt-tunnel-agent
+)
 
 gen_yamls "$@"

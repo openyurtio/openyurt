@@ -180,7 +180,7 @@ func (nc NodeServantJobCheck) Check() (warnings []error, errorList []error) {
 		go func() {
 			defer wg.Done()
 			if err := kubeutil.RunJobAndCleanup(nc.cliSet, &entity,
-				nc.waitServantJobTimeout, nc.checkServantJobPeriod); err != nil {
+				nc.waitServantJobTimeout, nc.checkServantJobPeriod, false); err != nil {
 				msg := fmt.Errorf("fail to run servant job(%s): %w\n", entity.GetName(), err)
 				res <- msg
 			} else {

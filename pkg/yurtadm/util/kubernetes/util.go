@@ -47,6 +47,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -436,7 +437,7 @@ func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node 
 }
 
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
-func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, period time.Duration) error {
+func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, period time.Duration, waitForTimeout bool) error {
 	job, err := cliSet.BatchV1().Jobs(job.GetNamespace()).Create(context.Background(), job, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -447,25 +448,30 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 		case <-waitJobTimeout:
 			return errors.New("wait for job to be complete timeout")
 		case <-time.After(period):
-			job, err := cliSet.BatchV1().Jobs(job.GetNamespace()).
+			newJob, err := cliSet.BatchV1().Jobs(job.GetNamespace()).
 				Get(context.Background(), job.GetName(), metav1.GetOptions{})
 			if err != nil {
-				klog.Errorf("fail to get job(%s) when waiting for it to be succeeded: %s",
-					job.GetName(), err)
+				if apierrors.IsNotFound(err) {
+					return err
+				}
+
+				if waitForTimeout {
+					klog.Infof("continue to wait for job(%s) to complete until timeout, even if failed to get job, %v", job.GetName(), err)
+					continue
+				}
 				return err
 			}
-			if job.Status.Succeeded == *job.Spec.Completions {
+
+			if newJob.Status.Succeeded == *newJob.Spec.Completions {
 				if err := cliSet.BatchV1().Jobs(job.GetNamespace()).
 					Delete(context.Background(), job.GetName(), metav1.DeleteOptions{
 						PropagationPolicy: &PropagationPolicy,
 					}); err != nil {
-					klog.Errorf("fail to delete succeeded servant job(%s): %s",
-						job.GetName(), err)
+					klog.Errorf("fail to delete succeeded servant job(%s): %s", job.GetName(), err)
 					return err
 				}
 				return nil
 			}
-			continue
 		}
 	}
 }
@@ -505,7 +511,8 @@ func RunServantJobs(
 	cliSet *kubernetes.Clientset,
 	waitServantJobTimeout time.Duration,
 	getJob func(nodeName string) (*batchv1.Job, error),
-	nodeNames []string, ww io.Writer) error {
+	nodeNames []string, ww io.Writer,
+	waitForTimeout bool) error {
 	var wg sync.WaitGroup
 
 	jobByNodeName := make(map[string]*batchv1.Job)
@@ -518,26 +525,34 @@ func RunServantJobs(
 	}
 
 	res := make(chan string, len(nodeNames))
+	errCh := make(chan error, len(nodeNames))
 	for _, nodeName := range nodeNames {
 		wg.Add(1)
 		job := jobByNodeName[nodeName]
 		go func() {
 			defer wg.Done()
-			if err := RunJobAndCleanup(cliSet, job,
-				waitServantJobTimeout, CheckServantJobPeriod); err != nil {
-				msg := fmt.Sprintf("\t[ERROR] fail to run servant job(%s): %s\n", job.GetName(), err)
-				res <- msg
+			if err := RunJobAndCleanup(cliSet, job, waitServantJobTimeout, CheckServantJobPeriod, waitForTimeout); err != nil {
+				errCh <- fmt.Errorf("[ERROR] fail to run servant job(%s): %w", job.GetName(), err)
 			} else {
-				msg := fmt.Sprintf("\t[INFO] servant job(%s) has succeeded\n", job.GetName())
-				res <- msg
+				res <- fmt.Sprintf("\t[INFO] servant job(%s) has succeeded\n", job.GetName())
 			}
 		}()
 	}
 	wg.Wait()
 	close(res)
+	close(errCh)
 	for m := range res {
 		io.WriteString(ww, m)
 	}
+
+	errs := []error{}
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) != 0 {
+		return utilerrors.NewAggregate(errs)
+	}
+
 	return nil
 }
 

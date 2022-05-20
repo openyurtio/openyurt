@@ -19,10 +19,6 @@
 # automatically deployed, and the autonomous mode will be active.
 #
 # It uses the following env variables:
-# REGION
-# REGION affects the GOPROXY to use. You can set it to "cn" to use GOPROXY="https://goproxy.cn".
-# Default value is "us", which means using GOPROXY="https://goproxy.io".
-#
 # KIND_KUBECONFIG
 # KIND_KUBECONFIG represents the path to store the kubeconfig file of the cluster
 # which is created by this shell. The default value is "$HOME/.kube/config".
@@ -41,7 +37,11 @@ set -x
 set -e
 set -u
 
-YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+
+source "${YURT_ROOT}/hack/lib/init.sh"
+source "${YURT_ROOT}/hack/lib/build.sh"
+YURT_VERSION=${YURT_VERSION:-${GIT_VERSION}}
 
 readonly REQUIRED_CMD=(
     go
@@ -50,13 +50,12 @@ readonly REQUIRED_CMD=(
     kind
 )
 
-readonly BUILD_TARGETS=(
-    yurthub
-    yurt-controller-manager
-    yurtctl
-    yurt-tunnel-server
-    yurt-tunnel-agent
-    yurt-node-servant
+readonly REQUIRED_IMAGES=(
+    openyurt/node-servant
+    openyurt/yurt-tunnel-agent
+    openyurt/yurt-tunnel-server
+    openyurt/yurt-controller-manager
+    openyurt/yurthub
 )
 
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
@@ -65,6 +64,10 @@ readonly CLUSTER_NAME="openyurt-e2e-test"
 readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.21"}
 readonly NODES_NUM=${NODES_NUM:-2}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
+ENABLE_DUMMY_IF=true
+if [[ "${LOCAL_OS}" == darwin ]]; then
+  ENABLE_DUMMY_IF=false
+fi
 
 function install_kind {
     echo "Begin to install kind"
@@ -99,29 +102,30 @@ function preflight {
             fi
         fi
     done
+
+    for image in "${REQUIRED_IMAGES[@]}"; do
+        if [[ "$(docker image inspect --format='ignore me' ${image}:${YURT_VERSION})" != "ignore me" ]]; then
+            echo "image ${image}:${YURT_VERSION} is not exist locally"
+            exit -1
+        fi
+    done
 }
 
-function build_target_binaries_and_images {
-    echo "Begin to build binaries and images"
-
-    export WHAT=${BUILD_TARGETS[@]}
-    export ARCH=${LOCAL_ARCH}
-
-    source ${YURT_ROOT}/hack/make-rules/release-images.sh    
+function build_yurtctl_binary {
+    echo "Begin to build yurtctl binary"
+    GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} build_binaries cmd/yurtctl
 }
 
 function local_up_openyurt {
-    echo "Begin to setup OpenYurt cluster"
-    openyurt_version=$(get_version ${LOCAL_ARCH})
+    echo "Begin to setup OpenYurt cluster(version=${YURT_VERSION})"
     ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH}/yurtctl test init \
       --kubernetes-version=${KUBERNETESVERSION} --kube-config=${KIND_KUBECONFIG} \
-      --cluster-name=${CLUSTER_NAME} --openyurt-version=${openyurt_version} --use-local-images --ignore-error \
-      --node-num=${NODES_NUM}
+      --cluster-name=${CLUSTER_NAME} --openyurt-version=${YURT_VERSION} --use-local-images --ignore-error \
+      --node-num=${NODES_NUM} --enable-dummy-if=${ENABLE_DUMMY_IF}
 }
 
 function cleanup {
     rm -rf ${YURT_ROOT}/_output
-    rm -rf ${YURT_ROOT}/dockerbuild
     kind delete clusters ${CLUSTER_NAME}
 }
 
@@ -136,5 +140,5 @@ trap cleanup_on_err EXIT
 
 cleanup
 preflight
-build_target_binaries_and_images
+build_yurtctl_binary
 local_up_openyurt

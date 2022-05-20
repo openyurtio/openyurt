@@ -29,7 +29,11 @@ import (
 
 // RenderNodeServantJob return k8s job
 // to start k8s job to run convert/revert on specific node
-func RenderNodeServantJob(action string, tmplCtx map[string]string, nodeName string) (*batchv1.Job, error) {
+func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName string) (*batchv1.Job, error) {
+	tmplCtx := make(map[string]string)
+	for k, v := range renderCtx {
+		tmplCtx[k] = v
+	}
 	if err := validate(action, tmplCtx, nodeName); err != nil {
 		return nil, err
 	}
@@ -45,6 +49,9 @@ func RenderNodeServantJob(action string, tmplCtx map[string]string, nodeName str
 	case "preflight-convert":
 		servantJobTemplate = ConvertPreflightJobTemplate
 		jobBaseName = ConvertPreflightJobNameBase
+	case "config-control-plane":
+		servantJobTemplate = ConfigControlPlaneJobTemplate
+		jobBaseName = ConfigControlPlaneJobNameBase
 	}
 
 	tmplCtx["jobName"] = jobBaseName + "-" + nodeName
@@ -88,9 +95,10 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 	case "revert":
 		keysMustHave := []string{"node_servant_image"}
 		return checkKeys(keysMustHave, tmplCtx)
-	case "preflight-convert":
+	case "preflight-convert", "config-control-plane":
 		keysMustHave := []string{"node_servant_image"}
 		return checkKeys(keysMustHave, tmplCtx)
+
 	default:
 		return fmt.Errorf("action invalied: %s ", action)
 	}

@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/convert"
 	preflightconvert "github.com/openyurtio/openyurt/cmd/yurt-node-servant/preflight-convert"
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/revert"
@@ -46,6 +47,7 @@ func main() {
 	rootCmd.AddCommand(convert.NewConvertCmd())
 	rootCmd.AddCommand(revert.NewRevertCmd())
 	rootCmd.AddCommand(preflightconvert.NewxPreflightConvertCmd())
+	rootCmd.AddCommand(config.NewConfigCmd())
 
 	if err := rootCmd.Execute(); err != nil { // run command
 		os.Exit(1)
