@@ -29,11 +29,11 @@ import (
 	flag "github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
+	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 )
 
 const (

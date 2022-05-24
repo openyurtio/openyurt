@@ -35,10 +35,10 @@ import (
 	"k8s.io/klog/v2"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
+	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 )
 

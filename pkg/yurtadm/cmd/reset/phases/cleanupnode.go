@@ -24,11 +24,11 @@ import (
 	"k8s.io/klog/v2"
 	utilsexec "k8s.io/utils/exec"
 
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
-	kubeadmconstants "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/constants"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/phases/kubelet"
-	utilruntime "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/runtime"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
+	kubeadmconstants "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	kubeutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/kubelet"
+	utilruntime "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/runtime"
 )
 
 // NewCleanupNodePhase creates a kubeadm workflow phase that cleanup the node
