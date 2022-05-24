@@ -23,6 +23,10 @@ else
 GIT_VERSION=$(IMAGE_TAG)
 endif
 
+ifneq ($(IMAGE_TAG), $(shell git describe --abbrev=0 --tags))
+GIT_VERSION=$(IMAGE_TAG)
+endif
+
 DOCKER_BUILD_ARGS = --build-arg GIT_VERSION=${GIT_VERSION}
 
 ifeq (${REGION}, cn)

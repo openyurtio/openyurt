@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  schedule:
+    # run at UTC 1:30 every day
+    - cron:  '30 1 * * *'
+  workflow_dispatch: {}
+
+env:
+  ALI_REGISTRY: registry.cn-hangzhou.aliyuncs.com/openyurt
+
+jobs:
+  docker-push:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ ${GITHUB_REF} == "refs/heads/master" ]]; then
+            VERSION=latest
+          fi
+          echo ::set-output name=VERSION::${VERSION}
+      - name: Install Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Release
+        run: make docker-push TARGET_PLATFORMS=linux/amd64,linux/arm64,linux/arm/v7 IMAGE_TAG=${{ steps.get_version.outputs.VERSION }}
+  docker-push-ali-registry:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.ALI_REGISTRY }}
+          username: ${{ secrets.ALI_REGISTRY_USERNAME }}
+          password: ${{ secrets.ALI_REGISTRY_PASSWORD }}
+      - name: Release
+        run: make docker-push TARGET_PLATFORMS=linux/amd64,linux/arm64,linux/arm/v7 IMAGE_REPO=${{ env.ALI_REGISTRY }} IMAGE_TAG=${{ steps.get_version.outputs.VERSION }}
