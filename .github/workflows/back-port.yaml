@@ -3,19 +3,33 @@ on:
   pull_request_target:
     types:
       - closed
+  issue_comment:
+    types:
+      - created
 
 jobs:
   # align with kubevela's choice https://github.com/oam-dev/kubevela/blob/master/.github/workflows/back-port.yaml
-  open-pr:
+  build:
+    name: Create backport PRs
     runs-on: ubuntu-20.04
-    if: github.event.pull_request.merged
+    permissions:
+      contents: write # so it can comment
+      pull-requests: write # so it can create pull requests
+    if: >
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.merged
+      ) || (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '/backport')
+      )
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
-      - name: Open Backport PR
+      - name: Create Backport PR
         uses: zeebe-io/backport-action@v0.0.6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
