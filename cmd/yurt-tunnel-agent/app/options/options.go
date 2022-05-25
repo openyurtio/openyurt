@@ -25,10 +25,12 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
+	utilnet "k8s.io/utils/net"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/agent"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	utilip "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
 )
@@ -52,7 +54,6 @@ type AgentOptions struct {
 // NewAgentOptions creates a new AgentOptions with a default config.
 func NewAgentOptions() *AgentOptions {
 	o := &AgentOptions{
-		MetaHost: "127.0.0.1",
 		MetaPort: constants.YurttunnelAgentMetaPort,
 	}
 
@@ -73,6 +74,10 @@ func (o *AgentOptions) Validate() error {
 		if o.NodeIP == "" {
 			return errors.New("either --node-ip or $NODE_IP has to be set")
 		}
+	}
+
+	if o.MetaHost == "" {
+		o.MetaHost = utilip.MustGetLoopbackIP(utilnet.IsIPv6String(o.NodeIP))
 	}
 
 	if !agentIdentifiersAreValid(o.AgentIdentifiers) {
@@ -134,7 +139,11 @@ func (o *AgentOptions) Config() (*config.Config, error) {
 	}
 
 	if len(c.AgentIdentifiers) == 0 {
-		c.AgentIdentifiers = fmt.Sprintf("ipv4=%s&host=%s", o.NodeIP, o.NodeName)
+		ipFamily := "ipv4"
+		if utilnet.IsIPv6String(o.NodeIP) {
+			ipFamily = "ipv6"
+		}
+		c.AgentIdentifiers = fmt.Sprintf("%s=%s&host=%s", ipFamily, o.NodeIP, o.NodeName)
 	}
 	klog.Infof("%s is set for agent identifies", c.AgentIdentifiers)
 

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	utilip "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -57,7 +59,7 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 
 	for _, tmpIP := range ips {
 		// we use the first non-loopback IP address.
-		if tmpIP.String() != "127.0.0.1" {
+		if s := tmpIP.String(); s != utilip.DefaultLoopbackIP4 && s != utilip.DefaultLoopbackIP6 {
 			ip = tmpIP
 			break
 		}
@@ -86,7 +88,7 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 		return "", errors.New("fail to get the port number")
 	}
 
-	return fmt.Sprintf("%s:%d", host, tcpPort), nil
+	return net.JoinHostPort(host, strconv.Itoa(int(tcpPort))), nil
 }
 
 // GetYurttunelServerDNSandIP gets DNS names and IPS for generating tunnel server certificate.
@@ -231,7 +233,7 @@ func extractTunnelServerDNSandIPs(svc *corev1.Service, eps []*corev1.Endpoints, 
 	if svc.Spec.ClusterIP != "None" {
 		ips = append(ips, net.ParseIP(svc.Spec.ClusterIP))
 	}
-	ips = append(ips, net.ParseIP("127.0.0.1"))
+	ips = append(ips, net.ParseIP(utilip.DefaultLoopbackIP4), net.ParseIP(utilip.DefaultLoopbackIP6))
 
 	// 3. extract dns and ip from the endpoint
 	for _, eps := range eps {

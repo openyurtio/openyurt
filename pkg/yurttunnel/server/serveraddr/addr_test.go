@@ -447,6 +447,7 @@ func TestExtractTunnelServerDNSandIPs(t *testing.T) {
 					net.ParseIP("192.168.1.1"),
 					net.ParseIP("10.10.102.1"),
 					net.ParseIP("127.0.0.1"),
+					net.ParseIP("::1"),
 					net.ParseIP("192.168.1.2"),
 					net.ParseIP("192.168.1.3"),
 				},
@@ -520,6 +521,7 @@ func TestExtractTunnelServerDNSandIPs(t *testing.T) {
 				ips: []net.IP{
 					net.ParseIP("10.10.102.1"),
 					net.ParseIP("127.0.0.1"),
+					net.ParseIP("::1"),
 					net.ParseIP("192.168.1.2"),
 					net.ParseIP("192.168.1.3"),
 				},
@@ -612,6 +614,7 @@ func TestExtractTunnelServerDNSandIPs(t *testing.T) {
 					net.ParseIP("192.168.1.5"),
 					net.ParseIP("10.10.102.1"),
 					net.ParseIP("127.0.0.1"),
+					net.ParseIP("::1"),
 					net.ParseIP("192.168.1.2"),
 					net.ParseIP("192.168.1.3"),
 				},

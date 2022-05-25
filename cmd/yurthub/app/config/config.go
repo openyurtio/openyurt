@@ -91,6 +91,7 @@ type YurtHubConfiguration struct {
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
 	FilterManager                     *filter.Manager
+	CertIPs                           []net.IP
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -135,6 +136,12 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
+	// use dummy ip and bind ip as cert IP SANs
+	certIPs := []net.IP{
+		net.ParseIP(options.HubAgentDummyIfIP),
+		net.ParseIP(options.YurtHubHost),
+	}
+
 	cfg := &YurtHubConfiguration{
 		LBMode:                            options.LBMode,
 		RemoteServers:                     us,
@@ -167,6 +174,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtSharedFactory:                 yurtSharedFactory,
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
+		CertIPs:                           certIPs,
 	}
 
 	return cfg, nil
