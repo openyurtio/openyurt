@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+KUBERNETESVERSION ?=v1.22
 TARGET_PLATFORMS ?= linux/amd64
 IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
@@ -66,14 +67,14 @@ clean:
 #   - on centos env: make local-up-openyurt
 #   - on MACBook Pro M1: make local-up-openyurt TARGET_PLATFORMS=linux/arm64
 local-up-openyurt:
-	YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
+	KUBERNETESVERSION=${KUBERNETESVERSION} YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
 
 # Build all OpenYurt components images and then start up OpenYurt cluster on local machine based on a Kind cluster
 # And you can run the following command on different env by specify TARGET_PLATFORMS, default platform is linux/amd64
 #   - on centos env: make docker-build-and-up-openyurt
 #   - on MACBook Pro M1: make docker-build-and-up-openyurt TARGET_PLATFORMS=linux/arm64
 docker-build-and-up-openyurt: docker-build
-	YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
+	KUBERNETESVERSION=${KUBERNETESVERSION} YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
 
 e2e-tests:
 	bash hack/make-rules/run-e2e-tests.sh

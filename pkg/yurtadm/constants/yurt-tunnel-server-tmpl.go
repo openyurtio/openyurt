@@ -17,6 +17,46 @@ limitations under the License.
 package constants
 
 const (
+	YurttunnelProxyClientClusterRole = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: tunnel-proxy-client
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/stats
+      - nodes/metrics
+      - nodes/log
+      - nodes/spec
+      - nodes/proxy
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - patch
+`
+	YurttunnelProxyClientClusterRolebinding = `
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tunnel-proxy-client
+subjects:
+  - kind: User
+    name: tunnel-proxy-client
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: tunnel-proxy-client
+  apiGroup: rbac.authorization.k8s.io
+`
+
 	YurttunnelServerClusterRole = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -35,20 +75,6 @@ rules:
     - list
     - watch
 - apiGroups:
-    - certificates.k8s.io
-  resources:
-    - certificatesigningrequests/approval
-  verbs:
-    - update
-- apiGroups:
-    - certificates.k8s.io
-  resourceNames:
-    - kubernetes.io/legacy-unknown
-  resources:
-    - signers
-  verbs:
-    - approve
-- apiGroups:
   - ""
   resources:
   - endpoints
@@ -60,6 +86,7 @@ rules:
   - ""
   resources:
   - nodes
+  - pods
   verbs:
   - list
   - watch
@@ -203,7 +230,7 @@ spec:
         command:
         - yurt-tunnel-server
         args:
-        - --v=2
+        - --v=3
         - --bind-address=$(NODE_IP)
         - --insecure-bind-address=$(NODE_IP)
         - --server-count=1

@@ -30,7 +30,7 @@
 #
 # KUBERNETESVERSION
 # KUBERNETESVERSION declares the kubernetes version the cluster will use. The format is "v1.XX". 
-# Now only v1.17, v1.18, v1.19, v1.20 and v1.21 are supported. The default value is v1.21.
+# Now only v1.17, v1.18, v1.19, v1.20 v1.21 v1.22 and v1.23 are supported. The default value is v1.22.
 
 
 set -x
@@ -61,7 +61,7 @@ readonly REQUIRED_IMAGES=(
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
 readonly LOCAL_OS=$(go env GOHOSTOS)
 readonly CLUSTER_NAME="openyurt-e2e-test"
-readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.21"}
+readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.22"}
 readonly NODES_NUM=${NODES_NUM:-2}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 ENABLE_DUMMY_IF=true
@@ -71,7 +71,7 @@ fi
 
 function install_kind {
     echo "Begin to install kind"
-    GO111MODULE="on" go get sigs.k8s.io/kind@v0.11.1
+    GO111MODULE="on" go get sigs.k8s.io/kind@v0.12.0
 }
 
 function install_docker {
@@ -92,15 +92,7 @@ function install_go {
 function preflight {
     echo "Preflight Check..."
     for bin in "${REQUIRED_CMD[@]}"; do
-        command -v ${bin} > /dev/null 2>&1
-        if [[ $? -ne 0 ]]; then
-            echo "Cannot find command ${bin}."
-            install_${bin}
-            if [[ $? -ne 0 ]]; then
-                echo "Error occurred, exit"
-                exit -1
-            fi
-        fi
+        command -v ${bin} > /dev/null 2>&1 || install_${bin}
     done
 
     for image in "${REQUIRED_IMAGES[@]}"; do
@@ -138,7 +130,7 @@ function cleanup_on_err {
 
 trap cleanup_on_err EXIT
 
-cleanup
 preflight
+cleanup
 build_yurtctl_binary
 local_up_openyurt

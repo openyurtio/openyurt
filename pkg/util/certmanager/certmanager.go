@@ -27,10 +27,10 @@ import (
 	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
-	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/certificate"
@@ -43,13 +43,18 @@ import (
 )
 
 const (
-	YurtHubServerCSROrg = "system:masters"
-	YurtHubCSROrg       = "openyurt:yurthub"
-	YurtHubServerCSRCN  = "kube-apiserver-kubelet-client"
+	YurtHubCSROrg              = "openyurt:yurthub"
+	YurtTunnelCSROrg           = "openyurt:yurttunnel"
+	YurtTunnelServerNodeName   = "tunnel-server"
+	YurtTunnelProxyClientCSRCN = "tunnel-proxy-client"
+	YurtTunnelAgentCSRCN       = "tunnel-agent-client"
 )
 
 // NewYurttunnelServerCertManager creates a certificate manager for
-// the yurttunnel-server
+// the yurttunnel-server, and the certificate will be used for https server
+// that listens for requests from kube-apiserver and other cloud components(like prometheus).
+// meanwhile the certificate will also be used for tls server that wait for connections that
+// comes from yurt-tunnel-agent.
 func NewYurttunnelServerCertManager(
 	clientset kubernetes.Interface,
 	factory informers.SharedInformerFactory,
@@ -105,17 +110,39 @@ func NewYurttunnelServerCertManager(
 		clientset,
 		projectinfo.GetServerName(),
 		certDir,
-		constants.YurttunneServerCSRCN,
-		[]string{constants.YurttunneServerCSROrg, constants.YurttunnelCSROrg},
+		certificatesv1.KubeletServingSignerName,
+		fmt.Sprintf("system:node:%s", YurtTunnelServerNodeName),
+		[]string{user.NodesGroup},
 		dnsNames,
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
 			certificatesv1.UsageDigitalSignature,
 			certificatesv1.UsageServerAuth,
-			certificatesv1.UsageClientAuth,
 		},
 		ips,
 		getIPs)
+}
+
+// NewTunnelProxyClientCertManager creates a certificate manager for yurttunnel-server.
+// and the certificate will be used for handshaking with components(like kubelet) on edge nodes.
+// by the way, requests from kube-apiserver or other cloud components(like prometheus) will be forwarded
+// to the edge based on the tls connection.
+func NewTunnelProxyClientCertManager(clientset kubernetes.Interface, certDir string) (certificate.Manager, error) {
+	return newCertManager(
+		clientset,
+		fmt.Sprintf("%s-proxy-client", projectinfo.GetServerName()),
+		certDir,
+		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelProxyClientCSRCN,
+		[]string{YurtTunnelCSROrg},
+		[]string{},
+		[]certificatesv1.KeyUsage{
+			certificatesv1.UsageKeyEncipherment,
+			certificatesv1.UsageDigitalSignature,
+			certificatesv1.UsageClientAuth,
+		},
+		[]net.IP{},
+		nil)
 }
 
 // NewYurttunnelAgentCertManager creates a certificate manager for
@@ -135,8 +162,9 @@ func NewYurttunnelAgentCertManager(
 		clientset,
 		projectinfo.GetAgentName(),
 		certDir,
-		constants.YurttunnelAgentCSRCN,
-		[]string{constants.YurttunnelCSROrg},
+		certificatesv1.KubeAPIServerClientSignerName,
+		YurtTunnelAgentCSRCN,
+		[]string{YurtTunnelCSROrg},
 		[]string{os.Getenv("NODE_NAME")},
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
@@ -148,13 +176,13 @@ func NewYurttunnelAgentCertManager(
 }
 
 // NewYurtHubServerCertManager creates a certificate manager for
-// the yurthub-server
+// the yurthub server
 func NewYurtHubServerCertManager(
 	clientset kubernetes.Interface,
 	certDir,
+	nodeName,
 	proxyServerSecureDummyAddr string) (certificate.Manager, error) {
 
-	klog.Infof("subject of yurthub server certificate")
 	host, _, err := net.SplitHostPort(proxyServerSecureDummyAddr)
 	if err != nil {
 		return nil, err
@@ -164,8 +192,9 @@ func NewYurtHubServerCertManager(
 		clientset,
 		fmt.Sprintf("%s-server", projectinfo.GetHubName()),
 		certDir,
-		YurtHubServerCSRCN,
-		[]string{YurtHubServerCSROrg, YurtHubCSROrg},
+		certificatesv1.KubeletServingSignerName,
+		fmt.Sprintf("system:node:%s", nodeName),
+		[]string{user.NodesGroup},
 		nil,
 		[]certificatesv1.KeyUsage{
 			certificatesv1.UsageKeyEncipherment,
@@ -182,6 +211,7 @@ func newCertManager(
 	clientset kubernetes.Interface,
 	componentName,
 	certDir,
+	signerName,
 	commonName string,
 	organizations,
 	dnsNames []string,
@@ -217,7 +247,7 @@ func newCertManager(
 		ClientsetFn: func(current *tls.Certificate) (kubernetes.Interface, error) {
 			return clientset, nil
 		},
-		SignerName:       certificatesv1beta1.LegacyUnknownSignerName,
+		SignerName:       signerName,
 		GetTemplate:      getTemplate,
 		Usages:           keyUsages,
 		CertificateStore: certificateStore,

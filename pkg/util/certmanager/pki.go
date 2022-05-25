@@ -32,32 +32,38 @@ import (
 // using the given certificate manager and x509 CertPool
 func GenTLSConfigUseCertMgrAndCertPool(
 	m certificate.Manager,
-	root *x509.CertPool) (*tls.Config, error) {
+	root *x509.CertPool,
+	mode string) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		// Can't use SSLv3 because of POODLE and BEAST
 		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
 		// Can't use TLSv1.1 because of RC4 cipher usage
 		MinVersion: tls.VersionTLS12,
-		ClientCAs:  root,
-		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 
-	tlsConfig.GetClientCertificate =
-		func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	switch mode {
+	case "server":
+		tlsConfig.ClientCAs = root
+		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+		tlsConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			cert := m.Current()
 			if cert == nil {
 				return &tls.Certificate{Certificate: nil}, nil
 			}
 			return cert, nil
 		}
-	tlsConfig.GetCertificate =
-		func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	case "client":
+		tlsConfig.RootCAs = root
+		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			cert := m.Current()
 			if cert == nil {
 				return &tls.Certificate{Certificate: nil}, nil
 			}
 			return cert, nil
 		}
+	default:
+		return nil, fmt.Errorf("unsupported cert manager mode(only server or client), %s", mode)
+	}
 
 	return tlsConfig, nil
 }

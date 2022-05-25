@@ -30,7 +30,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -38,17 +40,46 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-)
-
-const (
-	YurthubCSROrg              = "openyurt:yurthub"    // yurthub PKI related constants
-	YurttunnelCSROrg           = "openyurt:yurttunnel" // yurttunnel PKI related constants
-	YurtCSRApproverThreadiness = 2
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 )
 
 var (
-	yurtCsr = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+	yurtCsr                  = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
+	yurtHubNodeCertOrgPrefix = "openyurt:tenant:"
+	clientRequiredUsages     = sets.NewString(
+		string(certificatesv1.UsageDigitalSignature),
+		string(certificatesv1.UsageKeyEncipherment),
+		string(certificatesv1.UsageClientAuth))
+
+	serverRequiredUsages = sets.NewString(
+		string(certificatesv1.UsageDigitalSignature),
+		string(certificatesv1.UsageKeyEncipherment),
+		string(certificatesv1.UsageServerAuth))
+
+	recognizers = []csrRecognizer{
+		{
+			recognize:  isYurtHubNodeCert,
+			successMsg: "Auto approving yurthub node client certificate",
+		},
+		{
+			recognize:  isYurtTLSServerCert,
+			successMsg: "Auto approving openyurt tls server certificate",
+		},
+		{
+			recognize:  isYurtTunnelProxyClientCert,
+			successMsg: "Auto approving yurt-tunnel-server proxy client certificate",
+		},
+		{
+			recognize:  isYurtTunnelAgentCert,
+			successMsg: "Auto approving yurt-tunnel-agent client certificate",
+		},
+	}
 )
+
+type csrRecognizer struct {
+	recognize  func(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool
+	successMsg string
+}
 
 // YurtCSRApprover is the controller that auto approve all openyurt related CSR
 type YurtCSRApprover struct {
@@ -56,6 +87,89 @@ type YurtCSRApprover struct {
 	workqueue workqueue.RateLimitingInterface
 	getCsr    func(string) (*certificatesv1.CertificateSigningRequest, error)
 	hasSynced func() bool
+}
+
+// NewCSRApprover creates a new YurtCSRApprover
+func NewCSRApprover(client kubernetes.Interface, sharedInformers informers.SharedInformerFactory) (*YurtCSRApprover, error) {
+	var hasSynced func() bool
+	var getCsr func(string) (*certificatesv1.CertificateSigningRequest, error)
+
+	// init workqueue and event handler
+	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	yca := &YurtCSRApprover{
+		client:    client,
+		workqueue: wq,
+	}
+
+	handler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			yca.enqueueObj(obj)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			yca.enqueueObj(new)
+		},
+	}
+
+	// init csr synced and get handler
+	_, err := client.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	} else if err == nil {
+		// v1.CertificateSigningRequest api is supported
+		klog.Infof("v1.CertificateSigningRequest is supported.")
+		sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().AddEventHandler(handler)
+		hasSynced = sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().HasSynced
+		getCsr = sharedInformers.Certificates().V1().CertificateSigningRequests().Lister().Get
+	} else {
+		// apierrors.IsNotFound(err), try to use v1beta1.CertificateSigningRequest api
+		klog.Infof("fall back to v1beta1.CertificateSigningRequest.")
+		sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().AddEventHandler(handler)
+		hasSynced = sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().HasSynced
+		getCsr = func(name string) (*certificatesv1.CertificateSigningRequest, error) {
+			v1beta1Csr, err := sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Lister().Get(name)
+			if err != nil {
+				return nil, err
+			}
+			return v1beta1Csr2v1Csr(v1beta1Csr), nil
+		}
+	}
+	yca.hasSynced = hasSynced
+	yca.getCsr = getCsr
+
+	return yca, nil
+}
+
+func (yca *YurtCSRApprover) enqueueObj(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	var v1Csr *certificatesv1.CertificateSigningRequest
+	switch csr := obj.(type) {
+	case *certificatesv1.CertificateSigningRequest:
+		v1Csr = csr
+	case *certificatesv1beta1.CertificateSigningRequest:
+		v1Csr = v1beta1Csr2v1Csr(csr)
+	default:
+		klog.Errorf("%s is not a csr", key)
+		return
+	}
+
+	approved, denied := checkCertApprovalCondition(&v1Csr.Status)
+	if !approved && !denied {
+		klog.Infof("non-approved and non-denied csr, enqueue: %s", key)
+		yca.workqueue.AddRateLimited(key)
+		return
+	}
+
+	if ok, _ := isYurtCSR(v1Csr); !ok {
+		klog.Infof("csr(%s) is not %s", v1Csr.GetName(), yurtCsr)
+		return
+	}
+
+	klog.V(4).Infof("approved or denied csr, ignore it: %s", key)
 }
 
 // Run starts the YurtCSRApprover
@@ -84,119 +198,47 @@ func (yca *YurtCSRApprover) processNextItem() bool {
 	if quit {
 		return false
 	}
-	csrName, ok := key.(string)
-	if !ok {
-		yca.workqueue.Forget(key)
-		runtime.HandleError(
-			fmt.Errorf("expected string in workqueue but got %#v", key))
-		return true
-	}
 	defer yca.workqueue.Done(key)
 
-	csr, err := yca.getCsr(csrName)
-	if err != nil {
-		runtime.HandleError(err)
-		if !apierrors.IsNotFound(err) {
-			yca.workqueue.AddRateLimited(key)
-		}
+	if err := yca.syncFunc(key.(string)); err != nil {
+		yca.workqueue.AddRateLimited(key)
+		runtime.HandleError(fmt.Errorf("sync csr %v failed with : %v", key, err))
 		return true
 	}
 
-	if err := approveCSR(yca.client, csr); err != nil {
-		runtime.HandleError(err)
-		enqueueObj(yca.workqueue, csr)
-		return true
-	}
-
+	yca.workqueue.Forget(key)
 	return true
 }
 
-func enqueueObj(wq workqueue.RateLimitingInterface, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+func (yca *YurtCSRApprover) syncFunc(key string) error {
+	startTime := time.Now()
+	defer func() {
+		klog.V(4).Infof("Finished syncing certificate request %q (%v)", key, time.Since(startTime))
+	}()
+
+	csr, err := yca.getCsr(key)
+	if apierrors.IsNotFound(err) {
+		klog.V(3).Infof("csr has been deleted: %v", key)
+		return nil
+	}
 	if err != nil {
-		runtime.HandleError(err)
-		return
+		return err
 	}
 
-	var v1Csr *certificatesv1.CertificateSigningRequest
-	switch csr := obj.(type) {
-	case *certificatesv1.CertificateSigningRequest:
-		v1Csr = csr
-	case *certificatesv1beta1.CertificateSigningRequest:
-		v1Csr = v1beta1Csr2v1Csr(csr)
-	default:
-		klog.Errorf("%s is not a csr", key)
-		return
+	if len(csr.Status.Certificate) > 0 {
+		// no need to do anything because it already has a cert
+		return nil
 	}
 
-	if !isYurtCSR(v1Csr) {
-		klog.Infof("csr(%s) is not %s", v1Csr.GetName(), yurtCsr)
-		return
-	}
-
-	approved, denied := checkCertApprovalCondition(&v1Csr.Status)
-	if !approved && !denied {
-		klog.Infof("non-approved and non-denied csr, enqueue: %s", key)
-		wq.AddRateLimited(key)
-		return
-	}
-
-	klog.V(4).Infof("approved or denied csr, ignore it: %s", key)
-}
-
-// NewCSRApprover creates a new YurtCSRApprover
-func NewCSRApprover(client kubernetes.Interface, sharedInformers informers.SharedInformerFactory) (*YurtCSRApprover, error) {
-	var hasSynced func() bool
-	var getCsr func(string) (*certificatesv1.CertificateSigningRequest, error)
-
-	// init workqueue and event handler
-	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			enqueueObj(wq, obj)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			enqueueObj(wq, new)
-		},
-	}
-
-	// init csr synced and get handler
-	_, err := client.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
-	} else if err == nil {
-		// v1.CertificateSigningRequest api is supported
-		klog.Infof("v1.CertificateSigningRequest is supported.")
-		sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().AddEventHandler(handler)
-		hasSynced = sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().HasSynced
-		getCsr = sharedInformers.Certificates().V1().CertificateSigningRequests().Lister().Get
-	} else {
-		// apierrors.IsNotFound(err), try to use v1beta1.CertificateSigningRequest api
-		klog.Infof("fall back to v1beta1.CertificateSigningRequest.")
-		sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().AddEventHandler(handler)
-		hasSynced = sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().HasSynced
-		getCsr = func(name string) (*certificatesv1.CertificateSigningRequest, error) {
-			v1beta1Csr, err := sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Lister().Get(name)
-			if err != nil {
-				return nil, err
-			}
-			return v1beta1Csr2v1Csr(v1beta1Csr), nil
-		}
-	}
-
-	return &YurtCSRApprover{
-		client:    client,
-		workqueue: wq,
-		getCsr:    getCsr,
-		hasSynced: hasSynced,
-	}, nil
+	// need to operate on a copy so we don't mutate the csr in the shared cache
+	csr = csr.DeepCopy()
+	return yca.approveCSR(csr)
 }
 
 // approveCSR checks the csr status, if it is neither approved nor
 // denied, it will try to approve the csr.
-func approveCSR(client kubernetes.Interface, csr *certificatesv1.CertificateSigningRequest) error {
-	if !isYurtCSR(csr) {
-		klog.Infof("csr(%s) is not %s", csr.GetName(), yurtCsr)
+func (yca *YurtCSRApprover) approveCSR(csr *certificatesv1.CertificateSigningRequest) error {
+	if len(csr.Status.Certificate) != 0 {
 		return nil
 	}
 
@@ -211,16 +253,22 @@ func approveCSR(client kubernetes.Interface, csr *certificatesv1.CertificateSign
 		return nil
 	}
 
+	ok, successMsg := isYurtCSR(csr)
+	if !ok {
+		klog.Infof("csr(%s) is not %s", csr.GetName(), yurtCsr)
+		return nil
+	}
+
 	// approve the openyurt related csr
 	csr.Status.Conditions = append(csr.Status.Conditions,
 		certificatesv1.CertificateSigningRequestCondition{
 			Type:    certificatesv1.CertificateApproved,
 			Status:  corev1.ConditionTrue,
 			Reason:  "AutoApproved",
-			Message: fmt.Sprintf("self-approving %s", yurtCsr),
+			Message: successMsg,
 		})
 
-	err := updateApproval(context.Background(), client, csr)
+	err := yca.updateApproval(context.Background(), csr)
 	if err != nil {
 		klog.Errorf("failed to approve %s(%s), %v", yurtCsr, csr.GetName(), err)
 		return err
@@ -229,24 +277,39 @@ func approveCSR(client kubernetes.Interface, csr *certificatesv1.CertificateSign
 	return nil
 }
 
-// isYurtCSR checks if given csr is a openyurt related csr, i.e.,
-// the organizations' list contains "openyurt:yurthub"
-func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) bool {
+func (yca *YurtCSRApprover) updateApproval(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) error {
+	_, v1err := yca.client.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
+	if v1err == nil || !apierrors.IsNotFound(v1err) {
+		return v1err
+	}
+
+	v1beta1Csr := v1Csr2v1beta1Csr(csr)
+	_, v1beta1err := yca.client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
+	return v1beta1err
+}
+
+// isYurtCSR checks if given csr is an openyurt related csr and
+// return success message for specified recognizers.
+func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string) {
+	var successMsg string
 	pemBytes := csr.Spec.Request
 	block, _ := pem.Decode(pemBytes)
 	if block == nil || block.Type != "CERTIFICATE REQUEST" {
-		return false
+		return false, successMsg
 	}
 	x509cr, err := x509.ParseCertificateRequest(block.Bytes)
 	if err != nil {
-		return false
+		return false, successMsg
 	}
-	for _, org := range x509cr.Subject.Organization {
-		if org == YurttunnelCSROrg || org == YurthubCSROrg {
-			return true
+
+	for _, r := range recognizers {
+		if r.recognize(csr, x509cr) {
+			successMsg = r.successMsg
+			return true, successMsg
 		}
 	}
-	return false
+
+	return false, successMsg
 }
 
 // checkCertApprovalCondition checks if the given csr's status is
@@ -261,17 +324,6 @@ func checkCertApprovalCondition(status *certificatesv1.CertificateSigningRequest
 		}
 	}
 	return
-}
-
-func updateApproval(ctx context.Context, client kubernetes.Interface, csr *certificatesv1.CertificateSigningRequest) error {
-	_, v1err := client.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
-	if v1err == nil || !apierrors.IsNotFound(v1err) {
-		return v1err
-	}
-
-	v1beta1Csr := v1Csr2v1beta1Csr(csr)
-	_, v1beta1err := client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
-	return v1beta1err
 }
 
 func v1Csr2v1beta1Csr(csr *certificatesv1.CertificateSigningRequest) *certificatesv1beta1.CertificateSigningRequest {
@@ -334,4 +386,108 @@ func v1beta1Csr2v1Csr(csr *certificatesv1beta1.CertificateSigningRequest) *certi
 	}
 
 	return v1Csr
+}
+
+// isYurtTLSServerCert is used to recognize csr from yurthub https server that listens requests from edge clients like kubelet/kube-proxy.
+// or from yurt-tunnel-server that listens requests from cloud components like kube-apiserver and prometheus or from yurt-tunnel-agent
+func isYurtTLSServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.SignerName != certificatesv1.KubeletServingSignerName {
+		return false
+	}
+
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != user.NodesGroup {
+		return false
+	}
+
+	// at least one of dnsNames or ipAddresses must be specified
+	if len(x509cr.DNSNames) == 0 && len(x509cr.IPAddresses) == 0 {
+		return false
+	}
+
+	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
+		return false
+	}
+
+	if !serverRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
+		return false
+	}
+
+	return true
+}
+
+// isYurtHubNodeCert is used to recognize csr for yurthub client that forwards edge side requests to kube-apiserver
+func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+		return false
+	}
+
+	if len(x509cr.Subject.Organization) < 2 {
+		return false
+	} else {
+		for _, org := range x509cr.Subject.Organization {
+			if org != certmanager.YurtHubCSROrg && org != user.NodesGroup && !strings.HasPrefix(org, yurtHubNodeCertOrgPrefix) {
+				return false
+			}
+		}
+	}
+
+	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
+		return false
+	}
+
+	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
+		return false
+	}
+
+	return true
+}
+
+// isYurtTunnelProxyClientCert is used to recognize csr from yurt-tunnel-server that used for proxying requests to edge nodes.
+func isYurtTunnelProxyClientCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+		return false
+	}
+
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != certmanager.YurtTunnelCSROrg {
+		return false
+	}
+
+	if x509cr.Subject.CommonName != certmanager.YurtTunnelProxyClientCSRCN {
+		return false
+	}
+
+	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
+		return false
+	}
+
+	return true
+}
+
+// isYurtTunnelAgentCert is used to recognize csr for yurt-tunnel-agent component
+func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+		return false
+	}
+
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != certmanager.YurtTunnelCSROrg {
+		return false
+	}
+
+	if x509cr.Subject.CommonName != certmanager.YurtTunnelAgentCSRCN {
+		return false
+	}
+
+	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
+		return false
+	}
+
+	return true
+}
+
+func usagesToSet(usages []certificatesv1.KeyUsage) sets.String {
+	result := sets.NewString()
+	for _, usage := range usages {
+		result.Insert(string(usage))
+	}
+	return result
 }

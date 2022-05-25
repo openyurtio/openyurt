@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -50,23 +49,39 @@ var (
 		"v1.19",
 		"v1.20",
 		"v1.21",
+		"v1.22",
+		"v1.23",
 	}
 	validOpenYurtVersions = []string{
 		"v0.5.0",
 		"v0.6.0",
 		"v0.6.1",
+		"v0.6.2",
+		"v0.7.0",
 		"latest",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
+		"v0.12.0",
 	}
 
-	kindNodeImageMap = map[string]string{
-		"v1.17": "kindest/node:v1.17.17@sha256:66f1d0d91a88b8a001811e2f1054af60eef3b669a9a74f9b6db871f2f1eeed00",
-		"v1.18": "kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c",
-		"v1.19": "kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729",
-		"v1.20": "kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9",
-		"v1.21": "kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6",
+	kindNodeImageMap = map[string]map[string]string{
+		"v0.11.1": {
+			"v1.17": "kindest/node:v1.17.17@sha256:66f1d0d91a88b8a001811e2f1054af60eef3b669a9a74f9b6db871f2f1eeed00",
+			"v1.18": "kindest/node:v1.18.19@sha256:7af1492e19b3192a79f606e43c35fb741e520d195f96399284515f077b3b622c",
+			"v1.19": "kindest/node:v1.19.11@sha256:07db187ae84b4b7de440a73886f008cf903fcf5764ba8106a9fd5243d6f32729",
+			"v1.20": "kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9",
+			"v1.21": "kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6",
+		},
+		"v0.12.0": {
+			"v1.17": "kindest/node:v1.17.17@sha256:e477ee64df5731aa4ef4deabbafc34e8d9a686b49178f726563598344a3898d5",
+			"v1.18": "kindest/node:v1.18.20@sha256:e3dca5e16116d11363e31639640042a9b1bd2c90f85717a7fc66be34089a8169",
+			"v1.19": "kindest/node:v1.19.16@sha256:81f552397c1e6c1f293f967ecb1344d8857613fb978f963c30e907c32f598467",
+			"v1.20": "kindest/node:v1.20.15@sha256:393bb9096c6c4d723bb17bceb0896407d7db581532d11ea2839c80b28e5d8deb",
+			"v1.21": "kindest/node:v1.21.10@sha256:84709f09756ba4f863769bdcabe5edafc2ada72d3c8c44d6515fc581b66b029c",
+			"v1.22": "kindest/node:v1.22.7@sha256:1dfd72d193bf7da64765fd2f2898f78663b9ba366c2aa74be1fd7498a1873166",
+			"v1.23": "kindest/node:v1.23.4@sha256:0e34f0d0fd448aa2f2819cfd74e99fe5793a6e4938b328f657c8e3f81ee0dfb9",
+		},
 	}
 
 	yurtHubImageFormat               = "openyurt/yurthub:%s"
@@ -125,7 +140,7 @@ func newKindOptions() *kindOptions {
 		NodeNum:           2,
 		ClusterName:       "openyurt",
 		OpenYurtVersion:   constants.DefaultOpenYurtVersion,
-		KubernetesVersion: "v1.21",
+		KubernetesVersion: "v1.22",
 		UseLocalImages:    false,
 		IgnoreError:       false,
 		EnableDummyIf:     true,
@@ -170,13 +185,6 @@ func (o *kindOptions) Config() *initializerConfig {
 		}
 	}
 
-	// prepare kindConfig.KindPath
-	kindPath, err := findKindPath()
-	if err != nil {
-		kindPath = ""
-		klog.Warningf("%s, will try to go install kind", err)
-	}
-
 	// prepare kindConfig.KubeConfig
 	kubeConfigPath := o.KubeConfig
 	if kubeConfigPath == "" {
@@ -193,10 +201,9 @@ func (o *kindOptions) Config() *initializerConfig {
 		EdgeNodes:                  edgeNodes.List(),
 		KindConfigPath:             o.KindConfigPath,
 		KubeConfig:                 kubeConfigPath,
-		KindPath:                   kindPath,
 		NodesNum:                   o.NodeNum,
 		ClusterName:                o.ClusterName,
-		NodeImage:                  kindNodeImageMap[o.KubernetesVersion],
+		KubernetesVersion:          o.KubernetesVersion,
 		UseLocalImage:              o.UseLocalImages,
 		YurtHubImage:               fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
 		YurtControllerManagerImage: fmt.Sprintf(yurtControllerManagerImageFormat, o.OpenYurtVersion),
@@ -236,9 +243,9 @@ type initializerConfig struct {
 	EdgeNodes                  []string
 	KindConfigPath             string
 	KubeConfig                 string
-	KindPath                   string
 	NodesNum                   int
 	ClusterName                string
+	KubernetesVersion          string
 	NodeImage                  string
 	UseLocalImage              bool
 	YurtHubImage               string
@@ -258,13 +265,18 @@ type Initializer struct {
 func newKindInitializer(cfg *initializerConfig) *Initializer {
 	return &Initializer{
 		initializerConfig: *cfg,
-		operator:          NewKindOperator(cfg.KindPath, cfg.KubeConfig),
+		operator:          NewKindOperator("", cfg.KubeConfig),
 	}
 }
 
 func (ki *Initializer) Run() error {
 	klog.Info("Start to install kind")
 	if err := ki.operator.KindInstall(); err != nil {
+		return err
+	}
+
+	klog.Info("Start to prepare kind node image")
+	if err := ki.prepareKindNodeImage(); err != nil {
 		return err
 	}
 
@@ -331,6 +343,19 @@ func (ki *Initializer) prepareImages() error {
 		ki.YurtTunnelAgentImage,
 	}, ki.EdgeNodes); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (ki *Initializer) prepareKindNodeImage() error {
+	kindVer, err := ki.operator.KindVersion()
+	if err != nil {
+		return err
+	}
+	ki.NodeImage = kindNodeImageMap[kindVer][ki.KubernetesVersion]
+	if len(ki.NodeImage) == 0 {
+		return fmt.Errorf("failed to get node image by kind version= %s and kubernetes version= %s", kindVer, ki.KubernetesVersion)
 	}
 
 	return nil
@@ -590,60 +615,6 @@ func (ki *Initializer) loadImagesToKindNodes(images, nodes []string) error {
 	return nil
 }
 
-func getGoBinPath() (string, error) {
-	gopath, err := exec.Command("bash", "-c", "go env GOPATH").CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to get GOPATH, %w", err)
-	}
-	return filepath.Join(string(gopath), "bin"), nil
-}
-
-func checkIfKindAt(path string) (bool, string) {
-	if p, err := exec.LookPath(path); err == nil {
-		return true, p
-	}
-	return false, ""
-}
-
-func findKindPath() (string, error) {
-	var kindPath string
-	if exist, path := checkIfKindAt("kind"); exist {
-		kindPath = path
-		return kindPath, nil
-	} else {
-		goBinPath, err := getGoBinPath()
-		if err != nil {
-			klog.Fatal("failed to get go bin path, %s", err)
-		}
-
-		if exist, path := checkIfKindAt(goBinPath + "/kind"); exist {
-			kindPath = path
-		}
-	}
-
-	if len(kindPath) == 0 {
-		return kindPath, fmt.Errorf("cannot find valid kind cmd, try to install it")
-	}
-
-	if err := validateKindVersion(kindPath); err != nil {
-		return "", err
-	}
-	return kindPath, nil
-}
-
-func validateKindVersion(kindCmdPath string) error {
-	tmpOperator := NewKindOperator(kindCmdPath, "")
-	ver, err := tmpOperator.KindVersion()
-	if err != nil {
-		return err
-	}
-	if !strutil.IsInStringLst(validKindVersions, ver) {
-		return fmt.Errorf("invalid kind version: %s, all valid kind versions are: %s",
-			ver, strings.Join(validKindVersions, ","))
-	}
-	return nil
-}
-
 func validateKubernetesVersion(ver string) error {
 	s := strings.Split(ver, ".")
 	var originVer = ver
@@ -653,6 +624,10 @@ func validateKubernetesVersion(ver string) error {
 	if len(s) == 3 {
 		// v1.xx.xx
 		ver = strings.Join(s[:2], ".")
+	}
+
+	if !strings.HasPrefix(ver, "v") {
+		ver = fmt.Sprintf("v%s", ver)
 	}
 
 	// v1.xx
