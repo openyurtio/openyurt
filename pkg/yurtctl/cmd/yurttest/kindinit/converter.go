@@ -26,15 +26,16 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
-	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtctl/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	kubeadmapi "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	strutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/strings"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -49,13 +50,13 @@ type ClusterConverter struct {
 	EdgeNodes                  []string
 	WaitServantJobTimeout      time.Duration
 	YurthubHealthCheckTimeout  time.Duration
-	PodManifestPath            string
 	KubeConfigPath             string
 	YurtTunnelAgentImage       string
 	YurtTunnelServerImage      string
 	YurtControllerManagerImage string
 	NodeServantImage           string
 	YurthubImage               string
+	EnableDummyIf              bool
 }
 
 func (c *ClusterConverter) Run() error {
@@ -87,12 +88,6 @@ func (c *ClusterConverter) Run() error {
 	}
 
 	klog.Info("Running jobs for convert. Job running may take a long time, and job failure will not affect the execution of the next stage")
-	//disable native node-lifecycle-controller
-	klog.Info("Running disable-node-controller jobs to disable node-controller")
-	if err := c.disableNativeNodeLifecycleController(); err != nil {
-		klog.Errorf("failed to disable native node-lifecycle-controller, %v", err)
-		return err
-	}
 
 	klog.Info("Running node-servant-convert jobs to deploy the yurt-hub and reset the kubelet service on edge and cloud nodes")
 	if err := c.deployYurthub(); err != nil {
@@ -105,13 +100,13 @@ func (c *ClusterConverter) Run() error {
 func (c *ClusterConverter) labelEdgeNodes() error {
 	nodeLst, err := c.ClientSet.CoreV1().Nodes().List(context.Background(), v1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list nodes, %s", err)
+		return fmt.Errorf("failed to list nodes, %w", err)
 	}
 	for _, node := range nodeLst.Items {
 		isEdge := strutil.IsInStringLst(c.EdgeNodes, node.Name)
 		if _, err = kubeutil.AddEdgeWorkerLabelAndAutonomyAnnotation(
 			c.ClientSet, &node, strconv.FormatBool(isEdge), "false"); err != nil {
-			return fmt.Errorf("failed to add label to edge node %s, %s", node.Name, err)
+			return fmt.Errorf("failed to add label to edge node %s, %w", node.Name, err)
 		}
 	}
 	return nil
@@ -132,24 +127,6 @@ func (c *ClusterConverter) deployYurtTunnel() error {
 	return nil
 }
 
-func (c *ClusterConverter) disableNativeNodeLifecycleController() error {
-	kcmNodeNames, err := kubeutil.GetKubeControllerManagerHANodes(c.ClientSet)
-	if err != nil {
-		return err
-	}
-
-	if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
-		ctx := map[string]string{
-			"node_servant_image": c.NodeServantImage,
-			"pod_manifest_path":  c.PodManifestPath,
-		}
-		return kubeutil.RenderServantJob("disable", ctx, nodeName)
-	}, kcmNodeNames, os.Stderr); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *ClusterConverter) deployYurthub() error {
 	// deploy yurt-hub and reset the kubelet service on edge nodes.
 	joinToken, err := prepareYurthubStart(c.ClientSet, c.KubeConfigPath)
@@ -165,24 +142,34 @@ func (c *ClusterConverter) deployYurthub() error {
 		// or "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf".
 		"kubeadm_conf_path": "",
 		"working_mode":      string(util.WorkingModeEdge),
+		"enable_dummy_if":   strconv.FormatBool(c.EnableDummyIf),
 	}
 	if c.YurthubHealthCheckTimeout != defaultYurthubHealthCheckTimeout {
 		convertCtx["yurthub_healthcheck_timeout"] = c.YurthubHealthCheckTimeout.String()
 	}
+
+	npExist, err := nodePoolResourceExists(c.ClientSet)
+	if err != nil {
+		return err
+	}
+	convertCtx["enable_node_pool"] = strconv.FormatBool(npExist)
+	klog.Infof("convert context for edge nodes(%q): %#+v", c.EdgeNodes, convertCtx)
+
 	if len(c.EdgeNodes) != 0 {
 		convertCtx["working_mode"] = string(util.WorkingModeEdge)
 		if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 			return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
-		}, c.EdgeNodes, os.Stderr); err != nil {
+		}, c.EdgeNodes, os.Stderr, false); err != nil {
 			return err
 		}
 	}
 
 	// deploy yurt-hub and reset the kubelet service on cloud nodes
 	convertCtx["working_mode"] = string(util.WorkingModeCloud)
+	klog.Infof("convert context for cloud nodes(%q): %#+v", c.CloudNodes, convertCtx)
 	if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 		return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
-	}, c.CloudNodes, os.Stderr); err != nil {
+	}, c.CloudNodes, os.Stderr, false); err != nil {
 		return err
 	}
 
@@ -206,7 +193,7 @@ func prepareYurthubStart(cliSet *kubernetes.Clientset, kcfg string) (string, err
 	// prepare join-token for yurthub
 	joinToken, err := kubeutil.GetOrCreateJoinTokenString(cliSet)
 	if err != nil || joinToken == "" {
-		return "", fmt.Errorf("fail to get join token: %v", err)
+		return "", fmt.Errorf("fail to get join token: %w", err)
 	}
 	return joinToken, nil
 }
@@ -217,16 +204,38 @@ func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) erro
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
 		if err := kubeadmapi.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
-			return fmt.Errorf("error creating bootstrap ConfigMap, %v", err)
+			return fmt.Errorf("error creating bootstrap ConfigMap, %w", err)
 		}
 		if err := kubeadmapi.CreateClusterInfoRBACRules(client); err != nil {
-			return fmt.Errorf("error creating clusterinfo RBAC rules, %v", err)
+			return fmt.Errorf("error creating clusterinfo RBAC rules, %w", err)
 		}
 	} else if err != nil || info == nil {
-		return fmt.Errorf("fail to get configmap, %v", err)
+		return fmt.Errorf("fail to get configmap, %w", err)
 	} else {
 		klog.V(4).Infof("%s/%s configmap already exists, skip to prepare it", info.Namespace, info.Name)
 	}
 
 	return nil
+}
+
+func nodePoolResourceExists(client *kubernetes.Clientset) (bool, error) {
+	groupVersion := schema.GroupVersion{
+		Group:   "apps.openyurt.io",
+		Version: "v1alpha1",
+	}
+	apiResourceList, err := client.Discovery().ServerResourcesForGroupVersion(groupVersion.String())
+	if err != nil && !apierrors.IsNotFound(err) {
+		klog.Errorf("failed to discover nodepool resource, %v", err)
+		return false, err
+	} else if apiResourceList == nil {
+		return false, nil
+	}
+
+	for i := range apiResourceList.APIResources {
+		if apiResourceList.APIResources[i].Name == "nodepools" && apiResourceList.APIResources[i].Kind == "NodePool" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

@@ -57,7 +57,7 @@ func DeletePods(kubeClient clientset.Interface, pods []*v1.Pod, recorder record.
 		if _, err := SetPodTerminationReason(kubeClient, pod, nodeName); err != nil {
 			if apierrors.IsConflict(err) {
 				updateErrList = append(updateErrList,
-					fmt.Errorf("update status failed for pod %q: %v", Pod(pod), err))
+					fmt.Errorf("update status failed for pod %q: %w", Pod(pod), err))
 				continue
 			}
 		}

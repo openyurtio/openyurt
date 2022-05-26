@@ -18,7 +18,6 @@ package components
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +26,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 const (
@@ -93,7 +92,7 @@ func (op *kubeletOperator) writeYurthubKubeletConfig() (string, error) {
 		return "", err
 	}
 	fullPath := op.getYurthubKubeletConf()
-	err = ioutil.WriteFile(fullPath, []byte(enutil.OpenyurtKubeletConf), fileMode)
+	err = os.WriteFile(fullPath, []byte(enutil.OpenyurtKubeletConf), fileMode)
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +116,7 @@ func (op *kubeletOperator) appendConfig() error {
 	kubeConfigSetup := op.getAppendSetting()
 
 	// if wrote, return
-	content, err := ioutil.ReadFile(kubeAdmFlagsEnvFile)
+	content, err := os.ReadFile(kubeAdmFlagsEnvFile)
 	if err != nil {
 		return err
 	}
@@ -135,7 +134,7 @@ func (op *kubeletOperator) appendConfig() error {
 	}
 
 	r := strings.Replace(args, finding[1], fmt.Sprintf("%s %s", finding[1], kubeConfigSetup), 1)
-	err = ioutil.WriteFile(kubeAdmFlagsEnvFile, []byte(r), fileMode)
+	err = os.WriteFile(kubeAdmFlagsEnvFile, []byte(r), fileMode)
 	if err != nil {
 		return err
 	}
@@ -145,13 +144,13 @@ func (op *kubeletOperator) appendConfig() error {
 
 func (op *kubeletOperator) undoAppendConfig() error {
 	kubeConfigSetup := op.getAppendSetting()
-	contentbyte, err := ioutil.ReadFile(kubeAdmFlagsEnvFile)
+	contentbyte, err := os.ReadFile(kubeAdmFlagsEnvFile)
 	if err != nil {
 		return err
 	}
 
 	content := strings.ReplaceAll(string(contentbyte), kubeConfigSetup, "")
-	err = ioutil.WriteFile(kubeAdmFlagsEnvFile, []byte(content), fileMode)
+	err = os.WriteFile(kubeAdmFlagsEnvFile, []byte(content), fileMode)
 	if err != nil {
 		return err
 	}

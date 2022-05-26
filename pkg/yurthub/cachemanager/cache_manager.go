@@ -19,6 +19,7 @@ package cachemanager
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -171,7 +172,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	// If the GVR information is recognized, return list or empty list
 	objs, err := cm.storage.List(key)
 	if err != nil {
-		if err != storage.ErrStorageNotFound {
+		if !errors.Is(err, storage.ErrStorageNotFound) {
 			return nil, err
 		} else if isPodKey(key) {
 			// because at least there will be yurt-hub pod on the node.
@@ -326,7 +327,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				klog.V(2).Infof("pod(%s) is %s", key, string(watchType))
 			}
 
-			if err == storage.ErrStorageAccessConflict {
+			if errors.Is(err, storage.ErrStorageAccessConflict) {
 				klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key)
 			} else if err != nil {
 				klog.Errorf("failed to process watch object %s, %v", key, err)
@@ -362,7 +363,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	items, err := meta.ExtractList(list)
 	if err != nil {
 		klog.Errorf("unable to understand list result %#v (%v)", list, err)
-		return fmt.Errorf("unable to understand list result %#v (%v)", list, err)
+		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
 	}
 	klog.V(5).Infof("list items for %s is: %d", util.ReqInfoString(info), len(items))
 
@@ -390,7 +391,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 		}
 		key, _ := util.KeyFunc(comp, info.Resource, ns, name)
 		err = cm.saveOneObjectWithValidation(key, items[0])
-		if err == storage.ErrStorageAccessConflict {
+		if errors.Is(err, storage.ErrStorageAccessConflict) {
 			klog.V(2).Infof("skip to cache list object because key(%s) is under processing", key)
 			return nil
 		}
@@ -465,7 +466,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	}
 
 	if err := cm.saveOneObjectWithValidation(key, obj); err != nil {
-		if err != storage.ErrStorageAccessConflict {
+		if !errors.Is(err, storage.ErrStorageAccessConflict) {
 			return err
 		}
 		klog.V(2).Infof("skip to cache object because key(%s) is under processing", key)
@@ -506,7 +507,7 @@ func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Obje
 	} else if os.IsNotExist(err) || oldObj == nil {
 		return cm.storage.Create(key, obj)
 	} else {
-		if err != storage.ErrStorageAccessConflict {
+		if !errors.Is(err, storage.ErrStorageAccessConflict) {
 			return cm.storage.Create(key, obj)
 		}
 		return err

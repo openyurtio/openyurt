@@ -1,1 +1,0 @@
-The yurt-app-manager has been moved to https://github.com/openyurtio/yurt-app-manager. You can reference this [tutorial](https://github.com/openyurtio/yurt-app-manager/blob/master/docs/yurt-app-manager-tutorial.md) to use yurt-app-manager to manage edge nodes and workloads.

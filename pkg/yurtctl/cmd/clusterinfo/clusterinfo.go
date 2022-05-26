@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 )
 
 // ClusterInfoOptions has the information that required by cluster-info operation

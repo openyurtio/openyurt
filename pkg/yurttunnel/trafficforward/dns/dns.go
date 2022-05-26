@@ -290,7 +290,7 @@ func (dnsctl *coreDNSRecordController) ensureCoreDNSRecordConfigMap() error {
 		}
 		_, err = dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Create(context.Background(), cm, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create ConfigMap %v/%v, %v",
+			return fmt.Errorf("failed to create ConfigMap %v/%v, %w",
 				constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
 		}
 	}
@@ -352,11 +352,11 @@ func (dnsctl *coreDNSRecordController) getTunnelServerIP(useCache bool) (string,
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
 		Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get %v/%v service, %v",
+		return "", fmt.Errorf("failed to get %v/%v service, %w",
 			constants.YurttunnelServerServiceNs, constants.YurttunnelServerInternalServiceName, err)
 	}
 	if len(svc.Spec.ClusterIP) == 0 {
-		return "", fmt.Errorf("unable find ClusterIP from %s/%s service, %v",
+		return "", fmt.Errorf("unable find ClusterIP from %s/%s service, %w",
 			constants.YurttunnelServerServiceNs, constants.YurttunnelServerInternalServiceName, err)
 	}
 
@@ -377,7 +377,7 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 	}
 	cm.Data[constants.YurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
 	if _, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Update(context.Background(), cm, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update configmap %v/%v, %v",
+		return fmt.Errorf("failed to update configmap %v/%v, %w",
 			constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
 	}
 	return nil
@@ -387,7 +387,7 @@ func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []st
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
 		Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to sync tunnel server internal service, %v", err)
+		return fmt.Errorf("failed to sync tunnel server internal service, %w", err)
 	}
 
 	changed, updatedSvcPorts := resolveServicePorts(svc, ports, portMappings)
@@ -398,7 +398,7 @@ func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []st
 	svc.Spec.Ports = updatedSvcPorts
 	_, err = dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).Update(context.Background(), svc, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to sync tunnel server service, %v", err)
+		return fmt.Errorf("failed to sync tunnel server service, %w", err)
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -156,7 +157,7 @@ func TestResolveProxyPortsAndMappings(t *testing.T) {
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			ports, portMappings, err := resolveProxyPortsAndMappings(tt.configMap, insecureListenAddr, secureListenAddr)
-			if tt.expectResult.err != err {
+			if !errors.Is(tt.expectResult.err, err) {
 				t.Errorf("expect error: %v, but got error: %v", tt.expectResult.err, err)
 			}
 

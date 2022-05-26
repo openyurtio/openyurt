@@ -35,7 +35,7 @@ func NewReverterWithOptions(o *Options) *nodeReverter {
 	}
 }
 
-// Do, do the revert job
+// Do is used for the revert job
 // shall be implemented as idempotent, can execute multiple times with no side-affect.
 func (n *nodeReverter) Do() error {
 
@@ -43,6 +43,12 @@ func (n *nodeReverter) Do() error {
 		return err
 	}
 	if err := n.unInstallYurtHub(); err != nil {
+		return err
+	}
+	if err := n.unInstallYurtTunnelAgent(); err != nil {
+		return err
+	}
+	if err := n.unInstallYurtTunnelServer(); err != nil {
 		return err
 	}
 
@@ -56,6 +62,14 @@ func (n *nodeReverter) revertKubelet() error {
 
 func (n *nodeReverter) unInstallYurtHub() error {
 	op := components.NewYurthubOperator("", "", "",
-		util.WorkingModeCloud, time.Duration(1)) // params is not important here
+		util.WorkingModeCloud, time.Duration(1), true, true) // params is not important here
 	return op.UnInstall()
+}
+
+func (n *nodeReverter) unInstallYurtTunnelAgent() error {
+	return components.UnInstallYurtTunnelAgent()
+}
+
+func (n *nodeReverter) unInstallYurtTunnelServer() error {
+	return components.UnInstallYurtTunnelServer()
 }

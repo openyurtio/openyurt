@@ -17,17 +17,14 @@ limitations under the License.
 package convert
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
 	nodeconverter "github.com/openyurtio/openyurt/pkg/node-servant/convert"
-)
-
-const (
-	// defaultYurthubHealthCheckTimeout defines the default timeout for yurthub health check phase
-	defaultYurthubHealthCheckTimeout = 2 * time.Minute
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 // NewConvertCmd generates a new convert command
@@ -37,8 +34,17 @@ func NewConvertCmd() *cobra.Command {
 		Use:   "convert --working-mode",
 		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := o.Complete(cmd.Flags()); err != nil {
-				klog.Fatalf("fail to complete the convert option: %s", err)
+			fmt.Printf("node-servant version: %#v\n", projectinfo.Get())
+			if o.Version {
+				return
+			}
+
+			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
+				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+			})
+
+			if err := o.Validate(); err != nil {
+				klog.Fatalf("validate options: %v", err)
 			}
 
 			converter := nodeconverter.NewConverterWithOptions(o)
@@ -49,21 +55,7 @@ func NewConvertCmd() *cobra.Command {
 		},
 		Args: cobra.NoArgs,
 	}
-	setFlags(cmd)
+	o.AddFlags(cmd.Flags())
 
 	return cmd
-}
-
-// setFlags sets flags.
-func setFlags(cmd *cobra.Command) {
-	cmd.Flags().String("yurthub-image", "openyurt/yurthub:latest",
-		"The yurthub image.")
-	cmd.Flags().Duration("yurthub-healthcheck-timeout", defaultYurthubHealthCheckTimeout,
-		"The timeout for yurthub health check.")
-	cmd.Flags().StringP("kubeadm-conf-path", "k", "",
-		"The path to kubelet service conf that is used by kubelet component to join the cluster on the work node."+
-			"Support multiple values, will search in order until get the file.(e.g -k kbcfg1,kbcfg2)",
-	)
-	cmd.Flags().String("join-token", "", "The token used by yurthub for joining the cluster.")
-	cmd.Flags().String("working-mode", "edge", "The node type cloud/edge, effect yurthub workingMode.")
 }

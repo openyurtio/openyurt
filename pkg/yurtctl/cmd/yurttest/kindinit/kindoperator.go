@@ -19,10 +19,13 @@ package kindinit
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"k8s.io/klog/v2"
+
+	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
 )
 
 var (
@@ -31,7 +34,7 @@ var (
 	kindInstallCmd    = "go install sigs.k8s.io/kind@%s"
 
 	defaultKubeConfigPath = "${HOME}/.kube/config"
-	defaultKindVersion    = "v0.11.1"
+	defaultKindVersion    = "v0.12.0"
 )
 
 type KindOperator struct {
@@ -101,15 +104,31 @@ func (k *KindOperator) KindInstall() error {
 	if k.kindCMDPath != "" {
 		return nil
 	}
+
+	kindPath, err := findKindPath()
+	if err != nil {
+		klog.Infof("no kind tool is found, so try to install. %v", err)
+	} else {
+		k.kindCMDPath = kindPath
+		return nil
+	}
+
 	minorVer, err := k.goMinorVersion()
 	if err != nil {
-		return fmt.Errorf("failed to get go minor version, %s", err)
+		return fmt.Errorf("failed to get go minor version, %w", err)
 	}
 	installCMD := k.getInstallCmd(minorVer, defaultKindVersion)
 	klog.V(1).Infof("start to install kind, running command: %s", installCMD)
 	if err := k.execCommand("bash", "-c", installCMD).Run(); err != nil {
 		return err
 	}
+
+	kindPath, err = findKindPath()
+	if err != nil {
+		return err
+	}
+	k.kindCMDPath = kindPath
+
 	return nil
 }
 
@@ -136,4 +155,57 @@ func (k *KindOperator) goMinorVersion() (int, error) {
 		return 0, err
 	}
 	return minorVer, nil
+}
+
+func getGoBinPath() (string, error) {
+	gopath, err := exec.Command("bash", "-c", "go env GOPATH").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get GOPATH, %w", err)
+	}
+	return filepath.Join(string(gopath), "bin"), nil
+}
+
+func checkIfKindAt(path string) (bool, string) {
+	if p, err := exec.LookPath(path); err == nil {
+		return true, p
+	}
+	return false, ""
+}
+
+func findKindPath() (string, error) {
+	var kindPath string
+	if exist, path := checkIfKindAt("kind"); exist {
+		kindPath = path
+	} else {
+		goBinPath, err := getGoBinPath()
+		if err != nil {
+			klog.Fatal("failed to get go bin path, %s", err)
+		}
+
+		if exist, path := checkIfKindAt(goBinPath + "/kind"); exist {
+			kindPath = path
+		}
+	}
+
+	if len(kindPath) == 0 {
+		return kindPath, fmt.Errorf("cannot find valid kind cmd, try to install it")
+	}
+
+	if err := validateKindVersion(kindPath); err != nil {
+		return "", err
+	}
+	return kindPath, nil
+}
+
+func validateKindVersion(kindCmdPath string) error {
+	tmpOperator := NewKindOperator(kindCmdPath, "")
+	ver, err := tmpOperator.KindVersion()
+	if err != nil {
+		return err
+	}
+	if !strutil.IsInStringLst(validKindVersions, ver) {
+		return fmt.Errorf("invalid kind version: %s, all valid kind versions are: %s",
+			ver, strings.Join(validKindVersions, ","))
+	}
+	return nil
 }

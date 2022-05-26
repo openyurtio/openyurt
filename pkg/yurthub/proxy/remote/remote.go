@@ -18,6 +18,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -185,7 +186,7 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 			wrapPrc, _ := util.NewGZipReaderCloser(resp.Header, prc, req, "cache-manager")
 			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 				err := rp.cacheMgr.CacheResponse(req, prc, stopCh)
-				if err != nil && err != io.EOF && err != context.Canceled {
+				if err != nil && err != io.EOF && !errors.Is(err, context.Canceled) {
 					klog.Errorf("%s response cache ended with error, %v", util.ReqString(req), err)
 				}
 			}(req, wrapPrc, rp.stopCh)

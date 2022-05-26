@@ -22,8 +22,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -31,9 +31,9 @@ import (
 	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
-	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -44,6 +44,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
@@ -122,7 +123,7 @@ func NewYurtHubCertManager(cfg *config.YurtHubConfiguration) (interfaces.YurtCer
 }
 
 func removeDirContents(dir string) error {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -294,7 +295,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 
 	kubeConfig, err := clientcmd.Load([]byte(kubeconfigStr))
 	if err != nil {
-		return fmt.Errorf("could not load kube config string, %v", err)
+		return fmt.Errorf("could not load kube config string, %w", err)
 	}
 
 	if len(kubeConfig.Clusters) != 1 {
@@ -308,7 +309,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 
 	if caExisted {
 		var curCABytes []byte
-		if curCABytes, err = ioutil.ReadFile(caFile); err != nil {
+		if curCABytes, err = os.ReadFile(caFile); err != nil {
 			klog.Infof("could not read existed %s file, %v, ", caFile, err)
 		}
 
@@ -339,7 +340,7 @@ func (ycm *yurtHubCertManager) initBootstrap() error {
 	ycm.bootstrapConfStore = bootstrapConfStore
 
 	contents, err := ycm.bootstrapConfStore.Get(bootstrapConfigFileName)
-	if err == storage.ErrStorageNotFound {
+	if errors.Is(err, storage.ErrStorageNotFound) {
 		klog.Infof("%s bootstrap conf file does not exist, so create it", ycm.hubName)
 		return ycm.createBootstrapConfFile(ycm.joinToken)
 	} else if err != nil {
@@ -364,10 +365,10 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	}
 	ycm.hubClientCertPath = s.CurrentPath()
 
-	orgs := []string{"openyurt:yurthub", "system:nodes"}
+	orgs := []string{certmanager.YurtHubCSROrg, user.NodesGroup}
 	if len(ycm.hubCertOrganizations) > 0 {
 		for _, v := range ycm.hubCertOrganizations {
-			if v != "openyurt:yurthub" && v != "system:nodes" {
+			if v != certmanager.YurtHubCSROrg && v != user.NodesGroup {
 				orgs = append(orgs, v)
 			}
 		}
@@ -375,7 +376,7 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 
 	m, err := certificate.NewManager(&certificate.Config{
 		ClientsetFn: ycm.generateCertClientFn,
-		SignerName:  certificatesv1beta1.LegacyUnknownSignerName,
+		SignerName:  certificatesv1.KubeAPIServerClientSignerName,
 		Template: &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   fmt.Sprintf("system:node:%s", ycm.nodeName),
@@ -391,7 +392,7 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 		CertificateStore: s,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize client certificate manager: %v", err)
+		return fmt.Errorf("failed to initialize client certificate manager: %w", err)
 	}
 	ycm.hubClientCertManager = m
 	m.Start()
@@ -555,7 +556,7 @@ func createInsecureRestClientConfig(remoteServer *url.URL) (*restclient.Config, 
 
 	restConfig, err := clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create insecure rest client configuration, %v", err)
+		return nil, fmt.Errorf("failed to create insecure rest client configuration, %w", err)
 	}
 	return restConfig, nil
 }
@@ -572,7 +573,7 @@ func createBootstrapConf(apiServerAddr, caFile, joinToken string) *clientcmdapi.
 		return nil
 	}
 
-	caCert, err := ioutil.ReadFile(caFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
 		klog.Errorf("could not read ca file(%s), %v", caFile, err)
 		return nil
@@ -626,7 +627,7 @@ func (ycm *yurtHubCertManager) updateBootstrapConfFile(joinToken string) error {
 	curKubeConfig, err := util.LoadKubeConfig(ycm.getBootstrapConfFile())
 	if err != nil || curKubeConfig == nil {
 		klog.Errorf("could not get current bootstrap config for %s, %v", ycm.hubName, err)
-		return fmt.Errorf("could not load bootstrap conf file(%s), %v", ycm.getBootstrapConfFile(), err)
+		return fmt.Errorf("could not load bootstrap conf file(%s), %w", ycm.getBootstrapConfFile(), err)
 	}
 
 	if curKubeConfig.AuthInfos[bootstrapUser] != nil {

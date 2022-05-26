@@ -19,9 +19,9 @@ package cachemanager
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -462,7 +462,7 @@ func TestCacheGetResponse(t *testing.T) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
 				req = req.WithContext(ctx)
-				prc := ioutil.NopCloser(buf)
+				prc := io.NopCloser(buf)
 				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 
@@ -483,7 +483,7 @@ func TestCacheGetResponse(t *testing.T) {
 
 			obj, err := sWrapper.Get(tt.key)
 			if err != nil || obj == nil {
-				if tt.expectResult.err != err {
+				if !errors.Is(tt.expectResult.err, err) {
 					t.Errorf("expect get error %v, but got %v", tt.expectResult.err, err)
 				}
 				t.Logf("get expected err %v for key %s", tt.expectResult.err, tt.key)
@@ -811,7 +811,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			req.RemoteAddr = "127.0.0.1"
 
 			var err error
-			rc := ioutil.NopCloser(r)
+			rc := io.NopCloser(r)
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
@@ -1301,7 +1301,7 @@ func TestCacheListResponse(t *testing.T) {
 				ctx := req.Context()
 				ctx = util.WithRespContentType(ctx, tt.accept)
 				req = req.WithContext(ctx)
-				prc := ioutil.NopCloser(buf)
+				prc := io.NopCloser(buf)
 				err = yurtCM.CacheResponse(req, prc, nil)
 			})
 
@@ -1322,7 +1322,7 @@ func TestCacheListResponse(t *testing.T) {
 				objs, err := sWrapper.List(tt.key)
 				if err != nil {
 					// If error is storage.ErrStorageNotFound, it means that no object is cached in the hard disk
-					if err == storage.ErrStorageNotFound {
+					if errors.Is(err, storage.ErrStorageNotFound) {
 						if len(tt.expectResult.data) != 0 {
 							t.Errorf("expect %v objects, but get nothing.", len(tt.expectResult.data))
 						}
@@ -2306,7 +2306,7 @@ func TestQueryCacheForList(t *testing.T) {
 					t.Errorf("Got no error, but expect err")
 				}
 
-				if tt.expectResult.queryErr != nil && tt.expectResult.queryErr != err {
+				if tt.expectResult.queryErr != nil && !errors.Is(tt.expectResult.queryErr, err) {
 					t.Errorf("expect err %v, but got %v", tt.expectResult.queryErr, err)
 				}
 			} else {

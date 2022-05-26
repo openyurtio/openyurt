@@ -91,7 +91,8 @@ rules:
     resources:
       - signers
     resourceNames:
-      - "kubernetes.io/legacy-unknown"
+      - kubernetes.io/kube-apiserver-client
+      - kubernetes.io/kubelet-serving
     verbs:
       - approve
 ---

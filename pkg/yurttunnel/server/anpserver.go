@@ -47,6 +47,7 @@ type anpTunnelServer struct {
 	serverAgentAddr          string
 	serverCount              int
 	tlsCfg                   *tls.Config
+	proxyClientTlsCfg        *tls.Config
 	wrappers                 hw.HandlerWrappers
 	proxyStrategy            string
 }
@@ -66,15 +67,15 @@ func (ats *anpTunnelServer) Run() error {
 		ats.interceptorServerUDSFile,
 		ats.tlsCfg)
 	if proxierErr != nil {
-		return fmt.Errorf("fail to run the proxier: %s", proxierErr)
+		return fmt.Errorf("fail to run the proxier: %w", proxierErr)
 	}
 
 	wrappedHandler, err := wh.WrapHandler(
-		NewRequestInterceptor(ats.interceptorServerUDSFile, ats.tlsCfg),
+		NewRequestInterceptor(ats.interceptorServerUDSFile, ats.proxyClientTlsCfg),
 		ats.wrappers,
 	)
 	if err != nil {
-		return fmt.Errorf("fail to wrap handler: %v", err)
+		return fmt.Errorf("fail to wrap handler: %w", err)
 	}
 
 	// 2. start the master server
@@ -85,13 +86,13 @@ func (ats *anpTunnelServer) Run() error {
 		ats.serverMasterInsecureAddr,
 		ats.tlsCfg)
 	if masterServerErr != nil {
-		return fmt.Errorf("fail to run master server: %s", masterServerErr)
+		return fmt.Errorf("fail to run master server: %w", masterServerErr)
 	}
 
 	// 3. start the agent server
 	agentServerErr := runAgentServer(ats.tlsCfg, ats.serverAgentAddr, proxyServer)
 	if agentServerErr != nil {
-		return fmt.Errorf("fail to run agent server: %s", agentServerErr)
+		return fmt.Errorf("fail to run agent server: %w", agentServerErr)
 	}
 
 	return nil
@@ -193,7 +194,7 @@ func runAgentServer(tlsCfg *tls.Config,
 	listener, err := net.Listen("tcp", agentServerAddr)
 	klog.Info("start handling connection from agents")
 	if err != nil {
-		return fmt.Errorf("fail to listen to agent on %s: %s", agentServerAddr, err)
+		return fmt.Errorf("fail to listen to agent on %s: %w", agentServerAddr, err)
 	}
 	go grpcServer.Serve(listener)
 	return nil

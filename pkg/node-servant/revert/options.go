@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 // Options has the information that required by revert operation

@@ -19,7 +19,6 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"k8s.io/client-go/kubernetes"
@@ -57,7 +56,7 @@ func CreateClientSetKubeConfig(kubeConfig string) (*kubernetes.Clientset, error)
 	}
 	cfg, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("fail to create the clientset based on %s: %v",
+		return nil, fmt.Errorf("fail to create the clientset based on %s: %w",
 			kubeConfig, err)
 	}
 	cliSet, err := kubernetes.NewForConfig(cfg)
@@ -75,7 +74,7 @@ func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, 
 		return nil, errors.New("apiserver addr can't be empty")
 	}
 
-	token, err := ioutil.ReadFile(constants.YurttunnelTokenFile)
+	token, err := os.ReadFile(constants.YurttunnelTokenFile)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +89,7 @@ func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, 
 	}
 
 	restConfig := rest.Config{
-		Host:            "https://" + apiserverAddr,
+		Host:            constants.HttpsPrfix + apiserverAddr,
 		TLSClientConfig: tlsClientConfig,
 		BearerToken:     string(token),
 		BearerTokenFile: constants.YurttunnelTokenFile,

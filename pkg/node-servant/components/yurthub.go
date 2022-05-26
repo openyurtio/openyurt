@@ -18,19 +18,20 @@ package components
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	enutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/util/templates"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -47,17 +48,21 @@ type yurtHubOperator struct {
 	joinToken                 string
 	workingMode               util.WorkingMode
 	yurthubHealthCheckTimeout time.Duration
+	enableDummyIf             bool
+	enableNodePool            bool
 }
 
 // NewYurthubOperator new yurtHubOperator struct
 func NewYurthubOperator(apiServerAddr string, yurthubImage string, joinToken string,
-	workingMode util.WorkingMode, yurthubHealthCheckTimeout time.Duration) *yurtHubOperator {
+	workingMode util.WorkingMode, yurthubHealthCheckTimeout time.Duration, enableDummyIf, enableNodePool bool) *yurtHubOperator {
 	return &yurtHubOperator{
 		apiServerAddr:             apiServerAddr,
 		yurthubImage:              yurthubImage,
 		joinToken:                 joinToken,
 		workingMode:               workingMode,
 		yurthubHealthCheckTimeout: yurthubHealthCheckTimeout,
+		enableDummyIf:             enableDummyIf,
+		enableNodePool:            enableNodePool,
 	}
 }
 
@@ -66,7 +71,6 @@ func (op *yurtHubOperator) Install() error {
 
 	// 1. put yurt-hub yaml into /etc/kubernetes/manifests
 	klog.Infof("setting up yurthub on node")
-
 	// 1-1. replace variables in yaml file
 	klog.Infof("setting up yurthub apiServer addr")
 	yurthubTemplate, err := templates.SubsituteTemplate(enutil.YurthubTemplate, map[string]string{
@@ -74,6 +78,8 @@ func (op *yurtHubOperator) Install() error {
 		"image":                op.yurthubImage,
 		"joinToken":            op.joinToken,
 		"workingMode":          string(op.workingMode),
+		"enableDummyIf":        strconv.FormatBool(op.enableDummyIf),
+		"enableNodePool":       strconv.FormatBool(op.enableNodePool),
 	})
 	if err != nil {
 		return err
@@ -84,7 +90,7 @@ func (op *yurtHubOperator) Install() error {
 	if err := enutil.EnsureDir(podManifestPath); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
+	if err := os.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
 		return err
 	}
 	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)
@@ -196,10 +202,10 @@ func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
 		return false, err
 	}
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
-		return false, fmt.Errorf("failed to read response of cluster healthz, %v", err)
+		return false, fmt.Errorf("failed to read response of cluster healthz, %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

@@ -17,6 +17,7 @@ limitations under the License.
 package disk
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -139,7 +140,7 @@ func TestCreate(t *testing.T) {
 			for key, data := range tc.keysData {
 				err = s.Create(key, []byte(data))
 				if err != nil {
-					if tc.createErr != err {
+					if !errors.Is(err, tc.createErr) {
 						t.Errorf("%s: expect create error %v, but got %v", k, tc.createErr, err)
 					}
 				}
@@ -148,7 +149,7 @@ func TestCreate(t *testing.T) {
 			for key, result := range tc.result {
 				b, err := s.Get(key)
 				if result.err != nil {
-					if result.err != err {
+					if !errors.Is(result.err, err) {
 						t.Errorf("%s(key=%s) expect error %v, but got error %v", k, key, result.err, err)
 					}
 				}
@@ -259,7 +260,7 @@ func TestDelete(t *testing.T) {
 			for _, key := range tc.deleteKeys {
 				err = s.Delete(key)
 				if result, ok := tc.result[key]; ok {
-					if result.deleteErr != err {
+					if !errors.Is(result.deleteErr, err) {
 						t.Errorf("%s: delete key(%s) expect error %v, but got %v", k, key, result.deleteErr, err)
 					}
 				} else if err != nil {
@@ -270,7 +271,7 @@ func TestDelete(t *testing.T) {
 			for key, result := range tc.result {
 				_, err := s.Get(key)
 				if result.getErr != nil {
-					if result.getErr != err {
+					if !errors.Is(result.getErr, err) {
 						t.Errorf("%s: expect error %v, but got error %v", k, result.getErr, err)
 					}
 				}
@@ -345,7 +346,7 @@ func TestGet(t *testing.T) {
 			for key, result := range tc.result {
 				b, err := s.Get(key)
 				if result.err != nil {
-					if result.err != err {
+					if !errors.Is(result.err, err) {
 						t.Errorf("%s: expect error %v, but got error %v", k, result.err, err)
 					}
 				}
@@ -524,7 +525,7 @@ func TestList(t *testing.T) {
 
 			data, err := s.List(tc.listKey)
 			if err != nil {
-				if tc.listErr != err {
+				if !errors.Is(tc.listErr, err) {
 					t.Errorf("%s: list(%s) expect error %v, but got error %v", k, tc.listKey, tc.listErr, err)
 				}
 			}
@@ -617,7 +618,7 @@ func TestUpdate(t *testing.T) {
 			for key, data := range tc.updateKeys {
 				err = s.Update(key, []byte(data))
 				if err != nil {
-					if tc.updateErr != err {
+					if !errors.Is(tc.updateErr, err) {
 						t.Errorf("%s: expect error %v, but got %v", k, tc.updateErr, err)
 					}
 				}
@@ -700,7 +701,7 @@ func TestReplace(t *testing.T) {
 
 			err = s.Replace(tc.listKey, contents)
 			if err != nil {
-				if tc.replaceErr != err {
+				if errors.Is(tc.replaceErr, err) {
 					t.Errorf("%s: expect error %v, but got %v", k, tc.replaceErr, err)
 				}
 			}

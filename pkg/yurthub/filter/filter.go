@@ -19,6 +19,7 @@ package filter
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,6 +66,7 @@ func (fs *Filters) NewFromFilters(initializer FilterInitializer) (map[string]Run
 			}
 
 			if err = initializer.Initialize(ins); err != nil {
+				klog.Errorf("Filter %s initialize failed, %v", name, err)
 				return nil, err
 			}
 			klog.V(2).Infof("Filter %s initialize successfully", name)
@@ -152,7 +154,7 @@ func NewFilterReadCloser(
 	if dr.isWatch {
 		go func(req *http.Request, rc io.ReadCloser, ch chan watch.Event) {
 			err := handler.StreamResponseFilter(rc, ch)
-			if err != nil && err != io.EOF && err != context.Canceled {
+			if err != nil && err != io.EOF && !errors.Is(err, context.Canceled) {
 				klog.Errorf("filter(%s) watch response ended with error, %v", dr.ownerName, err)
 			}
 		}(req, rc, dr.ch)
