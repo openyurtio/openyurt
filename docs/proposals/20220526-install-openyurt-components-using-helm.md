@@ -25,7 +25,6 @@ status: provisional
     - [Implementation Details](#implementation-details)
     - [Sequence Diagram](#sequence-diagram)
 
-
 ## Glossary
 
 Refer to the [Helm Glossary](https://helm.sh/docs/glossary/).
@@ -49,15 +48,15 @@ In order to deploy and use OpenYurt, OpenYurt provides users with a total of 5 d
 
 ### Implementation Details
 - Which components need to organize the chart package:
-    - yurt-controller-manager
-    - yurt-app-manager
-    - yurt-tunnel-server/agent
+  - yurt-controller-manager
+  - yurt-app-manager
+  - yurt-tunnel-server/agent
 
 - Take the openyurt repo as an example:
-    - Add a new chart package to the openyurt repository, and write the related chart package implementation.
-    - Introduce openyurt-helm as an aggregate repo (existing), which references the chart package path just now.
-    - Provide support for helm repo in openyurt-helm, and add a reusable pipeline. When triggered, scan the path of the corresponding component to generate the corresponding char package, and synchronize the released chart package to the gh-pages branch.
-    - Optional: In the release process of each component, add a pipeline, and the pipeline of openyurt-helm will be called during release.
+  - Add a new chart package to the openyurt repository, and write the related chart package implementation.
+  - Introduce openyurt-helm as an aggregate repo (existing), which references the chart package path just now.
+  - Provide support for helm repo in openyurt-helm, and add a reusable pipeline. When triggered, scan the path of the corresponding component to generate the corresponding char package, and synchronize the released chart package to the gh-pages branch.
+  - Optional: In the release process of each component, add a pipeline, and the pipeline of openyurt-helm will be called during release.
 
 ### Sequence Diagram
 ![](../img/helm-install/sequence-diagram.png)
