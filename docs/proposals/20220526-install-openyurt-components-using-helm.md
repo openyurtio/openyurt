@@ -28,7 +28,7 @@ status: provisional
 
 ## Glossary
 
-Refer to the [Cluster API Book Glossary](https://cluster-api.sigs.k8s.io/reference/glossary.html).
+Refer to the [Helm Glossary](https://helm.sh/docs/glossary/).
 
 ## Summary
 In order to deploy and use OpenYurt, OpenYurt provides users with 5 deployment methods. From a beginner's point of view, there are too many installation methods, which can easily confuse end users. Maybe we need to reduce some installation methods, and we need to define specific scenarios for each installation method.
