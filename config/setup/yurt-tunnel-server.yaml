@@ -28,7 +28,7 @@ metadata:
   name: tunnel-proxy-client
 subjects:
   - kind: User
-    name: tunnel-server-proxy-client
+    name: tunnel-proxy-client
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
