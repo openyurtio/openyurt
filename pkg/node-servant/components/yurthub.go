@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/templates"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"

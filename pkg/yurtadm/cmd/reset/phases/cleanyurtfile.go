@@ -22,8 +22,8 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 

@@ -30,18 +30,18 @@ import (
 	"k8s.io/klog/v2"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	kubeutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/kubelet"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
+	kubeletconfig "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubelet/apis/config"
+	kubeletscheme "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubelet/apis/config/scheme"
+	kubeletcodec "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubelet/kubeletconfig/util/codec"
+	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/constants"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/phases/kubelet"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/apiclient"
-	kubeletconfig "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubelet/apis/config"
-	kubeletscheme "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubelet/apis/config/scheme"
-	kubeletcodec "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubelet/kubeletconfig/util/codec"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/templates"
 )
 
 // NewEdgeNodePhase creates a yurtadm workflow phase that start kubelet on a edge node.

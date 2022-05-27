@@ -27,13 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/initsystem"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/apiclient"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/initsystem"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 

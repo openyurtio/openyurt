@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	strutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/strings"
+	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 )
 
 var (

@@ -32,14 +32,14 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/discovery/token"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphase "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/discovery/token"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/kubeconfig"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 )
 

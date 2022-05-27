@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
+	utilruntime "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/runtime"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset/phases"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/cmd/phases/workflow"
-	utilruntime "github.com/openyurtio/openyurt/pkg/yurtadm/kubernetes/kubeadm/app/util/runtime"
 )
 
 var (

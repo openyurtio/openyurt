@@ -17,17 +17,14 @@ limitations under the License.
 package edgenode
 
 const (
-	KubeletSvcPath       = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
-	OpenyurtDir          = "/var/lib/openyurt"
-	StaticPodPath        = "/etc/kubernetes/manifests"
-	KubeCondfigPath      = "/etc/kubernetes/kubelet.conf"
-	KubeCaFile           = "/etc/kubernetes/pki/ca.crt"
-	YurthubYamlName      = "yurt-hub.yaml"
-	YurthubComponentName = "yurt-hub"
-	YurthubNamespace     = "kube-system"
-	YurthubCmName        = "yurt-hub-cfg"
-	KubeletConfName      = "kubelet.conf"
-	KubeletSvcBackup     = "%s.bk"
+	KubeletSvcPath   = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	OpenyurtDir      = "/var/lib/openyurt"
+	StaticPodPath    = "/etc/kubernetes/manifests"
+	KubeCondfigPath  = "/etc/kubernetes/kubelet.conf"
+	KubeCaFile       = "/etc/kubernetes/pki/ca.crt"
+	YurthubYamlName  = "yurt-hub.yaml"
+	KubeletConfName  = "kubelet.conf"
+	KubeletSvcBackup = "%s.bk"
 
 	Hostname               = "/etc/hostname"
 	KubeletHostname        = "--hostname-override=[^\"\\s]*"
@@ -124,61 +121,5 @@ spec:
   hostNetwork: true
   priorityClassName: system-node-critical
   priority: 2000001000
-`
-	YurthubClusterRole = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: yurt-hub
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - get
-  - apiGroups:
-      - apps.openyurt.io
-    resources:
-      - nodepools
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    resourceNames:
-      - yurt-hub-cfg
-    verbs:
-      - list
-      - watch
-`
-	YurthubClusterRoleBinding = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: yurt-hub
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: yurt-hub
-subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: system:nodes
-`
-	YurthubConfigMap = `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: yurt-hub-cfg
-  namespace: kube-system
-data:
-  cache_agents: ""
-  filter_endpoints: coredns/endpoints#list;watch
-  filter_servicetopology: coredns/endpointslices#list;watch
-  filter_discardcloudservice: ""
-  filter_masterservice: ""
 `
 )
