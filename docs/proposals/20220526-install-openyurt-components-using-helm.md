@@ -37,7 +37,7 @@ In order to simplify the installation process, in this proposal, we would like t
 In order to deploy and use OpenYurt, OpenYurt provides users with a total of 5 deployment methods. There are too many installation methods, which can easily confuse users. In addition, using OpenYurt may often have to copy yaml files between different projects, which is cumbersome. This proposal seeks to address the above issues.
 
 ### Goals
-- Provide the chart package of openyurt, and provide the way of helm installation.
+- Provide the chart package of openyurt and openyurt components, and provide the way of helm installation.
 - Automate the chart package publishing process without manual intervention.
 
 ## Proposal
@@ -51,6 +51,8 @@ In order to deploy and use OpenYurt, OpenYurt provides users with a total of 5 d
   - yurt-controller-manager
   - yurt-app-manager
   - yurt-tunnel-server/agent
+  - yurt-edgex-manager
+  - yurt-dashboard 
 
 - Take the openyurt repo as an example:
   - Add a new chart package to the openyurt repository, and write the related chart package implementation.
