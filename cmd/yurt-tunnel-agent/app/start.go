@@ -18,9 +18,12 @@ package app
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
@@ -29,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-agent/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/agent"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
@@ -86,8 +90,21 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	klog.Infof("%s address: %s", projectinfo.GetServerName(), tunnelServerAddr)
 
 	// 2. create a certificate manager
-	agentCertMgr, err =
-		certmanager.NewYurttunnelAgentCertManager(cfg.Client, cfg.CertDir)
+	// As yurttunnel-agent will run on the edge node with Host network mode,
+	// we can use the status.podIP as the node IP
+	nodeIP := os.Getenv(constants.YurttunnelAgentPodIPEnv)
+	if nodeIP == "" {
+		return fmt.Errorf("env %s is not set", constants.YurttunnelAgentPodIPEnv)
+	}
+	agentCertMgr, err = certfactory.NewCertManagerFactory(cfg.Client).New(&certfactory.CertManagerConfig{
+		ComponentName: projectinfo.GetAgentName(),
+		CertDir:       cfg.CertDir,
+		SignerName:    certificatesv1.KubeAPIServerClientSignerName,
+		CommonName:    constants.YurtTunnelAgentCSRCN,
+		Organizations: []string{constants.YurtTunnelCSROrg},
+		DNSNames:      []string{os.Getenv("NODE_NAME")},
+		IPs:           []net.IP{net.ParseIP(nodeIP)},
+	})
 	if err != nil {
 		return err
 	}

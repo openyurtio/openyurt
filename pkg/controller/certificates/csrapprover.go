@@ -40,7 +40,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
 var (
@@ -425,7 +426,7 @@ func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x5
 		return false
 	} else {
 		for _, org := range x509cr.Subject.Organization {
-			if org != certmanager.YurtHubCSROrg && org != user.NodesGroup && !strings.HasPrefix(org, yurtHubNodeCertOrgPrefix) {
+			if org != hubself.YurtHubCSROrg && org != user.NodesGroup && !strings.HasPrefix(org, yurtHubNodeCertOrgPrefix) {
 				return false
 			}
 		}
@@ -448,11 +449,11 @@ func isYurtTunnelProxyClientCert(csr *certificatesv1.CertificateSigningRequest, 
 		return false
 	}
 
-	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != certmanager.YurtTunnelCSROrg {
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != constants.YurtTunnelCSROrg {
 		return false
 	}
 
-	if x509cr.Subject.CommonName != certmanager.YurtTunnelProxyClientCSRCN {
+	if x509cr.Subject.CommonName != constants.YurtTunnelProxyClientCSRCN {
 		return false
 	}
 
@@ -469,11 +470,11 @@ func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr
 		return false
 	}
 
-	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != certmanager.YurtTunnelCSROrg {
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != constants.YurtTunnelCSROrg {
 		return false
 	}
 
-	if x509cr.Subject.CommonName != certmanager.YurtTunnelAgentCSRCN {
+	if x509cr.Subject.CommonName != constants.YurtTunnelAgentCSRCN {
 		return false
 	}
 

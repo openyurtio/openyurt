@@ -25,7 +25,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
@@ -185,7 +188,15 @@ func GenUseCertMgrAndTLSConfig(
 		return nil, err
 	}
 	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-	serverCertMgr, err := certmanager.NewYurtHubServerCertManager(clientSet, certDir, nodeName, certIPs)
+	serverCertMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
+		CertDir:        certDir,
+		ComponentName:  fmt.Sprintf("%s-server", projectinfo.GetHubName()),
+		SignerName:     certificatesv1.KubeletServingSignerName,
+		ForServerUsage: true,
+		CommonName:     fmt.Sprintf("system:node:%s", nodeName),
+		Organizations:  []string{user.NodesGroup},
+		IPs:            certIPs,
+	})
 	if err != nil {
 		return nil, err
 	}

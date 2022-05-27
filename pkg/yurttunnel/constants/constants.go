@@ -21,6 +21,7 @@ const (
 	YurttunnelServerMasterPort          = "10263"
 	YurttunnelServerMasterInsecurePort  = "10264"
 	YurttunnelServerMetaPort            = "10265"
+	YurtTunnelServerNodeName            = "tunnel-server"
 	YurttunnelAgentMetaPort             = "10266"
 	YurttunnelServerServiceNs           = "kube-system"
 	YurttunnelServerInternalServiceName = "x-tunnel-server-internal-svc"
@@ -32,6 +33,9 @@ const (
 	YurttunnelDNSRecordConfigMapNs      = "kube-system"
 	YurttunnelDNSRecordConfigMapName    = "%s-tunnel-nodes"
 	YurttunnelDNSRecordNodeDataKey      = "tunnel-nodes"
+	YurtTunnelProxyClientCSRCN          = "tunnel-proxy-client"
+	YurtTunnelCSROrg                    = "openyurt:yurttunnel"
+	YurtTunnelAgentCSRCN                = "tunnel-agent-client"
 
 	// yurttunnel PKI related constants
 	YurttunnelCAFile                 = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"

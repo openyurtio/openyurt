@@ -17,22 +17,32 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper/wraphandler"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/informers"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/dns"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/trafficforward/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
@@ -107,14 +117,39 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}
 
 	// 2. create a certificate manager for the tunnel server
-	serverCertMgr, err := certmanager.NewYurttunnelServerCertManager(cfg.Client, cfg.SharedInformerFactory, cfg.CertDir, cfg.CertDNSNames, cfg.CertIPs, stopCh)
+	certManagerFactory := certfactory.NewCertManagerFactory(cfg.Client)
+	ips, dnsNames, err := getTunnelServerIPsAndDNSNamesBeforeInformerSynced(cfg.Client, stopCh)
+	if err != nil {
+		return err
+	}
+	serverCertMgr, err := certManagerFactory.New(&certfactory.CertManagerConfig{
+		IPs:      append(ips, cfg.CertIPs...),
+		DNSNames: append(dnsNames, cfg.CertDNSNames...),
+		IPGetter: func() ([]net.IP, error) {
+			_, dynamicIPs, err := serveraddr.YurttunnelServerAddrManager(cfg.SharedInformerFactory)
+			dynamicIPs = append(dynamicIPs, cfg.CertIPs...)
+			return dynamicIPs, err
+		},
+		ComponentName:  projectinfo.GetServerName(),
+		CertDir:        cfg.CertDir,
+		SignerName:     certificatesv1.KubeletServingSignerName,
+		CommonName:     fmt.Sprintf("system:node:%s", constants.YurtTunnelServerNodeName),
+		Organizations:  []string{user.NodesGroup},
+		ForServerUsage: true,
+	})
 	if err != nil {
 		return err
 	}
 	serverCertMgr.Start()
 
 	// 3. create a certificate manager for the tunnel proxy client
-	tunnelProxyCertMgr, err := certmanager.NewTunnelProxyClientCertManager(cfg.Client, cfg.CertDir)
+	tunnelProxyCertMgr, err := certManagerFactory.New(&certfactory.CertManagerConfig{
+		ComponentName: fmt.Sprintf("%s-proxy-client", projectinfo.GetServerName()),
+		CertDir:       cfg.CertDir,
+		SignerName:    certificatesv1.KubeAPIServerClientSignerName,
+		CommonName:    constants.YurtTunnelProxyClientCSRCN,
+		Organizations: []string{constants.YurtTunnelCSROrg},
+	})
 	if err != nil {
 		return err
 	}
@@ -174,4 +209,43 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	<-stopCh
 	wg.Wait()
 	return nil
+}
+
+func getTunnelServerIPsAndDNSNamesBeforeInformerSynced(clientset kubernetes.Interface, stopCh <-chan struct{}) ([]net.IP, []string, error) {
+	var (
+		ips      = []net.IP{}
+		dnsNames = []string{}
+		err      error
+	)
+
+	// the ips and dnsNames should be acquired through api-server at the first time, because the informer factory has not started yet.
+	werr := wait.PollUntil(5*time.Second, func() (bool, error) {
+		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
+		if err != nil {
+			klog.Errorf("failed to get yurt tunnel server dns and ip, %v", err)
+			return false, err
+		}
+
+		// get clusterIP for tunnel server internal service
+		svc, err := clientset.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			// compatible with versions that not supported x-tunnel-server-internal-svc
+			klog.Warningf("get service: %s not found", constants.YurttunnelServerInternalServiceName)
+			return true, nil
+		} else if err != nil {
+			klog.Warningf("get service: %s err, %v", constants.YurttunnelServerInternalServiceName, err)
+			return false, err
+		}
+
+		if svc.Spec.ClusterIP != "" && net.ParseIP(svc.Spec.ClusterIP) != nil {
+			ips = append(ips, net.ParseIP(svc.Spec.ClusterIP))
+			dnsNames = append(dnsNames, serveraddr.GetDefaultDomainsForSvc(svc.Namespace, svc.Name)...)
+		}
+
+		return true, nil
+	}, stopCh)
+	if werr != nil {
+		return nil, nil, werr
+	}
+	return ips, dnsNames, nil
 }
