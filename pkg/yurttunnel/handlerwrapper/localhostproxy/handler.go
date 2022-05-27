@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	utilip "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	hw "github.com/openyurtio/openyurt/pkg/yurttunnel/handlerwrapper"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
@@ -47,11 +48,13 @@ type localHostProxyMiddleware struct {
 	localhostPorts     map[string]struct{}
 	nodeInformerSynced cache.InformerSynced
 	cmInformerSynced   cache.InformerSynced
+	loopbackAddr       string
 }
 
-func NewLocalHostProxyMiddleware() hw.Middleware {
+func NewLocalHostProxyMiddleware(isIPv6 bool) hw.Middleware {
 	return &localHostProxyMiddleware{
 		localhostPorts: make(map[string]struct{}),
+		loopbackAddr:   utilip.MustGetLoopbackIP(isIPv6),
 	}
 }
 
@@ -99,7 +102,7 @@ func (plm *localHostProxyMiddleware) WrapHandler(handler http.Handler) http.Hand
 				req.Header.Set(constants.ProxyHostHeaderKey, nodeName)
 			}
 
-			proxyDest = fmt.Sprintf("127.0.0.1:%s", port)
+			proxyDest = net.JoinHostPort(plm.loopbackAddr, port)
 			oldHost := req.URL.Host
 			req.Host = proxyDest
 			req.Header.Set("Host", proxyDest)

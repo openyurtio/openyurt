@@ -59,7 +59,7 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
-			if err := options.ValidateOptions(yurtHubOptions); err != nil {
+			if err := yurtHubOptions.Validate(); err != nil {
 				klog.Fatalf("validate options: %v", err)
 			}
 
@@ -125,7 +125,8 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. create tls config for secure servers ", trace)
-	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), cfg.NodeName, cfg.YurtHubProxyServerSecureDummyAddr, stopCh)
+	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(
+		restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), cfg.NodeName, cfg.CertIPs, stopCh)
 	if err != nil {
 		return fmt.Errorf("could not create tls config, %w", err)
 	}

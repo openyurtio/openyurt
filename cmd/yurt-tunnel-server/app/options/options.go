@@ -25,11 +25,14 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
+	utilnet "k8s.io/utils/net"
 	"sigs.k8s.io/apiserver-network-proxy/pkg/server"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-tunnel-server/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	utilip "github.com/openyurtio/openyurt/pkg/util/ip"
+	"github.com/openyurtio/openyurt/pkg/util/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurttunnel/kubernetes"
 )
@@ -60,7 +63,6 @@ type ServerOptions struct {
 func NewServerOptions() *ServerOptions {
 	o := &ServerOptions{
 		BindAddr:               "0.0.0.0",
-		InsecureBindAddr:       "127.0.0.1",
 		EnableIptables:         true,
 		EnableDNSController:    true,
 		IptablesSyncPeriod:     60,
@@ -80,6 +82,9 @@ func (o *ServerOptions) Validate() error {
 	if len(o.BindAddr) == 0 {
 		return fmt.Errorf("%s's bind address can't be empty",
 			projectinfo.GetServerName())
+	}
+	if len(o.InsecureBindAddr) == 0 {
+		o.InsecureBindAddr = utilip.MustGetLoopbackIP(utilnet.IsIPv6String(o.BindAddr))
 	}
 	return nil
 }
@@ -136,6 +141,11 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 		}
 	}
 
+	if utilnet.IsIPv6String(o.BindAddr) {
+		cfg.IPFamily = iptables.ProtocolIpv6
+	} else {
+		cfg.IPFamily = iptables.ProtocolIpv4
+	}
 	cfg.ListenAddrForAgent = net.JoinHostPort(o.BindAddr, o.TunnelAgentConnectPort)
 	cfg.ListenAddrForMaster = net.JoinHostPort(o.BindAddr, o.SecurePort)
 	cfg.ListenInsecureAddrForMaster = net.JoinHostPort(o.InsecureBindAddr, o.InsecurePort)

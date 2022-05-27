@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/iptables"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -34,6 +35,7 @@ type Config struct {
 	EnableIptables              bool
 	EnableDNSController         bool
 	IptablesSyncPeriod          int
+	IPFamily                    iptables.Protocol
 	DNSSyncPeriod               int
 	CertDNSNames                []string
 	CertIPs                     []net.IP
@@ -71,4 +73,8 @@ func (c *Config) Complete() *CompletedConfig {
 		cc.CertDir = fmt.Sprintf(constants.YurttunnelServerCertDir, projectinfo.GetServerName())
 	}
 	return &CompletedConfig{&cc}
+}
+
+func (c *Config) IsIPv6() bool {
+	return c.IPFamily == iptables.ProtocolIpv6
 }

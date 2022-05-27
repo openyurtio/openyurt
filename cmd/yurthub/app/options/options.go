@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
+	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -30,8 +32,10 @@ import (
 )
 
 const (
-	DummyIfCIDR   = "169.254.0.0/16"
-	ExclusiveCIDR = "169.254.31.0/24"
+	DefaultDummyIfIP4 = "169.254.2.1"
+	DefaultDummyIfIP6 = "fd00::2:1"
+	DummyIfCIDR4      = "169.254.0.0/16"
+	ExclusiveCIDR     = "169.254.31.0/24"
 )
 
 // YurtHubOptions is the main settings for the yurthub
@@ -90,7 +94,6 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableProfiling:           true,
 		EnableDummyIf:             true,
 		EnableIptables:            true,
-		HubAgentDummyIfIP:         "169.254.2.1",
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
 		AccessServerThroughHub:    true,
@@ -103,8 +106,8 @@ func NewYurtHubOptions() *YurtHubOptions {
 	return o
 }
 
-// ValidateOptions validates YurtHubOptions
-func ValidateOptions(options *YurtHubOptions) error {
+// Validate validates YurtHubOptions
+func (options *YurtHubOptions) Validate() error {
 	if len(options.NodeName) == 0 {
 		return fmt.Errorf("node name is empty")
 	}
@@ -125,7 +128,7 @@ func ValidateOptions(options *YurtHubOptions) error {
 		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
 	}
 
-	if err := verifyDummyIP(options.HubAgentDummyIfIP); err != nil {
+	if err := options.verifyDummyIP(); err != nil {
 		return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
 	}
 
@@ -168,21 +171,35 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
 }
 
-// verifyDummyIP verify the specified ip is valid or not
-func verifyDummyIP(dummyIP string) error {
-	//169.254.2.1/32
+// verifyDummyIP verify the specified ip is valid or not and set the default ip if empty
+func (o *YurtHubOptions) verifyDummyIP() error {
+	if o.HubAgentDummyIfIP == "" {
+		if utilnet.IsIPv6String(o.YurtHubHost) {
+			o.HubAgentDummyIfIP = DefaultDummyIfIP6
+		} else {
+			o.HubAgentDummyIfIP = DefaultDummyIfIP4
+		}
+		klog.Infof("dummy ip not set, will use %s as default", o.HubAgentDummyIfIP)
+		return nil
+	}
+
+	dummyIP := o.HubAgentDummyIfIP
 	dip := net.ParseIP(dummyIP)
 	if dip == nil {
 		return fmt.Errorf("dummy ip %s is invalid", dummyIP)
 	}
 
-	_, dummyIfIPNet, err := net.ParseCIDR(DummyIfCIDR)
+	if utilnet.IsIPv6(dip) {
+		return nil
+	}
+
+	_, dummyIfIPNet, err := net.ParseCIDR(DummyIfCIDR4)
 	if err != nil {
-		return fmt.Errorf("cidr(%s) is invalid, %w", DummyIfCIDR, err)
+		return fmt.Errorf("cidr(%s) is invalid, %w", DummyIfCIDR4, err)
 	}
 
 	if !dummyIfIPNet.Contains(dip) {
-		return fmt.Errorf("dummy ip %s is not in cidr(%s)", dummyIP, DummyIfCIDR)
+		return fmt.Errorf("dummy ip %s is not in cidr(%s)", dummyIP, DummyIfCIDR4)
 	}
 
 	_, exclusiveIPNet, err := net.ParseCIDR(ExclusiveCIDR)

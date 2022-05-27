@@ -38,6 +38,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
+	utilip "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 )
@@ -69,7 +70,7 @@ func NewYurttunnelServerCertManager(
 	)
 
 	// the ips and dnsNames should be acquired through api-server at the first time, because the informer factory has not started yet.
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+	werr := wait.PollUntil(5*time.Second, func() (bool, error) {
 		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
 		if err != nil {
 			klog.Errorf("failed to get yurt tunnel server dns and ip, %v", err)
@@ -94,10 +95,14 @@ func NewYurttunnelServerCertManager(
 
 		return true, nil
 	}, stopCh)
-	// add user specified DNS names and IP addresses
+	if werr != nil {
+		return nil, werr
+	}
+
+	// add user specified DNS anems and IP addresses
 	dnsNames = append(dnsNames, clCertNames...)
 	ips = append(ips, clIPs...)
-	klog.Infof("subject of tunnel server certificate, ips=%#+v, dnsNames=%#+v", ips, dnsNames)
+	klog.Infof("subject of tunnel server certificate, ips=%s, dnsNames=%#+v", utilip.JoinIPStrings(ips), dnsNames)
 
 	// the dynamic ip acquire func
 	getIPs := func() ([]net.IP, error) {
@@ -180,13 +185,8 @@ func NewYurttunnelAgentCertManager(
 func NewYurtHubServerCertManager(
 	clientset kubernetes.Interface,
 	certDir,
-	nodeName,
-	proxyServerSecureDummyAddr string) (certificate.Manager, error) {
-
-	host, _, err := net.SplitHostPort(proxyServerSecureDummyAddr)
-	if err != nil {
-		return nil, err
-	}
+	nodeName string,
+	certIPs []net.IP) (certificate.Manager, error) {
 
 	return newCertManager(
 		clientset,
@@ -201,7 +201,7 @@ func NewYurtHubServerCertManager(
 			certificatesv1.UsageDigitalSignature,
 			certificatesv1.UsageServerAuth,
 		},
-		[]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP(host)},
+		certIPs,
 		nil)
 }
 
