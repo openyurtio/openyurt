@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## v0.7.0
+
+### What's New
+
+**Raven: enable edge-edge and edge-cloud communication in a non-intrusive way**
+
+Raven is component of the OpenYurt to enhance cluster networking capabilities. This enhancement is focused on edge-edge and edge-cloud communication in OpenYurt. It will provide layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
+More information can be found at: (([#637](https://github.com/openyurtio/openyurt/pull/637), [Raven](https://openyurt.io/docs/next/core-concepts/raven/), [@DrmagicE](https://github.com/DrmagicE), [@BSWANG](https://github.com/BSWANG), [@njucjc](https://github.com/njucjc))
+
+**Support Kubernetes V1.22**
+Enable OpenYurt can work on the Kubernetes v1.22, includes adapting API change(such as v1beta1.CSR deprecation), adapt StreamingProxyRedirects feature and handle v1.EndpointSlice in service topology and so on. More information can be
+found at: ([#809](https://github.com/openyurtio/openyurt/pull/809), [#834](https://github.com/openyurtio/openyurt/pull/834), [@rambohe-ch](https://github.com/rambohe-ch), [@JameKeal](https://github.com/JameKeal), [@huiwq1990](https://github.com/huiwq1990))
+
+**Support EdgeX Foundry V2.1**
+
+Support EdgeX Foundry Jakarta version, and EdgeX Jakarta is the first LTS version and be widely considered as a production ready version. More information can be
+found at: ([#4](https://github.com/openyurtio/yurt-edgex-manager/pull/4), [#30](https://github.com/openyurtio/yurt-device-controller/pull/30), [@lwmqwer](https://github.com/lwmqwer), [@wawlian](https://github.com/wawlian), [@qclc](https://github.com/qclc))
+
+**Support IPv6 network in OpenYurt**
+
+Support OpenYurt can run on the IPv6 network environment. More information can be found at: ([#842](https://github.com/openyurtio/openyurt/pull/842), [@tydra-wang](https://github.com/tydra-wang))
+
+### Other Notable Changes
+
+- add nodepool governance capability proposal ([#772](https://github.com/openyurtio/openyurt/pull/772), [@Peeknut](https://github.com/Peeknut))
+- add proposal of multiplexing cloud-edge traffic ([#804](https://github.com/openyurtio/openyurt/pull/804), [@rambohe-ch](https://github.com/rambohe-ch))
+- provide flannel image and cni binary for edge network ([#80](https://github.com/openyurtio/openyurt.io/pull/80), [@yingjianjian](https://github.com/yingjianjian))
+- Remove convert and revert command from yurtctl ([#826](https://github.com/openyurtio/openyurt/pull/826), [@lonelyCZ](https://github.com/lonelyCZ))
+- add tenant isolation for components such as kube-proxy&flannel which run in ns kube-system ([#787](https://github.com/openyurtio/openyurt/pull/787), [@YRXING](https://github.com/YRXING))
+- Rename yurtctl init/join/reset to yurtadm init/join/reset ([#819](https://github.com/openyurtio/openyurt/pull/819), [@lonelyCZ](https://github.com/lonelyCZ))
+- Use configmap to configure the data source of filter framework ([#749](https://github.com/openyurtio/openyurt/pull/749), [#790](https://github.com/openyurtio/openyurt/pull/790), [@yingjianjian](https://github.com/yingjianjian), [@rambohe-ch](https://github.com/rambohe-ch))
+- add yurtctl test init cmd to setup OpenYurt cluster with kind ([#783](https://github.com/openyurtio/openyurt/pull/783), [@Congrool](https://github.com/Congrool))
+- support local up openyurt on mac machine ([#836](https://github.com/openyurtio/openyurt/pull/836), [@rambohe-ch](https://github.com/rambohe-ch), [@Congrool](https://github.com/Congrool))
+- cleanup: io/ioutil([#813](https://github.com/openyurtio/openyurt/pull/813), [@cndoit18](https://github.com/cndoit18))
+- use verb %w with fmt.Errorf() when generate new wrapped error ([#832](https://github.com/openyurtio/openyurt/pull/832), [@zhaodiaoer](https://github.com/zhaodiaoer))
+- decouple yurtctl with yurtadm ([#848](https://github.com/openyurtio/openyurt/pull/848), [@Congrool](https://github.com/Congrool))
+- add enable-node-pool parameter for yurthub in order to disable nodepools list/watch in filters when testing ([#822](https://github.com/openyurtio/openyurt/pull/822), [@rambohe-ch](https://github.com/rambohe-ch))
+- ingress: update edge ingress proposal to add enhancements ([#816](https://github.com/openyurtio/openyurt/pull/816), [@zzguang](https://github.com/zzguang))
+- add configmap delete handler for approver ([#793](https://github.com/openyurtio/openyurt/pull/793), [@huiwq1990](https://github.com/huiwq1990))
+- fix: a typo in yurtctl util.go which uses 'lable' as 'label' ([#784](https://github.com/openyurtio/openyurt/pull/784), [@donychen1134](https://github.com/donychen1134))
+
+### Bug Fixes
+
+- ungzip response by yurthub when response header contains content-encoding=gzip ([#794](https://github.com/openyurtio/openyurt/pull/794), [@rambohe-ch](https://github.com/rambohe-ch))
+- fix mistaken selflink in yurthub ([#785](https://github.com/openyurtio/openyurt/pull/785), [@Congrool](https://github.com/Congrool))
+
+---
 ## v0.6.0
 
 ### What's New
