@@ -10,6 +10,7 @@ Raven is component of the OpenYurt to enhance cluster networking capabilities. T
 More information can be found at: (([#637](https://github.com/openyurtio/openyurt/pull/637), [Raven](https://openyurt.io/docs/next/core-concepts/raven/), [@DrmagicE](https://github.com/DrmagicE), [@BSWANG](https://github.com/BSWANG), [@njucjc](https://github.com/njucjc))
 
 **Support Kubernetes V1.22**
+
 Enable OpenYurt can work on the Kubernetes v1.22, includes adapting API change(such as v1beta1.CSR deprecation), adapt StreamingProxyRedirects feature and handle v1.EndpointSlice in service topology and so on. More information can be
 found at: ([#809](https://github.com/openyurtio/openyurt/pull/809), [#834](https://github.com/openyurtio/openyurt/pull/834), [@rambohe-ch](https://github.com/rambohe-ch), [@JameKeal](https://github.com/JameKeal), [@huiwq1990](https://github.com/huiwq1990))
 
