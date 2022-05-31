@@ -44,7 +44,6 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
@@ -56,6 +55,7 @@ import (
 const (
 	HubName                 = "yurthub"
 	HubRootDir              = "/var/lib/"
+	YurtHubCSROrg           = "openyurt:yurthub"
 	hubPkiDirName           = "pki"
 	hubCaFileName           = "ca.crt"
 	hubConfigFileName       = "%s.conf"
@@ -365,10 +365,10 @@ func (ycm *yurtHubCertManager) initClientCertificateManager() error {
 	}
 	ycm.hubClientCertPath = s.CurrentPath()
 
-	orgs := []string{certmanager.YurtHubCSROrg, user.NodesGroup}
+	orgs := []string{YurtHubCSROrg, user.NodesGroup}
 	if len(ycm.hubCertOrganizations) > 0 {
 		for _, v := range ycm.hubCertOrganizations {
-			if v != certmanager.YurtHubCSROrg && v != user.NodesGroup {
+			if v != YurtHubCSROrg && v != user.NodesGroup {
 				orgs = append(orgs, v)
 			}
 		}
