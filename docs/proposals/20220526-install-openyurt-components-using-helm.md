@@ -57,7 +57,7 @@ In order to deploy and use OpenYurt, OpenYurt provides users with a total of 5 d
 - Take the openyurt repo as an example:
   - Add a new chart package to the openyurt repository, and write the related chart package implementation.
   - Introduce openyurt-helm as an aggregate repo (existing), which references the chart package path just now.
-  - Provide support for helm repo in openyurt-helm, and add a reusable pipeline. When triggered, scan the path of the corresponding component to generate the corresponding char package, and synchronize the released chart package to the gh-pages branch.
+  - Provide support for helm repo in openyurt-helm, and add a reusable pipeline. When triggered, scan the path of the corresponding component to generate the corresponding chart package, and synchronize the released chart package to the gh-pages branch.
   - Optional: In the release process of each component, add a pipeline, and the pipeline of openyurt-helm will be called during release.
 
 ### Sequence Diagram
