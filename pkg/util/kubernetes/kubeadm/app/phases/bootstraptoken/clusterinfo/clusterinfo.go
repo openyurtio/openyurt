@@ -1,6 +1,5 @@
 /*
 Copyright 2017 The Kubernetes Authors.
-Copyright 2021 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,6 +48,9 @@ func CreateBootstrapConfigMapIfNotExists(client clientset.Interface, file string
 	if err != nil {
 		return errors.Wrap(err, "failed to load admin kubeconfig")
 	}
+	if err = clientcmdapi.FlattenConfig(adminConfig); err != nil {
+		return err
+	}
 
 	adminCluster := adminConfig.Contexts[adminConfig.CurrentContext].Cluster
 	// Copy the cluster from admin.conf to the bootstrap kubeconfig, contains the CA cert and the server URL
@@ -65,7 +67,7 @@ func CreateBootstrapConfigMapIfNotExists(client clientset.Interface, file string
 
 	// Create or update the ConfigMap in the kube-public namespace
 	klog.V(1).Infoln("[bootstrap-token] creating/updating ConfigMap in kube-public namespace")
-	return apiclient.CreateOrUpdateConfigMapWithTry(client, &v1.ConfigMap{
+	return apiclient.CreateOrUpdateConfigMap(client, &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bootstrapapi.ConfigMapClusterInfo,
 			Namespace: metav1.NamespacePublic,
@@ -79,7 +81,7 @@ func CreateBootstrapConfigMapIfNotExists(client clientset.Interface, file string
 // CreateClusterInfoRBACRules creates the RBAC rules for exposing the cluster-info ConfigMap in the kube-public namespace to unauthenticated users
 func CreateClusterInfoRBACRules(client clientset.Interface) error {
 	klog.V(1).Infoln("creating the RBAC rules for exposing the cluster-info ConfigMap in the kube-public namespace")
-	err := apiclient.CreateOrUpdateRoleWithTry(client, &rbac.Role{
+	err := apiclient.CreateOrUpdateRole(client, &rbac.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      BootstrapSignerClusterRoleName,
 			Namespace: metav1.NamespacePublic,

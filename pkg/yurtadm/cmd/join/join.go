@@ -122,7 +122,7 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"Use this token for both discovery-token and tls-bootstrap-token when those values are not provided.",
 	)
 	flagSet.StringVar(
-		&joinOptions.nodeType, options.NodeType, joinOptions.nodeType,
+		&joinOptions.nodeType, yurtconstants.NodeType, joinOptions.nodeType,
 		"Sets the node is edge or cloud",
 	)
 	flagSet.StringVar(
@@ -134,15 +134,15 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"Path to the CRI socket to connect",
 	)
 	flagSet.StringVar(
-		&joinOptions.organizations, options.Organizations, joinOptions.organizations,
+		&joinOptions.organizations, yurtconstants.Organizations, joinOptions.organizations,
 		"Organizations that will be added into hub's client certificate",
 	)
 	flagSet.StringVar(
-		&joinOptions.pauseImage, options.PauseImage, joinOptions.pauseImage,
+		&joinOptions.pauseImage, yurtconstants.PauseImage, joinOptions.pauseImage,
 		"Sets the image version of pause container",
 	)
 	flagSet.StringVar(
-		&joinOptions.yurthubImage, options.YurtHubImage, joinOptions.yurthubImage,
+		&joinOptions.yurthubImage, yurtconstants.YurtHubImage, joinOptions.yurthubImage,
 		"Sets the image version of yurthub component",
 	)
 	flagSet.StringSliceVar(
@@ -158,11 +158,11 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"A list of checks whose errors will be shown as warnings. Example: 'IsPrivilegedUser,Swap'. Value 'all' ignores errors from all checks.",
 	)
 	flagSet.StringVar(
-		&joinOptions.nodeLabels, options.NodeLabels, joinOptions.nodeLabels,
+		&joinOptions.nodeLabels, yurtconstants.NodeLabels, joinOptions.nodeLabels,
 		"Sets the labels for joining node",
 	)
 	flagSet.StringVar(
-		&joinOptions.kubernetesResourceServer, options.KubernetesResourceServer, joinOptions.kubernetesResourceServer,
+		&joinOptions.kubernetesResourceServer, yurtconstants.KubernetesResourceServer, joinOptions.kubernetesResourceServer,
 		"Sets the address for downloading k8s node resources",
 	)
 }
