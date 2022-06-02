@@ -42,7 +42,7 @@ type yurtReverseProxy struct {
 	resolver            apirequest.RequestInfoResolver
 	loadBalancer        remote.LoadBalancer
 	checker             healthchecker.HealthChecker
-	localProxy          *local.LocalProxy
+	localProxy          http.Handler
 	cacheMgr            cachemanager.CacheManager
 	maxRequestsInFlight int
 	tenantMgr           tenant.Interface
@@ -77,11 +77,12 @@ func NewYurtReverseProxyHandler(
 		return nil, err
 	}
 
-	var localProxy *local.LocalProxy
+	var localProxy http.Handler
 	// When yurthub is working in cloud mode, cacheMgr will be set to nil which means the local cache is disabled,
 	// so we don't need to create a LocalProxy.
 	if cacheMgr != nil {
 		localProxy = local.NewLocalProxy(cacheMgr, lb.IsHealthy)
+		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 	}
 
 	yurtProxy := &yurtReverseProxy{
