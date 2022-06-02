@@ -163,7 +163,7 @@ func TestKindLoadDockerImage(t *testing.T) {
 			}, name, args...)
 		}
 		operator.SetExecCommand(fakeExecCommand)
-		if err := operator.KindLoadDockerImage(c.clusterName, c.image, c.nodeNames); err != nil {
+		if err := operator.KindLoadDockerImage(os.Stdout, c.clusterName, c.image, c.nodeNames); err != nil {
 			t.Errorf("unexpected cmd when loading docker images to kind at case %s, want: %s", caseName, c.want)
 		}
 	}

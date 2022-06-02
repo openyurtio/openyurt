@@ -136,6 +136,7 @@ nodes:
 	}
 	for name, c := range cases {
 		initializer := newKindInitializer(
+			os.Stdout,
 			&initializerConfig{
 				ClusterName:    c.clusterName,
 				NodesNum:       c.nodesNum,

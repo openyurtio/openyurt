@@ -19,6 +19,7 @@ package kindinit
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,7 +99,7 @@ var (
 	}
 )
 
-func NewKindInitCMD() *cobra.Command {
+func NewKindInitCMD(out io.Writer) *cobra.Command {
 	o := newKindOptions()
 
 	cmd := &cobra.Command{
@@ -108,7 +109,7 @@ func NewKindInitCMD() *cobra.Command {
 			if err := o.Validate(); err != nil {
 				return err
 			}
-			initializer := newKindInitializer(o.Config())
+			initializer := newKindInitializer(out, o.Config())
 			if err := initializer.Run(); err != nil {
 				return err
 			}
@@ -116,7 +117,7 @@ func NewKindInitCMD() *cobra.Command {
 		},
 		Args: cobra.NoArgs,
 	}
-
+	cmd.SetOut(out)
 	addFlags(cmd.Flags(), o)
 	return cmd
 }
@@ -258,13 +259,15 @@ type initializerConfig struct {
 
 type Initializer struct {
 	initializerConfig
+	out        io.Writer
 	operator   *KindOperator
 	kubeClient *kubernetes.Clientset
 }
 
-func newKindInitializer(cfg *initializerConfig) *Initializer {
+func newKindInitializer(out io.Writer, cfg *initializerConfig) *Initializer {
 	return &Initializer{
 		initializerConfig: *cfg,
+		out:               out,
 		operator:          NewKindOperator("", cfg.KubeConfig),
 	}
 }
@@ -286,7 +289,7 @@ func (ki *Initializer) Run() error {
 	}
 
 	klog.Info("Start to create cluster with kind")
-	if err := ki.operator.KindCreateClusterWithConfig(ki.KindConfigPath); err != nil {
+	if err := ki.operator.KindCreateClusterWithConfig(ki.out, ki.KindConfigPath); err != nil {
 		return err
 	}
 
@@ -608,7 +611,7 @@ func (ki *Initializer) loadImagesToKindNodes(images, nodes []string) error {
 			// if image == "", it's the responsibility of kind to pull images from registry.
 			continue
 		}
-		if err := ki.operator.KindLoadDockerImage(ki.ClusterName, image, nodes); err != nil {
+		if err := ki.operator.KindLoadDockerImage(ki.out, ki.ClusterName, image, nodes); err != nil {
 			return err
 		}
 	}

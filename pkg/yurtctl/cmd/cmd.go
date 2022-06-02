@@ -19,6 +19,7 @@ package cmd
 import (
 	goflag "flag"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -44,7 +45,7 @@ func NewYurtctlCommand() *cobra.Command {
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
 	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
 	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
-	cmds.AddCommand(yurttest.NewCmdTest())
+	cmds.AddCommand(yurttest.NewCmdTest(os.Stdout))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
