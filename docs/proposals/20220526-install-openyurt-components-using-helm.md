@@ -52,7 +52,7 @@ In order to deploy and use OpenYurt, OpenYurt provides users with a total of 5 d
   - yurt-app-manager
   - yurt-tunnel-server/agent
   - yurt-edgex-manager
-  - yurt-dashboard 
+  - yurt-dashboard
 
 - Take the openyurt repo as an example:
   - Add a new chart package to the openyurt repository, and write the related chart package implementation.
