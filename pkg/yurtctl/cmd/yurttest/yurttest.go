@@ -18,13 +18,14 @@ package yurttest
 
 import (
 	"errors"
+	"io"
 
 	"github.com/spf13/cobra"
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurttest/kindinit"
 )
 
-func NewCmdTest() *cobra.Command {
+func NewCmdTest(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Tools for developers to test the OpenYurt Cluster",
@@ -37,8 +38,8 @@ func NewCmdTest() *cobra.Command {
 		},
 		Args: cobra.NoArgs,
 	}
-
-	cmd.AddCommand(kindinit.NewKindInitCMD())
+	cmd.SetOut(out)
+	cmd.AddCommand(kindinit.NewKindInitCMD(out))
 
 	return cmd
 }
