@@ -19,6 +19,7 @@ package kubelet
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,12 +52,15 @@ func buildKubeletArgMapCommon(data joindata.YurtJoinData) map[string]string {
 	if nodeReg.CRISocket == constants.DefaultDockerCRISocket {
 		// These flags should only be set when running docker
 		kubeletFlags["network-plugin"] = "cni"
-		if data.PauseImage() != "" {
-			kubeletFlags["pod-infra-container-image"] = data.PauseImage()
-		}
 	} else {
 		kubeletFlags["container-runtime"] = "remote"
 		kubeletFlags["container-runtime-endpoint"] = nodeReg.CRISocket
+	}
+
+	// This flag passes the pod infra container image (e.g. "pause" image) to the kubelet
+	// and prevents its garbage collection
+	if data.PauseImage() != "" {
+		kubeletFlags["pod-infra-container-image"] = data.PauseImage()
 	}
 
 	hostname, err := os.Hostname()
@@ -108,8 +112,14 @@ func writeKubeletFlagBytesToDisk(b []byte, kubeletDir string) error {
 	if err := os.MkdirAll(kubeletDir, 0700); err != nil {
 		return errors.Wrapf(err, "failed to create directory %q", kubeletDir)
 	}
-	if err := os.WriteFile(kubeletEnvFilePath, b, 0644); err != nil {
+	if err := ioutil.WriteFile(kubeletEnvFilePath, b, 0644); err != nil {
 		return errors.Wrapf(err, "failed to write kubelet configuration to the file %q", kubeletEnvFilePath)
 	}
 	return nil
+}
+
+// buildKubeletArgMap takes a kubeletFlagsOpts object and builds based on that a string-string map with flags
+// that should be given to the local kubelet daemon.
+func buildKubeletArgMap(opts joindata.YurtJoinData) map[string]string {
+	return buildKubeletArgMapCommon(opts)
 }

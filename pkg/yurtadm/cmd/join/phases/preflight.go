@@ -17,10 +17,14 @@ limitations under the License.
 package phases
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 	utilsexec "k8s.io/utils/exec"
 
+	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/apis/kubeadm"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/preflight"
@@ -52,7 +56,28 @@ func runPreflight(c workflow.RunData) error {
 
 	// Start with general checks
 	klog.V(1).Infoln("[preflight] Running general checks")
-	if err := preflight.RunJoinNodeChecks(utilsexec.New(), data); err != nil {
+
+	// /etc/kubernetes/kubelet.conf /etc/kubernetes/pki/ca.crt already create by yurtadm
+	ignorePreflightErrors := sets.NewString(strings.ToLower("FileAvailable--etc-kubernetes-kubelet.conf"), strings.ToLower("FileAvailable--etc-kubernetes-pki-ca.crt"))
+	ignorePreflightErrors = ignorePreflightErrors.Union(data.IgnorePreflightErrors())
+
+	cfg := &kubeadmapi.JoinConfiguration{
+		CACertPath: "/etc/kubernetes/pki/ca.crt",
+		NodeRegistration: kubeadmapi.NodeRegistrationOptions{
+			IgnorePreflightErrors: ignorePreflightErrors.List(),
+			CRISocket:             data.NodeRegistration().CRISocket,
+			Name:                  data.NodeRegistration().Name,
+		},
+		Discovery: kubeadmapi.Discovery{
+			TLSBootstrapToken: data.JoinToken(),
+			BootstrapToken: &kubeadmapi.BootstrapTokenDiscovery{
+				APIServerEndpoint: data.ServerAddr(),
+				Token:             data.JoinToken()},
+		},
+		ControlPlane: nil,
+	}
+
+	if err := preflight.RunJoinNodeChecks(utilsexec.New(), cfg, ignorePreflightErrors); err != nil {
 		return err
 	}
 

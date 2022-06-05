@@ -55,7 +55,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/apis/kubeadm"
+	bootstraptokenv1 "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/apis/bootstraptoken/v1"
 	kubeadmconstants "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
 	nodetoken "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/bootstraptoken/node"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
@@ -500,7 +500,7 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	for _, secret := range secrets.Items {
 
 		// Get the BootstrapToken struct representation from the Secret object
-		token, err := kubeadmapi.BootstrapTokenFromSecret(&secret)
+		token, err := bootstraptokenv1.BootstrapTokenFromSecret(&secret)
 		if err != nil {
 			klog.Warningf("%v", err)
 			continue
@@ -517,14 +517,14 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("couldn't generate random token, %w", err)
 	}
-	token, err := kubeadmapi.NewBootstrapTokenString(tokenStr)
+	token, err := bootstraptokenv1.NewBootstrapTokenString(tokenStr)
 	if err != nil {
 		return "", err
 	}
 
 	klog.V(1).Infoln("[token] creating token")
 	if err := nodetoken.CreateNewTokens(cliSet,
-		[]kubeadmapi.BootstrapToken{{
+		[]bootstraptokenv1.BootstrapToken{{
 			Token:  token,
 			Usages: kubeadmconstants.DefaultTokenUsages,
 			Groups: kubeadmconstants.DefaultTokenGroups,
@@ -535,7 +535,7 @@ func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
 }
 
 // usagesAndGroupsAreValid checks if the usages and groups in the given bootstrap token are valid
-func usagesAndGroupsAreValid(token *kubeadmapi.BootstrapToken) bool {
+func usagesAndGroupsAreValid(token *bootstraptokenv1.BootstrapToken) bool {
 	sliceEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false

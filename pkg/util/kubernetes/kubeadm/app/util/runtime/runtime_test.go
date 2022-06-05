@@ -1,6 +1,5 @@
 /*
 Copyright 2018 The Kubernetes Authors.
-Copyright 2021 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"io/ioutil"
 	"net"
 	"os"
 	"reflect"
@@ -336,7 +336,7 @@ func TestIsExistingSocket(t *testing.T) {
 		{
 			name: "Valid domain socket is detected as such",
 			proc: func(t *testing.T) {
-				tmpFile, err := os.CreateTemp(os.TempDir(), tempPrefix)
+				tmpFile, err := ioutil.TempFile("", tempPrefix)
 				if err != nil {
 					t.Fatalf("unexpected error by TempFile: %v", err)
 				}
@@ -358,7 +358,7 @@ func TestIsExistingSocket(t *testing.T) {
 		{
 			name: "Regular file is not a domain socket",
 			proc: func(t *testing.T) {
-				tmpFile, err := os.CreateTemp(os.TempDir(), tempPrefix)
+				tmpFile, err := ioutil.TempFile("", tempPrefix)
 				if err != nil {
 					t.Fatalf("unexpected error by TempFile: %v", err)
 				}

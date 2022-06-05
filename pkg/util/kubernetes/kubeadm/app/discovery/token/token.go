@@ -35,7 +35,7 @@ import (
 	bootstrap "k8s.io/cluster-bootstrap/token/jws"
 	"k8s.io/klog/v2"
 
-	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/apis/kubeadm"
+	bootstraptokenv1 "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/apis/bootstraptoken/v1"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/pubkeypin"
@@ -68,7 +68,7 @@ func RetrieveBootstrapConfig(data joindata.YurtJoinData) (*clientcmdapi.Config, 
 // retrieveValidatedConfigInfo is a private implementation of RetrieveValidatedConfigInfo.
 // It accepts an optional clientset that can be used for testing purposes.
 func retrieveValidatedConfigInfo(client clientset.Interface, data joindata.YurtJoinData) (*clientcmdapi.Config, error) {
-	token, err := kubeadmapi.NewBootstrapTokenString(data.JoinToken())
+	token, err := bootstraptokenv1.NewBootstrapTokenString(data.JoinToken())
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func buildSecureBootstrapKubeConfig(endpoint string, caCert []byte, clustername 
 }
 
 // validateClusterInfoToken validates that the JWS token present in the cluster info ConfigMap is valid
-func validateClusterInfoToken(insecureClusterInfo *v1.ConfigMap, token *kubeadmapi.BootstrapTokenString) ([]byte, error) {
+func validateClusterInfoToken(insecureClusterInfo *v1.ConfigMap, token *bootstraptokenv1.BootstrapTokenString) ([]byte, error) {
 	insecureKubeconfigString, ok := insecureClusterInfo.Data[bootstrapapi.KubeConfigKey]
 	if !ok || len(insecureKubeconfigString) == 0 {
 		return nil, errors.Errorf("there is no %s key in the %s ConfigMap. This API Server isn't set up for token bootstrapping, can't connect",
@@ -202,7 +202,7 @@ func validateClusterCA(insecureConfig *clientcmdapi.Config, pubKeyPins *pubkeypi
 // getClusterInfo creates a client from the given kubeconfig if the given client is nil,
 // and requests the cluster info ConfigMap using PollImmediate.
 // If a client is provided it will be used instead.
-func getClusterInfo(client clientset.Interface, kubeconfig *clientcmdapi.Config, token *kubeadmapi.BootstrapTokenString, interval, duration time.Duration) (*v1.ConfigMap, error) {
+func getClusterInfo(client clientset.Interface, kubeconfig *clientcmdapi.Config, token *bootstraptokenv1.BootstrapTokenString, interval, duration time.Duration) (*v1.ConfigMap, error) {
 	var cm *v1.ConfigMap
 	var err error
 

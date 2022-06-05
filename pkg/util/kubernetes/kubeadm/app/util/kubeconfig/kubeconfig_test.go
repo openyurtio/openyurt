@@ -18,8 +18,8 @@ package kubeconfig
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -143,7 +143,7 @@ func TestCreateWithToken(t *testing.T) {
 }
 
 func TestWriteKubeconfigToDisk(t *testing.T) {
-	tmpdir, err := os.MkdirTemp("", "")
+	tmpdir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("Couldn't create tmpdir")
 	}
@@ -170,14 +170,14 @@ func TestWriteKubeconfigToDisk(t *testing.T) {
 			)
 			configPath := fmt.Sprintf("%s/etc/kubernetes/%s.conf", tmpdir, rt.name)
 			err := WriteToDisk(configPath, c)
-			if !errors.Is(err, rt.expected) {
+			if err != rt.expected {
 				t.Errorf(
 					"failed WriteToDisk with an error:\n\texpected: %s\n\t  actual: %s",
 					rt.expected,
 					err,
 				)
 			}
-			newFile, _ := os.ReadFile(configPath)
+			newFile, _ := ioutil.ReadFile(configPath)
 			if !bytes.Equal(newFile, rt.file) {
 				t.Errorf(
 					"failed WriteToDisk config write:\n\texpected: %s\n\t  actual: %s",
