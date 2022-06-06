@@ -55,22 +55,6 @@ is_build_on_host() {
   fi
 }
 
-# Parameters
-# $1: binary_name
-get_component_name() {
-  local yurt_component_name
-  if [[ $1 =~ yurtctl ]]
-  then
-    yurt_component_name="yurtctl-servant"
-  elif [[ $1 =~ yurt-node-servant ]];
-  then
-    yurt_component_name="node-servant"
-  else
-    yurt_component_name=$1
-  fi
-  echo $yurt_component_name
-}
-
 # project_info generates the project information and the corresponding value
 # for 'ldflags -X' option
 project_info() {
