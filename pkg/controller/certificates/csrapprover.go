@@ -358,16 +358,22 @@ func v1Csr2v1beta1Csr(csr *certificatesv1.CertificateSigningRequest) *certificat
 }
 
 func v1beta1Csr2v1Csr(csr *certificatesv1beta1.CertificateSigningRequest) *certificatesv1.CertificateSigningRequest {
+	if csr == nil {
+		return nil
+	}
 	v1Csr := &certificatesv1.CertificateSigningRequest{
 		ObjectMeta: csr.ObjectMeta,
 		Spec: certificatesv1.CertificateSigningRequestSpec{
-			Request:    csr.Spec.Request,
-			SignerName: *csr.Spec.SignerName,
-			Usages:     make([]certificatesv1.KeyUsage, 0),
+			Request: csr.Spec.Request,
+			Usages:  make([]certificatesv1.KeyUsage, 0),
 		},
 		Status: certificatesv1.CertificateSigningRequestStatus{
 			Conditions: make([]certificatesv1.CertificateSigningRequestCondition, 0),
 		},
+	}
+
+	if csr.Spec.SignerName != nil {
+		v1Csr.Spec.SignerName = *csr.Spec.SignerName
 	}
 
 	for _, usage := range csr.Spec.Usages {
