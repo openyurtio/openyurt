@@ -198,11 +198,13 @@ func TestIsWhitelistReq(t *testing.T) {
 }
 
 func TestAddConfigMap(t *testing.T) {
-	testcases := map[string]struct {
+	testcases := []struct {
+		desc               string
 		cm                 *v1.ConfigMap
 		resultReqKeyToName map[string]string
 	}{
-		"add a new filter setting": {
+		{
+			desc: "add a new filter setting",
 			cm: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "yurt-hub-cfg",
@@ -210,25 +212,18 @@ func TestAddConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"cache_agents":    "nginx-controller",
-					"filter_handler1": "kubelet/pods#list;watch, kube-proxy/pods#list;watch",
+					"filter_handler1": "kubelet/foo#list;watch, kube-proxy/bar#list;watch",
 				},
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-				"kubelet/pods/list":                                      "handler1",
-				"kubelet/pods/watch":                                     "handler1",
-				"kube-proxy/pods/list":                                   "handler1",
-				"kube-proxy/pods/watch":                                  "handler1",
-			},
+			resultReqKeyToName: mergeReqKeyMap(defaultReqKeyToName, map[string]string{
+				"kubelet/foo/list":     "handler1",
+				"kubelet/foo/watch":    "handler1",
+				"kube-proxy/bar/list":  "handler1",
+				"kube-proxy/bar/watch": "handler1",
+			}),
 		},
-		"no filter setting exist": {
+		{
+			desc: "no filter setting exist",
 			cm: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "yurt-hub-cfg",
@@ -238,39 +233,33 @@ func TestAddConfigMap(t *testing.T) {
 					"cache_agents": "nginx-controller",
 				},
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-			},
+			resultReqKeyToName: defaultReqKeyToName,
 		},
 	}
 
 	client := &fake.Clientset{}
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 	approver := newApprover(informerFactory)
-	for k, tt := range testcases {
-		t.Run(k, func(t *testing.T) {
+	for i, tt := range testcases {
+		t.Run(testcases[i].desc, func(t *testing.T) {
 			approver.addConfigMap(tt.cm)
 			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
 				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
 			}
+			approver.merge("cleanup", map[string]string{})
 		})
 	}
 }
 
 func TestUpdateConfigMap(t *testing.T) {
-	testcases := map[string]struct {
+	testcases := []struct {
+		desc               string
 		oldCM              *v1.ConfigMap
 		newCM              *v1.ConfigMap
 		resultReqKeyToName map[string]string
 	}{
-		"add a new filter setting": {
+		{
+			desc: "add a new filter setting",
 			oldCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "yurt-hub-cfg",
@@ -278,7 +267,7 @@ func TestUpdateConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"cache_agents":    "nginx-controller",
-					"filter_handler1": "kubelet/pods#list;watch, kube-proxy/pods#list;watch",
+					"filter_handler1": "kubelet/foo#list;watch, kube-proxy/bar#list;watch",
 				},
 			},
 			newCM: &v1.ConfigMap{
@@ -288,25 +277,18 @@ func TestUpdateConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"cache_agents":    "nginx-controller",
-					"filter_handler2": "kubelet/pods#list;watch, kube-proxy/pods#list;watch",
+					"filter_handler2": "kubelet/foo#list;watch, kube-proxy/bar#list;watch",
 				},
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-				"kubelet/pods/list":                                      "handler2",
-				"kubelet/pods/watch":                                     "handler2",
-				"kube-proxy/pods/list":                                   "handler2",
-				"kube-proxy/pods/watch":                                  "handler2",
-			},
+			resultReqKeyToName: mergeReqKeyMap(defaultReqKeyToName, map[string]string{
+				"kubelet/foo/list":     "handler2",
+				"kubelet/foo/watch":    "handler2",
+				"kube-proxy/bar/list":  "handler2",
+				"kube-proxy/bar/watch": "handler2",
+			}),
 		},
-		"no filter setting changed": {
+		{
+			desc: "no filter setting changed",
 			oldCM: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "yurt-hub-cfg",
@@ -314,7 +296,7 @@ func TestUpdateConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"cache_agents":    "nginx-controller",
-					"filter_handler2": "kubelet/pods#list;watch, kube-proxy/pods#list;watch",
+					"filter_handler2": "kubelet/foo#list;watch, kube-proxy/bar#list;watch",
 				},
 			},
 			newCM: &v1.ConfigMap{
@@ -324,27 +306,18 @@ func TestUpdateConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"cache_agents":    "nginx-controller, agent2",
-					"filter_handler2": "kubelet/pods#list;watch, kube-proxy/pods#list;watch",
+					"filter_handler2": "kubelet/foo#list;watch, kube-proxy/bar#list;watch",
 				},
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-			},
+			resultReqKeyToName: defaultReqKeyToName,
 		},
 	}
 
 	client := &fake.Clientset{}
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 	approver := newApprover(informerFactory)
-	for k, tt := range testcases {
-		t.Run(k, func(t *testing.T) {
+	for i, tt := range testcases {
+		t.Run(testcases[i].desc, func(t *testing.T) {
 			approver.updateConfigMap(tt.oldCM, tt.newCM)
 			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
 				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
@@ -363,16 +336,7 @@ func TestMerge(t *testing.T) {
 		"init req key to name": {
 			action:              "init",
 			reqKeyToNamesFromCM: map[string]string{},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-			},
+			resultReqKeyToName:  defaultReqKeyToName,
 		},
 		"add some items of req key to name": {
 			action: "add",
@@ -381,19 +345,11 @@ func TestMerge(t *testing.T) {
 				"comp2/resources2/watch": "filter2",
 				"comp3/resources3/watch": "filter1",
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-				"comp1/resources1/list":                                  "filter1",
-				"comp2/resources2/watch":                                 "filter2",
-				"comp3/resources3/watch":                                 "filter1",
-			},
+			resultReqKeyToName: mergeReqKeyMap(defaultReqKeyToName, map[string]string{
+				"comp1/resources1/list":  "filter1",
+				"comp2/resources2/watch": "filter2",
+				"comp3/resources3/watch": "filter1",
+			}),
 		},
 		"update and delete item of req key to name": {
 			action: "update",
@@ -401,18 +357,10 @@ func TestMerge(t *testing.T) {
 				"comp1/resources1/list":  "filter1",
 				"comp2/resources2/watch": "filter3",
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-				"comp1/resources1/list":                                  "filter1",
-				"comp2/resources2/watch":                                 "filter3",
-			},
+			resultReqKeyToName: mergeReqKeyMap(defaultReqKeyToName, map[string]string{
+				"comp1/resources1/list":  "filter1",
+				"comp2/resources2/watch": "filter3",
+			}),
 		},
 		"update default setting of req key to name": {
 			action: "update",
@@ -420,31 +368,14 @@ func TestMerge(t *testing.T) {
 				"kubelet/services/list":  "filter1",
 				"comp2/resources2/watch": "filter3",
 			},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-				"comp2/resources2/watch":                                 "filter3",
-			},
+			resultReqKeyToName: mergeReqKeyMap(defaultReqKeyToName, map[string]string{
+				"comp2/resources2/watch": "filter3",
+			}),
 		},
 		"clear all user setting of req key to name": {
 			action:              "update",
 			reqKeyToNamesFromCM: map[string]string{},
-			resultReqKeyToName: map[string]string{
-				reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
-				reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-				reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
-				reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
-				reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
-				reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
-			},
+			resultReqKeyToName:  defaultReqKeyToName,
 		},
 	}
 
@@ -454,10 +385,7 @@ func TestMerge(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			if len(tt.resultReqKeyToName) != 0 {
-				approver.merge(tt.action, tt.resultReqKeyToName)
-			}
-
+			approver.merge(tt.action, tt.reqKeyToNamesFromCM)
 			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
 				t.Errorf("expect to get reqKeyToName %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
 			}
@@ -696,4 +624,17 @@ func TestReqKey(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mergeReqKeyMap(m1, m2 map[string]string) map[string]string {
+	m := make(map[string]string)
+	for k, v := range m1 {
+		m[k] = v
+	}
+
+	for k, v := range m2 {
+		m[k] = v
+	}
+
+	return m
 }
