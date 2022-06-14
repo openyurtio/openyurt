@@ -34,6 +34,14 @@ ifeq (${REGION}, cn)
 DOCKER_BUILD_ARGS += --build-arg GOPROXY=https://goproxy.cn --build-arg MIRROR_REPO=mirrors.aliyun.com
 endif
 
+ifneq (${http_proxy},)
+DOCKER_BUILD_ARGS += --build-arg http_proxy='${http_proxy}'
+endif
+
+ifneq (${https_proxy},)
+DOCKER_BUILD_ARGS += --build-arg https_proxy='${https_proxy}'
+endif
+
 .PHONY: clean all build
 
 all: test build
