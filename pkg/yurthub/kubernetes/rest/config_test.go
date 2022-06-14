@@ -95,20 +95,20 @@ func TestGetRestConfig(t *testing.T) {
 
 	// store the kubelet ca file
 	caFile := filepath.Join(testDir, "ca.crt")
-	if err := dStorage.Create("ca.crt", certificatePEM); err != nil {
+	if err := dStorage.Create(disk.StorageKey("ca.crt"), certificatePEM); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", caFile, err)
 	}
 
 	// store the kubelet-pair.pem file
 	pairFile := filepath.Join(testDir, "kubelet-pair.pem")
 	pd := bytes.Join([][]byte{certificatePEM, keyPEM}, []byte("\n"))
-	if err := dStorage.Create("kubelet-pair.pem", pd); err != nil {
+	if err := dStorage.Create(disk.StorageKey("kubelet-pair.pem"), pd); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", pairFile, err)
 	}
 
 	// store the yurthub-current.pem
 	yurthubCurrent := filepath.Join(testDir, "yurthub-current.pem")
-	if err := dStorage.Create("yurthub-current.pem", pd); err != nil {
+	if err := dStorage.Create(disk.StorageKey("yurthub-current.pem"), pd); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", yurthubCurrent, err)
 	}
 

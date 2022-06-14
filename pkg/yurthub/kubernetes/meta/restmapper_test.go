@@ -62,7 +62,7 @@ func TestCreateRESTMapperManager(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to serialize dynamicRESTMapper, %v", err)
 	}
-	err = dStorage.Update(CacheDynamicRESTMapperKey, d)
+	_, err = dStorage.Update(disk.StorageKey(CacheDynamicRESTMapperKey), d, 0, true)
 	if err != nil {
 		t.Fatalf("failed to stored dynamicRESTMapper, %v", err)
 	}
@@ -162,7 +162,7 @@ func TestUpdateRESTMapper(t *testing.T) {
 			}
 
 			// verify the CRD information in disk
-			b, err := dStorage.Get(CacheDynamicRESTMapperKey)
+			b, err := dStorage.Get(disk.StorageKey(CacheDynamicRESTMapperKey))
 			if err != nil {
 				t.Fatalf("failed to get cached CRD information, %v", err)
 			}

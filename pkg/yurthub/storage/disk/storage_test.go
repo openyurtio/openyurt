@@ -131,14 +131,14 @@ func TestCreate(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKey {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s Got error %v, wanted successful create %s", k, err, key)
 				}
 			}
 
 			for key, data := range tc.keysData {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					if !errors.Is(err, tc.createErr) {
 						t.Errorf("%s: expect create error %v, but got %v", k, tc.createErr, err)
@@ -147,7 +147,7 @@ func TestCreate(t *testing.T) {
 			}
 
 			for key, result := range tc.result {
-				b, err := s.Get(key)
+				b, err := s.Get(StorageKey(key))
 				if result.err != nil {
 					if !errors.Is(result.err, err) {
 						t.Errorf("%s(key=%s) expect error %v, but got error %v", k, key, result.err, err)
@@ -162,7 +162,7 @@ func TestCreate(t *testing.T) {
 			}
 
 			for key := range tc.result {
-				if err = s.Delete(key); err != nil {
+				if err = s.Delete(StorageKey(key)); err != nil {
 					t.Errorf("%s failed to delete key %s, %v", k, key, err)
 				}
 			}
@@ -238,7 +238,7 @@ func TestDelete(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
 				}
@@ -246,7 +246,7 @@ func TestDelete(t *testing.T) {
 
 			for key, result := range tc.result {
 				if result.beforeDelete != "" {
-					b, err := s.Get(key)
+					b, err := s.Get(StorageKey(key))
 					if err != nil {
 						t.Errorf("%s: got error %v when get key %s before deletion", k, err, key)
 					}
@@ -258,7 +258,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			for _, key := range tc.deleteKeys {
-				err = s.Delete(key)
+				err = s.Delete(StorageKey(key))
 				if result, ok := tc.result[key]; ok {
 					if !errors.Is(result.deleteErr, err) {
 						t.Errorf("%s: delete key(%s) expect error %v, but got %v", k, key, result.deleteErr, err)
@@ -269,7 +269,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			for key, result := range tc.result {
-				_, err := s.Get(key)
+				_, err := s.Get(StorageKey(key))
 				if result.getErr != nil {
 					if !errors.Is(result.getErr, err) {
 						t.Errorf("%s: expect error %v, but got error %v", k, result.getErr, err)
@@ -337,14 +337,14 @@ func TestGet(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err := s.Create(key, []byte(data))
+				err := s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s Got error %v, wanted successful create %s", k, err, key)
 				}
 			}
 
 			for key, result := range tc.result {
-				b, err := s.Get(key)
+				b, err := s.Get(StorageKey(key))
 				if result.err != nil {
 					if !errors.Is(result.err, err) {
 						t.Errorf("%s: expect error %v, but got error %v", k, result.err, err)
@@ -359,7 +359,7 @@ func TestGet(t *testing.T) {
 			}
 
 			for key := range tc.result {
-				if err = s.Delete(key); err != nil {
+				if err = s.Delete(StorageKey(key)); err != nil {
 					t.Errorf("%s failed to delete key %s, %v", k, key, err)
 				}
 			}
@@ -426,13 +426,13 @@ func TestListKeys(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
 				}
 			}
 
-			keys, err := s.ListKeys(tc.listKey)
+			keys, err := s.ListKeys(StorageKey(tc.listKey))
 			if err != nil {
 				t.Errorf("%s: Got error %v, unable to list keys for %s", k, err, tc.listKey)
 			}
@@ -448,7 +448,7 @@ func TestListKeys(t *testing.T) {
 			}
 
 			for key := range tc.preCreatedKeys {
-				err = s.Delete(key)
+				err = s.Delete(StorageKey(key))
 				if err != nil {
 					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
 				}
@@ -517,13 +517,13 @@ func TestList(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
 				}
 			}
 
-			data, err := s.List(tc.listKey)
+			data, err := s.List(StorageKey(tc.listKey))
 			if err != nil {
 				if !errors.Is(tc.listErr, err) {
 					t.Errorf("%s: list(%s) expect error %v, but got error %v", k, tc.listKey, tc.listErr, err)
@@ -541,7 +541,7 @@ func TestList(t *testing.T) {
 			}
 
 			for key := range tc.preCreatedKeys {
-				err = s.Delete(key)
+				err = s.Delete(StorageKey(key))
 				if err != nil {
 					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
 				}
@@ -609,14 +609,14 @@ func TestUpdate(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
 				}
 			}
 
 			for key, data := range tc.updateKeys {
-				err = s.Update(key, []byte(data))
+				_, err = s.Update(StorageKey(key), []byte(data), 0, true)
 				if err != nil {
 					if !errors.Is(tc.updateErr, err) {
 						t.Errorf("%s: expect error %v, but got %v", k, tc.updateErr, err)
@@ -625,7 +625,7 @@ func TestUpdate(t *testing.T) {
 			}
 
 			for key, data := range tc.result {
-				b, err := s.Get(key)
+				b, err := s.Get(StorageKey(key))
 				if err != nil {
 					t.Errorf("%s: Got error %v, unable to get key %s", k, err, key)
 				}
@@ -636,7 +636,7 @@ func TestUpdate(t *testing.T) {
 			}
 
 			for key := range testcases {
-				err = s.Delete(key)
+				err = s.Delete(StorageKey(key))
 				if err != nil {
 					t.Errorf("%s: failed to delete key(%s), %v", k, key, err)
 				}
@@ -688,7 +688,7 @@ func TestReplace(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for key, data := range tc.preCreatedKeys {
-				err = s.Create(key, []byte(data))
+				err = s.Create(StorageKey(key), []byte(data))
 				if err != nil {
 					t.Errorf("%s: Got error %v, wanted successful create %s", k, err, key)
 				}
@@ -699,14 +699,14 @@ func TestReplace(t *testing.T) {
 				contents[key] = []byte(data)
 			}
 
-			err = s.Replace(tc.listKey, contents)
+			err = s.UpdateList(StorageKey(tc.listKey), contents, nil, "")
 			if err != nil {
 				if errors.Is(tc.replaceErr, err) {
 					t.Errorf("%s: expect error %v, but got %v", k, tc.replaceErr, err)
 				}
 			}
 
-			if keys, err := s.ListKeys(tc.listKey); err == nil {
+			if keys, err := s.ListKeys(StorageKey(tc.listKey)); err == nil {
 				if len(keys) != len(tc.result) {
 					t.Errorf("expect the number of keys: %v, but got %v", len(tc.result), len(keys))
 				}
@@ -715,7 +715,7 @@ func TestReplace(t *testing.T) {
 			}
 
 			for key, data := range tc.result {
-				b, err := s.Get(key)
+				b, err := s.Get(StorageKey(key))
 				if err != nil {
 					t.Errorf("%s: Got error %v, unable to get key %s", k, err, key)
 				}
@@ -726,7 +726,7 @@ func TestReplace(t *testing.T) {
 			}
 
 			for key := range tc.result {
-				if err = s.Delete(key); err != nil {
+				if err = s.Delete(StorageKey(key)); err != nil {
 					t.Errorf("%s failed to delete key %s, %v", k, key, err)
 				}
 			}
@@ -791,22 +791,22 @@ func TestLockKey(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			for _, key := range tc.preLockedKeys {
-				s.lockKey(key)
+				s.lockKey(StorageKey(key))
 			}
 
-			lResult := s.lockKey(tc.lockKey)
+			lResult := s.lockKey(StorageKey(tc.lockKey))
 			if lResult != tc.lockResult {
 				t.Errorf("%s: expect lock result %v, but got %v", k, tc.lockResult, lResult)
 			}
 
-			lResult2 := s.lockKey(tc.lockKey)
+			lResult2 := s.lockKey(StorageKey(tc.lockKey))
 			if lResult2 != tc.lockVerifyResult {
 				t.Errorf("%s: expect lock verify result %v, but got %v", k, tc.lockVerifyResult, lResult2)
 			}
 
-			s.unLockKey(tc.lockKey)
+			s.unLockKey(StorageKey(tc.lockKey))
 			for _, key := range tc.preLockedKeys {
-				s.unLockKey(key)
+				s.unLockKey(StorageKey(key))
 			}
 		})
 	}

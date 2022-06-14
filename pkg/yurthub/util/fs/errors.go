@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2022 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package fs
 
-import (
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+import "errors"
+
+var (
+	ErrIsNotDir  = errors.New("the path is a directory")
+	ErrIsNotFile = errors.New("the path is a regular file")
+	ErrExists    = errors.New("path has already existed")
+	ErrNotExists = errors.New("file at path does not exist")
 )
-
-// CreateStorage create a storage.Store for backend storage
-func CreateStorage(cachePath string) (storage.Store, error) {
-	return disk.NewDiskStorage(cachePath)
-}

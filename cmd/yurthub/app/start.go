@@ -155,10 +155,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	var cacheMgr cachemanager.CacheManager
 	if cfg.WorkingMode == util.WorkingModeEdge {
 		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-		cacheMgr, err = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
-		if err != nil {
-			return fmt.Errorf("could not new cache manager, %w", err)
-		}
+		cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	} else {
 		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}

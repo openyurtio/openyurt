@@ -33,7 +33,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
-	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type yurtReverseProxy struct {
@@ -121,7 +120,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	isKubeletLeaseReq := hubutil.IsKubeletLeaseReq(req)
+	isKubeletLeaseReq := util.IsKubeletLeaseReq(req)
 	if !isKubeletLeaseReq && p.checker.IsHealthy() || p.localProxy == nil {
 		p.loadBalancer.ServeHTTP(rw, req)
 	} else {

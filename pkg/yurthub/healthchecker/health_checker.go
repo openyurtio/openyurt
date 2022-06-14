@@ -19,6 +19,7 @@ package healthchecker
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 const (
@@ -206,8 +208,23 @@ func (hc *cloudAPIServerHealthChecker) setLastNodeLease(lease *coordinationv1.Le
 	accessor := meta.NewAccessor()
 	accessor.SetKind(lease, coordinationv1.SchemeGroupVersion.WithKind("Lease").Kind)
 	accessor.SetAPIVersion(lease, coordinationv1.SchemeGroupVersion.String())
-	cacheLeaseKey := fmt.Sprintf(cacheLeaseKeyFormat, lease.Name)
-	return hc.sw.Update(cacheLeaseKey, lease)
+	leaseKey, err := hc.sw.KeyFunc(storage.KeyBuildInfo{
+		Component: "kubelet",
+		Namespace: lease.Namespace,
+		Name:      lease.Name,
+		Resources: "leases",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get key for lease %s/%s, %v", lease.Namespace, lease.Name, err)
+	}
+	rv, err := strconv.ParseUint(lease.ResourceVersion, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to convert rv string %s of lease %s/%s, %v", lease.ResourceVersion, lease.Namespace, lease.Name, err)
+	}
+	if _, err := hc.sw.Update(leaseKey, lease, rv); err != nil {
+		return fmt.Errorf("failed to update lease %s/%s, %v", lease.Namespace, lease.Name, err)
+	}
+	return nil
 }
 
 func (hc *cloudAPIServerHealthChecker) getLastNodeLease() *coordinationv1.Lease {

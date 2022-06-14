@@ -2706,7 +2706,7 @@ func TestCanCacheFor(t *testing.T) {
 			defer close(stop)
 			client := fake.NewSimpleClientset()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			m, _ := NewCacheManager(s, nil, nil, informerFactory)
+			m, _ := NewCacheManager(s, disk.KeyFunc, nil, nil, informerFactory)
 			informerFactory.Start(nil)
 			cache.WaitForCacheSync(stop, informerFactory.Core().V1().ConfigMaps().Informer().HasSynced)
 			if tt.preRequest != nil {

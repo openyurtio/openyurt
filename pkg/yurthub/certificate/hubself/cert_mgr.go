@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -46,9 +45,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 const (
@@ -68,7 +66,7 @@ const (
 type yurtHubCertManager struct {
 	remoteServers         []*url.URL
 	hubCertOrganizations  []string
-	bootstrapConfStore    storage.Store
+	bootstrapConfStore    fs.FileSystemOperator
 	hubClientCertManager  certificate.Manager
 	hubClientCertPath     string
 	joinToken             string
@@ -324,23 +322,15 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 
 // initBootstrap create bootstrap config file for hub certificate manager
 func (ycm *yurtHubCertManager) initBootstrap() error {
-	bootstrapConfStore, err := disk.NewDiskStorage(ycm.rootDir)
-	if err != nil {
-		klog.Errorf("could not new disk storage for bootstrap conf file, %v", err)
-		return err
-	}
-	ycm.bootstrapConfStore = bootstrapConfStore
-
-	contents, err := ycm.bootstrapConfStore.Get(bootstrapConfigFileName)
-	if errors.Is(err, storage.ErrStorageNotFound) {
-		klog.Infof("%s bootstrap conf file does not exist, so create it", ycm.hubName)
+	ycm.bootstrapConfStore = fs.FileSystemOperator{}
+	bootstrapConfigFilePath := filepath.Join(ycm.rootDir, bootstrapConfigFileName)
+	contents, err := ycm.bootstrapConfStore.Read(bootstrapConfigFilePath)
+	if err == fs.ErrNotExists || len(contents) == 0 {
+		klog.Infof("%s bootstrap conf file does not exist or its content is empty, so create it", ycm.hubName)
 		return ycm.createBootstrapConfFile(ycm.joinToken)
 	} else if err != nil {
 		klog.Infof("could not get bootstrap conf file, %v", err)
 		return err
-	} else if len(contents) == 0 {
-		klog.Infof("%s bootstrap conf file does not exist, so create it", ycm.hubName)
-		return ycm.createBootstrapConfFile(ycm.joinToken)
 	} else {
 		klog.Infof("%s bootstrap conf file already exists, skip init bootstrap", ycm.hubName)
 		return nil
@@ -591,16 +581,16 @@ func (ycm *yurtHubCertManager) createBootstrapConfFile(joinToken string) error {
 
 	content, err := clientcmd.Write(*bootstrapConfig)
 	if err != nil {
-		klog.Errorf("could not create bootstrap config into bytes got error, %v", err)
-		return err
+		return fmt.Errorf("could not create bootstrap config into bytes got error, %v", err)
 	}
 
-	err = ycm.bootstrapConfStore.Update(bootstrapConfigFileName, content)
-	if err != nil {
-		klog.Errorf("could not create bootstrap conf file(%s), %v", ycm.getBootstrapConfFile(), err)
-		return err
+	bootstrapConfigFilePath := filepath.Join(ycm.rootDir, bootstrapConfigFileName)
+	if err := ycm.bootstrapConfStore.DeleteFile(bootstrapConfigFilePath); err != nil {
+		return fmt.Errorf("failed to delete existing bootstrap file at %s, %v", bootstrapConfigFilePath, err)
 	}
-
+	if err := ycm.bootstrapConfStore.CreateFile(bootstrapConfigFilePath, content); err != nil {
+		return fmt.Errorf("could not create bootstrap conf file(%s), %v", ycm.getBootstrapConfFile(), err)
+	}
 	return nil
 }
 
@@ -636,11 +626,9 @@ func (ycm *yurtHubCertManager) updateBootstrapConfFile(joinToken string) error {
 		return err
 	}
 
-	err = ycm.bootstrapConfStore.Update(bootstrapConfigFileName, content)
-	if err != nil {
-		klog.Errorf("could not update bootstrap config, %v", err)
-		return err
+	bootstrapConfigFilePath := filepath.Join(ycm.rootDir, bootstrapConfigFileName)
+	if err := ycm.bootstrapConfStore.Write(bootstrapConfigFilePath, content); err != nil {
+		return fmt.Errorf("failed to write bootstrap to file %s, %v", bootstrapConfigFilePath, err)
 	}
-
 	return nil
 }
