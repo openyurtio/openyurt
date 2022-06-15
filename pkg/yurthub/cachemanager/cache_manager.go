@@ -24,7 +24,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/endpoints/handlers"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -226,35 +224,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	}
 
 	accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
-	err = setListObjSelfLink(listObj, req)
-	return listObj, err
-}
-
-func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
-	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
-	clusterScoped := true
-	if info.Namespace != "" {
-		clusterScoped = false
-	}
-
-	prefix := "/" + path.Join(info.APIGroup, info.APIVersion)
-	namer := handlers.ContextBasedNaming{
-		SelfLinker:         runtime.SelfLinker(meta.NewAccessor()),
-		SelfLinkPathPrefix: path.Join(prefix, info.Resource) + "/",
-		SelfLinkPathSuffix: "",
-		ClusterScoped:      clusterScoped,
-	}
-
-	uri, err := namer.GenerateListLink(req)
-	if err != nil {
-		return err
-	}
-	if err := namer.SetSelfLink(listObj, uri); err != nil {
-		klog.Infof("Unable to set self link on object: %v", err)
-	}
-
-	return nil
+	return listObj, nil
 }
 
 func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, stopCh <-chan struct{}) error {

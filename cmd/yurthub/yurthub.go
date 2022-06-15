@@ -22,11 +22,15 @@ import (
 	"time"
 
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app"
 )
 
 func main() {
+	klog.InitFlags(nil)
+	defer klog.Flush()
+
 	rand.Seed(time.Now().UnixNano())
 	cmd := app.NewCmdStartYurtHub(server.SetupSignalHandler())
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)

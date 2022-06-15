@@ -48,6 +48,7 @@ import (
 	"k8s.io/component-base/term"
 	genericcontrollermanager "k8s.io/controller-manager/app"
 	"k8s.io/controller-manager/pkg/clientbuilder"
+	controllerhealthz "k8s.io/controller-manager/pkg/healthz"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
@@ -168,7 +169,9 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// Start the controller manager HTTP server
 	// unsecuredMux is the handler for these controllers *after* authn/authz filters have been applied
 	var unsecuredMux *mux.PathRecorderMux
-	unsecuredMux = genericcontrollermanager.NewBaseHandler(&c.ComponentConfig.Generic.Debugging, checks...)
+
+	healthzHandler := controllerhealthz.NewMutableHealthzHandler(checks...)
+	unsecuredMux = genericcontrollermanager.NewBaseHandler(&c.ComponentConfig.Generic.Debugging, healthzHandler)
 	insecureSuperuserAuthn := apiserver.AuthenticationInfo{Authenticator: &apiserver.InsecureSuperuser{}}
 	handler := genericcontrollermanager.BuildHandlerChain(unsecuredMux, nil, &insecureSuperuserAuthn)
 	addr := net.JoinHostPort(c.ComponentConfig.Generic.Address, fmt.Sprintf("%d", c.ComponentConfig.Generic.Port))

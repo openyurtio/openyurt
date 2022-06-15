@@ -22,6 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	v1beta1 "k8s.io/kubelet/config/v1beta1"
 )
@@ -36,4 +37,19 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 
 func SetObjectDefaults_KubeletConfiguration(in *v1beta1.KubeletConfiguration) {
 	SetDefaults_KubeletConfiguration(in)
+	for i := range in.ReservedMemory {
+		a := &in.ReservedMemory[i]
+		setDefaults_ResourceList(&a.Limits)
+	}
+}
+
+func setDefaults_ResourceList(obj *v1.ResourceList) {
+	for key, val := range *obj {
+		// TODO(#18538): We round up resource values to milli scale to maintain API compatibility.
+		// In the future, we should instead reject values that need rounding.
+		const milliScale = -3
+		val.RoundUp(milliScale)
+
+		(*obj)[v1.ResourceName(key)] = val
+	}
 }
