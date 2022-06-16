@@ -66,7 +66,7 @@ In addition, OpenYurt also includes auxiliary controllers for integration and cu
 
 ## Prerequisites
 
-Please check the [resource and system requirements](./docs/resource-and-system-requirements.md) before installing OpenYurt.
+Please check the [resource and system requirements](https://github.com/openyurtio/openyurt.io/blob/master/docs/usage-conditions/resource-and-system-requirements.md) before installing OpenYurt.
 
 ## Getting started
 
