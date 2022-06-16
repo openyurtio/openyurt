@@ -17,7 +17,7 @@ English | [简体中文](./README.zh.md)
 |Latest Release: May 27th, 2022. OpenYurt v0.7.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1 |
 
-[OpenYurt](https://openyurt.io>) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
+[OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
 
 <div align="left">
   <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
