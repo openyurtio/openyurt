@@ -109,6 +109,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 				// 1. transform hostname to nodeIP for request in order to send request to nodeIP address at tunnel-agent
 				// 2. put hostname into X-Tunnel-Proxy-Host request header in order to select the correct backend agent.
 				if err := trm.modifyRequest(req, host, port); err != nil {
+					klog.Errorf("failed to modify request, %v", err)
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
