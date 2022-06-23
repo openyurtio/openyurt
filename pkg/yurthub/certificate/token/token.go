@@ -127,7 +127,7 @@ func NewYurtHubCertManager(cfg *CertificateManagerConfiguration) (hubCert.YurtCe
 		return ycm, errors.Wrap(err, "couldn't new hub server cert store")
 	}
 
-	ycm.hubServerCertManager, err = ycm.newHubServerCertificateManager(ycm.hubServerCertStore, cfg.NodeName, cfg.CertIPs)
+	ycm.hubServerCertManager, err = ycm.newHubServerCertificateManager(ycm.hubServerCertStore, cfg.NodeName, cfg.CertIPs, cfg.YurtHubCertOrganizations)
 	if err != nil {
 		return ycm, errors.Wrap(err, "couldn't new hub server certificate manager")
 	}
@@ -357,7 +357,7 @@ func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (c
 
 // newHubServerCertificateManager create a certificate manager for yurthub component to prepare server certificate
 // that used to handle requests from clients on edge nodes.
-func (ycm *yurtHubCertManager) newHubServerCertificateManager(fileStore certificate.FileStore, nodeName string, certIPs []net.IP) (certificate.Manager, error) {
+func (ycm *yurtHubCertManager) newHubServerCertificateManager(fileStore certificate.FileStore, nodeName string, certIPs []net.IP, customedOrgs []string) (certificate.Manager, error) {
 	kubeClientFn := func(current *tls.Certificate) (clientset.Interface, error) {
 		// waiting for the certificate is generated
 		_ = wait.PollInfinite(5*time.Second, func() (bool, error) {
@@ -384,6 +384,7 @@ func (ycm *yurtHubCertManager) newHubServerCertificateManager(fileStore certific
 		CommonName:     fmt.Sprintf("system:node:%s", nodeName),
 		Organizations:  []string{user.NodesGroup},
 		IPs:            certIPs,
+		Extension:      customedOrgs,
 	})
 }
 

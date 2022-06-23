@@ -20,8 +20,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 	"net"
+	"strings"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +33,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 )
+
+var oidExtensionServerOrg = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 54392, 5, 1375}
 
 type IPGetter func() ([]net.IP, error)
 type DNSGetter func() ([]string, error)
@@ -71,6 +75,9 @@ type CertManagerConfig struct {
 	// If set, UsageServerAuth will be used, otherwise UsageClientAuth will be used.
 	// Additionally, UsageKeyEncipherment and UsageDigitalSignature are always used.
 	ForServerUsage bool
+
+	// extension
+	Extension []string
 }
 
 // CertManagerFactory knows how to create CertManager for OpenYurt Components.
@@ -132,13 +139,27 @@ func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
 				return nil
 			}
 		}
+
+		rawValue := asn1.RawValue{
+			Class: 2,
+			Tag:   2,
+			Bytes: []byte(strings.Join(cfg.Extension, ",")),
+		}
+		value, _ := asn1.Marshal(rawValue)
+		extension := pkix.Extension{
+			Id:       oidExtensionServerOrg,
+			Critical: false,
+			Value:    value,
+		}
+
 		return &x509.CertificateRequest{
 			Subject: pkix.Name{
 				CommonName:   cfg.CommonName,
 				Organization: cfg.Organizations,
 			},
-			DNSNames:    dnsNames,
-			IPAddresses: ips,
+			DNSNames:        dnsNames,
+			IPAddresses:     ips,
+			ExtraExtensions: []pkix.Extension{extension},
 		}
 	}
 

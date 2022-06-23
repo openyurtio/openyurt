@@ -76,6 +76,7 @@ func TestNew(t *testing.T) {
 				CommonName:     fmt.Sprintf("system:node:%s", constants.YurtTunnelServerNodeName),
 				Organizations:  []string{user.NodesGroup},
 				ForServerUsage: true,
+				Extension:      []string{"openyurt:tenant:myspace"},
 			},
 			nil,
 		},
@@ -87,13 +88,14 @@ func TestNew(t *testing.T) {
 			t.Logf("\tTestCase: %s", tt.name)
 			{
 				fc := NewCertManagerFactory(&fake.Clientset{})
-				_, get := fc.New(tt.cfg)
+				mg, get := fc.New(tt.cfg)
 
 				if !reflect.DeepEqual(get, tt.expect) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 				}
 				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 
+				mg.Start()
 			}
 		})
 	}
