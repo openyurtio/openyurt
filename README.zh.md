@@ -17,7 +17,7 @@
 | 最新发布：2022-05-27  OpenYurt v0.7.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
-OpenYurt (官网: <https://openyurt.io>) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
+OpenYurt (官网: https://openyurt.io) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
 
 <div align="left">
   <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
@@ -59,7 +59,7 @@ OpenYurt 遵循经典的云边一体化架构。
 
 ## 开始之前
 
-安装OpenYurt前，请检查[资源和系统要求](./docs/resource-and-system-requirements-cn.md)
+安装OpenYurt前，请检查[资源和系统要求](https://github.com/openyurtio/openyurt.io/blob/master/i18n/zh/docusaurus-plugin-content-docs/current/usage-conditions/resource-and-system-requirements.md)
 
 ## 开始使用
 OpenYurt 支持最高版本为1.22的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
