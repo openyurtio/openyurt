@@ -17,7 +17,7 @@
 | 最新发布：2022-05-27  OpenYurt v0.7.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
-OpenYurt (官网: <https://openyurt.io) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
+OpenYurt (官网: https://openyurt.io) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
 
 <div align="left">
   <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
