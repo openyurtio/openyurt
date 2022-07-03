@@ -152,7 +152,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,
 		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
 		GCFrequency:                       options.GCFrequency,
-		CertMgrMode:                       options.CertMgrMode,
 		KubeletRootCAFilePath:             options.KubeletRootCAFilePath,
 		KubeletPairFilePath:               options.KubeletPairFilePath,
 		NodeName:                          options.NodeName,

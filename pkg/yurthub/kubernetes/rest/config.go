@@ -31,7 +31,6 @@ import (
 
 type RestConfigManager struct {
 	remoteServers []*url.URL
-	certMgrMode   string
 	checker       healthchecker.HealthChecker
 	certManager   interfaces.YurtCertificateManager
 }
@@ -40,7 +39,6 @@ type RestConfigManager struct {
 func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.YurtCertificateManager, healthChecker healthchecker.HealthChecker) (*RestConfigManager, error) {
 	mgr := &RestConfigManager{
 		remoteServers: cfg.RemoteServers,
-		certMgrMode:   cfg.CertMgrMode,
 		checker:       healthChecker,
 		certManager:   certMgr,
 	}
@@ -49,13 +47,7 @@ func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.Y
 
 // GetRestConfig gets rest client config according to the mode of certificateManager
 func (rcm *RestConfigManager) GetRestConfig(needHealthyServer bool) *rest.Config {
-	certMgrMode := rcm.certMgrMode
-	switch certMgrMode {
-	case util.YurtHubCertificateManagerName:
-		return rcm.getHubselfRestConfig(needHealthyServer)
-	default:
-		return nil
-	}
+	return rcm.getHubselfRestConfig(needHealthyServer)
 }
 
 // getHubselfRestConfig gets rest client config from hub agent conf file.

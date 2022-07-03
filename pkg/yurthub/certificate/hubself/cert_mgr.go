@@ -45,7 +45,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
-	hubcert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -65,13 +64,6 @@ const (
 	clusterInfoName         = "cluster-info"
 	kubeconfigName          = "kubeconfig"
 )
-
-// Register registers a YurtCertificateManager
-func Register(cmr *hubcert.CertificateManagerRegistry) {
-	cmr.Register(util.YurtHubCertificateManagerName, func(cfg *config.YurtHubConfiguration) (interfaces.YurtCertificateManager, error) {
-		return NewYurtHubCertManager(cfg)
-	})
-}
 
 type yurtHubCertManager struct {
 	remoteServers         []*url.URL

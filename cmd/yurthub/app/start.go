@@ -19,16 +19,17 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
@@ -83,14 +84,24 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace := 1
 	klog.Infof("%d. register cert managers", trace)
-	cmr := certificate.NewCertificateManagerRegistry()
-	hubself.Register(cmr)
+	certManager, err := hubself.NewYurtHubCertManager(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create cert manager for yurthub, %v", err)
+	}
 	trace++
 
-	klog.Infof("%d. create cert manager with %s mode", trace, cfg.CertMgrMode)
-	certManager, err := cmr.New(cfg.CertMgrMode, cfg)
+	certManager.Start()
+	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
+		curr := certManager.Current()
+		if curr != nil {
+			return true, nil
+		}
+
+		klog.Infof("waiting for preparing client certificate")
+		return false, nil
+	})
 	if err != nil {
-		return fmt.Errorf("could not create certificate manager, %w", err)
+		return fmt.Errorf("client certificate preparation failed, %v", err)
 	}
 	trace++
 
