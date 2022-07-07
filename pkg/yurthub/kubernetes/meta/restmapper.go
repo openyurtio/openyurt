@@ -148,7 +148,7 @@ func (rm *RESTMapperManager) updateCachedDynamicRESTMapper() error {
 }
 
 // KindFor is used to find GVK based on GVR information.
-// 1. return true means the GVR is a built-in resource in shceme.
+// 1. return true means the GVR is a built-in resource in scheme.
 // 2.1 return false and non-empty GVK means the GVR is custom resource
 // 2.2 return false and empty GVK means the GVR is unknown resource.
 func (rm *RESTMapperManager) KindFor(gvr schema.GroupVersionResource) (bool, schema.GroupVersionKind) {

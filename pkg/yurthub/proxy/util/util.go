@@ -258,7 +258,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 //    context is used to cancel the request for hub missed disconnect
 //    signal from kube-apiserver when watch request is ended.
 // 2. WithRequestTimeout reduce timeout context for get/list request.
-//    timeout is Timout reduce a margin(2 seconds). When request remote server fail,
+//    timeout is Timeout reduce a margin(2 seconds). When request remote server fail,
 //    can get data from cache before client timeout.
 
 func WithRequestTimeout(handler http.Handler) http.Handler {
@@ -309,7 +309,7 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 
 			if jsonWebToken, err := jwt.ParseSigned(oldToken); err != nil {
 
-				klog.Errorf("invaled bearer token %s, err: %v", oldToken, err)
+				klog.Errorf("invalid bearer token %s, err: %v", oldToken, err)
 			} else {
 				oldClaim := jwt.Claims{}
 

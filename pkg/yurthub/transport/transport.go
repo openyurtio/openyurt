@@ -56,7 +56,7 @@ type transportManager struct {
 func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
 	caFile := certMgr.GetCaFile()
 	if len(caFile) == 0 {
-		return nil, fmt.Errorf("ca cert file was not prepared when new tranport")
+		return nil, fmt.Errorf("ca cert file was not prepared when new transport")
 	}
 	klog.V(2).Infof("use %s ca cert file to access remote server", caFile)
 

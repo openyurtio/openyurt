@@ -351,7 +351,7 @@ func (ipc ImagePullCheck) Check() (warnings, errorList []error) {
 	return warnings, errorList
 }
 
-// RunConvertClusterChecks excutes all cluster-level checks.
+// RunConvertClusterChecks executes all cluster-level checks.
 func RunConvertClusterChecks(cliSet *kubernetes.Clientset, ignorePreflightErrors sets.String) error {
 	nodeLst, err := cliSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
