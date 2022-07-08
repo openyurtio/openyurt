@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 type ListMode string
@@ -28,7 +29,6 @@ type ListMode string
 var (
 	ListModeDirs  ListMode = "dirs"
 	ListModeFiles ListMode = "files"
-	ListModeAll   ListMode = "all"
 )
 
 type FileSystemOperator struct{}
@@ -81,20 +81,20 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 	return err
 }
 
-// list will list names of entries under the path. If isRecurisive is set, it will
-// walk the path including all subdirs.
-// There're three modes:
+// list will list names of entries under the rootDir(except the root dir). If isRecurisive is set, it will
+// walk the path including all subdirs. The returned file names are absolute paths and
+// in lexicographical order.
+// There're two modes:
 // "dirs" returns names of all directories.
 // "files" returns names of all regular files.
-// "all" returns names of all entries.
 //
 // If the path does not exist, return ErrNotExists.
 // If the path is not a directory, return ErrIsNotDir.
-func (fs *FileSystemOperator) List(path string, mode ListMode, isRecursive bool) ([]string, error) {
-	if !IfExists(path) {
+func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bool) ([]string, error) {
+	if !IfExists(rootDir) {
 		return nil, ErrNotExists
 	}
-	if ok, err := IsDir(path); !ok || err != nil {
+	if ok, err := IsDir(rootDir); !ok || err != nil {
 		if !ok {
 			return nil, ErrIsNotDir
 		}
@@ -104,32 +104,35 @@ func (fs *FileSystemOperator) List(path string, mode ListMode, isRecursive bool)
 	dirs := []string{}
 	files := []string{}
 	if isRecursive {
-		filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 
 			switch {
 			case info.Mode().IsDir():
-				dirs = append(dirs, info.Name())
+				if path == rootDir {
+					return nil
+				}
+				dirs = append(dirs, path)
 			case info.Mode().IsRegular():
-				files = append(files, info.Name())
+				files = append(files, path)
 			default:
 				// something like symbolic link, currently ignore it
 			}
 			return nil
 		})
 	} else {
-		infos, err := os.ReadDir(path)
+		infos, err := os.ReadDir(rootDir)
 		if err != nil {
 			return nil, err
 		}
 		for i := range infos {
 			switch {
 			case infos[i].Type().IsDir():
-				dirs = append(dirs, infos[i].Name())
+				dirs = append(dirs, filepath.Join(rootDir, infos[i].Name()))
 			case infos[i].Type().IsRegular():
-				files = append(files, infos[i].Name())
+				files = append(files, filepath.Join(rootDir, infos[i].Name()))
 			default:
 				// something like symbolic link, currently ignore it
 			}
@@ -138,11 +141,11 @@ func (fs *FileSystemOperator) List(path string, mode ListMode, isRecursive bool)
 
 	switch mode {
 	case ListModeDirs:
+		sort.Strings(dirs)
 		return dirs, nil
 	case ListModeFiles:
+		sort.Strings(files)
 		return files, nil
-	case ListModeAll:
-		return append(dirs, files...), nil
 	default:
 		return nil, fmt.Errorf("unknown mode %s", mode)
 	}
@@ -163,7 +166,7 @@ func (fs *FileSystemOperator) DeleteFile(path string) error {
 		return err
 	}
 
-	return os.Remove(path)
+	return os.RemoveAll(path)
 }
 
 // DeleteDir will delete directory at path. All files and subdirs will be deleted.
@@ -184,7 +187,8 @@ func (fs *FileSystemOperator) DeleteDir(path string) error {
 	return os.RemoveAll(path)
 }
 
-// CreateDir will create the dir at path.
+// CreateDir will create the dir at path. If the parent dir of this path does not
+// exist, it will be created first.
 // If the path has already existed and is not dir, return ErrIsNotDir.
 // If the path has already existed and is a dir, return ErrExists.
 func (fs *FileSystemOperator) CreateDir(path string) error {
@@ -201,7 +205,8 @@ func (fs *FileSystemOperator) CreateDir(path string) error {
 	return nil
 }
 
-// CreateFile will create the file at path with content.
+// CreateFile will create the file at path with content. If its parent dir does not
+// exist, it will be created first.
 // If the path has already existed and is not regular file, return ErrIsNotFile.
 // If the path has already existed and is regular file, return ErrExists.
 func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
@@ -214,7 +219,7 @@ func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
 	}
 
 	// ensure the base dir
-	dir, filename := filepath.Split(path)
+	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(dir, 0755); err != nil {
@@ -226,7 +231,7 @@ func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
 	}
 
 	// create the file with mode and write content into it
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -242,7 +247,18 @@ func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
 	return err
 }
 
+// Rename will rename file(or directory) at oldPath as newPath.
+// If file of newPath has already existed, it will be replaced.
+// If path does not exists, return ErrNotExists.
+// If oldPath and newPath does not under the same parent dir, return ErrInvalidPath.
 func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error {
+	if !IfExists(oldPath) {
+		return ErrNotExists
+	}
+	if filepath.Dir(oldPath) != filepath.Dir(newPath) {
+		return ErrInvalidPath
+	}
+
 	return os.Rename(oldPath, newPath)
 }
 
