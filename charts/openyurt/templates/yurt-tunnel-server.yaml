@@ -1,0 +1,216 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: tunnel-proxy-client
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/stats
+      - nodes/metrics
+      - nodes/log
+      - nodes/spec
+      - nodes/proxy
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - patch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tunnel-proxy-client
+subjects:
+  - kind: User
+    name: tunnel-proxy-client
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: tunnel-proxy-client
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: yurt-tunnel-server
+rules:
+  - apiGroups:
+      - certificates.k8s.io
+    resources:
+      - certificatesigningrequests
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - pods
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - list
+      - watch
+      - get
+      - create
+      - update
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - create
+      - get
+      - update
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: yurt-tunnel-server
+subjects:
+  - kind: ServiceAccount
+    name: yurt-tunnel-server
+    namespace: {{ .Release.Namespace | quote }}
+roleRef:
+  kind: ClusterRole
+  name: yurt-tunnel-server
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-tunnel-server
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-svc
+  labels:
+    name: yurt-tunnel-server
+spec:
+  type: NodePort
+  ports:
+    - port: 10263
+      targetPort: 10263
+      name: https
+    - port: 10262
+      targetPort: 10262
+      name: tcp
+  selector:
+    k8s-app: yurt-tunnel-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-internal-svc
+  labels:
+    name: yurt-tunnel-server
+spec:
+  ports:
+    - port: 10250
+      targetPort: 10263
+      name: https
+    - port: 10255
+      targetPort: 10264
+      name: http
+  selector:
+    k8s-app: yurt-tunnel-server
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yurt-tunnel-server-cfg
+data:
+  localhost-proxy-ports: "10266, 10267"
+  http-proxy-ports: ""
+  https-proxy-ports: ""
+  dnat-ports-pair: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yurt-tunnel-server
+  labels:
+    k8s-app: yurt-tunnel-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: yurt-tunnel-server
+  template:
+    metadata:
+      labels:
+        k8s-app: yurt-tunnel-server
+    spec:
+      hostNetwork: true
+      serviceAccountName: yurt-tunnel-server
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      volumes:
+        - name: tunnel-server-dir
+          hostPath:
+            path: /var/lib/yurttunnel-server
+            type: DirectoryOrCreate
+      tolerations:
+        - operator: "Exists"
+      nodeSelector:
+        beta.kubernetes.io/arch: amd64
+        beta.kubernetes.io/os: linux
+        openyurt.io/is-edge-worker: "false"
+      containers:
+        - name: yurt-tunnel-server
+          image: "{{ .Values.yurtTunnelServer.image.registry }}/{{ .Values.yurtTunnelServer.image.repository }}:{{ .Values.yurtTunnelServer.image.tag }}"
+          imagePullPolicy: {{ .Values.yurtTunnelServer.image.pullPolicy }}
+          command:
+            - yurt-tunnel-server
+          args:
+            - --bind-address=$(NODE_IP)
+            - --insecure-bind-address=$(NODE_IP)
+            - --proxy-strategy=destHost
+            - --v=2
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+          volumeMounts:
+            - name: tunnel-server-dir
+              mountPath: /var/lib/yurttunnel-server
