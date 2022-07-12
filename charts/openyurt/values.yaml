@@ -1,0 +1,34 @@
+
+imagePullSecrets: []
+
+yurtControllerManager:
+  replicaCount: 1
+  tolerations: []
+  image:
+    registry: docker.io
+    repository: openyurt/yurt-controller-manager
+    pullPolicy: IfNotPresent
+    tag: v0.7.0
+  service:
+    type: ClusterIP
+    port: 80
+
+yurtTunnelAgent:
+  replicaCount: 1
+  tolerations: []
+  image:
+    registry: docker.io
+    repository: openyurt/yurt-tunnel-agent
+    pullPolicy: IfNotPresent
+    tag: v0.7.0
+
+yurtTunnelServer:
+  replicaCount: 1
+  tolerations: []
+  image:
+    registry: docker.io
+    repository: openyurt/yurt-tunnel-server
+    pullPolicy: IfNotPresent
+    tag: v0.7.0
+
+

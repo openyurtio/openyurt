@@ -1,0 +1,30 @@
+name: Sync Charts
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'charts/**'
+
+jobs:
+  copy-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Get the version
+        id: get_version
+        run: |
+          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+          echo ::set-output name=TAG::${GITHUB_REF#refs/tags/}
+
+      - name: Sync to openyurt-helm Repo
+        env:
+          SSH_DEPLOY_KEY: ${{ secrets.OPENYURT_API_DEPLOY }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          TAG: ${{ steps.get_version.outputs.TAG }}
+          COMMIT_ID: ${{ github.sha }}
+        run: |
+          bash ./hack/lib/sync-charts.sh
