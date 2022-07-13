@@ -166,7 +166,7 @@ metadata:
   labels:
     k8s-app: yurt-tunnel-server
 spec:
-  replicas: 1
+  replicas: {{ .Values.yurtTunnelServer.replicaCount }}
   selector:
     matchLabels:
       k8s-app: yurt-tunnel-server
