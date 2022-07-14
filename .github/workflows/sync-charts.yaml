@@ -22,7 +22,7 @@ jobs:
 
       - name: Sync to openyurt-helm Repo
         env:
-          SSH_DEPLOY_KEY: ${{ secrets.OPENYURT_API_DEPLOY }}
+          SSH_DEPLOY_KEY: ${{ secrets.SYNC_CHARTS_SECRET }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
           TAG: ${{ steps.get_version.outputs.TAG }}
           COMMIT_ID: ${{ github.sha }}
