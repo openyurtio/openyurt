@@ -92,6 +92,11 @@ jobs:
           restore-keys: ${{ runner.os }}-go-
       - name: Run Unit Tests
         run: make test
+      - name: Publish Unit Test Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          flags: unittests
+          file: cover.out,yurttunnel-cover.out
   build-binaries:
     runs-on: ubuntu-18.04
     steps:
