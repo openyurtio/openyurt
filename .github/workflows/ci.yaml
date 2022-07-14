@@ -95,8 +95,12 @@ jobs:
       - name: Publish Unit Test Coverage
         uses: codecov/codecov-action@v3
         with:
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
-          file: cover.out,yurttunnel-cover.out
+          files: ./cover.out,./yurttunnel-cover.out
+          fail_ci_if_error: true
+          verbose: true
   build-binaries:
     runs-on: ubuntu-18.04
     steps:
