@@ -19,6 +19,7 @@ package yurtinit
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -34,24 +35,34 @@ type InitOptions struct {
 	Password                string
 	ImageRepository         string
 	OpenYurtVersion         string
+	K8sVersion              string
 }
 
 func NewInitOptions() *InitOptions {
 	return &InitOptions{
 		ImageRepository: constants.DefaultOpenYurtImageRegistry,
 		OpenYurtVersion: constants.DefaultOpenYurtVersion,
+		K8sVersion:      constants.DefaultK8sVersion,
 	}
 }
 
 func (o *InitOptions) Validate() error {
-	if err := validateServerAddress(o.AdvertiseAddress); err != nil {
-		return err
+	// There may be multiple ip addresses, separated by commas.
+	if o.AdvertiseAddress != "" {
+		ipArray := strings.Split(o.AdvertiseAddress, ",")
+		for _, ip := range ipArray {
+			if err := validateServerAddress(ip); err != nil {
+				return err
+			}
+		}
 	}
+
 	if o.YurttunnelServerAddress != "" {
 		if err := validateServerAddress(o.YurttunnelServerAddress); err != nil {
 			return err
 		}
 	}
+
 	if o.Password == "" {
 		return fmt.Errorf("password can't be empty.")
 	}
@@ -61,11 +72,13 @@ func (o *InitOptions) Validate() error {
 			return err
 		}
 	}
+
 	if o.ServiceSubnet != "" {
 		if err := validateCidrString(o.ServiceSubnet); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ func RetrieveBootstrapConfig(data joindata.YurtJoinData) (*clientcmdapi.Config, 
 
 	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(cfg)
 	return kubeconfigutil.CreateWithToken(
-		fmt.Sprintf("https://%s", data.ServerAddr()),
+		fmt.Sprintf("https://%s", strings.Split(data.ServerAddr(), ",")[0]),
 		"kubernetes",
 		TokenUser,
 		clusterinfo.CertificateAuthorityData,
@@ -79,7 +80,7 @@ func retrieveValidatedConfigInfo(client clientset.Interface, data joindata.YurtJ
 		return nil, err
 	}
 
-	endpoint := data.ServerAddr()
+	endpoint := strings.Split(data.ServerAddr(), ",")[0]
 	insecureBootstrapConfig := buildInsecureBootstrapKubeConfig(endpoint, "kubernetes")
 	clusterName := insecureBootstrapConfig.Contexts[insecureBootstrapConfig.CurrentContext].Cluster
 

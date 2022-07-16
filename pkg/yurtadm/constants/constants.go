@@ -24,6 +24,7 @@ const (
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
 
+	EtcHostsFile             = "/etc/hosts"
 	SysctlK8sConfig          = "/etc/sysctl.d/k8s.conf"
 	KubeletConfigureDir      = "/etc/kubernetes"
 	KubeletWorkdir           = "/var/lib/kubelet"
@@ -46,8 +47,11 @@ const (
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
 
+	DefaultVIP                   = "10.103.97.2"
+	DefaultAPIserverDomain       = "apiserver.cluster.local"
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
 	DefaultOpenYurtVersion       = "latest"
+	DefaultK8sVersion            = "1198" // default kubernetes 1.19.8
 	YurtControllerManager        = "yurt-controller-manager"
 	YurtTunnelServer             = "yurt-tunnel-server"
 	YurtTunnelAgent              = "yurt-tunnel-agent"

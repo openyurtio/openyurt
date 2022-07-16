@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -29,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/preflight"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
+	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 // NewPreflightPhase creates a kubeadm workflow phase that implements preflight checks for a new node join
@@ -71,7 +73,7 @@ func runPreflight(c workflow.RunData) error {
 		Discovery: kubeadmapi.Discovery{
 			TLSBootstrapToken: data.JoinToken(),
 			BootstrapToken: &kubeadmapi.BootstrapTokenDiscovery{
-				APIServerEndpoint: data.ServerAddr(),
+				APIServerEndpoint: fmt.Sprintf("%s:6443", yurtconstants.DefaultVIP),
 				Token:             data.JoinToken()},
 		},
 		ControlPlane: nil,

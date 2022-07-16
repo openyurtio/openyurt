@@ -22,6 +22,7 @@ import (
 	"os/exec"
 
 	"github.com/opencontainers/selinux/go-selinux"
+	"github.com/sealyun/lvscare/care"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
@@ -38,7 +39,7 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1`
 )
 
-//setIpv4Forward turn on the node ipv4 forward.
+// SetIpv4Forward turn on the node ipv4 forward.
 func SetIpv4Forward() error {
 	klog.Infof("Setting ipv4 forward")
 	if err := os.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
@@ -47,9 +48,9 @@ func SetIpv4Forward() error {
 	return nil
 }
 
-//setBridgeSetting turn on the node bridge-nf-call-iptables.
+// SetBridgeSetting turn on the node bridge-nf-call-iptables.
 func SetBridgeSetting() error {
-	klog.Info("Setting bridge settings for kubernetes.")
+	klog.Info("Setting bridge settings for kubernetes")
 	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %w ", constants.SysctlK8sConfig, err)
 	}
@@ -69,9 +70,38 @@ func SetBridgeSetting() error {
 	return nil
 }
 
-// setSELinux turn off the node selinux.
+// SetSELinux turn off the node selinux.
 func SetSELinux() error {
-	klog.Info("Disabling SELinux.")
+	klog.Info("Disabling SELinux")
 	selinux.SetDisabled()
+	return nil
+}
+
+// AddVIPHosts add the vip to the hosts.
+func AddVIPHosts() error {
+	klog.Info("Adding vip to the hosts")
+	f, err := os.OpenFile(constants.EtcHostsFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0660)
+	if err != nil {
+		return fmt.Errorf("Open file %s fail: %w ", constants.EtcHostsFile, err)
+	}
+	defer f.Close()
+	f.WriteString(fmt.Sprintf("%s %s\n", constants.DefaultVIP, constants.DefaultAPIserverDomain))
+	return nil
+}
+
+// AddIPVS add ipvs rules.
+func AddIPVS(virtualServer string, realServer []string) error {
+	klog.Info("Adding ipvs rules")
+	lvscare := &care.LvsCare{
+		HealthPath:    "/healthz",
+		HealthSchem:   "https",
+		VirtualServer: virtualServer,
+		RealServer:    realServer,
+		RunOnce:       true,
+		Clean:         true,
+		Interval:      5,
+	}
+
+	go lvscare.VsAndRsCare()
 	return nil
 }

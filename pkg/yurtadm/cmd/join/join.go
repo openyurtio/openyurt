@@ -37,6 +37,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/discovery/token"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubectl/pkg/util/i18n"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubectl/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphase "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
@@ -44,6 +46,20 @@ import (
 )
 
 var (
+	joinExample = templates.Examples(i18n.T(`
+		# Join the edge node to cluster.
+		yurtadm join 192.168.152.131:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
+
+		# Join the edge node to cluster with multiple masters.
+		yurtadm join 192.168.152.131:6443,192.168.152.132:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
+
+		# Join the cloud node to cluster.
+		yurtadm join 192.168.152.131:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
+
+		# Join the cloud node to cluster with multiple masters.
+		yurtadm join 192.168.152.131:6443,192.168.152.132:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
+	`))
+
 	joinWorkerNodeDoneMsg = dedent.Dedent(`
 		This node has joined the cluster:
 		* Certificate signing request was sent to apiserver and a response was received.
@@ -91,8 +107,9 @@ func NewCmdJoin(out io.Writer, joinOptions *joinOptions) *cobra.Command {
 	joinRunner := workflow.NewRunner()
 
 	cmd := &cobra.Command{
-		Use:   "join [api-server-endpoint]",
-		Short: "Run this on any machine you wish to join an existing cluster",
+		Use:     "join [api-server-endpoint]",
+		Short:   "Run this on any machine you wish to join an existing cluster",
+		Example: joinExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := joinRunner.Run(args); err != nil {
 				return err
