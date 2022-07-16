@@ -24,7 +24,7 @@ import (
 
 // TODO: should also valid the key format
 func ValidateKey(key storage.Key, validKeyType interface{}) error {
-	if reflect.TypeOf(key) == reflect.TypeOf(validKeyType) {
+	if reflect.TypeOf(key) != reflect.TypeOf(validKeyType) {
 		return storage.ErrUnrecognizedKey
 	}
 	if key.Key() == "" {

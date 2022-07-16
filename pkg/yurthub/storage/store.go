@@ -50,13 +50,9 @@ type Store interface {
 	// an empty slice of content will be returned.
 	List(rootKey Key) ([][]byte, error)
 
-	// TODO: if cannot update for rv is not fresh enough, the current obj bytes should be return
-	//
 	// Update will try to update key in store with passed-in contents. Only when
 	// the rv of passed-in contents is fresher than what is in the store, the Update will happen.
 	// The content of key after Update is completed will be returned.
-	// If force is set as true, rv will be ignored, using the passed-in contents to
-	// replace what is in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
@@ -79,21 +75,21 @@ type componentRelatedInterface interface {
 	// ListResourceKeysOfComponent will get all keys of resource of component.
 	// If component is Empty, ErrEmptyComponent will be returned.
 	// If resource is Empty, ErrEmptyResource will be returned.
-	// If the component can not be recognized or the resource has not been cached, return ErrStorageNotFound.
+	// If the cache of component can not be found or the resource has not been cached, return ErrStorageNotFound.
 	ListResourceKeysOfComponent(component string, resource string) ([]Key, error)
 
 	// ReplaceComponentList will replace all cached objs of resource associated with the component with the passed-in contents.
-	// If the cached objs does not exist, it will use contents to build the cache. The selector parameter indicates the list
-	// selector it uses. This function is used by CacheManager to save list objects. It works like using the new list objects,
-	// passed in with contents, to replace relative old ones.
+	// If the cached objs does not exist, it will use contents to build the cache. This function is used by CacheManager to
+	// save list objects. It works like using the new list objects which are passed in as contents arguments to replace
+	// relative old ones.
 	// If namespace is provided, only objs in this namespace will be replaced.
-	// If component is Empty, ErrEmptyComponent will be returned.
-	// If resource is Empty, ErrEmptyResource will be returned.
-	// If the passed-in selector for this resource of this component is different from the previous one,
+	// If namespace is not provided, objs of all namespaces will be replaced with provided contents.
+	// If component is empty, ErrEmptyComponent will be returned.
+	// If resource is empty, ErrEmptyResource will be returned.
 	// the replace will fail and return error.
 	// If some contents are not the specified the resource, ErrInvalidContent will be returned.
 	// If the specified resource does not exist in the store, it will be created with passed-in contents.
-	ReplaceComponentList(component string, resource string, namespace string, selector string, contents map[Key][]byte) error
+	ReplaceComponentList(component string, resource string, namespace string, contents map[Key][]byte) error
 
 	// DeleteComponentResources will delete all resources associated with the component.
 	// If component is Empty, ErrEmptyComponent will be returned.
