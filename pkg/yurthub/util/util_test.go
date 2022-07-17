@@ -175,95 +175,6 @@ func TestDualReaderByPreClose(t *testing.T) {
 	}
 }
 
-func TestKeyFunc(t *testing.T) {
-	type expectData struct {
-		err bool
-		key string
-	}
-	tests := []struct {
-		desc     string
-		comp     string
-		resource string
-		ns       string
-		name     string
-		result   expectData
-	}{
-		{
-			desc:   "no resource",
-			comp:   "kubelet",
-			result: expectData{err: true},
-		},
-		{
-			desc:     "no comp",
-			resource: "pods",
-			result:   expectData{err: true},
-		},
-		{
-			desc:     "with comp and resource",
-			comp:     "kubelet",
-			resource: "pods",
-			result:   expectData{key: "kubelet/pods"},
-		},
-		{
-			desc:     "with comp resource and ns",
-			comp:     "kubelet",
-			resource: "pods",
-			ns:       "default",
-			result:   expectData{key: "kubelet/pods/default"},
-		},
-		{
-			desc:     "with comp resource and name",
-			comp:     "kubelet",
-			resource: "pods",
-			name:     "mypod1",
-			result:   expectData{key: "kubelet/pods/mypod1"},
-		},
-		{
-			desc:     "with all items",
-			comp:     "kubelet",
-			resource: "pods",
-			ns:       "default",
-			name:     "mypod1",
-			result:   expectData{key: "kubelet/pods/default/mypod1"},
-		},
-		{
-			desc:     "get namespace",
-			comp:     "kubelet",
-			resource: "namespaces",
-			ns:       "kube-system",
-			name:     "kube-system",
-			result:   expectData{key: "kubelet/namespaces/kube-system"},
-		},
-		{
-			desc:     "list namespace",
-			comp:     "kubelet",
-			resource: "namespaces",
-			ns:       "",
-			name:     "kube-system",
-			result:   expectData{key: "kubelet/namespaces/kube-system"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			key, err := KeyFunc(tt.comp, tt.resource, tt.ns, tt.name)
-			if tt.result.err {
-				if err == nil {
-					t.Errorf("expect error returned, but not error")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Got error %v", err)
-				}
-
-				if key != tt.result.key {
-					t.Errorf("%s Expect, but got %s", tt.result.key, key)
-				}
-			}
-		})
-	}
-}
-
 func TestSplitKey(t *testing.T) {
 	type expectData struct {
 		comp     string
@@ -722,41 +633,6 @@ func TestReqInfoString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ReqInfoString(tt.args.info); got != tt.want {
 				t.Errorf("ReqInfoString() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsKubeletLeaseReq(t *testing.T) {
-	type args struct {
-		req *http.Request
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{"null request", args{new(http.Request)}, false},
-		{"not kubelet request", args{
-			new(http.Request).WithContext(WithClientComponent(context.Background(), "not-kubelet")),
-		}, false},
-		{"no request info in request", args{
-			new(http.Request).
-				WithContext(WithClientComponent(context.Background(), "kubelet")),
-		}, false},
-		{"request source is not leases", args{
-			new(http.Request).
-				WithContext(apirequest.WithRequestInfo(WithClientComponent(context.Background(), "kubelet"), &apirequest.RequestInfo{Resource: "not-leases"})),
-		}, false},
-		{"valid request", args{
-			new(http.Request).
-				WithContext(apirequest.WithRequestInfo(WithClientComponent(context.Background(), "kubelet"), &apirequest.RequestInfo{Resource: "leases"})),
-		}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := IsKubeletLeaseReq(tt.args.req); got != tt.want {
-				t.Errorf("IsKubeletLeaseReq() = %v, want %v", got, tt.want)
 			}
 		})
 	}

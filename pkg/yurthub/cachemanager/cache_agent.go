@@ -41,7 +41,7 @@ type CacheAgent struct {
 
 func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
-		agents: sets.NewString(),
+		agents: sets.NewString(util.DefaultCacheAgents...),
 		store:  store,
 	}
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
@@ -53,6 +53,10 @@ func NewCacheAgents(informerFactory informers.SharedInformerFactory, store Stora
 
 	klog.Infof("init cache agents to %v", ca.agents)
 	return ca
+}
+
+func (ca *CacheAgent) HasAny(items ...string) bool {
+	return ca.agents.HasAny(items...)
 }
 
 func (ca *CacheAgent) addConfigmap(obj interface{}) {
@@ -123,8 +127,6 @@ func (ca *CacheAgent) updateCacheAgents(cacheAgents, action string) sets.String 
 
 func (ca *CacheAgent) deleteAgentCache(deletedAgents sets.String) {
 	// delete cache data for deleted agents
-	// TODO: cache agent currently depend on the disk storage
-	// it should have the capability of handling general store
 	if deletedAgents.Len() > 0 {
 		components := deletedAgents.List()
 		for i := range components {

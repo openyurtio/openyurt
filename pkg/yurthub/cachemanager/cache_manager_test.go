@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +54,9 @@ import (
 )
 
 var (
-	rootDir = "/tmp/cache-manager"
+	rootDir                   = "/tmp/cache-manager"
+	fakeClient                = fake.NewSimpleClientset()
+	fakeSharedInformerFactory = informers.NewSharedInformerFactory(fakeClient, 0)
 )
 
 func TestCacheGetResponse(t *testing.T) {
@@ -63,20 +64,18 @@ func TestCacheGetResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
+	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := &cacheManager{
-		storage:           sWrapper,
-		serializerManager: serializerM,
-		cacheAgents:       sets.String{},
-		restMapperManager: restRESTMapperMgr,
-	}
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
 		version      string
-		key          string
+		keyBuildInfo storage.KeyBuildInfo
 		inputObj     runtime.Object
 		userAgent    string
 		accept       string
@@ -96,7 +95,12 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for pod with not assigned node": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default/mypod1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod1",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -119,7 +123,12 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get pod": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default/mypod1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod1",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -156,7 +165,12 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get pod2": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default/mypod2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod2",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -193,7 +207,11 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get node": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodes/mynode1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "mynode1",
+			},
 			inputObj: runtime.Object(&v1.Node{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -225,7 +243,11 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get node2": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodes/mynode2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "mynode2",
+			},
 			inputObj: runtime.Object(&v1.Node{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -258,7 +280,12 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get crontab": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default/crontab1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -292,7 +319,12 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get crontab2": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default/crontab2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab2",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -326,7 +358,11 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get foo without namespace": {
 			group:   "samplecontroller.k8s.io",
 			version: "v1",
-			key:     "kubelet/foos/foo1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -358,7 +394,11 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get foo2 without namespace": {
 			group:   "samplecontroller.k8s.io",
 			version: "v1",
-			key:     "kubelet/foos/foo2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo2",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -390,7 +430,11 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for Status": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodes/test",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "test",
+			},
 			inputObj: runtime.Object(&metav1.Status{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -417,9 +461,13 @@ func TestCacheGetResponse(t *testing.T) {
 			},
 		},
 		"cache response for nil object": {
-			group:            "",
-			version:          "v1",
-			key:              "kubelet/nodes/test",
+			group:   "",
+			version: "v1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "test",
+			},
 			inputObj:         nil,
 			userAgent:        "kubelet",
 			accept:           "application/json",
@@ -431,7 +479,13 @@ func TestCacheGetResponse(t *testing.T) {
 		"cache response for get namespace": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/namespaces/kube-system",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "namespaces",
+				Name:      "kube-system",
+				Group:     "",
+				Version:   "v1",
+			},
 			inputObj: runtime.Object(&v1.Namespace{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -511,13 +565,16 @@ func TestCacheGetResponse(t *testing.T) {
 			if len(tt.expectResult.name) == 0 {
 				return
 			}
-
-			obj, err := sWrapper.Get(tt.key)
+			key, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+			if err != nil {
+				t.Errorf("failed to create key, %v", err)
+			}
+			obj, err := sWrapper.Get(key)
 			if err != nil || obj == nil {
 				if !errors.Is(tt.expectResult.err, err) {
 					t.Errorf("expect get error %v, but got %v", tt.expectResult.err, err)
 				}
-				t.Logf("get expected err %v for key %s", tt.expectResult.err, tt.key)
+				t.Logf("get expected err %v for key %s", tt.expectResult.err, tt.keyBuildInfo)
 			} else {
 				name, _ := accessor.Name(obj)
 				rv, _ := accessor.ResourceVersion(obj)
@@ -540,14 +597,14 @@ func TestCacheGetResponse(t *testing.T) {
 				if tt.expectResult.kind != kind {
 					t.Errorf("Got kind %s, but expect kind %s", kind, tt.expectResult.kind)
 				}
-				t.Logf("get key %s successfully", tt.key)
+				t.Logf("get key %s successfully", tt.keyBuildInfo)
 			}
 
-			err = sWrapper.DeleteCollection("kubelet")
+			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
-			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+			if err = restRESTMapperMgr.ResetRESTMapper(); err != nil {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
@@ -586,20 +643,18 @@ func TestCacheWatchResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
+	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := &cacheManager{
-		storage:           sWrapper,
-		serializerManager: serializerM,
-		cacheAgents:       sets.String{},
-		restMapperManager: restRESTMapperMgr,
-	}
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
 		version      string
-		key          string
+		keyBuildInfo storage.KeyBuildInfo
 		inputObj     []watch.Event
 		userAgent    string
 		accept       string
@@ -615,7 +670,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"add pods": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Added, Object: mkPod("mypod2", "4")},
@@ -641,7 +700,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"add and delete pods": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Deleted, Object: mkPod("mypod1", "4")},
@@ -665,7 +728,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"add and update pods": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Modified, Object: mkPod("mypod1", "4")},
@@ -690,7 +757,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"not update pods": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "6")},
 				{Type: watch.Modified, Object: mkPod("mypod1", "4")},
@@ -715,7 +786,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"cache response for watch add crontabs": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Added, Object: mkCronTab("crontab2", "4")},
@@ -741,7 +816,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"cache response for watch add and delete crontabs": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Deleted, Object: mkCronTab("crontab1", "4")},
@@ -765,7 +844,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"cache response for watch add and update crontabs": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
@@ -790,7 +873,11 @@ func TestCacheWatchResponse(t *testing.T) {
 		"cache response for watch not update crontabs": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "6")},
 				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
@@ -809,6 +896,30 @@ func TestCacheWatchResponse(t *testing.T) {
 				data: map[string]struct{}{
 					"crontab-default-crontab1-6": {},
 				},
+			},
+		},
+		"should not return error when storing bookmark watch event": {
+			group:   "",
+			version: "v1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
+			inputObj: []watch.Event{
+				{Type: watch.Bookmark, Object: mkPod("mypod1", "2")},
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/namespaces/default/pods?watch=true",
+			resource:   "pods",
+			namespaced: true,
+			expectResult: struct {
+				err  bool
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{},
 			},
 		},
 	}
@@ -865,7 +976,11 @@ func TestCacheWatchResponse(t *testing.T) {
 				return
 			}
 
-			objs, err := sWrapper.List(tt.key)
+			rootKey, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+			if err != nil {
+				t.Errorf("failed to get key, %v", err)
+			}
+			objs, err := sWrapper.List(rootKey)
 			if err != nil || len(objs) == 0 {
 				t.Errorf("failed to get object from storage")
 			}
@@ -874,11 +989,11 @@ func TestCacheWatchResponse(t *testing.T) {
 				t.Errorf("got unexpected objects for keys for watch request")
 			}
 
-			err = sWrapper.DeleteCollection("kubelet")
+			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
-			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+			if err = restRESTMapperMgr.ResetRESTMapper(); err != nil {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
@@ -897,18 +1012,16 @@ func TestCacheListResponse(t *testing.T) {
 	sWrapper := NewStorageWrapper(dStorage)
 
 	serializerM := serializer.NewSerializerManager()
-	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
-	yurtCM := &cacheManager{
-		storage:           sWrapper,
-		serializerManager: serializerM,
-		cacheAgents:       sets.String{},
-		restMapperManager: restRESTMapperMgr,
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
 		version      string
-		key          string
+		keyBuildInfo storage.KeyBuildInfo
 		inputObj     runtime.Object
 		userAgent    string
 		accept       string
@@ -924,7 +1037,11 @@ func TestCacheListResponse(t *testing.T) {
 		"list pods": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: runtime.Object(
 				&v1.PodList{
 					TypeMeta: metav1.TypeMeta{
@@ -991,7 +1108,10 @@ func TestCacheListResponse(t *testing.T) {
 		"list nodes": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodes",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+			},
 			inputObj: runtime.Object(
 				&v1.NodeList{
 					TypeMeta: metav1.TypeMeta{
@@ -1066,7 +1186,10 @@ func TestCacheListResponse(t *testing.T) {
 		"list nodes with fieldselector": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodes",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+			},
 			inputObj: runtime.Object(
 				&v1.NodeList{
 					TypeMeta: metav1.TypeMeta{
@@ -1108,7 +1231,10 @@ func TestCacheListResponse(t *testing.T) {
 		"list runtimeclasses with no objects": {
 			group:   "node.k8s.io",
 			version: "v1beta1",
-			key:     "kubelet/runtimeclasses",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "runtimeclasses",
+			},
 			inputObj: runtime.Object(
 				&nodev1beta1.RuntimeClassList{
 					TypeMeta: metav1.TypeMeta{
@@ -1137,7 +1263,10 @@ func TestCacheListResponse(t *testing.T) {
 		"list with status": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/nodetest",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodetest",
+			},
 			inputObj: runtime.Object(
 				&metav1.Status{
 					TypeMeta: metav1.TypeMeta{
@@ -1161,7 +1290,11 @@ func TestCacheListResponse(t *testing.T) {
 		"cache response for list crontabs": {
 			group:   "stable.example.com",
 			version: "v1",
-			key:     "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			inputObj: runtime.Object(
 				&unstructured.UnstructuredList{
 					Object: map[string]interface{}{
@@ -1218,7 +1351,10 @@ func TestCacheListResponse(t *testing.T) {
 		"cache response for list foos without namespace": {
 			group:   "samplecontroller.k8s.io",
 			version: "v1",
-			key:     "kubelet/foos",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+			},
 			inputObj: runtime.Object(
 				&unstructured.UnstructuredList{
 					Object: map[string]interface{}{
@@ -1273,7 +1409,10 @@ func TestCacheListResponse(t *testing.T) {
 		"list foos with no objects": {
 			group:   "samplecontroller.k8s.io",
 			version: "v1",
-			key:     "kubelet/foos",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+			},
 			inputObj: runtime.Object(
 				&unstructured.UnstructuredList{
 					Object: map[string]interface{}{
@@ -1304,7 +1443,12 @@ func TestCacheListResponse(t *testing.T) {
 		"list namespaces": {
 			group:   "",
 			version: "v1",
-			key:     "kubelet/namespaces",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "namespaces",
+				Group:     "",
+				Version:   "v1",
+			},
 			inputObj: runtime.Object(
 				&v1.NamespaceList{
 					TypeMeta: metav1.TypeMeta{
@@ -1403,7 +1547,11 @@ func TestCacheListResponse(t *testing.T) {
 					t.Errorf("Got error %v", err)
 				}
 
-				objs, err := sWrapper.List(tt.key)
+				rootKey, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+				if err != nil {
+					t.Errorf("failed to get key, %v", err)
+				}
+				objs, err := sWrapper.List(rootKey)
 				if err != nil {
 					// If error is storage.ErrStorageNotFound, it means that no object is cached in the hard disk
 					if errors.Is(err, storage.ErrStorageNotFound) {
@@ -1419,11 +1567,11 @@ func TestCacheListResponse(t *testing.T) {
 					t.Errorf("got unexpected objects for keys")
 				}
 			}
-			err = sWrapper.DeleteCollection("kubelet")
+			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
-			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+			if err = restRESTMapperMgr.ResetRESTMapper(); err != nil {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
@@ -1441,16 +1589,14 @@ func TestQueryCacheForGet(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
-	yurtCM := &cacheManager{
-		storage:           sWrapper,
-		serializerManager: serializerM,
-		cacheAgents:       sets.String{},
-		restMapperManager: restRESTMapperMgr,
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
-		key          string
+		keyBuildInfo storage.KeyBuildInfo
 		inputObj     runtime.Object
 		userAgent    string
 		accept       string
@@ -1470,6 +1616,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			verb:       "GET",
 			path:       "/api/v1/namespaces/default/pods/mypod1",
 			namespaced: true,
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod1",
+			},
 			expectResult: struct {
 				err  bool
 				rv   string
@@ -1485,6 +1637,10 @@ func TestQueryCacheForGet(t *testing.T) {
 			verb:       "GET",
 			path:       "/healthz",
 			namespaced: true,
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "healthz",
+			},
 			expectResult: struct {
 				err  bool
 				rv   string
@@ -1496,7 +1652,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"post pod": {
-			key: "kubelet/pods/default/mypod1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod1",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -1524,7 +1685,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"get pod": {
-			key: "kubelet/pods/default/mypod1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod1",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -1555,7 +1721,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"update pod": {
-			key: "kubelet/pods/default/mypod2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "mypod2",
+			},
 			inputObj: runtime.Object(&v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -1586,7 +1757,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"update node": {
-			key: "kubelet/nodes/mynode1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "mynode1",
+			},
 			inputObj: runtime.Object(&v1.Node{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -1615,7 +1790,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"patch node": {
-			key: "kubelet/nodes/mynode2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "mynode2",
+			},
 			inputObj: runtime.Object(&v1.Node{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -1650,6 +1829,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			verb:       "GET",
 			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs/crontab1",
 			namespaced: true,
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab1",
+			},
 			expectResult: struct {
 				err  bool
 				rv   string
@@ -1661,7 +1846,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query post crontab": {
-			key: "kubelet/crontabs/default/crontab1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -1689,7 +1879,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query get crontab": {
-			key: "kubelet/crontabs/default/crontab1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -1720,7 +1915,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query update crontab": {
-			key: "kubelet/crontabs/default/crontab2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab2",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -1751,7 +1951,12 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query patch crontab": {
-			key: "kubelet/crontabs/default/crontab3",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+				Name:      "crontab3",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "stable.example.com/v1",
@@ -1782,7 +1987,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query post foo": {
-			key: "kubelet/foos/foo1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -1809,7 +2018,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query get foo": {
-			key: "kubelet/foos/foo1",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo1",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -1838,7 +2051,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query update foo": {
-			key: "kubelet/foos/foo2",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo2",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -1867,7 +2084,11 @@ func TestQueryCacheForGet(t *testing.T) {
 			},
 		},
 		"query patch foo": {
-			key: "kubelet/foos/foo3",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+				Name:      "foo3",
+			},
 			inputObj: runtime.Object(&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "samplecontroller.k8s.io/v1",
@@ -1901,7 +2122,12 @@ func TestQueryCacheForGet(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			_ = sWrapper.Create(tt.key, tt.inputObj)
+			var err error
+			key, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+			if err != nil {
+				t.Errorf("failed to get key with info %v, %v", tt.keyBuildInfo, err)
+			}
+			_ = sWrapper.Create(key, tt.inputObj)
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
 			if len(tt.userAgent) != 0 {
 				req.Header.Set("User-Agent", tt.userAgent)
@@ -1914,7 +2140,6 @@ func TestQueryCacheForGet(t *testing.T) {
 			req.RemoteAddr = "127.0.0.1"
 
 			var name, ns, rv, kind string
-			var err error
 			var obj runtime.Object
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				obj, err = yurtCM.QueryCache(req)
@@ -1958,7 +2183,7 @@ func TestQueryCacheForGet(t *testing.T) {
 				}
 			}
 
-			err = sWrapper.DeleteCollection("kubelet")
+			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
@@ -1977,16 +2202,14 @@ func TestQueryCacheForList(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	restRESTMapperMgr := hubmeta.NewRESTMapperManager(dStorage)
-	yurtCM := &cacheManager{
-		storage:           sWrapper,
-		serializerManager: serializerM,
-		cacheAgents:       sets.String{},
-		restMapperManager: restRESTMapperMgr,
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
-		keyPrefix    string
+		keyBuildInfo storage.KeyBuildInfo
 		noObjs       bool
 		cachedKind   string
 		inputObj     []runtime.Object
@@ -2017,7 +2240,11 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list pods": {
-			keyPrefix: "kubelet/pods/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+			},
 			inputObj: []runtime.Object{
 				&v1.Pod{
 					TypeMeta: metav1.TypeMeta{
@@ -2073,7 +2300,10 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list nodes": {
-			keyPrefix: "kubelet/nodes",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+			},
 			inputObj: []runtime.Object{
 				&v1.Node{
 					TypeMeta: metav1.TypeMeta{
@@ -2137,7 +2367,10 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list runtimeclass": {
-			keyPrefix:  "kubelet/runtimeclasses",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "runtimeclasses",
+			},
 			noObjs:     true,
 			userAgent:  "kubelet",
 			accept:     "application/json",
@@ -2153,13 +2386,16 @@ func TestQueryCacheForList(t *testing.T) {
 				data: map[string]struct{}{},
 			},
 		},
-		"list pods and no pods in cache": {
-			keyPrefix:  "kubelet/pods",
+		"list pods of one namespace and no pods of this namespace in cache": {
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+			},
 			noObjs:     true,
 			userAgent:  "kubelet",
 			accept:     "application/json",
 			verb:       "GET",
-			path:       "/api/v1/pods",
+			path:       "/api/v1/pods/default",
 			namespaced: false,
 			expectResult: struct {
 				err      bool
@@ -2174,7 +2410,11 @@ func TestQueryCacheForList(t *testing.T) {
 
 		//used to test whether the query local Custom Resource list request can be handled correctly
 		"list crontabs": {
-			keyPrefix:  "kubelet/crontabs/default",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "crontabs",
+				Namespace: "default",
+			},
 			cachedKind: "stable.example.com/v1/CronTab",
 			inputObj: []runtime.Object{
 				&unstructured.Unstructured{
@@ -2231,7 +2471,10 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list foos": {
-			keyPrefix:  "kubelet/foos",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+			},
 			cachedKind: "samplecontroller.k8s.io/v1/Foo",
 			inputObj: []runtime.Object{
 				&unstructured.Unstructured{
@@ -2285,7 +2528,10 @@ func TestQueryCacheForList(t *testing.T) {
 			},
 		},
 		"list foos with no objs": {
-			keyPrefix:  "kubelet/foos",
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "foos",
+			},
 			noObjs:     true,
 			cachedKind: "samplecontroller.k8s.io/v1/Foo",
 			userAgent:  "kubelet",
@@ -2341,7 +2587,11 @@ func TestQueryCacheForList(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			for i := range tt.inputObj {
 				v, _ := accessor.Name(tt.inputObj[i])
-				key := filepath.Join(tt.keyPrefix, v)
+				tt.keyBuildInfo.Name = v
+				key, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+				if err != nil {
+					t.Errorf("failed to get key, %v", err)
+				}
 				_ = sWrapper.Create(key, tt.inputObj[i])
 			}
 
@@ -2354,7 +2604,7 @@ func TestQueryCacheForList(t *testing.T) {
 					Version: info[1],
 					Kind:    info[2],
 				}
-				_ = yurtCM.restMapperManager.UpdateKind(gvk)
+				_ = restRESTMapperMgr.UpdateKind(gvk)
 			}
 
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
@@ -2406,12 +2656,12 @@ func TestQueryCacheForList(t *testing.T) {
 					t.Errorf("got unexpected objects for keys")
 				}
 			}
-			err = sWrapper.DeleteCollection("kubelet")
+			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
 			}
 
-			if err = yurtCM.restMapperManager.ResetRESTMapper(); err != nil {
+			if err = restRESTMapperMgr.ResetRESTMapper(); err != nil {
 				t.Errorf("failed to delete cached DynamicRESTMapper, %v", err)
 			}
 		})
@@ -2706,7 +2956,7 @@ func TestCanCacheFor(t *testing.T) {
 			defer close(stop)
 			client := fake.NewSimpleClientset()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			m, _ := NewCacheManager(s, disk.KeyFunc, nil, nil, informerFactory)
+			m := NewCacheManager(s, nil, nil, informerFactory)
 			informerFactory.Start(nil)
 			cache.WaitForCacheSync(stop, informerFactory.Core().V1().ConfigMaps().Informer().HasSynced)
 			if tt.preRequest != nil {
@@ -2778,3 +3028,5 @@ func newTestRequestInfoResolver() *request.RequestInfoFactory {
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
 }
+
+// TODO: in-memory cache unit tests

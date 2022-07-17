@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -66,7 +65,7 @@ type cacheManager struct {
 	storage               StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
-	cacheAgents           sets.String
+	cacheAgents           *CacheAgent
 	listSelectorCollector map[storage.Key]string
 	sharedFactory         informers.SharedInformerFactory
 	inMemoryCache         map[string]runtime.Object
@@ -79,16 +78,17 @@ func NewCacheManager(
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
 ) CacheManager {
+	cacheAgents := NewCacheAgents(sharedFactory, storagewrapper)
 	cm := &cacheManager{
 		storage:               storagewrapper,
 		serializerManager:     serializerMgr,
+		cacheAgents:           cacheAgents,
 		restMapperManager:     restMapperMgr,
-		cacheAgents:           sets.NewString(util.DefaultCacheAgents...),
 		listSelectorCollector: make(map[storage.Key]string),
 		sharedFactory:         sharedFactory,
+		inMemoryCache:         make(map[string]runtime.Object),
 	}
 
-	NewCacheAgents(sharedFactory, storagewrapper)
 	return cm
 }
 
@@ -159,9 +159,13 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 			return nil, err
 		}
 
-		klog.V(4).Infof("component: %s try to get key: %s", comp, key)
+		klog.V(4).Infof("component: %s try to get key: %s", comp, key.Key())
 		obj, err := cm.storage.Get(key)
-		// When yurthub restart, the data stored in in-memory cache will loss,
+		if err != nil {
+			klog.Errorf("failed to get obj %s from storage, %v", key.Key(), err)
+			return nil, err
+		}
+		// When yurthub restart, the data stored in in-memory cache will lose,
 		// we need to rebuild the in-memory cache with backend consistent storage.
 		// Note:
 		// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
@@ -175,7 +179,7 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 				klog.V(4).Infof("use obj from backend storage to update in-memory cache of key %s", inMemoryCacheKey)
 			}
 		}
-		return cm.storage.Get(key)
+		return obj, nil
 	}
 
 	return nil, fmt.Errorf("request(%#+v) is not supported", info)
@@ -355,7 +359,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 
 			switch watchType {
 			case watch.Added, watch.Modified:
-				err = cm.saveOneObjectWithValidation(key, obj)
+				err = cm.storeObjectWithKey(key, obj)
 				if watchType == watch.Added {
 					addObjCnt++
 				} else {
@@ -372,9 +376,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				klog.V(2).Infof("pod(%s) is %s", key, string(watchType))
 			}
 
-			if errors.Is(err, storage.ErrStorageAccessConflict) {
-				klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key)
-			} else if err != nil {
+			if err != nil {
 				klog.Errorf("failed to process watch object %s, %v", key, err)
 			}
 		case watch.Bookmark:
@@ -441,18 +443,11 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Name:      name,
 			Resources: info.Resource,
 		})
-		err = cm.saveOneObjectWithValidation(key, items[0])
-		if errors.Is(err, storage.ErrStorageAccessConflict) {
-			klog.V(2).Infof("skip to cache list object because key(%s) is under processing", key)
-			return nil
-		}
-
-		return err
+		return cm.storeObjectWithKey(key, items[0])
 	} else {
 		// list all objects or with fieldselector/labelselector
 		objs := make(map[storage.Key]runtime.Object)
 		comp, _ := util.ClientComponentFrom(ctx)
-		selector, _ := util.ListSelectorFrom(ctx)
 		for i := range items {
 			accessor.SetKind(items[i], kind)
 			accessor.SetAPIVersion(items[i], apiVersion)
@@ -471,7 +466,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, info.Resource, info.Namespace, selector, objs)
+		return cm.storage.ReplaceComponentList(comp, info.Resource, info.Namespace, objs)
 	}
 }
 
@@ -527,11 +522,10 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		klog.Errorf("failed to update the DynamicRESTMapper %v", err)
 	}
 
-	if err := cm.saveOneObjectWithValidation(key, obj); err != nil {
-		if !errors.Is(err, storage.ErrStorageAccessConflict) {
-			return err
-		}
-		klog.V(2).Infof("skip to cache object because key(%s) is under processing", key)
+	err = cm.storeObjectWithKey(key, obj)
+	if err != nil {
+		klog.Errorf("failed to store object %s, %v", key.Key(), err)
+		return err
 	}
 
 	// update the in-memory cache with cloud response
@@ -550,7 +544,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	return nil
 }
 
-func (cm *cacheManager) saveOneObjectWithValidation(key storage.Key, obj runtime.Object) error {
+func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) error {
 	accessor := meta.NewAccessor()
 	if isNotAssignedPod(obj) {
 		ns, _ := accessor.Namespace(obj)
@@ -560,17 +554,30 @@ func (cm *cacheManager) saveOneObjectWithValidation(key storage.Key, obj runtime
 
 	newRv, err := accessor.ResourceVersion(obj)
 	if err != nil {
-		klog.Errorf("failed to get new object resource version for %s, %v", key, err)
-		return err
+		return fmt.Errorf("failed to get new object resource version for %s, %v", key, err)
 	}
 
+	klog.V(4).Infof("try to store obj of key %s, obj: %v", key.Key(), obj)
 	newRvUint, _ := strconv.ParseUint(newRv, 10, 64)
 	_, err = cm.storage.Update(key, obj, newRvUint)
-	if err != nil {
-		if err != storage.ErrStorageAccessConflict {
-			return cm.storage.Create(key, obj)
+
+	switch err {
+	case nil:
+		return nil
+	case storage.ErrStorageNotFound:
+		klog.V(4).Infof("find no cached obj of key: %s, create it with the coming obj with rv: %s", key.Key(), newRv)
+		if err := cm.storage.Create(key, obj); err != nil {
+			if err == storage.ErrStorageAccessConflict {
+				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key)
+				return nil
+			}
+			return fmt.Errorf("failed to create obj of key: %s, %v", key.Key(), err)
 		}
-		return err
+	case storage.ErrStorageAccessConflict:
+		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key)
+		return nil
+	default:
+		return fmt.Errorf("failed to store obj with rv %s of key: %s, %v", newRv, key.Key(), err)
 	}
 	return nil
 }
@@ -661,6 +668,47 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 
 	if info.Subresource != "" && info.Subresource != "status" {
 		return false
+	}
+
+	cm.Lock()
+	defer cm.Unlock()
+	if info.Verb == "list" && info.Name == "" {
+		key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			Component: comp,
+			Resources: info.Resource,
+			Namespace: info.Namespace,
+			Name:      info.Name,
+		})
+		if err != nil {
+			return false
+		}
+		selector, _ := util.ListSelectorFrom(ctx)
+		if oldSelector, ok := cm.listSelectorCollector[key]; ok {
+			if oldSelector != selector {
+				// list requests that have the same path but with different selector, for example:
+				// request1: http://{ip:port}/api/v1/default/pods?labelSelector=foo=bar
+				// request2: http://{ip:port}/api/v1/default/pods?labelSelector=foo2=bar2
+				// because func queryListObject() will get all pods for both requests instead of
+				// getting pods by request selector. so cache manager can not support same path list
+				// requests that has different selector.
+				klog.Warningf("list requests that have the same path but with different selector, skip cache for %s", util.ReqString(req))
+				return false
+			}
+		} else {
+			// list requests that get the same resources but with different path, for example:
+			// request1: http://{ip/port}/api/v1/pods?fieldSelector=spec.nodeName=foo
+			// request2: http://{ip/port}/api/v1/default/pods?fieldSelector=spec.nodeName=foo
+			// because func queryListObject() will get all pods for both requests instead of
+			// getting pods by request selector. so cache manager can not support getting same resource
+			// list requests that has different path.
+			for k := range cm.listSelectorCollector {
+				if (len(k.Key()) > len(key.Key()) && strings.Contains(k.Key(), key.Key())) || (len(k.Key()) < len(key.Key()) && strings.Contains(key.Key(), k.Key())) {
+					klog.Warningf("list requests that get the same resources but with different path, skip cache for %s", util.ReqString(req))
+					return false
+				}
+			}
+			cm.listSelectorCollector[key] = selector
+		}
 	}
 
 	return true

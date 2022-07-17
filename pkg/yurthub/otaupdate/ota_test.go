@@ -17,7 +17,6 @@ limitations under the License.
 package otaupdate
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
@@ -84,7 +84,18 @@ func TestGetPods(t *testing.T) {
 
 	pods := []*corev1.Pod{updatablePod, notUpdatablePod, normalPod}
 	for _, pod := range pods {
-		err = sWrapper.Create(fmt.Sprintf("kubelet/pods/default/%s", pod.Name), pod)
+		key, err := sWrapper.KeyFunc(storage.KeyBuildInfo{
+			Component: "kubelet",
+			Resources: "pods",
+			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
+			Name:      pod.Name,
+		})
+		if err != nil {
+			t.Errorf("failed to get key, %v", err)
+		}
+		err = sWrapper.Create(key, pod)
 		if err != nil {
 			t.Errorf("failed to create obj, %v", err)
 		}

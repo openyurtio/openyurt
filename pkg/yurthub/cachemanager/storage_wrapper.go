@@ -18,14 +18,16 @@ package cachemanager
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 // StorageWrapper is wrapper for storage.Store interface
@@ -39,7 +41,7 @@ type StorageWrapper interface {
 	Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error)
 	KeyFunc(info storage.KeyBuildInfo) (storage.Key, error)
 	ListResourceKeysOfComponent(component string, resource string) ([]storage.Key, error)
-	ReplaceComponentList(component, resource, namespace, selector string, contents map[storage.Key]runtime.Object) error
+	ReplaceComponentList(component, resource, namespace string, contents map[storage.Key]runtime.Object) error
 	DeleteComponentResources(component string) error
 }
 
@@ -73,7 +75,7 @@ func (sw *storageWrapper) Create(key storage.Key, obj runtime.Object) error {
 	var buf bytes.Buffer
 	if obj != nil {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			klog.Errorf("failed to encode object in create for %s, %v", key, err)
+			klog.Errorf("failed to encode object in create for %s, %v", key.Key(), err)
 			return err
 		}
 	}
@@ -111,7 +113,7 @@ func (sw *storageWrapper) Get(key storage.Key) (runtime.Object, error) {
 	}
 	obj, gvk, err := sw.backendSerializer.Decode(b, nil, UnstructuredObj)
 	if err != nil {
-		klog.Errorf("could not decode %v for %s, %v", gvk, key, err)
+		klog.Errorf("could not decode %v for %s, %v", gvk, key.Key(), err)
 		return nil, err
 	}
 
@@ -128,7 +130,7 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 	bb, err := sw.store.List(key)
 	objects := make([]runtime.Object, 0, len(bb))
 	if err != nil {
-		klog.Errorf("could not list objects for %s, %v", key, err)
+		klog.Errorf("could not list objects for %s, %v", key.Key(), err)
 		return nil, err
 	}
 	//get the gvk from json data
@@ -149,7 +151,7 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 
 		obj, gvk, err := sw.backendSerializer.Decode(bb[i], nil, UnstructuredObj)
 		if err != nil {
-			klog.Errorf("could not decode %v for %s, %v", gvk, key, err)
+			klog.Errorf("could not decode %v for %s, %v", gvk, key.Key(), err)
 			continue
 		}
 		objects = append(objects, obj)
@@ -162,23 +164,30 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
 	var buf bytes.Buffer
 	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-		klog.Errorf("failed to encode object in update for %s, %v", key, err)
+		klog.Errorf("failed to encode object in update for %s, %v", key.Key(), err)
 		return nil, err
 	}
 
-	if _, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
+	if buf, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
+		if err == storage.ErrUpdateConflict {
+			obj, _, dErr := sw.backendSerializer.Decode(buf, nil, nil)
+			if dErr != nil {
+				return nil, fmt.Errorf("failed to decode existing obj of key %s, %v", key.Key(), dErr)
+			}
+			return obj, err
+		}
 		return nil, err
 	}
 
 	return obj, nil
 }
 
-func (sw *storageWrapper) ReplaceComponentList(component, resource, namespace, selector string, objs map[storage.Key]runtime.Object) error {
+func (sw *storageWrapper) ReplaceComponentList(component, resource, namespace string, objs map[storage.Key]runtime.Object) error {
 	var buf bytes.Buffer
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			klog.Errorf("failed to encode object in update for %s, %v", key, err)
+			klog.Errorf("failed to encode object in update for %s, %v", key.Key(), err)
 			return err
 		}
 		contents[key] = make([]byte, len(buf.Bytes()))
@@ -186,7 +195,7 @@ func (sw *storageWrapper) ReplaceComponentList(component, resource, namespace, s
 		buf.Reset()
 	}
 
-	return sw.store.ReplaceComponentList(component, resource, namespace, selector, contents)
+	return sw.store.ReplaceComponentList(component, resource, namespace, contents)
 }
 
 // DeleteCollection will delete all objects under rootKey

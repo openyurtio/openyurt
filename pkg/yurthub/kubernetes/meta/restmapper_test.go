@@ -25,16 +25,16 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 var rootDir = "/tmp/restmapper"
+var fsOperator fs.FileSystemOperator
+
+// TODO:
+// add test for setup to ensure the file be created
 
 func TestCreateRESTMapperManager(t *testing.T) {
-	dStorage, err := disk.NewDiskStorage(rootDir)
-	if err != nil {
-		t.Errorf("failed to create disk storage, %v", err)
-	}
 	defer func() {
 		if err := os.RemoveAll(rootDir); err != nil {
 			t.Errorf("Unable to clean up test directory %q: %v", rootDir, err)
@@ -42,8 +42,8 @@ func TestCreateRESTMapperManager(t *testing.T) {
 	}()
 
 	// initialize an empty DynamicRESTMapper
-	yurtHubRESTMapperManager := NewRESTMapperManager(dStorage)
-	if yurtHubRESTMapperManager.dynamicRESTMapper == nil || len(yurtHubRESTMapperManager.dynamicRESTMapper) != 0 {
+	yurtHubRESTMapperManager, err := NewRESTMapperManager(rootDir)
+	if err != nil {
 		t.Errorf("failed to initialize an empty dynamicRESTMapper, %v", err)
 	}
 
@@ -62,13 +62,16 @@ func TestCreateRESTMapperManager(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to serialize dynamicRESTMapper, %v", err)
 	}
-	_, err = dStorage.Update(disk.StorageKey(CacheDynamicRESTMapperKey), d, 0, true)
+	err = fsOperator.CreateFile(filepath.Join(rootDir, CacheDynamicRESTMapperKey), d)
 	if err != nil {
 		t.Fatalf("failed to stored dynamicRESTMapper, %v", err)
 	}
 
 	// Determine whether the restmapper in the memory is the same as the information written to the disk
-	yurtHubRESTMapperManager = NewRESTMapperManager(dStorage)
+	yurtHubRESTMapperManager, err = NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to initialize an empty dynamicRESTMapper, %v", err)
+	}
 	// get the CRD information in memory
 	m := yurtHubRESTMapperManager.dynamicRESTMapper
 	gotMapper := dynamicRESTMapperToString(m)
@@ -83,16 +86,15 @@ func TestCreateRESTMapperManager(t *testing.T) {
 }
 
 func TestUpdateRESTMapper(t *testing.T) {
-	dStorage, err := disk.NewDiskStorage(rootDir)
-	if err != nil {
-		t.Errorf("failed to create disk storage, %v", err)
-	}
 	defer func() {
 		if err := os.RemoveAll(rootDir); err != nil {
 			t.Errorf("Unable to clean up test directory %q: %v", rootDir, err)
 		}
 	}()
-	yurtHubRESTMapperManager := NewRESTMapperManager(dStorage)
+	yurtHubRESTMapperManager, err := NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to initialize an empty dynamicRESTMapper, %v", err)
+	}
 	testcases := map[string]struct {
 		cachedCRD        []schema.GroupVersionKind
 		addCRD           schema.GroupVersionKind
@@ -162,7 +164,7 @@ func TestUpdateRESTMapper(t *testing.T) {
 			}
 
 			// verify the CRD information in disk
-			b, err := dStorage.Get(disk.StorageKey(CacheDynamicRESTMapperKey))
+			b, err := fsOperator.Read(filepath.Join(rootDir, CacheDynamicRESTMapperKey))
 			if err != nil {
 				t.Fatalf("failed to get cached CRD information, %v", err)
 			}
@@ -183,17 +185,16 @@ func TestUpdateRESTMapper(t *testing.T) {
 }
 
 func TestResetRESTMapper(t *testing.T) {
-	dStorage, err := disk.NewDiskStorage(rootDir)
-	if err != nil {
-		t.Errorf("failed to create disk storage, %v", err)
-	}
 	defer func() {
 		if err := os.RemoveAll(rootDir); err != nil {
 			t.Errorf("Unable to clean up test directory %q: %v", rootDir, err)
 		}
 	}()
 	// initialize the RESTMapperManager
-	yurtHubRESTMapperManager := NewRESTMapperManager(dStorage)
+	yurtHubRESTMapperManager, err := NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to initialize an empty dynamicRESTMapper, %v", err)
+	}
 	err = yurtHubRESTMapperManager.UpdateKind(schema.GroupVersionKind{Group: "stable.example.com", Version: "v1", Kind: "CronTab"})
 	if err != nil {
 		t.Errorf("failed to initialize the restmapper, %v", err)

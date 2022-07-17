@@ -25,8 +25,8 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 var (
@@ -156,60 +156,12 @@ func Test_createInsecureRestClientConfig(t *testing.T) {
 	}
 }
 
-type fakeStore struct {
-	data map[string][]byte
-}
-
-func newFakeStore() (storage.Store, error) {
-	return &fakeStore{data: make(map[string][]byte)}, nil
-}
-
-func (s *fakeStore) Create(key string, contents []byte) error {
-	if key == "" {
-		return storage.ErrKeyIsEmpty
-	}
-	s.data[key] = contents
-	return nil
-}
-func (s *fakeStore) Delete(key string) error {
-	if key == "" {
-		return storage.ErrKeyIsEmpty
-	}
-	s.data[key] = nil
-	return nil
-}
-func (s *fakeStore) Get(key string) ([]byte, error) {
-	if key == "" {
-		return nil, storage.ErrKeyIsEmpty
-	}
-	return s.data[key], nil
-}
-func (s *fakeStore) ListKeys(key string) ([]string, error) {
-	// not support for this case
-	return nil, nil
-}
-func (s *fakeStore) List(key string) ([][]byte, error) {
-	// not support for this case
-	return nil, nil
-}
-func (s *fakeStore) Update(key string, contents []byte) error {
-	return s.Create(key, contents)
-}
-func (s *fakeStore) Replace(rootKey string, contents map[string][]byte) error {
-	// not support for this case
-	return nil
-}
-func (s *fakeStore) DeleteCollection(rootKey string) error {
-	// not support for this case
-	return nil
-}
-
 func Test_yurtHubCertManager_createBootstrapConfFile(t *testing.T) {
 	testUrl, err := url.Parse("https://127.0.0.1")
 	if err != nil {
 		t.Fatalf("parse test url failed. err:%v", err)
 	}
-	testFakeStore, _ := newFakeStore()
+	testFakeStore := fs.FileSystemOperator{}
 	dir, err := ioutil.TempDir("", "yurthub-test-ca")
 	if err != nil {
 		t.Fatalf("Unable to create the test directory %q: %v", dir, err)
@@ -226,7 +178,7 @@ func Test_yurtHubCertManager_createBootstrapConfFile(t *testing.T) {
 	type fields struct {
 		remoteServers         []*url.URL
 		hubCertOrganizations  []string
-		bootstrapConfStore    storage.Store
+		bootstrapConfStore    fs.FileSystemOperator
 		hubClientCertManager  certificate.Manager
 		hubClientCertPath     string
 		joinToken             string
@@ -289,7 +241,7 @@ func Test_yurtHubCertManager_updateBootstrapConfFile(t *testing.T) {
 	type fields struct {
 		remoteServers         []*url.URL
 		hubCertOrganizations  []string
-		bootstrapConfStore    storage.Store
+		bootstrapConfStore    fs.FileSystemOperator
 		hubClientCertManager  certificate.Manager
 		hubClientCertPath     string
 		joinToken             string

@@ -81,6 +81,24 @@ func TestKeyFunc(t *testing.T) {
 			},
 			err: storage.ErrEmptyResource,
 		},
+		"get namespace": {
+			info: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "namespaces",
+				Namespace: "kube-system",
+				Name:      "kube-system",
+			},
+			key: "kubelet/namespaces/kube-system",
+		},
+		"list namespace": {
+			info: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "namespaces",
+				Namespace: "",
+				Name:      "kube-system",
+			},
+			key: "kubelet/namespaces/kube-system",
+		},
 	}
 
 	disk, err := NewDiskStorage(keyFuncTestDir)

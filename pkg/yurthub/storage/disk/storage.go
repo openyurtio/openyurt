@@ -49,8 +49,7 @@ type diskStorage struct {
 	baseDir          string
 	keyPendingStatus map[string]struct{}
 	serializer       runtime.Serializer
-	// listSelectorCollector map[string]string
-	fsOperator *fs.FileSystemOperator
+	fsOperator       *fs.FileSystemOperator
 }
 
 // NewDiskStorage creates a storage.Store for caching data into local disk
@@ -496,40 +495,6 @@ func (ds *diskStorage) lockKey(key storage.Key) bool {
 	ds.keyPendingStatus[keyStr] = struct{}{}
 	return true
 }
-
-// TODO: move to cache manager
-// func (ds *diskStorage) canReplace(key storage.Key, selector string) (bool, error) {
-// 	keyStr := key.Key()
-// 	ds.Lock()
-// 	defer ds.Unlock()
-// 	if oldSelector, ok := ds.listSelectorCollector[keyStr]; ok {
-// 		if oldSelector != selector {
-// 			// list requests that have the same path but with different selector, for example:
-// 			// request1: http://{ip:port}/api/v1/default/pods?labelSelector=foo=bar
-// 			// request2: http://{ip:port}/api/v1/default/pods?labelSelector=foo2=bar2
-// 			// because func queryListObject() will get all pods for both requests instead of
-// 			// getting pods by request selector. so cache manager can not support same path list
-// 			// requests that has different selector.
-// 			klog.Warningf("list requests that have the same path but with different selector, skip cache for %s", keyStr)
-// 			return false, fmt.Errorf("selector conflict, old selector is %s, current selector is %s", oldSelector, selector)
-// 		}
-// 	} else {
-// 		// list requests that get the same resources but with different path, for example:
-// 		// request1: http://{ip/port}/api/v1/pods?fieldSelector=spec.nodeName=foo
-// 		// request2: http://{ip/port}/api/v1/default/pods?fieldSelector=spec.nodeName=foo
-// 		// because func queryListObject() will get all pods for both requests instead of
-// 		// getting pods by request selector. so cache manager can not support getting same resource
-// 		// list requests that has different path.
-// 		for k := range ds.listSelectorCollector {
-// 			if (len(k) > len(keyStr) && strings.Contains(k, keyStr)) || (len(k) < len(keyStr) && strings.Contains(keyStr, k)) {
-// 				klog.Warningf("list requests that get the same resources but with different path, skip cache for %s", key)
-// 				return false, fmt.Errorf("path conflict, old path is %s, current path is %s", k, keyStr)
-// 			}
-// 		}
-// 		ds.listSelectorCollector[keyStr] = selector
-// 	}
-// 	return true, nil
-// }
 
 func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) {
 	// check resource version

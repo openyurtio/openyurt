@@ -1103,10 +1103,6 @@ func TestDiskStorage(t *testing.T) {
 	RunSpecs(t, "DiskStorage Suite")
 }
 
-// lockTest
-
-// other function test
-
 func TestExtractInfoFromPath(t *testing.T) {
 	cases := map[string]struct {
 		baseDir    string

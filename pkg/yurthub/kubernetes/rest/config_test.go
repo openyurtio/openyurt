@@ -23,13 +23,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"k8s.io/client-go/rest"
-
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 var (
@@ -82,11 +80,14 @@ users:
 	testDir = "/tmp/pki/"
 )
 
+var fsOperator fs.FileSystemOperator
+
 func TestGetRestConfig(t *testing.T) {
+	os.RemoveAll(testDir)
+	var err error
 	remoteServers := map[string]int{"https://10.10.10.113:6443": 2}
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	fakeHealthchecker := healthchecker.NewFakeChecker(true, remoteServers)
-	dStorage, err := disk.NewDiskStorage(testDir)
 	defer func() {
 		if err := os.RemoveAll(testDir); err != nil {
 			t.Errorf("Unable to clean up test directory %q: %v", testDir, err)
@@ -95,20 +96,20 @@ func TestGetRestConfig(t *testing.T) {
 
 	// store the kubelet ca file
 	caFile := filepath.Join(testDir, "ca.crt")
-	if err := dStorage.Create(disk.StorageKey("ca.crt"), certificatePEM); err != nil {
+	if err := fsOperator.CreateFile(filepath.Join(testDir, "ca.crt"), certificatePEM); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", caFile, err)
 	}
 
 	// store the kubelet-pair.pem file
 	pairFile := filepath.Join(testDir, "kubelet-pair.pem")
 	pd := bytes.Join([][]byte{certificatePEM, keyPEM}, []byte("\n"))
-	if err := dStorage.Create(disk.StorageKey("kubelet-pair.pem"), pd); err != nil {
+	if err := fsOperator.CreateFile(filepath.Join(testDir, "kubelet-pair.pem"), pd); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", pairFile, err)
 	}
 
 	// store the yurthub-current.pem
 	yurthubCurrent := filepath.Join(testDir, "yurthub-current.pem")
-	if err := dStorage.Create(disk.StorageKey("yurthub-current.pem"), pd); err != nil {
+	if err := fsOperator.CreateFile(filepath.Join(testDir, "yurthub-current.pem"), pd); err != nil {
 		t.Fatalf("Unable to create the file %q: %v", yurthubCurrent, err)
 	}
 
@@ -144,8 +145,7 @@ func TestGetRestConfig(t *testing.T) {
 				t.Errorf("failed to create RestConfigManager: %v", err)
 			}
 
-			var rc *rest.Config
-			rc = rcm.GetRestConfig(true)
+			rc := rcm.GetRestConfig(true)
 			if tt.mode == "hubself" {
 				if rc.Host != u.String() || rc.TLSClientConfig.CertFile != yurthubCurrent || rc.TLSClientConfig.KeyFile != yurthubCurrent {
 					t.Errorf("The information in rest.Config is not correct: %s", tt.mode)

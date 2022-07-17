@@ -115,7 +115,11 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
 	serializerManager := serializer.NewSerializerManager()
-	restMapperManager := meta.NewRESTMapperManager(options.DiskCachePath)
+	restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
+	if err != nil {
+		klog.Errorf("failed to create restMapperManager at path %s, %v", options.DiskCachePath, err)
+		return nil, err
+	}
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxyPort)

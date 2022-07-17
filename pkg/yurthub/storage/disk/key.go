@@ -52,8 +52,15 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 		isRoot = true
 	}
 
+	var path string
+	if info.Resources == "namespaces" {
+		path = filepath.Join(info.Component, info.Resources, info.Name)
+	} else {
+		path = filepath.Join(info.Component, info.Resources, info.Namespace, info.Name)
+	}
+
 	return storageKey{
-		path:      filepath.Join(info.Component, info.Resources, info.Namespace, info.Name),
+		path:      path,
 		isRootKey: isRoot,
 	}, nil
 }
