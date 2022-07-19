@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -421,6 +422,7 @@ func TestStreamResponseFilter(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
+			wg := sync.WaitGroup{}
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
 			req.Header.Set("User-Agent", tt.userAgent)
 			req.Header.Set("Accept", tt.accept)
@@ -430,7 +432,9 @@ func TestStreamResponseFilter(t *testing.T) {
 				CreateSerializer(tt.accept, tt.group, tt.version, tt.resources)
 
 			r, w := io.Pipe()
+			wg.Add(1)
 			go func(w *io.PipeWriter) {
+				defer wg.Done()
 				for i := range tt.inputObj {
 					if _, err := fh.serializer.WatchEncode(w, &tt.inputObj[i]); err != nil {
 						t.Errorf("%d: encode watch unexpected error: %v", i, err)
@@ -444,8 +448,13 @@ func TestStreamResponseFilter(t *testing.T) {
 			rc := io.NopCloser(r)
 			ch := make(chan watch.Event, len(tt.inputObj))
 
+			wg.Add(1)
 			go func(rc io.ReadCloser, ch chan watch.Event) {
-				fh.StreamResponseFilter(rc, ch)
+				defer wg.Done()
+				err := fh.StreamResponseFilter(rc, ch)
+				if err != nil && err != io.EOF {
+					t.Errorf("failed to filter stream at case %s, %v", k, err)
+				}
 			}(rc, ch)
 
 			for i := 0; i < len(tt.expectResult); i++ {
@@ -459,6 +468,7 @@ func TestStreamResponseFilter(t *testing.T) {
 					break
 				}
 			}
+			wg.Wait()
 		})
 	}
 }
