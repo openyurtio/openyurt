@@ -959,6 +959,13 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			Expect(buf).To(Equal(newPodBytes))
 		})
+		It("should create the base dir when contents is empty", func() {
+			err = store.ReplaceComponentList("kubelet", "csidrivers", "", nil)
+			Expect(err).To(BeNil())
+			entries, err := os.ReadDir(filepath.Join(baseDir, "kubelet", "csidrivers"))
+			Expect(err).To(BeNil(), fmt.Sprintf("failed to read dir %v", err))
+			Expect(len(entries)).To(BeZero())
+		})
 		It("should return ErrEmptyComponent if component is empty", func() {
 			err = store.ReplaceComponentList("", "pods", "default", map[storage.Key][]byte{})
 			Expect(err).To(Equal(storage.ErrEmptyComponent))

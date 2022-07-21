@@ -159,21 +159,31 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return cm.queryOneObject(req)
 	}
 
-	var gvk schema.GroupVersionKind
 	var kind string
 	// If the GVR information is not recognized, return 404 not found directly
-	gvr := schema.GroupVersionResource{
+	if _, gvk := cm.restMapperManager.KindFor(schema.GroupVersionResource{
 		Group:    info.APIGroup,
 		Version:  info.APIVersion,
 		Resource: info.Resource,
-	}
-	if _, gvk = cm.restMapperManager.KindFor(gvr); gvk.Empty() {
+	}); gvk.Empty() {
 		return nil, hubmeta.ErrGVRNotRecognized
 	} else {
 		kind = gvk.Kind
 	}
 
 	// If the GVR information is recognized, return list or empty list
+	var listObj runtime.Object
+	listGvk := schema.GroupVersionKind{
+		Group:   info.APIGroup,
+		Version: info.APIVersion,
+		Kind:    kind + "List",
+	}
+	listObj, err = getListObjOfGVK(listGvk)
+	if err != nil {
+		klog.Errorf("failed to create list obj for req: %s, whose gvk is %s, %v", util.ReqString(req), listGvk.String(), err)
+		return nil, err
+	}
+
 	objs, err := cm.storage.List(key)
 	if err != nil {
 		klog.Errorf("failed to list key %s for request %s, %v", key.Key(), util.ReqString(req), err)
@@ -188,6 +198,8 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 			klog.Warningf("get 0 pods for kubelet pod request, there should be at least one, hack the response with ErrStorageNotFound error")
 			return nil, storage.ErrStorageNotFound
 		}
+		// There's no obj to fill in the list, so just return.
+		return listObj, nil
 	}
 
 	// When reach here, we assume that we've successfully get objs from storage and the elements num is not 0.
@@ -195,24 +207,11 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	objKind := objs[0].GetObjectKind().GroupVersionKind().Kind
 	if kind != objKind {
 		klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", kind, objKind)
-		kind = objKind
-	}
-
-	var listObj runtime.Object
-	listGvk := schema.GroupVersionKind{
-		Group:   info.APIGroup,
-		Version: info.APIVersion,
-		Kind:    kind + "List",
-	}
-	if scheme.Scheme.Recognizes(listGvk) {
-		listObj, err = scheme.Scheme.New(listGvk)
-		if err != nil {
-			klog.Errorf("failed to create list object(%v), %v", listGvk, err)
+		listGvk.Kind = objKind
+		if listObj, err = getListObjOfGVK(listGvk); err != nil {
+			klog.Errorf("failed to create list obj for req: %s, whose gvk is %s, %v", util.ReqString(req), listGvk.String(), err)
 			return nil, err
 		}
-	} else {
-		listObj = new(unstructured.UnstructuredList)
-		listObj.GetObjectKind().SetGroupVersionKind(listGvk)
 	}
 
 	listRv := 0
@@ -294,6 +293,22 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 		}
 	}
 	return obj, nil
+}
+
+func getListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object, error) {
+	var listObj runtime.Object
+	var err error
+	if scheme.Scheme.Recognizes(listGvk) {
+		listObj, err = scheme.Scheme.New(listGvk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create list object(%v), %v", listGvk, err)
+		}
+	} else {
+		listObj = new(unstructured.UnstructuredList)
+		listObj.GetObjectKind().SetGroupVersionKind(listGvk)
+	}
+
+	return listObj, nil
 }
 
 func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {

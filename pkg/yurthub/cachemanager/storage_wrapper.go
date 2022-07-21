@@ -133,6 +133,9 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 		klog.Errorf("could not list objects for %s, %v", key.Key(), err)
 		return nil, err
 	}
+	if len(bb) == 0 {
+		return objects, nil
+	}
 	//get the gvk from json data
 	gvk, err := json.DefaultMetaFactory.Interpret(bb[0])
 	if err != nil {

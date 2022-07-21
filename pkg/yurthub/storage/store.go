@@ -86,7 +86,7 @@ type componentRelatedInterface interface {
 	// If namespace is not provided, objs of all namespaces will be replaced with provided contents.
 	// If component is empty, ErrEmptyComponent will be returned.
 	// If resource is empty, ErrEmptyResource will be returned.
-	// the replace will fail and return error.
+	// If contents is empty, only the base dir of them will be created. Refer to #258.
 	// If some contents are not the specified the resource, ErrInvalidContent will be returned.
 	// If the specified resource does not exist in the store, it will be created with passed-in contents.
 	ReplaceComponentList(component string, resource string, namespace string, contents map[Key][]byte) error

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"testing"
@@ -130,6 +131,28 @@ func TestStorageWrapper(t *testing.T) {
 		}
 		if !reflect.DeepEqual(obj, fresherPod) {
 			t.Errorf("got unexpected existing obj, want: %v, got: %v", fresherPod, obj)
+		}
+	})
+
+	t.Run("Test list key of empty objs", func(t *testing.T) {
+		err := os.MkdirAll(filepath.Join(dir, "kubelet", "runtimeclasses"), 0755)
+		if err != nil {
+			t.Errorf("failed to create dir, %v", err)
+		}
+		defer os.RemoveAll(filepath.Join(dir, "kubelet", "runtimeclasses"))
+		rootKey, err := sWrapper.KeyFunc(storage.KeyBuildInfo{
+			Component: "kubelet",
+			Resources: "runtimeclasses",
+		})
+		if err != nil {
+			t.Errorf("failed to create key, %v", err)
+		}
+		objs, err := sWrapper.List(rootKey)
+		if err != nil {
+			t.Errorf("failed to list objs, %v", err)
+		}
+		if len(objs) != 0 {
+			t.Errorf("unexpected objs num, expect: 0, got: %d", len(objs))
 		}
 	})
 

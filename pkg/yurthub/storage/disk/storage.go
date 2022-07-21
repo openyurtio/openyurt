@@ -172,14 +172,14 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 		return [][]byte{}, err
 	}
 
+	if !key.IsRootKey() {
+		return nil, storage.ErrIsNotRootKey
+	}
+
 	if !ds.lockKey(key) {
 		return nil, storage.ErrStorageAccessConflict
 	}
 	defer ds.unLockKey(key)
-
-	if !key.IsRootKey() {
-		return nil, storage.ErrIsNotRootKey
-	}
 
 	bb := make([][]byte, 0)
 	absPath := filepath.Join(ds.baseDir, key.Key())
@@ -317,10 +317,6 @@ func (ds *diskStorage) ReplaceComponentList(component string, resource string, n
 		}
 	}
 
-	// if ok, err := ds.canReplace(rootKey, selector); !ok {
-	// 	return fmt.Errorf("cannot replace %s, %v", rootKey.Key(), err)
-	// }
-
 	if !ds.lockKey(rootKey) {
 		return storage.ErrStorageAccessConflict
 	}
@@ -333,6 +329,10 @@ func (ds *diskStorage) ReplaceComponentList(component string, resource string, n
 	if !fs.IfExists(absPath) {
 		if err := ds.fsOperator.CreateDir(absPath); err != nil {
 			return fmt.Errorf("failed to create dir at %s", absPath)
+		}
+		if len(contents) == 0 {
+			// nothing need to create, so just return
+			return nil
 		}
 	}
 	if ok, err := fs.IsDir(absPath); err == nil && !ok {
