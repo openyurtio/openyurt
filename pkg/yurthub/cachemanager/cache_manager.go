@@ -125,64 +125,20 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	ctx := req.Context()
 	info, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok || info == nil || info.Resource == "" {
-		return nil, fmt.Errorf("failed to get request info")
+		return nil, fmt.Errorf("failed to get request info for request %s", util.ReqString(req))
 	}
-	comp, _ := util.ClientComponentFrom(ctx)
-	// query in-memory cache first
-	var isInMemoryCache = isInMemeoryCache(ctx)
-	var isInMemoryCacheMiss bool
-	if isInMemoryCache {
-		if obj, err := cm.queryInMemeryCache(info); err != nil {
-			if err == ErrInMemoryCacheMiss {
-				isInMemoryCacheMiss = true
-				klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
-			} else {
-				klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
-			}
-		} else {
-			klog.V(4).Infof("in-memory cache hit when handling request %s", util.ReqString(req))
-			return obj, nil
-		}
+	if !info.IsResourceRequest {
+		return nil, fmt.Errorf("failed to QueryCache for getting non-resource request %s", util.ReqString(req))
 	}
 
-	// fall back to normal query
-	if info.IsResourceRequest && info.Verb == "list" {
+	switch info.Verb {
+	case "list":
 		return cm.queryListObject(req)
-	} else if info.IsResourceRequest && (info.Verb == "get" || info.Verb == "patch" || info.Verb == "update") {
-		key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
-			Component: comp,
-			Namespace: info.Namespace,
-			Name:      info.Name,
-			Resources: info.Resource,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		klog.V(4).Infof("component: %s try to get key: %s", comp, key.Key())
-		obj, err := cm.storage.Get(key)
-		if err != nil {
-			klog.Errorf("failed to get obj %s from storage, %v", key.Key(), err)
-			return nil, err
-		}
-		// When yurthub restart, the data stored in in-memory cache will lose,
-		// we need to rebuild the in-memory cache with backend consistent storage.
-		// Note:
-		// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
-		// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
-		// such as local disk and pool-coordinator.
-		if isInMemoryCacheMiss {
-			if inMemoryCacheKey, err := inMemoryCacheKeyFunc(info); err != nil {
-				klog.Errorf("cannot in-memory cache key for req %s, %v", util.ReqString(req), err)
-			} else {
-				cm.inMemoryCacheFor(inMemoryCacheKey, obj)
-				klog.V(4).Infof("use obj from backend storage to update in-memory cache of key %s", inMemoryCacheKey)
-			}
-		}
-		return obj, nil
+	case "get", "patch", "update":
+		return cm.queryOneObject(req)
+	default:
+		return nil, fmt.Errorf("failed to QueryCache, unsupported verb %s of request %s", info.Verb, util.ReqString(req))
 	}
-
-	return nil, fmt.Errorf("request(%#+v) is not supported", info)
 }
 
 func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
@@ -197,6 +153,10 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	})
 	if err != nil {
 		return nil, err
+	}
+	if !key.IsRootKey() {
+		// possibly it is a list request with metadata.name fieldSelector
+		return cm.queryOneObject(req)
 	}
 
 	var gvk schema.GroupVersionKind
@@ -216,6 +176,8 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	// If the GVR information is recognized, return list or empty list
 	objs, err := cm.storage.List(key)
 	if err != nil {
+		klog.Errorf("failed to list key %s for request %s, %v", key.Key(), util.ReqString(req), err)
+		return nil, err
 	} else if len(objs) == 0 {
 		if isKubeletPodRequest(req) {
 			// because at least there will be yurt-hub pod on the node.
@@ -226,13 +188,14 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 			klog.Warningf("get 0 pods for kubelet pod request, there should be at least one, hack the response with ErrStorageNotFound error")
 			return nil, storage.ErrStorageNotFound
 		}
-	} else {
-		// If restMapper's kind and object's kind are inconsistent, use the object's kind
-		objKind := objs[0].GetObjectKind().GroupVersionKind().Kind
-		if kind != objKind {
-			klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", kind, objKind)
-			kind = objKind
-		}
+	}
+
+	// When reach here, we assume that we've successfully get objs from storage and the elements num is not 0.
+	// If restMapper's kind and object's kind are inconsistent, use the object's kind
+	objKind := objs[0].GetObjectKind().GroupVersionKind().Kind
+	if kind != objKind {
+		klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", kind, objKind)
+		kind = objKind
 	}
 
 	var listObj runtime.Object
@@ -272,6 +235,65 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
 	err = setListObjSelfLink(listObj, req)
 	return listObj, err
+}
+
+func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error) {
+	ctx := req.Context()
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil || info.Resource == "" {
+		return nil, fmt.Errorf("failed to get request info for request %s", util.ReqString(req))
+	}
+
+	comp, _ := util.ClientComponentFrom(ctx)
+	// query in-memory cache first
+	var isInMemoryCache = isInMemeoryCache(ctx)
+	var isInMemoryCacheMiss bool
+	if isInMemoryCache {
+		if obj, err := cm.queryInMemeryCache(info); err != nil {
+			if err == ErrInMemoryCacheMiss {
+				isInMemoryCacheMiss = true
+				klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
+			} else {
+				klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
+			}
+		} else {
+			klog.V(4).Infof("in-memory cache hit when handling request %s", util.ReqString(req))
+			return obj, nil
+		}
+	}
+
+	// fall back to normal query
+	key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+		Component: comp,
+		Namespace: info.Namespace,
+		Name:      info.Name,
+		Resources: info.Resource,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(4).Infof("component: %s try to get key: %s", comp, key.Key())
+	obj, err := cm.storage.Get(key)
+	if err != nil {
+		klog.Errorf("failed to get obj %s from storage, %v", key.Key(), err)
+		return nil, err
+	}
+	// When yurthub restart, the data stored in in-memory cache will lose,
+	// we need to rebuild the in-memory cache with backend consistent storage.
+	// Note:
+	// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
+	// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
+	// such as local disk and pool-coordinator.
+	if isInMemoryCacheMiss {
+		if inMemoryCacheKey, err := inMemoryCacheKeyFunc(info); err != nil {
+			klog.Errorf("cannot in-memory cache key for req %s, %v", util.ReqString(req), err)
+		} else {
+			cm.inMemoryCacheFor(inMemoryCacheKey, obj)
+			klog.V(4).Infof("use obj from backend storage to update in-memory cache of key %s", inMemoryCacheKey)
+		}
+	}
+	return obj, nil
 }
 
 func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
