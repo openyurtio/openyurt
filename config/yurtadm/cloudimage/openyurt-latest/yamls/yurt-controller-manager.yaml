@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-controller-manager
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: yurt-controller-manager
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/status
+    verbs:
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods/status
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - delete
+      - list
+      - watch
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
+      - list
+      - watch
+  - apiGroups:
+      - ""
+      - apps
+    resources:
+      - daemonsets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - certificates.k8s.io
+    resources:
+      - certificatesigningrequests
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - certificates.k8s.io
+    resources:
+      - certificatesigningrequests/approval
+    verbs:
+      - update
+  - apiGroups:
+      - certificates.k8s.io
+    resources:
+      - signers
+    resourceNames:
+      - kubernetes.io/kube-apiserver-client
+      - kubernetes.io/kubelet-serving
+    verbs:
+      - approve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-controller-manager
+subjects:
+  - kind: ServiceAccount
+    name: yurt-controller-manager
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: yurt-controller-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yurt-controller-manager
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yurt-controller-manager
+  template:
+    metadata:
+      labels:
+        app: yurt-controller-manager
+    spec:
+      serviceAccountName: yurt-controller-manager
+      hostNetwork: true
+      tolerations:
+      - operator: "Exists"
+      nodeSelector:
+        openyurt.io/is-edge-worker: "false"
+      affinity:
+        nodeAffinity:
+          # we prefer allocating ycm on cloud node
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: openyurt.io/is-edge-worker
+                operator: In
+                values:
+                - "false"
+      containers:
+      - name: yurt-controller-manager
+        image: openyurt/yurt-controller-manager:latest
+        command:
+        - yurt-controller-manager
