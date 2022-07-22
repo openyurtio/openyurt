@@ -42,7 +42,7 @@ ifneq (${https_proxy},)
 DOCKER_BUILD_ARGS += --build-arg https_proxy='${https_proxy}'
 endif
 
-.PHONY: clean all build
+.PHONY: clean all build test
 
 all: test build
 
@@ -55,17 +55,9 @@ gen-yaml:
 	hack/make-rules/genyaml.sh $(WHAT)
 
 # Run test
-test: fmt vet
+test:
 	go test -v -short ./pkg/... ./cmd/... -coverprofile cover.out
 	go test -v  -coverpkg=./pkg/yurttunnel/...  -coverprofile=yurttunnel-cover.out ./test/integration/yurttunnel_test.go
-
-# Run go fmt against code
-fmt:
-	go fmt ./pkg/... ./cmd/...
-
-# Run go vet against code
-vet:
-	go vet ./pkg/... ./cmd/...
 
 clean:
 	-rm -Rf _output
