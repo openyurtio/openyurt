@@ -226,9 +226,8 @@ func (dnsctl *coreDNSRecordController) getCurrentDNSRecords() ([]string, error) 
 	}
 
 	data, ok := cm.Data[constants.YurttunnelDNSRecordNodeDataKey]
-	if !ok {
-		return nil, fmt.Errorf("key %q not found in %s/%s ConfigMap, %w",
-			constants.YurttunnelDNSRecordNodeDataKey, constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
+	if !ok || len(data) == 0 {
+		return []string{}, nil
 	}
 
 	return strings.Split(data, "\n"), nil

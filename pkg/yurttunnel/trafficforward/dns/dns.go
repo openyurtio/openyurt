@@ -330,8 +330,8 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() error {
 		if !isEdgeNode(node) {
 			ip, err = getNodeHostIP(node)
 			if err != nil {
-				klog.Errorf("failed to parse node address for %v, %v", node.Name, err)
-				return err
+				klog.Warningf("failed to parse node address for %v, %v", node.Name, err)
+				continue
 			}
 		}
 		records = append(records, formatDNSRecord(ip, node.Name))
@@ -374,6 +374,9 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 		Get(context.Background(), yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return err
+	}
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
 	}
 	cm.Data[constants.YurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
 	if _, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Update(context.Background(), cm, metav1.UpdateOptions{}); err != nil {

@@ -72,7 +72,7 @@ type iptablesJumpChain struct {
 	extraArgs []string
 }
 
-// IptableManager interface defines the method for adding dnat rules to host
+// IptablesManager interface defines the method for adding dnat rules to host
 // that needs to send network packages to kubelets
 type IptablesManager interface {
 	Run(stopCh <-chan struct{}, wg *sync.WaitGroup)
@@ -465,19 +465,17 @@ func toCIDR(ip net.IP) string {
 	return fmt.Sprintf("%s/%d", ip.String(), size)
 }
 
-func (im *iptablesManager) clearConnTrackEntries(ips, ports []string) error {
+func (im *iptablesManager) clearConnTrackEntries(ips, ports []string) {
 	if len(im.conntrackPath) == 0 {
-		return nil
+		return
 	}
 	klog.Infof("clear conntrack entries for ports %q and nodes %q", ports, ips)
 	for _, port := range ports {
 		for _, ip := range ips {
-			if err := im.clearConnTrackEntriesForIPPort(ip, port); err != nil {
-				return err
-			}
+			im.clearConnTrackEntriesForIPPort(ip, port)
 		}
 	}
-	return nil
+	return
 }
 
 func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) error {
@@ -515,12 +513,12 @@ func (im *iptablesManager) syncIptableSetting() {
 		klog.Errorf("failed to sync iptables rules, %v", err)
 		return
 	}
-	portsChanged, deletedDnatPorts := im.getDeletedPorts(dnatPorts)
+	portsChanged, deletedDnatPorts := getDeletedPorts(im.lastDnatPorts, dnatPorts)
 	currentDnatPorts := append(dnatPorts, util.KubeletHTTPSPort, util.KubeletHTTPPort)
 
 	// check if there are new nodes
 	nodesIP := im.getIPOfNodesWithoutAgent()
-	nodesChanged, addedNodesIP, deletedNodesIP := im.getAddedAndDeletedNodes(nodesIP)
+	nodesChanged, addedNodesIP, deletedNodesIP := getAddedAndDeletedNodes(im.lastNodesIP, nodesIP)
 	currentNodesIP := append(nodesIP, im.loopbackAddr)
 
 	// update the iptables setting if necessary
@@ -546,16 +544,16 @@ func (im *iptablesManager) syncIptableSetting() {
 	}
 }
 
-func (im *iptablesManager) getAddedAndDeletedNodes(currentNodesIP []string) (bool, []string, []string) {
+func getAddedAndDeletedNodes(lastNodesIP, currentNodesIP []string) (bool, []string, []string) {
 	currentNodesIPSet := sets.NewString(currentNodesIP...)
-	lastNodesIpSet := sets.NewString(im.lastNodesIP...)
+	lastNodesIpSet := sets.NewString(lastNodesIP...)
 
-	return currentNodesIPSet.Equal(lastNodesIpSet), currentNodesIPSet.Difference(lastNodesIpSet).List(), lastNodesIpSet.Difference(currentNodesIPSet).List()
+	return !currentNodesIPSet.Equal(lastNodesIpSet), currentNodesIPSet.Difference(lastNodesIpSet).List(), lastNodesIpSet.Difference(currentNodesIPSet).List()
 }
 
-func (im *iptablesManager) getDeletedPorts(currentPorts []string) (bool, []string) {
+func getDeletedPorts(lastDnatPorts, currentPorts []string) (bool, []string) {
 	currentPortsSet := sets.NewString(currentPorts...)
-	lastDnatPortsSet := sets.NewString(im.lastDnatPorts...)
+	lastDnatPortsSet := sets.NewString(lastDnatPorts...)
 
-	return currentPortsSet.Equal(lastDnatPortsSet), lastDnatPortsSet.Difference(currentPortsSet).List()
+	return !currentPortsSet.Equal(lastDnatPortsSet), lastDnatPortsSet.Difference(currentPortsSet).List()
 }

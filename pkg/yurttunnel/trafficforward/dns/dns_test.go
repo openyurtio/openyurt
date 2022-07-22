@@ -17,13 +17,605 @@ limitations under the License.
 package dns
 
 import (
+	"context"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
+	"github.com/openyurtio/openyurt/pkg/yurttunnel/util"
 )
+
+func TestEnsureCoreDNSRecordConfigMap(t *testing.T) {
+	testcases := map[string]struct {
+		kubeClient *fake.Clientset
+		retErr     bool
+		dnsRecords string
+	}{
+		"configmap has already exist": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      yurttunnelDNSRecordConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{
+						constants.YurttunnelDNSRecordNodeDataKey: "test",
+					},
+				},
+			),
+			dnsRecords: "test",
+		},
+		"create configmap when it does not exist": {
+			kubeClient: fake.NewSimpleClientset(),
+			dnsRecords: "",
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			dnsCtl := &coreDNSRecordController{
+				kubeClient: tt.kubeClient,
+			}
+
+			err := dnsCtl.ensureCoreDNSRecordConfigMap()
+			if !tt.retErr {
+				if err != nil {
+					t.Errorf("expect no error, but got %v", err)
+				}
+
+				cm, resErr := tt.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Get(context.TODO(), yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
+				if resErr != nil {
+					t.Errorf("failed to get configmap, %v", resErr)
+				}
+
+				if cm.Data[constants.YurttunnelDNSRecordNodeDataKey] != tt.dnsRecords {
+					t.Errorf("expect dns records %s, but got %s", tt.dnsRecords, cm.Data[constants.YurttunnelDNSRecordNodeDataKey])
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expect a error, but got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestSyncTunnelServerServiceAsWhole(t *testing.T) {
+	testcases := map[string]struct {
+		kubeClient *fake.Clientset
+		retErr     bool
+		ports      []corev1.ServicePort
+	}{
+		"failed to get configmap": {
+			kubeClient: fake.NewSimpleClientset(),
+			retErr:     true,
+		},
+		"failed to get service": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      util.YurttunnelServerDnatConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{
+						"dnat-ports-pair":   "1234=10264",
+						"http-proxy-ports":  "1235, 1236",
+						"https-proxy-ports": "1237, 1238",
+					},
+				},
+			),
+			retErr: true,
+		},
+		"sync service port normally": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      util.YurttunnelServerDnatConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{
+						"dnat-ports-pair":   "1234=10264",
+						"http-proxy-ports":  "1235, 1236",
+						"https-proxy-ports": "1237, 1238",
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "https",
+								Protocol:   corev1.ProtocolUDP,
+								Port:       1233,
+								TargetPort: intstr.FromInt(10262),
+							},
+						},
+					},
+				},
+			),
+			ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Protocol:   corev1.ProtocolUDP,
+					Port:       1233,
+					TargetPort: intstr.FromInt(10262),
+				},
+				{
+					Name:       "dnat-1234",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1234,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1235",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1235,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1236",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1236,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1237",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1237,
+					TargetPort: intstr.FromInt(10263),
+				},
+				{
+					Name:       "dnat-1238",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1238,
+					TargetPort: intstr.FromInt(10263),
+				},
+			},
+		},
+		"sync service port with ports overwrite": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      util.YurttunnelServerDnatConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{
+						"dnat-ports-pair":   "1234=10264",
+						"http-proxy-ports":  "1235, 1236, 1239",
+						"https-proxy-ports": "1237, 1238",
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "https",
+								Protocol:   corev1.ProtocolUDP,
+								Port:       1233,
+								TargetPort: intstr.FromInt(10262),
+							},
+							{
+								Name:       "dnat-1239",
+								Protocol:   corev1.ProtocolTCP,
+								Port:       1239,
+								TargetPort: intstr.FromInt(10263),
+							},
+						},
+					},
+				},
+			),
+			ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Protocol:   corev1.ProtocolUDP,
+					Port:       1233,
+					TargetPort: intstr.FromInt(10262),
+				},
+				{
+					Name:       "dnat-1234",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1234,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1235",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1235,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1236",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1236,
+					TargetPort: intstr.FromInt(10264),
+				},
+				{
+					Name:       "dnat-1237",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1237,
+					TargetPort: intstr.FromInt(10263),
+				},
+				{
+					Name:       "dnat-1238",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1238,
+					TargetPort: intstr.FromInt(10263),
+				},
+				{
+					Name:       "dnat-1239",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       1239,
+					TargetPort: intstr.FromInt(10264),
+				},
+			},
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			dnsCtl := &coreDNSRecordController{
+				kubeClient:         tt.kubeClient,
+				listenInsecureAddr: "127.0.0.1:10264",
+				listenSecureAddr:   "127.0.0.1:10263",
+			}
+
+			err := dnsCtl.syncTunnelServerServiceAsWhole()
+			if !tt.retErr {
+				if err != nil {
+					t.Errorf("expect no error, but got %v", err)
+				}
+
+				svc, resErr := tt.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).Get(context.TODO(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
+				if resErr != nil {
+					t.Errorf("failed to get service, %v", resErr)
+				}
+
+				if !isTheSamePorts(tt.ports, svc.Spec.Ports) {
+					t.Errorf("expect to get ports %v, but got %v", tt.ports, svc.Spec.Ports)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expect a error, but got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func isTheSamePorts(p1, p2 []corev1.ServicePort) bool {
+	if len(p1) != len(p2) {
+		return false
+	}
+
+	for i := range p1 {
+		found := false
+		for j := range p2 {
+			if p1[i].Name == p2[j].Name && p1[i].Port == p2[j].Port &&
+				p1[i].Protocol == p2[j].Protocol && p1[i].TargetPort.IntValue() == p2[j].TargetPort.IntValue() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	for i := range p2 {
+		found := false
+		for j := range p1 {
+			if p2[i].Name == p1[j].Name && p2[i].Port == p1[j].Port &&
+				p2[i].Protocol == p1[j].Protocol && p2[i].TargetPort.IntValue() == p1[j].TargetPort.IntValue() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+func TestSyncDNSRecordAsWhole(t *testing.T) {
+	clusterIP := "1.2.3.4"
+	testcases := map[string]struct {
+		kubeClient *fake.Clientset
+		retErr     bool
+		records    []string
+	}{
+		"failed to get svc": {
+			kubeClient: fake.NewSimpleClientset(),
+			retErr:     true,
+		},
+		"service has no ClusterIP": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+				},
+			),
+			retErr: true,
+		},
+		"failed to get configmap": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: clusterIP,
+					},
+				},
+			),
+			retErr: true,
+		},
+		"have edge nodes only": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: clusterIP,
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "true",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "192.168.1.2",
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "true",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "192.168.1.3",
+							},
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      yurttunnelDNSRecordConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{},
+				},
+			),
+			records: []string{
+				formatDNSRecord(clusterIP, "node1"),
+				formatDNSRecord(clusterIP, "node2"),
+			},
+		},
+		"have cloud nodes only": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: clusterIP,
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "false",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "192.168.1.2",
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "false",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeExternalIP,
+								Address: "192.168.1.3",
+							},
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      yurttunnelDNSRecordConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{},
+				},
+			),
+			records: []string{
+				formatDNSRecord("192.168.1.2", "node1"),
+				formatDNSRecord("192.168.1.3", "node2"),
+			},
+		},
+		"have cloud nodes and edge nodes": {
+			kubeClient: fake.NewSimpleClientset(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.YurttunnelServerInternalServiceName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: clusterIP,
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "false",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "192.168.1.2",
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "false",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeExternalIP,
+								Address: "192.168.1.3",
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "true",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "192.168.1.3",
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node4",
+						Labels: map[string]string{
+							"openyurt.io/is-edge-worker": "true",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeExternalIP,
+								Address: "192.168.1.4",
+							},
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      yurttunnelDNSRecordConfigMapName,
+						Namespace: constants.YurttunnelServerServiceNs,
+					},
+					Data: map[string]string{},
+				},
+			),
+			records: []string{
+				formatDNSRecord("192.168.1.2", "node1"),
+				formatDNSRecord("192.168.1.3", "node2"),
+				formatDNSRecord(clusterIP, "node3"),
+				formatDNSRecord(clusterIP, "node4"),
+			},
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+
+			factory := informers.NewSharedInformerFactory(tt.kubeClient, 0)
+			nodeInformer := factory.Core().V1().Nodes()
+			nodeInformer.Informer()
+			nodeLister := nodeInformer.Lister()
+
+			stopper := make(chan struct{})
+			defer close(stopper)
+			factory.Start(stopper)
+			factory.WaitForCacheSync(stopper)
+
+			dnsCtl := &coreDNSRecordController{
+				kubeClient:     tt.kubeClient,
+				nodeLister:     nodeLister,
+				tunnelServerIP: clusterIP,
+			}
+			err := dnsCtl.syncDNSRecordAsWhole()
+			if !tt.retErr {
+				if err != nil {
+					t.Errorf("expect no error, but got %v", err)
+				}
+
+				cm, resErr := tt.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Get(context.TODO(), yurttunnelDNSRecordConfigMapName, metav1.GetOptions{})
+				if resErr != nil {
+					t.Errorf("failed to get configmap, %v", resErr)
+				}
+				cmRecords := strings.Split(cm.Data[constants.YurttunnelDNSRecordNodeDataKey], "\n")
+
+				sort.Strings(tt.records)
+				if !reflect.DeepEqual(cmRecords, tt.records) {
+					t.Errorf("expect to get records %v, but got %v", tt.records, cmRecords)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expect a error, but got %v", err)
+				}
+			}
+		})
+	}
+}
 
 func TestResolveServicePorts(t *testing.T) {
 	testcases := map[string]struct {
