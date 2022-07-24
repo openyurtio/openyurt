@@ -2630,7 +2630,10 @@ func TestQueryCacheForList(t *testing.T) {
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				list, err = yurtCM.QueryCache(req)
 				if err == nil {
-					listMetaInterface, _ := meta.ListAccessor(list)
+					listMetaInterface, err := meta.ListAccessor(list)
+					if err != nil {
+						t.Errorf("failed to access list obj, %v", err)
+					}
 					rv = listMetaInterface.GetResourceVersion()
 					items, _ = meta.ExtractList(list)
 				}

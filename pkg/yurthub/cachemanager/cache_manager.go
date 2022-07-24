@@ -141,6 +141,8 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	}
 }
 
+// TODO: Consider if we need accelerate the list query with in-memory cache. Currently, we only
+// use in-memory cache in queryOneObject.
 func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
@@ -154,34 +156,42 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	if err != nil {
 		return nil, err
 	}
-	if !key.IsRootKey() {
-		// possibly it is a list request with metadata.name fieldSelector
-		return cm.queryOneObject(req)
-	}
 
-	var kind string
-	// If the GVR information is not recognized, return 404 not found directly
-	if _, gvk := cm.restMapperManager.KindFor(schema.GroupVersionResource{
+	listGvk, err := cm.prepareGvkForListObj(schema.GroupVersionResource{
 		Group:    info.APIGroup,
 		Version:  info.APIVersion,
 		Resource: info.Resource,
-	}); gvk.Empty() {
-		return nil, hubmeta.ErrGVRNotRecognized
-	} else {
-		kind = gvk.Kind
+	})
+	if err != nil {
+		klog.Errorf("failed to get gvk for ListObject for req: %s, %v", util.ReqString(req), err)
+		// If err is hubmeta.ErrGVRNotRecognized, the reverse proxy will set the HTTP Status Code as 404.
+		return nil, err
+	}
+	listObj, err := getListObjOfGVK(listGvk)
+	if err != nil {
+		klog.Errorf("failed to create ListObj for gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
+		return nil, err
+	}
+	if err := setListObjSelfLink(listObj, req); err != nil {
+		klog.Errorf("failed to set selfLink for ListObj of gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
+		return nil, err
 	}
 
-	// If the GVR information is recognized, return list or empty list
-	var listObj runtime.Object
-	listGvk := schema.GroupVersionKind{
-		Group:   info.APIGroup,
-		Version: info.APIVersion,
-		Kind:    kind + "List",
-	}
-	listObj, err = getListObjOfGVK(listGvk)
-	if err != nil {
-		klog.Errorf("failed to create list obj for req: %s, whose gvk is %s, %v", util.ReqString(req), listGvk.String(), err)
-		return nil, err
+	// start to query storage
+	if !key.IsRootKey() {
+		// Possibly it is a list request with metadata.name fieldSelector
+		// In this case, we cannot use storage.List which can only receive rootKey as argument.
+		// Additionally, we can accelerate the process with in-memory cache.
+		var obj runtime.Object
+		if obj, err = cm.queryOneObject(req); err != nil {
+			klog.Errorf("failed to query ObjectList with only one obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
+			return nil, err
+		}
+		if err := completeListObjWithObjs(listObj, []runtime.Object{obj}); err != nil {
+			klog.Errorf("failed to complete the list obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
+			return nil, err
+		}
+		return listObj, nil
 	}
 
 	objs, err := cm.storage.List(key)
@@ -204,36 +214,20 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 
 	// When reach here, we assume that we've successfully get objs from storage and the elements num is not 0.
 	// If restMapper's kind and object's kind are inconsistent, use the object's kind
-	objKind := objs[0].GetObjectKind().GroupVersionKind().Kind
-	if kind != objKind {
-		klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", kind, objKind)
-		listGvk.Kind = objKind
+	// TODO: Could this inconsistency happen? When and Why?
+	if gotObjListKind := objs[0].GetObjectKind().GroupVersionKind().Kind + "List"; listGvk.Kind != gotObjListKind {
+		klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", listGvk.Kind, gotObjListKind)
+		listGvk.Kind = gotObjListKind
 		if listObj, err = getListObjOfGVK(listGvk); err != nil {
 			klog.Errorf("failed to create list obj for req: %s, whose gvk is %s, %v", util.ReqString(req), listGvk.String(), err)
 			return nil, err
 		}
 	}
-
-	listRv := 0
-	rvStr := ""
-	rvInt := 0
-	accessor := meta.NewAccessor()
-	for i := range objs {
-		rvStr, _ = accessor.ResourceVersion(objs[i])
-		rvInt, _ = strconv.Atoi(rvStr)
-		if rvInt > listRv {
-			listRv = rvInt
-		}
-	}
-
-	if err := meta.SetList(listObj, objs); err != nil {
-		klog.Errorf("failed to meta set list with %d objects, %v", len(objs), err)
+	if err := completeListObjWithObjs(listObj, objs); err != nil {
+		klog.Errorf("failed to complete the list obj %s for req %s, %v", listGvk, util.ReqString(req), err)
 		return nil, err
 	}
-
-	accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
-	err = setListObjSelfLink(listObj, req)
-	return listObj, err
+	return listObj, nil
 }
 
 func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error) {
@@ -293,6 +287,45 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 		}
 	}
 	return obj, nil
+}
+
+// prepareGvkForListObj will use the RESTMapper to construct the gvk of relative ListObject according to the gvr.
+// If restMapperManager cannot recognize the gvr, return hubmeta.ErrGVRNotRecognized.
+func (cm *cacheManager) prepareGvkForListObj(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	var kind string
+	var listGvk schema.GroupVersionKind
+	// If the GVR information is not recognized, return 404 not found directly
+	if _, gvk := cm.restMapperManager.KindFor(gvr); gvk.Empty() {
+		return listGvk, hubmeta.ErrGVRNotRecognized
+	} else {
+		kind = gvk.Kind
+	}
+	listGvk = schema.GroupVersionKind{
+		Group:   gvr.Group,
+		Version: gvr.Version,
+		Kind:    kind + "List",
+	}
+	return listGvk, nil
+}
+
+func completeListObjWithObjs(listObj runtime.Object, objs []runtime.Object) error {
+	listRv := 0
+	rvStr := ""
+	rvInt := 0
+	accessor := meta.NewAccessor()
+	for i := range objs {
+		rvStr, _ = accessor.ResourceVersion(objs[i])
+		rvInt, _ = strconv.Atoi(rvStr)
+		if rvInt > listRv {
+			listRv = rvInt
+		}
+	}
+
+	if err := meta.SetList(listObj, objs); err != nil {
+		return fmt.Errorf("failed to meta set list with %d objects, %v", len(objs), err)
+	}
+
+	return accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
 }
 
 func getListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object, error) {
