@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The OpenYurt Authors.
+Copyright 2020 The OpenYurt Authors.
 Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +24,8 @@ CHANGELOG from OpenYurt Authors:
 2. Use LabelOS and LabelArch in node_lifecycle_controller.go instead of kubeletapi.
 3. Change cases in TestReconcileNodeLabels, details can be found in comment.
 4. Remove master node role case in TestMonitorNodeHealthEvictPodsWithDisruption, details can be found in comment.
+5. Add autonomy test case in TestMonitorNodeHealthEvictPods.
+6. Add autonomy test case in TestMonitorNodeHealthMarkPodsNotReady.
 */
 
 package nodelifecycle
@@ -686,6 +688,66 @@ func TestMonitorNodeHealthEvictPods(t *testing.T) {
 			secondNodeNewStatus: healthyNodeNewStatus,
 			expectedEvictPods:   true,
 			description:         "Node created long time ago, node controller posted Unknown for a long period of time.",
+		},
+		// From OpenYurt Authors:
+		// When node runs in autonomy mode, do not evict pods on it even its ready status is Unknown.
+		// Node created long time ago but run in autonomy mod, node controller posted Unknown for a short period of time.
+		{
+			fakeNodeHandler: &testutil.FakeNodeHandler{
+				Existing: []*v1.Node{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "node0",
+							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
+							Annotations: map[string]string{
+								nodeutil.AnnotationKeyNodeAutonomy: "true",
+							},
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{
+									Type:               v1.NodeReady,
+									Status:             v1.ConditionUnknown,
+									LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+									LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "node1",
+							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{
+									Type:               v1.NodeReady,
+									Status:             v1.ConditionTrue,
+									LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+									LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+								},
+							},
+						},
+					},
+				},
+				Clientset: fake.NewSimpleClientset(&v1.PodList{Items: []v1.Pod{*testutil.NewPod("pod0", "node0")}}),
+			},
+			daemonSets: nil,
+			timeToPass: 60 * time.Minute,
+			newNodeStatus: v1.NodeStatus{
+				Conditions: []v1.NodeCondition{
+					{
+						Type:               v1.NodeReady,
+						Status:             v1.ConditionUnknown,
+						LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+						LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+					},
+				},
+			},
+			secondNodeNewStatus: healthyNodeNewStatus,
+			expectedEvictPods:   false,
+			description:         "Node created long time ago and is running in autonomy mode, node controller posted Unknown for a long period of time",
 		},
 	}
 
@@ -2409,6 +2471,49 @@ func TestMonitorNodeHealthMarkPodsNotReady(t *testing.T) {
 				},
 			},
 			expectedPodStatusUpdate: true,
+		},
+		// From OpenYurt Authors:
+		// Node created long time ago and run in autonomy mode, with status updated by kubelet exceeds grace period.
+		// Expect pods status is not updated and Unknown node status posted from node controller.
+		{
+			fakeNodeHandler: &testutil.FakeNodeHandler{
+				Existing: []*v1.Node{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:              "node0",
+							CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
+							Annotations: map[string]string{
+								nodeutil.AnnotationKeyNodeAutonomy: "true",
+							},
+						},
+						Status: v1.NodeStatus{
+							Conditions: []v1.NodeCondition{
+								{
+									Type:   v1.NodeReady,
+									Status: v1.ConditionTrue,
+									// Node status hasn't been updated for 1hr.
+									LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+									LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+								},
+							},
+						},
+					},
+				},
+				Clientset: fake.NewSimpleClientset(&v1.PodList{Items: []v1.Pod{*testutil.NewPod("pod0", "node0")}}),
+			},
+			timeToPass: 1 * time.Minute,
+			newNodeStatus: v1.NodeStatus{
+				Conditions: []v1.NodeCondition{
+					{
+						Type:   v1.NodeReady,
+						Status: v1.ConditionTrue,
+						// Node status hasn't been updated for 1hr.
+						LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+						LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+					},
+				},
+			},
+			expectedPodStatusUpdate: false,
 		},
 	}
 
