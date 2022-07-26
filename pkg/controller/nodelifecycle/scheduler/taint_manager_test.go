@@ -21,6 +21,7 @@ at commit: 27522a29feb.
 
 CHANGELOG from OpenYurt Authors:
 1. Remove temporary->infinite taints case in TestUpdateNodeWithMultipleTaints.
+2. Add autonomy case in TestUpdateNode.
 */
 
 package scheduler
@@ -34,6 +35,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,6 +44,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 
 	"github.com/openyurtio/openyurt/pkg/controller/kubernetes/controller/testutil"
+	"github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 var timeForControllerToProgress = 500 * time.Millisecond
@@ -497,6 +500,59 @@ func TestUpdateNode(t *testing.T) {
 			newNode:         addTaintsToNode(testutil.NewNode("node1"), "testTaint1", "taint1", []int{1, 2}),
 			expectDelete:    true,
 			additionalSleep: 1500 * time.Millisecond,
+		},
+		// From OpenYurt Authors:
+		// When node runs in autonomy mode, and get NoExecute taint, do not evict pods on it.
+		{
+			description: "Added taint, and node runs in autonomy mode",
+			pods: []v1.Pod{
+				*testutil.NewPod("pod1", "node1"),
+			},
+			oldNode: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						node.AnnotationKeyNodeAutonomy: "true",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						v1.ResourceName(v1.ResourceCPU):    resource.MustParse("10"),
+						v1.ResourceName(v1.ResourceMemory): resource.MustParse("10G"),
+					},
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeReady,
+							Status:             v1.ConditionUnknown,
+							LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+							LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+						},
+					},
+				},
+			},
+			newNode: addTaintsToNode(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						node.AnnotationKeyNodeAutonomy: "true",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						v1.ResourceName(v1.ResourceCPU):    resource.MustParse("10"),
+						v1.ResourceName(v1.ResourceMemory): resource.MustParse("10G"),
+					},
+					Conditions: []v1.NodeCondition{
+						{
+							Type:               v1.NodeReady,
+							Status:             v1.ConditionUnknown,
+							LastHeartbeatTime:  metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+							LastTransitionTime: metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC),
+						},
+					},
+				},
+			}, "testTaint1", "taint1", []int{1}),
+			expectDelete: false,
 		},
 	}
 
