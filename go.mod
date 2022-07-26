@@ -10,6 +10,7 @@ require (
 	github.com/daviddengcn/go-colortext v1.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/emicklei/go-restful v2.12.0+incompatible // indirect
+	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.4
