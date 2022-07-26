@@ -2,9 +2,8 @@
 https://github.com/openyurtio/openyurt/blob/master/CONTRIBUTING.md 
 -->
 
-
 #### What type of PR is this?
-> Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading whitespace from that line:
+> Uncomment only one `/kind <>` line, hit enter to put that in a new line, and remove leading whitespace from that line:
 > /kind bug
 > /kind documentation
 > /kind enhancement
@@ -16,9 +15,6 @@ https://github.com/openyurtio/openyurt/blob/master/CONTRIBUTING.md
 > /sig iot
 > /sig network
 > /sig storage
-> /sig storage
-
-
 
 #### What this PR does / why we need it:
 
@@ -34,7 +30,6 @@ Fixes #
 use this label to assign your reviewer
 /assign @your_reviewer
 -->
-
 
 #### Does this PR introduce a user-facing change?
 <!--
