@@ -127,7 +127,7 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
 		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download kuelet fail: %w", err)
+			return fmt.Errorf("Download kubelet fail: %w", err)
 		}
 		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
 			return err
@@ -144,20 +144,20 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 		klog.Infof("Cni dir %s already exist, skip install.", constants.KubeCniDir)
 		return nil
 	}
-	//download and install kubernetes-cni
-	cniUrl := fmt.Sprintf(constants.CniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
-	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
+
+	// download and install openyurt-cni
+	cniUrl := fmt.Sprintf("%s", constants.OpenYurtCniUrl)
+	savePath := fmt.Sprintf("%s/openyurt-cni-0.8.7-0.x86_64.rpm", constants.TmpDownloadDir)
 	klog.V(1).Infof("Download cni from: %s", cniUrl)
 	if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
 		return err
 	}
+	// rpm -ivh --nodeps --force /tmp/openyurt-cni-0.8.7-0.x86_64.rpm
+	// will install cni binaries to /opt/cni/bin/
+	if _, err := exec.Command("rpm", "-ivh", "--nodeps", "--force", savePath).CombinedOutput(); err != nil {
+		return err
+	}
 
-	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
-		return err
-	}
-	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
-		return err
-	}
 	return nil
 }
 

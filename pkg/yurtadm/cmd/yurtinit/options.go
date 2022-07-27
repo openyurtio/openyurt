@@ -32,17 +32,23 @@ type InitOptions struct {
 	YurttunnelServerAddress string
 	ServiceSubnet           string
 	PodSubnet               string
+	ClusterCIDR             string
 	Password                string
 	ImageRepository         string
 	OpenYurtVersion         string
 	K8sVersion              string
+	KubeProxyBindAddress    string
 }
 
 func NewInitOptions() *InitOptions {
 	return &InitOptions{
-		ImageRepository: constants.DefaultOpenYurtImageRegistry,
-		OpenYurtVersion: constants.DefaultOpenYurtVersion,
-		K8sVersion:      constants.DefaultK8sVersion,
+		ImageRepository:      constants.DefaultOpenYurtImageRegistry,
+		OpenYurtVersion:      constants.DefaultOpenYurtVersion,
+		K8sVersion:           constants.DefaultK8sVersion,
+		PodSubnet:            constants.DefaultPodSubnet,
+		ServiceSubnet:        constants.DefaultServiceSubnet,
+		ClusterCIDR:          constants.DefaultClusterCIDR,
+		KubeProxyBindAddress: constants.DefaultKubeProxyBindAddress,
 	}
 }
 
@@ -55,6 +61,18 @@ func (o *InitOptions) Validate() error {
 				return err
 			}
 		}
+	}
+
+	if o.OpenYurtVersion == "" {
+		return errors.New("OpenYurtVersion can not be empty!")
+	}
+
+	if o.K8sVersion == "" {
+		return errors.New("K8sVersion can not be empty!")
+	}
+
+	if err := validateOpenYurtAndK8sVersions(o.OpenYurtVersion, o.K8sVersion); err != nil {
+		return err
 	}
 
 	if o.YurttunnelServerAddress != "" {
@@ -80,6 +98,16 @@ func (o *InitOptions) Validate() error {
 	}
 
 	return nil
+}
+
+func validateOpenYurtAndK8sVersions(openyurtVersion string, k8sVersion string) error {
+	for _, version := range ValidOpenYurtAndK8sVersions {
+		if openyurtVersion == version.OpenYurtVersion && k8sVersion == openyurtVersion {
+			return nil
+		}
+	}
+
+	return errors.Errorf("cannot use openyurtVersion: %s and k8sVersion: %s !", openyurtVersion, k8sVersion)
 }
 
 func validateServerAddress(address string) error {

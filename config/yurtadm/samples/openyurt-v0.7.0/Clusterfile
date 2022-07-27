@@ -1,0 +1,28 @@
+apiVersion: sealer.cloud/v2
+kind: Cluster
+metadata:
+  name: my-cluster
+spec:
+  hosts:
+  - ips: [ 1.2.3.4 ]
+    roles: [ master ]
+  image: test:latest
+  ssh:
+    passwd: xxx
+    pk: /root/.ssh/id_rsa
+    user: root
+  env:
+  - PodCIDR=10.244.0.0/16
+  cmd_args:
+  - BindAddress=0.0.0.0
+  - ClusterCIDR=10.244.0.0/16
+---
+
+## Custom configurations must specify kind, will be merged to default kubeadm configs
+kind: ClusterConfiguration
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/12
+controllerManager:
+  extraArgs:
+    controllers: -nodelifecycle,*,bootstrapsigner,tokencleaner

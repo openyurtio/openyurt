@@ -22,8 +22,6 @@ require (
 	github.com/openyurtio/yurt-app-manager-api v0.18.8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
-	github.com/sealyun/lvscare v1.1.2-alpha.2 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0

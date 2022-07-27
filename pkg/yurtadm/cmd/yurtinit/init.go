@@ -43,17 +43,21 @@ const (
 	APIServerAdvertiseAddress = "apiserver-advertise-address"
 	//YurttunnelServerAddress flag sets the IP address of Yurttunnel Server.
 	YurttunnelServerAddress = "yurt-tunnel-server-address"
-	// NetworkingServiceSubnet flag sets the range of IP address for service VIPs.
-	NetworkingServiceSubnet = "service-cidr"
-	// NetworkingPodSubnet flag sets the range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node.
-	NetworkingPodSubnet = "pod-network-cidr"
+	// NetworkingServiceSubnet flag sets the subnet used by kubernetes Services.
+	NetworkingServiceSubnet = "service-subnet"
+	// NetworkingPodSubnet flag sets the subnet used by Pods.
+	NetworkingPodSubnet = "pod-subnet"
+	// ClusterCIDR flag sets the CIDR range of the pods in the cluster. It is used to bridge traffic coming from outside of the cluster.
+	ClusterCIDR = "cluster-cidr"
+	// KubeProxyBindAddress flag sets the IP address for the proxy server to serve on (set to 0.0.0.0 for all interfaces)
+	KubeProxyBindAddress = "kube-proxy-bind-address"
 	// OpenYurtVersion flag sets the OpenYurt version for the control plane.
 	OpenYurtVersion = "openyurt-version"
 	// K8sVersion flag sets the Kubernetes version for the control plane.
 	K8sVersion = "k8s-version"
 	// ImageRepository flag sets the container registry to pull control plane images from.
 	ImageRepository = "image-repository"
-	// PassWd flag is the password of master server.
+	// PassWd flag sets the password of master server.
 	PassWd = "passwd"
 
 	TmpDownloadDir = "/tmp"
@@ -79,18 +83,18 @@ spec:
     pk: /root/.ssh/id_rsa
     user: root
   env:
+  - PodCIDR={{.pod_subnet}}
   - YurttunnelServerAddress={{.yurttunnel_server_address}}
+  cmd_args:
+  - BindAddress={{.bind_address}}
+  - ClusterCIDR={{.cluster_cidr}}
 ---
 
 ## Custom configurations must specify kind, will be merged to default kubeadm configs
 kind: ClusterConfiguration
 networking:
-  {{if .pod_subnet }}
   podSubnet: {{.pod_subnet}}
-  {{end}}
-  {{if .service_subnet}}
   serviceSubnet: {{.service_subnet}}
-  {{end}}
 controllerManager:
   extraArgs:
     controllers: -nodelifecycle,*,bootstrapsigner,tokencleaner
@@ -100,17 +104,37 @@ controllerManager:
 var (
 	initExample = templates.Examples(i18n.T(`
 		# Initialize an OpenYurt cluster.
-		yurtadm init --apiserver-advertise-address 192.168.152.131 --openyurt-version latest --passwd 1234
+		yurtadm init --apiserver-advertise-address 1.2.3.4 --openyurt-version v0.7.0 --passwd xxx
 		
-		# Initialize an OpenYurt cluster with multiple masters.
-		yurtadm init --apiserver-advertise-address 192.168.152.131,192.168.152.132 --openyurt-version latest --passwd 1234
+		# Initialize an OpenYurt high availability cluster.
+		yurtadm init --apiserver-advertise-address 1.2.3.4,1.2.3.5,1.2.3.6 --openyurt-version v0.7.0 --passwd xxx
 	`))
 
 	ValidSealerVersions = []string{
 		//"v0.6.1",
 		"v0.8.5",
 	}
+
+	ValidOpenYurtAndK8sVersions = []version{
+		{
+			OpenYurtVersion: "v0.7.0",
+			K8sVersion:      "v1.19.8",
+		},
+		{
+			OpenYurtVersion: "v0.7.0",
+			K8sVersion:      "v1.20.10",
+		},
+		{
+			OpenYurtVersion: "v0.7.0",
+			K8sVersion:      "v1.21.14",
+		},
+	}
 )
+
+type version struct {
+	OpenYurtVersion string
+	K8sVersion      string
+}
 
 // clusterInitializer init a node to master of openyurt cluster
 type clusterInitializer struct {
@@ -153,14 +177,14 @@ func addFlags(flagset *flag.FlagSet, o *InitOptions) {
 		"The yurt-tunnel-server address.")
 	flagset.StringVarP(
 		&o.ServiceSubnet, NetworkingServiceSubnet, "", o.ServiceSubnet,
-		"Use alternative range of IP address for service VIPs.",
+		"ServiceSubnet is the subnet used by kubernetes Services.",
 	)
 	flagset.StringVarP(
 		&o.PodSubnet, NetworkingPodSubnet, "", o.PodSubnet,
-		"Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node.",
+		"PodSubnet is the subnet used by Pods.",
 	)
 	flagset.StringVarP(&o.Password, PassWd, "p", o.Password,
-		"set master server ssh password",
+		"Set master server ssh password",
 	)
 	flagset.StringVarP(
 		&o.OpenYurtVersion, OpenYurtVersion, "", o.OpenYurtVersion,
@@ -172,6 +196,12 @@ func addFlags(flagset *flag.FlagSet, o *InitOptions) {
 	)
 	flagset.StringVarP(&o.ImageRepository, ImageRepository, "", o.ImageRepository,
 		"Choose a registry to pull cluster images from",
+	)
+	flagset.StringVarP(&o.ClusterCIDR, ClusterCIDR, "", o.ClusterCIDR,
+		"Choose a CIDR range of the pods in the cluster",
+	)
+	flagset.StringVarP(&o.KubeProxyBindAddress, KubeProxyBindAddress, "", o.KubeProxyBindAddress,
+		"Choose an IP address for the proxy server to serve on",
 	)
 }
 
@@ -260,6 +290,8 @@ func (ci *clusterInitializer) PrepareClusterfile() error {
 		"pod_subnet":                ci.PodSubnet,
 		"service_subnet":            ci.ServiceSubnet,
 		"yurttunnel_server_address": ci.YurttunnelServerAddress,
+		"cluster_cidr":              ci.ClusterCIDR,
+		"bind_address":              ci.KubeProxyBindAddress,
 	})
 	if err != nil {
 		return err

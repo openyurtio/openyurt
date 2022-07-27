@@ -24,14 +24,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 
@@ -47,13 +43,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-)
-
-const (
-	LvsCareStaticPodName = "kube-lvscare"
-	LvsCareCommand       = "/usr/bin/lvscare"
-	DefaultLvsCareImage  = "fanux/lvscare:latest"
-	LvsStaticPodFileName = "kube-lvscare.yaml"
 )
 
 // NewEdgeNodePhase creates a yurtadm workflow phase that start kubelet on a edge node.
@@ -80,10 +69,6 @@ func runJoinNode(c workflow.RunData) error {
 
 	err := writeKubeletConfigFile(data.BootstrapClient(), data)
 	if err != nil {
-		return err
-	}
-
-	if err := addLvsStaticPodYaml(data, filepath.Join(constants.KubernetesDir, constants.ManifestsSubDirName)); err != nil {
 		return err
 	}
 
@@ -170,106 +155,6 @@ func writeConfigBytesToDisk(b []byte, kubeletDir string) error {
 	return nil
 }
 
-// LvsStaticPodYaml return lvs care static pod yaml
-func LvsStaticPodYaml(vip string, masters []string, image string) string {
-	if vip == "" || len(masters) == 0 {
-		return ""
-	}
-	if image == "" {
-		image = DefaultLvsCareImage
-	}
-	args := []string{"care", "--vs", vip + ":6443", "--health-path", "/healthz", "--health-schem", "https"}
-	for _, m := range masters {
-		args = append(args, "--rs")
-		args = append(args, m)
-	}
-	flag := true
-	pod := componentPod(v1.Container{
-		Name:            LvsCareStaticPodName,
-		Image:           image,
-		Command:         []string{LvsCareCommand},
-		Args:            args,
-		ImagePullPolicy: v1.PullIfNotPresent,
-		SecurityContext: &v1.SecurityContext{Privileged: &flag},
-	})
-	yaml, err := podToYaml(pod)
-	if err != nil {
-		logrus.Errorf("failed to decode lvs care static pod yaml: %s", err)
-		return ""
-	}
-	return string(yaml)
-}
-
-// componentPod returns a Pod object from the container and volume specifications
-func componentPod(container v1.Container) v1.Pod {
-	hostPathType := v1.HostPathUnset
-	mountName := "lib-modules"
-	volumes := []v1.Volume{
-		{Name: mountName, VolumeSource: v1.VolumeSource{
-			HostPath: &v1.HostPathVolumeSource{
-				Path: "/lib/modules",
-				Type: &hostPathType,
-			},
-		}},
-	}
-	container.VolumeMounts = []v1.VolumeMount{
-		{Name: mountName, ReadOnly: true, MountPath: "/lib/modules"},
-	}
-
-	return v1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      container.Name,
-			Namespace: metav1.NamespaceSystem,
-		},
-		Spec: v1.PodSpec{
-			Containers:  []v1.Container{container},
-			HostNetwork: true,
-			Volumes:     volumes,
-		},
-	}
-}
-
-func podToYaml(pod v1.Pod) ([]byte, error) {
-	codecs := scheme.Codecs
-	gv := v1.SchemeGroupVersion
-	const mediaType = runtime.ContentTypeYAML
-	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), mediaType)
-	if !ok {
-		return []byte{}, errors.Errorf("unsupported media type %q", mediaType)
-	}
-
-	encoder := codecs.EncoderForVersion(info.Serializer, gv)
-	return runtime.Encode(encoder, &pod)
-}
-
-// addLvsStaticPodYaml generate lvscare static yaml for worker node.
-func addLvsStaticPodYaml(data joindata.YurtJoinData, podManifestPath string) error {
-	klog.Info("[join-node] Adding lvscare static yaml")
-	if _, err := os.Stat(podManifestPath); err != nil {
-		if os.IsNotExist(err) {
-			err = os.MkdirAll(podManifestPath, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		} else {
-			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
-			return err
-		}
-	}
-
-	yaml := LvsStaticPodYaml(yurtconstants.DefaultVIP, strings.Split(data.ServerAddr(), ","), DefaultLvsCareImage)
-	if err := os.WriteFile(filepath.Join(podManifestPath, LvsStaticPodFileName), []byte(yaml), 0600); err != nil {
-		return err
-	}
-
-	klog.Info("[join-node] Add lvscare static yaml is ok")
-	return nil
-}
-
 // addYurthubStaticYaml generate YurtHub static yaml for worker node.
 func addYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
 	klog.Info("[join-node] Adding edge hub static yaml")
@@ -286,9 +171,9 @@ func addYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 	}
 
 	// convert
-	// 192.168.152.131:6443,192.168.152.132:6443
+	// 1.2.3.4:6443,1.2.3.5:6443,1.2.3.6:6443
 	// to
-	// https://192.168.152.131:6443,https://192.168.152.132:6443
+	// https://1.2.3.4:6443,https://1.2.3.5:6443,https://1.2.3.6:6443
 	serverAddrs := strings.Split(data.ServerAddr(), ",")
 	for i := 0; i < len(serverAddrs); i++ {
 		serverAddrs[i] = fmt.Sprintf("https://%s", serverAddrs[i])

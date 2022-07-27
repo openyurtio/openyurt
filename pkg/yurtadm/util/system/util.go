@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/opencontainers/selinux/go-selinux"
-	"github.com/sealyun/lvscare/care"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
@@ -77,31 +78,21 @@ func SetSELinux() error {
 	return nil
 }
 
-// AddVIPHosts add the vip to the hosts.
-func AddVIPHosts() error {
-	klog.Info("Adding vip to the hosts")
+// AddSeaHubHosts add <MasterIP sea.hub> to /etc/hosts
+// When sealer creates the master, images are automatically saved in sea.hub
+func AddSeaHubHosts(data joindata.YurtJoinData) error {
+	klog.Info("Adding sea.hub:5000 to /etc/hosts")
 	f, err := os.OpenFile(constants.EtcHostsFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0660)
 	if err != nil {
 		return fmt.Errorf("Open file %s fail: %w ", constants.EtcHostsFile, err)
 	}
 	defer f.Close()
-	f.WriteString(fmt.Sprintf("%s %s\n", constants.DefaultVIP, constants.DefaultAPIserverDomain))
-	return nil
-}
 
-// AddIPVS add ipvs rules.
-func AddIPVS(virtualServer string, realServer []string) error {
-	klog.Info("Adding ipvs rules")
-	lvscare := &care.LvsCare{
-		HealthPath:    "/healthz",
-		HealthSchem:   "https",
-		VirtualServer: virtualServer,
-		RealServer:    realServer,
-		RunOnce:       true,
-		Clean:         true,
-		Interval:      5,
-	}
+	// x.x.x.x:6443
+	serverAddr := strings.Split(data.ServerAddr(), ",")[0]
+	// x.x.x.x
+	masterIpAddr := strings.Split(serverAddr, ":")[0]
 
-	go lvscare.VsAndRsCare()
+	f.WriteString(fmt.Sprintf("%s %s\n", masterIpAddr, constants.SealerRegistry))
 	return nil
 }

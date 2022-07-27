@@ -1,0 +1,10 @@
+apiVersion: sealer.aliyun.com/v1alpha1
+kind: Plugin
+metadata:
+  name: MyShell
+spec:
+  type: SHELL
+  action: PostInstall
+  'on': master
+  data: |
+    kubectl label node $HOSTNAME openyurt.io/is-edge-worker=false --overwrite

@@ -48,16 +48,16 @@ import (
 var (
 	joinExample = templates.Examples(i18n.T(`
 		# Join the edge node to cluster.
-		yurtadm join 192.168.152.131:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
+		yurtadm join 1.2.3.4:6443 --token=abcdef.0123456789abcdef --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
 
-		# Join the edge node to cluster with multiple masters.
-		yurtadm join 192.168.152.131:6443,192.168.152.132:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
+		# Join the edge node to a high availability cluster.
+		yurtadm join 1.2.3.4:6443,1.2.3.5:6443,1.2.3.6:6443 --token=abcdef.0123456789abcdef --node-type=edge --discovery-token-unsafe-skip-ca-verification --v=5
 
 		# Join the cloud node to cluster.
-		yurtadm join 192.168.152.131:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
+		yurtadm join 1.2.3.4:6443 --token=abcdef.0123456789abcdef --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
 
-		# Join the cloud node to cluster with multiple masters.
-		yurtadm join 192.168.152.131:6443,192.168.152.132:6443 --token=zffaj3.a5vjzf09qn9ft3gt --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
+		# Join the cloud node to a high availability cluster.
+		yurtadm join 1.2.3.4:6443,1.2.3.5:6443,1.2.3.6:6443 --token=abcdef.0123456789abcdef --node-type=cloud --discovery-token-unsafe-skip-ca-verification --v=5
 	`))
 
 	joinWorkerNodeDoneMsg = dedent.Dedent(`

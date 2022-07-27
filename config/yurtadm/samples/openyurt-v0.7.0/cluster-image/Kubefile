@@ -1,0 +1,18 @@
+FROM kubernetes:v1.21.14-alpine
+
+# flannel: https://github.com/sealerio/applications/tree/main/flannel
+# cni has been replaced by the content in openyurt-cni-0.8.7-0.x86_64.rpm in https://github.com/openyurtio/openyurt/releases
+# Reason see: https://openyurt.io/docs/user-manuals/network/edge-pod-network/#ipam-pod-ip-address-kept
+
+COPY cni .
+COPY init-kube.sh /scripts/
+COPY kube-flannel.yaml.tmpl manifests/
+
+COPY shell-plugin.yaml plugins
+
+# openyurt
+COPY yamls/* manifests
+COPY install.sh .
+RUN chmod 777 install.sh
+
+CMD bind_address=${BindAddress} cluster_cidr=${ClusterCIDR} ./install.sh

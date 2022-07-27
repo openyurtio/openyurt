@@ -24,7 +24,9 @@ const (
 	YurttunnelAgentComponentName    = "yurt-tunnel-agent"
 	YurttunnelNamespace             = "kube-system"
 
-	EtcHostsFile             = "/etc/hosts"
+	EtcHostsFile   = "/etc/hosts"
+	SealerRegistry = "sea.hub"
+
 	SysctlK8sConfig          = "/etc/sysctl.d/k8s.conf"
 	KubeletConfigureDir      = "/etc/kubernetes"
 	KubeletWorkdir           = "/var/lib/kubelet"
@@ -38,6 +40,7 @@ const (
 	YurthubStaticPodFileName = "yurthub.yaml"
 	PauseImagePath           = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 
+	OpenYurtCniUrl                  = "https://github.com/openyurtio/openyurt/releases/download/v0.7.0/openyurt-cni-0.8.7-0.x86_64.rpm"
 	CniUrlFormat                    = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
 	DefaultKubernetesResourceServer = "dl.k8s.io"
 	KubeUrlFormat                   = "https://%s/%s/kubernetes-node-linux-%s.tar.gz"
@@ -47,20 +50,23 @@ const (
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
 
-	DefaultVIP                   = "10.103.97.2"
-	DefaultAPIserverDomain       = "apiserver.cluster.local"
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
 	DefaultOpenYurtVersion       = "latest"
-	DefaultK8sVersion            = "1198" // default kubernetes 1.19.8
-	YurtControllerManager        = "yurt-controller-manager"
-	YurtTunnelServer             = "yurt-tunnel-server"
-	YurtTunnelAgent              = "yurt-tunnel-agent"
-	Yurthub                      = "yurthub"
-	YurtAppManager               = "yurt-app-manager"
-	YurtAppManagerNamespace      = "kube-system"
-	DirMode                      = 0755
-	FileMode                     = 0666
-	KubeletServiceContent        = `
+	DefaultK8sVersion            = "1.21.14"
+	DefaultPodSubnet             = "10.244.0.0/16"
+	DefaultServiceSubnet         = "10.96.0.0/12"
+	DefaultClusterCIDR           = "10.244.0.0/16"
+	DefaultKubeProxyBindAddress  = "0.0.0.0"
+
+	YurtControllerManager   = "yurt-controller-manager"
+	YurtTunnelServer        = "yurt-tunnel-server"
+	YurtTunnelAgent         = "yurt-tunnel-agent"
+	Yurthub                 = "yurthub"
+	YurtAppManager          = "yurt-app-manager"
+	YurtAppManagerNamespace = "kube-system"
+	DirMode                 = 0755
+	FileMode                = 0666
+	KubeletServiceContent   = `
 [Unit]
 Description=kubelet: The Kubernetes Node Agent
 Documentation=http://kubernetes.io/docs/

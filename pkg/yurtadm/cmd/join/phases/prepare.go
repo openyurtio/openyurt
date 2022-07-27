@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -28,7 +27,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/system"
 )
@@ -67,11 +65,7 @@ func runPrepare(c workflow.RunData) error {
 	if err := system.SetSELinux(); err != nil {
 		return err
 	}
-
-	if err := system.AddVIPHosts(); err != nil {
-		return err
-	}
-	if err := system.AddIPVS(fmt.Sprintf("%s:6443", yurtconstants.DefaultVIP), strings.Split(data.ServerAddr(), ",")); err != nil {
+	if err := system.AddSeaHubHosts(data); err != nil {
 		return err
 	}
 
