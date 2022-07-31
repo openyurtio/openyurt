@@ -55,6 +55,7 @@ type CacheManager interface {
 	QueryCache(req *http.Request) (runtime.Object, error)
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
+	QueryBytes(req *http.Request) ([]byte, error)
 }
 
 type cacheManager struct {
@@ -112,6 +113,10 @@ func (cm *cacheManager) CacheResponse(req *http.Request, prc io.ReadCloser, stop
 		klog.V(5).Infof("cache %d bytes from response for %s", n, util.ReqInfoString(info))
 	}
 
+	if req.URL.Path == "/version" {
+		return cm.saveVersion(buf.Bytes())
+	}
+
 	if isList(ctx) {
 		return cm.saveListObject(ctx, info, buf.Bytes())
 	}
@@ -143,6 +148,22 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	}
 
 	return nil, fmt.Errorf("request(%#+v) is not supported", info)
+}
+
+func (cm *cacheManager) QueryBytes(req *http.Request) ([]byte, error) {
+	if req.URL.Path == "/version" {
+		key, err := util.KeyFunc("kubernetes", "version", "version", "version")
+		if err != nil {
+			return nil, err
+		}
+		versionInfo, err := cm.storage.GetStore().Get(key)
+		klog.Infof("get the version info cache: %s", string(versionInfo))
+		if err != nil {
+			return nil, err
+		}
+		return versionInfo, nil
+	}
+	return nil, errors.New("cannot identify the request")
 }
 
 func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
@@ -514,6 +535,30 @@ func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Obje
 	}
 }
 
+func (cm *cacheManager) saveVersion(versionInfo []byte) error {
+	key, err := util.KeyFunc("kubernetes", "version", "version", "version")
+	if err != nil {
+		return err
+	}
+
+	oldObj, err := cm.storage.GetStore().Get(key)
+	if err == nil && oldObj != nil {
+		klog.Infof("success to save the version info")
+		return cm.storage.GetStore().Update(key, versionInfo)
+	} else if os.IsNotExist(err) || oldObj == nil {
+		klog.Infof("success to save the version info")
+		return cm.storage.GetStore().Create(key, versionInfo)
+	} else {
+		if !errors.Is(err, storage.ErrStorageAccessConflict) {
+			klog.Infof("success to save the version info")
+			return cm.storage.GetStore().Create(key, versionInfo)
+		}
+		klog.Errorf("error to save the version info for %s, %s", key, string(versionInfo))
+		return err
+	}
+
+}
+
 // isNotAssignedPod check pod is assigned to node or not
 // when delete pod of statefulSet, kubelet may get pod unassigned.
 func isNotAssignedPod(obj runtime.Object) bool {
@@ -561,6 +606,11 @@ func isCreate(ctx context.Context) bool {
 // 4. csr resource request
 func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	ctx := req.Context()
+
+	if req.URL.Path == "/version" {
+		return true
+	}
+
 	comp, ok := util.ClientComponentFrom(ctx)
 	if !ok || len(comp) == 0 {
 		return false
