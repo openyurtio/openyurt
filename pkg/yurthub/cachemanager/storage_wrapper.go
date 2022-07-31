@@ -43,6 +43,7 @@ type StorageWrapper interface {
 	DeleteCollection(rootKey string) error
 	GetRaw(key string) ([]byte, error)
 	UpdateRaw(key string, contents []byte) error
+	GetStore() storage.Store
 }
 
 type storageWrapper struct {
@@ -50,6 +51,10 @@ type storageWrapper struct {
 	store             storage.Store
 	backendSerializer runtime.Serializer
 	cache             map[string]runtime.Object
+}
+
+func (sw *storageWrapper) GetStore() storage.Store {
+	return sw.store
 }
 
 // NewStorageWrapper create a StorageWrapper object
