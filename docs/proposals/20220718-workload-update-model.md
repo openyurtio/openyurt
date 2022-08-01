@@ -78,7 +78,7 @@ Note: No modification to Kubernetes, keeping it non-invasive, no modification to
   <img src="../img/OTA.png" width=50% title="OTA">
 </div>
 
-**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`
+**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: ota`) for DaemonSet
 
 1. Users query whether a newer version of the application is available via OTA module's API.
 2. OTA module accesses Kubernetes APIServer through client-go library and get the current application's version.
@@ -93,35 +93,17 @@ Note: No modification to Kubernetes, keeping it non-invasive, no modification to
 
 ##### OTA API
 
-1. Get all existing daemonset instances in cluster
+1. get all pods on edge node
 
-```
-GET /namespaces/{namespace}/daemonsets
-- 200 OK []string
-- 401 Unauthorized
+```text
+GET /pods HTTP/1.1
 ```
 
-2. Get the latest version of the specified daemonset
+1. upgrade specified pod on edge node
 
-```
-GET /namespaces/{namespace}/daemonsets/{name}
-- 200 OK
-{
-	LatestVersion  string
-	CurrentVersion string
-	Updatable      boolean
-}
-- 401 Unauthorized
-```
-
-3. Update application to the latest version
-
-```
-PUT /namespaces/{namespace}/daemonsets/{name}
-- 200 OK
-- 401 Unauthorized
-- 403 Forbidden
-```
+```text
+POST /openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade  HTTP/1.1
+````
 
 #### 2 New-controller
 
@@ -136,7 +118,7 @@ PUT /namespaces/{namespace}/daemonsets/{name}
 
 ##### Steps
 
-**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`
+**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: immediate`) for DaemonSet
 
 1. New controller monitor daemonset's changes.
 2. When the daemonset is updated, check the status of all the nodes selected by this daemosnet and if it is ready, then delete pods.
