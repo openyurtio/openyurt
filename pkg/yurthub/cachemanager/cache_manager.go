@@ -152,11 +152,8 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 
 func (cm *cacheManager) QueryBytes(req *http.Request) ([]byte, error) {
 	if req.URL.Path == "/version" {
-		key, err := util.KeyFunc("kubernetes", "version", "version", "version")
-		if err != nil {
-			return nil, err
-		}
-		versionInfo, err := cm.storage.GetStore().Get(key)
+		key := "version"
+		versionInfo, err := cm.storage.GetRaw(key)
 		klog.Infof("get the version info cache: %s", string(versionInfo))
 		if err != nil {
 			return nil, err
@@ -536,22 +533,16 @@ func (cm *cacheManager) saveOneObjectWithValidation(key string, obj runtime.Obje
 }
 
 func (cm *cacheManager) saveVersion(versionInfo []byte) error {
-	key, err := util.KeyFunc("kubernetes", "version", "version", "version")
-	if err != nil {
-		return err
-	}
+	key := "version"
 
-	oldObj, err := cm.storage.GetStore().Get(key)
+	oldObj, err := cm.storage.GetRaw(key)
 	if err == nil && oldObj != nil {
-		klog.Infof("success to save the version info")
-		return cm.storage.GetStore().Update(key, versionInfo)
+		return cm.storage.UpdateRaw(key, versionInfo)
 	} else if os.IsNotExist(err) || oldObj == nil {
-		klog.Infof("success to save the version info")
-		return cm.storage.GetStore().Create(key, versionInfo)
+		return cm.storage.CreateRaw(key, versionInfo)
 	} else {
 		if !errors.Is(err, storage.ErrStorageAccessConflict) {
-			klog.Infof("success to save the version info")
-			return cm.storage.GetStore().Create(key, versionInfo)
+			return cm.storage.CreateRaw(key, versionInfo)
 		}
 		klog.Errorf("error to save the version info for %s, %s", key, string(versionInfo))
 		return err
