@@ -118,7 +118,7 @@ POST /openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade  HTTP/1.1
 
 ##### Steps
 
-**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: immediate`) for DaemonSet
+**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: auto`) for DaemonSet
 
 1. New controller monitor daemonset's changes.
 2. When the daemonset is updated, check the status of all the nodes selected by this daemosnet and if it is ready, then delete pods.
