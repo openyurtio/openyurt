@@ -98,17 +98,25 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // localServerVersion handles /version GET requests when remote servers are unhealthy
 func (lp *LocalProxy) localServerVersion(w http.ResponseWriter, req *http.Request) error {
-
 	versionInfo, err := lp.cacheMgr.QueryBytes(req)
-	copyHeader(w.Header(), req.Header)
-	w.WriteHeader(http.StatusOK)
-	nw, err := w.Write(versionInfo)
-	if err != nil {
-		klog.Errorf("write resp for /version request when cluster is unhealthy, expect %d bytes but write %d bytes with error, %v", nw, err)
-	}
-	klog.V(5).Infof(" get /version info when cluster is unhealthy")
-	return err
 
+	if err != nil {
+		copyHeader(w.Header(), req.Header)
+		w.WriteHeader(http.StatusBadRequest)
+
+		return err
+	} else {
+		copyHeader(w.Header(), req.Header)
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(versionInfo)
+
+		if err != nil {
+			klog.Errorf("write resp for /version request when cluster is unhealthy, the error is , %v", err)
+		} else {
+			klog.V(5).Infof(" get /version info when cluster is unhealthy")
+		}
+		return err
+	}
 }
 
 // localDelete handles Delete requests when remote servers are unhealthy
