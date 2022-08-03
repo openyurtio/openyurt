@@ -161,7 +161,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace++
 
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, tenantMgr, stopCh)
+	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, healthChecker, certManager, tenantMgr, restConfigMgr, stopCh)
 
 	if err != nil {
 		return fmt.Errorf("could not create reverse proxy handler, %w", err)

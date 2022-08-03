@@ -19,6 +19,9 @@ package util
 import (
 	"context"
 	"fmt"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"k8s.io/client-go/kubernetes"
 	"net/http"
 	"strings"
 	"time"
@@ -299,6 +302,60 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 		}
 		handler.ServeHTTP(w, req)
 	})
+}
+
+func WithNonResourceRequest(handler http.Handler, cfg *config.YurtHubConfiguration, rest *rest.RestConfigManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/version" {
+			cacheNonResourceInfo(w, req, "non-resource-info/version", "/version", cfg, rest)
+		} else if req.URL.Path == "/apis/discovery.k8s.io/v1" {
+			cacheNonResourceInfo(w, req, "non-resource-info/discoveryV1", "/apis/discovery.k8s.io/v1", cfg, rest)
+		} else if req.URL.Path == "/apis/discovery.k8s.io/v1beta1" {
+			cacheNonResourceInfo(w, req, "non-resource-info/discoveryV1Beta1", "/apis/discovery.k8s.io/v1beta1", cfg, rest)
+		}
+		handler.ServeHTTP(w, req)
+	})
+
+}
+
+func cacheNonResourceInfo(w http.ResponseWriter, req *http.Request, key string, path string, cfg *config.YurtHubConfiguration, rest *rest.RestConfigManager) {
+	infoCache, err := cfg.StorageWrapper.GetRaw(key)
+	copyHeader(w.Header(), req.Header)
+	if err == nil {
+		w.WriteHeader(http.StatusOK)
+		klog.Infof("success to query the cache non-resource info: %s", key)
+		_, err = w.Write(infoCache)
+	} else {
+		restCfg := rest.GetRestConfig(false)
+		clientSet, err := kubernetes.NewForConfig(restCfg)
+		if err != nil {
+			klog.Errorf("the cluster cannot be connected, the error is: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			versionInfo, err := clientSet.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw()
+			if err != nil {
+				klog.Errorf("the version info cannot be acquired, the error is: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+			}
+
+			klog.Infof("success to non-resource info: %s", key)
+			w.WriteHeader(http.StatusOK)
+			_, err = w.Write(versionInfo)
+			cfg.StorageWrapper.UpdateRaw(key, versionInfo)
+		}
+
+	}
+
+}
+
+func copyHeader(dst, src http.Header) {
+	for k, vv := range src {
+		if k == "Content-Type" || k == "Content-Length" {
+			for _, v := range vv {
+				dst.Add(k, v)
+			}
+		}
+	}
 }
 
 func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) http.Handler {
