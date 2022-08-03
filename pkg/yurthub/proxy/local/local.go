@@ -64,15 +64,6 @@ func NewLocalProxy(cacheMgr manager.CacheManager, isHealthy IsHealthy) *LocalPro
 func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
 	ctx := req.Context()
-	if req.URL.Path == "/version" {
-		err = lp.localServerVersion(w, req)
-		klog.V(3).Infof("go into local proxy for request %s", util.ReqString(req))
-		if err != nil {
-			klog.Errorf("could not proxy local for %s, %v", util.ReqString(req), err)
-			util.Err(err, w, req)
-		}
-		return
-	}
 	if reqInfo, ok := apirequest.RequestInfoFrom(ctx); ok && reqInfo != nil && reqInfo.IsResourceRequest {
 		klog.V(3).Infof("go into local proxy for request %s", util.ReqString(req))
 		switch reqInfo.Verb {
@@ -93,29 +84,6 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		klog.Errorf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))
 		util.Err(apierrors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))), w, req)
-	}
-}
-
-// localServerVersion handles /version GET requests when remote servers are unhealthy
-func (lp *LocalProxy) localServerVersion(w http.ResponseWriter, req *http.Request) error {
-	versionInfo, err := lp.cacheMgr.QueryBytes(req)
-
-	if err != nil {
-		copyHeader(w.Header(), req.Header)
-		w.WriteHeader(http.StatusBadRequest)
-
-		return err
-	} else {
-		copyHeader(w.Header(), req.Header)
-		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(versionInfo)
-
-		if err != nil {
-			klog.Errorf("write resp for /version request when cluster is unhealthy, the error is , %v", err)
-		} else {
-			klog.V(5).Infof(" get /version info when cluster is unhealthy")
-		}
-		return err
 	}
 }
 

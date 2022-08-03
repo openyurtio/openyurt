@@ -43,7 +43,6 @@ type StorageWrapper interface {
 	DeleteCollection(rootKey string) error
 	GetRaw(key string) ([]byte, error)
 	UpdateRaw(key string, contents []byte) error
-	CreateRaw(key string, contents []byte) error
 }
 
 type storageWrapper struct {
@@ -247,11 +246,6 @@ func (sw *storageWrapper) GetRaw(key string) ([]byte, error) {
 // UpdateRaw update contents(byte date) for specified key
 func (sw *storageWrapper) UpdateRaw(key string, contents []byte) error {
 	return sw.store.Update(key, contents)
-}
-
-// CreateRaw create contents(byte date) for specified key
-func (sw *storageWrapper) CreateRaw(key string, contents []byte) error {
-	return sw.store.Create(key, contents)
 }
 
 // isCacheKey verify runtime object is cached for specified key.
