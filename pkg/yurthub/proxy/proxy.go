@@ -17,6 +17,7 @@ limitations under the License.
 package proxy
 
 import (
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"net/http"
 	"time"
 
@@ -46,6 +47,8 @@ type yurtReverseProxy struct {
 	cacheMgr            cachemanager.CacheManager
 	maxRequestsInFlight int
 	tenantMgr           tenant.Interface
+	cfg                 *config.YurtHubConfiguration
+	rest                *rest.RestConfigManager
 	stopCh              <-chan struct{}
 }
 
@@ -58,6 +61,7 @@ func NewYurtReverseProxyHandler(
 	healthChecker healthchecker.HealthChecker,
 	certManager interfaces.YurtCertificateManager,
 	tenantMgr tenant.Interface,
+	rest *rest.RestConfigManager,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -92,6 +96,8 @@ func NewYurtReverseProxyHandler(
 		cacheMgr:            cacheMgr,
 		maxRequestsInFlight: yurtHubCfg.MaxRequestInFlight,
 		tenantMgr:           tenantMgr,
+		cfg:                 yurtHubCfg,
+		rest:                rest,
 		stopCh:              stopCh,
 	}
 
@@ -110,7 +116,9 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	}
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
-
+	if p.cacheMgr != nil {
+		handler = util.WithNonResourceRequest(handler, p.cfg, p.rest)
+	}
 	if p.tenantMgr != nil && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
 	} else {
@@ -123,13 +131,32 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	isKubeletLeaseReq := hubutil.IsKubeletLeaseReq(req)
-	if !isKubeletLeaseReq && p.loadBalancer.IsHealthy() || p.localProxy == nil {
-		p.loadBalancer.ServeHTTP(rw, req)
-	} else {
-		if isKubeletLeaseReq {
-			p.checker.UpdateLastKubeletLeaseReqTime(time.Now())
+	if !isNonResourceRequest(req) {
+		isKubeletLeaseReq := hubutil.IsKubeletLeaseReq(req)
+		if !isKubeletLeaseReq && p.loadBalancer.IsHealthy() || p.localProxy == nil {
+			p.loadBalancer.ServeHTTP(rw, req)
+		} else {
+			if isKubeletLeaseReq {
+				p.checker.UpdateLastKubeletLeaseReqTime(time.Now())
+			}
+			p.localProxy.ServeHTTP(rw, req)
 		}
-		p.localProxy.ServeHTTP(rw, req)
 	}
+
+}
+
+func isNonResourceRequest(req *http.Request) bool {
+	if req.URL.Path == "/version" {
+		return true
+	}
+
+	if req.URL.Path == "/apis/discovery.k8s.io/v1" {
+		return true
+	}
+
+	if req.URL.Path == "/apis/discovery.k8s.io/v1beta1" {
+		return true
+	}
+
+	return false
 }
