@@ -152,6 +152,8 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		Namespace: info.Namespace,
 		Name:      info.Name,
 		Resources: info.Resource,
+		Group:     info.APIGroup,
+		Version:   info.APIVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -261,6 +263,8 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 		Namespace: info.Namespace,
 		Name:      info.Name,
 		Resources: info.Resource,
+		Group:     info.APIGroup,
+		Version:   info.APIVersion,
 	})
 	if err != nil {
 		return nil, err
@@ -385,6 +389,17 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	}
 	accessor := meta.NewAccessor()
 
+	// buf := make([]byte, 1024)
+	// n, err := r.Read(buf)
+	// if n == 0 && err != nil {
+	// 	klog.Errorf("failed to read, %v", err)
+	// 	return err
+	// }
+	// if n > 0 {
+	// 	klog.Infof("read %d bytes from pipe, %s", n, string(buf))
+	// 	return nil
+	// }
+
 	d, err := s.WatchDecoder(r)
 	if err != nil {
 		klog.Errorf("saveWatchObject ended with error, %v", err)
@@ -398,7 +413,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	for {
 		watchType, obj, err := d.Decode()
 		if err != nil {
-			klog.V(3).Infof("%s %s watch decode ended with: %v", comp, info.Path, err)
+			klog.Errorf("%s %s watch decode ended with: %v", comp, info.Path, err)
 			return err
 		}
 
@@ -421,6 +436,8 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
+				Group:     info.APIGroup,
+				Version:   info.APIVersion,
 			})
 			if err != nil {
 				klog.Errorf("failed to get cache path, %v", err)
@@ -512,6 +529,8 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Namespace: ns,
 			Name:      name,
 			Resources: info.Resource,
+			Group:     info.APIGroup,
+			Version:   info.APIVersion,
 		})
 		return cm.storeObjectWithKey(key, items[0])
 	} else {
@@ -532,11 +551,17 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
+				Group:     info.APIGroup,
+				Version:   info.APIVersion,
 			})
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, info.Resource, info.Namespace, objs)
+		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}, info.Namespace, objs)
 	}
 }
 
@@ -580,6 +605,8 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		Namespace: info.Namespace,
 		Name:      name,
 		Resources: info.Resource,
+		Group:     info.APIGroup,
+		Version:   info.APIVersion,
 	})
 	if err != nil {
 		klog.Errorf("failed to get cache key(%s:%s:%s:%s), %v", comp, info.Resource, info.Namespace, info.Name, err)
@@ -748,6 +775,8 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 			Resources: info.Resource,
 			Namespace: info.Namespace,
 			Name:      info.Name,
+			Group:     info.APIGroup,
+			Version:   info.APIVersion,
 		})
 		if err != nil {
 			return false

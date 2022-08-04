@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -91,7 +92,11 @@ func (m *GCManager) Run() {
 }
 
 func (m *GCManager) gcPodsWhenRestart() {
-	localPodKeys, err := m.store.ListResourceKeysOfComponent("kubelet", "pods")
+	localPodKeys, err := m.store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "pods",
+	})
 	if err != nil {
 		klog.Errorf("failed to list keys for kubelet pods, %v", err)
 		return
@@ -167,7 +172,11 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 		return
 	}
 
-	localEventKeys, err := m.store.ListResourceKeysOfComponent(component, "events")
+	localEventKeys, err := m.store.ListResourceKeysOfComponent(component, schema.GroupVersionResource{
+		Group:    "events.k8s.io",
+		Version:  "v1",
+		Resource: "events",
+	})
 	if err != nil {
 		klog.Errorf("could not list keys for %s events, %v", component, err)
 		return

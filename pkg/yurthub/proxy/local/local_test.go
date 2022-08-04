@@ -509,6 +509,8 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 				Component: "kubelet",
 				Resources: "pods",
 				Namespace: "default",
+				Group:     "",
+				Version:   "v1",
 			},
 			inputObj: []runtime.Object{
 				&v1.Pod{
@@ -660,6 +662,8 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 				Component: "kubelet",
 				Resources: "pods",
 				Namespace: "default",
+				Group:     "",
+				Version:   "v1",
 			},
 			preCachedObj: []runtime.Object{
 				&v1.Pod{
@@ -718,6 +722,8 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 			keyBuildInfo: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "foos",
+				Group:     "samplecontroller.k8s.io",
+				Version:   "v1",
 			},
 			preCachedObj: []runtime.Object{},
 			accept:       "application/json",

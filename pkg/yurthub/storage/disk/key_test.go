@@ -36,37 +36,69 @@ func TestKeyFunc(t *testing.T) {
 			info: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "pods",
+				Group:     "",
+				Version:   "v1",
 				Namespace: "kube-system",
 				Name:      "kube-proxy-xx",
 			},
-			key:    "kubelet/pods/kube-system/kube-proxy-xx",
+			key:    "kubelet/pods.v1.core/kube-system/kube-proxy-xx",
 			isRoot: false,
 		},
 		"non-namespaced resource key": {
 			info: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "nodes",
+				Group:     "",
+				Version:   "v1",
 				Name:      "edge-worker",
 			},
-			key:    "kubelet/nodes/edge-worker",
+			key:    "kubelet/nodes.v1.core/edge-worker",
 			isRoot: false,
 		},
 		"resource list key": {
 			info: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "pods",
+				Group:     "",
+				Version:   "v1",
 			},
-			key:    "kubelet/pods",
+			key:    "kubelet/pods.v1.core",
 			isRoot: true,
 		},
 		"resource list namespace key": {
 			info: storage.KeyBuildInfo{
 				Component: "kube-proxy",
 				Resources: "services",
+				Group:     "",
+				Version:   "v1",
 				Namespace: "default",
 			},
-			key:    "kube-proxy/services/default",
+			key:    "kube-proxy/services.v1.core/default",
 			isRoot: true,
+		},
+		"get resources in apps group": {
+			info: storage.KeyBuildInfo{
+				Component: "controller",
+				Resources: "deployments",
+				Group:     "apps",
+				Version:   "v1",
+				Namespace: "default",
+				Name:      "nginx",
+			},
+			key:    "controller/deployments.v1.apps/default/nginx",
+			isRoot: false,
+		},
+		"get crd resources": {
+			info: storage.KeyBuildInfo{
+				Component: "controller",
+				Resources: "foos",
+				Group:     "bars.extension.io",
+				Version:   "v1alpha1",
+				Namespace: "kube-system",
+				Name:      "foobar",
+			},
+			key:    "controller/foos.v1alpha1.bars.extension.io/kube-system/foobar",
+			isRoot: false,
 		},
 		"no component err key": {
 			info: storage.KeyBuildInfo{
@@ -85,19 +117,23 @@ func TestKeyFunc(t *testing.T) {
 			info: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "namespaces",
+				Group:     "",
+				Version:   "v1",
 				Namespace: "kube-system",
 				Name:      "kube-system",
 			},
-			key: "kubelet/namespaces/kube-system",
+			key: "kubelet/namespaces.v1.core/kube-system",
 		},
 		"list namespace": {
 			info: storage.KeyBuildInfo{
 				Component: "kubelet",
 				Resources: "namespaces",
+				Group:     "",
+				Version:   "v1",
 				Namespace: "",
 				Name:      "kube-system",
 			},
-			key: "kubelet/namespaces/kube-system",
+			key: "kubelet/namespaces.v1.core/kube-system",
 		},
 	}
 

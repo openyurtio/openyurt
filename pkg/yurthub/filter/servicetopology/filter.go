@@ -127,6 +127,8 @@ func (ssf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 		Component: "kubelet",
 		Name:      ssf.nodeName,
 		Resources: "nodes",
+		Group:     "",
+		Version:   "v1",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get node key for %s, %v", ssf.nodeName, err)
@@ -149,6 +151,8 @@ func (ssf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 			Component: "kubelet",
 			Name:      name,
 			Resources: "nodes",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			return nil, fmt.Errorf("nodeGetter failed to get node key for %s, %v", name, err)

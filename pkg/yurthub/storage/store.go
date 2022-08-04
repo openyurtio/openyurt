@@ -16,6 +16,8 @@ limitations under the License.
 
 package storage
 
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
 type ClusterInfoKey struct {
 	ClusterInfoType
 	UrlPath string
@@ -103,11 +105,11 @@ type objectRelatedInterface interface {
 // it doesn't need object key and only provide limited function for special usage, such as gc.
 // TODO: reconsider the interface, if the store should be conscious of the component.
 type componentRelatedInterface interface {
-	// ListResourceKeysOfComponent will get all keys of resource of component.
+	// ListResourceKeysOfComponent will get all keys of gvr of component.
 	// If component is Empty, ErrEmptyComponent will be returned.
-	// If resource is Empty, ErrEmptyResource will be returned.
-	// If the cache of component can not be found or the resource has not been cached, return ErrStorageNotFound.
-	ListResourceKeysOfComponent(component string, resource string) ([]Key, error)
+	// If gvr is Empty, ErrEmptyResource will be returned.
+	// If the cache of component can not be found or the gvr has not been cached, return ErrStorageNotFound.
+	ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]Key, error)
 
 	// ReplaceComponentList will replace all cached objs of resource associated with the component with the passed-in contents.
 	// If the cached objs does not exist, it will use contents to build the cache. This function is used by CacheManager to
@@ -116,11 +118,11 @@ type componentRelatedInterface interface {
 	// If namespace is provided, only objs in this namespace will be replaced.
 	// If namespace is not provided, objs of all namespaces will be replaced with provided contents.
 	// If component is empty, ErrEmptyComponent will be returned.
-	// If resource is empty, ErrEmptyResource will be returned.
+	// If gvr is empty, ErrEmptyResource will be returned.
 	// If contents is empty, only the base dir of them will be created. Refer to #258.
-	// If some contents are not the specified the resource, ErrInvalidContent will be returned.
-	// If the specified resource does not exist in the store, it will be created with passed-in contents.
-	ReplaceComponentList(component string, resource string, namespace string, contents map[Key][]byte) error
+	// If some contents are not the specified the gvr, ErrInvalidContent will be returned.
+	// If the specified gvr does not exist in the store, it will be created with passed-in contents.
+	ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[Key][]byte) error
 
 	// DeleteComponentResources will delete all resources associated with the component.
 	// If component is Empty, ErrEmptyComponent will be returned.

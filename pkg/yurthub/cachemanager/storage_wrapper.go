@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
@@ -40,8 +41,8 @@ type StorageWrapper interface {
 	List(key storage.Key) ([]runtime.Object, error)
 	Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error)
 	KeyFunc(info storage.KeyBuildInfo) (storage.Key, error)
-	ListResourceKeysOfComponent(component string, resource string) ([]storage.Key, error)
-	ReplaceComponentList(component, resource, namespace string, contents map[storage.Key]runtime.Object) error
+	ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error)
+	ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key]runtime.Object) error
 	DeleteComponentResources(component string) error
 	SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
 	GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
@@ -123,8 +124,8 @@ func (sw *storageWrapper) Get(key storage.Key) (runtime.Object, error) {
 }
 
 // ListKeys list all keys with key as prefix
-func (sw *storageWrapper) ListResourceKeysOfComponent(component string, resource string) ([]storage.Key, error) {
-	return sw.store.ListResourceKeysOfComponent(component, resource)
+func (sw *storageWrapper) ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error) {
+	return sw.store.ListResourceKeysOfComponent(component, gvr)
 }
 
 // List get all of runtime objects that specified by key as prefix
@@ -187,7 +188,7 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 	return obj, nil
 }
 
-func (sw *storageWrapper) ReplaceComponentList(component, resource, namespace string, objs map[storage.Key]runtime.Object) error {
+func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, objs map[storage.Key]runtime.Object) error {
 	var buf bytes.Buffer
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
@@ -200,7 +201,7 @@ func (sw *storageWrapper) ReplaceComponentList(component, resource, namespace st
 		buf.Reset()
 	}
 
-	return sw.store.ReplaceComponentList(component, resource, namespace, contents)
+	return sw.store.ReplaceComponentList(component, gvr, namespace, contents)
 }
 
 // DeleteCollection will delete all objects under rootKey

@@ -18,6 +18,7 @@ package disk
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
@@ -52,11 +53,17 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 		isRoot = true
 	}
 
+	group := info.Group
+	if info.Group == "" {
+		group = "core"
+	}
+
+	gvrName := strings.Join([]string{info.Resources, info.Version, group}, ".")
 	var path string
 	if info.Resources == "namespaces" {
-		path = filepath.Join(info.Component, info.Resources, info.Name)
+		path = filepath.Join(info.Component, gvrName, info.Name)
 	} else {
-		path = filepath.Join(info.Component, info.Resources, info.Namespace, info.Name)
+		path = filepath.Join(info.Component, gvrName, info.Namespace, info.Name)
 	}
 
 	return storageKey{

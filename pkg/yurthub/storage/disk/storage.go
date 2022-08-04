@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
@@ -253,11 +254,13 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 }
 
 // ListResourceKeysOfComponent will get all names of files recursively under the dir
-// of the resource belonging to the component.
-func (ds *diskStorage) ListResourceKeysOfComponent(component string, resource string) ([]storage.Key, error) {
+// of the gvr belonging to the component.
+func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error) {
 	rootKey, err := ds.KeyFunc(storage.KeyBuildInfo{
 		Component: component,
-		Resources: resource,
+		Resources: gvr.Resource,
+		Group:     gvr.Group,
+		Version:   gvr.Version,
 	})
 	if err != nil {
 		return nil, err
@@ -281,14 +284,16 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, resource st
 	for i, filePath := range files {
 		_, _, ns, n, err := extractInfoFromPath(ds.baseDir, filePath, false)
 		if err != nil {
-			klog.Errorf("failed when list keys of resource %s of component %s, %v", component, resource, err)
+			klog.Errorf("failed when list keys of resource %s of component %s, %v", component, gvr, err)
 			continue
 		}
 		// We can ensure that component and resource can't be empty
 		// so ignore the err.
 		key, _ := ds.KeyFunc(storage.KeyBuildInfo{
 			Component: component,
-			Resources: resource,
+			Resources: gvr.Resource,
+			Version:   gvr.Version,
+			Group:     gvr.Group,
 			Namespace: ns,
 			Name:      n,
 		})
@@ -301,10 +306,12 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, resource st
 // It will first backup the original dir as tmpdir, including all its subdirs, and then clear the
 // original dir and write contents into it. If the yurthub break down and restart, interrupting the previous
 // ReplaceComponentList, the diskStorage will recover the data with backup in the tmpdir.
-func (ds *diskStorage) ReplaceComponentList(component string, resource string, namespace string, contents map[storage.Key][]byte) error {
+func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key][]byte) error {
 	rootKey, err := ds.KeyFunc(storage.KeyBuildInfo{
 		Component: component,
-		Resources: resource,
+		Resources: gvr.Resource,
+		Group:     gvr.Group,
+		Version:   gvr.Version,
 		Namespace: namespace,
 	})
 	if err != nil {
@@ -585,7 +592,7 @@ func getKey(tmpKey string) string {
 	return filepath.Join(dir, strings.TrimPrefix(file, tmpPrefix))
 }
 
-func extractInfoFromPath(baseDir, path string, isRoot bool) (component, resource, namespace, name string, err error) {
+func extractInfoFromPath(baseDir, path string, isRoot bool) (component, gvr, namespace, name string, err error) {
 	if !strings.HasPrefix(path, baseDir) {
 		err = fmt.Errorf("path %s does not under %s", path, baseDir)
 		return
@@ -602,16 +609,16 @@ func extractInfoFromPath(baseDir, path string, isRoot bool) (component, resource
 	case 1:
 		component = elems[0]
 	case 2:
-		component, resource = elems[0], elems[1]
+		component, gvr = elems[0], elems[1]
 	case 3:
-		component, resource = elems[0], elems[1]
+		component, gvr = elems[0], elems[1]
 		if isRoot {
 			namespace = elems[2]
 		} else {
 			name = elems[2]
 		}
 	case 4:
-		component, resource, namespace, name = elems[0], elems[1], elems[2], elems[3]
+		component, gvr, namespace, name = elems[0], elems[1], elems[2], elems[3]
 	}
 	return
 }

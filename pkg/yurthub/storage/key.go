@@ -26,4 +26,6 @@ type KeyBuildInfo struct {
 	Namespace string
 	Name      string
 	Resources string
+	Group     string
+	Version   string
 }

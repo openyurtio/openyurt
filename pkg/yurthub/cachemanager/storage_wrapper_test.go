@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -68,6 +69,8 @@ func TestStorageWrapper(t *testing.T) {
 			Resources: "pods",
 			Namespace: "default",
 			Name:      "mypod1",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to create key, %v", err)
@@ -93,6 +96,8 @@ func TestStorageWrapper(t *testing.T) {
 			Resources: "pods",
 			Namespace: "default",
 			Name:      "mypod1",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to generate key, %v", err)
@@ -135,14 +140,16 @@ func TestStorageWrapper(t *testing.T) {
 	})
 
 	t.Run("Test list key of empty objs", func(t *testing.T) {
-		err := os.MkdirAll(filepath.Join(dir, "kubelet", "runtimeclasses"), 0755)
+		err := os.MkdirAll(filepath.Join(dir, "kubelet", "runtimeclasses.v1.node.k8s.io"), 0755)
 		if err != nil {
 			t.Errorf("failed to create dir, %v", err)
 		}
-		defer os.RemoveAll(filepath.Join(dir, "kubelet", "runtimeclasses"))
+		defer os.RemoveAll(filepath.Join(dir, "kubelet", "runtimeclasses.v1.node.k8s.io"))
 		rootKey, err := sWrapper.KeyFunc(storage.KeyBuildInfo{
 			Component: "kubelet",
 			Resources: "runtimeclasses",
+			Group:     "node.k8s.io",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to create key, %v", err)
@@ -158,7 +165,11 @@ func TestStorageWrapper(t *testing.T) {
 
 	t.Run("Test list keys and obj", func(t *testing.T) {
 		// test an exist key
-		keys, err := sWrapper.ListResourceKeysOfComponent("kubelet", "pods")
+		keys, err := sWrapper.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+		})
 		if err != nil {
 			t.Errorf("failed to list keys, %v", err)
 		}
@@ -167,7 +178,11 @@ func TestStorageWrapper(t *testing.T) {
 		}
 
 		// test a not exist key
-		_, err = sWrapper.ListResourceKeysOfComponent("kubelet", "events")
+		_, err = sWrapper.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+			Group:    "events.k8s.io",
+			Version:  "v1",
+			Resource: "events",
+		})
 		if err != storage.ErrStorageNotFound {
 			t.Errorf("got unexpected error, want: %v, got: %v", storage.ErrStorageNotFound, err)
 		}
@@ -177,6 +192,8 @@ func TestStorageWrapper(t *testing.T) {
 			Component: "kubelet",
 			Resources: "pods",
 			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to generate rootKey, %v", err)
@@ -194,12 +211,18 @@ func TestStorageWrapper(t *testing.T) {
 			Resources: "pods",
 			Namespace: "default",
 			Name:      podObj.Name,
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to generate key, %v", err)
 		}
 
-		err = sWrapper.ReplaceComponentList("kubelet", "pods", "default", map[storage.Key]runtime.Object{
+		err = sWrapper.ReplaceComponentList("kubelet", schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+		}, "default", map[storage.Key]runtime.Object{
 			podKey: podObj,
 		})
 		if err != nil {
@@ -213,6 +236,8 @@ func TestStorageWrapper(t *testing.T) {
 			Resources: "pods",
 			Namespace: "default",
 			Name:      "mypod1",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to generate key, %v", err)
@@ -232,6 +257,8 @@ func TestStorageWrapper(t *testing.T) {
 			Component: "kubelet",
 			Resources: "events",
 			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
 		})
 		if err != nil {
 			t.Errorf("failed to generate key, %v", err)
