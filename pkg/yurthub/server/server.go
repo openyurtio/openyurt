@@ -56,7 +56,8 @@ type yurtHubServer struct {
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
-	proxyHandler http.Handler) (Server, error) {
+	proxyHandler http.Handler,
+	rest *rest.RestConfigManager) (Server, error) {
 	hubMux := mux.NewRouter()
 	registerHandlers(hubMux, cfg, certificateMgr)
 	hubServer := &http.Server{
@@ -67,7 +68,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 
 	proxyServer := &http.Server{
 		Addr:    cfg.YurtHubProxyServerAddr,
-		Handler: proxyHandler,
+		Handler: wrapNonResourceHandler(proxyHandler, cfg, rest),
 	}
 
 	secureProxyServer := &http.Server{
