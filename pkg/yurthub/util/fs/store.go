@@ -90,6 +90,7 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 //
 // If the path does not exist, return ErrNotExists.
 // If the path is not a directory, return ErrIsNotDir.
+// If the rootDir exists but has no entry, return a empty slice and nil error.
 func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bool) ([]string, error) {
 	if !IfExists(rootDir) {
 		return nil, ErrNotExists

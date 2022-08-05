@@ -139,6 +139,7 @@ var _ = Describe("Test FileSystemOperator Write", func() {
 var _ = Describe("Test FileSystemOperator List", func() {
 	var testName string
 	var baseDir string
+	var baseEmptyDir string
 	var fsOperator *FileSystemOperator
 	var generatedNames []string
 	var generatedPaths []string
@@ -148,6 +149,7 @@ var _ = Describe("Test FileSystemOperator List", func() {
 		fsOperator = &FileSystemOperator{}
 		generatedNames = make([]string, 9)
 		baseDir = filepath.Join(testDirAbsPath, testSubDirs[testName], uuid.New().String())
+		baseEmptyDir = filepath.Join(testDirAbsPath, testSubDirs[testName], uuid.New().String())
 		for i := range generatedNames {
 			generatedNames[i] = uuid.New().String()
 		}
@@ -163,6 +165,7 @@ var _ = Describe("Test FileSystemOperator List", func() {
 		}
 
 		Expect(os.Mkdir(baseDir, 0755)).To(BeNil())
+		Expect(os.Mkdir(baseEmptyDir, 0755)).To(BeNil())
 		for _, path := range generatedPaths {
 			dir := filepath.Dir(path)
 			err := os.MkdirAll(dir, 0755)
@@ -173,6 +176,7 @@ var _ = Describe("Test FileSystemOperator List", func() {
 	})
 
 	AfterEach(func() {
+		Expect(os.RemoveAll(baseEmptyDir)).To(BeNil())
 		Expect(os.RemoveAll(baseDir)).To(BeNil())
 	})
 
@@ -222,6 +226,12 @@ var _ = Describe("Test FileSystemOperator List", func() {
 	It("should return ErrIsNotDir if path is not dir", func() {
 		_, err := fsOperator.List(generatedPaths[0], ListModeFiles, false)
 		Expect(err).To(Equal(ErrIsNotDir))
+	})
+
+	It("should return empty slice if the dir is empty", func() {
+		files, err := fsOperator.List(baseEmptyDir, ListModeFiles, false)
+		Expect(err).To(BeNil())
+		Expect(len(files)).To(BeZero())
 	})
 })
 

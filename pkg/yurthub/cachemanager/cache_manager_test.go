@@ -2766,8 +2766,22 @@ func TestQueryCacheForList(t *testing.T) {
 				queryErr: storage.ErrStorageNotFound,
 			},
 		},
-		// TODO:
-		// with name fieldSelector
+		"list non-existing resource with metadata.name fieldSelector": {
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/namespaces/kube-system/configmaps?fieldSelector=metadata.name%3Dkubernetes-services-endpoint",
+			namespaced: false,
+			expectResult: struct {
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
+			}{
+				err:  false,
+				data: map[string]struct{}{},
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()

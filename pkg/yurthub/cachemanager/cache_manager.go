@@ -169,7 +169,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		// If err is hubmeta.ErrGVRNotRecognized, the reverse proxy will set the HTTP Status Code as 404.
 		return nil, err
 	}
-	listObj, err := getListObjOfGVK(listGvk)
+	listObj, err := generateEmptyListObjOfGVK(listGvk)
 	if err != nil {
 		klog.Errorf("failed to create ListObj for gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
 		return nil, err
@@ -185,11 +185,18 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		// In this case, we cannot use storage.List which can only receive rootKey as argument.
 		// Additionally, we can accelerate the process with in-memory cache.
 		var obj runtime.Object
-		if obj, err = cm.queryOneObject(req); err != nil {
+		if obj, err = cm.queryOneObject(req); err != nil && err != storage.ErrStorageNotFound {
 			klog.Errorf("failed to query ObjectList with only one obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
 			return nil, err
+		} else if err == storage.ErrStorageNotFound {
+			klog.Infof("cannot find obj of gvk %s for req: %s, return ListObj with empty items", listGvk, util.ReqString(req))
 		}
-		if err := completeListObjWithObjs(listObj, []runtime.Object{obj}); err != nil {
+
+		items := []runtime.Object{}
+		if obj != nil {
+			items = append(items, obj)
+		}
+		if err := completeListObjWithObjs(listObj, items); err != nil {
 			klog.Errorf("failed to complete the list obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
 			return nil, err
 		}
@@ -220,7 +227,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	if gotObjListKind := objs[0].GetObjectKind().GroupVersionKind().Kind + "List"; listGvk.Kind != gotObjListKind {
 		klog.Warningf("The restMapper's kind(%v) and object's kind(%v) are inconsistent ", listGvk.Kind, gotObjListKind)
 		listGvk.Kind = gotObjListKind
-		if listObj, err = getListObjOfGVK(listGvk); err != nil {
+		if listObj, err = generateEmptyListObjOfGVK(listGvk); err != nil {
 			klog.Errorf("failed to create list obj for req: %s, whose gvk is %s, %v", util.ReqString(req), listGvk.String(), err)
 			return nil, err
 		}
@@ -332,7 +339,7 @@ func completeListObjWithObjs(listObj runtime.Object, objs []runtime.Object) erro
 	return accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
 }
 
-func getListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object, error) {
+func generateEmptyListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object, error) {
 	var listObj runtime.Object
 	var err error
 	if scheme.Scheme.Recognizes(listGvk) {
@@ -388,17 +395,6 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 		return fmt.Errorf("failed to create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 	}
 	accessor := meta.NewAccessor()
-
-	// buf := make([]byte, 1024)
-	// n, err := r.Read(buf)
-	// if n == 0 && err != nil {
-	// 	klog.Errorf("failed to read, %v", err)
-	// 	return err
-	// }
-	// if n > 0 {
-	// 	klog.Infof("read %d bytes from pipe, %s", n, string(buf))
-	// 	return nil
-	// }
 
 	d, err := s.WatchDecoder(r)
 	if err != nil {
