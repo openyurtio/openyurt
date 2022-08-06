@@ -110,7 +110,7 @@ Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
 - Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1aya4w279-Ea7ZbfdhPARpshRdUUxfwg)
-- DingTalk: Search GroupID 31993519 (Chinese)
+- DingTalk: Now no slots in Community Group1(GroupID 31993519), please join Community Group2  (Chinese)
 
 <div align="left">
   <img src="docs/img/ding.jpg" width=25% title="dingtalk">
