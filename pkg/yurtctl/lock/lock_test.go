@@ -17,8 +17,15 @@ limitations under the License.
 package lock
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientsetfake "k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 )
 
 const (
@@ -52,5 +59,172 @@ func TestIsTimeout(t *testing.T) {
 			}
 		}
 		t.Run(st.name, tf)
+	}
+}
+
+func TestAcquireLock(t *testing.T) {
+
+	cases := []struct {
+		configObj *corev1.ConfigMap
+		want      error
+	}{
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "yurtctl-lock"},
+			},
+			want: nil,
+		},
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: " "},
+			},
+			want: nil,
+		},
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, v := range cases {
+		fakeKubeClient := clientsetfake.NewSimpleClientset(v.configObj)
+		err := AcquireLock(fakeKubeClient)
+		if err != v.want {
+			t.Errorf("failed to acquire lock")
+		}
+	}
+}
+
+func TestReleaseLock(t *testing.T) {
+	cases := []struct {
+		configObj *corev1.ConfigMap
+		want      error
+	}{
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system",
+					Name: "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked": "true",
+					}},
+			},
+			want: nil,
+		},
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, v := range cases {
+		fakeKubeClient := clientsetfake.NewSimpleClientset(v.configObj)
+		err := ReleaseLock(fakeKubeClient)
+		if err != v.want {
+			t.Errorf("failed to release lock")
+		}
+	}
+}
+
+func TestAcquireLockAndUpdateCm(t *testing.T) {
+
+	cases := []struct {
+		configObj *corev1.ConfigMap
+		want      error
+	}{
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, v := range cases {
+		fakeKubeClient := clientsetfake.NewSimpleClientset(v.configObj)
+		lockCm, err := fakeKubeClient.CoreV1().ConfigMaps("kube-system").Get(context.Background(), constants.YurtctlLockConfigMapName, metav1.GetOptions{})
+		if err == nil {
+			err = acquireLockAndUpdateCm(fakeKubeClient, lockCm)
+			if err != v.want {
+				t.Errorf("failed to update acquire lock")
+			}
+		}
+	}
+}
+
+func TestDeleteLock(t *testing.T) {
+	cases := []struct {
+		configObj *corev1.ConfigMap
+		want      error
+	}{
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			configObj: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "yurtctl-lock",
+					Annotations: map[string]string{
+						"openyurt.io/yurtctllock.locked":       "true",
+						"openyurt.io/yurtctllock.acquire.time": "1",
+					},
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, v := range cases {
+		fakeKubeClient := clientsetfake.NewSimpleClientset(v.configObj)
+		err := DeleteLock(fakeKubeClient)
+		if err != v.want {
+			t.Errorf("failed to update delete lock")
+		}
 	}
 }

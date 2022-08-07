@@ -27,7 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
+	kubeclientset "k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
 
@@ -45,7 +45,7 @@ const (
 )
 
 type ClusterConverter struct {
-	ClientSet                  *kubernetes.Clientset
+	ClientSet                  kubeclientset.Interface
 	CloudNodes                 []string
 	EdgeNodes                  []string
 	WaitServantJobTimeout      time.Duration
@@ -179,7 +179,7 @@ func (c *ClusterConverter) deployYurthub() error {
 	return nil
 }
 
-func prepareYurthubStart(cliSet *kubernetes.Clientset, kcfg string) (string, error) {
+func prepareYurthubStart(cliSet kubeclientset.Interface, kcfg string) (string, error) {
 	// prepare kube-public/cluster-info configmap before convert
 	if err := prepareClusterInfoConfigMap(cliSet, kcfg); err != nil {
 		return "", err
@@ -199,7 +199,7 @@ func prepareYurthubStart(cliSet *kubernetes.Clientset, kcfg string) (string, err
 }
 
 // prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist
-func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) error {
+func prepareClusterInfoConfigMap(client kubeclientset.Interface, file string) error {
 	info, err := client.CoreV1().ConfigMaps(v1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, v1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
@@ -214,11 +214,10 @@ func prepareClusterInfoConfigMap(client *kubernetes.Clientset, file string) erro
 	} else {
 		klog.V(4).Infof("%s/%s configmap already exists, skip to prepare it", info.Namespace, info.Name)
 	}
-
 	return nil
 }
 
-func nodePoolResourceExists(client *kubernetes.Clientset) (bool, error) {
+func nodePoolResourceExists(client kubeclientset.Interface) (bool, error) {
 	groupVersion := schema.GroupVersion{
 		Group:   "apps.openyurt.io",
 		Version: "v1alpha1",
@@ -236,6 +235,5 @@ func nodePoolResourceExists(client *kubernetes.Clientset) (bool, error) {
 			return true, nil
 		}
 	}
-
 	return false, nil
 }

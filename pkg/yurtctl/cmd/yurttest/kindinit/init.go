@@ -31,7 +31,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/kubernetes"
+	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
@@ -261,7 +261,7 @@ type Initializer struct {
 	initializerConfig
 	out        io.Writer
 	operator   *KindOperator
-	kubeClient *kubernetes.Clientset
+	kubeClient kubeclientset.Interface
 }
 
 func newKindInitializer(out io.Writer, cfg *initializerConfig) *Initializer {
@@ -298,7 +298,7 @@ func (ki *Initializer) Run() error {
 	if err != nil {
 		return err
 	}
-	ki.kubeClient, err = kubernetes.NewForConfig(kubeconfig)
+	ki.kubeClient, err = kubeclientset.NewForConfig(kubeconfig)
 	if err != nil {
 		return err
 	}
@@ -538,6 +538,7 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 				break
 			}
 		}
+
 		if !hasEdgeVolumeMount {
 			dp.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = append(dp.Spec.Template.Spec.Containers[containerIndex].VolumeMounts,
 				v1.VolumeMount{

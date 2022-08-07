@@ -18,9 +18,16 @@ package kindinit
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
+
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientsetfake "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestValidateKubernetesVersion(t *testing.T) {
@@ -157,5 +164,515 @@ nodes:
 		if string(buf) != c.want {
 			t.Errorf("TestPrepareKindConfigFile failed at case %s, want: %s, got: %s", name, c.want, string(buf))
 		}
+	}
+}
+
+func TestKindOptions_Validate(t *testing.T) {
+	cases1 := []struct {
+		nodeNum           int
+		kubernetesVersion string
+		openyurtVersion   string
+		ignoreErr         bool
+		want              string
+	}{
+		{
+			0,
+			"v1.22",
+			"v0.6.0",
+			false,
+			"the number of nodes must be greater than 0",
+		},
+		{
+			1,
+			"v1.10.1",
+			"v0.6.0",
+			false,
+			"unsupported kubernetes version: v1.10.1",
+		},
+		{
+			3,
+			"v1.22",
+			"v0.1.0",
+			false,
+			"v0.1.0 is not a valid openyurt version, all valid versions are v0.5.0,v0.6.0,v0.6.1,v0.6.2,v0.7.0,latest. If you know what you're doing, you can set --ignore-error",
+		},
+	}
+
+	cases2 := []struct {
+		nodeNum           int
+		kubernetesVersion string
+		openyurtVersion   string
+		ignoreErr         bool
+		want              error
+	}{
+		{
+			2,
+			"v1.22",
+			"v0.6.0",
+			false,
+			nil,
+		},
+		{
+			2,
+			"v1.22",
+			"v0.1.0",
+			true,
+			nil,
+		},
+		{
+			1,
+			"v1.22",
+			"v0.100.0",
+			true,
+			nil,
+		},
+	}
+
+	o := newKindOptions()
+	for _, v := range cases1 {
+		o.NodeNum = v.nodeNum
+		o.KubernetesVersion = v.kubernetesVersion
+		o.OpenYurtVersion = v.openyurtVersion
+		o.IgnoreError = v.ignoreErr
+		err := o.Validate()
+		if err.Error() != v.want {
+			t.Errorf("failed vaildate")
+		}
+	}
+
+	for _, v := range cases2 {
+		o.NodeNum = v.nodeNum
+		o.KubernetesVersion = v.kubernetesVersion
+		o.OpenYurtVersion = v.openyurtVersion
+		o.IgnoreError = v.ignoreErr
+		err := o.Validate()
+		if err != v.want {
+			t.Errorf("failed vaildate")
+		}
+	}
+}
+
+func TestGetNodeNamesOfKindCluster(t *testing.T) {
+	cases := []struct {
+		nodeNum              int
+		clusterName          string
+		wantControlPlaneNode string
+		wantWorkerNodes      []string
+	}{
+		{
+			nodeNum:              1,
+			clusterName:          "openyurt",
+			wantControlPlaneNode: "openyurt-control-plane",
+			wantWorkerNodes: []string{
+				"openyurt-worker",
+			},
+		},
+		{
+			nodeNum:              2,
+			clusterName:          "openyurt",
+			wantControlPlaneNode: "openyurt-control-plane",
+			wantWorkerNodes: []string{
+				"openyurt-worker",
+			},
+		},
+		{
+			nodeNum:              4,
+			clusterName:          "kubernetes",
+			wantControlPlaneNode: "kubernetes-control-plane",
+			wantWorkerNodes: []string{
+				"kubernetes-worker",
+				"kubernetes-worker2",
+				"kubernetes-worker3",
+			},
+		},
+	}
+
+	for _, v := range cases {
+		controlPlaneNode, workerNodes := getNodeNamesOfKindCluster(v.clusterName, v.nodeNum)
+		if controlPlaneNode != v.wantControlPlaneNode {
+			t.Errorf("kind cluster nodes naming failed")
+		}
+		if len(workerNodes) != len(v.wantWorkerNodes) {
+			t.Errorf("inconsistent number of worker nodes")
+		}
+		for i := 0; i < len(workerNodes); i++ {
+			if v.wantWorkerNodes[i] != workerNodes[i] {
+				t.Errorf("work node mismatch")
+			}
+		}
+	}
+
+}
+
+func IsConsistent(initPoint1, initPoint2 *initializerConfig) bool {
+	if len(initPoint1.CloudNodes) != len(initPoint2.CloudNodes) || len(initPoint1.EdgeNodes) != len(initPoint2.EdgeNodes) {
+		return false
+	}
+	for i := 0; i < len(initPoint1.CloudNodes); i++ {
+		if initPoint1.CloudNodes[i] != initPoint2.CloudNodes[i] {
+			return false
+		}
+	}
+
+	for i := 0; i < len(initPoint1.EdgeNodes); i++ {
+		if initPoint1.EdgeNodes[i] != initPoint2.EdgeNodes[i] {
+			return false
+		}
+	}
+	if initPoint1.KindConfigPath != initPoint2.KindConfigPath {
+		return false
+	}
+	if initPoint1.KubeConfig != initPoint2.KubeConfig {
+		return false
+	}
+	if initPoint1.NodesNum != initPoint2.NodesNum {
+		return false
+	}
+	if initPoint1.ClusterName != initPoint2.ClusterName {
+		return false
+	}
+	if initPoint1.KubernetesVersion != initPoint2.KubernetesVersion {
+		return false
+	}
+	if initPoint1.NodeImage != initPoint2.NodeImage {
+		return false
+	}
+	if initPoint1.UseLocalImage != initPoint2.UseLocalImage {
+		return false
+	}
+	if initPoint1.YurtHubImage != initPoint2.YurtHubImage {
+		return false
+	}
+	if initPoint1.YurtControllerManagerImage != initPoint2.YurtControllerManagerImage {
+		return false
+	}
+	if initPoint1.NodeServantImage != initPoint2.NodeServantImage {
+		return false
+	}
+	if initPoint1.YurtTunnelAgentImage != initPoint2.YurtTunnelAgentImage {
+		return false
+	}
+	if initPoint1.YurtTunnelServerImage != initPoint2.YurtTunnelServerImage {
+		return false
+	}
+	if initPoint1.EnableDummyIf != initPoint2.EnableDummyIf {
+		return false
+	}
+	return true
+}
+
+func TestKindOptions_Config(t *testing.T) {
+	case1 := newKindOptions()
+	home := os.Getenv("HOME")
+	wants := initializerConfig{
+		CloudNodes:                 []string{"openyurt-control-plane"},
+		EdgeNodes:                  []string{"openyurt-worker"},
+		KindConfigPath:             "/tmp/kindconfig.yaml",
+		KubeConfig:                 home + "/.kube/config",
+		NodesNum:                   2,
+		ClusterName:                "openyurt",
+		KubernetesVersion:          "v1.22",
+		NodeImage:                  "",
+		UseLocalImage:              false,
+		YurtHubImage:               "openyurt/yurthub:latest",
+		YurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
+		NodeServantImage:           "openyurt/node-servant:latest",
+		YurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
+		YurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
+		EnableDummyIf:              true,
+	}
+	if !IsConsistent(&wants, case1.Config()) {
+		t.Errorf("Failed to configure initializer")
+	}
+}
+
+func TestInitializer_PrepareKindNodeImage(t *testing.T) {
+	var fakeOut io.Writer
+	cfg := newKindOptions().Config()
+
+	initlzer := newKindInitializer(fakeOut, cfg)
+
+	cases := []struct {
+		command string
+		want    interface{}
+	}{
+		{
+			command: "kind v0.12.0 go1.17.7 darwin/arm64",
+			want:    nil,
+		},
+		{
+			command: "kind v0.25.0 go1.17.7 darwin/arm64",
+			want:    "failed to get node image by kind version= v0.25.0 and kubernetes version= v1.22",
+		},
+	}
+
+	for _, v := range cases {
+		initlzer.operator.execCommand = func(string, ...string) *exec.Cmd {
+			cmd := exec.Command("echo", v.command)
+			return cmd
+		}
+		tmp := initlzer.prepareKindNodeImage()
+		if tmp != nil && tmp.Error() != v.want {
+			t.Errorf("failed prepare node image for kind pattern")
+
+		}
+	}
+}
+
+func TestInitializer_PrepareImage(t *testing.T) {
+	var fakeOut io.Writer
+	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
+	initializer.operator.execCommand = fakeExeCommand
+
+	cases := []struct {
+		cloudNodes                 []string
+		edgeNodes                  []string
+		yurtHubImage               string
+		yurtControllerManagerImage string
+		yurtTunnelServerImage      string
+		yurtTunnelAgentImage       string
+		nodeServantImage           string
+		useLocalImage              bool
+		nodesNum                   int
+		want                       interface{}
+	}{
+		{
+			cloudNodes:                 []string{"openyurt-control-plane"},
+			edgeNodes:                  []string{"openyurt-worker"},
+			yurtHubImage:               "openyurt/yurthub:latest",
+			yurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
+			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
+			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
+			nodeServantImage:           "openyurt/node-servant:latest",
+			useLocalImage:              true,
+			nodesNum:                   2,
+			want:                       nil,
+		},
+		{
+			cloudNodes:                 []string{"openyurt-control-plane"},
+			edgeNodes:                  []string{"openyurt-worker"},
+			yurtHubImage:               "openyurt/yurthub:latest",
+			yurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
+			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
+			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
+			nodeServantImage:           "openyurt/node-servant:latest",
+			useLocalImage:              false,
+			nodesNum:                   2,
+			want:                       nil,
+		},
+		{
+			cloudNodes:                 []string{"openyurt-control-plane"},
+			edgeNodes:                  []string{"openyurt-worker", "openyurt-worker2", "openyurt-worker3"},
+			yurtHubImage:               "openyurt/yurthub:v0.1.0",
+			yurtControllerManagerImage: "openyurt/yurt-controller-manager:v0.1.0",
+			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:v0.6.0",
+			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:v0.6.0",
+			nodeServantImage:           "openyurt/node-servant:v0.6.0",
+			useLocalImage:              false,
+			nodesNum:                   4,
+			want:                       nil,
+		},
+	}
+
+	for _, v := range cases {
+		initializer.CloudNodes = v.cloudNodes
+		initializer.EdgeNodes = v.edgeNodes
+		initializer.YurtHubImage = v.yurtHubImage
+		initializer.YurtControllerManagerImage = v.yurtControllerManagerImage
+		initializer.YurtTunnelServerImage = v.yurtTunnelServerImage
+		initializer.YurtTunnelAgentImage = v.yurtTunnelAgentImage
+		initializer.NodeServantImage = v.nodeServantImage
+		initializer.UseLocalImage = v.useLocalImage
+		initializer.NodesNum = v.nodesNum
+
+		err := initializer.prepareImages()
+		if err != v.want {
+			t.Errorf("failed to prepare image")
+		}
+	}
+}
+
+func TestInitializer_ConfigureControlPlane(t *testing.T) {
+	var fakeOut io.Writer
+	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
+
+	initializer.kubeClient = clientsetfake.NewSimpleClientset()
+
+	cases := []struct {
+		nodeServantImage string
+		cloudNodes       []string
+		want             interface{}
+	}{
+		{
+			nodeServantImage: "openyurt/node-servant:latest",
+			cloudNodes:       []string{""},
+			want:             "fail to get job for node : nodeName empty",
+		},
+		{
+			nodeServantImage: "openyurt/node-servant:v0.6.0",
+			cloudNodes:       []string{""},
+			want:             "fail to get job for node : nodeName empty",
+		},
+	}
+
+	for _, v := range cases {
+		initializer.CloudNodes = v.cloudNodes
+		initializer.NodeServantImage = v.nodeServantImage
+		err := initializer.configureControlPlane()
+		fmt.Println(err.Error())
+
+		if err.Error() != v.want {
+			t.Errorf("failed to configure control plane")
+		}
+	}
+}
+
+func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
+	var fakeOut io.Writer
+	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
+
+	case1 := struct {
+		configObj     *corev1.ConfigMap
+		serviceObj    *corev1.Service
+		deploymentObj *v1.Deployment
+		want          interface{}
+	}{
+		configObj: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "coredns"},
+			Data: map[string]string{
+				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local",
+			},
+		},
+		serviceObj: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   "kube-system",
+				Name:        "kube-dns",
+				Annotations: map[string]string{},
+			},
+		},
+		deploymentObj: &v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "coredns",
+			},
+			Spec: v1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{},
+						Containers: []corev1.Container{
+							{
+								VolumeMounts: []corev1.VolumeMount{},
+							},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
+	}
+
+	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj, case1.serviceObj, case1.deploymentObj)
+	err := initializer.configureCoreDnsAddon()
+	if err != case1.want {
+		t.Errorf("failed to configure core dns addon")
+	}
+}
+func TestInitializer_ConfigureKubeProxyAddon(t *testing.T) {
+	var fakeOut io.Writer
+	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
+
+	case1 := struct {
+		configObj *corev1.ConfigMap
+		want      interface{}
+	}{
+		configObj: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "kube-proxy"},
+			Data: map[string]string{
+				"config.conf": "{ cd .. \n kubeconfig:  \n  cluster",
+			},
+		},
+		want: nil,
+	}
+	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj)
+	err := initializer.ConfigureKubeProxyAddon()
+	if err != case1.want {
+		t.Errorf("failed to configure core dns addon")
+	}
+}
+
+func TestInitializer_ConfigureAddons(t *testing.T) {
+
+	var replicasNum int32
+	replicasNum = 3
+
+	case1 := struct {
+		coreDnsConfigObj *corev1.ConfigMap
+		proxyConfigObj   *corev1.ConfigMap
+		serviceObj       *corev1.Service
+		podObj           *corev1.Pod
+		deploymentObj    *v1.Deployment
+		want             interface{}
+	}{
+		coreDnsConfigObj: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "coredns"},
+			Data: map[string]string{
+				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local",
+			},
+		},
+		proxyConfigObj: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "kube-proxy"},
+			Data: map[string]string{
+				"config.conf": "{ cd .. \n kubeconfig:  \n  cluster",
+			},
+		},
+
+		serviceObj: &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   "kube-system",
+				Name:        "kube-dns",
+				Annotations: map[string]string{},
+			},
+		},
+
+		podObj: &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kube-proxy",
+			},
+		},
+
+		deploymentObj: &v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:  "kube-system",
+				Name:       "coredns",
+				Generation: 3,
+			},
+			Spec: v1.DeploymentSpec{
+				Replicas: &replicasNum,
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{},
+						Containers: []corev1.Container{
+							{
+								VolumeMounts: []corev1.VolumeMount{},
+							},
+						},
+					},
+				},
+			},
+			Status: v1.DeploymentStatus{
+				ObservedGeneration: 3,
+				AvailableReplicas:  3,
+			},
+		},
+		want: nil,
+	}
+
+	var fakeOut io.Writer
+	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
+	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.proxyConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
+	err := initializer.configureAddons()
+	if err != case1.want {
+		t.Errorf("failed to configure addons")
 	}
 }

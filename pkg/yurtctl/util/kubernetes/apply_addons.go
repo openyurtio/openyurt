@@ -23,13 +23,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	kubeclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 )
 
-func DeployYurtControllerManager(client *kubernetes.Clientset, yurtControllerManagerImage string) error {
+func DeployYurtControllerManager(client kubeclientset.Interface, yurtControllerManagerImage string) error {
 	if err := CreateServiceAccountFromYaml(client,
 		SystemNamespace, constants.YurtControllerManagerServiceAccount); err != nil {
 		return err
@@ -57,7 +57,7 @@ func DeployYurtControllerManager(client *kubernetes.Clientset, yurtControllerMan
 }
 
 func DeployYurtAppManager(
-	client *kubernetes.Clientset,
+	client *kubeclientset.Clientset,
 	yurtappmanagerImage string,
 	yurtAppManagerClient dynamic.Interface,
 	systemArchitecture string) error {
@@ -137,7 +137,7 @@ func DeployYurtAppManager(
 }
 
 func DeployYurttunnelServer(
-	client *kubernetes.Clientset,
+	client kubeclientset.Interface,
 	certIP string,
 	yurttunnelServerImage string,
 	systemArchitecture string) error {
@@ -205,7 +205,7 @@ func DeployYurttunnelServer(
 }
 
 func DeployYurttunnelAgent(
-	client *kubernetes.Clientset,
+	client kubeclientset.Interface,
 	tunnelServerAddress string,
 	yurttunnelAgentImage string) error {
 	// 1. Deploy the yurt-tunnel-agent DaemonSet
@@ -222,7 +222,7 @@ func DeployYurttunnelAgent(
 }
 
 // DeployYurthubSetting deploy clusterrole, clusterrolebinding for yurthub static pod.
-func DeployYurthubSetting(client *kubernetes.Clientset) error {
+func DeployYurthubSetting(client kubeclientset.Interface) error {
 	// 1. create the ClusterRole
 	if err := CreateClusterRoleFromYaml(client, constants.YurthubClusterRole); err != nil {
 		return err
@@ -244,7 +244,7 @@ func DeployYurthubSetting(client *kubernetes.Clientset) error {
 }
 
 // DeleteYurthubSetting rm settings for yurthub pod
-func DeleteYurthubSetting(client *kubernetes.Clientset) error {
+func DeleteYurthubSetting(client kubeclientset.Interface) error {
 
 	// 1. delete the ClusterRoleBinding
 	if err := client.RbacV1().ClusterRoleBindings().
