@@ -23,9 +23,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/reporters"
+	"github.com/onsi/ginkgo/v2/types"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
@@ -37,14 +37,16 @@ import (
 func RunE2ETests(t *testing.T) {
 	klog.Infof("[edge] Start run e2e test")
 	gomega.RegisterFailHandler(ginkgowrapper.Fail)
-	var r []ginkgo.Reporter
+	var r types.Report
 	if yurtconfig.YurtE2eCfg.ReportDir != "" {
 		if err := os.MkdirAll(yurtconfig.YurtE2eCfg.ReportDir, 0755); err != nil {
 			klog.Errorf("Failed creating report directory: %v", err)
 		} else {
-			r = append(r, reporters.NewJUnitReporter(path.Join(yurtconfig.YurtE2eCfg.ReportDir, fmt.Sprintf("yurt-e2e-test-report_%02d.xml", config.GinkgoConfig.ParallelNode))))
+			if err := reporters.GenerateJUnitReport(r, path.Join(yurtconfig.YurtE2eCfg.ReportDir, fmt.Sprintf("yurt-e2e-test-report_%02d.xml", types.NewDefaultSuiteConfig().ParallelProcess))); err != nil {
+				klog.Errorf("Failed generating report : %v", err)
+			}
 		}
 	}
-	klog.Infof("Starting e2e run %q on Ginkgo node %d", uuid.NewUUID(), config.GinkgoConfig.ParallelNode)
-	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "openyurt e2e suite", r)
+	klog.Infof("Starting e2e run %q on Ginkgo node %d", uuid.NewUUID(), types.NewDefaultSuiteConfig().ParallelProcess)
+	ginkgo.RunSpecs(t, "openyurt e2e suite")
 }

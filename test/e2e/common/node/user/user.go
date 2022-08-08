@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/openyurtio/openyurt/test/e2e/common/node/types"
 )
