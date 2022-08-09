@@ -63,6 +63,11 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	rest *rest.RestConfigManager) (Server, error) {
 	hubMux := mux.NewRouter()
 	registerHandlers(hubMux, cfg, certificateMgr)
+	restCfg := rest.GetRestConfig(false)
+	clientSet, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		klog.Warningf("cannot create the client set: %v", clientSet)
+	}
 	hubServer := &http.Server{
 		Addr:           cfg.YurtHubServerAddr,
 		Handler:        hubMux,
@@ -71,7 +76,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 
 	proxyServer := &http.Server{
 		Addr:    cfg.YurtHubProxyServerAddr,
-		Handler: wrapNonResourceHandler(proxyHandler, cfg, rest),
+		Handler: wrapNonResourceHandler(proxyHandler, cfg, clientSet),
 	}
 
 	secureProxyServer := &http.Server{
