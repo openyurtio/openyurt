@@ -18,8 +18,11 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/pkg/errors"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -53,36 +56,36 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 func withNonResourceRequest(w http.ResponseWriter, req *http.Request) {
 	for i := range nonResourceReqPaths {
 		if req.URL.Path == nonResourceReqPaths[i] {
-			cacheNonResourceInfo(w, req, "non-resource-info"+nonResourceReqPaths[i], nonResourceReqPaths[i])
+			cacheNonResourceInfo(w, req, cfg.StorageWrapper, fmt.Sprintf("non-reosurce-info%s", nonResourceReqPaths[i]), nonResourceReqPaths[i], false)
 		}
 	}
 
 }
 
-func cacheNonResourceInfo(w http.ResponseWriter, req *http.Request, key string, path string) {
-	versionInfo, err := clientSet.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw()
+func cacheNonResourceInfo(w http.ResponseWriter, req *http.Request, sw cachemanager.StorageWrapper, key string, path string, isFake bool) {
+	nonResourceInfo, err := getClientSetQueryInfo(path, isFake)
 	copyHeader(w.Header(), req.Header)
 	if err == nil {
-		_, err = w.Write(versionInfo)
+		_, err = w.Write(nonResourceInfo)
 		if err != nil {
-			klog.Errorf("failed to write the non-cache resource info, the error is: %v", err)
+			klog.Errorf("failed to write the non-resource info, the error is: %v", err)
 			ErrNonResource(err, w, req)
 			return
 		}
 
 		klog.Infof("success to query the cache non-resource info: %s", key)
 		w.WriteHeader(http.StatusOK)
-		cfg.StorageWrapper.UpdateRaw(key, versionInfo)
+		sw.UpdateRaw(key, nonResourceInfo)
 	} else {
-		infoCache, err := cfg.StorageWrapper.GetRaw(key)
+		infoCache, err := sw.GetRaw(key)
 		if err != nil {
-			klog.Errorf("the non-cache resource info cannot be acquired, the error is: %v", err)
+			klog.Errorf("the non-resource info cannot be acquired, the error is: %v", err)
 			ErrNonResource(err, w, req)
 			return
 		}
 		_, err = w.Write(infoCache)
 		if err != nil {
-			klog.Errorf("failed to write the non-cache resource info, the error is: %v", err)
+			klog.Errorf("failed to write the non-resource info, the error is: %v", err)
 			ErrNonResource(err, w, req)
 			return
 		}
@@ -91,6 +94,22 @@ func cacheNonResourceInfo(w http.ResponseWriter, req *http.Request, key string, 
 		w.WriteHeader(http.StatusOK)
 	}
 
+}
+
+func getClientSetQueryInfo(path string, isFake bool) ([]byte, error) {
+	if clientSet == nil {
+		// used for unit test
+		if isFake {
+			return []byte(fmt.Sprintf("fake-non-resource-info-%s", path)), nil
+		}
+		klog.Errorf("the kubernetes clientSet is nil, and return the fake value for test")
+		return nil, errors.New("the kubernetes clientSet is nil")
+	}
+	nonResourceInfo, err := clientSet.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw()
+	if err != nil {
+		return nil, err
+	}
+	return nonResourceInfo, nil
 }
 
 func copyHeader(dst, src http.Header) {

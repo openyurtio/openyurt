@@ -63,7 +63,8 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	restCfg := rest.GetRestConfig(false)
 	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		klog.Warningf("cannot create the client set: %v", clientSet)
+		klog.Errorf("cannot create the client set: %v", err)
+		return nil, err
 	}
 	hubServer := &http.Server{
 		Addr:           cfg.YurtHubServerAddr,
