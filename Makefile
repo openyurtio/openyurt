@@ -62,6 +62,17 @@ test:
 clean:
 	-rm -Rf _output
 
+# verify will verify the code.
+verify: verify-mod verify-license
+
+# verify-license will check if license has been added to files. 
+verify-license:
+	hack/make-rules/check_license.sh
+
+# verify-mod will check if go.mod has beed tidied.
+verify-mod:
+	hack/make-rules/verify_mod.sh
+
 # Start up OpenYurt cluster on local machine based on a Kind cluster
 # And you can run the following command on different env by specify TARGET_PLATFORMS, default platform is linux/amd64
 #   - on centos env: make local-up-openyurt
