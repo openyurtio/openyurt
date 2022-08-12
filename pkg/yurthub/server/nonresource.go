@@ -19,15 +19,17 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/gorilla/mux"
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/pkg/errors"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"net/http"
-	"strconv"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 )
 
 var nonResourceReqPaths = []string{
