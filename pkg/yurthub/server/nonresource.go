@@ -59,6 +59,7 @@ func withNonResourceRequest(w http.ResponseWriter, req *http.Request) {
 	for i := range nonResourceReqPaths {
 		if req.URL.Path == nonResourceReqPaths[i] {
 			cacheNonResourceInfo(w, req, cfg.StorageWrapper, fmt.Sprintf("non-reosurce-info%s", nonResourceReqPaths[i]), nonResourceReqPaths[i], false)
+			break
 		}
 	}
 
