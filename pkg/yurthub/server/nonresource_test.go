@@ -18,12 +18,13 @@ package server
 
 import (
 	"fmt"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
 var rootDir = "/tmp/cache-local"
