@@ -31,22 +31,108 @@ Figure X shows the YurtHub init progress. According to the investigation of Yurt
 
 From the above, the optimization will focus on the YurtHub start-up and Kubelet recover the service pods based on YurtHub local cache .
 
-## Solutions
+## Experiments
 
-According to the question analysis above, the solutions will focus on the YurtHub start-up optimization and YurtHub local cache strategy optimization.
+### Native Kubernetes Start-up Time Test
 
-![](../img/yurthub.png)
+**Test Environment:**
 
-### 1. YurtHub start-up optimization
+1 master node, 1 work node
 
-- YurtHub start-up process are serialized. The detailed process are shown in Figure X. The time cost of each components can be detected. Some serialized process can be optimized to the parallel one.
+- Alibaba ECS 4C8G
+- OS: CentOS 8
+- K8s Version: v1.19.4
+- Edge Network Connected
 
-### 2. YurtHub local cache strategy optimization
+#### Only static pods
 
-Kubelet will recover the service pods by load the local cache through cache manager and serialize manager on the YurtHub. The local cache strategy is the optimization orientation.
+*The table records the **time-delay** from **OS restart** and the unit is ms
 
-- **File IO.** How to improve cache IO efficiency is changeling. Multi-threads read/write can be applied on the cache manager.
-- **Data Serialization.**  YAML is the solution to the Kubernetes resource definition.  JSON, Protobuf, etc. are also the main stream serialization solutions. The proper way to serialize the pod data can enhance the efficiency.
-- **Storage.** Cache data are saved as files. Different type of database may be applied to realize the data thread safe (Lock) and high literacy rate.
+| Test Index | OS Restart Begin | Kubelet Init | Kubelet Start Watching API Server and Static Pods Info | Kubelet recover Static Pods |
+| :--------: | :--------------: | :----------: | :----------------------------------------------------: | :-------------------------: |
+|     01     |        0         |    21441     |                         22065                          |            24237            |
+|     02     |        0         |    21500     |                         22102                          |            24362            |
+|     02     |        0         |    21427     |                         22083                          |            24252            |
+|    Avg     |        0         |    21456     |                         22083                          |            24284            |
+|    Diff    |        0         |    21456     |                          627                           |            2200             |
 
-The optimization of the local cache strategy can be developed as the progress of the cache structure.
+#### Static pods and 10 service pods
+
+*The 10 service pods are created by nginx-latest image with ClusterIP service
+
+*The table records the **time-delay** from **OS restart** and the unit is ms
+
+| Test Index | OS Restart Begin | Kubelet Init | Kubelet Start Watching API Server and Static Pods Info | Kubelet recover Static Pods | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :----------: | :----------------------------------------------------: | :-------------------------: | :------------------------: | :-----------------------: |
+|     01     |        0         |    19954     |                         20711                          |            49167            |           51167            |          150167           |
+|     02     |        0         |    21067     |                         21835                          |            50289            |           52227            |          152109           |
+|     03     |        0         |    21072     |                         21897                          |            50272            |           52216            |          152209           |
+|    Avg     |        0         |    20698     |                         21481                          |            49909            |           51870            |          151495           |
+|    Diff    |        0         |    20698     |                          783                           |            28428            |            1961            |           99625           |
+
+### OpenYurt Start-up Time Test
+
+**Test Environment:**
+
+1 master node, 1 work node
+
+- Alibaba ECS 4C8G
+- OS: CentOS 8
+- K8s Version: v1.19.4
+- OpenYurt Version: v0.7.0
+
+#### Edge Network Connected, only static pods
+
+*The table records the **time-delay** from **OS restart** and the unit is ms
+
+| Test Index | OS Restart Begin | Kubelet Init | Kubelet Start Watching API Server and Static Pods Info | YurtHub Init | YurtHub Server Work | All static Pods Recovery |
+| :--------: | :--------------: | :----------: | :----------------------------------------------------: | :----------: | :-----------------: | :----------------------: |
+|     01     |        0         |    26545     |                         27547                          |    34973     |        35054        |          52423           |
+|     02     |        0         |    24915     |                         25880                          |    33253     |        33337        |          50001           |
+|     03     |        0         |    27936     |                         28673                          |    36027     |        36110        |          53012           |
+|    Avg     |        0         |    26465     |                         27366                          |    34751     |        34833        |          51812           |
+|    Diff    |        -         |    26465     |                          901                           |     7205     |         82          |          16979           |
+
+#### Edge Network Connected, static pods and 10 service pods
+
+*The 10 service pods are created by nginx-latest image with ClusterIP service
+
+*The table records the **time-delay** from **OS restart** and the unit is ms
+
+| Test Index | OS Restart Begin | Kubelet Init | Kubelet Start Watching API Server and Static Pods Info | YurtHub Init | YurtHub Server Work | All static Pods Recovery | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :----------: | :----------------------------------------------------: | :----------: | :-----------------: | :----------------------: | :------------------------: | :-----------------------: |
+|     01     |        0         |    26560     |                         27295                          |    34618     |        34697        |          94000*          |           74390            |          170126           |
+|     02     |        0         |    28076     |                         29001                          |    36814     |        36928        |          54030           |           56920            |          153410           |
+|     03     |        0         |    26398     |                         27427                          |    34834     |        34907        |          42000           |           58103            |          153875           |
+|    Avg     |        0         |    27011     |                         27908                          |    35422     |        35511        |          63343           |           63138            |          159137           |
+|    Diff    |        0         |    27011     |                          896                           |     7514     |         898         |          27833           |           -206**           |           95999           |
+
+*It costs more time because waiting for the CNI Network ready
+
+**The time between first service pod recovery and all static pods recovery is varied, and it is not reliable
+
+#### Edge Network Disconnected, static pods and 10 service pods, OpenYurt Edge
+
+*The 10 service pods are created by nginx-latest image with ClusterIP service
+
+*The table records the **time-delay** from **OS restart** and the unit is ms
+
+| Test Index | OS Restart Begin | Kubelet Init | Kubelet Start Watching API Server and Static Pods Info | YurtHub Init | YurtHub Server Work | All static Pods Recovery | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :----------: | :----------------------------------------------------: | :----------: | :-----------------: | :----------------------: | :------------------------: | :-----------------------: |
+|     01     |        0         |    29027     |                         30368                          |    37436     |        38893        |          59249           |           60420            |          170769           |
+|     02     |        0         |    27396     |                         28246                          |    35565     |        37029        |          52780           |           58912            |          164756           |
+|     03     |        0         |    27363     |                         28235                          |    35527     |        36990        |          52741           |           58879            |          164712           |
+|    Avg     |        0         |    27929     |                         28950                          |    36176     |        37637        |          54923           |           59404            |          166746           |
+|    Diff    |        0         |    27929     |                          1021                          |     7226     |        1461         |          17286           |            4480            |          107342           |
+
+## How to optimize the pods recovery efficiency?
+
+1. **Time between Kubelet watching API and YurtHub init**
+   - After the kubelet initializing, it will wait for YurtHub ready and start the other pods recover process. If the YurtHub can restart itself sync with Kubelet, the time delay will reduce.
+   - The expect deduct time is 7000ms, the optimize efficiency may 8%-10%
+2. **Time between the YurtHub server work and first pod recovery**
+   - After the YurtHub server work, alomost 23000ms will be cost before the first pod starts to recover. If YurtHub can read the cache files more faster, the time delay will be reduce.
+   - This part can be optimized with the optimization of the YurtHub Cache Manager, the optimize efficiency may be estimated by the the further test.
+3. **Time between the first service pod recovery and last service pod recovery**
+   - The time between the first pod recovery and the last pod recovery is almost 100000ms.
+   - This part was controlled by Kubelet and we can focus on the communication between the kubelet and YurtHub.
