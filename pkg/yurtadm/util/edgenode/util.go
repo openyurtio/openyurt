@@ -150,6 +150,30 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	return nodeName, nil
 }
 
+// GetHostname returns OS's hostname if 'hostnameOverride' is empty; otherwise, return 'hostnameOverride'.
+// This is compatible with kubelet's hostname processing logic
+// https://github.com/kubernetes/kubernetes/blob/c00975370a5bf81328dc56396ee05edc7306e238/pkg/util/node/node.go#L46
+var osHostName func() (string, error) = os.Hostname
+
+func GetHostname(hostnameOverride string) (string, error) {
+	hostName := hostnameOverride
+	if len(hostName) == 0 {
+		nodeName, err := osHostName()
+		if err != nil {
+			return "", fmt.Errorf("couldn't determine hostname: %v", err)
+		}
+		hostName = nodeName
+	}
+
+	// Trim whitespaces first to avoid getting an empty hostname
+	// For linux, the hostname is read from file /proc/sys/kernel/hostname directly
+	hostName = strings.TrimSpace(hostName)
+	if len(hostName) == 0 {
+		return "", fmt.Errorf("empty hostname is invalid")
+	}
+	return strings.ToLower(hostName), nil
+}
+
 // GenClientSet generates the clientset based on command option, environment variable,
 // file in $HOME/.kube or the default kubeconfig file
 func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
