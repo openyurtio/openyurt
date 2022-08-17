@@ -88,13 +88,13 @@ func TestGetFilterName(t *testing.T) {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints",
-			resultFilter: EndpointsFilterName,
+			resultFilter: ServiceTopologyFilterName,
 		},
 		"nginx-ingress-controller watch endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints?watch=true",
-			resultFilter: EndpointsFilterName,
+			resultFilter: ServiceTopologyFilterName,
 		},
 		"list endpoints without user agent": {
 			verb:         "GET",
