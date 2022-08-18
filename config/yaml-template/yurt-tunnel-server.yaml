@@ -190,8 +190,8 @@ spec:
       tolerations:
       - operator: "Exists"
       nodeSelector:
-        beta.kubernetes.io/arch: amd64
-        beta.kubernetes.io/os: linux
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
         __label_prefix__/is-edge-worker: "false"
       containers:
       - name: __project_prefix__-tunnel-server
