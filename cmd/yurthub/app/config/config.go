@@ -39,6 +39,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
@@ -118,8 +119,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	restMapperManager := meta.NewRESTMapperManager(storageManager)
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
-	proxyServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxyPort)
-	proxySecureServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubProxySecurePort)
+	proxyServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxyPort)
+	proxySecureServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxySecurePort)
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
@@ -137,10 +138,11 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 
 	// use dummy ip and bind ip as cert IP SANs
-	certIPs := []net.IP{
+	certIPs := ipUtils.RemoveDupIPs([]net.IP{
 		net.ParseIP(options.HubAgentDummyIfIP),
 		net.ParseIP(options.YurtHubHost),
-	}
+		net.ParseIP(options.YurtHubProxyHost),
+	})
 
 	cfg := &YurtHubConfiguration{
 		LBMode:                            options.LBMode,

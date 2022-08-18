@@ -41,7 +41,8 @@ const (
 // YurtHubOptions is the main settings for the yurthub
 type YurtHubOptions struct {
 	ServerAddr                string
-	YurtHubHost               string
+	YurtHubHost               string // YurtHub server host (e.g.: expose metrics API)
+	YurtHubProxyHost          string // YurtHub proxy server host
 	YurtHubPort               string
 	YurtHubProxyPort          string
 	YurtHubProxySecurePort    string
@@ -77,6 +78,7 @@ type YurtHubOptions struct {
 func NewYurtHubOptions() *YurtHubOptions {
 	o := &YurtHubOptions{
 		YurtHubHost:               "127.0.0.1",
+		YurtHubProxyHost:          "127.0.0.1",
 		YurtHubProxyPort:          util.YurtHubProxyPort,
 		YurtHubPort:               util.YurtHubPort,
 		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
@@ -131,8 +133,9 @@ func (options *YurtHubOptions) Validate() error {
 
 // AddFlags returns flags for a specific yurthub by section name
 func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.YurtHubHost, "bind-address", o.YurtHubHost, "the IP address on which to listen for the --serve-port port.")
+	fs.StringVar(&o.YurtHubHost, "bind-address", o.YurtHubHost, "the IP address of YurtHub Server")
 	fs.StringVar(&o.YurtHubPort, "serve-port", o.YurtHubPort, "the port on which to serve HTTP requests(like profiling, metrics) for hub agent.")
+	fs.StringVar(&o.YurtHubProxyHost, "bind-proxy-address", o.YurtHubProxyHost, "the IP address of YurtHub Proxy Server")
 	fs.StringVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
 	fs.StringVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")

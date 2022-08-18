@@ -66,3 +66,16 @@ func JoinIPStrings(ips []net.IP) string {
 	}
 	return strings.Join(strs, ",")
 }
+
+// RemoveDupIPs removes duplicate ips from the ip list and returns a new created list
+func RemoveDupIPs(ips []net.IP) []net.IP {
+	results := make([]net.IP, 0, len(ips))
+	temp := map[string]bool{}
+	for _, ip := range ips {
+		if _, ok := temp[string(ip)]; !ok {
+			temp[string(ip)] = true
+			results = append(results, ip)
+		}
+	}
+	return results
+}

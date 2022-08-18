@@ -17,6 +17,8 @@ limitations under the License.
 package ip
 
 import (
+	"net"
+	"reflect"
 	"testing"
 )
 
@@ -40,5 +42,48 @@ func TestGetLoopbackIP(t *testing.T) {
 		if lo6 != "::1" {
 			t.Errorf("got ipv6 loopback addr: '%s', expect: '::1'", lo6)
 		}
+	}
+}
+
+func TestRemoveDupIPs(t *testing.T) {
+	tests := []struct {
+		name        string
+		originalIps []net.IP
+		expectedIps []net.IP
+	}{
+		{
+			"no duplication",
+			[]net.IP{[]byte("1.1.1.1")},
+			[]net.IP{[]byte("1.1.1.1")},
+		},
+		{
+			"empty list",
+			[]net.IP{},
+			[]net.IP{},
+		},
+		{
+			"dup list",
+			[]net.IP{[]byte("1.1.1.1"), []byte("1.1.1.1")},
+			[]net.IP{[]byte("1.1.1.1")},
+		},
+		{
+			"nil list",
+			nil,
+			[]net.IP{},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", test.name)
+			{
+				get := RemoveDupIPs(test.originalIps)
+				if !reflect.DeepEqual(get, test.expectedIps) {
+					t.Errorf("\texpect %v, but get %v", test.expectedIps, get)
+				}
+			}
+		})
 	}
 }
