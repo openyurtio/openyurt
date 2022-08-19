@@ -11,13 +11,14 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
-limitations under the License.
+limitations under the License.z
 */
 
 package kindinit
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -137,7 +138,7 @@ func TestGetInstallCmd(t *testing.T) {
 	}
 }
 
-func TestKindLoadDockerImage(t *testing.T) {
+func TestKindOperator_KindLoadDockerImage(t *testing.T) {
 	cases := map[string]struct {
 		clusterName string
 		image       string
@@ -187,4 +188,56 @@ func TestKindLoadDockerImageStub(t *testing.T) {
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+func fakeExeCommand(string, ...string) *exec.Cmd {
+	cmd := exec.Command("echo", "ok")
+	return cmd
+}
+
+func TestGetGoBinPath(t *testing.T) {
+	gopath, err := getGoBinPath()
+	if err != nil {
+		t.Errorf("failed to get GOPATH")
+	}
+	if find := strings.Contains(gopath, "/go") && strings.Contains(gopath, "/bin"); !find {
+		t.Errorf("failed to get GOPATH")
+	}
+}
+
+func TestFindKindPath(t *testing.T) {
+	home := os.Getenv("HOME")
+	if home != "" {
+		cases := home + "/go/bin/kind"
+		kindPath, err := findKindPath()
+		if err != nil && kindPath != cases {
+			fmt.Println("failed to find kind")
+		}
+	}
+}
+
+func TestKindOperator_KindCreateClusterWithConfig(t *testing.T) {
+	cases := []struct {
+		configPath string
+		err        interface{}
+	}{
+		{
+			" ",
+			nil,
+		},
+		{
+			"/tmp/config",
+			nil,
+		},
+	}
+	var fakeOut io.Writer
+	kindOperator := NewKindOperator("", "")
+	kindOperator.execCommand = fakeExeCommand
+	for _, v := range cases {
+		err := kindOperator.KindCreateClusterWithConfig(fakeOut, v.configPath)
+		if err != v.err {
+			t.Errorf("falied create cluster with configure using kind")
+		}
+	}
+
 }
