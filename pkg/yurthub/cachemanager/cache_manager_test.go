@@ -428,6 +428,37 @@ func TestCacheGetResponse(t *testing.T) {
 			resource:         "nodes",
 			cacheResponseErr: true,
 		},
+		"cache response for get namespace": {
+			group:   "",
+			version: "v1",
+			key:     "kubelet/namespaces/kube-system",
+			inputObj: runtime.Object(&v1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "kube-system",
+					ResourceVersion: "1",
+				},
+			}),
+			userAgent: "kubelet",
+			accept:    "application/json",
+			verb:      "GET",
+			path:      "/api/v1/namespaces/kube-system",
+			resource:  "namespaces",
+			expectResult: struct {
+				err  error
+				rv   string
+				name string
+				ns   string
+				kind string
+			}{
+				rv:   "1",
+				name: "kube-system",
+				kind: "Namespace",
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
@@ -1268,6 +1299,59 @@ func TestCacheListResponse(t *testing.T) {
 				data map[string]struct{}
 			}{
 				data: map[string]struct{}{},
+			},
+		},
+		"list namespaces": {
+			group:   "",
+			version: "v1",
+			key:     "kubelet/namespaces",
+			inputObj: runtime.Object(
+				&v1.NamespaceList{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "NamespaceList",
+					},
+					ListMeta: metav1.ListMeta{
+						ResourceVersion: "3",
+					},
+					Items: []v1.Namespace{
+						{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "v1",
+								Kind:       "Namespace",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:            "kube-system",
+								ResourceVersion: "4",
+							},
+						},
+						{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "v1",
+								Kind:       "Namespace",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:            "default",
+								ResourceVersion: "5",
+							},
+						},
+					},
+				},
+			),
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/namespaces",
+			resource:   "namespaces",
+			namespaced: false,
+			expectResult: struct {
+				err  bool
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{
+					"namespace-kube-system-4": {},
+					"namespace-default-5":     {},
+				},
 			},
 		},
 	}
