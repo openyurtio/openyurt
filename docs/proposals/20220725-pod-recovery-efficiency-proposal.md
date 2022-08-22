@@ -140,20 +140,53 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 |   *Avg*    |        0         |     27929     |                         28950                          |     36176     |        37637        |          54923           |           59404            |          166746           |
 |   *Diff*   |        0         |     27929     |                          1021                          |     7226      |        1461         |          17286           |            4480            |          107342           |
 
+### Kubelet Time Test
+
+According to the time analysis above, Kubelet is responsible for the each pod recovery. Thereby,  the detailed time delay analysis for Kubelet is discussed as follows.
+
+The process of Kubelet syncing the pods is demonstrated in the Figure below.
+
+![](../img/kubelet-step.png)
+
+After Kubelet initialized successfully and Kubelet will watch API Server (YurtHub) for recover pods. According to the source code of Kubelet, there are five main steps in the scenario of pods recovery. Firstly, Kubelet will compute the sandbox and con container changes and kill the changed pods' sandboxes. After that, it will kill any running containers in the pod which are not to sleep. Moreover, Kubelet will run new Pod sandbox. In this period, it will setup pod network and acquire Pod IP, which need CNI ready.
+
+After the RunPodSandbox, Kubelet will pull the images according to the image pulling strategy. According to the pulled images, containers will create and start.
+
+After the analysis of the above steps, the detailed time measurement is conducted as follows.
+
+**Edge Network Disconnected, static pods and 10 service pods, OpenYurt Edge**
+
+*The image pull strategy is **IfNotPresent**
+
+| Test Index | Kubelet Start Watching API Server and Static Pods Info | Kubelet Listen to 10250 Port | Kill the previous containers and sandboxes | RunPod SandBox | SetupPod Network | Flannel Start | First Pod Pull Image | First Pod Start | Last Pod Start |
+| :--------: | :----------------------------------------------------: | :--------------------------: | :----------------------------------------: | :------------: | :--------------: | :-----------: | :------------------: | :-------------: | :------------: |
+|     01     |                           0                            |             6291             |                    6398                    |      6554      |       6596       |     9899      |        12504         |      12755      |     12980      |
+|     02     |                           0                            |             6288             |                    6397                    |      6551      |       6578       |     9889      |        12497         |      12752      |     12972      |
+|     03     |                           0                            |             6278             |                    6395                    |      6548      |       6566       |     9882      |        12491         |      12749      |     12969      |
+|   *Avg*    |                           0                            |             6286             |                    6397                    |      6551      |       6580       |     9890      |        12497         |      12752      |     12974      |
+|   *Diff*   |                           -                            |             6286             |                    111                     |      154       |        29        |     3310      |         2607         |       255       |      222       |
+
+***Setup Pod Network** is a process in the **RunPodSandBox**. Flannel is the CNI Plugin of the kubernetes cluster. If the Flannel is not ready, the PodSandBox will not be ready.
+
 ## Data analysis between different scenarios
 
 - In both native Kubernetes and YurtHub network connected/disconnected environments, the time delay between first service pod recovery and last pod recovery is stable 100s.
+  - The default image pulling strategy of pods is Always, and each pulling image time will take up almost 98s. If the node maintain the image, and the image pull strategy is **IfNotPresent**, the service pod restart time will be saved.
 - In the YurtHub mode, Kubelet will wait for YurtHub ready and start the other pods recover process. This period of time is almost 7s.
+- According to the Kubelet Time Test, Flannel as the the CNI Plugin should be ready before the service pods recovery. In the pod restart process, there are almost 4s blocked for waiting the Flannel ready.
 - Compared with time delay between YurtHub server work and first service pod recovery in network  connected and network disconnected scenarios, network disconnected scenarios can save almost 4s due to the local cache query.
 
 ## How to optimize the pods recovery efficiency?
 
 1. **Time between Kubelet watching API and YurtHub init**
    - After the kubelet initializing, it will wait for YurtHub ready and start the other pods recover process. If the YurtHub can restart itself sync with Kubelet, the time delay will reduce.
-   - The expect deduct time is 7000ms, the optimize efficiency may 8%-10%
+   - The expect deduct time is 7000ms, the optimize efficiency may 15%-20%
 2. **Time between the YurtHub server work and first pod recovery**
    - After the YurtHub server work, almost 23000ms will be cost before the first pod starts to recover. If YurtHub can read the cache files more faster, the time delay will be reduce.
    - This part can be optimized with the optimization of the YurtHub Cache Manager, the optimize efficiency may be estimated by the the further test.
 3. **Time between the first service pod recovery and last service pod recovery**
    - The time between the first pod recovery and the last pod recovery is almost 100000ms.
-   - This part was controlled by Kubelet and we can focus on the communication between the kubelet and YurtHub.
+   - This part was controlled by Kubelet and we can make sure the **IfNotPresent** image pull strategy and image set on the edge node. The time will save a lot.
+4. **Time of waiting for CNI plugin Flannel ready**
+   - Flannel as the the CNI Plugin should be ready before the service pods recovery. and the pods should be assigned for Pod IP. However, the flannel is restart at the same time with the service pods. There are 4s for waiting.
+   - This part can be optimized through make the Flannel start as the static pod as YurtHub. It may save the waiting time and  the optimize efficiency may 8%-10%.
