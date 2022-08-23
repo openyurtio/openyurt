@@ -1,6 +1,6 @@
 # Proposal-Optimize the pods recovery efficiency when edge nodes restart
 
-## Requirement Analysis
+## 1. Requirement Analysis
 
 OpenYurt extend the cloud native ability to edge computing and IoT scenarios. The cloud nodes provide the ability to deploy the services on the edge nodes and realize the whole life-cycle management of the applications. However, edge node network is in the weak connection status.
 
@@ -13,7 +13,7 @@ The specific requirements of the optimization are summarized as follows:
 - Promote the restart efficiency and make the cost time less than 30s
 - The solutions can be used in most hardwares
 
-## Question Analysis
+## 2. Question Analysis
 
 Kubelet is the controller of the Kubernetes work node. It is responsible for the creation and management of Pods on the work node. For an OpenYurt cluster, the components are the pods deployed on the Kubernetes cluster. When the work node restarts, Kubelet will recover the pods (Openyurt components) and the service pods. Therefore, detect the time delay of the Kubelet operations should be the focus.
 
@@ -31,9 +31,9 @@ Figure X shows the YurtHub init progress. According to the investigation of Yurt
 
 From the above, the optimization will focus on the YurtHub start-up and Kubelet recover the service pods based on YurtHub local cache .
 
-## Experiments
+## 3. Experiments
 
-### Native Kubernetes Start-up Time Test
+### 3.1 Native Kubernetes Start-up Time Test
 
 **Test Environment:**
 
@@ -44,48 +44,27 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 - K8s Version: v1.19.4
 - Edge Network Connected
 
-**Notations of Each Time Point:**
+#### 3.1.1 Static pods and 10 service pods
 
-|                        Time Point                        | Notation                                                     |
-| :------------------------------------------------------: | :----------------------------------------------------------- |
-|                    *OS Restart Begin*                    | The time point when OS shut down and begins to restart. We donate this point as the zero point of the time delay detection. |
-|                     *Kubelet Start*                      | After the OS recovery, the time point then Kubelet service start. |
-| *Kubelet Start Watching API Server and Static Pods Info* | After the Kubelet initialization, basic functions will recover. The time point Kubelet start to watch API server (YurtHub Server) and  recover the static pods info. |
-|              *Kubelet recover Static Pods*               | The time point kubelet recover all the static pods (CoreDNS, Flannel) on the edge node. |
-|                     *YurtHub Start*                      | The time point YurtHub start.                                |
-|                  *YurtHub Server Work*                   | The time point YurtHub server is recovered and it can handle the HTTP request. |
-|               *First Service Pod Recovery*               | The time point first service pod start to recover.           |
-|               *Last Service Pod Recovery*                | The time point last service pod start to recover.            |
-
-
-
-#### Only static pods
+*The 10 service pods are created by nginx-latest image
 
 *The table records the **time-delay** from **OS restart** and the unit is ms
 
-| Test Index | OS Restart Begin | Kubelet Start | Kubelet Start Watching API Server and Static Pods Info | Kubelet recover Static Pods |
-| :--------: | :--------------: | :-----------: | :----------------------------------------------------: | :-------------------------: |
-|     01     |        0         |     21441     |                         22065                          |            24237            |
-|     02     |        0         |     21500     |                         22102                          |            24362            |
-|     02     |        0         |     21427     |                         22083                          |            24252            |
-|   *Avg*    |        0         |     21456     |                         22083                          |            24284            |
-|   *Diff*   |        0         |     21456     |                          627                           |            2200             |
+*The image pull strategy is **IfNotPresent**
 
-#### Static pods and 10 service pods
+*First Service Pod Recovery means the time point when the first nginx pod recover.
 
-*The 10 service pods are created by nginx-latest image with ClusterIP service
+*Last Service Pod Recovery means the time point when the first nginx pod recover.
 
-*The table records the **time-delay** from **OS restart** and the unit is ms
+| Test Index | OS Restart Begin | Kubelet Start to work | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :-------------------: | :------------------------: | :-----------------------: |
+|     1      |        0         |         25498         |           32747            |           33030           |
+|     2      |        0         |         27499         |           33701            |           34822           |
+|     3      |        0         |         26776         |           33010            |           34112           |
+|    Avg     |        0         |         26591         |           33152            |           33988           |
+|    Diff    |        -         |         26591         |            6561            |            836            |
 
-| Test Index | OS Restart Begin | Kubelet Start | Kubelet Start Watching API Server and Static Pods Info | Kubelet recover Static Pods | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :----------------------------------------------------: | :-------------------------: | :------------------------: | :-----------------------: |
-|     01     |        0         |     19954     |                         20711                          |            49167            |           51167            |          150167           |
-|     02     |        0         |     21067     |                         21835                          |            50289            |           52227            |          152109           |
-|     03     |        0         |     21072     |                         21897                          |            50272            |           52216            |          152209           |
-|   *Avg*    |        0         |     20698     |                         21481                          |            49909            |           51870            |          151495           |
-|   *Diff*   |        0         |     20698     |                          783                           |            28428            |            1961            |           99625           |
-
-### OpenYurt Start-up Time Test
+### 3.2 OpenYurt Start-up Time Test
 
 **Test Environment:**
 
@@ -96,97 +75,81 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 - K8s Version: v1.19.4
 - OpenYurt Version: v0.7.0
 
-#### Edge Network Connected, only static pods
+#### 3.2.1 Edge Network Connected, 10 service pods
 
 *The table records the **time-delay** from **OS restart** and the unit is ms
-
-| Test Index | OS Restart Begin | Kubelet Start | Kubelet Start Watching API Server and Static Pods Info | YurtHub Start | YurtHub Server Work | All static Pods Recovery |
-| :--------: | :--------------: | :-----------: | :----------------------------------------------------: | :-----------: | :-----------------: | :----------------------: |
-|     01     |        0         |     26545     |                         27547                          |     34973     |        35054        |          52423           |
-|     02     |        0         |     24915     |                         25880                          |     33253     |        33337        |          50001           |
-|     03     |        0         |     27936     |                         28673                          |     36027     |        36110        |          53012           |
-|   *Avg*    |        0         |     26465     |                         27366                          |     34751     |        34833        |          51812           |
-|   *Diff*   |        -         |     26465     |                          901                           |     7205      |         82          |          16979           |
-
-#### Edge Network Connected, static pods and 10 service pods
-
-*The 10 service pods are created by nginx-latest image with ClusterIP service
-
-*The table records the **time-delay** from **OS restart** and the unit is ms
-
-| Test Index | OS Restart Begin | Kubelet Start | Kubelet Start Watching API Server and Static Pods Info | YurtHub Start | YurtHub Server Work | All static Pods Recovery | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :----------------------------------------------------: | :-----------: | :-----------------: | :----------------------: | :------------------------: | :-----------------------: |
-|     01     |        0         |     26560     |                         27295                          |     34618     |        34697        |          94000*          |           74390            |          170126           |
-|     02     |        0         |     28076     |                         29001                          |     36814     |        36928        |          54030           |           56920            |          153410           |
-|     03     |        0         |     26398     |                         27427                          |     34834     |        34907        |          42000           |           58103            |          153875           |
-|   *Avg*    |        0         |     27011     |                         27908                          |     35422     |        35511        |          63343           |           63138            |          159137           |
-|   *Diff*   |        0         |     27011     |                          896                           |     7514      |         898         |          27833           |           -206**           |           95999           |
-
-*It costs more time because waiting for the CNI Network ready
-
-**The time between first service pod recovery and all static pods recovery is varied, and it is not reliable
-
-#### Edge Network Disconnected, static pods and 10 service pods, OpenYurt Edge
-
-*The 10 service pods are created by nginx-latest image with ClusterIP service
-
-*The table records the **time-delay** from **OS restart** and the unit is ms
-
-| Test Index | OS Restart Begin | Kubelet Start | Kubelet Start Watching API Server and Static Pods Info | YurtHub Start | YurtHub Server Work | All static Pods Recovery | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :----------------------------------------------------: | :-----------: | :-----------------: | :----------------------: | :------------------------: | :-----------------------: |
-|     01     |        0         |     29027     |                         30368                          |     37436     |        38893        |          59249           |           60420            |          170769           |
-|     02     |        0         |     27396     |                         28246                          |     35565     |        37029        |          52780           |           58912            |          164756           |
-|     03     |        0         |     27363     |                         28235                          |     35527     |        36990        |          52741           |           58879            |          164712           |
-|   *Avg*    |        0         |     27929     |                         28950                          |     36176     |        37637        |          54923           |           59404            |          166746           |
-|   *Diff*   |        0         |     27929     |                          1021                          |     7226      |        1461         |          17286           |            4480            |          107342           |
-
-### Kubelet Time Test
-
-According to the time analysis above, Kubelet is responsible for the each pod recovery. Thereby,  the detailed time delay analysis for Kubelet is discussed as follows.
-
-The process of Kubelet syncing the pods is demonstrated in the Figure below.
-
-![](../img/kubelet-step.png)
-
-After Kubelet initialized successfully and Kubelet will watch API Server (YurtHub) for recover pods. According to the source code of Kubelet, there are five main steps in the scenario of pods recovery. Firstly, Kubelet will compute the sandbox and con container changes and kill the changed pods' sandboxes. After that, it will kill any running containers in the pod which are not to sleep. Moreover, Kubelet will run new Pod sandbox. In this period, it will setup pod network and acquire Pod IP, which need CNI ready.
-
-After the RunPodSandbox, Kubelet will pull the images according to the image pulling strategy. According to the pulled images, containers will create and start.
-
-After the analysis of the above steps, the detailed time measurement is conducted as follows.
-
-**Edge Network Disconnected, static pods and 10 service pods, OpenYurt Edge**
 
 *The image pull strategy is **IfNotPresent**
 
-| Test Index | Kubelet Start Watching API Server and Static Pods Info | Kubelet Listen to 10250 Port | Kill the previous containers and sandboxes | RunPod SandBox | SetupPod Network | Flannel Start | First Pod Pull Image | First Pod Start | Last Pod Start |
-| :--------: | :----------------------------------------------------: | :--------------------------: | :----------------------------------------: | :------------: | :--------------: | :-----------: | :------------------: | :-------------: | :------------: |
-|     01     |                           0                            |             6291             |                    6398                    |      6554      |       6596       |     9899      |        12504         |      12755      |     12980      |
-|     02     |                           0                            |             6288             |                    6397                    |      6551      |       6578       |     9889      |        12497         |      12752      |     12972      |
-|     03     |                           0                            |             6278             |                    6395                    |      6548      |       6566       |     9882      |        12491         |      12749      |     12969      |
-|   *Avg*    |                           0                            |             6286             |                    6397                    |      6551      |       6580       |     9890      |        12497         |      12752      |     12974      |
-|   *Diff*   |                           -                            |             6286             |                    111                     |      154       |        29        |     3310      |         2607         |       255       |      222       |
+*First Service Pod Recovery means the time point when the first nginx pod recover.
 
-***Setup Pod Network** is a process in the **RunPodSandBox**. Flannel is the CNI Plugin of the kubernetes cluster. If the Flannel is not ready, the PodSandBox will not be ready.
+*Last Service Pod Recovery means the time point when the last nginx pod recover.
 
-## Data analysis between different scenarios
+| Test Index | OS Restart Begin | Kubelet Start to work | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :-------------------: | :------------------------: | :-----------------------: |
+|     1      |        0         |         34030         |           53890            |           54637           |
+|     2      |        0         |         35499         |           53365            |           54050           |
+|     3      |        0         |         35016         |           53665            |           54523           |
+|    Avg     |        0         |         34848         |           53640            |           54403           |
+|    Diff    |        -         |         34848         |           18792            |            763            |
 
-- In both native Kubernetes and YurtHub network connected/disconnected environments, the time delay between first service pod recovery and last pod recovery is stable 100s.
-  - The default image pulling strategy of pods is Always, and each pulling image time will take up almost 98s. If the node maintain the image, and the image pull strategy is **IfNotPresent**, the service pod restart time will be saved.
-- In the YurtHub mode, Kubelet will wait for YurtHub ready and start the other pods recover process. This period of time is almost 7s.
-- According to the Kubelet Time Test, Flannel as the the CNI Plugin should be ready before the service pods recovery. In the pod restart process, there are almost 4s blocked for waiting the Flannel ready.
-- Compared with time delay between YurtHub server work and first service pod recovery in network  connected and network disconnected scenarios, network disconnected scenarios can save almost 4s due to the local cache query.
+#### 3.2.2 Edge Network Disconnected, 10 service pods, OpenYurt Edge
 
-## How to optimize the pods recovery efficiency?
+*The 10 service pods are created by nginx-latest image with ClusterIP service
 
-1. **Time between Kubelet watching API and YurtHub init**
-   - After the kubelet initializing, it will wait for YurtHub ready and start the other pods recover process. If the YurtHub can restart itself sync with Kubelet, the time delay will reduce.
-   - The expect deduct time is 7000ms, the optimize efficiency may 15%-20%
-2. **Time between the YurtHub server work and first pod recovery**
-   - After the YurtHub server work, almost 23000ms will be cost before the first pod starts to recover. If YurtHub can read the cache files more faster, the time delay will be reduce.
-   - This part can be optimized with the optimization of the YurtHub Cache Manager, the optimize efficiency may be estimated by the the further test.
-3. **Time between the first service pod recovery and last service pod recovery**
-   - The time between the first pod recovery and the last pod recovery is almost 100000ms.
-   - This part was controlled by Kubelet and we can make sure the **IfNotPresent** image pull strategy and image set on the edge node. The time will save a lot.
-4. **Time of waiting for CNI plugin Flannel ready**
-   - Flannel as the the CNI Plugin should be ready before the service pods recovery. and the pods should be assigned for Pod IP. However, the flannel is restart at the same time with the service pods. There are 4s for waiting.
-   - This part can be optimized through make the Flannel start as the static pod as YurtHub. It may save the waiting time and  the optimize efficiency may 8%-10%.
+*The table records the **time-delay** from **OS restart** and the unit is ms
+
+*The image pull strategy is **IfNotPresent**
+
+*First Service Pod Recovery means the time point when the first nginx pod recover.
+
+*Last Service Pod Recovery means the time point when the last nginx pod recover.
+
+| Test Index | OS Restart Begin | Kubelet Start to work | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :--------------: | :-------------------: | :------------------------: | :-----------------------: |
+|     1      |        0         |         36588         |           51845            |           52660           |
+|     2      |        0         |         34502         |           50838            |           51622           |
+|     3      |        0         |         34435         |           60179            |           60928           |
+|    Avg     |        0         |         35175         |           54287            |           55070           |
+|    Diff    |        -         |         35175         |           19112*           |            783            |
+
+*According to the experiment, the time between Kubelet Start to work and First Service Pod Recovery is varied.
+
+## 4. Time Delay Comparison between OpenYurt and Native Kubernetes
+
+In this section, the time delay comparison between the OpenYurt Cluster (Network Connected and DIsconnected) and native Kubernetes are shown in the Table below.
+
+Four time periods re defined for comparison.
+
+**Period 1**: From OS restart begin to Kubelet start to work.
+
+**Period 2**: From Kubelet start to work to first service pod recovery.
+
+**Period 3**: From first service pod recovery to last service pod recovery.
+
+**Whole Recovery Period**: From OS restart begin to last service pod recovery.
+
+|                           | Native Kubernetes | OpenYurt Cluster (Network Connected) | OpenYurt Cluster (Network Disconnected) |
+| :-----------------------: | :---------------: | :----------------------------------: | :-------------------------------------: |
+|       **Period 1**        |      26.59s       |                34.85s                |                 35.17s                  |
+|       **Period 2**        |       6.56s       |                18.79s                |                 19.11s                  |
+|       **Period 3**        |       0.84s       |                0.76s                 |                  0.78s                  |
+| **Whole Recovery Period** |      33.99s       |                54.40s                |                 55.07s                  |
+
+According to the comparison table, OpenYurt Cluster spent 8.26s more than the time Native Kubernetes from OS restart begin to Kubelet start to work (Period 1). Additionally, OpenYurt Cluster spent 12.23s more than Native Kubernetes From Kubelet start to work to first service pod recovery (Period 2). In period 3, time between first service pod recovery to last service pod recovery are close to with the comparison.
+
+Generally, when openyurt edge node restart, the overall pods restart time are 20.41s longer than native Kubernetes node restart.
+
+## 5. Detailed Test on OpenYurt Edge Node
+
+// In this section, I will investigate the added time in **Period 2**: from kubelet start to first pod start.
+
+## 6. Detailed Analysis and Optimization
+
+// Between Kubelet Work to YurtHub Start
+
+​    //detailed analysis
+
+// Between YurtHub Server Work to First service pod recovery
+
+​    //detailed analysis
