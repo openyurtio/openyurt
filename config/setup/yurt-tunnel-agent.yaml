@@ -25,7 +25,6 @@ spec:
         - --node-ip=$(POD_IP)
         - --v=2
         image: openyurt/yurt-tunnel-agent:latest
-        imagePullPolicy: IfNotPresent
         name: yurt-tunnel-agent
         volumeMounts:
         - name: k8s-dir

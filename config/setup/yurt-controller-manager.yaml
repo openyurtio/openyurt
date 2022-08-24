@@ -130,7 +130,7 @@ spec:
       - operator: "Exists"
       affinity:
         nodeAffinity:
-          # we prefer allocating ecm on cloud node
+          # we prefer allocating ycm on cloud node
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 1
             preference:

@@ -25,7 +25,6 @@ spec:
         - --node-ip=$(POD_IP)
         - --v=2
         image: __repo__/__project_prefix__-tunnel-agent:__tag__
-        imagePullPolicy: IfNotPresent
         name: __project_prefix__-tunnel-agent
         volumeMounts:
         - name: k8s-dir

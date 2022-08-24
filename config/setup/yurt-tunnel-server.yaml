@@ -196,7 +196,6 @@ spec:
       containers:
       - name: yurt-tunnel-server
         image: openyurt/yurt-tunnel-server:latest
-        imagePullPolicy: IfNotPresent
         command:
         - yurt-tunnel-server
         args:

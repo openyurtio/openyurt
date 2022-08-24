@@ -127,7 +127,6 @@ spec:
       containers:
         - name: yurt-tunnel-dns
           image: coredns/coredns:1.9.3
-          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: 170Mi
