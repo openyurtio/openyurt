@@ -208,21 +208,53 @@ func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
 	wrw.ResponseWriter.WriteHeader(statusCode)
 }
 
-// WithRequestTrace used to trace status code and handle time for request.
+// WithRequestTrace used to trace
+// status code and
+// latency for outward requests redirected from proxyserver to apiserver
 func WithRequestTrace(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := apirequest.RequestInfoFrom(req.Context())
 		client, _ := util.ClientComponentFrom(req.Context())
-		if ok && info.IsResourceRequest {
-			metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
-			defer metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+		if ok {
+			if info.IsResourceRequest {
+				metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+				defer metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+			}
+		} else {
+			info = &apirequest.RequestInfo{}
 		}
 		wrapperRW := newWrapperResponseWriter(w)
+
 		start := time.Now()
 		defer func() {
-			klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, time.Since(start))
+			duration := time.Since(start)
+			klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, duration)
+			// 'watch' & 'proxy' requets don't need to be monitored in metrics
+			if info.Verb != "proxy" && info.Verb != "watch" {
+				metrics.Metrics.SetProxyLatencyCollector(client, info.Verb, info.Resource, info.Subresource, metrics.Apiserver_latency, int64(duration))
+			}
 		}()
 		handler.ServeHTTP(wrapperRW, req)
+	})
+}
+
+// WithRequestTraceFull used to trace the entire duration: coming to yurthub -> yurthub to apiserver -> leaving yurthub
+func WithRequestTraceFull(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		info, ok := apirequest.RequestInfoFrom(req.Context())
+		if !ok {
+			info = &apirequest.RequestInfo{}
+		}
+		client, _ := util.ClientComponentFrom(req.Context())
+		start := time.Now()
+		defer func() {
+			duration := time.Since(start)
+			// 'watch' & 'proxy' requets don't need to be monitored in metrics
+			if info.Verb != "proxy" && info.Verb != "watch" {
+				metrics.Metrics.SetProxyLatencyCollector(client, info.Verb, info.Resource, info.Subresource, metrics.Full_lantency, int64(duration))
+			}
+		}()
+		handler.ServeHTTP(w, req)
 	})
 }
 
@@ -260,7 +292,6 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 // 2. WithRequestTimeout reduce timeout context for get/list request.
 //    timeout is Timeout reduce a margin(2 seconds). When request remote server fail,
 //    can get data from cache before client timeout.
-
 func WithRequestTimeout(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {

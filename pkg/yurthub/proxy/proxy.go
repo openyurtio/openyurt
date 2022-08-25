@@ -109,6 +109,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	if p.cacheMgr != nil {
 		handler = util.WithListRequestSelector(handler)
 	}
+	handler = util.WithRequestTraceFull(handler)
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
 
