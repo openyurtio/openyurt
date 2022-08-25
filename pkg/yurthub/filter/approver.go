@@ -47,10 +47,10 @@ var (
 	defaultReqKeyToName      = map[string]string{
 		reqKey("kubelet", "services", "list"):                    MasterServiceFilterName,
 		reqKey("kubelet", "services", "watch"):                   MasterServiceFilterName,
-		reqKey("nginx-ingress-controller", "endpoints", "list"):  EndpointsFilterName,
-		reqKey("nginx-ingress-controller", "endpoints", "watch"): EndpointsFilterName,
 		reqKey("kube-proxy", "services", "list"):                 DiscardCloudServiceFilterName,
 		reqKey("kube-proxy", "services", "watch"):                DiscardCloudServiceFilterName,
+		reqKey("nginx-ingress-controller", "endpoints", "list"):  ServiceTopologyFilterName,
+		reqKey("nginx-ingress-controller", "endpoints", "watch"): ServiceTopologyFilterName,
 		reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
 		reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
 	}
