@@ -127,7 +127,7 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
 		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
 		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download kuelet fail: %w", err)
+			return fmt.Errorf("Download kubelet fail: %w", err)
 		}
 		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
 			return err

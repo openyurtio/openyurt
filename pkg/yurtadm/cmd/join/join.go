@@ -195,6 +195,8 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		if len(args) > 1 {
 			klog.Warningf("[preflight] WARNING: More than one API server endpoint supplied on command line %v. Using the first one.", args)
 		}
+		// if join multiple masters, apiServerEndpoint may be like:
+		// 1.2.3.4:6443,1.2.3.5:6443,1.2.3.6:6443
 		apiServerEndpoint = args[0]
 	}
 
