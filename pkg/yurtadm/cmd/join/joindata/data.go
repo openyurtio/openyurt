@@ -34,6 +34,7 @@ type YurtJoinData interface {
 	JoinToken() string
 	PauseImage() string
 	YurtHubImage() string
+	YurtHubServer() string
 	KubernetesVersion() string
 	TLSBootstrapCfg() *clientcmdapi.Config
 	BootstrapClient() *clientset.Clientset

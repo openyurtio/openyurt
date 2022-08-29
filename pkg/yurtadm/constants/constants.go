@@ -52,6 +52,7 @@ const (
 	YurtTunnelServer             = "yurt-tunnel-server"
 	YurtTunnelAgent              = "yurt-tunnel-agent"
 	Yurthub                      = "yurthub"
+	DefaultYurtHubServerAddr     = "127.0.0.1"
 	YurtAppManager               = "yurt-app-manager"
 	YurtAppManagerNamespace      = "kube-system"
 	DirMode                      = 0755

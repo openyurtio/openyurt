@@ -63,7 +63,7 @@ func runPostCheck(c workflow.RunData) error {
 	klog.V(1).Infof("kubelet service is active")
 
 	klog.V(1).Infof("waiting hub agent ready.")
-	if err := checkYurthubHealthz(); err != nil {
+	if err := checkYurthubHealthz(j); err != nil {
 		return err
 	}
 	klog.V(1).Infof("hub agent is ready")
@@ -85,8 +85,8 @@ func checkKubeletStatus() error {
 }
 
 //checkYurthubHealthz check if YurtHub is healthy.
-func checkYurthubHealthz() error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", edgenode.ServerHealthzServer, edgenode.ServerHealthzURLPath), nil)
+func checkYurthubHealthz(joinData joindata.YurtJoinData) error {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", joinData.YurtHubServer()), edgenode.ServerHealthzURLPath), nil)
 	if err != nil {
 		return err
 	}

@@ -87,6 +87,7 @@ spec:
     command:
     - yurthub
     - --v=2
+    - --bind-address={{.yurthubServerAddr}}
     - --server-addr={{.kubernetesServerAddr}}
     - --node-name=$(NODE_NAME)
     - --join-token={{.joinToken}}
@@ -102,7 +103,7 @@ spec:
       {{end}}
     livenessProbe:
       httpGet:
-        host: 127.0.0.1
+        host: {{.yurthubServerAddr}}
         path: /v1/healthz
         port: 10267
       initialDelaySeconds: 300

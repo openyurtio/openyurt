@@ -67,6 +67,7 @@ type joinOptions struct {
 	ignorePreflightErrors    []string
 	nodeLabels               string
 	kubernetesResourceServer string
+	yurthubServer            string
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -80,6 +81,7 @@ func newJoinOptions() *joinOptions {
 		unsafeSkipCAVerification: false,
 		ignorePreflightErrors:    make([]string, 0),
 		kubernetesResourceServer: yurtconstants.DefaultKubernetesResourceServer,
+		yurthubServer:            yurtconstants.DefaultYurtHubServerAddr,
 	}
 }
 
@@ -165,6 +167,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.kubernetesResourceServer, yurtconstants.KubernetesResourceServer, joinOptions.kubernetesResourceServer,
 		"Sets the address for downloading k8s node resources",
 	)
+	flagSet.StringVar(
+		&joinOptions.yurthubServer, yurtconstants.YurtHubServerAddr, joinOptions.yurthubServer,
+		"Sets the address for yurthub server addr",
+	)
 }
 
 type joinData struct {
@@ -181,6 +187,7 @@ type joinData struct {
 	caCertHashes             sets.String
 	nodeLabels               map[string]string
 	kubernetesResourceServer string
+	yurthubServer            string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -233,6 +240,7 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		ignorePreflightErrors: ignoreErrors,
 		pauseImage:            opt.pauseImage,
 		yurthubImage:          opt.yurthubImage,
+		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          sets.NewString(opt.caCertHashes...),
 		organizations:         opt.organizations,
 		nodeLabels:            make(map[string]string),
@@ -303,6 +311,11 @@ func (j *joinData) PauseImage() string {
 // YurtHubImage returns the YurtHub image.
 func (j *joinData) YurtHubImage() string {
 	return j.yurthubImage
+}
+
+// YurtHubServer returns the YurtHub server addr.
+func (j *joinData) YurtHubServer() string {
+	return j.yurthubServer
 }
 
 // KubernetesVersion returns the kubernetes version.
