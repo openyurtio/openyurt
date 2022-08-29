@@ -221,7 +221,7 @@ spec:
       tolerations:
       - operator: "Exists"
       nodeSelector:
-        beta.kubernetes.io/os: linux
+        kubernetes.io/os: linux
         {{.edgeWorkerLabel}}: "false"
       containers:
       - name: yurt-tunnel-server

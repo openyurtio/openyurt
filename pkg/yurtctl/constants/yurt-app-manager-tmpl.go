@@ -680,7 +680,7 @@ spec:
           readOnly: true
       nodeSelector:
         openyurt.io/is-edge-worker: "false"
-        beta.kubernetes.io/os: linux
+        kubernetes.io/os: linux
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 10
       tolerations:
