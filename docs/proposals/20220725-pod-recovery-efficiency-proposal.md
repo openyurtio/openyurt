@@ -47,7 +47,7 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 >
 > *The 10 service pods are created by nginx-latest image
 >
-> *The table records the **time-delay** from **OS restart** and the unit is ms
+> *The table records the **time-delay** from the time point entering `reboot` order and the unit is ms
 >
 > *The image pull strategy is **IfNotPresent**
 >
@@ -59,13 +59,13 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 
 #### 3.1.1 Static pods and 10 service pods
 
-| Test Index | OS Restart Begin | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
-|     1      |        0         |     20000     |           29021            |           35627            |           36401           |
-|     2      |        0         |     21000     |           30922            |           37712            |           38521           |
-|     3      |        0         |    24000*     |           34010            |           40109            |           40821           |
-|    Avg     |        0         |     21667     |           31318            |           37816            |           38581           |
-|    Diff    |        -         |     21667     |            9651            |            6498            |            765            |
+| Test Index | Entering `reboot` order | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :---------------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
+|     1      |            0            |     20000     |           29021            |           35627            |           36401           |
+|     2      |            0            |     21000     |           30922            |           37712            |           38521           |
+|     3      |            0            |    24000*     |           34010            |           40109            |           40821           |
+|    Avg     |            0            |     21667     |           31318            |           37816            |           38581           |
+|    Diff    |            -            |     21667     |            9651            |            6498            |            765            |
 
 *the system restart time is not stable, and the time ranges from 19s to 24s.
 
@@ -73,23 +73,23 @@ From the above, the optimization will focus on the YurtHub start-up and Kubelet 
 
 #### 3.2.1 Edge Network Connected, 10 service pods
 
-| Test Index | OS Restart Begin | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
-|     1      |        0         |     26000     |           35012            |           47030            |           47890           |
-|     2      |        0         |     25000     |           34921            |           48041            |           48892           |
-|     3      |        0         |     25000     |           34829            |           47843            |           48602           |
-|    Avg     |        0         |     25333     |           34921            |           47638            |           48461           |
-|    Diff    |        -         |     25333     |            9588            |           12717            |            823            |
+| Test Index | Entering `reboot` order | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :---------------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
+|     1      |            0            |     26000     |           35012            |           47030            |           47890           |
+|     2      |            0            |     25000     |           34921            |           48041            |           48892           |
+|     3      |            0            |     25000     |           34829            |           47843            |           48602           |
+|    Avg     |            0            |     25333     |           34921            |           47638            |           48461           |
+|    Diff    |            -            |     25333     |            9588            |           12717            |            823            |
 
 #### 3.2.2 Edge Network Disconnected, 10 service pods, OpenYurt Edge
 
-| Test Index | OS Restart Begin | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
-| :--------: | :--------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
-|     1      |        0         |     26000     |           35219            |           48203            |           49260           |
-|     2      |        0         |     25000     |           35621            |           48721            |           49422           |
-|     3      |        0         |     27000     |           37015            |           50126            |           50921           |
-|    Avg     |        0         |     26000     |           35952            |           49016            |           49867           |
-|    Diff    |        -         |     26000     |            9951            |           13064            |            852            |
+| Test Index | Entering `reboot` order | Kubelet Start | Static Pod (YurtHub) Start | First Service Pod Recovery | Last Service Pod Recovery |
+| :--------: | :---------------------: | :-----------: | :------------------------: | :------------------------: | :-----------------------: |
+|     1      |            0            |     26000     |           35219            |           48203            |           49260           |
+|     2      |            0            |     25000     |           35621            |           48721            |           49422           |
+|     3      |            0            |     27000     |           37015            |           50126            |           50921           |
+|    Avg     |            0            |     26000     |           35952            |           49016            |           49867           |
+|    Diff    |            -            |     26000     |            9951            |           13064            |            852            |
 
 *According to the experiment, the time between Kubelet Start to work and First Service Pod Recovery is varied.
 
