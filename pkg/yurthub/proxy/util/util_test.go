@@ -572,3 +572,69 @@ func TestWithSaTokenSubsituteTenantTokenEmpty(t *testing.T) {
 		})
 	}
 }
+
+func TestWithRequestTrace(t *testing.T) {
+	testcases := map[string]struct {
+		Verb           string
+		Path           string
+		UserAgent      string
+		HasRequestInfo bool
+	}{
+		"GET request": {
+			Verb:           "GET",
+			Path:           "/api/v1/nodes/mynode",
+			UserAgent:      "kubelet",
+			HasRequestInfo: true,
+		},
+
+		"WATCH request": {
+			Verb:           "WATCH",
+			Path:           "/api/v1/nodes/mynode",
+			UserAgent:      "flanneld",
+			HasRequestInfo: true,
+		},
+		"not resource request": {
+			Verb:           "POST",
+			Path:           "/healthz",
+			UserAgent:      "",
+			HasRequestInfo: true,
+		},
+		"no request info": {
+			Verb:           "POST",
+			Path:           "/healthz",
+			UserAgent:      "",
+			HasRequestInfo: false,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+
+			req.RemoteAddr = "127.0.0.1"
+			req.Header.Set("User-Agent", tc.UserAgent)
+
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+			})
+
+			handler = WithRequestClientComponent(handler)
+			handler = WithRequestTrace(handler)
+			handler = WithRequestTraceFull(handler)
+
+			if tc.HasRequestInfo {
+				handler = filters.WithRequestInfo(handler, resolver)
+			}
+
+			resp := httptest.NewRecorder()
+			handler.ServeHTTP(resp, req)
+			if status := resp.Code; status != http.StatusOK {
+				t.Errorf("Trace request returns non `200` code: %v", status)
+			}
+
+		})
+	}
+
+}

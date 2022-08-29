@@ -24,6 +24,15 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
+type LatencyType string
+
+const (
+	// duration: yurthub -> apiserver
+	Apiserver_latency LatencyType = "apiserver_latency"
+	// duration: coming to yurthub -> yurthub to apiserver -> leaving yurthub
+	Full_lantency LatencyType = "full_latency"
+)
+
 var (
 	namespace = "node"
 	subsystem = strings.ReplaceAll(projectinfo.GetHubName(), "-", "_")
@@ -41,6 +50,7 @@ type HubMetrics struct {
 	rejectedRequestsCounter   prometheus.Counter
 	closableConnsCollector    *prometheus.GaugeVec
 	proxyTrafficCollector     *prometheus.CounterVec
+	proxyLatencyCollector     *prometheus.GaugeVec
 }
 
 func newHubMetrics() *HubMetrics {
@@ -90,12 +100,21 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of proxy response traffic by hub agent(unit: byte)",
 		},
 		[]string{"client", "verb", "resource", "subresources"})
+	proxyLatencyCollector := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "proxy_latency_collector",
+			Help:      "collector of proxy latency of incoming requests(unit: ms)",
+		},
+		[]string{"client", "verb", "resource", "subresources", "type"})
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
 	prometheus.MustRegister(rejectedRequestsCounter)
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
+	prometheus.MustRegister(proxyLatencyCollector)
 	return &HubMetrics{
 		serversHealthyCollector:   serversHealthyCollector,
 		inFlightRequestsCollector: inFlightRequestsCollector,
@@ -103,6 +122,7 @@ func newHubMetrics() *HubMetrics {
 		rejectedRequestsCounter:   rejectedRequestsCounter,
 		closableConnsCollector:    closableConnsCollector,
 		proxyTrafficCollector:     proxyTrafficCollector,
+		proxyLatencyCollector:     proxyLatencyCollector,
 	}
 }
 
@@ -112,6 +132,7 @@ func (hm *HubMetrics) Reset() {
 	hm.inFlightRequestsGauge.Set(float64(0))
 	hm.closableConnsCollector.Reset()
 	hm.proxyTrafficCollector.Reset()
+	hm.proxyLatencyCollector.Reset()
 }
 
 func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
@@ -148,4 +169,8 @@ func (hm *HubMetrics) AddProxyTrafficCollector(client, verb, resource, subresour
 	if size > 0 {
 		hm.proxyTrafficCollector.WithLabelValues(client, verb, resource, subresource).Add(float64(size))
 	}
+}
+
+func (hm *HubMetrics) SetProxyLatencyCollector(client, verb, resource, subresource string, latencyType LatencyType, duration int64) {
+	hm.proxyLatencyCollector.WithLabelValues(client, verb, resource, subresource, string(latencyType)).Set(float64(duration))
 }
