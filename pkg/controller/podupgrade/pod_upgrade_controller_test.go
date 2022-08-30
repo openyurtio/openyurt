@@ -65,30 +65,27 @@ func newFixture(t *testing.T) *fixture {
 	}
 }
 
-func (f *fixture) newController() (*Controller, informers.SharedInformerFactory, informers.SharedInformerFactory) {
+func (f *fixture) newController() (*Controller, informers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 
-	dsInformer := informers.NewSharedInformerFactory(f.client, 0)
-	nodeInformer := informers.NewSharedInformerFactory(f.client, 0)
-	podInformer := informers.NewSharedInformerFactory(f.client, 0)
-
+	sharedInformers := informers.NewSharedInformerFactory(f.client, 0)
 	for _, d := range f.daemonsetLister {
-		dsInformer.Apps().V1().DaemonSets().Informer().GetIndexer().Add(d)
+		sharedInformers.Apps().V1().DaemonSets().Informer().GetIndexer().Add(d)
 	}
 	for _, n := range f.nodeLister {
-		nodeInformer.Core().V1().Nodes().Informer().GetIndexer().Add(n)
+		sharedInformers.Core().V1().Nodes().Informer().GetIndexer().Add(n)
 	}
 	for _, p := range f.podLister {
-		podInformer.Core().V1().Pods().Informer().GetIndexer().Add(p)
+		sharedInformers.Core().V1().Pods().Informer().GetIndexer().Add(p)
 	}
 
-	c := NewController(f.client, dsInformer.Apps().V1().DaemonSets(), nodeInformer.Core().V1().Nodes(),
-		podInformer.Core().V1().Pods())
+	c := NewController(f.client, sharedInformers.Apps().V1().DaemonSets(), sharedInformers.Core().V1().Nodes(),
+		sharedInformers.Core().V1().Pods())
 
 	c.daemonsetSynced = alwaysReady
 	c.nodeSynced = alwaysReady
 
-	return c, dsInformer, nodeInformer
+	return c, sharedInformers
 }
 
 // run execute the controller logic
@@ -103,12 +100,11 @@ func (f *fixture) runExpectError(key string, kind string) {
 }
 
 func (f *fixture) testController(key string, kind string, expectError bool) {
-	c, dsInformer, nodeInformer := f.newController()
+	c, sharedInformers := f.newController()
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dsInformer.Start(stopCh)
-	nodeInformer.Start(stopCh)
+	sharedInformers.Start(stopCh)
 
 	var err error
 	switch kind {
@@ -278,6 +274,7 @@ func TestAutoUpgradeWithDaemonsetUpdate(t *testing.T) {
 	ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
 
 	f.daemonsetLister = append(f.daemonsetLister, ds)
+	f.nodeLister = append(f.nodeLister, node)
 	f.podLister = append(f.podLister, pod)
 
 	f.objects = append(f.objects, ds, pod, node)

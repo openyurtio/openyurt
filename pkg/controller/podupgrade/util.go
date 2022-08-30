@@ -36,15 +36,21 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var DaemonSet = "DaemonSet"
+
 const (
-	UpgradeAnnotation       = "apps.openyurt.io/upgrade-strategy"
-	PodUpgradableAnnotation = "apps.openyurt.io/pod-upgradable"
+	// UpgradeAnnotation is the annotation key used in daemonset spec to indicate
+	// which upgrade strategy is selected. Currently "ota" and "auto" are supported.
+	UpgradeAnnotation = "apps.openyurt.io/upgrade-strategy"
 
 	OTAUpgrade  = "ota"
 	AutoUpgrade = "auto"
-
-	DaemonSet = "DaemonSet"
 )
+
+// PodUpgradableAnnotation is the annotation key added to pods to indicate
+// whether a new version is available for upgrade.
+// This annotation will only be added if the upgrade strategy is "apps.openyurt.io/upgrade-strategy":"ota".
+const PodUpgradableAnnotation = "apps.openyurt.io/pod-upgradable"
 
 // GetDaemonsetPods get all pods belong to the given daemonset
 func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]*corev1.Pod, error) {
@@ -57,6 +63,9 @@ func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]
 
 	for i, pod := range pods {
 		owner := metav1.GetControllerOf(pod)
+		if owner == nil {
+			continue
+		}
 		if owner.UID == ds.UID {
 			dsPods = append(dsPods, pods[i])
 			dsPodsNames = append(dsPodsNames, pod.Name)
@@ -123,8 +132,9 @@ func GetTemplateGeneration(ds *appsv1.DaemonSet) (*int64, error) {
 	return &generation, nil
 }
 
-func NodeReadyByName(client client.Interface, nodeName string) (bool, error) {
-	node, err := client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+// NodeReadyByName check if the given node is ready
+func NodeReadyByName(nodeList corelisters.NodeLister, nodeName string) (bool, error) {
+	node, err := nodeList.Get(nodeName)
 	if err != nil {
 		return false, err
 	}
@@ -132,7 +142,7 @@ func NodeReadyByName(client client.Interface, nodeName string) (bool, error) {
 	return NodeReady(&node.Status), nil
 }
 
-// NodeReady check if the given node is ready
+// NodeReady check if the given node status is ready
 func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 	for _, cond := range nodeStatus.Conditions {
 		if cond.Type == corev1.NodeReady {

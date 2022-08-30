@@ -245,7 +245,7 @@ func (c *Controller) autoUpgrade(ds *appsv1.DaemonSet, pods []*corev1.Pod) error
 			return err
 		}
 
-		nodeOK, err := NodeReadyByName(c.kubeclientset, pod.Spec.NodeName)
+		nodeOK, err := NodeReadyByName(c.nodeLister, pod.Spec.NodeName)
 		if err != nil {
 			return err
 		}
