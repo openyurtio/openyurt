@@ -14,7 +14,7 @@ spec:
         k8s-app: yurt-tunnel-agent
     spec:
       nodeSelector:
-        beta.kubernetes.io/os: linux
+        kubernetes.io/os: linux
         openyurt.io/is-edge-worker: "true"
       containers:
       - command:

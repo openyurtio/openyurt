@@ -15,7 +15,7 @@ spec:
         k8s-app: __project_prefix__-tunnel-agent
     spec:
       nodeSelector:
-        beta.kubernetes.io/os: linux
+        kubernetes.io/os: linux
         __label_prefix__/is-edge-worker: "true"
       containers:
       - command:
