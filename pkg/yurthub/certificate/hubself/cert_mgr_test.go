@@ -22,10 +22,11 @@ import (
 	"os"
 	"testing"
 
+	"k8s.io/client-go/util/certificate"
+
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	"k8s.io/client-go/util/certificate"
 )
 
 var (

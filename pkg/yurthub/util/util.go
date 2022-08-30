@@ -20,7 +20,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-
 	"io"
 	"net/http"
 	"net/url"
@@ -28,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -42,7 +42,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-	"github.com/pkg/errors"
 )
 
 // ProxyKeyType represents the key in proxy request context
