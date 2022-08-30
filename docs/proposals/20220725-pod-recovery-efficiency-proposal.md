@@ -182,7 +182,7 @@ kubelet.syncLoop	/pkg/kubelet/kubelet.go
 |--kl.syncLoopIteration(updates, handler, syncTicker.C, housekeepingTicker.C, plegCh)
 	|--u, open := <-configCh
 	|--handler.HandlePodAdditions(u.Pods) //Kubelet.HandlePodAdditions
-		|--sort.Sort(sliceutils.PodsByCreationTime(pods))	
+		|--sort.Sort(sliceutils.PodsByCreationTime(pods))
 		|--kl.handleMirrorPod(pod, start)
 			|--kl.dispatchWork
 		|--kl.dispatchWork(pod, kubetypes.SyncPodCreate, mirrorPod, start)
@@ -263,6 +263,6 @@ According to the experiment, Flannel start will cost 2.5s. After that, nginx pod
 ## 6. Optimization Strategy
 
 - Make the edge node service pods networking strategy from CNI to **Host**.
-    - It will save 8-9s because the host network service pods will not wait for CNI plugin flannel ready.
+  - It will save 8-9s because the host network service pods will not wait for CNI plugin flannel ready.
 - Claim the image pulling strategy to **IfNotPresent**.
-    - According to the docker images have been pulled by edge node before. **IfNotPresent** strategy make the docker only find the image from local node and it will not sync from the registry again. This period may save 10s-20s.
+  - According to the docker images have been pulled by edge node before. **IfNotPresent** strategy make the docker only find the image from local node and it will not sync from the registry again. This period may save 10s-20s.
