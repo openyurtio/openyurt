@@ -225,6 +225,22 @@ func TestKeyFunc(t *testing.T) {
 			name:     "mypod1",
 			result:   expectData{key: "kubelet/pods/default/mypod1"},
 		},
+		{
+			desc:     "get namespace",
+			comp:     "kubelet",
+			resource: "namespaces",
+			ns:       "kube-system",
+			name:     "kube-system",
+			result:   expectData{key: "kubelet/namespaces/kube-system"},
+		},
+		{
+			desc:     "list namespace",
+			comp:     "kubelet",
+			resource: "namespaces",
+			ns:       "",
+			name:     "kube-system",
+			result:   expectData{key: "kubelet/namespaces/kube-system"},
+		},
 	}
 
 	for _, tt := range tests {

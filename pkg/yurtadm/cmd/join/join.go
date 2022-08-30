@@ -20,7 +20,6 @@ package join
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/lithammer/dedent"
@@ -40,6 +39,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphase "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 )
 
@@ -195,6 +195,8 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		if len(args) > 1 {
 			klog.Warningf("[preflight] WARNING: More than one API server endpoint supplied on command line %v. Using the first one.", args)
 		}
+		// if join multiple masters, apiServerEndpoint may be like:
+		// 1.2.3.4:6443,1.2.3.5:6443,1.2.3.6:6443
 		apiServerEndpoint = args[0]
 	}
 
@@ -217,16 +219,11 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 		ignoreErrors.Insert(opt.ignorePreflightErrors[i])
 	}
 
-	// Either use the config file if specified, or convert public kubeadm API to the internal JoinConfiguration
-	// and validates JoinConfiguration
-	name := opt.nodeName
-	if name == "" {
-		klog.V(1).Infoln("[preflight] found NodeName empty; using OS hostname as NodeName")
-		hostname, err := os.Hostname()
-		if err != nil {
-			return nil, err
-		}
-		name = hostname
+	// Either use specified nodename or get hostname from OS envs
+	name, err := edgenode.GetHostname(opt.nodeName)
+	if err != nil {
+		klog.Errorf("failed to get node name, %v", err)
+		return nil, err
 	}
 
 	data := &joinData{

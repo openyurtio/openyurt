@@ -22,13 +22,13 @@ env:
 
 jobs:
 
-  check-license:
+  verify:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Run Check License
-        run: hack/make-rules/check_license.sh
+      - name: Verify Code
+        run: make verify
 
   golangci-lint:
     runs-on: ubuntu-18.04
@@ -93,6 +93,8 @@ jobs:
       - name: Run Unit Tests
         run: make test
       - name: Publish Unit Test Coverage
+        # only publish result in openyurt repo
+        if: github.repository == 'openyurtio/openyurt'
         uses: codecov/codecov-action@v3
         with:
           name: codecov-umbrella

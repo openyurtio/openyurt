@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +45,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -87,7 +87,7 @@ func processCreateErr(kind string, name string, err error) error {
 }
 
 // CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
-func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
+func CreateServiceAccountFromYaml(cliSet kubeclientset.Interface, ns, saTmpl string) error {
 	obj, err := YamlToObject([]byte(saTmpl))
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func CreateServiceAccountFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl strin
 }
 
 // CreateClusterRoleFromYaml creates the ClusterRole from the yaml template.
-func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) error {
+func CreateClusterRoleFromYaml(cliSet kubeclientset.Interface, crTmpl string) error {
 	obj, err := YamlToObject([]byte(crTmpl))
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func CreateClusterRoleFromYaml(cliSet *kubernetes.Clientset, crTmpl string) erro
 }
 
 // CreateClusterRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
-func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl string) error {
+func CreateClusterRoleBindingFromYaml(cliSet kubeclientset.Interface, crbTmpl string) error {
 	obj, err := YamlToObject([]byte(crbTmpl))
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func CreateClusterRoleBindingFromYaml(cliSet *kubernetes.Clientset, crbTmpl stri
 }
 
 // CreateConfigMapFromYaml creates the ConfigMap from the yaml template.
-func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) error {
+func CreateConfigMapFromYaml(cliSet kubeclientset.Interface, ns, cmTmpl string) error {
 	obj, err := YamlToObject([]byte(cmTmpl))
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func CreateConfigMapFromYaml(cliSet *kubernetes.Clientset, ns, cmTmpl string) er
 }
 
 // CreateDeployFromYaml creates the Deployment from the yaml template.
-func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx interface{}) error {
+func CreateDeployFromYaml(cliSet kubeclientset.Interface, ns, dplyTmpl string, ctx interface{}) error {
 	ycmdp, err := tmplutil.SubsituteTemplate(dplyTmpl, ctx)
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func CreateDeployFromYaml(cliSet *kubernetes.Clientset, ns, dplyTmpl string, ctx
 }
 
 // CreateDaemonSetFromYaml creates the DaemonSet from the yaml template.
-func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ctx interface{}) error {
+func CreateDaemonSetFromYaml(cliSet kubeclientset.Interface, ns, dsTmpl string, ctx interface{}) error {
 	var ytadstmp string
 	var err error
 	if ctx != nil {
@@ -186,7 +186,7 @@ func CreateDaemonSetFromYaml(cliSet *kubernetes.Clientset, ns, dsTmpl string, ct
 }
 
 // CreateServiceFromYaml creates the Service from the yaml template.
-func CreateServiceFromYaml(cliSet *kubernetes.Clientset, ns, svcTmpl string) error {
+func CreateServiceFromYaml(cliSet kubeclientset.Interface, ns, svcTmpl string) error {
 	obj, err := YamlToObject([]byte(svcTmpl))
 	if err != nil {
 		return err
@@ -201,7 +201,8 @@ func CreateServiceFromYaml(cliSet *kubernetes.Clientset, ns, svcTmpl string) err
 
 //add by yanyhui at 20210611
 // CreateRoleFromYaml creates the ClusterRole from the yaml template.
-func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
+
+func CreateRoleFromYaml(cliSet kubeclientset.Interface, ns, crTmpl string) error {
 	obj, err := YamlToObject([]byte(crTmpl))
 	if err != nil {
 		return err
@@ -215,7 +216,7 @@ func CreateRoleFromYaml(cliSet *kubernetes.Clientset, ns, crTmpl string) error {
 }
 
 // CreateRoleBindingFromYaml creates the ClusterRoleBinding from the yaml template.
-func CreateRoleBindingFromYaml(cliSet *kubernetes.Clientset, ns, crbTmpl string) error {
+func CreateRoleBindingFromYaml(cliSet kubeclientset.Interface, ns, crbTmpl string) error {
 	obj, err := YamlToObject([]byte(crbTmpl))
 	if err != nil {
 		return err
@@ -229,7 +230,7 @@ func CreateRoleBindingFromYaml(cliSet *kubernetes.Clientset, ns, crbTmpl string)
 }
 
 // CreateSecretFromYaml creates the Secret from the yaml template.
-func CreateSecretFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error {
+func CreateSecretFromYaml(cliSet kubeclientset.Interface, ns, saTmpl string) error {
 	obj, err := YamlToObject([]byte(saTmpl))
 	if err != nil {
 		return err
@@ -244,34 +245,34 @@ func CreateSecretFromYaml(cliSet *kubernetes.Clientset, ns, saTmpl string) error
 }
 
 // CreateMutatingWebhookConfigurationFromYaml creates the Service from the yaml template.
-func CreateMutatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+func CreateMutatingWebhookConfigurationFromYaml(cliSet kubeclientset.Interface, svcTmpl string) error {
 	obj, err := YamlToObject([]byte(svcTmpl))
 	if err != nil {
 		return err
 	}
-	mw, ok := obj.(*v1beta1.MutatingWebhookConfiguration)
+	mw, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert mutatingwebhookconfiguration: %w", err)
 	}
-	_, err = cliSet.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), mw, metav1.CreateOptions{})
+	_, err = cliSet.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), mw, metav1.CreateOptions{})
 	return processCreateErr("mutatingwebhookconfiguration", mw.Name, err)
 }
 
 // CreateValidatingWebhookConfigurationFromYaml creates the Service from the yaml template.
-func CreateValidatingWebhookConfigurationFromYaml(cliSet *kubernetes.Clientset, svcTmpl string) error {
+func CreateValidatingWebhookConfigurationFromYaml(cliSet kubeclientset.Interface, svcTmpl string) error {
 	obj, err := YamlToObject([]byte(svcTmpl))
 	if err != nil {
 		return err
 	}
-	vw, ok := obj.(*v1beta1.ValidatingWebhookConfiguration)
+	vw, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	if !ok {
 		return fmt.Errorf("fail to assert validatingwebhookconfiguration: %w", err)
 	}
-	_, err = cliSet.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), vw, metav1.CreateOptions{})
+	_, err = cliSet.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), vw, metav1.CreateOptions{})
 	return processCreateErr("validatingwebhookconfiguration", vw.Name, err)
 }
 
-func CreateCRDFromYaml(clientset *kubernetes.Clientset, yurtAppManagerClient dynamic.Interface, nameSpace string, filebytes []byte) error {
+func CreateCRDFromYaml(clientset kubeclientset.Interface, yurtAppManagerClient dynamic.Interface, nameSpace string, filebytes []byte) error {
 	var err error
 	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 10000)
 	var rawObj k8sruntime.RawExtension
@@ -329,7 +330,7 @@ func YamlToObject(yamlContent []byte) (k8sruntime.Object, error) {
 }
 
 // AnnotateNode add a new annotation (<key>=<val>) to the given node
-func AnnotateNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val string) (*corev1.Node, error) {
+func AnnotateNode(cliSet kubeclientset.Interface, node *corev1.Node, key, val string) (*corev1.Node, error) {
 	node.Annotations[key] = val
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
 	if err != nil {
@@ -338,7 +339,7 @@ func AnnotateNode(cliSet *kubernetes.Clientset, node *corev1.Node, key, val stri
 	return newNode, nil
 }
 
-func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
+func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet kubeclientset.Interface, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
 	node.Labels[projectinfo.GetEdgeWorkerLabelKey()] = lVal
 	node.Annotations[projectinfo.GetAutonomyAnnotation()] = aVal
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
@@ -349,7 +350,7 @@ func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet *kubernetes.Clientset, node 
 }
 
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
-func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, period time.Duration, waitForTimeout bool) error {
+func RunJobAndCleanup(cliSet kubeclientset.Interface, job *batchv1.Job, timeout, period time.Duration, waitForTimeout bool) error {
 	job, err := cliSet.BatchV1().Jobs(job.GetNamespace()).Create(context.Background(), job, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -391,7 +392,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 // RunServantJobs launch servant jobs on specified nodes and wait all jobs to finish.
 // Succeed jobs will be deleted when finished. Failed jobs are preserved for diagnosis.
 func RunServantJobs(
-	cliSet *kubernetes.Clientset,
+	cliSet kubeclientset.Interface,
 	waitServantJobTimeout time.Duration,
 	getJob func(nodeName string) (*batchv1.Job, error),
 	nodeNames []string, ww io.Writer,
@@ -441,7 +442,7 @@ func RunServantJobs(
 
 // GenClientSet generates the clientset based on command option, environment variable or
 // the default kubeconfig file
-func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
+func GenClientSet(flags *pflag.FlagSet) (*kubeclientset.Clientset, error) {
 	kubeconfigPath, err := PrepareKubeConfigPath(flags)
 	if err != nil {
 		return nil, err
@@ -452,7 +453,7 @@ func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 
-	return kubernetes.NewForConfig(restCfg)
+	return kubeclientset.NewForConfig(restCfg)
 }
 
 // PrepareKubeConfigPath returns the path of cluster kubeconfig file
@@ -479,7 +480,7 @@ func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
 	return kbCfgPath, nil
 }
 
-func GetOrCreateJoinTokenString(cliSet *kubernetes.Clientset) (string, error) {
+func GetOrCreateJoinTokenString(cliSet kubeclientset.Interface) (string, error) {
 	tokenSelector := fields.SelectorFromSet(
 		map[string]string{
 			// TODO: We hard-code "type" here until `field_constants.go` that is

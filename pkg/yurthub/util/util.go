@@ -283,6 +283,10 @@ func KeyFunc(comp, resource, ns, name string) (string, error) {
 		return "", fmt.Errorf("createKey: comp, resource can not be empty")
 	}
 
+	if "namespaces" == resource {
+		return filepath.Join(comp, resource, name), nil
+	}
+
 	return filepath.Join(comp, resource, ns, name), nil
 }
 

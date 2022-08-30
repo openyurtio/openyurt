@@ -25,7 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
@@ -44,7 +44,7 @@ var (
 )
 
 // AcquireLock tries to acquire the lock lock configmap/yurtctl-lock
-func AcquireLock(cli *kubernetes.Clientset) error {
+func AcquireLock(cli kubeclientset.Interface) error {
 	lockCm, err := cli.CoreV1().ConfigMaps("kube-system").
 		Get(context.Background(), constants.YurtctlLockConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -109,7 +109,7 @@ func isTimeout(old int64) bool {
 	return time.Now().Unix() > deadline
 }
 
-func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) error {
+func acquireLockAndUpdateCm(cli kubeclientset.Interface, lockCm *v1.ConfigMap) error {
 	lockCm.Annotations[AnnotationIsLocked] = "true"
 	lockCm.Annotations[AnnotationAcquireTime] = strconv.FormatInt(time.Now().Unix(), 10)
 	if _, err := cli.CoreV1().ConfigMaps("kube-system").
@@ -125,7 +125,7 @@ func acquireLockAndUpdateCm(cli kubernetes.Interface, lockCm *v1.ConfigMap) erro
 }
 
 // ReleaseLock releases the lock configmap/yurtctl-lock
-func ReleaseLock(cli *kubernetes.Clientset) error {
+func ReleaseLock(cli kubeclientset.Interface) error {
 	lockCm, err := cli.CoreV1().ConfigMaps("kube-system").
 		Get(context.Background(), constants.YurtctlLockConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -169,7 +169,7 @@ func ReleaseLock(cli *kubernetes.Clientset) error {
 
 // DeleteLock should only be called when you've achieved the lock.
 // It will delete the yurtctl-lock configmap.
-func DeleteLock(cli *kubernetes.Clientset) error {
+func DeleteLock(cli kubeclientset.Interface) error {
 	if err := cli.CoreV1().ConfigMaps("kube-system").
 		Delete(context.Background(), constants.YurtctlLockConfigMapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		klog.Error("fail to delete the yurtctl lock", err)

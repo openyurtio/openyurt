@@ -96,7 +96,7 @@ OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 
 - 邮件组: https://groups.google.com/g/openyurt/
 - Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1aya4w279-Ea7ZbfdhPARpshRdUUxfwg)
-- DingTalk: 搜索群ID 31993519 (Chinese)
+- DingTalk: 社区1群(ID 31993519)已满，请加入2群 (Chinese)
 
 <div align="left">
   <img src="docs/img/ding.jpg" width=25% title="dingtalk">

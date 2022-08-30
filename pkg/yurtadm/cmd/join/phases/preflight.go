@@ -71,7 +71,8 @@ func runPreflight(c workflow.RunData) error {
 		Discovery: kubeadmapi.Discovery{
 			TLSBootstrapToken: data.JoinToken(),
 			BootstrapToken: &kubeadmapi.BootstrapTokenDiscovery{
-				APIServerEndpoint: data.ServerAddr(),
+				// If there are multiple master IP addresses, take the first one here
+				APIServerEndpoint: strings.Split(data.ServerAddr(), ",")[0],
 				Token:             data.JoinToken()},
 		},
 		ControlPlane: nil,

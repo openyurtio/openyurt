@@ -179,6 +179,7 @@ func checkIfKindAt(path string) (bool, string) {
 }
 
 func findKindPath() (string, error) {
+
 	var kindPath string
 	if exist, path := checkIfKindAt("kind"); exist {
 		kindPath = path
