@@ -91,14 +91,11 @@ func GetConfiguredProxyPortsAndMappings(client clientset.Interface, insecureList
 		Get(context.Background(), YurttunnelServerDnatConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return []string{}, map[string]string{}, fmt.Errorf("configmap %s/%s is not found",
-				YurttunnelServerDnatConfigMapNs,
-				YurttunnelServerDnatConfigMapName)
-		} else {
-			return []string{}, map[string]string{}, fmt.Errorf("fail to get configmap %s/%s: %w",
-				YurttunnelServerDnatConfigMapNs,
-				YurttunnelServerDnatConfigMapName, err)
+			return []string{}, map[string]string{}, nil
 		}
+		return []string{}, map[string]string{}, fmt.Errorf("failed to get configmap %s/%s: %w",
+			YurttunnelServerDnatConfigMapNs,
+			YurttunnelServerDnatConfigMapName, err)
 	}
 
 	return resolveProxyPortsAndMappings(c, insecureListenAddr, secureListenAddr)
