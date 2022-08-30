@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,7 +160,7 @@ func Register() {
 		err = ns.DeleteNameSpace(c, YurttunnelE2eNamespaceName)
 		util.ExpectNoError(err)
 
-		ginkgo.By(YurttunnelE2eTestDesc + "yurttunnel_test_create namespace")
+		klog.Infof(YurttunnelE2eTestDesc + "yurttunnel_test_create namespace")
 		_, err = ns.CreateNameSpace(c, YurttunnelE2eNamespaceName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
