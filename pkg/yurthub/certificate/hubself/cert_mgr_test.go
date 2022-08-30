@@ -17,14 +17,15 @@ limitations under the License.
 package hubself
 
 import (
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"io/ioutil"
-	"k8s.io/client-go/util/certificate"
 	"net/url"
 	"os"
 	"testing"
+
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"k8s.io/client-go/util/certificate"
 )
 
 var (

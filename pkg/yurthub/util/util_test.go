@@ -23,12 +23,13 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
 	"os"
 	"testing"
+
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 )
 
 var (

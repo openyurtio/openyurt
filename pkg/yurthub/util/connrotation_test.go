@@ -36,7 +36,8 @@ func TestNewDialer(t *testing.T) {
 	go func(stopCh <-chan struct{}) {
 		l, err := net.Listen(network, localAddress)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		defer l.Close()
 		for {
@@ -54,7 +55,8 @@ func TestNewDialer(t *testing.T) {
 
 			_, err = ioutil.ReadAll(conn)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				return
 			}
 
 		}
