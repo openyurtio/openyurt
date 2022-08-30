@@ -52,7 +52,7 @@ type transportManager struct {
 	stopCh           <-chan struct{}
 }
 
-// NewTransportManager create an transport interface object.
+// NewTransportManager create a transport interface object.
 func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
 	caFile := certMgr.GetCaFile()
 	if len(caFile) == 0 {
