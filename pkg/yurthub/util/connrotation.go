@@ -65,7 +65,7 @@ type Dialer struct {
 // NewDialer creates a new Dialer instance.
 //
 // If dial is not nil, it will be used to create new underlying connections.
-// Otherwise net.DialContext is used.
+// Otherwise, net.DialContext is used.
 func NewDialer(name string) *Dialer {
 	return &Dialer{
 		name:      name,

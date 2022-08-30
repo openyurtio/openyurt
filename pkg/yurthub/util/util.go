@@ -20,6 +20,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -344,6 +345,9 @@ func FileExists(filename string) (bool, error) {
 
 // LoadKubeletRestClientConfig load *rest.Config for accessing healthyServer
 func LoadKubeletRestClientConfig(healthyServer *url.URL, kubeletRootCAFilePath, kubeletPairFilePath string) (*rest.Config, error) {
+	if healthyServer == nil {
+		return nil, errors.New("healthyServer cannot be nil")
+	}
 	tlsClientConfig := rest.TLSClientConfig{}
 	if _, err := certutil.NewPool(kubeletRootCAFilePath); err != nil {
 		klog.Errorf("Expected to load root CA config from %s, but got err: %v", kubeletRootCAFilePath, err)
@@ -390,6 +394,9 @@ func LoadKubeConfig(kubeconfig string) (*clientcmdapi.Config, error) {
 }
 
 func CreateKubeConfigFile(kubeClientConfig *rest.Config, kubeconfigPath string) error {
+	if kubeClientConfig == nil {
+		return fmt.Errorf("kube client config cannot be nil")
+	}
 	// Get the CA data from the bootstrap client config.
 	caFile, caData := kubeClientConfig.CAFile, []byte{}
 	if len(caFile) == 0 {
