@@ -26,10 +26,13 @@ import (
 	"time"
 
 	"k8s.io/component-base/logs"
+
 	// for JSON log format registration
 	_ "k8s.io/component-base/logs/json/register"
+
 	// load all the prometheus client-go plugin
 	_ "k8s.io/component-base/metrics/prometheus/clientgo"
+
 	// for version metric registration
 	_ "k8s.io/component-base/metrics/prometheus/version"
 
