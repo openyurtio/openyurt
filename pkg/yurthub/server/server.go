@@ -56,9 +56,16 @@ type yurtHubServer struct {
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
-	proxyHandler http.Handler) (Server, error) {
+	proxyHandler http.Handler,
+	rest *rest.RestConfigManager) (Server, error) {
 	hubMux := mux.NewRouter()
 	registerHandlers(hubMux, cfg, certificateMgr)
+	restCfg := rest.GetRestConfig(false)
+	clientSet, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		klog.Errorf("cannot create the client set: %v", err)
+		return nil, err
+	}
 	hubServer := &http.Server{
 		Addr:           cfg.YurtHubServerAddr,
 		Handler:        hubMux,
@@ -67,7 +74,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 
 	proxyServer := &http.Server{
 		Addr:    cfg.YurtHubProxyServerAddr,
-		Handler: proxyHandler,
+		Handler: wrapNonResourceHandler(proxyHandler, cfg, clientSet),
 	}
 
 	secureProxyServer := &http.Server{

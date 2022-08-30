@@ -561,6 +561,7 @@ func isCreate(ctx context.Context) bool {
 // 4. csr resource request
 func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	ctx := req.Context()
+
 	comp, ok := util.ClientComponentFrom(ctx)
 	if !ok || len(comp) == 0 {
 		return false
