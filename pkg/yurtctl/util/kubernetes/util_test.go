@@ -24,9 +24,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -128,7 +125,7 @@ func TestCreateClusterRoleFromYaml(t *testing.T) {
 		clusterrole string
 		want        error
 	}{
-		clusterrole: constants.YurtAppManagerClusterRole,
+		clusterrole: constants.YurtControllerManagerClusterRole,
 		want:        nil,
 	}
 	fakeKubeClient := clientsetfake.NewSimpleClientset()
@@ -138,7 +135,7 @@ func TestCreateClusterRoleFromYaml(t *testing.T) {
 	}
 }
 
-func TestCreateClusterRoleBindingFromYaml(t *testing.T) {
+func TestClusterRoleBindingCreateFromYaml(t *testing.T) {
 	cases := []struct {
 		namespace          string
 		clusterrolebinding string
@@ -146,38 +143,12 @@ func TestCreateClusterRoleBindingFromYaml(t *testing.T) {
 	}{
 		{
 			namespace:          "kube-system",
-			clusterrolebinding: constants.YurtAppManagerClusterRolebinding,
+			clusterrolebinding: constants.YurtControllerManagerClusterRoleBinding,
 			want:               nil,
 		},
 		{
 			namespace:          "default",
-			clusterrolebinding: constants.YurtAppManagerClusterRolebinding,
-			want:               nil,
-		},
-	}
-	for _, v := range cases {
-		fakeKubeClient := clientsetfake.NewSimpleClientset()
-		err := CreateClusterRoleBindingFromYaml(fakeKubeClient, v.clusterrolebinding)
-		if err != v.want {
-			t.Logf("falied to create cluster role binding from yaml")
-		}
-	}
-}
-
-func TestCreateConfigMapFromYaml(t *testing.T) {
-	cases := []struct {
-		namespace          string
-		clusterrolebinding string
-		want               error
-	}{
-		{
-			namespace:          "kube-system",
-			clusterrolebinding: constants.YurtAppManagerClusterRolebinding,
-			want:               nil,
-		},
-		{
-			namespace:          "default",
-			clusterrolebinding: constants.YurtAppManagerClusterRolebinding,
+			clusterrolebinding: constants.YurttunnelProxyClientClusterRolebinding,
 			want:               nil,
 		},
 	}
@@ -197,7 +168,7 @@ func TestCreateDeployFromYaml(t *testing.T) {
 		want       error
 	}{
 		namespace:  "kube-system",
-		deployment: constants.YurtAppManagerDeployment,
+		deployment: constants.YurtControllerManagerDeployment,
 		want:       nil,
 	}
 	fakeKubeClient := clientsetfake.NewSimpleClientset()
@@ -257,141 +228,30 @@ func TestCreateServiceFromYaml(t *testing.T) {
 
 }
 
-func TestCreateRoleFromYaml(t *testing.T) {
-	cases := struct {
-		namespace string
-		role      string
-		want      error
-	}{
-		namespace: "kube-system",
-		role:      constants.YurtAppManagerRole,
-		want:      nil,
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	err := CreateRoleFromYaml(fakeKubeClient, cases.namespace, cases.role)
-	if err != cases.want {
-		t.Logf("falied to create role from yaml")
-	}
-}
-
-func TestCreateRoleBindingFromYaml(t *testing.T) {
-	cases := struct {
-		namespace string
-		role      string
-		want      error
-	}{
-		namespace: "kube-system",
-		role:      constants.YurtAppManagerRole,
-		want:      nil,
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	err := CreateRoleFromYaml(fakeKubeClient, cases.namespace, cases.role)
-	if err != cases.want {
-		t.Logf("falied to create role binding from yaml")
-	}
-}
-
-func TestCreateSecretFromYaml(t *testing.T) {
-	cases := struct {
-		namespace string
-		secret    string
-		want      error
-	}{
-		namespace: "kube-system",
-		secret:    constants.YurtAppManagerSecret,
-		want:      nil,
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	err := CreateSecretFromYaml(fakeKubeClient, cases.namespace, cases.secret)
-	if err != cases.want {
-		t.Logf("falied to create secret from yaml")
-	}
-}
-
-func TestCreateMutatingandValidatingWebhookConfigurationFromYaml(t *testing.T) {
-	cases := struct {
-		mutatingconfiguration   string
-		validatingconfiguration string
-		want                    error
-	}{
-		mutatingconfiguration:   constants.YurtAppManagerMutatingWebhookConfiguration,
-		validatingconfiguration: constants.YurtAppManagerValidatingWebhookConfiguration,
-		want:                    nil,
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	err := CreateMutatingWebhookConfigurationFromYaml(fakeKubeClient, cases.mutatingconfiguration)
-	if err != cases.want {
-		t.Logf("falied to create mutating webhool configuration from yaml")
-	}
-	err = CreateValidatingWebhookConfigurationFromYaml(fakeKubeClient, cases.validatingconfiguration)
-	if err != cases.want {
-		t.Logf("falied to create mutating webhool configuration from yaml")
-	}
-}
-
-func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": apiVersion,
-			"kind":       kind,
-			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
-			},
-		},
-	}
-}
-
-func TestCreateCRDFromYaml(t *testing.T) {
+func TestConfigMapFromYaml(t *testing.T) {
 	cases := []struct {
-		apiGroup *metav1.APIResourceList
-		crdObj   string
-		want     error
+		namespace string
+		configMap string
+		want      error
 	}{
 		{
-			apiGroup: &metav1.APIResourceList{
-				GroupVersion: "apiextensions.k8s.io/v1beta1",
-				APIResources: []metav1.APIResource{
-					{
-						Name:       "odepools.apps.openyurt.io",
-						Kind:       "CustomResourceDefinition",
-						Namespaced: true,
-					},
-				},
-			},
-			crdObj: constants.YurtAppManagerNodePool,
-			want:   nil,
+			namespace: "kube-system",
+			configMap: constants.YurthubConfigMap,
+			want:      nil,
 		},
 		{
-			apiGroup: &metav1.APIResourceList{
-				GroupVersion: "apiextensions.k8s.io/v1beta1",
-				APIResources: []metav1.APIResource{
-					{
-						Name:       "uniteddeployments.apps.openyurt.io",
-						Kind:       "CustomResourceDefinition",
-						Namespaced: false,
-					},
-				},
-			},
-			crdObj: constants.YurtAppManagerUnitedDeployment,
-			want:   nil,
+			namespace: "kube-system",
+			configMap: constants.YurthubConfigMap,
+			want:      nil,
 		},
 	}
 	for _, v := range cases {
 		fakeKubeClient := clientsetfake.NewSimpleClientset()
-		fakeKubeClient.Fake.Resources = append(fakeKubeClient.Fake.Resources, v.apiGroup)
-		fakeYurtClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(),
-			newUnstructured(
-				"apiextensions.k8s.io/v1beta1",
-				"CustomResourceDefinition",
-				"namespace",
-				"nodepools.apps.openyurt.io"))
-		err := CreateCRDFromYaml(fakeKubeClient, fakeYurtClient, " ", []byte(v.crdObj))
-		if err != nil {
-			t.Logf("falied to create mutating webhool configuration from yaml")
+		err := CreateConfigMapFromYaml(fakeKubeClient, v.namespace, v.configMap)
+		if err != v.want {
+			t.Logf("falied to create service from yaml")
 		}
 	}
-
 }
 
 func TestAnnotateNode(t *testing.T) {
