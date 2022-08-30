@@ -27,8 +27,6 @@ According to the analysis above, YurtHub is the important component for the work
 
 Figure X shows the YurtHub init progress. According to the investigation of YurtHub source code, the start-up process are serialized. Each component part will start one by one. The time delay can be evaluated by setting logs.
 
-
-
 From the above, the optimization will focus on the YurtHub start-up and Kubelet recover the service pods based on YurtHub local cache .
 
 ## 3. Experiments
@@ -267,5 +265,4 @@ According to the experiment, Flannel start will cost 2.5s. After that, nginx pod
 - Make the edge node service pods networking strategy from CNI to **Host**.
     - It will save 8-9s because the host network service pods will not wait for CNI plugin flannel ready.
 - Claim the image pulling strategy to **IfNotPresent**.
-    - According to the docker images have been pulled by edge node before. **IfNotPresent** strategy make the docker only find the image from local node and it will not sync from the registry again. This period may save 10s-20s. 
-
+    - According to the docker images have been pulled by edge node before. **IfNotPresent** strategy make the docker only find the image from local node and it will not sync from the registry again. This period may save 10s-20s.
