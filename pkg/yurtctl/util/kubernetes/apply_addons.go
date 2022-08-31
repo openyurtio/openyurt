@@ -22,7 +22,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
 	kubeclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -53,86 +52,6 @@ func DeployYurtControllerManager(client kubeclientset.Interface, yurtControllerM
 			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
 		return err
 	}
-	return nil
-}
-
-func DeployYurtAppManager(
-	client *kubeclientset.Clientset,
-	yurtappmanagerImage string,
-	yurtAppManagerClient dynamic.Interface,
-	systemArchitecture string) error {
-
-	// 1.create the YurtAppManagerCustomResourceDefinition
-	// 1.1 nodepool
-	if err := CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerNodePool)); err != nil {
-		return err
-	}
-
-	// 1.2 uniteddeployment
-	if err := CreateCRDFromYaml(client, yurtAppManagerClient, "", []byte(constants.YurtAppManagerUnitedDeployment)); err != nil {
-		return err
-	}
-
-	// 2. create the YurtAppManagerRole
-	if err := CreateRoleFromYaml(client, SystemNamespace,
-		constants.YurtAppManagerRole); err != nil {
-		return err
-	}
-
-	// 3. create the ClusterRole
-	if err := CreateClusterRoleFromYaml(client,
-		constants.YurtAppManagerClusterRole); err != nil {
-		return err
-	}
-
-	// 4. create the RoleBinding
-	if err := CreateRoleBindingFromYaml(client, SystemNamespace,
-		constants.YurtAppManagerRolebinding); err != nil {
-		return err
-	}
-
-	// 5. create the ClusterRoleBinding
-	if err := CreateClusterRoleBindingFromYaml(client,
-		constants.YurtAppManagerClusterRolebinding); err != nil {
-		return err
-	}
-
-	// 6. create the Secret
-	if err := CreateSecretFromYaml(client, SystemNamespace,
-		constants.YurtAppManagerSecret); err != nil {
-		return err
-	}
-
-	// 7. create the Service
-	if err := CreateServiceFromYaml(client,
-		SystemNamespace,
-		constants.YurtAppManagerService); err != nil {
-		return err
-	}
-
-	// 8. create the Deployment
-	if err := CreateDeployFromYaml(client,
-		SystemNamespace,
-		constants.YurtAppManagerDeployment,
-		map[string]string{
-			"image":           yurtappmanagerImage,
-			"arch":            systemArchitecture,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-
-	// 9. create the YurtAppManagerMutatingWebhookConfiguration
-	if err := CreateMutatingWebhookConfigurationFromYaml(client,
-		constants.YurtAppManagerMutatingWebhookConfiguration); err != nil {
-		return err
-	}
-
-	// 10. create the YurtAppManagerValidatingWebhookConfiguration
-	if err := CreateValidatingWebhookConfigurationFromYaml(client,
-		constants.YurtAppManagerValidatingWebhookConfiguration); err != nil {
-		return err
-	}
-
 	return nil
 }
 
