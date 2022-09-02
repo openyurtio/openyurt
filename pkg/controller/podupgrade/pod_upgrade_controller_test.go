@@ -34,11 +34,12 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktest "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
+	k8sutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/controller"
 )
 
 var (
 	simpleDaemonSetLabel = map[string]string{"foo": "bar"}
-	alwaysReady          = func() bool { return true }
 )
 
 var controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
@@ -82,38 +83,26 @@ func (f *fixture) newController() (*Controller, informers.SharedInformerFactory)
 	c := NewController(f.client, sharedInformers.Apps().V1().DaemonSets(), sharedInformers.Core().V1().Nodes(),
 		sharedInformers.Core().V1().Pods())
 
-	c.daemonsetSynced = alwaysReady
-	c.nodeSynced = alwaysReady
-
 	return c, sharedInformers
 }
 
 // run execute the controller logic
-// kind=SyncDaemonset test daemonset update event
-// kind=SyncNode test node ready event
-func (f *fixture) run(key string, kind string) {
-	f.testController(key, kind, false)
+func (f *fixture) run(key string) {
+	f.testController(key, false)
 }
 
 func (f *fixture) runExpectError(key string, kind string) {
-	f.testController(key, kind, true)
+	f.testController(key, true)
 }
 
-func (f *fixture) testController(key string, kind string, expectError bool) {
+func (f *fixture) testController(key string, expectError bool) {
 	c, sharedInformers := f.newController()
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	sharedInformers.Start(stopCh)
 
-	var err error
-	switch kind {
-	case SyncDaemonset:
-		err = c.syncDaemonsetHandler(key)
-
-	case SyncNode:
-		err = c.syncNodeHandler(key)
-	}
+	err := c.syncDaemonsetHandler(key)
 
 	if !expectError && err != nil {
 		f.t.Errorf("error syncing: %v", err)
@@ -197,7 +186,7 @@ func newPod(podName string, nodeName string, label map[string]string, ds *appsv1
 	var podSpec corev1.PodSpec
 	// Copy pod spec from DaemonSet template, or use a default one if DaemonSet is nil
 	if ds != nil {
-		hash := ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
+		hash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
 		newLabels = CloneAndAddLabel(label, appsv1.DefaultDaemonSetUniqueLabelKey, hash)
 		podSpec = ds.Spec.Template.Spec
 	} else {
@@ -281,27 +270,7 @@ func TestAutoUpgradeWithDaemonsetUpdate(t *testing.T) {
 
 	f.expectDeletePodAction(pod)
 
-	f.run(getDaemonsetKey(ds, t), SyncDaemonset)
-}
-
-func TestAutoUpgradeWithNodeReady(t *testing.T) {
-	f := newFixture(t)
-	ds := newDaemonSet("test-ds", "foo/bar")
-	setAutoUpgradeAnnotation(ds, "auto")
-	node := newNode("test-node")
-	pod := newPod("test-pod", "test-node", simpleDaemonSetLabel, ds)
-
-	ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
-
-	f.daemonsetLister = append(f.daemonsetLister, ds)
-	f.nodeLister = append(f.nodeLister, node)
-	f.podLister = append(f.podLister, pod)
-
-	f.objects = append(f.objects, ds, pod, node)
-
-	f.expectDeletePodAction(pod)
-
-	f.run(node.Name, SyncNode)
+	f.run(getDaemonsetKey(ds, t))
 }
 
 func TestOTAUpgrade(t *testing.T) {
@@ -317,7 +286,7 @@ func TestOTAUpgrade(t *testing.T) {
 	f.podLister = append(f.podLister, oldPod, newPod)
 	f.objects = append(f.objects, ds, oldPod, newPod)
 
-	f.run(getDaemonsetKey(ds, t), SyncDaemonset)
+	f.run(getDaemonsetKey(ds, t))
 
 	// check whether ota upgradable annotation set properly
 	oldPodGot, err := f.client.CoreV1().Pods(ds.Namespace).Get(context.TODO(), oldPod.Name, metav1.GetOptions{})
@@ -337,4 +306,30 @@ func TestOTAUpgrade(t *testing.T) {
 	annNewPodGot, newPodOK := newPodGot.Annotations[PodUpgradableAnnotation]
 	assert.Equal(t, true, newPodOK)
 	assert.Equal(t, "false", annNewPodGot)
+}
+
+func TestController_enqueueDaemonsetWhenNodeReady(t *testing.T) {
+	f := newFixture(t)
+	node := newNode("node")
+	ds1 := newDaemonSet("ds1", "foo/bar:v1")
+	pod1 := newPod("pod1", "node", simpleDaemonSetLabel, ds1)
+	pod2 := newPod("pod2", "node", simpleDaemonSetLabel, ds1)
+
+	ds2 := newDaemonSet("ds2", "foo/bar:v2")
+	pod3 := newPod("pod3", "node", simpleDaemonSetLabel, ds2)
+	pod4 := newPod("pod4", "node", simpleDaemonSetLabel, ds2)
+
+	setAutoUpgradeAnnotation(ds1, "ota")
+	setAutoUpgradeAnnotation(ds2, "auto")
+
+	f.daemonsetLister = append(f.daemonsetLister, ds1, ds2)
+	f.podLister = append(f.podLister, pod1, pod2, pod3, pod4)
+	f.objects = append(f.objects, node, ds1, ds2, pod1, pod2, pod3, pod4)
+
+	c, _ := f.newController()
+
+	c.enqueueDaemonsetWhenNodeReady(node)
+
+	// enqueue "default/ds1" and "default/ds2"
+	assert.Equal(t, 2, c.daemonsetWorkqueue.Len())
 }

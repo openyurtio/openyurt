@@ -18,22 +18,19 @@ package podupgrade
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"hash"
-	"hash/fnv"
 	"strconv"
 
-	"github.com/davecgh/go-spew/spew"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/rand"
 	client "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+
+	k8sutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/controller"
 )
 
 var DaemonSet = "DaemonSet"
@@ -96,7 +93,7 @@ func GetNodePods(podLister corelisters.PodLister, node *corev1.Node) ([]*corev1.
 	}
 
 	if len(nodePodsNames) > 0 {
-		klog.V(5).Infof("Daemonset %v has pods %v", node.Name, nodePodsNames)
+		klog.V(5).Infof("Node %v has pods %v", node.Name, nodePodsNames)
 	}
 	return nodePods, nil
 }
@@ -104,7 +101,7 @@ func GetNodePods(podLister corelisters.PodLister, node *corev1.Node) ([]*corev1.
 // IsDaemonsetPodLatest check whether pod is latest by comparing its Spec with daemonset's
 // If pod is latest, return true, otherwise return false
 func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) (bool, error) {
-	hash := ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
+	hash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
 	klog.V(4).Infof("compute hash: %v", hash)
 	generation, err := GetTemplateGeneration(ds)
 	if err != nil {
@@ -152,6 +149,7 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 	return false
 }
 
+// SetPodUpgradeAnnotation calculate and set annotation "apps.openyurt.io/pod-upgradable" to pod
 func SetPodUpgradeAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
 	ok, err := IsDaemonsetPodLatest(ds, pod)
 	if err != nil {
@@ -172,35 +170,15 @@ func SetPodUpgradeAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, p
 	return nil
 }
 
-// ComputeHash returns a hash value calculated from pod template and
-// a collisionCount to avoid hash collision. The hash will be safe encoded to
-// avoid bad words.
-func ComputeHash(template *corev1.PodTemplateSpec, collisionCount *int32) string {
-	podTemplateSpecHasher := fnv.New32a()
-	DeepHashObject(podTemplateSpecHasher, *template)
-
-	// Add collisionCount in the hash if it exists.
-	if collisionCount != nil {
-		collisionCountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
-		podTemplateSpecHasher.Write(collisionCountBytes)
+// checkPrerequisites checks that daemonset meets two conditions
+// 1. annotation "apps.openyurt.io/upgrade-strategy"="auto" or "ota"
+// 2. update strategy is "OnDelete"
+func checkPrerequisites(ds *appsv1.DaemonSet) bool {
+	v, ok := ds.Annotations[UpgradeAnnotation]
+	if !ok || (v != "auto" && v != "ota") {
+		return false
 	}
-
-	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
-}
-
-// DeepHashObject writes specified object to hash using the spew library
-// which follows pointers and prints actual values of the nested objects
-// ensuring the hash does not change when a pointer changes.
-func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) {
-	hasher.Reset()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", objectToWrite)
+	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType
 }
 
 // Clones the given map and returns a new map with the given key and value added.

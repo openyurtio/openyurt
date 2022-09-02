@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -91,6 +92,97 @@ func TestIsDaemonsetPodLatest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotLatest, _ := IsDaemonsetPodLatest(tt.ds, tt.pod)
 			assert.Equal(t, tt.wantLatest, gotLatest)
+		})
+	}
+}
+
+func Test_checkPrerequisites(t *testing.T) {
+	tests := []struct {
+		name string
+		ds   *appsv1.DaemonSet
+		want bool
+	}{
+		{
+			name: "satisfied-ota",
+			ds: &appsv1.DaemonSet{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"apps.openyurt.io/upgrade-strategy": "ota",
+					},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.OnDeleteDaemonSetStrategyType,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "satisfied-auto",
+			ds: &appsv1.DaemonSet{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"apps.openyurt.io/upgrade-strategy": "auto",
+					},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.OnDeleteDaemonSetStrategyType,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "unsatisfied-other",
+			ds: &appsv1.DaemonSet{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"apps.openyurt.io/upgrade-strategy": "other",
+					},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.OnDeleteDaemonSetStrategyType,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "unsatisfied-without-ann",
+			ds: &appsv1.DaemonSet{
+				Spec: appsv1.DaemonSetSpec{
+					UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.OnDeleteDaemonSetStrategyType,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "unsatisfied-without-updateStrategy",
+			ds: &appsv1.DaemonSet{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"apps.openyurt.io/upgrade-strategy": "other",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "unsatisfied-without-both",
+			ds:   &appsv1.DaemonSet{},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkPrerequisites(tt.ds); got != tt.want {
+				t.Errorf("checkPrerequisites() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
