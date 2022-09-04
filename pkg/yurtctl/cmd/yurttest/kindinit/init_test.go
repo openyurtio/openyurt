@@ -111,10 +111,11 @@ func TestValidateOpenYurtVersion(t *testing.T) {
 func TestPrepareConfigFile(t *testing.T) {
 	var nodeImage = "kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9"
 	cases := map[string]struct {
-		clusterName    string
-		nodesNum       int
-		kindConfigPath string
-		want           string
+		clusterName       string
+		nodesNum          int
+		kindConfigPath    string
+		disableDefaultCNI bool
+		want              string
 	}{
 		"one node": {
 			clusterName:    "case1",
@@ -123,6 +124,8 @@ func TestPrepareConfigFile(t *testing.T) {
 			want: `apiVersion: kind.x-k8s.io/v1alpha4
 kind: Cluster
 name: case1
+networking:
+  disableDefaultCNI: false
 nodes:
   - role: control-plane
     image: kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9`,
@@ -134,6 +137,24 @@ nodes:
 			want: `apiVersion: kind.x-k8s.io/v1alpha4
 kind: Cluster
 name: case2
+networking:
+  disableDefaultCNI: false
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9
+  - role: worker
+    image: kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9`,
+		},
+		"disable default cni": {
+			clusterName:       "case3",
+			nodesNum:          2,
+			kindConfigPath:    "/tmp/prepareConfigFile.case3",
+			disableDefaultCNI: true,
+			want: `apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: case3
+networking:
+  disableDefaultCNI: true
 nodes:
   - role: control-plane
     image: kindest/node:v1.20.7@sha256:cbeaf907fc78ac97ce7b625e4bf0de16e3ea725daf6b04f930bd14c67c671ff9
@@ -145,10 +166,11 @@ nodes:
 		initializer := newKindInitializer(
 			os.Stdout,
 			&initializerConfig{
-				ClusterName:    c.clusterName,
-				NodesNum:       c.nodesNum,
-				KindConfigPath: c.kindConfigPath,
-				NodeImage:      nodeImage,
+				ClusterName:       c.clusterName,
+				NodesNum:          c.nodesNum,
+				KindConfigPath:    c.kindConfigPath,
+				DisableDefaultCNI: c.disableDefaultCNI,
+				NodeImage:         nodeImage,
 			},
 		)
 		defer os.Remove(c.kindConfigPath)
