@@ -17,13 +17,14 @@ limitations under the License.
 package yurtinit
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -55,7 +56,7 @@ const (
 	TmpDownloadDir = "/tmp"
 
 	SealerUrlFormat      = "https://github.com/alibaba/sealer/releases/download/%s/sealer-%s-linux-%s.tar.gz"
-	DefaultSealerVersion = "v0.6.1"
+	DefaultSealerVersion = "v0.8.5"
 
 	InitClusterImage = "%s/openyurt-cluster:%s"
 	SealerRunCmd     = "sealer apply -f %s/Clusterfile"
@@ -67,10 +68,8 @@ metadata:
   name: my-cluster
 spec:
   hosts:
-  - ips:
-    - {{.apiserver_address}}
-    roles:
-    - master
+  - ips: [ {{.apiserver_address}} ]
+    roles: [ master ]
   image: {{.cluster_image}}
   ssh:
     passwd: {{.passwd}}
@@ -78,28 +77,20 @@ spec:
     user: root
   env:
   - YurttunnelServerAddress={{.yurttunnel_server_address}}
+  - FlannelNetWork={{.pod_subnet}}
 ---
-apiVersion: sealer.cloud/v2
-kind: KubeadmConfig
-metadata:
-  name: default-kubernetes-config
-spec:
-  networking:
-    {{if .pod_subnet }}
-    podSubnet: {{.pod_subnet}}
-    {{end}}
-    {{if .service_subnet}}
-    serviceSubnet: {{.service_subnet}}
-    {{end}}
-  controllerManager:
-    extraArgs:
-      controllers: -nodelifecycle,*,bootstrapsigner,tokencleaner
+
+## Custom configurations must specify kind, will be merged to default kubeadm configs
+kind: ClusterConfiguration
+networking:
+  podSubnet: {{.pod_subnet}}
+  serviceSubnet: {{.service_subnet}}
 `
 )
 
 var (
 	ValidSealerVersions = []string{
-		"v0.6.1",
+		"v0.8.5",
 	}
 )
 
@@ -258,16 +249,61 @@ func (ci *clusterInitializer) PrepareClusterfile() error {
 	return nil
 }
 
+// execCmd will execute command and get the real-time output of the screen
 func execCmd(cmd *exec.Cmd) error {
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
-	fmt.Printf(outStr)
+	cmd.Stdin = os.Stdin
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// capture standard output
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		pos := strings.Index(errStr, "Usage:")
-		fmt.Printf(errStr[:pos])
+		fmt.Println("ERROR:", err)
+		return err
 	}
-	return err
+
+	readout := bufio.NewReader(stdout)
+	go func() {
+		defer wg.Done()
+		getOutput(readout)
+	}()
+
+	// capture standard error
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Println("ERROR:", err)
+		return err
+	}
+
+	readerr := bufio.NewReader(stderr)
+	go func() {
+		defer wg.Done()
+		getOutput(readerr)
+	}()
+
+	// run command
+	cmd.Run()
+	wg.Wait()
+	return nil
+}
+
+func getOutput(reader *bufio.Reader) {
+	var sumOutput string // all the output content of the screen
+	outputBytes := make([]byte, 200)
+	for {
+		// Get the real-time output of the screen
+		n, err := reader.Read(outputBytes)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println(err)
+			sumOutput += err.Error()
+		}
+		output := string(outputBytes[:n])
+		fmt.Print(output)
+		sumOutput += output
+	}
+	return
 }
