@@ -47,25 +47,33 @@ func (o *InitOptions) Validate() error {
 	if err := validateServerAddress(o.AdvertiseAddress); err != nil {
 		return err
 	}
+
 	if o.YurttunnelServerAddress != "" {
 		if err := validateServerAddress(o.YurttunnelServerAddress); err != nil {
 			return err
 		}
 	}
+
 	if o.Password == "" {
 		return fmt.Errorf("password can't be empty.")
 	}
 
-	if o.PodSubnet != "" {
+	if o.PodSubnet == "" {
+		return errors.Errorf("podSubnet can't be empty, you must specify --pod-network-cidr")
+	} else {
 		if err := validateCidrString(o.PodSubnet); err != nil {
 			return err
 		}
 	}
-	if o.ServiceSubnet != "" {
+
+	if o.ServiceSubnet == "" {
+		return errors.Errorf("serviceSubnet can't be empty, you must specify --service-cidr")
+	} else {
 		if err := validateCidrString(o.ServiceSubnet); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
