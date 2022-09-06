@@ -27,24 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestGetNodePods(t *testing.T) {
-	node := newNode("node1")
-	pod1 := newPod("test-pod1", "node1", simpleDaemonSetLabel, nil)
-	pod2 := newPod("test-pod2", "node2", simpleDaemonSetLabel, nil)
-
-	expectPods := []*corev1.Pod{pod1}
-	clientset := fake.NewSimpleClientset(node, pod1, pod2)
-	podInformer := informers.NewSharedInformerFactory(clientset, 0)
-
-	podInformer.Core().V1().Pods().Informer().GetIndexer().Add(pod1)
-	podInformer.Core().V1().Pods().Informer().GetIndexer().Add(pod2)
-
-	gotPods, err := GetNodePods(podInformer.Core().V1().Pods().Lister(), node)
-
-	assert.Equal(t, nil, err)
-	assert.Equal(t, expectPods, gotPods)
-}
-
 func TestGetDaemonsetPods(t *testing.T) {
 	ds1 := newDaemonSet("daemosnet1", "foo/bar:v1")
 
@@ -90,7 +72,7 @@ func TestIsDaemonsetPodLatest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLatest, _ := IsDaemonsetPodLatest(tt.ds, tt.pod)
+			gotLatest := IsDaemonsetPodLatest(tt.ds, tt.pod)
 			assert.Equal(t, tt.wantLatest, gotLatest)
 		})
 	}

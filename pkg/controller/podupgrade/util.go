@@ -30,7 +30,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	k8sutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/controller"
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupgrade/kubernetes/util"
 )
 
 var DaemonSet = "DaemonSet"
@@ -100,12 +100,12 @@ func GetNodePods(podLister corelisters.PodLister, node *corev1.Node) ([]*corev1.
 
 // IsDaemonsetPodLatest check whether pod is latest by comparing its Spec with daemonset's
 // If pod is latest, return true, otherwise return false
-func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) (bool, error) {
+func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) bool {
 	hash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
 	klog.V(4).Infof("compute hash: %v", hash)
 	generation, err := GetTemplateGeneration(ds)
 	if err != nil {
-		return false, err
+		generation = nil
 	}
 
 	klog.V(5).Infof("daemonset %v revision hash is %v", ds.Name, hash)
@@ -113,7 +113,7 @@ func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) (bool, error) {
 
 	templateMatches := generation != nil && pod.Labels[extensions.DaemonSetTemplateGenerationKey] == fmt.Sprint(generation)
 	hashMatches := len(hash) > 0 && pod.Labels[extensions.DefaultDaemonSetUniqueLabelKey] == hash
-	return hashMatches || templateMatches, nil
+	return hashMatches || templateMatches
 }
 
 // GetTemplateGeneration get annotation "deprecated.daemonset.template.generation" of the given daemonset
@@ -151,10 +151,7 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 
 // SetPodUpgradeAnnotation calculate and set annotation "apps.openyurt.io/pod-upgradable" to pod
 func SetPodUpgradeAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
-	ok, err := IsDaemonsetPodLatest(ds, pod)
-	if err != nil {
-		return err
-	}
+	ok := IsDaemonsetPodLatest(ds, pod)
 
 	var res bool
 	if !ok {
@@ -195,4 +192,29 @@ func CloneAndAddLabel(labels map[string]string, labelKey, labelValue string) map
 	}
 	newLabels[labelKey] = labelValue
 	return newLabels
+}
+
+// findUpdatedPodsOnNode looks at non-deleted pods on a given node and returns true if there
+// is at most one of each old and new pods, or false if there are multiples. We can skip
+// processing the particular node in those scenarios and let the manage loop prune the
+// excess pods for our next time around.
+func findUpdatedPodsOnNode(ds *appsv1.DaemonSet, podsOnNode []*corev1.Pod) (newPod, oldPod *corev1.Pod, ok bool) {
+	for _, pod := range podsOnNode {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		if IsDaemonsetPodLatest(ds, pod) {
+			if newPod != nil {
+				return nil, nil, false
+			}
+			newPod = pod
+		} else {
+			if oldPod != nil {
+				return nil, nil, false
+			}
+			oldPod = pod
+		}
+	}
+	return newPod, oldPod, true
 }
