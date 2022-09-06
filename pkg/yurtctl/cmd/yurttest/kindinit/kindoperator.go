@@ -164,11 +164,12 @@ func (k *KindOperator) goMinorVersion() (int, error) {
 }
 
 func getGoBinPath() (string, error) {
-	gopath, err := exec.Command("bash", "-c", "go env GOPATH").CombinedOutput()
+	buf, err := exec.Command("bash", "-c", "go env GOPATH").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get GOPATH, %w", err)
 	}
-	return filepath.Join(string(gopath), "bin"), nil
+	gopath := strings.TrimSuffix(string(buf), "\n")
+	return filepath.Join(gopath, "bin"), nil
 }
 
 func checkIfKindAt(path string) (bool, string) {
