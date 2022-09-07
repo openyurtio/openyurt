@@ -31,7 +31,9 @@
 # KUBERNETESVERSION
 # KUBERNETESVERSION declares the kubernetes version the cluster will use. The format is "v1.XX". 
 # Now only v1.17, v1.18, v1.19, v1.20 v1.21 v1.22 and v1.23 are supported. The default value is v1.22.
-
+#
+# DISABLE_DEFAULT_CNI
+# If set to be true, the default cni, kindnet, will not be installed in the cluster.
 
 set -x
 set -e
@@ -64,6 +66,7 @@ readonly CLUSTER_NAME="openyurt-e2e-test"
 readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.22"}
 readonly NODES_NUM=${NODES_NUM:-2}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
+readonly DISABLE_DEFAULT_CNI=${DISABLE_DEFAULT_CNI:-"false"}
 ENABLE_DUMMY_IF=true
 if [[ "${LOCAL_OS}" == darwin ]]; then
   ENABLE_DUMMY_IF=false
@@ -113,7 +116,7 @@ function local_up_openyurt {
     ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH}/yurtctl test init \
       --kubernetes-version=${KUBERNETESVERSION} --kube-config=${KIND_KUBECONFIG} \
       --cluster-name=${CLUSTER_NAME} --openyurt-version=${YURT_VERSION} --use-local-images --ignore-error \
-      --node-num=${NODES_NUM} --enable-dummy-if=${ENABLE_DUMMY_IF}
+      --node-num=${NODES_NUM} --enable-dummy-if=${ENABLE_DUMMY_IF} --disable-default-cni=${DISABLE_DEFAULT_CNI}
 }
 
 function cleanup {

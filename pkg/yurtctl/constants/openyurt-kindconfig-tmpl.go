@@ -20,6 +20,8 @@ const (
 	OpenYurtKindConfig = `apiVersion: kind.x-k8s.io/v1alpha4
 kind: Cluster
 name: {{.cluster_name}}
+networking:
+  disableDefaultCNI: {{.disable_default_cni}}
 nodes:
   - role: control-plane
     image: {{.kind_node_image}}`

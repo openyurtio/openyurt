@@ -133,6 +133,7 @@ type kindOptions struct {
 	KubeConfig        string
 	IgnoreError       bool
 	EnableDummyIf     bool
+	DisableDefaultCNI bool
 }
 
 func newKindOptions() *kindOptions {
@@ -145,6 +146,7 @@ func newKindOptions() *kindOptions {
 		UseLocalImages:    false,
 		IgnoreError:       false,
 		EnableDummyIf:     true,
+		DisableDefaultCNI: false,
 	}
 }
 
@@ -212,6 +214,7 @@ func (o *kindOptions) Config() *initializerConfig {
 		YurtTunnelServerImage:      fmt.Sprintf(yurtTunnelServerImageFormat, o.OpenYurtVersion),
 		YurtTunnelAgentImage:       fmt.Sprintf(yurtTunnelAgentImageFormat, o.OpenYurtVersion),
 		EnableDummyIf:              o.EnableDummyIf,
+		DisableDefaultCNI:          o.DisableDefaultCNI,
 	}
 }
 
@@ -237,6 +240,9 @@ func addFlags(flagset *pflag.FlagSet, o *kindOptions) {
 		"Ignore error when using openyurt version that is not officially released.")
 	flagset.BoolVar(&o.EnableDummyIf, "enable-dummy-if", o.EnableDummyIf,
 		"Enable dummy interface for yurthub component or not. and recommend to set false on mac env")
+	flagset.BoolVar(&o.DisableDefaultCNI, "disable-default-cni", o.DisableDefaultCNI,
+		"Disable the default cni of kind cluster which is kindnet. "+
+			"If this option is set, you should check the ready status of pods by yourself after installing your CNI.")
 }
 
 type initializerConfig struct {
@@ -255,6 +261,7 @@ type initializerConfig struct {
 	YurtTunnelServerImage      string
 	YurtTunnelAgentImage       string
 	EnableDummyIf              bool
+	DisableDefaultCNI          bool
 }
 
 type Initializer struct {
@@ -370,8 +377,9 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 		return err
 	}
 	kindConfigContent, err := tmplutil.SubsituteTemplate(constants.OpenYurtKindConfig, map[string]string{
-		"kind_node_image": ki.NodeImage,
-		"cluster_name":    ki.ClusterName,
+		"kind_node_image":     ki.NodeImage,
+		"cluster_name":        ki.ClusterName,
+		"disable_default_cni": fmt.Sprintf("%v", ki.DisableDefaultCNI),
 	})
 	if err != nil {
 		return err
@@ -434,28 +442,33 @@ func (ki *Initializer) configureAddons() error {
 		}
 	}
 
-	// wait for coredns pods available
-	for {
-		select {
-		case <-time.After(10 * time.Second):
-			dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
-			}
+	// If we disable default cni, nodes will not be ready and the coredns pod always be in pending.
+	// The health check for coreDNS should be done by someone who will install CNI.
+	if !ki.DisableDefaultCNI {
+		// wait for coredns pods available
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
+				}
 
-			if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
-				klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
-				continue
-			}
+				if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
+					klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
+					continue
+				}
 
-			if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
-				klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
-				continue
+				if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
+					klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
+					continue
+				}
+				klog.Info("coredns deployment configuration is completed")
+				return nil
 			}
-			klog.Info("coredns deployment configuration is completed")
-			return nil
 		}
 	}
+	return nil
 }
 
 func (ki *Initializer) configureCoreDnsAddon() error {
