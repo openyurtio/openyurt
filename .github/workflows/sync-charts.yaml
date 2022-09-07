@@ -8,7 +8,8 @@ on:
       - 'charts/**'
 
 jobs:
-  copy-file:
+  sync-charts:
+    if: github.repository == 'openyurtio/openyurt'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
