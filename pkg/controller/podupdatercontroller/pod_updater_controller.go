@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podupgrade
+package podupdater
 
 import (
 	"context"
@@ -27,19 +27,39 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	client "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	appslisters "k8s.io/client-go/listers/apps/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupgrade/kubernetes/util"
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupdater/kubernetes"
 )
+
+const (
+	// UpgradeAnnotation is the annotation key used in daemonset spec to indicate
+	// which upgrade strategy is selected. Currently "ota" and "auto" are supported.
+	UpgradeAnnotation = "apps.openyurt.io/upgrade-strategy"
+
+	OTAUpgrade  = "ota"
+	AutoUpgrade = "auto"
+)
+
+// PodUpgradableAnnotation is the annotation key added to pods to indicate
+// whether a new version is available for upgrade.
+// This annotation will only be added if the upgrade strategy is "apps.openyurt.io/upgrade-strategy":"ota".
+const PodUpgradableAnnotation = "apps.openyurt.io/pod-upgradable"
+
+const MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
 
 const (
 	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
@@ -52,6 +72,7 @@ var controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 
 type Controller struct {
 	kubeclientset client.Interface
+	podControl    k8sutil.PodControlInterface
 
 	daemonsetLister appslisters.DaemonSetLister
 	daemonsetSynced cache.InformerSynced
@@ -68,8 +89,17 @@ type Controller struct {
 func NewController(kc client.Interface, daemonsetInformer appsinformers.DaemonSetInformer,
 	nodeInformer coreinformers.NodeInformer, podInformer coreinformers.PodInformer) *Controller {
 
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kc.CoreV1().Events("")})
+
 	ctrl := Controller{
-		kubeclientset:   kc,
+		kubeclientset: kc,
+		podControl: k8sutil.RealPodControl{
+			KubeClient: kc,
+			Recorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "podUpdater"}),
+		},
+
 		daemonsetLister: daemonsetInformer.Lister(),
 		daemonsetSynced: daemonsetInformer.Informer().HasSynced,
 
@@ -187,41 +217,6 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	return ds
 }
 
-// enqueueDaemonsetWhenNodeReady add daemonset key to daemonsetWorkqueue for further handling
-func (c *Controller) enqueueDaemonsetWhenNodeReady(node *corev1.Node) error {
-	// TODO: Question-> is source lister up-to-date?
-	pods, err := GetNodePods(c.podLister, node)
-	if err != nil {
-		return err
-	}
-
-	for _, pod := range pods {
-		owner := metav1.GetControllerOf(pod)
-		switch owner.Kind {
-		case DaemonSet:
-			ds, err := c.daemonsetLister.DaemonSets(pod.Namespace).Get(owner.Name)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					continue
-				}
-				return err
-			}
-
-			if checkPrerequisites(ds) {
-				var key string
-				if key, err = cache.MetaNamespaceKeyFunc(ds); err != nil {
-					return err
-				}
-
-				c.daemonsetWorkqueue.Add(key)
-			}
-		default:
-			continue
-		}
-	}
-	return nil
-}
-
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 
@@ -336,10 +331,11 @@ func (c *Controller) autoUpgrade(ds *appsv1.DaemonSet) error {
 		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
 	}
 
-	// TODO(hxc)
-	// calculate maxUnavailable specified by user, default is xxx??
-	// maxUnavailable := xxx
-	maxUnavailable := 1
+	// TODO(hxc): calculate maxUnavailable specified by user, default is 1
+	maxUnavailable, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
+	if err != nil {
+		return fmt.Errorf("couldn't get maxUnavailable number for daemon set %q: %v", ds.Name, err)
+	}
 
 	var numUnavailable int
 	var allowedReplacementPods []string
@@ -460,8 +456,7 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 	for i := 0; i < deleteDiff; i++ {
 		go func(ix int) {
 			defer deleteWait.Done()
-			if err := c.kubeclientset.CoreV1().Pods(ds.Namespace).
-				Delete(context.TODO(), podsToDelete[ix], metav1.DeleteOptions{}); err != nil {
+			if err := c.podControl.DeletePod(context.TODO(), ds.Namespace, podsToDelete[ix], ds); err != nil {
 				c.expectations.DeletionObserved(dsKey)
 				if !apierrors.IsNotFound(err) {
 					klog.V(2).Infof("Failed deletion, decremented expectations for set %q/%q", ds.Namespace, ds.Name)
@@ -481,4 +476,27 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 		errors = append(errors, err)
 	}
 	return utilerrors.NewAggregate(errors)
+}
+
+// maxUnavailableCounts calculates the true number of allowed unavailable
+func (c *Controller) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) (int, error) {
+	// if annotation is not set, use default value one
+	v, ok := ds.Annotations[MaxUnavailableAnnotation]
+	if !ok {
+		return 1, nil
+	}
+
+	intstrv := intstrutil.Parse(v)
+	maxUnavailable, err := intstrutil.GetScaledValueFromIntOrPercent(&intstrv, len(nodeToDaemonPods), true)
+	if err != nil {
+		return -1, fmt.Errorf("invalid value for MaxUnavailable: %v", err)
+	}
+
+	// if the daemonset returned with an impossible configuration, obey the default of unavailable=1
+	if maxUnavailable == 0 {
+		klog.Warningf("DaemonSet %s/%s is not configured for unavailability, defaulting to accepting unavailability", ds.Namespace, ds.Name)
+		maxUnavailable = 1
+	}
+	klog.V(5).Infof("DaemonSet %s/%s, maxUnavailable: %d", ds.Namespace, ds.Name, maxUnavailable)
+	return maxUnavailable, nil
 }

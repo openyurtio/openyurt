@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podupgrade
+package podupdater
 
 import (
 	"context"
@@ -30,24 +30,8 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupgrade/kubernetes/util"
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupdater/kubernetes"
 )
-
-var DaemonSet = "DaemonSet"
-
-const (
-	// UpgradeAnnotation is the annotation key used in daemonset spec to indicate
-	// which upgrade strategy is selected. Currently "ota" and "auto" are supported.
-	UpgradeAnnotation = "apps.openyurt.io/upgrade-strategy"
-
-	OTAUpgrade  = "ota"
-	AutoUpgrade = "auto"
-)
-
-// PodUpgradableAnnotation is the annotation key added to pods to indicate
-// whether a new version is available for upgrade.
-// This annotation will only be added if the upgrade strategy is "apps.openyurt.io/upgrade-strategy":"ota".
-const PodUpgradableAnnotation = "apps.openyurt.io/pod-upgradable"
 
 // GetDaemonsetPods get all pods belong to the given daemonset
 func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]*corev1.Pod, error) {
@@ -73,29 +57,6 @@ func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]
 		klog.V(4).Infof("Daemonset %v has pods %v", ds.Name, dsPodsNames)
 	}
 	return dsPods, nil
-}
-
-// GetDaemonsetPods get all pods belong to the given daemonset
-func GetNodePods(podLister corelisters.PodLister, node *corev1.Node) ([]*corev1.Pod, error) {
-	nodePods := make([]*corev1.Pod, 0)
-	nodePodsNames := make([]string, 0)
-
-	pods, err := podLister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	for i, pod := range pods {
-		if pod.Spec.NodeName == node.Name {
-			nodePods = append(nodePods, pods[i])
-			nodePodsNames = append(nodePodsNames, pod.Name)
-		}
-	}
-
-	if len(nodePodsNames) > 0 {
-		klog.V(5).Infof("Node %v has pods %v", node.Name, nodePodsNames)
-	}
-	return nodePods, nil
 }
 
 // IsDaemonsetPodLatest check whether pod is latest by comparing its Spec with daemonset's

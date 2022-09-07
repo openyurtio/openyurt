@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package kubernetes
 
 import (
 	"context"
@@ -41,9 +41,8 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/clock"
-
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 )
 
 const (

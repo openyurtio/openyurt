@@ -27,7 +27,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
-	podupgradecontroller "github.com/openyurtio/openyurt/pkg/controller/podupgrade"
+	podupdater "github.com/openyurtio/openyurt/pkg/controller/podupdater"
 )
 
 func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, error) {
@@ -68,7 +68,7 @@ func startYurtCSRApproverController(ctx ControllerContext) (http.Handler, bool, 
 }
 
 func startPodUpgradeController(ctx ControllerContext) (http.Handler, bool, error) {
-	podUpgradeCtrl := podupgradecontroller.NewController(
+	podUpgradeCtrl := podupdater.NewController(
 		ctx.ClientBuilder.ClientOrDie("podUpgrade-controller"),
 		ctx.InformerFactory.Apps().V1().DaemonSets(),
 		ctx.InformerFactory.Core().V1().Nodes(),
