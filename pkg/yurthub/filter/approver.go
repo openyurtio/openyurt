@@ -53,6 +53,10 @@ var (
 		reqKey("nginx-ingress-controller", "endpoints", "watch"): ServiceTopologyFilterName,
 		reqKey("kube-proxy", "endpointslices", "list"):           ServiceTopologyFilterName,
 		reqKey("kube-proxy", "endpointslices", "watch"):          ServiceTopologyFilterName,
+		reqKey("coredns", "endpoints", "list"):                   ServiceTopologyFilterName,
+		reqKey("coredns", "endpoints", "watch"):                  ServiceTopologyFilterName,
+		reqKey("coredns", "endpointslices", "list"):              ServiceTopologyFilterName,
+		reqKey("coredns", "endpointslices", "watch"):             ServiceTopologyFilterName,
 	}
 )
 
