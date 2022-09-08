@@ -202,6 +202,8 @@ spec:
             - --bind-address=$(NODE_IP)
             - --insecure-bind-address=$(NODE_IP)
             - --proxy-strategy=destHost
+            - --cert-dns-names={{ .Values.yurtTunnelServer.parameters.certDnsNames }}
+            - --cert-ips={{ .Values.yurtTunnelServer.parameters.certIps }}
             - --v=2
           env:
             - name: NODE_IP
