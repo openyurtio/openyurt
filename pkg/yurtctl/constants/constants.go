@@ -243,8 +243,7 @@ metadata:
   namespace: kube-system
 data:
   cache_agents: ""
-  filter_endpoints: coredns/endpoints#list;watch
-  filter_servicetopology: coredns/endpointslices#list;watch
+  filter_servicetopology: ""
   filter_discardcloudservice: ""
   filter_masterservice: ""
 `
