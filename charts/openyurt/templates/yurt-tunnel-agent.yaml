@@ -22,6 +22,7 @@ spec:
         args:
         - --node-name=$(NODE_NAME)
         - --node-ip=$(POD_IP)
+        - --tunnelserver-addr={{ .Values.yurtTunnelAgent.parameters.tunnelserverAddr }}
         - --v=2
         image: "{{ .Values.yurtTunnelAgent.image.registry }}/{{ .Values.yurtTunnelAgent.image.repository }}:{{ .Values.yurtTunnelAgent.image.tag }}"
         imagePullPolicy: {{ .Values.yurtTunnelAgent.image.pullPolicy }}

@@ -16,6 +16,8 @@ yurtControllerManager:
 yurtTunnelAgent:
   replicaCount: 1
   tolerations: []
+  parameters:
+    tunnelserverAddr: ""
   image:
     registry: docker.io
     repository: openyurt/yurt-tunnel-agent
@@ -25,6 +27,9 @@ yurtTunnelAgent:
 yurtTunnelServer:
   replicaCount: 1
   tolerations: []
+  parameters:
+    certDnsNames: ""
+    certIps: ""
   image:
     registry: docker.io
     repository: openyurt/yurt-tunnel-server
