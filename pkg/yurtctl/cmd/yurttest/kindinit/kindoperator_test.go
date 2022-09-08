@@ -197,10 +197,7 @@ func fakeExeCommand(string, ...string) *exec.Cmd {
 
 func TestGetGoBinPath(t *testing.T) {
 	gopath, err := getGoBinPath()
-	if err != nil {
-		t.Errorf("failed to get GOPATH")
-	}
-	if find := strings.Contains(gopath, "/go") && strings.Contains(gopath, "/bin"); !find {
+	if gopath == "" || err != nil {
 		t.Errorf("failed to get GOPATH")
 	}
 }
