@@ -125,10 +125,15 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 		//download and install kubernetes-node
 		packageUrl := fmt.Sprintf(constants.KubeUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
 		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
-		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
-		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download kubelet fail: %w", err)
+		if _, err := os.Stat(savePath); errors.Is(err, os.ErrNotExist) {
+			klog.V(1).Infof("Download kubelet from: %s", packageUrl)
+			if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+				return fmt.Errorf("Download kubelet fail: %w", err)
+			}
+		} else {
+			klog.V(1).Infof("Skip download kubelet, use already exist file: %s", savePath)
 		}
+
 		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
 			return err
 		}
@@ -147,9 +152,13 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 	//download and install kubernetes-cni
 	cniUrl := fmt.Sprintf(constants.CniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
 	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
-	klog.V(1).Infof("Download cni from: %s", cniUrl)
-	if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
-		return err
+	if _, err := os.Stat(savePath); errors.Is(err, os.ErrNotExist) {
+		klog.V(1).Infof("Download cni from: %s", cniUrl)
+		if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
+			return err
+		}
+	} else {
+		klog.V(1).Infof("Skip download cni, use already exist file: %s", savePath)
 	}
 
 	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
