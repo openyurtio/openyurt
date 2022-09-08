@@ -1,5 +1,84 @@
 # CHANGELOG
 
+## v1.0
+
+We're excited to announce the release of OpenYurt 1.0.0!🎉🎉🎉
+
+Thanks to all the new and existing contributors who helped make this release happen!
+
+If you're new to OpenYurt, feel free to browse [OpenYurt website](https://openyurt.io), then start with [OpenYurt Installation](https://openyurt.io/docs/installation/summary/) and learn about [its core concepts](https://openyurt.io/docs/core-concepts/architecture).
+
+### Acknowledgements ❤️
+
+Nearly 20 people have contributed to this release and 8 of them are new contributors, Thanks to everyone!
+
+@huiwq1990 @Congrool @zhangzhenyuyu @rambohe-ch @gnunu @LinFCai @guoguodan @ankyit @luckymrwang @zzguang @hxcGit @Sodawyx
+@luc99hen @River-sh @slm940208 @windydayc @lorrielau @fujitatomoya @donychen1134
+
+### What's New
+
+#### API version
+
+The version of `NodePool` API has been upgraded to `v1beta1`, more details in the https://github.com/openyurtio/yurt-app-manager/pull/104
+
+Meanwhile, all APIs management in OpenYurt will be migrated to [openyurtio/api](https://github.com/openyurtio/api) repo, and we recommend you
+to import this package to use APIs of OpenYurt.
+
+#### Code Quality
+
+We track unit test coverage with [CodeCov](about.codecov.io)
+Code coverage for some repos as following:
+- openyurtio/openyurt: 47%
+- openyurtio/yurt-app-manager: 37%
+- openyurtio/raven: 53%
+
+and more details of unit tests coverage can be found in https://codecov.io/gh/openyurtio
+
+In addition to unit tests, other levels of testing are also added.
+- upgrade e2e test for openyurt by @lorrielau in https://github.com/openyurtio/openyurt/pull/945
+- add fuzz test for openyurtio/yurt-app-manager by @huiwq1990 in https://github.com/openyurtio/yurt-app-manager/pull/67
+- e2e test for openyurtio/yurt-app-manager by @huiwq1990 in https://github.com/openyurtio/yurt-app-manager/pull/107
+
+#### Performance Test
+
+OpenYurt makes Kubernetes work in cloud-edge collaborative environment with a non-intrusive design. so performance of
+some OpenYurt components have been considered carefully. several test reports have been submitted so that end users can clearly
+see the working status of OpenYurt components.
+- yurthub performance test report by @luc99hen in https://openyurt.io/docs/test-report/yurthub-performance-test
+- pods recovery efficiency test report by @Sodawyx in https://openyurt.io/docs/test-report/pod-recover-efficiency-test
+
+#### Installation Upgrade
+
+early installation way(convert K8s to OpenYurt) is removed. OpenYurt Cluster installation is divided into two parts:
+- [Install OpenYurt Control Plane Components](https://openyurt.io/docs/installation/summary#part-1-install-control-plane-components)
+- [Join Nodes](https://openyurt.io/docs/installation/yurtadm-join)
+
+and all Control Plane Components of OpenYurt are managed by helm charts in repo: https://github.com/openyurtio/openyurt-helm
+
+### Other Notable changes
+
+- upgrade kubeadm to 1.22 by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/864
+- [Proposal] Proposal to install openyurt components using helm by @zhangzhenyuyu in https://github.com/openyurtio/openyurt/pull/849
+- support yurtadm token subcommand by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/875
+- bugfix: only set signer name when not nil in order to prevent panic. by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/877
+- [proposal] add proposal of multiplexing cloud-edge traffic by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/804
+- yurthub return fake token when edge node disconnected with K8s APIServer by @LinFCai in https://github.com/openyurtio/openyurt/pull/868
+- deprecate cert-mgr-mode option of yurthub by @Congrool in https://github.com/openyurtio/openyurt/pull/901
+- [Proposal] add proposal of daemosnet update model by @hxcGit in https://github.com/openyurtio/openyurt/pull/921
+- fix: cache the server version info of kubernetes by @Sodawyx in https://github.com/openyurtio/openyurt/pull/936
+- add yurt-tunnel-dns yaml by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/956
+- Separate YurtHubHost  & YurtHubProxyHost by @luc99hen in https://github.com/openyurtio/openyurt/pull/959
+- merge endpoints filter into service topology filter by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/963
+- support yurtadm join to join multiple master nodes by @windydayc in https://github.com/openyurtio/openyurt/pull/964
+- feature: add lantency metrics for yurthub by @luc99hen in https://github.com/openyurtio/openyurt/pull/965
+- bump ginkgo to v2 by @lorrielau in https://github.com/openyurtio/openyurt/pull/945
+- beta.kubernetes.io is deprecated, use kubernetes.io instead by @fujitatomoya in https://github.com/openyurtio/openyurt/pull/969
+
+**Full Changelog**: https://github.com/openyurtio/openyurt/compare/v0.7.0...v1.0.0-rc1
+
+Thanks again to all the contributors!
+
+---
 ## v0.7.0
 
 ### What's New
