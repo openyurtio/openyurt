@@ -180,7 +180,7 @@ func (fh *serviceTopologyFilterHandler) resolveServiceTopologyType(obj runtime.O
 
 	svc, err := fh.serviceLister.Services(svcNamespace).Get(svcName)
 	if err != nil {
-		klog.Infof("serviceTopologyFilterHandler: failed to get service %s/%s, err: %v", svcNamespace, svcName, err)
+		klog.Warningf("serviceTopologyFilterHandler: failed to get service %s/%s, err: %v", svcNamespace, svcName, err)
 		return false, ""
 	}
 
@@ -218,7 +218,7 @@ func (fh *serviceTopologyFilterHandler) nodeTopologyHandler(obj runtime.Object) 
 func (fh *serviceTopologyFilterHandler) nodePoolTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
 	currentNode, err := fh.nodeGetter(fh.nodeName)
 	if err != nil {
-		klog.Infof("skip serviceTopologyFilterHandler, failed to get current node %s, err: %v", fh.nodeName, err)
+		klog.Warningf("skip serviceTopologyFilterHandler, failed to get current node %s, err: %v", fh.nodeName, err)
 		return false, obj
 	}
 
@@ -230,7 +230,7 @@ func (fh *serviceTopologyFilterHandler) nodePoolTopologyHandler(obj runtime.Obje
 
 	nodePool, err := fh.nodePoolLister.Get(nodePoolName)
 	if err != nil {
-		klog.Infof("serviceTopologyFilterHandler: failed to get nodepool %s, err: %v", nodePoolName, err)
+		klog.Warningf("serviceTopologyFilterHandler: failed to get nodepool %s, err: %v", nodePoolName, err)
 		return false, obj
 	}
 
