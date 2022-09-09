@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.7.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.0.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -14,7 +14,7 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-| 最新发布：2022-05-27  OpenYurt v0.7.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 最新发布：2022-09-09  OpenYurt v1.0.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
 OpenYurt (官网: https://openyurt.io) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
@@ -64,13 +64,9 @@ OpenYurt 遵循经典的云边一体化架构。
 ## 开始使用
 OpenYurt 支持最高版本为1.22的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
 
-为了用户更方便的使用OpenYurt，用户可以根据下表，选择合适的方法来安装OpenYurt。
-
-| 体验方法                                 | 参考链接                                                     | 预计时间 |
-| ---------------------------------------- | ---------------------- | -------- |
-| 通过OpenYurt体验中心 | [OpenYurt体验中心](https://openyurt.io/docs/next/installation/openyurt-experience-center/overview) | < 1min   |
-| 从零安装一个OpenYurt集群                 | [yurtadm init/join](https://openyurt.io/zh/docs/next/installation/yurtadm-init-join) | <5min    |
-| 基于Kubernetes手动安装OpenYurt集群            | [manual](https://openyurt.io/docs/next/installation/manually-setup)    | 10min   |
+OpenYurt集群安装分成2个部分，分别为安装OpenYurt管控组件和节点接入。
+- [安装OpenYurt管控组件](https://openyurt.io/zh/docs/installation/summary/#part-1-%E5%AE%89%E8%A3%85openyurt%E7%AE%A1%E6%8E%A7%E7%BB%84%E4%BB%B6)
+- [节点接入](https://openyurt.io/zh/docs/installation/summary/#part-2-%E8%8A%82%E7%82%B9%E6%8E%A5%E5%85%A5)
 
 ## 使用方法
 OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示如何使用 OpenYurt。

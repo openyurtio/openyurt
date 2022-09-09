@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v0.7.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.0.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -14,7 +14,7 @@ English | [简体中文](./README.zh.md)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-|Latest Release: May 27th, 2022. OpenYurt v0.7.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
+|Latest Release: Sep 9th, 2022. OpenYurt v1.0.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1 |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
@@ -71,13 +71,9 @@ Please check the [resource and system requirements](https://github.com/openyurti
 ## Getting started
 
 OpenYurt supports Kubernetes versions up to 1.22. Using higher Kubernetes versions may cause
-compatibility issues. OpenYurt can be installed using any of the following methods:
-
-| Methods                                                   | Instruction                     | Estimated time |
-| --------------------------------------------------------- | -------------------------- | ---------- |
-| Try via OpenYurt experience center  | [OpenYurt experience center](https://openyurt.io/docs/next/installation/openyurt-experience-center/overview) | < 1 minutes     |
-| Install a new Kubernetes cluster with all OpenYurt components from scratch | [yurtadm init/join](https://openyurt.io/docs/next/installation/yurtadm-init-join) | < 5 minutes     |
-| Install an OpenYurt cluster manually based on Kubernetes cluster | [manual](https://openyurt.io/docs/next/installation/manually-setup)    | > 10 minutes     |
+compatibility issues. OpenYurt installation is divided into two parts:
+- [Install OpenYurt Control Plane Components](https://openyurt.io/docs/installation/summary#part-1-install-control-plane-components)
+- [Join Nodes](https://openyurt.io/docs/installation/summary#part-2-join-nodes)
 
 ## Tutorials
 
