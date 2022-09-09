@@ -31,7 +31,6 @@ import (
 	"k8s.io/klog/v2"
 
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
-	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
@@ -56,41 +55,15 @@ const (
 	TmpDownloadDir = "/tmp"
 
 	SealerUrlFormat      = "https://github.com/alibaba/sealer/releases/download/%s/sealer-%s-linux-%s.tar.gz"
-	DefaultSealerVersion = "v0.8.5"
+	DefaultSealerVersion = "v0.8.6"
 
 	InitClusterImage = "%s/openyurt-cluster:%s"
-	SealerRunCmd     = "sealer apply -f %s/Clusterfile"
-
-	OpenYurtClusterfile = `
-apiVersion: sealer.cloud/v2
-kind: Cluster
-metadata:
-  name: my-cluster
-spec:
-  hosts:
-  - ips: [ {{.apiserver_address}} ]
-    roles: [ master ]
-  image: {{.cluster_image}}
-  ssh:
-    passwd: {{.passwd}}
-    pk: /root/.ssh/id_rsa
-    user: root
-  env:
-  - YurttunnelServerAddress={{.yurttunnel_server_address}}
-  - FlannelNetWork={{.pod_subnet}}
----
-
-## Custom configurations must specify kind, will be merged to default kubeadm configs
-kind: ClusterConfiguration
-networking:
-  podSubnet: {{.pod_subnet}}
-  serviceSubnet: {{.service_subnet}}
-`
+	SealerRunCmd     = "sealer run %s/openyurt-cluster:%s -e APIServerAdvertiseAddress=%s,YurttunnelServerAddress=%s,FlannelNetWork=%s,PodSubnet=%s,ServiceSubnet=%s"
 )
 
 var (
 	ValidSealerVersions = []string{
-		"v0.8.5",
+		"v0.8.6",
 	}
 )
 
@@ -140,9 +113,6 @@ func addFlags(flagset *flag.FlagSet, o *InitOptions) {
 		&o.PodSubnet, NetworkingPodSubnet, "", o.PodSubnet,
 		"Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node.",
 	)
-	flagset.StringVarP(&o.Password, PassWd, "p", o.Password,
-		"set master server ssh password",
-	)
 	flagset.StringVarP(
 		&o.OpenYurtVersion, OpenYurtVersion, "", o.OpenYurtVersion,
 		`Choose a specific OpenYurt version for the control plane.`,
@@ -161,10 +131,6 @@ func NewInitializerWithOptions(o *InitOptions) *clusterInitializer {
 // Run use sealer to initialize the master node.
 func (ci *clusterInitializer) Run() error {
 	if err := CheckAndInstallSealer(); err != nil {
-		return err
-	}
-
-	if err := ci.PrepareClusterfile(); err != nil {
 		return err
 	}
 
@@ -217,36 +183,9 @@ func CheckAndInstallSealer() error {
 // InstallCluster initialize the master of openyurt cluster by calling sealer
 func (ci *clusterInitializer) InstallCluster() error {
 	klog.Infof("init an openyurt cluster")
-	runCmd := fmt.Sprintf(SealerRunCmd, TmpDownloadDir)
+	runCmd := fmt.Sprintf(SealerRunCmd, ci.ImageRepository, ci.OpenYurtVersion, ci.AdvertiseAddress, ci.YurttunnelServerAddress, ci.PodSubnet, ci.PodSubnet, ci.ServiceSubnet)
 	cmd := exec.Command("bash", "-c", runCmd)
 	return execCmd(cmd)
-}
-
-// PrepareClusterfile fill the template and write the Clusterfile to the /tmp
-func (ci *clusterInitializer) PrepareClusterfile() error {
-	klog.Infof("generate Clusterfile for openyurt")
-	err := os.MkdirAll(TmpDownloadDir, constants.DirMode)
-	if err != nil {
-		return err
-	}
-
-	clusterfile, err := tmplutil.SubsituteTemplate(OpenYurtClusterfile, map[string]string{
-		"apiserver_address":         ci.AdvertiseAddress,
-		"cluster_image":             fmt.Sprintf(InitClusterImage, ci.ImageRepository, ci.OpenYurtVersion),
-		"passwd":                    ci.Password,
-		"pod_subnet":                ci.PodSubnet,
-		"service_subnet":            ci.ServiceSubnet,
-		"yurttunnel_server_address": ci.YurttunnelServerAddress,
-	})
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(fmt.Sprintf("%s/Clusterfile", TmpDownloadDir), []byte(clusterfile), constants.FileMode)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // execCmd will execute command and get the real-time output of the screen

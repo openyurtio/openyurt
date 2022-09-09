@@ -17,7 +17,6 @@ limitations under the License.
 package yurtinit
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/pkg/errors"
@@ -31,7 +30,6 @@ type InitOptions struct {
 	YurttunnelServerAddress string
 	ServiceSubnet           string
 	PodSubnet               string
-	Password                string
 	ImageRepository         string
 	OpenYurtVersion         string
 }
@@ -52,10 +50,6 @@ func (o *InitOptions) Validate() error {
 		if err := validateServerAddress(o.YurttunnelServerAddress); err != nil {
 			return err
 		}
-	}
-
-	if o.Password == "" {
-		return fmt.Errorf("password can't be empty.")
 	}
 
 	if o.PodSubnet == "" {
