@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podupdater
+package daemonpodupdater
 
 import (
 	"context"
@@ -22,21 +22,25 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 
-	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupdater/kubernetes"
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
+)
+
+const (
+	DefaultMaxUnavailable = "1"
+	CoupleMaxUnavailable  = "2"
 )
 
 var (
@@ -58,10 +62,7 @@ func newDaemonSet(name string, img string) *appsv1.DaemonSet {
 		},
 		Spec: appsv1.DaemonSetSpec{
 			RevisionHistoryLimit: &two,
-			// UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-			// 	Type: appsv1.OnDeleteDaemonSetStrategyType,
-			// },
-			Selector: &metav1.LabelSelector{MatchLabels: simpleDaemonSetLabel},
+			Selector:             &metav1.LabelSelector{MatchLabels: simpleDaemonSetLabel},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: simpleDaemonSetLabel,
@@ -108,6 +109,14 @@ func newPod(podName string, nodeName string, label map[string]string, ds *appsv1
 			Namespace:    metav1.NamespaceDefault,
 		},
 		Spec: podSpec,
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
 	}
 	pod.Name = names.SimpleNameGenerator.GenerateName(podName)
 	if ds != nil {
@@ -142,24 +151,6 @@ func newNode(name string, ready bool) *corev1.Node {
 	}
 }
 
-// func newNotReadyNode(name string) *corev1.Node {
-// 	return &corev1.Node{
-// 		TypeMeta: metav1.TypeMeta{APIVersion: "v1"},
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      name,
-// 			Namespace: metav1.NamespaceNone,
-// 		},
-// 		Status: corev1.NodeStatus{
-// 			Conditions: []corev1.NodeCondition{
-// 				{Type: corev1.NodeReady, Status: corev1.ConditionFalse},
-// 			},
-// 			Allocatable: corev1.ResourceList{
-// 				corev1.ResourcePods: resource.MustParse("100"),
-// 			},
-// 		},
-// 	}
-// }
-
 // ----------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------fakeController------------------------------------------------
 // ----------------------------------------------------------------------------------------------------------------
@@ -169,8 +160,6 @@ type fakeController struct {
 	dsStore   cache.Store
 	nodeStore cache.Store
 	podStore  cache.Store
-
-	fakeRecorder *record.FakeRecorder
 }
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -223,8 +212,6 @@ func newTest(initialObjests ...runtime.Object) (*fakeController, *fakePodControl
 		informerFactory.Core().V1().Pods(),
 	)
 
-	fakeRecorder := record.NewFakeRecorder(100)
-
 	c.daemonsetSynced = alwaysReady
 	c.nodeSynced = alwaysReady
 	c.podSynced = alwaysReady
@@ -238,7 +225,6 @@ func newTest(initialObjests ...runtime.Object) (*fakeController, *fakePodControl
 		informerFactory.Apps().V1().DaemonSets().Informer().GetStore(),
 		informerFactory.Core().V1().Nodes().Informer().GetStore(),
 		informerFactory.Core().V1().Pods().Informer().GetStore(),
-		fakeRecorder,
 	}
 
 	podControl.expectations = c.expectations
@@ -249,23 +235,37 @@ func newTest(initialObjests ...runtime.Object) (*fakeController, *fakePodControl
 // --------------------------------------------------Expectations--------------------------------------------------
 // ----------------------------------------------------------------------------------------------------------------
 
-func expectSyncDaemonSets(t *testing.T, fakeCtrl *fakeController, ds *appsv1.DaemonSet, podControl *fakePodControl, expectedDeletes int) error {
-	// t.Helper()
+func expectSyncDaemonSets(t *testing.T, tcase tCase, fakeCtrl *fakeController, ds *appsv1.DaemonSet,
+	podControl *fakePodControl, expectedDeletes int) {
 	key, err := cache.MetaNamespaceKeyFunc(ds)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 
-	err = fakeCtrl.syncDaemonsetHandler(key)
+	intstrv := intstrutil.Parse(tcase.maxUnavailable)
+	maxUnavailable, err := intstrutil.GetScaledValueFromIntOrPercent(&intstrv, tcase.nodeNum, true)
 	if err != nil {
-		return err
+		t.Fatal(err)
+	}
+	// Execute test case
+	round := expectedDeletes / maxUnavailable
+	for round >= 0 {
+		err = fakeCtrl.syncDaemonsetHandler(key)
+		if err != nil {
+			t.Fatalf("Test %q does not passed, got syncDaemonsetHandler error %v", tcase.name, err)
+		}
+		round--
 	}
 
-	err = validateSyncDaemonSets(fakeCtrl, podControl, expectedDeletes)
-	if err != nil {
-		return err
+	// Validate deleted pods number
+	if !tcase.wantDelete {
+		return
 	}
-	return nil
+
+	err = validateSyncDaemonSets(podControl, expectedDeletes)
+	if err != nil {
+		t.Fatalf("Test %q does not passed, %v", tcase.name, err)
+	}
 }
 
 // clearExpectations copies the FakePodControl to PodStore and clears the delete expectations.
@@ -284,8 +284,12 @@ func expectSyncDaemonSets(t *testing.T, fakeCtrl *fakeController, ds *appsv1.Dae
 // -------------------------------------------------------util-----------------------------------------------------
 // ----------------------------------------------------------------------------------------------------------------
 
-func setAutoUpgradeAnnotation(ds *appsv1.DaemonSet) {
-	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpgradeAnnotation, AutoUpgrade)
+func setAutoUpdateAnnotation(ds *appsv1.DaemonSet) {
+	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpdateAnnotation, AutoUpdate)
+}
+
+func setMaxUnavailableAnnotation(ds *appsv1.DaemonSet, v string) {
+	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, MaxUnavailableAnnotation, v)
 }
 
 func setOnDelete(ds *appsv1.DaemonSet) {
@@ -295,15 +299,14 @@ func setOnDelete(ds *appsv1.DaemonSet) {
 }
 
 // validateSyncDaemonSets check whether the number of deleted pod and events meet expectations
-func validateSyncDaemonSets(fakeCtrl *fakeController, fakePodControl *fakePodControl, expectedDeletes int) error {
+func validateSyncDaemonSets(fakePodControl *fakePodControl, expectedDeletes int) error {
 	if len(fakePodControl.DeletePodName) != expectedDeletes {
 		return fmt.Errorf("Unexpected number of deletes.  Expected %d, got %v\n", expectedDeletes, fakePodControl.DeletePodName)
 	}
 	return nil
 }
 
-func addNodesWithPods(f *fakePodControl, nodeStore cache.Store, podStore cache.Store,
-	startIndex, numNodes int, ds *appsv1.DaemonSet, ready bool) ([]*corev1.Node, error) {
+func addNodesWithPods(fakeCtrl *fakeController, f *fakePodControl, startIndex, numNodes int, ds *appsv1.DaemonSet, ready bool) ([]*corev1.Node, error) {
 	nodes := make([]*corev1.Node, 0)
 
 	for i := startIndex; i < startIndex+numNodes; i++ {
@@ -313,19 +316,18 @@ func addNodesWithPods(f *fakePodControl, nodeStore cache.Store, podStore cache.S
 			nodeName = fmt.Sprintf("node-ready-%d", i)
 		case false:
 			nodeName = fmt.Sprintf("node-not-ready-%d", i)
-
 		}
 
 		node := newNode(nodeName, ready)
-		err := nodeStore.Add(node)
+		err := fakeCtrl.nodeStore.Add(node)
 		if err != nil {
 			return nil, err
 		}
 		nodes = append(nodes, node)
 
-		podName := fmt.Sprintf("pod-%d", i)
-		pod := newPod(podName, nodeName, simpleDaemonSetLabel, ds)
-		err = podStore.Add(pod)
+		podPrefix := fmt.Sprintf("pod-%d", i)
+		pod := newPod(podPrefix, nodeName, simpleDaemonSetLabel, ds)
+		err = fakeCtrl.podStore.Add(pod)
 		if err != nil {
 			return nil, err
 		}
@@ -344,22 +346,54 @@ type tCase struct {
 	strategy       string
 	nodeNum        int
 	readyNodeNum   int
-	maxUnavailable int
+	maxUnavailable string
 	turnReady      bool
+	wantDelete     bool
 }
 
 // DaemonSets should place onto NotReady nodes
-func TestNotReadyNodeDaemonDoesLaunchPod(t *testing.T) {
+func TestDaemonsetPodUpdater(t *testing.T) {
 
 	tcases := []tCase{
+		{
+			name:           "failed with not OnDelete strategy",
+			onDelete:       false,
+			strategy:       "auto",
+			nodeNum:        3,
+			readyNodeNum:   3,
+			maxUnavailable: DefaultMaxUnavailable,
+			turnReady:      false,
+			wantDelete:     false,
+		},
 		{
 			name:           "success",
 			onDelete:       true,
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
-			maxUnavailable: 1,
+			maxUnavailable: DefaultMaxUnavailable,
 			turnReady:      false,
+			wantDelete:     true,
+		},
+		{
+			name:           "success with maxUnavailable is 2",
+			onDelete:       true,
+			strategy:       "auto",
+			nodeNum:        3,
+			readyNodeNum:   3,
+			maxUnavailable: CoupleMaxUnavailable,
+			turnReady:      false,
+			wantDelete:     true,
+		},
+		{
+			name:           "success with maxUnavailable is 50%",
+			onDelete:       true,
+			strategy:       "auto",
+			nodeNum:        3,
+			readyNodeNum:   3,
+			maxUnavailable: "50%",
+			turnReady:      false,
+			wantDelete:     true,
 		},
 		{
 			name:           "success with 1 node not-ready",
@@ -367,8 +401,9 @@ func TestNotReadyNodeDaemonDoesLaunchPod(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   2,
-			maxUnavailable: 1,
+			maxUnavailable: DefaultMaxUnavailable,
 			turnReady:      false,
+			wantDelete:     true,
 		},
 		{
 			name:           "success with 2 nodes not-ready",
@@ -376,8 +411,9 @@ func TestNotReadyNodeDaemonDoesLaunchPod(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   1,
-			maxUnavailable: 1,
+			maxUnavailable: DefaultMaxUnavailable,
 			turnReady:      false,
+			wantDelete:     true,
 		},
 		{
 			name:           "success with 2 nodes not-ready, then turn ready",
@@ -385,47 +421,48 @@ func TestNotReadyNodeDaemonDoesLaunchPod(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   1,
-			maxUnavailable: 1,
+			maxUnavailable: DefaultMaxUnavailable,
 			turnReady:      true,
+			wantDelete:     true,
 		},
 	}
 
 	for _, tcase := range tcases {
-		t.Log(tcase.name)
+		t.Logf("Current test case is %q", tcase.name)
 		ds := newDaemonSet("ds", "foo/bar:v1")
 		if tcase.onDelete {
 			setOnDelete(ds)
 		}
+		setMaxUnavailableAnnotation(ds, tcase.maxUnavailable)
 		switch tcase.strategy {
-		case AutoUpgrade:
-			setAutoUpgradeAnnotation(ds)
+		case AutoUpdate:
+			setAutoUpdateAnnotation(ds)
 		}
 
 		fakeCtrl, podControl := newTest(ds)
 
 		// add ready nodes and its pods
-		_, err := addNodesWithPods(podControl, fakeCtrl.nodeStore,
-			fakeCtrl.podStore, 1, tcase.readyNodeNum, ds, true)
+		_, err := addNodesWithPods(fakeCtrl, podControl, 1, tcase.readyNodeNum, ds, true)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// add not-ready nodes and its pods
-		notReadyNodes, err := addNodesWithPods(podControl, fakeCtrl.nodeStore,
-			fakeCtrl.podStore, 1, tcase.nodeNum-tcase.readyNodeNum, ds, false)
+		notReadyNodes, err := addNodesWithPods(fakeCtrl, podControl, tcase.readyNodeNum+1, tcase.nodeNum-tcase.readyNodeNum, ds,
+			false)
 		if err != nil {
 			t.Fatal(err)
 		}
 
+		// Update daemonset specification
 		ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
-
 		err = fakeCtrl.dsStore.Add(ds)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = expectSyncDaemonSets(t, fakeCtrl, ds, podControl, tcase.readyNodeNum)
-		assert.Equal(t, nil, err)
+		// Check test case
+		expectSyncDaemonSets(t, tcase, fakeCtrl, ds, podControl, tcase.readyNodeNum)
 
 		if tcase.turnReady {
 			fakeCtrl.podControl.(*fakePodControl).Clear()
@@ -438,8 +475,7 @@ func TestNotReadyNodeDaemonDoesLaunchPod(t *testing.T) {
 				}
 			}
 
-			err = expectSyncDaemonSets(t, fakeCtrl, ds, podControl, tcase.nodeNum-tcase.readyNodeNum)
-			assert.Equal(t, nil, err)
+			expectSyncDaemonSets(t, tcase, fakeCtrl, ds, podControl, tcase.nodeNum-tcase.readyNodeNum)
 		}
 	}
 }

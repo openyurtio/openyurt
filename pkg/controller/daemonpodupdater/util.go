@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podupdater
+package daemonpodupdater
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	k8sutil "github.com/openyurtio/openyurt/pkg/controller/podupdater/kubernetes"
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 )
 
 // GetDaemonsetPods get all pods belong to the given daemonset
@@ -110,29 +110,24 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 	return false
 }
 
-// SetPodUpgradeAnnotation calculate and set annotation "apps.openyurt.io/pod-upgradable" to pod
-func SetPodUpgradeAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
-	ok := IsDaemonsetPodLatest(ds, pod)
+// SetPodUpdateAnnotation calculate and set annotation "apps.openyurt.io/pod-updatable" to pod
+func SetPodUpdateAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
+	isUpdatable := IsDaemonsetPodLatest(ds, pod)
 
-	var res bool
-	if !ok {
-		res = true
-	}
-
-	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, PodUpgradableAnnotation, strconv.FormatBool(res))
+	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, PodUpdatableAnnotation, strconv.FormatBool(!isUpdatable))
 	if _, err := clientset.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
-	klog.Infof("set pod %q annotation apps.openyurt.io/pod-upgradable to %v", pod.Name, res)
+	klog.Infof("set pod %q annotation apps.openyurt.io/pod-updatable to %v", pod.Name, !isUpdatable)
 
 	return nil
 }
 
 // checkPrerequisites checks that daemonset meets two conditions
-// 1. annotation "apps.openyurt.io/upgrade-strategy"="auto" or "ota"
+// 1. annotation "apps.openyurt.io/update-strategy"="auto" or "ota"
 // 2. update strategy is "OnDelete"
 func checkPrerequisites(ds *appsv1.DaemonSet) bool {
-	v, ok := ds.Annotations[UpgradeAnnotation]
+	v, ok := ds.Annotations[UpdateAnnotation]
 	if !ok || (v != "auto" && v != "ota") {
 		return false
 	}
@@ -178,4 +173,43 @@ func findUpdatedPodsOnNode(ds *appsv1.DaemonSet, podsOnNode []*corev1.Pod) (newP
 		}
 	}
 	return newPod, oldPod, true
+}
+
+// GetTargetNodeName get the target node name of DaemonSet pods. If `.spec.NodeName` is not empty (nil),
+// return `.spec.NodeName`; otherwise, retrieve node name of pending pods from NodeAffinity. Return error
+// if failed to retrieve node name from `.spec.NodeName` and NodeAffinity.
+func GetTargetNodeName(pod *corev1.Pod) (string, error) {
+	if len(pod.Spec.NodeName) != 0 {
+		return pod.Spec.NodeName, nil
+	}
+
+	// Retrieve node name of unscheduled pods from NodeAffinity
+	if pod.Spec.Affinity == nil ||
+		pod.Spec.Affinity.NodeAffinity == nil ||
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		return "", fmt.Errorf("no spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution for pod %s/%s",
+			pod.Namespace, pod.Name)
+	}
+
+	terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	if len(terms) < 1 {
+		return "", fmt.Errorf("no nodeSelectorTerms in requiredDuringSchedulingIgnoredDuringExecution of pod %s/%s",
+			pod.Namespace, pod.Name)
+	}
+
+	for _, term := range terms {
+		for _, exp := range term.MatchFields {
+			if exp.Key == metav1.ObjectNameField &&
+				exp.Operator == corev1.NodeSelectorOpIn {
+				if len(exp.Values) != 1 {
+					return "", fmt.Errorf("the matchFields value of '%s' is not unique for pod %s/%s",
+						metav1.ObjectNameField, pod.Namespace, pod.Name)
+				}
+
+				return exp.Values[0], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no node name found for pod %s/%s", pod.Namespace, pod.Name)
 }

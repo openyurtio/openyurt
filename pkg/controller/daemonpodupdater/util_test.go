@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podupdater
+package daemonpodupdater
 
 import (
 	"testing"
@@ -89,7 +89,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/upgrade-strategy": "ota",
+						"apps.openyurt.io/update-strategy": "ota",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -105,7 +105,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/upgrade-strategy": "auto",
+						"apps.openyurt.io/update-strategy": "auto",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -121,7 +121,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/upgrade-strategy": "other",
+						"apps.openyurt.io/update-strategy": "other",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -148,7 +148,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/upgrade-strategy": "other",
+						"apps.openyurt.io/update-strategy": "other",
 					},
 				},
 			},

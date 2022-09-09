@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -57,52 +56,13 @@ const (
 	// 500 pods. Just creation is limited to 20qps, and watching happens with ~10-30s
 	// latency/pod at the scale of 3000 pods over 100 nodes.
 	ExpectationsTimeout = 5 * time.Minute
-	// When batching pod creates, SlowStartInitialBatchSize is the size of the
-	// initial batch.  The size of each successive batch is twice the size of
-	// the previous batch.  For example, for a value of 1, batch sizes would be
-	// 1, 2, 4, 8, ...  and for a value of 10, batch sizes would be
-	// 10, 20, 40, 80, ...  Setting the value higher means that quota denials
-	// will result in more doomed API calls and associated event spam.  Setting
-	// the value lower will result in more API call round trip periods for
-	// large batches.
-	//
-	// Given a number of pods to start "N":
-	// The number of doomed calls per sync once quota is exceeded is given by:
-	//      min(N,SlowStartInitialBatchSize)
-	// The number of batches is given by:
-	//      1+floor(log_2(ceil(N/SlowStartInitialBatchSize)))
-	SlowStartInitialBatchSize = 1
 )
-
-var UpdateTaintBackoff = wait.Backoff{
-	Steps:    5,
-	Duration: 100 * time.Millisecond,
-	Jitter:   1.0,
-}
-
-var UpdateLabelBackoff = wait.Backoff{
-	Steps:    5,
-	Duration: 100 * time.Millisecond,
-	Jitter:   1.0,
-}
 
 var (
 	KeyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
 )
 
 type ResyncPeriodFunc func() time.Duration
-
-// Returns 0 for resyncPeriod in case resyncing is not needed.
-func NoResyncPeriodFunc() time.Duration {
-	return 0
-}
-
-// StaticResyncPeriodFunc returns the resync period specified
-func StaticResyncPeriodFunc(resyncPeriod time.Duration) ResyncPeriodFunc {
-	return func() time.Duration {
-		return resyncPeriod
-	}
-}
 
 // Expectations are a way for controllers to tell the controller manager what they expect. eg:
 //	ControllerExpectations: {
@@ -365,12 +325,6 @@ func (u *UIDTrackingControllerExpectations) DeleteExpectations(rcKey string) {
 			klog.V(2).Infof("Error deleting uid expectations for controller %v: %v", rcKey, err)
 		}
 	}
-}
-
-// NewUIDTrackingControllerExpectations returns a wrapper around
-// ControllerExpectations that is aware of deleteKeys.
-func NewUIDTrackingControllerExpectations(ce ControllerExpectationsInterface) *UIDTrackingControllerExpectations {
-	return &UIDTrackingControllerExpectations{ControllerExpectationsInterface: ce, uidStore: cache.NewStore(UIDSetKeyFunc)}
 }
 
 // Reasons for pod events
