@@ -59,7 +59,7 @@ func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]
 	return dsPods, nil
 }
 
-// IsDaemonsetPodLatest check whether pod is latest by comparing its Spec with daemonset's
+// IsDaemonsetPodLatest check whether pod is the latest by comparing its Spec with daemonset's
 // If pod is latest, return true, otherwise return false
 func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) bool {
 	hash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
@@ -134,7 +134,7 @@ func checkPrerequisites(ds *appsv1.DaemonSet) bool {
 	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType
 }
 
-// Clones the given map and returns a new map with the given key and value added.
+// CloneAndAddLabel clones the given map and returns a new map with the given key and value added.
 // Returns the given map, if labelKey is empty.
 func CloneAndAddLabel(labels map[string]string, labelKey, labelValue string) map[string]string {
 	if labelKey == "" {

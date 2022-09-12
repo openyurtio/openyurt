@@ -22,9 +22,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -169,12 +169,12 @@ type fakePodControl struct {
 	sync.Mutex
 	*k8sutil.FakePodControl
 	podStore     cache.Store
-	podIDMap     map[string]*v1.Pod
+	podIDMap     map[string]*corev1.Pod
 	expectations k8sutil.ControllerExpectationsInterface
 }
 
 func newFakePodControl() *fakePodControl {
-	podIDMap := make(map[string]*v1.Pod)
+	podIDMap := make(map[string]*corev1.Pod)
 	return &fakePodControl{
 		FakePodControl: &k8sutil.FakePodControl{},
 		podIDMap:       podIDMap,
@@ -250,7 +250,7 @@ func expectSyncDaemonSets(t *testing.T, tcase tCase, fakeCtrl *fakeController, d
 	// Execute test case
 	round := expectedDeletes / maxUnavailable
 	for round >= 0 {
-		err = fakeCtrl.syncDaemonsetHandler(key)
+		err = fakeCtrl.syncHandler(key)
 		if err != nil {
 			t.Fatalf("Test %q does not passed, got syncDaemonsetHandler error %v", tcase.name, err)
 		}
@@ -268,24 +268,16 @@ func expectSyncDaemonSets(t *testing.T, tcase tCase, fakeCtrl *fakeController, d
 	}
 }
 
-// clearExpectations copies the FakePodControl to PodStore and clears the delete expectations.
-// func clearExpectations(t *testing.T, fakeCtrl *fakeController, ds *appsv1.DaemonSet, fakePodControl *fakePodControl) {
-// 	fakePodControl.Clear()
-
-// 	key, err := cache.MetaNamespaceKeyFunc(ds)
-// 	if err != nil {
-// 		t.Errorf("Could not get key for daemon.")
-// 		return
-// 	}
-// 	fakeCtrl.expectations.DeleteExpectations(key)
-// }
-
 // ----------------------------------------------------------------------------------------------------------------
 // -------------------------------------------------------util-----------------------------------------------------
 // ----------------------------------------------------------------------------------------------------------------
 
 func setAutoUpdateAnnotation(ds *appsv1.DaemonSet) {
 	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpdateAnnotation, AutoUpdate)
+}
+
+func setOTAUpdateAnnotation(ds *appsv1.DaemonSet) {
+	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpdateAnnotation, OTAUpdate)
 }
 
 func setMaxUnavailableAnnotation(ds *appsv1.DaemonSet, v string) {
@@ -478,4 +470,49 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			expectSyncDaemonSets(t, tcase, fakeCtrl, ds, podControl, tcase.nodeNum-tcase.readyNodeNum)
 		}
 	}
+}
+
+func TestOTAUpdate(t *testing.T) {
+	ds := newDaemonSet("ds", "foo/bar:v1")
+	setOTAUpdateAnnotation(ds)
+
+	node := newNode("node", true)
+	oldPod := newPod("old-pod", node.Name, simpleDaemonSetLabel, ds)
+	ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
+	newPod := newPod("new-pod", node.Name, simpleDaemonSetLabel, ds)
+
+	fakeCtrl, _ := newTest(ds, oldPod, newPod, node)
+
+	fakeCtrl.podStore.Add(oldPod)
+	fakeCtrl.podStore.Add(newPod)
+	fakeCtrl.dsStore.Add(ds)
+	fakeCtrl.nodeStore.Add(node)
+
+	key, err := cache.MetaNamespaceKeyFunc(ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = fakeCtrl.syncHandler(key); err != nil {
+		t.Fatalf("OTA test does not passed, got syncDaemonsetHandler error %v", err)
+	}
+
+	// check whether ota upgradable annotation set properly
+	oldPodGot, err := fakeCtrl.kubeclientset.CoreV1().Pods(ds.Namespace).Get(context.TODO(), oldPod.Name,
+		metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("get oldPod failed, %+v", err)
+	}
+
+	newPodGot, err := fakeCtrl.kubeclientset.CoreV1().Pods(ds.Namespace).Get(context.TODO(), newPod.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("get newPod failed, %+v", err)
+	}
+
+	annOldPodGot, oldPodOK := oldPodGot.Annotations[PodUpdatableAnnotation]
+	assert.Equal(t, true, oldPodOK)
+	assert.Equal(t, "true", annOldPodGot)
+
+	annNewPodGot, newPodOK := newPodGot.Annotations[PodUpdatableAnnotation]
+	assert.Equal(t, true, newPodOK)
+	assert.Equal(t, "false", annNewPodGot)
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -87,7 +87,7 @@ func Test_checkPrerequisites(t *testing.T) {
 		{
 			name: "satisfied-ota",
 			ds: &appsv1.DaemonSet{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"apps.openyurt.io/update-strategy": "ota",
 					},
@@ -103,7 +103,7 @@ func Test_checkPrerequisites(t *testing.T) {
 		{
 			name: "satisfied-auto",
 			ds: &appsv1.DaemonSet{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"apps.openyurt.io/update-strategy": "auto",
 					},
@@ -119,7 +119,7 @@ func Test_checkPrerequisites(t *testing.T) {
 		{
 			name: "unsatisfied-other",
 			ds: &appsv1.DaemonSet{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"apps.openyurt.io/update-strategy": "other",
 					},
@@ -146,7 +146,7 @@ func Test_checkPrerequisites(t *testing.T) {
 		{
 			name: "unsatisfied-without-updateStrategy",
 			ds: &appsv1.DaemonSet{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"apps.openyurt.io/update-strategy": "other",
 					},
@@ -164,6 +164,66 @@ func Test_checkPrerequisites(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := checkPrerequisites(tt.ds); got != tt.want {
 				t.Errorf("checkPrerequisites() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetTargetNodeName(t *testing.T) {
+	pod := newPod("pod", "", nil, nil)
+
+	podWithName := pod.DeepCopy()
+	podWithName.Spec.NodeName = "node"
+
+	podwithAffinity := pod.DeepCopy()
+	podwithAffinity.Spec.Affinity = &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchFields: []corev1.NodeSelectorRequirement{
+							{
+								Key:      metav1.ObjectNameField,
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"affinity"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		pod     *corev1.Pod
+		want    string
+		wantErr bool
+	}{
+		{
+			pod:     pod,
+			want:    "",
+			wantErr: true,
+		},
+		{
+			pod:     podWithName,
+			want:    "node",
+			wantErr: false,
+		},
+		{
+			pod:     podwithAffinity,
+			want:    "affinity",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			got, err := GetTargetNodeName(tt.pod)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetTargetNodeName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GetTargetNodeName() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
