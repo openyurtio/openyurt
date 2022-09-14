@@ -87,7 +87,7 @@ func (cm *cacheManager) deleteConfigmap(obj interface{}) {
 
 // updateCacheAgents update cache agents
 func (cm *cacheManager) updateCacheAgents(cacheAgents, action string) sets.String {
-	newAgents := sets.NewString()
+	newAgents := sets.NewString(util.DefaultCacheAgents...)
 	for _, agent := range strings.Split(cacheAgents, sepForAgent) {
 		agent = strings.TrimSpace(agent)
 		if len(agent) != 0 {
@@ -97,24 +97,15 @@ func (cm *cacheManager) updateCacheAgents(cacheAgents, action string) sets.Strin
 
 	cm.Lock()
 	defer cm.Unlock()
-	cm.cacheAgents = cm.cacheAgents.Delete(util.DefaultCacheAgents...)
+
 	if cm.cacheAgents.Equal(newAgents) {
-		// add default cache agents
-		cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
 		return sets.String{}
 	}
 
-	// get deleted and added agents
 	deletedAgents := cm.cacheAgents.Difference(newAgents)
-	addedAgents := newAgents.Difference(cm.cacheAgents)
-
-	// construct new cache agents
-	cm.cacheAgents = cm.cacheAgents.Delete(deletedAgents.List()...)
-	cm.cacheAgents = cm.cacheAgents.Insert(addedAgents.List()...)
-	cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
+	cm.cacheAgents = newAgents
 	klog.Infof("current cache agents: %v after %s, deleted agents: %v", cm.cacheAgents, action, deletedAgents)
 
-	// return deleted agents
 	return deletedAgents
 }
 
