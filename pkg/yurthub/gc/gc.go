@@ -62,7 +62,7 @@ func NewGCManager(cfg *config.YurtHubConfiguration, restConfigManager *rest.Rest
 		eventsGCFrequency: time.Duration(gcFrequency) * time.Minute,
 		stopCh:            stopCh,
 	}
-	_ = mgr.gcPodsWhenRestart()
+	mgr.gcPodsWhenRestart()
 	return mgr, nil
 }
 
@@ -89,29 +89,30 @@ func (m *GCManager) Run() {
 	}, m.eventsGCFrequency, 2, true, m.stopCh)
 }
 
-func (m *GCManager) gcPodsWhenRestart() error {
+func (m *GCManager) gcPodsWhenRestart() {
 	localPodKeys, err := m.store.ListKeys("kubelet/pods")
 	if err != nil || len(localPodKeys) == 0 {
-		return nil
+		klog.Infof("local storage for kubelet pods is empty, not need to gc pods")
+		return
 	}
 	klog.Infof("list pod keys from storage, total: %d", len(localPodKeys))
 
 	cfg := m.restConfigManager.GetRestConfig(true)
 	if cfg == nil {
 		klog.Errorf("could not get rest config, so skip gc pods when restart")
-		return err
+		return
 	}
 	kubeClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf("could not new kube client, %v", err)
-		return err
+		return
 	}
 
 	listOpts := metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector("spec.nodeName", m.nodeName).String()}
 	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), listOpts)
 	if err != nil {
 		klog.Errorf("could not list pods for node(%s), %v", m.nodeName, err)
-		return err
+		return
 	}
 
 	currentPodKeys := make(map[string]struct{}, len(podList.Items))
@@ -133,7 +134,7 @@ func (m *GCManager) gcPodsWhenRestart() error {
 
 	if len(deletedPods) == len(localPodKeys) {
 		klog.Infof("it's dangerous to gc all cache pods, so skip gc")
-		return nil
+		return
 	}
 
 	for _, key := range deletedPods {
@@ -144,7 +145,6 @@ func (m *GCManager) gcPodsWhenRestart() error {
 		}
 	}
 
-	return nil
 }
 
 func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
