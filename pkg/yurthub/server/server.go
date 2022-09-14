@@ -175,8 +175,6 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 	// register handler for ota upgrade
 	c.Handle("/openyurt.io/v1/pods", ota.GetPods(clientset)).Methods("GET")
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/update", ota.UpdatePod(clientset)).Methods("POST")
-	// c.HandleFunc("/pods", ota.GetPods).Methods("GET")
-	// c.HandleFunc("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade", ota.UpgradePod).Methods("POST")
 }
 
 // healthz returns ok for healthz request

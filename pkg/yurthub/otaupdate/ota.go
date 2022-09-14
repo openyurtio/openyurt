@@ -26,7 +26,6 @@ import (
 	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	client "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -94,7 +93,7 @@ func UpdatePod(clientset kubernetes.Interface) http.Handler {
 
 // getDaemonsetPodUpdateStatus check pods annotation "apps.openyurt.io/pod-updatable"
 // to determine whether new version application is availabel
-func getPodUpdateStatus(clientset client.Interface) ([]*PodStatus, error) {
+func getPodUpdateStatus(clientset kubernetes.Interface) ([]*PodStatus, error) {
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -129,7 +128,7 @@ func getPodUpdateStatus(clientset client.Interface) ([]*PodStatus, error) {
 }
 
 // applyUpdate execute pod update process by deleting pod under OnDelete update strategy
-func applyUpdate(clientset client.Interface, namespace, podName string) (error, bool) {
+func applyUpdate(clientset kubernetes.Interface, namespace, podName string) (error, bool) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Get pod %v/%v failed, %v", namespace, podName, err)
@@ -165,4 +164,14 @@ func applyUpdate(clientset client.Interface, namespace, podName string) (error, 
 
 	klog.Infof("Update pod: %v/%v success", namespace, podName)
 	return nil, true
+}
+
+// returnErr write the given error to response and set response header to the given error type
+func returnErr(err error, w http.ResponseWriter, errType int) {
+	w.WriteHeader(errType)
+	n := len([]byte(err.Error()))
+	nw, e := w.Write([]byte(err.Error()))
+	if e != nil || nw != n {
+		klog.Errorf("write resp for request, expect %d bytes but write %d bytes with error, %v", n, nw, e)
+	}
 }

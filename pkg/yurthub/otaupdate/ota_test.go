@@ -41,68 +41,87 @@ func newPod(podName string) *corev1.Pod {
 	return pod
 }
 
+func newPodWithAnnotation(podName string, ready bool) *corev1.Pod {
+	pod := newPod(podName)
+	setPodUpdatableAnnotation(pod, ready)
+
+	return pod
+}
+
 func setPodUpdatableAnnotation(pod *corev1.Pod, ok bool) {
 	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, PodUpdatableAnnotation, strconv.FormatBool(ok))
 }
 
 func TestGetPods(t *testing.T) {
-	updatablePod := newPod("updatable")
-	setPodUpdatableAnnotation(updatablePod, true)
-	notUpdatablePod := newPod("not-updatable")
-	setPodUpdatableAnnotation(notUpdatablePod, false)
+	updatablePod := newPodWithAnnotation("updatablePod", true)
+	notUpdatablePod := newPodWithAnnotation("notUpdatablePod", false)
+	normalPod := newPod("normalPod")
 
-	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod)
+	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod, normalPod)
 
-	req, err := http.NewRequest("POST", "/", nil)
+	req, err := http.NewRequest("GET", "/openyurt.io/v1/pods", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	rr := httptest.NewRecorder()
 
 	GetPods(clientset).ServeHTTP(rr, req)
 
-	t.Logf("rr code is %+v, rr body is %+v", rr.Code, rr.Body)
-	// if status := rr.Code; status != http.StatusOK {
-	// 	t.Errorf("handler returned wrong status code: got %v want %v",
-	// 		status, http.StatusOK)
-	// }
+	expectedCode := http.StatusOK
+	expectedData := `[{"Namespace":"default","PodName":"normalPod","Updatable":false},{"Namespace":"default","PodName":"notUpdatablePod","Updatable":false},{"Namespace":"default","PodName":"updatablePod","Updatable":true}]`
 
-	expected := `[{"Namespace":"default","PodName":"not-updatable","Updatable":false},{"Namespace":"default","PodName":"updatable","Updatable":true}]`
-
-	// data := json.Unmarshal(rr.Body.Bytes(),)
-	assert.Equal(t, expected, rr.Body.String())
-	// if rr.Body.String() != expected {
-	// 	t.Errorf("handler returned unexpected body: got %v want %v",
-	// 		rr.Body.String(), expected)
-	// }
-
+	assert.Equal(t, expectedCode, rr.Code)
+	assert.Equal(t, expectedData, rr.Body.String())
 }
 
 func TestUpdatePod(t *testing.T) {
-
-	updatablePod := newPod("updatable-pod")
-	setPodUpdatableAnnotation(updatablePod, true)
-	notUpdatablePod := newPod("not-updatable-pod")
-	setPodUpdatableAnnotation(notUpdatablePod, false)
-
-	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod)
-
-	req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/updatable-pod/update", nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		reqURL       string
+		pod          *corev1.Pod
+		podName      string
+		expectedCode int
+		expectedData string
+	}{
+		{
+			reqURL:       "/openyurt.io/v1/namespaces/default/pods/updatablePod/update",
+			podName:      "updatablePod",
+			pod:          newPodWithAnnotation("updatablePod", true),
+			expectedCode: http.StatusOK,
+			expectedData: "",
+		},
+		{
+			reqURL:       "/openyurt.io/v1/namespaces/default/pods/notUpdatablePod/update",
+			podName:      "notUpdatablePod",
+			pod:          newPodWithAnnotation("notUpdatablePod", false),
+			expectedCode: http.StatusForbidden,
+			expectedData: "Pod is not-updatable",
+		},
+		{
+			reqURL:       "/openyurt.io/v1/namespaces/default/pods/wrongName/update",
+			podName:      "wrongName",
+			pod:          newPodWithAnnotation("trueName", true),
+			expectedCode: http.StatusInternalServerError,
+			expectedData: "Apply update failed",
+		},
 	}
+	for _, test := range tests {
+		clientset := fake.NewSimpleClientset(test.pod)
 
-	rr := httptest.NewRecorder()
+		req, err := http.NewRequest("POST", test.reqURL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		vars := map[string]string{
+			"ns":      "default",
+			"podname": test.podName,
+		}
+		req = mux.SetURLVars(req, vars)
+		rr := httptest.NewRecorder()
 
-	vars := map[string]string{
-		"ns":      "default",
-		"podname": "updatable-pod",
+		UpdatePod(clientset).ServeHTTP(rr, req)
+
+		assert.Equal(t, test.expectedCode, rr.Code)
+		assert.Equal(t, test.expectedData, rr.Body.String())
 	}
-	req = mux.SetURLVars(req, vars)
-
-	UpdatePod(clientset).ServeHTTP(rr, req)
-
-	t.Logf("rr code is %+v, rr body is %+v", rr.Code, rr.Body)
 
 }
