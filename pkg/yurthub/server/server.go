@@ -38,7 +38,7 @@ import (
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
-	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupgrade"
+	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 )
 
 // Server is an interface for providing http service for yurthub
@@ -173,8 +173,8 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 	c.Handle("/metrics", promhttp.Handler())
 
 	// register handler for ota upgrade
-	c.Handle("/pods", ota.GetPods(clientset)).Methods("GET")
-	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade", ota.UpgradePod(clientset)).Methods("POST")
+	c.Handle("/openyurt.io/v1/pods", ota.GetPods(clientset)).Methods("GET")
+	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/update", ota.UpdatePod(clientset)).Methods("POST")
 	// c.HandleFunc("/pods", ota.GetPods).Methods("GET")
 	// c.HandleFunc("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade", ota.UpgradePod).Methods("POST")
 }
