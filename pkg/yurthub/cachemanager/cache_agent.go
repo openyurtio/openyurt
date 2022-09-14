@@ -95,14 +95,13 @@ func (cm *cacheManager) updateCacheAgents(cacheAgents, action string) sets.Strin
 		}
 	}
 
-	cm.Lock()
-	defer cm.Unlock()
-	cm.cacheAgents = cm.cacheAgents.Delete(util.DefaultCacheAgents...)
-	if cm.cacheAgents.Equal(newAgents) {
-		// add default cache agents
-		cm.cacheAgents = cm.cacheAgents.Insert(util.DefaultCacheAgents...)
+	changedAgents := cm.cacheAgents.Difference(sets.NewString(util.DefaultCacheAgents...))
+	if changedAgents.Equal(newAgents) {
 		return sets.String{}
 	}
+
+	cm.Lock()
+	defer cm.Unlock()
 
 	// get deleted and added agents
 	deletedAgents := cm.cacheAgents.Difference(newAgents)
