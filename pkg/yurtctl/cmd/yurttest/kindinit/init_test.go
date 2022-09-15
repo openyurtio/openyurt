@@ -195,13 +195,15 @@ func TestKindOptions_Validate(t *testing.T) {
 		kubernetesVersion string
 		openyurtVersion   string
 		ignoreErr         bool
-		want              string
+		wantErr           bool
+		description       string
 	}{
 		{
 			0,
 			"v1.22",
 			"v0.6.0",
 			false,
+			true,
 			"the number of nodes must be greater than 0",
 		},
 		{
@@ -209,6 +211,7 @@ func TestKindOptions_Validate(t *testing.T) {
 			"v1.10.1",
 			"v0.6.0",
 			false,
+			true,
 			"unsupported kubernetes version: v1.10.1",
 		},
 		{
@@ -216,7 +219,8 @@ func TestKindOptions_Validate(t *testing.T) {
 			"v1.22",
 			"v0.1.0",
 			false,
-			"v0.1.0 is not a valid openyurt version, all valid versions are v0.5.0,v0.6.0,v0.6.1,v0.6.2,v0.7.0,latest. If you know what you're doing, you can set --ignore-error",
+			true,
+			"v0.1.0 is not a valid openyurt version",
 		},
 	}
 
@@ -257,7 +261,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		o.OpenYurtVersion = v.openyurtVersion
 		o.IgnoreError = v.ignoreErr
 		err := o.Validate()
-		if err.Error() != v.want {
+		if v.wantErr && err == nil {
 			t.Errorf("failed vaildate")
 		}
 	}
