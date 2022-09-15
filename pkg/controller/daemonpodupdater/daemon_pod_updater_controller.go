@@ -53,10 +53,8 @@ const (
 	OTAUpdate  = "ota"
 	AutoUpdate = "auto"
 
-	// PodUpdatableAnnotation is the annotation key added to pods to indicate
-	// whether a new version is available for update.
-	// This annotation will only be added if the update strategy is "apps.openyurt.io/update-strategy":"ota".
-	PodUpdatableAnnotation = "apps.openyurt.io/pod-updatable"
+	// PodNeedUpgrade indicates whether the pod is able to upgrade.
+	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
 
 	// MaxUnavailableAnnotation is the annotation key added to daemonset to indicate
 	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=auto".
@@ -291,8 +289,8 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 // checkOTAUpdate compare every pod to its owner daemonset to check if pod is updatable
-// If pod is in line with the latest daemonset spec, set annotation "apps.openyurt.io/pod-updatable" to "true"
-// while not, set annotation "apps.openyurt.io/pod-updatable" to "false"
+// If pod is in line with the latest daemonset spec, set pod condition "PodNeedUpgrade" to "false"
+// while not, set pod condition "PodNeedUpgrade" to "true"
 func (c *Controller) checkOTAUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
 	for nodeName, pods := range nodeToDaemonPods {
 		// Check if node is ready, ignore not-ready node
@@ -304,7 +302,7 @@ func (c *Controller) checkOTAUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[s
 			continue
 		}
 		for _, pod := range pods {
-			if err := SetPodUpdateAnnotation(c.kubeclientset, ds, pod); err != nil {
+			if err := SetPodUpgradeCondition(c.kubeclientset, ds, pod); err != nil {
 				return err
 			}
 		}

@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
+	util "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 // GetDaemonsetPods get all pods belong to the given daemonset
@@ -110,15 +111,29 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 	return false
 }
 
-// SetPodUpdateAnnotation calculate and set annotation "apps.openyurt.io/pod-updatable" to pod
-func SetPodUpdateAnnotation(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
+// SetPodUpgradeCondition calculate and set pod condition "PodNeedUpgrade"
+func SetPodUpgradeCondition(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
 	isUpdatable := IsDaemonsetPodLatest(ds, pod)
 
-	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, PodUpdatableAnnotation, strconv.FormatBool(!isUpdatable))
+	// Comply with K8s, use constant ConditionTrue and ConditionFalse
+	var status corev1.ConditionStatus
+	switch isUpdatable {
+	case true:
+		status = corev1.ConditionFalse
+	case false:
+		status = corev1.ConditionTrue
+	}
+
+	cond := &corev1.PodCondition{
+		Type:   PodNeedUpgrade,
+		Status: status,
+	}
+	util.UpdatePodCondition(&pod.Status, cond)
+
 	if _, err := clientset.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
-	klog.Infof("set pod %q annotation apps.openyurt.io/pod-updatable to %v", pod.Name, !isUpdatable)
+	klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)
 
 	return nil
 }
@@ -212,4 +227,22 @@ func GetTargetNodeName(pod *corev1.Pod) (string, error) {
 	}
 
 	return "", fmt.Errorf("no node name found for pod %s/%s", pod.Namespace, pod.Name)
+}
+
+// IsPodUpdatable returns true if a pod is updatable; false otherwise.
+func IsPodUpdatable(pod *corev1.Pod) bool {
+	return IsPodUpgradeConditionTrue(pod.Status)
+}
+
+// IsPodUpgradeConditionTrue returns true if a pod is updatable; false otherwise.
+func IsPodUpgradeConditionTrue(status corev1.PodStatus) bool {
+	condition := GetPodUpgradeCondition(status)
+	return condition != nil && condition.Status == corev1.ConditionTrue
+}
+
+// GetPodUpgradeCondition extracts the pod upgrade condition from the given status and returns that.
+// Returns nil if the condition is not present.
+func GetPodUpgradeCondition(status corev1.PodStatus) *corev1.PodCondition {
+	_, condition := k8sutil.GetPodCondition(&status, PodNeedUpgrade)
+	return condition
 }

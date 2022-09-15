@@ -496,7 +496,7 @@ func TestOTAUpdate(t *testing.T) {
 		t.Fatalf("OTA test does not passed, got syncDaemonsetHandler error %v", err)
 	}
 
-	// check whether ota upgradable annotation set properly
+	// check whether ota PodNeedUpgrade condition set properly
 	oldPodGot, err := fakeCtrl.kubeclientset.CoreV1().Pods(ds.Namespace).Get(context.TODO(), oldPod.Name,
 		metav1.GetOptions{})
 	if err != nil {
@@ -508,11 +508,6 @@ func TestOTAUpdate(t *testing.T) {
 		t.Errorf("get newPod failed, %+v", err)
 	}
 
-	annOldPodGot, oldPodOK := oldPodGot.Annotations[PodUpdatableAnnotation]
-	assert.Equal(t, true, oldPodOK)
-	assert.Equal(t, "true", annOldPodGot)
-
-	annNewPodGot, newPodOK := newPodGot.Annotations[PodUpdatableAnnotation]
-	assert.Equal(t, true, newPodOK)
-	assert.Equal(t, "false", annNewPodGot)
+	assert.Equal(t, true, IsPodUpdatable(oldPodGot))
+	assert.Equal(t, false, IsPodUpdatable(newPodGot))
 }
