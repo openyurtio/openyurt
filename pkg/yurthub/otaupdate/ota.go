@@ -65,13 +65,13 @@ func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
 }
 
 // UpdatePod update a specifc pod(namespace/podname) to the latest version
-func UpdatePod(clientset kubernetes.Interface) http.Handler {
+func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		namespace := params["ns"]
 		podName := params["podname"]
 
-		err, ok := applyUpdate(clientset, namespace, podName)
+		err, ok := applyUpdate(clientset, namespace, podName, nodeName)
 		if err != nil {
 			returnErr(fmt.Errorf("Apply update failed"), w, http.StatusInternalServerError)
 			return
@@ -85,16 +85,22 @@ func UpdatePod(clientset kubernetes.Interface) http.Handler {
 }
 
 // applyUpdate execute pod update process by deleting pod under OnDelete update strategy
-func applyUpdate(clientset kubernetes.Interface, namespace, podName string) (error, bool) {
+func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName string) (error, bool) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Get pod %v/%v failed, %v", namespace, podName, err)
 		return err, false
 	}
 
-	// Pod will not be updated while it's being deleted
+	// Pod will not be updated when it's being deleted
 	if pod.DeletionTimestamp != nil {
-		klog.Infof("Pod %v/%v is deleting, can not update", namespace, podName)
+		klog.Infof("Pod %v/%v is deleting, can not be updated", namespace, podName)
+		return nil, false
+	}
+
+	// Pod will not be updated when it's not running on the current node
+	if pod.Spec.NodeName != nodeName {
+		klog.Infof("Pod: %v/%v is running on %v, can not be updated", namespace, podName, pod.Spec.NodeName)
 		return nil, false
 	}
 

@@ -122,7 +122,7 @@ func TestUpdatePod(t *testing.T) {
 		req = mux.SetURLVars(req, vars)
 		rr := httptest.NewRecorder()
 
-		UpdatePod(clientset).ServeHTTP(rr, req)
+		UpdatePod(clientset, "").ServeHTTP(rr, req)
 
 		assert.Equal(t, test.expectedCode, rr.Code)
 		assert.Equal(t, test.expectedData, rr.Body.String())
