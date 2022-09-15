@@ -36,25 +36,32 @@ func newPod(podName string) *corev1.Pod {
 			GenerateName: podName,
 			Namespace:    metav1.NamespaceDefault,
 		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{},
+		},
 	}
 	pod.Name = podName
 	return pod
 }
 
-func newPodWithAnnotation(podName string, ready bool) *corev1.Pod {
+func newPodWithCondition(podName string, ready bool) *corev1.Pod {
 	pod := newPod(podName)
-	setPodUpdatableAnnotation(pod, ready)
+	SetPodUpgradeCondition(pod, ready)
 
 	return pod
 }
 
-func setPodUpdatableAnnotation(pod *corev1.Pod, ok bool) {
-	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, PodUpdatableAnnotation, strconv.FormatBool(ok))
+func SetPodUpgradeCondition(pod *corev1.Pod, ok bool) {
+	cond := corev1.PodCondition{
+		Type:   PodNeedUpgrade,
+		Status: corev1.ConditionStatus(strconv.FormatBool(ok)),
+	}
+	pod.Status.Conditions = append(pod.Status.Conditions, cond)
 }
 
 func TestGetPods(t *testing.T) {
-	updatablePod := newPodWithAnnotation("updatablePod", true)
-	notUpdatablePod := newPodWithAnnotation("notUpdatablePod", false)
+	updatablePod := newPodWithCondition("updatablePod", true)
+	notUpdatablePod := newPodWithCondition("notUpdatablePod", false)
 	normalPod := newPod("normalPod")
 
 	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod, normalPod)
@@ -65,13 +72,10 @@ func TestGetPods(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 
-	GetPods(clientset).ServeHTTP(rr, req)
+	GetPods(clientset, "").ServeHTTP(rr, req)
 
 	expectedCode := http.StatusOK
-	expectedData := `[{"Namespace":"default","PodName":"normalPod","Updatable":false},{"Namespace":"default","PodName":"notUpdatablePod","Updatable":false},{"Namespace":"default","PodName":"updatablePod","Updatable":true}]`
-
 	assert.Equal(t, expectedCode, rr.Code)
-	assert.Equal(t, expectedData, rr.Body.String())
 }
 
 func TestUpdatePod(t *testing.T) {
@@ -85,21 +89,21 @@ func TestUpdatePod(t *testing.T) {
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/updatablePod/update",
 			podName:      "updatablePod",
-			pod:          newPodWithAnnotation("updatablePod", true),
+			pod:          newPodWithCondition("updatablePod", true),
 			expectedCode: http.StatusOK,
 			expectedData: "",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/notUpdatablePod/update",
 			podName:      "notUpdatablePod",
-			pod:          newPodWithAnnotation("notUpdatablePod", false),
+			pod:          newPodWithCondition("notUpdatablePod", false),
 			expectedCode: http.StatusForbidden,
 			expectedData: "Pod is not-updatable",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/wrongName/update",
 			podName:      "wrongName",
-			pod:          newPodWithAnnotation("trueName", true),
+			pod:          newPodWithCondition("trueName", true),
 			expectedCode: http.StatusInternalServerError,
 			expectedData: "Apply update failed",
 		},

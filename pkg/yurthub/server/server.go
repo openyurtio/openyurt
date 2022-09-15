@@ -69,7 +69,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		klog.Errorf("cannot create the client set: %v", err)
 		return nil, err
 	}
-	registerHandlers(hubMux, cfg, certificateMgr, clientSet)
+	registerHandlers(hubMux, cfg, certificateMgr, clientSet, cfg.NodeName)
 	hubServer := &http.Server{
 		Addr:           cfg.YurtHubServerAddr,
 		Handler:        hubMux,
@@ -157,7 +157,7 @@ func (s *yurtHubServer) Run() {
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager, clientset *kubernetes.Clientset) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager, clientset *kubernetes.Clientset, nodeName string) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(certificateMgr)).Methods("POST", "PUT")
 
@@ -173,8 +173,8 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 	c.Handle("/metrics", promhttp.Handler())
 
 	// register handler for ota upgrade
-	c.Handle("/openyurt.io/v1/pods", ota.GetPods(clientset)).Methods("GET")
-	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/update", ota.UpdatePod(clientset)).Methods("POST")
+	c.Handle("/pods", ota.GetPods(clientset, nodeName)).Methods("GET")
+	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade", ota.UpdatePod(clientset)).Methods("POST")
 }
 
 // healthz returns ok for healthz request

@@ -21,44 +21,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
+// TODO(hxc): should use pkg/controller/daemonpodupdater.PodNeedUpgrade
 const (
-	PodUpdatableAnnotation = "apps.openyurt.io/pod-updatable"
+	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
 )
 
-type PodStatus struct {
-	Namespace string
-	PodName   string
-	// TODO: whether need to display
-	// OldImgs    []string
-	// NewImgs    []string
-	Updatable bool
-}
-
-// GetPods return all daemonset pods' update information by PodStatus
-func GetPods(clientset kubernetes.Interface) http.Handler {
+// GetPods return pod list
+func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		podsStatus, err := getPodUpdateStatus(clientset)
+		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+			FieldSelector: "spec.nodeName=" + nodeName,
+		})
 		if err != nil {
-			klog.Errorf("Get pods updatable status failed, %v", err)
-			returnErr(fmt.Errorf("Get daemonset's pods update status failed"), w, http.StatusInternalServerError)
+			klog.Errorf("Get pod list failed, %v", err)
+			returnErr(fmt.Errorf("Get pods list failed"), w, http.StatusInternalServerError)
 			return
 		}
-		klog.V(5).Infof("Got pods status list: %v", podsStatus)
+		klog.V(5).Infof("Got pod list: %v", podList)
 
-		// Successfully get daemonsets/pods update info
+		// Successfully get pod list
 		w.Header().Set("content-type", "text/json")
-		data, err := json.Marshal(podsStatus)
+		data, err := json.Marshal(podList)
 		if err != nil {
-			klog.Errorf("Marshal pods status failed: %v", err.Error())
-			returnErr(fmt.Errorf("Get daemonset's pods update status failed: data transfer to json format failed."), w, http.StatusInternalServerError)
+			klog.Errorf("Marshal pod list failed: %v", err.Error())
+			returnErr(fmt.Errorf("Get pod list failed: data transfer to json format failed."), w, http.StatusInternalServerError)
 			return
 		}
 
@@ -77,7 +71,6 @@ func UpdatePod(clientset kubernetes.Interface) http.Handler {
 		namespace := params["ns"]
 		podName := params["podname"]
 
-		klog.Info("12", namespace, podName)
 		err, ok := applyUpdate(clientset, namespace, podName)
 		if err != nil {
 			returnErr(fmt.Errorf("Apply update failed"), w, http.StatusInternalServerError)
@@ -91,42 +84,6 @@ func UpdatePod(clientset kubernetes.Interface) http.Handler {
 	})
 }
 
-// getDaemonsetPodUpdateStatus check pods annotation "apps.openyurt.io/pod-updatable"
-// to determine whether new version application is availabel
-func getPodUpdateStatus(clientset kubernetes.Interface) ([]*PodStatus, error) {
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	podsStatus := make([]*PodStatus, 0)
-	for _, pod := range pods.Items {
-		var updatable bool
-		v, ok := pod.Annotations[PodUpdatableAnnotation]
-
-		if !ok {
-			updatable = false
-		} else {
-			updatable, err = strconv.ParseBool(v)
-			if err != nil {
-				klog.Warningf("Pod %v with invalid update annotation %v", pod.Name, v)
-				continue
-			}
-		}
-
-		klog.V(5).Infof("Pod %v with update annotation %v", pod.Name, updatable)
-		podStatus := &PodStatus{
-			Namespace: pod.Namespace,
-			PodName:   pod.Name,
-			Updatable: updatable,
-		}
-		podsStatus = append(podsStatus, podStatus)
-
-	}
-
-	return podsStatus, nil
-}
-
 // applyUpdate execute pod update process by deleting pod under OnDelete update strategy
 func applyUpdate(clientset kubernetes.Interface, namespace, podName string) (error, bool) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -135,23 +92,15 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName string) (err
 		return err, false
 	}
 
-	// Pod will not be updated without annotation "apps.openyurt.io/pod-updatable"
-	v, ok := pod.Annotations[PodUpdatableAnnotation]
-	if !ok {
-		klog.Infof("Daemonset pod: %v/%v is not updatable without PodUpdatable annotation", namespace, podName)
+	// Pod will not be updated while it's being deleted
+	if pod.DeletionTimestamp != nil {
+		klog.Infof("Pod %v/%v is deleting, can not update", namespace, podName)
 		return nil, false
 	}
 
-	// Pod will not be updated when annotation "apps.openyurt.io/pod-updatable" value cannot be parsed
-	updatable, err := strconv.ParseBool(v)
-	if err != nil {
-		klog.Infof("Pod %v/%v is not updatable with invalid update annotation %v", namespace, podName, v)
-		return nil, false
-	}
-
-	// Pod will not be updated when annotation "apps.openyurt.io/pod-updatable" value is false
-	if !updatable {
-		klog.Infof("Pod %v/%v is not updatable with PodUpdatable annotation is %v", namespace, podName, updatable)
+	// Pod will not be updated without pod condition PodNeedUpgrade=true
+	if !IsPodUpdatable(pod) {
+		klog.Infof("Pod: %v/%v is not updatable", namespace, podName)
 		return nil, false
 	}
 
@@ -174,4 +123,20 @@ func returnErr(err error, w http.ResponseWriter, errType int) {
 	if e != nil || nw != n {
 		klog.Errorf("write resp for request, expect %d bytes but write %d bytes with error, %v", n, nw, e)
 	}
+}
+
+// TODO(hxc): should use pkg/controller/daemonpodupdater.IsPodUpdatable()
+// IsPodUpdatable returns true if a pod is updatable; false otherwise.
+func IsPodUpdatable(pod *corev1.Pod) bool {
+	if &pod.Status == nil || len(pod.Status.Conditions) == 0 {
+		return false
+	}
+
+	for i := range pod.Status.Conditions {
+		if pod.Status.Conditions[i].Type == PodNeedUpgrade && pod.Status.Conditions[i].Status == "true" {
+			return true
+		}
+	}
+
+	return false
 }
