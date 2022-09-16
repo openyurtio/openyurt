@@ -57,9 +57,9 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 		baseDir:          dir,
 	}
 
-	err := ds.Recover("")
-	if err != nil {
+	if err := ds.Recover(""); err != nil {
 		klog.Errorf("could not recover local storage, %v, and skip the error", err)
+		return nil, err
 	}
 	return ds, nil
 }
