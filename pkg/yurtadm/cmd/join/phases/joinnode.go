@@ -183,6 +183,7 @@ func addYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 		"joinToken":            data.JoinToken(),
 		"workingMode":          data.NodeRegistration().WorkingMode,
 		"organizations":        data.NodeRegistration().Organizations,
+		"yurthubServerAddr":    data.YurtHubServer(),
 	}
 
 	yurthubTemplate, err := templates.SubsituteTemplate(edgenode.YurthubTemplate, ctx)

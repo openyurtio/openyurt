@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/util/templates"
+	constants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -74,6 +75,7 @@ func (op *yurtHubOperator) Install() error {
 	// 1-1. replace variables in yaml file
 	klog.Infof("setting up yurthub apiServer addr")
 	yurthubTemplate, err := templates.SubsituteTemplate(enutil.YurthubTemplate, map[string]string{
+		"yurthubServerAddr":    constants.DefaultYurtHubServerAddr,
 		"kubernetesServerAddr": op.apiServerAddr,
 		"image":                op.yurthubImage,
 		"joinToken":            op.joinToken,

@@ -35,4 +35,7 @@ const (
 
 	// KubernetesResourceServer flag sets the address for download k8s node resources.
 	KubernetesResourceServer = "kubernetes-resource-server"
+
+	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
+	YurtHubServerAddr = "yurthub-server-addr"
 )
