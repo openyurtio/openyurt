@@ -69,7 +69,7 @@ func startYurtCSRApproverController(ctx ControllerContext) (http.Handler, bool, 
 
 func startDaemonPodUpdaterController(ctx ControllerContext) (http.Handler, bool, error) {
 	daemonPodUpdaterCtrl := daemonpodupdater.NewController(
-		ctx.ClientBuilder.ClientOrDie("podUpgrade-controller"),
+		ctx.ClientBuilder.ClientOrDie("daemonPodUpdater-controller"),
 		ctx.InformerFactory.Apps().V1().DaemonSets(),
 		ctx.InformerFactory.Core().V1().Nodes(),
 		ctx.InformerFactory.Core().V1().Pods(),

@@ -50,7 +50,12 @@ const (
 	// which update strategy is selected. Currently, "ota" and "auto" are supported.
 	UpdateAnnotation = "apps.openyurt.io/update-strategy"
 
-	OTAUpdate  = "ota"
+	// OTAUpdate set daemonset to over-the-air update mode.
+	// In daemonPodUpdater controller, we add PodNeedUpgrade condition to pods.
+	OTAUpdate = "ota"
+	// AutoUpdate set daemonset to auto update mode.
+	// In this mode, daemonset will keep updating even if there are not-ready nodes.
+	// For more details, see https://github.com/openyurtio/openyurt/pull/921.
 	AutoUpdate = "auto"
 
 	// PodNeedUpgrade indicates whether the pod is able to upgrade.
@@ -58,11 +63,14 @@ const (
 
 	// MaxUnavailableAnnotation is the annotation key added to daemonset to indicate
 	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=auto".
+	// If this annotation is not explicitly stated, it will be set to the default value 1.
 	MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
 
 	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
 	// The value of 250 is chosen b/c values that are too high can cause registry DoS issues.
 	BurstReplicas = 250
+
+	maxRetries = 30
 )
 
 // controllerKind contains the schema.GroupVersionKind for this controller type.
@@ -71,17 +79,15 @@ var controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 type Controller struct {
 	kubeclientset client.Interface
 	podControl    k8sutil.PodControlInterface
-
-	daemonsetLister appslisters.DaemonSetLister
-	daemonsetSynced cache.InformerSynced
-	nodeLister      corelisters.NodeLister
-	nodeSynced      cache.InformerSynced
-	podLister       corelisters.PodLister
-	podSynced       cache.InformerSynced
-
-	daemonsetWorkqueue workqueue.Interface
-
-	expectations k8sutil.ControllerExpectationsInterface
+	// daemonPodUpdater watches daemonset, node and pod resource
+	daemonsetLister    appslisters.DaemonSetLister
+	daemonsetSynced    cache.InformerSynced
+	nodeLister         corelisters.NodeLister
+	nodeSynced         cache.InformerSynced
+	podLister          corelisters.PodLister
+	podSynced          cache.InformerSynced
+	daemonsetWorkqueue workqueue.RateLimitingInterface
+	expectations       k8sutil.ControllerExpectationsInterface
 }
 
 func NewController(kc client.Interface, daemonsetInformer appsinformers.DaemonSetInformer,
@@ -93,9 +99,10 @@ func NewController(kc client.Interface, daemonsetInformer appsinformers.DaemonSe
 
 	ctrl := Controller{
 		kubeclientset: kc,
+		// Use PodControlInterface to delete pods, which is convenient for testing
 		podControl: k8sutil.RealPodControl{
 			KubeClient: kc,
-			Recorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "podUpdater"}),
+			Recorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "daemonPodUpdater"}),
 		},
 
 		daemonsetLister: daemonsetInformer.Lister(),
@@ -107,16 +114,22 @@ func NewController(kc client.Interface, daemonsetInformer appsinformers.DaemonSe
 		podLister: podInformer.Lister(),
 		podSynced: podInformer.Informer().HasSynced,
 
-		daemonsetWorkqueue: workqueue.New(),
+		daemonsetWorkqueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		expectations:       k8sutil.NewControllerExpectations(),
 	}
 
+	// In this controller, we focus three cases
+	// 1. daemonset specification changes
+	// 2. node turns from not-ready to ready
+	// 3. pods were deleted successfully
+	// In case 2, daemonset.Status.DesiredNumberScheduled will change and, in case 3, daemonset.Status.NumberReady
+	// will change. Therefore, we focus only on the daemonset Update event, which can cover the above situations.
 	daemonsetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
 			newDS := new.(*appsv1.DaemonSet)
 			oldDS := old.(*appsv1.DaemonSet)
 
-			// Only control daemonset meets prerequisites
+			// Only handle daemonset meets prerequisites
 			if !checkPrerequisites(newDS) {
 				return
 			}
@@ -187,6 +200,7 @@ func (c *Controller) deletePod(obj interface{}) {
 	}
 	dsKey, err := cache.MetaNamespaceKeyFunc(ds)
 	if err != nil {
+		utilruntime.HandleError(err)
 		return
 	}
 
@@ -201,8 +215,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer c.daemonsetWorkqueue.ShutDown()
 
 	// Synchronize the cache before starting to process events
-	if !cache.WaitForCacheSync(stopCh, c.daemonsetSynced, c.nodeSynced,
-		c.podSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.daemonsetSynced, c.nodeSynced, c.podSynced) {
 		klog.Error("sync daemonPodUpdater controller timeout")
 	}
 
@@ -220,10 +233,17 @@ func (c *Controller) runWorker() {
 			return
 		}
 
-		// TODO(hxc): should requeue failed ds
 		if err := c.syncHandler(obj.(string)); err != nil {
+			if c.daemonsetWorkqueue.NumRequeues(obj) < maxRetries {
+				klog.Infof("error syncing event %v: %v", obj, err)
+				c.daemonsetWorkqueue.AddRateLimited(obj)
+				c.daemonsetWorkqueue.Done(obj)
+				continue
+			}
 			utilruntime.HandleError(err)
 		}
+
+		c.daemonsetWorkqueue.Forget(obj)
 		c.daemonsetWorkqueue.Done(obj)
 	}
 }
@@ -273,7 +293,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	switch v {
 	case OTAUpdate:
-		if err := c.checkOTAUpdate(ds, nodeToDaemonPods); err != nil {
+		if err := c.otaUpdate(ds, nodeToDaemonPods); err != nil {
 			return err
 		}
 
@@ -288,10 +308,10 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-// checkOTAUpdate compare every pod to its owner daemonset to check if pod is updatable
+// otaUpdate compare every pod to its owner daemonset to check if pod is updatable
 // If pod is in line with the latest daemonset spec, set pod condition "PodNeedUpgrade" to "false"
 // while not, set pod condition "PodNeedUpgrade" to "true"
-func (c *Controller) checkOTAUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
+func (c *Controller) otaUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
 	for nodeName, pods := range nodeToDaemonPods {
 		// Check if node is ready, ignore not-ready node
 		ready, err := NodeReadyByName(c.nodeLister, nodeName)
@@ -310,7 +330,8 @@ func (c *Controller) checkOTAUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[s
 	return nil
 }
 
-// autoUpdate identifies the set of old pods to delete
+// autoUpdate identifies the set of old pods to delete within the constraints imposed by the max-unavailable number.
+// Just ignore and do not calculate not-ready nodes.
 func (c *Controller) autoUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
 	// Calculate maxUnavailable specified by user, default is 1
 	maxUnavailable, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
@@ -388,6 +409,7 @@ func (c *Controller) autoUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[strin
 	return c.syncPodsOnNodes(ds, oldPodsToDelete)
 }
 
+// getNodesToDaemonPods returns a map from nodes to daemon pods (corresponding to ds) created for the nodes.
 func (c *Controller) getNodesToDaemonPods(ds *appsv1.DaemonSet) (map[string][]*corev1.Pod, error) {
 	// Ignore adopt/orphan pod, just deal with pods in podLister
 	pods, err := GetDaemonsetPods(c.podLister, ds)
@@ -411,8 +433,8 @@ func (c *Controller) getNodesToDaemonPods(ds *appsv1.DaemonSet) (map[string][]*c
 	return nodeToDaemonPods, nil
 }
 
-// syncPodsOnNodes deletes pods on the given nodes
-// returns slice with errors if any
+// syncPodsOnNodes deletes pods on the given nodes.
+// returns slice with errors if any.
 func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string) error {
 	// We need to set expectations before deleting pods to avoid race conditions.
 	dsKey, err := cache.MetaNamespaceKeyFunc(ds)

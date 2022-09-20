@@ -128,12 +128,12 @@ func SetPodUpgradeCondition(clientset client.Interface, ds *appsv1.DaemonSet, po
 		Type:   PodNeedUpgrade,
 		Status: status,
 	}
-	util.UpdatePodCondition(&pod.Status, cond)
-
-	if _, err := clientset.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
-		return err
+	if change := util.UpdatePodCondition(&pod.Status, cond); change {
+		if _, err := clientset.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)
 	}
-	klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)
 
 	return nil
 }
