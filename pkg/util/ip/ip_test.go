@@ -71,6 +71,11 @@ func TestRemoveDupIPs(t *testing.T) {
 			nil,
 			[]net.IP{},
 		},
+		{
+			"nil ip",
+			[]net.IP{[]byte("1.1.1.1"), nil},
+			[]net.IP{[]byte("1.1.1.1")},
+		},
 	}
 
 	for _, test := range tests {

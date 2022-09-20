@@ -72,7 +72,7 @@ func RemoveDupIPs(ips []net.IP) []net.IP {
 	results := make([]net.IP, 0, len(ips))
 	temp := map[string]bool{}
 	for _, ip := range ips {
-		if _, ok := temp[string(ip)]; !ok {
+		if _, ok := temp[string(ip)]; ip != nil && !ok {
 			temp[string(ip)] = true
 			results = append(results, ip)
 		}
