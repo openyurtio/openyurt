@@ -8,7 +8,7 @@ reviewers:
   - '@Fei-Guo'
   - '@rambohe-ch'
 creation-date: 2021-06-12T00:00:00.000Z
-last-updated: 2021-06-12T00:00:00.000Z
+last-updated: 2022-09-20T17:12:00.000Z
 status: provisional
 ---
 
@@ -76,122 +76,7 @@ Consider it is quite common to have multiple EdgeX instance in a single Kubernet
 As the deployment topology diagram shows.  Each components in the EdgeX instance will have a corresponding service mapping to it. The service will mapping to a United Deployment instance(In the backend it is actually mapping to all the deployments inside the united deployment) On the edge side a deployment with a unique name will be created and registered in the service's endpoints. Service topology policy will be automatically applied by United Deployment controller to make sure the traffic will be limited to Edge/Node Pool level.From one side we can make the management easier and on the other side we can still keep the EdgeX instance isolation.
 #### 1. EdgeX Customer Resource Definition
 
-Following is the definition of `EdgeX` CRD and its related Golang struct. The CRD will be created when the EdgeX controller is up and running.
-```yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
-  name: edgexes.device.openyurt.io
-spec:
-  group: device.openyurt.io
-  names:
-    kind: EdgeX
-    listKind: EdgeXList
-    plural: edgexes
-    singular: edgex
-  scope: Namespaced
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: EdgeX is the Schema for the edgexes API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: EdgeXSpec defines the desired state of EdgeX
-            properties:
-              additinalcomponents:
-                items:
-                  properties:
-                    deploymentspec:
-                      description: DeploymentTemplateSpec defines the pool template
-                        of Deployment.
-                      properties:
-                        metadata:
-                          type: object
-                        spec:
-                          description: DeploymentSpec is the specification of the
-                            desired behavior of the Deployment.
-                          type: object
-                      required:
-                      - spec
-                      type: object
-                    servicespec:
-                      description: DeploymentTemplateSpec defines the pool template
-                        of Deployment.
-                      properties:
-                        metadata:
-                          type: object
-                        spec:
-                          description: ServiceSpec describes the attributes that a
-                            user creates on a service.
-                          type: object
-                      required:
-                      - spec
-                      type: object
-                  type: object
-                type: array
-              poolname:
-                type: string
-              version:
-                type: string
-            type: object
-          status:
-            description: EdgeXStatus defines the observed state of EdgeX
-            properties:
-              componentstatus:
-                description: ComponentStatus is the status of edgex component.
-                items:
-                  properties:
-                    deploymentstatus:
-                      description: DeploymentStatus is the most recently observed
-                        status of the Deployment.
-                      type: object
-                    name:
-                      type: string
-                  type: object
-                type: array
-              conditions:
-                description: Current Edgex state
-                type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
-              initialized:
-                type: boolean
-              observedGeneration:
-                description: ObservedGeneration is the most recent generation observed
-                  for this UnitedDeployment. It corresponds to the UnitedDeployment's
-                  generation, which is updated on mutation by the API Server.
-                format: int64
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-```
+Following is the definition of `EdgeX` CRD definition. The CRD will be created when the EdgeX controller is up and running.
 
 ```go
 // DeploymentTemplateSpec defines the pool template of Deployment.
@@ -206,53 +91,50 @@ type ServiceTemplateSpec struct {
 	Spec              corev1.ServiceSpec `json:"spec"`
 }
 
-type ComponentSpec struct {
-	// +optional
-	Deployment DeploymentTemplateSpec `json:"deploymentspec,omitempty"`
-
-	// +optional
-	Service ServiceTemplateSpec `json:"servicespec,omitempty"`
-}
-
 // EdgeXSpec defines the desired state of EdgeX
 type EdgeXSpec struct {
 	Version string `json:"version,omitempty"`
 
-	PoolName string `json:"poolname,omitempty"`
+	ImageRegistry string `json:"imageRegistry,omitempty"`
+
+	PoolName string `json:"poolName,omitempty"`
+
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	// +optional
-	AdditionalComponents []ComponentSpec `json:"additinalcomponents,omitempty"`
-}
-
-type ComponentStatus struct {
-	Name string `json:"name,omitempty"`
-
-	Deployment appsv1.DeploymentStatus `json:"deploymentstatus,omitempty"`
+	AdditionalService []ServiceTemplateSpec `json:"additionalServices,omitempty"`
+	// +optional
+	AdditionalDeployment []DeploymentTemplateSpec `json:"additionalDeployments,omitempty"`
 }
 
 // EdgeXStatus defines the observed state of EdgeX
 type EdgeXStatus struct {
-	// ObservedGeneration is the most recent generation observed for this UnitedDeployment. It corresponds to the
-	// UnitedDeployment's generation, which is updated on mutation by the API Server.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+    // +optional
+    Ready bool `json:"ready,omitempty"`
+    // +optional
+    Initialized bool `json:"initialized,omitempty"`
+    // +optional
+    ServiceReplicas int32 `json:"serviceReplicas,omitempty"`
+    // +optional
+    ServiceReadyReplicas int32 `json:"serviceReadyReplicas,omitempty"`
+    // +optional
+    DeploymentReplicas int32 `json:"deploymentReplicas,omitempty"`
+    // +optional
+    DeploymentReadyReplicas int32 `json:"deploymentReadyReplicas,omitempty"`
 
-	Initialized bool `json:"initialized,omitempty"`
-
-	// ComponentStatus is the status of edgex component.
-	// +optional
-	ComponentStatus []ComponentStatus `json:"componentstatus,omitempty"`
-	// Current Edgex state
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=type
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
+    // Current Edgex state
+    // +optional
+    Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=edgexes
+//+kubebuilder:resource:shortName=edgex
+//+kubebuilder:printcolumn:name="READY",type="boolean",JSONPath=".status.ready",description="The edgex ready status"
+//+kubebuilder:printcolumn:name="Service",type="integer",JSONPath=".status.servicereplicas",description="The Service Replica."
+//+kubebuilder:printcolumn:name="ReadyService",type="integer",JSONPath=".status.servicereadyreplicas",description="The Ready Service Replica."
+//+kubebuilder:printcolumn:name="Deployment",type="integer",JSONPath=".status.deploymentreplicas",description="The Deployment Replica."
+//+kubebuilder:printcolumn:name="ReadyDeployment",type="integer",JSONPath=".status.deploymentreadyreplicas",description="The Ready Deployment Replica."
 
 // EdgeX is the Schema for the edgexes API
 type EdgeX struct {
