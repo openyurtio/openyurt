@@ -138,6 +138,40 @@ rules:
     - signers
   verbs:
     - approve
+- apiGroups:
+    - discovery.k8s.io
+  resources:
+    - endpointslices
+  verbs:
+    - get
+    - list
+    - watch
+    - patch
+- apiGroups:
+    - ""
+  resources:
+    - endpoints
+  verbs:
+    - get
+    - list
+    - watch
+    - patch
+- apiGroups:
+    - "apps.openyurt.io"
+  resources:
+    - nodepools
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - ""
+  resources:
+    - services
+  verbs:
+    - get
+    - list
+    - watch
 `
 	YurtControllerManagerClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1
