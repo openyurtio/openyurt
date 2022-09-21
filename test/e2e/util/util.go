@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
@@ -52,10 +51,6 @@ func LoadRestConfigAndClientset(kubeconfig string) (*restclient.Config, *clients
 	}
 
 	return config, client, nil
-}
-
-func YurtDescribe(text string, body func()) bool {
-	return ginkgo.Describe("[openyurt.io] "+text, body)
 }
 
 // WaitForNamespacesDeleted waits for the namespaces to be deleted.
