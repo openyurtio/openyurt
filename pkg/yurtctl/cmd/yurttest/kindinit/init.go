@@ -36,6 +36,7 @@ import (
 	"k8s.io/klog/v2"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
@@ -53,19 +54,11 @@ var (
 		"v1.22",
 		"v1.23",
 	}
-	validOpenYurtVersions = []string{
-		"v0.5.0",
-		"v0.6.0",
-		"v0.6.1",
-		"v0.7.0",
-		"v0.7.1",
-		"v1.0.0",
-		"latest",
-	}
 	validKindVersions = []string{
 		"v0.11.1",
 		"v0.12.0",
 	}
+	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
 	kindNodeImageMap = map[string]map[string]string{
 		"v0.11.1": {
@@ -656,9 +649,9 @@ func validateKubernetesVersion(ver string) error {
 }
 
 func validateOpenYurtVersion(ver string, ignoreError bool) error {
-	if !strutil.IsInStringLst(validOpenYurtVersions, ver) && !ignoreError {
+	if !strutil.IsInStringLst(AllValidOpenYurtVersions, ver) && !ignoreError {
 		return fmt.Errorf("%s is not a valid openyurt version, all valid versions are %s. If you know what you're doing, you can set --ignore-error",
-			ver, strings.Join(validOpenYurtVersions, ","))
+			ver, strings.Join(AllValidOpenYurtVersions, ","))
 	}
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 
 	v1 "k8s.io/api/apps/v1"
@@ -75,35 +74,30 @@ func TestValidateOpenYurtVersion(t *testing.T) {
 	cases := map[string]struct {
 		version string
 		ignore  bool
-		want    string
+		wantErr bool
 	}{
 		"valid": {
 			"v0.6.0",
 			false,
-			"",
+			false,
 		},
 		"unsupported": {
 			"0.5.10",
 			false,
-			fmt.Sprintf("0.5.10 is not a valid openyurt version, all valid versions are %s. If you know what you're doing, you can set --ignore-error",
-				strings.Join(validOpenYurtVersions, ",")),
+			true,
 		},
 		"ignoreError": {
 			"0.5.10",
 			true,
-			"",
+			false,
 		},
 	}
 	for name, c := range cases {
 		err := validateOpenYurtVersion(c.version, c.ignore)
 		if err == nil {
-			if c.want != "" {
-				t.Errorf("validateOpenYurtVersion failed at case %s, want: %s, got: nil", name, c.want)
+			if c.wantErr {
+				t.Errorf("validateOpenYurtVersion failed at case %s, wantErr: %v, got: nil", name, c.wantErr)
 			}
-			continue
-		}
-		if err.Error() != c.want {
-			t.Errorf("validateOpenYurtVersion failed at case %s, want: %s, got: %s", name, c.want, err.Error())
 		}
 	}
 }
@@ -190,6 +184,7 @@ nodes:
 }
 
 func TestKindOptions_Validate(t *testing.T) {
+	AllValidOpenYurtVersions = []string{"v0.6.0", "v0.7.0"}
 	cases1 := []struct {
 		nodeNum           int
 		kubernetesVersion string
@@ -217,10 +212,10 @@ func TestKindOptions_Validate(t *testing.T) {
 		{
 			3,
 			"v1.22",
-			"v0.1.0",
+			"v0.0.0",
 			false,
 			true,
-			"v0.1.0 is not a valid openyurt version",
+			"v0.0.0 is not a valid openyurt version",
 		},
 	}
 
@@ -229,28 +224,35 @@ func TestKindOptions_Validate(t *testing.T) {
 		kubernetesVersion string
 		openyurtVersion   string
 		ignoreErr         bool
-		want              error
+		wantErr           bool
 	}{
 		{
 			2,
 			"v1.22",
 			"v0.6.0",
 			false,
-			nil,
+			false,
 		},
 		{
 			2,
 			"v1.22",
-			"v0.1.0",
+			"v0.6.0",
 			true,
-			nil,
+			false,
 		},
 		{
 			1,
 			"v1.22",
 			"v0.100.0",
 			true,
-			nil,
+			false,
+		},
+		{
+			1,
+			"v1.22",
+			"v0.100.0",
+			false,
+			true,
 		},
 	}
 
@@ -261,7 +263,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		o.OpenYurtVersion = v.openyurtVersion
 		o.IgnoreError = v.ignoreErr
 		err := o.Validate()
-		if v.wantErr && err == nil {
+		if (v.wantErr && err == nil) || (!v.wantErr && err != nil) {
 			t.Errorf("failed vaildate")
 		}
 	}
@@ -272,7 +274,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		o.OpenYurtVersion = v.openyurtVersion
 		o.IgnoreError = v.ignoreErr
 		err := o.Validate()
-		if err != v.want {
+		if (v.wantErr && err == nil) || (!v.wantErr && err != nil) {
 			t.Errorf("failed vaildate")
 		}
 	}

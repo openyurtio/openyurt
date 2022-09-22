@@ -23,12 +23,13 @@ import (
 )
 
 var (
-	projectPrefix = "yurt"
-	labelPrefix   = "openyurt.io"
-	gitVersion    = "v0.0.0"
-	gitCommit     = "unknown"
-	buildDate     = "1970-01-01T00:00:00Z"
-	allVersions   = "unknown"
+	projectPrefix       = "yurt"
+	labelPrefix         = "openyurt.io"
+	gitVersion          = "v0.0.0"
+	gitCommit           = "unknown"
+	buildDate           = "1970-01-01T00:00:00Z"
+	maintainingVersions = "unknown"
+	separator           = ","
 )
 
 func ShortAgentVersion() string {
@@ -133,6 +134,6 @@ func Get() Info {
 		GoVersion:   runtime.Version(),
 		Compiler:    runtime.Compiler,
 		Platform:    fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
-		AllVersions: strings.Split(allVersions, ","),
+		AllVersions: strings.Split(maintainingVersions, separator),
 	}
 }
