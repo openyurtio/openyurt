@@ -91,7 +91,10 @@ func (m *GCManager) Run() {
 
 func (m *GCManager) gcPodsWhenRestart() {
 	localPodKeys, err := m.store.ListKeys("kubelet/pods")
-	if err != nil || len(localPodKeys) == 0 {
+	if err != nil {
+		klog.Errorf("failed to list keys for kubelet pods, %v", err)
+		return
+	} else if len(localPodKeys) == 0 {
 		klog.Infof("local storage for kubelet pods is empty, not need to gc pods")
 		return
 	}
