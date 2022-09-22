@@ -64,6 +64,10 @@ project_info() {
     echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
     echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
     echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
+    
+    ALL_VERSIONS=$(git for-each-ref refs/tags | awk '{print $3}' | awk -F '/' '{print $3}' | tr "\n" ",")
+    ALL_VERSIONS=${ALL_VERSIONS::-1} # remove last redundant comma
+    echo "-X ${PROJECT_INFO_PKG}.allVersions=${ALL_VERSIONS}"
 }
 
 # get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
