@@ -64,10 +64,40 @@ project_info() {
     echo "-X ${PROJECT_INFO_PKG}.gitVersion=${GIT_VERSION}"
     echo "-X ${PROJECT_INFO_PKG}.gitCommit=${GIT_COMMIT}"
     echo "-X ${PROJECT_INFO_PKG}.buildDate=${BUILD_DATE}"
+    
+    maintainingVersions=$(get_maintained_versions | tr " " ",")
+    versionSeparator=","
+    echo "-X ${PROJECT_INFO_PKG}.separator=${versionSeparator}"
+    echo "-X ${PROJECT_INFO_PKG}.maintainingVersions=${maintainingVersions}"
 }
 
 # get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.
 # eg: ./_output/bin/darwin/arm64/
 get_binary_dir_with_arch(){
     echo $1/$(go env GOOS)/$(go env GOARCH)
+}
+
+# get openyurt versions we still maintain
+# returned versions are separated by space
+get_maintained_versions() {
+    # we currently maintain latest 3 versions including all their maintained releases, 
+    # such as v1.0.0-rc1 v1.0.0 v0.7.0 v0.7.1 v0.6.0 v0.6.1
+    MAINTAINED_VERSION_NUM=${MAINTAINED_VERSION_NUM:-3}
+    allVersions=$(git for-each-ref refs/tags --sort=authordate | awk '{print $3}' | awk -F '/' '{print $3}')
+    latestVersion=$(git for-each-ref refs/tags --sort=authordate | awk 'END{print}' |awk '{print $3}' | awk -F '/' '{print $3}')
+    major=$(echo $latestVersion | awk -F '.' '{print $1}')
+    major=${major#v}
+    minor=$(echo $latestVersion | awk -F '.' '{print $2}')
+    versions=""
+
+    for ((cnt=0;cnt<$MAINTAINED_VERSION_NUM;cnt++)); do
+        versions+=" "$(echo $allVersions | tr " " "\n" | grep -E "v$major\.$minor\..*")
+        if [ $minor -eq 0 ]; then
+            major=$[$major-1]
+            minor=$(echo $allVersions | tr " " "\n" | grep -E -o "v$major\.[0-9]+\..*" | awk 'END{print}' | awk -F '.' '{print $2}')
+        else
+            minor=$[$minor-1]
+        fi
+    done
+    echo $versions
 }
