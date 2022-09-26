@@ -143,7 +143,7 @@ func SetPodUpgradeCondition(clientset client.Interface, ds *appsv1.DaemonSet, po
 // 2. update strategy is "OnDelete"
 func checkPrerequisites(ds *appsv1.DaemonSet) bool {
 	v, ok := ds.Annotations[UpdateAnnotation]
-	if !ok || (v != "auto" && v != "ota") {
+	if !ok || (v != AutoUpdate && v != OTAUpdate) {
 		return false
 	}
 	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType

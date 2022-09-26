@@ -1,5 +1,6 @@
 /*
 Copyright 2022 The OpenYurt Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -280,11 +281,6 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	nodeToDaemonPods, err := c.getNodesToDaemonPods(ds)
-	if err != nil {
-		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
-	}
-
 	// Recheck required annotation
 	v, ok := ds.Annotations[UpdateAnnotation]
 	if !ok {
@@ -293,12 +289,12 @@ func (c *Controller) syncHandler(key string) error {
 
 	switch v {
 	case OTAUpdate:
-		if err := c.otaUpdate(ds, nodeToDaemonPods); err != nil {
+		if err := c.otaUpdate(ds); err != nil {
 			return err
 		}
 
 	case AutoUpdate:
-		if err := c.autoUpdate(ds, nodeToDaemonPods); err != nil {
+		if err := c.autoUpdate(ds); err != nil {
 			return err
 		}
 	default:
@@ -311,20 +307,15 @@ func (c *Controller) syncHandler(key string) error {
 // otaUpdate compare every pod to its owner daemonset to check if pod is updatable
 // If pod is in line with the latest daemonset spec, set pod condition "PodNeedUpgrade" to "false"
 // while not, set pod condition "PodNeedUpgrade" to "true"
-func (c *Controller) otaUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
-	for nodeName, pods := range nodeToDaemonPods {
-		// Check if node is ready, ignore not-ready node
-		ready, err := NodeReadyByName(c.nodeLister, nodeName)
-		if err != nil {
-			return fmt.Errorf("couldn't check node %q ready status, %v", nodeName, err)
-		}
-		if !ready {
-			continue
-		}
-		for _, pod := range pods {
-			if err := SetPodUpgradeCondition(c.kubeclientset, ds, pod); err != nil {
-				return err
-			}
+func (c *Controller) otaUpdate(ds *appsv1.DaemonSet) error {
+	pods, err := GetDaemonsetPods(c.podLister, ds)
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range pods {
+		if err := SetPodUpgradeCondition(c.kubeclientset, ds, pod); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -332,7 +323,12 @@ func (c *Controller) otaUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string
 
 // autoUpdate identifies the set of old pods to delete within the constraints imposed by the max-unavailable number.
 // Just ignore and do not calculate not-ready nodes.
-func (c *Controller) autoUpdate(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) error {
+func (c *Controller) autoUpdate(ds *appsv1.DaemonSet) error {
+	nodeToDaemonPods, err := c.getNodesToDaemonPods(ds)
+	if err != nil {
+		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
+	}
+
 	// Calculate maxUnavailable specified by user, default is 1
 	maxUnavailable, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
 	if err != nil {
