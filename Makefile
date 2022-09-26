@@ -50,10 +50,6 @@ all: test build
 build:
 	bash hack/make-rules/build.sh $(WHAT)
 
-# generate yaml files
-gen-yaml:
-	hack/make-rules/genyaml.sh $(WHAT)
-
 # Run test
 test:
 	go test -v -short ./pkg/... ./cmd/... -coverprofile cover.out

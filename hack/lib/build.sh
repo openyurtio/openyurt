@@ -59,39 +59,6 @@ build_binaries() {
     fi
 }
 
-# gen_yamls generates yaml files for user specified components by
-# subsituting the place holders with envs
-gen_yamls() {
-    local -a yaml_targets=()
-    for arg; do
-        # ignoring go flags
-        [[ "$arg" == -* ]] && continue
-        target=$(basename $arg)
-        # only add target that is in the ${YURT_YAML_TARGETS} list
-        if [[ "${YURT_YAML_TARGETS[@]}" =~ "$target" ]]; then
-            yaml_targets+=("$target")
-        fi
-    done
-    # if not specified, generate yaml for default yaml targets
-    if [ ${#yaml_targets[@]} -eq 0 ]; then
-        yaml_targets=("${YURT_YAML_TARGETS[@]}")
-    fi
-    echo $yaml_targets
-
-    local yaml_dir=$YURT_OUTPUT_DIR/setup/
-    mkdir -p $yaml_dir
-    for yaml_target in "${yaml_targets[@]}"; do
-        oup_file=${yaml_target/yurt/$PROJECT_PREFIX}
-        echo "generating yaml file for $oup_file"
-        sed "s|__project_prefix__|${PROJECT_PREFIX}|g;
-        s|__label_prefix__|$LABEL_PREFIX|g;
-        s|__repo__|$REPO|g;
-        s|__tag__|$TAG|g;" \
-            $YURT_ROOT/config/yaml-template/$yaml_target.yaml > \
-            $yaml_dir/$oup_file.yaml
-    done
-}
-
 function build_e2e() {
     local goflags goldflags gcflags
     goldflags="${GOLDFLAGS:--s -w $(project_info)}"
