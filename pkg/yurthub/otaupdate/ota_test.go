@@ -19,7 +19,7 @@ package otaupdate
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -27,6 +27,27 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+)
+
+var (
+	healthyServers = []*url.URL{
+		{Host: "127.0.0.1:18080"},
+	}
+
+	unHealthyServers = []*url.URL{
+		{Host: "127.0.0.1:18081"},
+	}
+
+	healthyFakeChecker = healthchecker.NewFakeChecker(true, map[string]int{
+		"http://127.0.0.1:8080": 1,
+	})
+
+	unHealthyFakeChecker = healthchecker.NewFakeChecker(false, map[string]int{
+		"http://127.0.0.1:8081": 1,
+	})
 )
 
 func newPod(podName string) *corev1.Pod {
@@ -44,24 +65,24 @@ func newPod(podName string) *corev1.Pod {
 	return pod
 }
 
-func newPodWithCondition(podName string, ready bool) *corev1.Pod {
+func newPodWithCondition(podName string, ready corev1.ConditionStatus) *corev1.Pod {
 	pod := newPod(podName)
 	SetPodUpgradeCondition(pod, ready)
 
 	return pod
 }
 
-func SetPodUpgradeCondition(pod *corev1.Pod, ok bool) {
+func SetPodUpgradeCondition(pod *corev1.Pod, ready corev1.ConditionStatus) {
 	cond := corev1.PodCondition{
-		Type:   PodNeedUpgrade,
-		Status: corev1.ConditionStatus(strconv.FormatBool(ok)),
+		Type:   daemonpodupdater.PodNeedUpgrade,
+		Status: ready,
 	}
 	pod.Status.Conditions = append(pod.Status.Conditions, cond)
 }
 
 func TestGetPods(t *testing.T) {
-	updatablePod := newPodWithCondition("updatablePod", true)
-	notUpdatablePod := newPodWithCondition("notUpdatablePod", false)
+	updatablePod := newPodWithCondition("updatablePod", corev1.ConditionTrue)
+	notUpdatablePod := newPodWithCondition("notUpdatablePod", corev1.ConditionFalse)
 	normalPod := newPod("normalPod")
 
 	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod, normalPod)
@@ -72,10 +93,15 @@ func TestGetPods(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 
-	GetPods(clientset, "").ServeHTTP(rr, req)
+	GetPods(clientset, "", healthyFakeChecker, healthyServers).ServeHTTP(rr, req)
 
 	expectedCode := http.StatusOK
 	assert.Equal(t, expectedCode, rr.Code)
+
+	// Cloud-Edge network disconnected
+	rr = httptest.NewRecorder()
+	GetPods(clientset, "", unHealthyFakeChecker, unHealthyServers).ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
 
 func TestUpdatePod(t *testing.T) {
@@ -89,21 +115,21 @@ func TestUpdatePod(t *testing.T) {
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/updatablePod/update",
 			podName:      "updatablePod",
-			pod:          newPodWithCondition("updatablePod", true),
+			pod:          newPodWithCondition("updatablePod", corev1.ConditionTrue),
 			expectedCode: http.StatusOK,
 			expectedData: "",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/notUpdatablePod/update",
 			podName:      "notUpdatablePod",
-			pod:          newPodWithCondition("notUpdatablePod", false),
+			pod:          newPodWithCondition("notUpdatablePod", corev1.ConditionFalse),
 			expectedCode: http.StatusForbidden,
 			expectedData: "Pod is not-updatable",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/wrongName/update",
 			podName:      "wrongName",
-			pod:          newPodWithCondition("trueName", true),
+			pod:          newPodWithCondition("trueName", corev1.ConditionFalse),
 			expectedCode: http.StatusInternalServerError,
 			expectedData: "Apply update failed",
 		},
@@ -122,7 +148,7 @@ func TestUpdatePod(t *testing.T) {
 		req = mux.SetURLVars(req, vars)
 		rr := httptest.NewRecorder()
 
-		UpdatePod(clientset, "").ServeHTTP(rr, req)
+		UpdatePod(clientset, "", healthyFakeChecker, healthyServers).ServeHTTP(rr, req)
 
 		assert.Equal(t, test.expectedCode, rr.Code)
 		assert.Equal(t, test.expectedData, rr.Body.String())

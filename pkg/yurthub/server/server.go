@@ -37,6 +37,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 )
@@ -61,7 +62,8 @@ type yurtHubServer struct {
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 	certificateMgr interfaces.YurtCertificateManager,
 	proxyHandler http.Handler,
-	rest *rest.RestConfigManager) (Server, error) {
+	rest *rest.RestConfigManager,
+	checker healthchecker.HealthChecker) (Server, error) {
 	hubMux := mux.NewRouter()
 	restCfg := rest.GetRestConfig(false)
 	clientSet, err := kubernetes.NewForConfig(restCfg)
@@ -69,7 +71,7 @@ func NewYurtHubServer(cfg *config.YurtHubConfiguration,
 		klog.Errorf("cannot create the client set: %v", err)
 		return nil, err
 	}
-	registerHandlers(hubMux, cfg, certificateMgr, clientSet, cfg.NodeName)
+	registerHandlers(hubMux, cfg, certificateMgr, clientSet, checker)
 	hubServer := &http.Server{
 		Addr:           cfg.YurtHubServerAddr,
 		Handler:        hubMux,
@@ -157,7 +159,8 @@ func (s *yurtHubServer) Run() {
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager, clientset *kubernetes.Clientset, nodeName string) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager,
+	clientset *kubernetes.Clientset, checker healthchecker.HealthChecker) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(certificateMgr)).Methods("POST", "PUT")
 
@@ -173,8 +176,9 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certifica
 	c.Handle("/metrics", promhttp.Handler())
 
 	// register handler for ota upgrade
-	c.Handle("/pods", ota.GetPods(clientset, nodeName)).Methods("GET")
-	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade", ota.UpdatePod(clientset, nodeName)).Methods("POST")
+	c.Handle("/pods", ota.GetPods(clientset, cfg.NodeName, checker, cfg.RemoteServers)).Methods("GET")
+	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
+		ota.UpdatePod(clientset, cfg.NodeName, checker, cfg.RemoteServers)).Methods("POST")
 }
 
 // healthz returns ok for healthz request

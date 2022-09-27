@@ -21,22 +21,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-)
 
-// TODO(hxc): should use pkg/controller/daemonpodupdater.PodNeedUpgrade
-const (
-	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
+	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 // GetPods return pod list
-func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
+func GetPods(clientset kubernetes.Interface, nodeName string, checker healthchecker.HealthChecker,
+	servers []*url.URL) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Pre-check if edge yurthub node is connected to the cloud
+		if !isEdgeCloudConnected(checker, servers) {
+			klog.Errorf("Get pod list is not allowed when edge is disconnected to cloud")
+			returnErr(fmt.Errorf("Get pod list is not allowed when edge is disconnected to cloud"),
+				w, http.StatusForbidden)
+			return
+		}
+
 		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 			FieldSelector: "spec.nodeName=" + nodeName,
 		})
@@ -52,7 +59,8 @@ func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
 		data, err := json.Marshal(podList)
 		if err != nil {
 			klog.Errorf("Marshal pod list failed: %v", err.Error())
-			returnErr(fmt.Errorf("Get pod list failed: data transfer to json format failed."), w, http.StatusInternalServerError)
+			returnErr(fmt.Errorf("Get pod list failed: data transfer to json format failed."),
+				w, http.StatusInternalServerError)
 			return
 		}
 
@@ -65,8 +73,17 @@ func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
 }
 
 // UpdatePod update a specifc pod(namespace/podname) to the latest version
-func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
+func UpdatePod(clientset kubernetes.Interface, nodeName string, checker healthchecker.HealthChecker,
+	servers []*url.URL) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Pre-check if edge yurthub node is connected to the cloud
+		if !isEdgeCloudConnected(checker, servers) {
+			klog.Errorf("Apply update is not allowed when edge is disconnected to cloud")
+			returnErr(fmt.Errorf("Apply update is not allowed when edge is disconnected to cloud"),
+				w, http.StatusForbidden)
+			return
+		}
+
 		params := mux.Vars(r)
 		namespace := params["ns"]
 		podName := params["podname"]
@@ -105,7 +122,7 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName st
 	}
 
 	// Pod will not be updated without pod condition PodNeedUpgrade=true
-	if !IsPodUpdatable(pod) {
+	if !daemonpodupdater.IsPodUpdatable(pod) {
 		klog.Infof("Pod: %v/%v is not updatable", namespace, podName)
 		return nil, false
 	}
@@ -131,18 +148,13 @@ func returnErr(err error, w http.ResponseWriter, errType int) {
 	}
 }
 
-// TODO(hxc): should use pkg/controller/daemonpodupdater.IsPodUpdatable()
-// IsPodUpdatable returns true if a pod is updatable; false otherwise.
-func IsPodUpdatable(pod *corev1.Pod) bool {
-	if &pod.Status == nil || len(pod.Status.Conditions) == 0 {
-		return false
-	}
-
-	for i := range pod.Status.Conditions {
-		if pod.Status.Conditions[i].Type == PodNeedUpgrade && pod.Status.Conditions[i].Status == "true" {
+// isEdgeCloudConnected will check if edge is disconnected to cloud. If there is any remote server is healthy, it is
+// regarded as connected. Otherwise, it is regarded as disconnected and return false.
+func isEdgeCloudConnected(checker healthchecker.HealthChecker, remoteServers []*url.URL) bool {
+	for _, server := range remoteServers {
+		if checker.IsHealthy(server) {
 			return true
 		}
 	}
-
 	return false
 }

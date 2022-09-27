@@ -195,7 +195,7 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	cfg.YurtSharedFactory.Start(stopCh)
 
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
-	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler, restConfigMgr)
+	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler, restConfigMgr, healthChecker)
 	if err != nil {
 		return fmt.Errorf("could not create hub server, %w", err)
 	}
