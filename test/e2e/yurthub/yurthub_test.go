@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -36,6 +37,7 @@ import (
 	"github.com/openyurtio/openyurt/test/e2e/common/ns"
 	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	"github.com/openyurtio/openyurt/test/e2e/util"
+	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
 	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
 
@@ -45,32 +47,13 @@ const (
 	StartNodeWaitMinite  = 1
 )
 
+var (
+	c   clientset.Interface
+	err error
+)
+
 var _ = ginkgo.Describe(YurtHubNamespaceName, func() {
-	if !ycfg.YurtE2eCfg.EnableYurtAutonomy {
-		klog.Infof("not enable yurt node autonomy test, so yurt-node-autonomy will not run, and will return.")
-		return
-	}
-	var (
-		c   clientset.Interface
-		err error
-	)
 	defer ginkgo.GinkgoRecover()
-	c = ycfg.YurtE2eCfg.KubeClient
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get client set")
-
-	err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
-	util.ExpectNoError(err)
-
-	ginkgo.By("yurthub create namespace")
-	_, err = ns.CreateNameSpace(c, YurtHubNamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespaces")
-
-	ginkgo.AfterEach(func() {
-		ginkgo.By("delete namespace:" + YurtHubNamespaceName)
-		err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
-	})
-
 	ginkgo.Describe("node autonomy", func() {
 		ginkgo.It("yurt node autonomy", func() {
 			NodeManager, err := nd.NewNodeController(ycfg.YurtE2eCfg.NodeType, ycfg.YurtE2eCfg.RegionID, ycfg.YurtE2eCfg.AccessKeyID, ycfg.YurtE2eCfg.AccessKeySecret)
@@ -151,4 +134,35 @@ TODO
 */
 func GetNodeID(node *apiv1.Node) string {
 	return node.Name
+}
+
+func TestYurtHub(t *testing.T) {
+	if !ycfg.YurtE2eCfg.EnableYurtAutonomy {
+		klog.Infof("not enable yurt node autonomy test, so yurt-node-autonomy will not run, and will return.")
+		return
+	}
+	ginkgo.BeforeSuite(func() {
+		gomega.RegisterFailHandler(ginkgowrapper.Fail)
+		error := util.SetYurtE2eCfg()
+		gomega.Expect(error).NotTo(gomega.HaveOccurred(), "fail set Yurt E2E Config")
+		c = ycfg.YurtE2eCfg.KubeClient
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get client set")
+
+		err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
+		util.ExpectNoError(err)
+		ginkgo.By("yurthub create namespace")
+		_, err = ns.CreateNameSpace(c, YurtHubNamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespaces")
+	})
+
+	ginkgo.AfterSuite(func() {
+		if !ycfg.YurtE2eCfg.EnableYurtAutonomy {
+			return
+		}
+		ginkgo.By("delete namespace:" + YurtHubNamespaceName)
+		err = ns.DeleteNameSpace(c, YurtHubNamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
+	})
+
+	ginkgo.RunSpecs(t, "yurthub-e2e-test")
 }

@@ -58,18 +58,3 @@ build_binaries() {
       fi
     fi
 }
-
-function build_e2e() {
-    local goflags goldflags gcflags
-    goldflags="${GOLDFLAGS:--s -w $(project_info)}"
-    gcflags="${GOGCFLAGS:-}"
-    goflags=${GOFLAGS:-}
-
-    local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
-    mkdir -p ${target_bin_dir}
-    cd ${target_bin_dir}
-    echo "Building ${YURT_E2E_TARGETS}"
-    local testpkg="$(dirname ${YURT_E2E_TARGETS})"
-    local filename="$(basename ${YURT_E2E_TARGETS})"
-    go test -c  -gcflags "${gcflags:-}" ${goflags} -o $filename "$YURT_ROOT/${testpkg}"
-}

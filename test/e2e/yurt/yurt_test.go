@@ -17,6 +17,7 @@ limitations under the License.
 package yurt
 
 import (
+	"testing"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -41,22 +42,12 @@ const (
 	PodStartShortTimeout = 1 * time.Minute
 )
 
+var (
+	c   clientset.Interface
+	err error
+)
+
 var _ = ginkgo.Describe(YurtE2ENamespaceName, func() {
-	gomega.RegisterFailHandler(ginkgowrapper.Fail)
-	defer ginkgo.GinkgoRecover()
-	var (
-		c   clientset.Interface
-		err error
-	)
-	c = yurtconfig.YurtE2eCfg.KubeClient
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
-
-	err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
-	util.ExpectNoError(err)
-
-	_, err = ns.CreateNameSpace(c, YurtE2ENamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
-
 	ginkgo.Describe(YurtE2ETestDesc+": cluster_info", func() {
 		ginkgo.It(YurtE2ETestDesc+": should get cluster pod num", func() {
 			cs := c
@@ -118,12 +109,31 @@ var _ = ginkgo.Describe(YurtE2ENamespaceName, func() {
 
 			err = p.DeletePod(cs, YurtE2ENamespaceName, podName)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail remove pod:"+podName)
-
-			ginkgo.By("delete namespace: " + YurtE2ENamespaceName)
-			err = ns.DeleteNameSpace(cs, YurtE2ENamespaceName)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail delete created namespaces:"+YurtE2ENamespaceName)
-			util.ExpectNoError(err)
 		})
 
 	})
 })
+
+func TestYurt(t *testing.T) {
+	ginkgo.BeforeSuite(func() {
+		gomega.RegisterFailHandler(ginkgowrapper.Fail)
+
+		error := util.SetYurtE2eCfg()
+		gomega.Expect(error).NotTo(gomega.HaveOccurred(), "fail set Yurt E2E Config")
+
+		c = yurtconfig.YurtE2eCfg.KubeClient
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
+
+		err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete namespaces")
+
+		_, err = ns.CreateNameSpace(c, YurtE2ENamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
+	})
+	ginkgo.AfterSuite(func() {
+		ginkgo.By("delete namespace:" + YurtE2ENamespaceName)
+		err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
+	})
+	ginkgo.RunSpecs(t, "yurt-e2e-test")
+}

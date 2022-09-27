@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: yurt-e2e-test-nginx
+  labels:
+        app: yurt-e2e-test-nginx 
+spec:
+  containers:
+    - name: yurt-e2e-test-nginx
+      image: "nginx"
+      imagePullPolicy: IfNotPresent
