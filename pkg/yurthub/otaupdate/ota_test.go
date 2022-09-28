@@ -117,7 +117,7 @@ func TestUpdatePod(t *testing.T) {
 			podName:      "updatablePod",
 			pod:          newPodWithCondition("updatablePod", corev1.ConditionTrue),
 			expectedCode: http.StatusOK,
-			expectedData: "",
+			expectedData: "Start updating pod \"default\"/\"updatablePod\"",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/notUpdatablePod/update",
