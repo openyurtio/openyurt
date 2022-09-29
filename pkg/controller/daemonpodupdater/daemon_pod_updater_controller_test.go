@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	DefaultMaxUnavailable = "1"
-	CoupleMaxUnavailable  = "2"
+	SingleMaxUnavailable = "1"
+	CoupleMaxUnavailable = "2"
 )
 
 var (
@@ -354,7 +354,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
-			maxUnavailable: DefaultMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      false,
 			wantDelete:     false,
 		},
@@ -364,7 +364,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
-			maxUnavailable: DefaultMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      false,
 			wantDelete:     true,
 		},
@@ -374,7 +374,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
-			maxUnavailable: CoupleMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      false,
 			wantDelete:     true,
 		},
@@ -394,7 +394,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   2,
-			maxUnavailable: DefaultMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      false,
 			wantDelete:     true,
 		},
@@ -404,7 +404,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   1,
-			maxUnavailable: DefaultMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      false,
 			wantDelete:     true,
 		},
@@ -414,7 +414,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			strategy:       "auto",
 			nodeNum:        3,
 			readyNodeNum:   1,
-			maxUnavailable: DefaultMaxUnavailable,
+			maxUnavailable: SingleMaxUnavailable,
 			turnReady:      true,
 			wantDelete:     true,
 		},
@@ -511,4 +511,56 @@ func TestOTAUpdate(t *testing.T) {
 
 	assert.Equal(t, true, IsPodUpdatable(oldPodGot))
 	assert.Equal(t, false, IsPodUpdatable(newPodGot))
+}
+
+func TestController_maxUnavailableCounts(t *testing.T) {
+	tests := []struct {
+		name           string
+		maxUnavailable string
+		wantNum        int
+	}{
+		{
+			"use default when set 0",
+			"0", 1,
+		},
+		{
+			"use default when set 0%",
+			"0%", 1,
+		},
+		{
+			"10 * 10% = 1",
+			"10%", 1,
+		},
+		{
+			"10 * 10% = 2",
+			"20%", 2,
+		},
+		{
+			"10 * 90% = 9",
+			"90%", 9,
+		},
+		{
+			"10 * 95% = 9.5, roundup is 10",
+			"95%", 10,
+		},
+		{
+			"10 * 100% = 10",
+			"100%", 10,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := &Controller{}
+			ds := &appsv1.DaemonSet{}
+			setMaxUnavailableAnnotation(ds, test.maxUnavailable)
+
+			// Just fake, and set nodeToDaemonPods length to 10
+			nodeToDaemonPods := map[string][]*corev1.Pod{
+				"1": nil, "2": nil, "3": nil, "4": nil, "5": nil, "6": nil, "7": nil, "8": nil, "9": nil, "10": nil,
+			}
+			got, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, test.wantNum, got)
+		})
+	}
 }

@@ -66,6 +66,7 @@ const (
 	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=auto".
 	// If this annotation is not explicitly stated, it will be set to the default value 1.
 	MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
+	DefaultMaxUnavailable    = "10%"
 
 	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
 	// The value of 250 is chosen b/c values that are too high can cause registry DoS issues.
@@ -482,8 +483,8 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 func (c *Controller) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) (int, error) {
 	// If annotation is not set, use default value one
 	v, ok := ds.Annotations[MaxUnavailableAnnotation]
-	if !ok {
-		return 1, nil
+	if !ok || v == "0" || v == "0%" {
+		v = DefaultMaxUnavailable
 	}
 
 	intstrv := intstrutil.Parse(v)
@@ -492,11 +493,6 @@ func (c *Controller) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods
 		return -1, fmt.Errorf("invalid value for MaxUnavailable: %v", err)
 	}
 
-	// If the daemonset returned with an impossible configuration, obey the default of unavailable=1
-	if maxUnavailable == 0 {
-		klog.Warningf("DaemonSet %s/%s is not configured for unavailability, defaulting to accepting unavailability", ds.Namespace, ds.Name)
-		maxUnavailable = 1
-	}
 	klog.V(5).Infof("DaemonSet %s/%s, maxUnavailable: %d", ds.Namespace, ds.Name, maxUnavailable)
 	return maxUnavailable, nil
 }
