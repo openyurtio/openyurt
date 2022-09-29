@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
@@ -32,22 +31,16 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
 
-// GetPods return pod list
-func GetPods(clientset kubernetes.Interface, nodeName string, checker healthchecker.HealthChecker,
-	servers []*url.URL) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Pre-check if edge yurthub node is connected to the cloud
-		if !isEdgeCloudConnected(checker, servers) {
-			klog.Errorf("Get pod list is not allowed when edge is disconnected to cloud")
-			WriteErr(w, "Get pod list is not allowed when edge is disconnected to cloud", http.StatusForbidden)
-			return
-		}
+type OTAHandler func(kubernetes.Interface, string) http.Handler
 
+// GetPods return pod list
+func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-			FieldSelector: "spec.nodeName=" + nodeName,
+			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
 		})
 		if err != nil {
 			klog.Errorf("Get pod list failed, %v", err)
@@ -67,16 +60,8 @@ func GetPods(clientset kubernetes.Interface, nodeName string, checker healthchec
 }
 
 // UpdatePod update a specifc pod(namespace/podname) to the latest version
-func UpdatePod(clientset kubernetes.Interface, nodeName string, checker healthchecker.HealthChecker,
-	servers []*url.URL) http.Handler {
+func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Pre-check if edge yurthub node is connected to the cloud
-		if !isEdgeCloudConnected(checker, servers) {
-			klog.Errorf("Apply update is not allowed when edge is disconnected to cloud")
-			WriteErr(w, "Apply update is not allowed when edge is disconnected to cloud", http.StatusForbidden)
-			return
-		}
-
 		params := mux.Vars(r)
 		namespace := params["ns"]
 		podName := params["podname"]
@@ -94,7 +79,7 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string, checker healthch
 		}
 
 		// Successfully apply update, response 200
-		WriteJSONResponse(w, []byte(fmt.Sprintf("Start updating pod %q/%q", namespace, podName)))
+		WriteJSONResponse(w, []byte(fmt.Sprintf("Start updating pod %v/%v", namespace, podName)))
 	})
 }
 
@@ -131,7 +116,7 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName st
 		return err, false
 	}
 
-	klog.Infof("Start updating pod: %q/%q", namespace, podName)
+	klog.Infof("Start updating pod: %v/%v", namespace, podName)
 	return nil, true
 }
 
@@ -139,17 +124,6 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName st
 func encodePodList(podList *corev1.PodList) ([]byte, error) {
 	codec := scheme.Codecs.LegacyCodec(runtimescheme.GroupVersion{Group: corev1.GroupName, Version: "v1"})
 	return runtime.Encode(codec, podList)
-}
-
-// isEdgeCloudConnected will check if edge is disconnected to cloud. If there is any remote server is healthy, it is
-// regarded as connected. Otherwise, it is regarded as disconnected and return false.
-func isEdgeCloudConnected(checker healthchecker.HealthChecker, remoteServers []*url.URL) bool {
-	for _, server := range remoteServers {
-		if checker.IsHealthy(server) {
-			return true
-		}
-	}
-	return false
 }
 
 // WriteErr writes the http status and the error string on the response
@@ -174,4 +148,25 @@ func WriteJSONResponse(w http.ResponseWriter, data []byte) {
 	if err != nil || n != len(data) {
 		klog.Errorf("Write resp for request, expect %d bytes but write %d bytes with error, %v", len(data), n, err)
 	}
+}
+
+// HealthyCheck checks if cloud-edge is disconnected before ota update handle, ota update is not allowed when disconnected
+func HealthyCheck(rest *rest.RestConfigManager, nodeName string, handler OTAHandler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		restCfg := rest.GetRestConfig(true)
+		if restCfg == nil {
+			klog.Infof("Get pod list is not allowed when edge is disconnected to cloud")
+			WriteErr(w, "OTA update is not allowed when edge is disconnected to cloud", http.StatusForbidden)
+			return
+		}
+
+		clientSet, err := kubernetes.NewForConfig(restCfg)
+		if err != nil {
+			klog.Errorf("Get client set failed: %v", err)
+			WriteErr(w, "Get client set failed", http.StatusInternalServerError)
+			return
+		}
+
+		handler(clientSet, nodeName).ServeHTTP(w, r)
+	})
 }

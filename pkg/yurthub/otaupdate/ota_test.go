@@ -19,7 +19,6 @@ package otaupdate
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -29,25 +28,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-)
-
-var (
-	healthyServers = []*url.URL{
-		{Host: "127.0.0.1:18080"},
-	}
-
-	unHealthyServers = []*url.URL{
-		{Host: "127.0.0.1:18081"},
-	}
-
-	healthyFakeChecker = healthchecker.NewFakeChecker(true, map[string]int{
-		"http://127.0.0.1:8080": 1,
-	})
-
-	unHealthyFakeChecker = healthchecker.NewFakeChecker(false, map[string]int{
-		"http://127.0.0.1:8081": 1,
-	})
 )
 
 func newPod(podName string) *corev1.Pod {
@@ -93,15 +73,10 @@ func TestGetPods(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 
-	GetPods(clientset, "", healthyFakeChecker, healthyServers).ServeHTTP(rr, req)
+	GetPods(clientset, "").ServeHTTP(rr, req)
 
 	expectedCode := http.StatusOK
 	assert.Equal(t, expectedCode, rr.Code)
-
-	// Cloud-Edge network disconnected
-	rr = httptest.NewRecorder()
-	GetPods(clientset, "", unHealthyFakeChecker, unHealthyServers).ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
 
 func TestUpdatePod(t *testing.T) {
@@ -117,7 +92,7 @@ func TestUpdatePod(t *testing.T) {
 			podName:      "updatablePod",
 			pod:          newPodWithCondition("updatablePod", corev1.ConditionTrue),
 			expectedCode: http.StatusOK,
-			expectedData: "Start updating pod \"default\"/\"updatablePod\"",
+			expectedData: "Start updating pod default/updatablePod",
 		},
 		{
 			reqURL:       "/openyurt.io/v1/namespaces/default/pods/notUpdatablePod/update",
@@ -148,7 +123,7 @@ func TestUpdatePod(t *testing.T) {
 		req = mux.SetURLVars(req, vars)
 		rr := httptest.NewRecorder()
 
-		UpdatePod(clientset, "", healthyFakeChecker, healthyServers).ServeHTTP(rr, req)
+		UpdatePod(clientset, "").ServeHTTP(rr, req)
 
 		assert.Equal(t, test.expectedCode, rr.Code)
 		assert.Equal(t, test.expectedData, rr.Body.String())
