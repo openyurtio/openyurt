@@ -31,26 +31,35 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
 
 type OTAHandler func(kubernetes.Interface, string) http.Handler
 
 // GetPods return pod list
-func GetPods(clientset kubernetes.Interface, nodeName string) http.Handler {
+func GetPods(store cachemanager.StorageWrapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
-		})
+		objs, err := store.List("kubelet/pods")
 		if err != nil {
 			klog.Errorf("Get pod list failed, %v", err)
 			WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
 			return
 		}
-		klog.V(5).Infof("Got pod list: %v", podList)
+
+		podList := new(corev1.PodList)
+		for _, obj := range objs {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				klog.Errorf("Get pod list failed, %v", err)
+				WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
+				return
+			}
+			podList.Items = append(podList.Items, *pod)
+		}
 
 		// Successfully get pod list, response 200
-		data, err := encodePodList(podList)
+		data, err := encodePods(podList)
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
@@ -120,8 +129,8 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName st
 	return nil, true
 }
 
-// encodePodList returns the encoded PodList
-func encodePodList(podList *corev1.PodList) ([]byte, error) {
+// Derived from kubelet encodePods
+func encodePods(podList *corev1.PodList) (data []byte, err error) {
 	codec := scheme.Codecs.LegacyCodec(runtimescheme.GroupVersion{Group: corev1.GroupName, Version: "v1"})
 	return runtime.Encode(codec, podList)
 }

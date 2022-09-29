@@ -17,6 +17,7 @@ limitations under the License.
 package otaupdate
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,11 +29,16 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
 func newPod(podName string) *corev1.Pod {
 	pod := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{APIVersion: "v1"},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: podName,
 			Namespace:    metav1.NamespaceDefault,
@@ -61,11 +67,24 @@ func SetPodUpgradeCondition(pod *corev1.Pod, ready corev1.ConditionStatus) {
 }
 
 func TestGetPods(t *testing.T) {
+	dir := t.TempDir()
+	dStorage, err := disk.NewDiskStorage(dir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+
 	updatablePod := newPodWithCondition("updatablePod", corev1.ConditionTrue)
 	notUpdatablePod := newPodWithCondition("notUpdatablePod", corev1.ConditionFalse)
 	normalPod := newPod("normalPod")
 
-	clientset := fake.NewSimpleClientset(updatablePod, notUpdatablePod, normalPod)
+	pods := []*corev1.Pod{updatablePod, notUpdatablePod, normalPod}
+	for _, pod := range pods {
+		err = sWrapper.Create(fmt.Sprintf("kubelet/pods/default/%s", pod.Name), pod)
+		if err != nil {
+			t.Errorf("failed to create obj, %v", err)
+		}
+	}
 
 	req, err := http.NewRequest("GET", "/openyurt.io/v1/pods", nil)
 	if err != nil {
@@ -73,7 +92,7 @@ func TestGetPods(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 
-	GetPods(clientset, "").ServeHTTP(rr, req)
+	GetPods(sWrapper).ServeHTTP(rr, req)
 
 	expectedCode := http.StatusOK
 	assert.Equal(t, expectedCode, rr.Code)
