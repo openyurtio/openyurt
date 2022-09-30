@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -28,8 +29,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
@@ -148,4 +152,27 @@ func TestUpdatePod(t *testing.T) {
 		assert.Equal(t, test.expectedData, rr.Body.String())
 	}
 
+}
+
+func TestHealthyCheck(t *testing.T) {
+	u, _ := url.Parse("https://10.10.10.113:6443")
+	fakeHealthchecker := healthchecker.NewFakeChecker(false, nil)
+	cfg := &config.YurtHubConfiguration{
+		RemoteServers: []*url.URL{u},
+	}
+
+	rcm, err := rest.NewRestConfigManager(cfg, nil, fakeHealthchecker)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	HealthyCheck(rcm, "", UpdatePod).ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
