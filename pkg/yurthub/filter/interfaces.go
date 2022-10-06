@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -31,12 +32,15 @@ type FilterInitializer interface {
 // Approver check the response of specified request need to go through filter or not.
 // and get the filter name for the specified request.
 type Approver interface {
-	Approve(req *http.Request) bool
-	GetFilterName(req *http.Request) string
+	Approve(req *http.Request) (bool, string)
 }
 
 // Runner is the actor for response filter
 type Runner interface {
+	Name() string
+	// SupportedResourceAndVerbs is used to specify which resource and request verb is supported by the filter.
+	// Because each filter can make sure what requests with resource and verb can be handled.
+	SupportedResourceAndVerbs() map[string]sets.String
 	// Filter is used to filter data returned from the cloud.
 	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
 }

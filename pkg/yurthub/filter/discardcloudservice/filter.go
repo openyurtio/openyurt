@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -40,6 +41,16 @@ func NewFilter() *discardCloudServiceFilter {
 
 type discardCloudServiceFilter struct {
 	serializerManager *serializer.SerializerManager
+}
+
+func (sf *discardCloudServiceFilter) Name() string {
+	return filter.DiscardCloudServiceFilterName
+}
+
+func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets.String {
+	return map[string]sets.String{
+		"services": sets.NewString("list", "watch"),
+	}
 }
 
 func (sf *discardCloudServiceFilter) SetSerializerManager(s *serializer.SerializerManager) error {

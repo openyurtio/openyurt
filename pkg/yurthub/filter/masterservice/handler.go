@@ -104,7 +104,6 @@ func (fh *masterServiceFilterHandler) StreamResponseFilter(rc io.ReadCloser, ch 
 	for {
 		watchType, obj, err := d.Decode()
 		if err != nil {
-			//klog.V(2).Infof("%s %s watch decode ended with: %v", comp, info.Path, err)
 			return err
 		}
 

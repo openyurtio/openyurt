@@ -277,8 +277,8 @@ metadata:
   namespace: kube-system
 data:
   cache_agents: ""
-  filter_servicetopology: ""
-  filter_discardcloudservice: ""
-  filter_masterservice: ""
+  servicetopology: ""
+  discardcloudservice: ""
+  masterservice: ""
 `
 )
