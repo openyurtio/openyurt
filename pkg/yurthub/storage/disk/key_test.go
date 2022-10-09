@@ -154,13 +154,14 @@ func TestKeyFunc(t *testing.T) {
 			continue
 		}
 
-		if key.Key() != s.key {
-			t.Errorf("unexpected key for case: %s, want: %s, got: %s", c, s.key, key.Key())
+		storageKey := key.(storageKey)
+		if storageKey.Key() != s.key {
+			t.Errorf("unexpected key for case: %s, want: %s, got: %s", c, s.key, storageKey.Key())
 			continue
 		}
 
-		if key.IsRootKey() != s.isRoot {
-			t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, key.IsRootKey())
+		if storageKey.isRootKey() != s.isRoot {
+			t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, storageKey.isRootKey())
 		}
 	}
 	os.RemoveAll(keyFuncTestDir)

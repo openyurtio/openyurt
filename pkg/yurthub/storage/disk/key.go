@@ -24,16 +24,16 @@ import (
 )
 
 type storageKey struct {
-	isRootKey bool
-	path      string
+	rootKey bool
+	path    string
 }
 
 func (k storageKey) Key() string {
 	return k.path
 }
 
-func (k storageKey) IsRootKey() bool {
-	return k.isRootKey
+func (k storageKey) isRootKey() bool {
+	return k.rootKey
 }
 
 // Key for disk storage is
@@ -67,7 +67,7 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	}
 
 	return storageKey{
-		path:      path,
-		isRootKey: isRoot,
+		path:    path,
+		rootKey: isRoot,
 	}, nil
 }

@@ -41,11 +41,10 @@ func (fs *FileSystemOperator) Read(path string) ([]byte, error) {
 		return nil, ErrNotExists
 	}
 
-	if ok, err := IsRegularFile(path); !ok || err != nil {
-		if !ok {
-			return nil, ErrIsNotFile
-		}
+	if ok, err := IsRegularFile(path); err != nil {
 		return nil, err
+	} else if !ok {
+		return nil, ErrIsNotFile
 	}
 
 	return os.ReadFile(path)
@@ -59,11 +58,10 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 		return ErrNotExists
 	}
 
-	if ok, err := IsRegularFile(path); !ok || err != nil {
-		if !ok {
-			return ErrIsNotFile
-		}
+	if ok, err := IsRegularFile(path); err != nil {
 		return err
+	} else if !ok {
+		return ErrIsNotFile
 	}
 
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0600)
@@ -95,19 +93,23 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 	if !IfExists(rootDir) {
 		return nil, ErrNotExists
 	}
-	if ok, err := IsDir(rootDir); !ok || err != nil {
-		if !ok {
-			return nil, ErrIsNotDir
-		}
+	if ok, err := IsDir(rootDir); err != nil {
 		return nil, err
+	} else if !ok {
+		return nil, ErrIsNotDir
 	}
 
 	dirs := []string{}
 	files := []string{}
 	if isRecursive {
-		filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
+			}
+
+			info, err := d.Info()
+			if err != nil {
+				return fmt.Errorf("failed to get info for entry %s, %v", path, err)
 			}
 
 			switch {
@@ -160,11 +162,10 @@ func (fs *FileSystemOperator) DeleteFile(path string) error {
 		return nil
 	}
 
-	if ok, err := IsRegularFile(path); !ok || err != nil {
-		if !ok {
-			return ErrIsNotFile
-		}
+	if ok, err := IsRegularFile(path); err != nil {
 		return err
+	} else if !ok {
+		return ErrIsNotFile
 	}
 
 	return os.RemoveAll(path)
@@ -178,11 +179,10 @@ func (fs *FileSystemOperator) DeleteDir(path string) error {
 		return nil
 	}
 
-	if ok, err := IsDir(path); !ok || err != nil {
-		if !ok {
-			return ErrIsNotDir
-		}
+	if ok, err := IsDir(path); err != nil {
 		return err
+	} else if !ok {
+		return ErrIsNotDir
 	}
 
 	return os.RemoveAll(path)
@@ -200,10 +200,7 @@ func (fs *FileSystemOperator) CreateDir(path string) error {
 		return ErrExists
 	}
 
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return err
-	}
-	return nil
+	return os.MkdirAll(path, 0755)
 }
 
 // CreateFile will create the file at path with content. If its parent dir does not

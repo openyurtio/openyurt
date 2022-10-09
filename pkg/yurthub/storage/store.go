@@ -76,11 +76,11 @@ type objectRelatedInterface interface {
 	Get(key Key) ([]byte, error)
 
 	// List will retrieve all contents whose keys have the prefix of rootKey.
-	// If rootKey is empty, ErrKeyIsEmpty will be returned.
-	// If the rootKey does not exist in the store, ErrStorageNotFound will be returned.
-	// If the rootKey exists in the store but no keys has the prefix of rootKey,
-	// an empty slice of content will be returned.
-	List(rootKey Key) ([][]byte, error)
+	// If key is empty, ErrKeyIsEmpty will be returned.
+	// If the key does not exist in the store, ErrStorageNotFound will be returned.
+	// If the key exists in the store but no other keys has it as prefix, an empty slice
+	// of content will be returned.
+	List(key Key) ([][]byte, error)
 
 	// Update will try to update key in store with passed-in contents. Only when
 	// the rv of passed-in contents is fresher than what is in the store, the Update will happen.
@@ -95,9 +95,6 @@ type objectRelatedInterface interface {
 	// info contains necessary info to generate the key for the object. How to use this info
 	// to generate the key depends on the implementation of storage.
 	KeyFunc(info KeyBuildInfo) (Key, error)
-
-	// TODO: RootKeyFunc()
-	// decouple key with root key
 }
 
 // componentRelatedInterface contains functions for manipulating objects in the storage based on the component,

@@ -97,13 +97,15 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return err
 	}
-	if !ds.lockKey(key) {
+	storageKey := key.(storageKey)
+
+	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(key)
+	defer ds.unLockKey(storageKey)
 
-	path := filepath.Join(ds.baseDir, key.Key())
-	if key.IsRootKey() {
+	path := filepath.Join(ds.baseDir, storageKey.Key())
+	if storageKey.isRootKey() {
 		// If it is rootKey, create the dir for it. Refer to #258.
 		return ds.fsOperator.CreateDir(path)
 	}
@@ -122,15 +124,16 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return err
 	}
+	storageKey := key.(storageKey)
 
-	if !ds.lockKey(key) {
+	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(key)
+	defer ds.unLockKey(storageKey)
 
-	path := filepath.Join(ds.baseDir, key.Key())
+	path := filepath.Join(ds.baseDir, storageKey.Key())
 	// TODO: do we need to delete root key
-	if key.IsRootKey() {
+	if storageKey.isRootKey() {
 		return ds.fsOperator.DeleteDir(path)
 	}
 	if err := ds.fsOperator.DeleteFile(path); err != nil {
@@ -146,13 +149,14 @@ func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return []byte{}, storage.ErrKeyIsEmpty
 	}
+	storageKey := key.(storageKey)
 
-	if !ds.lockKey(key) {
+	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(key)
+	defer ds.unLockKey(storageKey)
 
-	path := filepath.Join(ds.baseDir, key.Key())
+	path := filepath.Join(ds.baseDir, storageKey.Key())
 	buf, err := ds.fsOperator.Read(path)
 	switch err {
 	case nil:
@@ -172,33 +176,41 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return [][]byte{}, err
 	}
+	storageKey := key.(storageKey)
 
-	if !key.IsRootKey() {
-		return nil, storage.ErrIsNotRootKey
-	}
-
-	if !ds.lockKey(key) {
+	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(key)
+	defer ds.unLockKey(storageKey)
 
 	bb := make([][]byte, 0)
-	absPath := filepath.Join(ds.baseDir, key.Key())
+	absPath := filepath.Join(ds.baseDir, storageKey.Key())
 	files, err := ds.fsOperator.List(absPath, fs.ListModeFiles, true)
-	if err == fs.ErrNotExists {
+	switch err {
+	case nil:
+		// read all files and return
+		for _, filePath := range files {
+			buf, err := ds.fsOperator.Read(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read file at %s, %v", filePath, err)
+			}
+			bb = append(bb, buf)
+		}
+		return bb, nil
+	case fs.ErrNotExists:
 		return nil, storage.ErrStorageNotFound
-	}
-	if err != nil {
+	case fs.ErrIsNotDir:
+		// possibly it is a regular file, try to read it directly
+		if buf, rerr := ds.fsOperator.Read(absPath); rerr != nil {
+			return nil, fmt.Errorf("failed to list file at %s, %v", absPath, rerr)
+		} else {
+			bb = append(bb, buf)
+		}
+		return bb, nil
+	default:
+		// err != nil
 		return nil, fmt.Errorf("failed to get all files under %s, %v", absPath, err)
 	}
-	for _, filePath := range files {
-		buf, err := ds.fsOperator.Read(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read file at %s, %v", filePath, err)
-		}
-		bb = append(bb, buf)
-	}
-	return bb, nil
 }
 
 // Update will update the file pointed by the key. It will check the rv of
@@ -210,17 +222,18 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
 		return nil, err
 	}
+	storageKey := key.(storageKey)
 
-	if key.IsRootKey() {
+	if storageKey.isRootKey() {
 		return nil, storage.ErrIsNotObjectKey
 	}
 
-	if !ds.lockKey(key) {
+	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(key)
+	defer ds.unLockKey(storageKey)
 
-	absPath := filepath.Join(ds.baseDir, key.Key())
+	absPath := filepath.Join(ds.baseDir, storageKey.Key())
 	old, err := ds.fsOperator.Read(absPath)
 	if err == fs.ErrNotExists {
 		return nil, storage.ErrStorageNotFound
@@ -229,7 +242,7 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 		return nil, fmt.Errorf("failed to read file at %s, %v", absPath, err)
 	}
 
-	klog.V(4).Infof("find key %s exists when updating it", key.Key())
+	klog.V(4).Infof("find key %s exists when updating it", storageKey.Key())
 	ok, err := ds.ifFresherThan(old, rv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rv of file %s, %v", absPath, err)
@@ -239,7 +252,7 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 	}
 
 	// update the file
-	tmpPath := filepath.Join(ds.baseDir, getTmpKey(key).Key())
+	tmpPath := filepath.Join(ds.baseDir, getTmpKey(storageKey).Key())
 	if err := ds.fsOperator.Rename(absPath, tmpPath); err != nil {
 		return nil, fmt.Errorf("failed to backup file %s, %v", absPath, err)
 	}
@@ -265,19 +278,20 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 	if err != nil {
 		return nil, err
 	}
+	storageKey := rootKey.(storageKey)
 
-	if !ds.lockKey(rootKey) {
+	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(rootKey)
+	defer ds.unLockKey(storageKey)
 
-	absPath := filepath.Join(ds.baseDir, rootKey.Key())
+	absPath := filepath.Join(ds.baseDir, storageKey.Key())
 	files, err := ds.fsOperator.List(absPath, fs.ListModeFiles, true)
 	if err == fs.ErrNotExists {
 		return nil, storage.ErrStorageNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to list files at %s, %v", filepath.Join(ds.baseDir, rootKey.Key()), err)
+		return nil, fmt.Errorf("failed to list files at %s, %v", filepath.Join(ds.baseDir, storageKey.Key()), err)
 	}
 
 	keys := make([]storage.Key, len(files))
@@ -317,6 +331,7 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 	if err != nil {
 		return err
 	}
+	storageKey := rootKey.(storageKey)
 
 	for key := range contents {
 		if !strings.HasPrefix(key.Key(), rootKey.Key()) {
@@ -324,14 +339,14 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 		}
 	}
 
-	if !ds.lockKey(rootKey) {
+	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}
-	defer ds.unLockKey(rootKey)
+	defer ds.unLockKey(storageKey)
 
 	// 1. mv old dir into tmp_dir when rootKey dir already exists
-	absPath := filepath.Join(ds.baseDir, rootKey.Key())
-	tmpRootKey := getTmpKey(rootKey)
+	absPath := filepath.Join(ds.baseDir, storageKey.Key())
+	tmpRootKey := getTmpKey(storageKey)
 	tmpPath := filepath.Join(ds.baseDir, tmpRootKey.Key())
 	if !fs.IfExists(absPath) {
 		if err := ds.fsOperator.CreateDir(absPath); err != nil {
@@ -377,8 +392,8 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 		return storage.ErrEmptyComponent
 	}
 	rootKey := storageKey{
-		path:      component,
-		isRootKey: true,
+		path:    component,
+		rootKey: true,
 	}
 	if !ds.lockKey(rootKey) {
 		return storage.ErrStorageAccessConflict
@@ -525,7 +540,7 @@ func (ds *diskStorage) recoverDir(tmpPath string) error {
 	return nil
 }
 
-func (ds *diskStorage) lockKey(key storage.Key) bool {
+func (ds *diskStorage) lockKey(key storageKey) bool {
 	keyStr := key.Key()
 	ds.Lock()
 	defer ds.Unlock()
@@ -568,17 +583,17 @@ func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) 
 	return true, nil
 }
 
-func (ds *diskStorage) unLockKey(key storage.Key) {
+func (ds *diskStorage) unLockKey(key storageKey) {
 	ds.Lock()
 	defer ds.Unlock()
 	delete(ds.keyPendingStatus, key.Key())
 }
 
-func getTmpKey(key storage.Key) storageKey {
+func getTmpKey(key storageKey) storageKey {
 	dir, file := filepath.Split(key.Key())
 	return storageKey{
-		path:      filepath.Join(dir, fmt.Sprintf("%s%s", tmpPrefix, file)),
-		isRootKey: key.IsRootKey(),
+		path:    filepath.Join(dir, fmt.Sprintf("%s%s", tmpPrefix, file)),
+		rootKey: key.isRootKey(),
 	}
 }
 

@@ -561,14 +561,16 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			Expect(len(gotBytes)).To(BeZero())
 		})
-		It("should return ErrIsNotRootKey if the key is not a root key", func() {
+		It("should return the object bytes if the key specifies the single object", func() {
 			var key storage.Key
 			for k := range podNamespace1ObjBytes {
 				key = k
 				break
 			}
-			_, err = store.List(key)
-			Expect(err).To(Equal(storage.ErrIsNotRootKey))
+			b, err := store.List(key)
+			Expect(err).To(BeNil())
+			Expect(len(b)).To(Equal(1))
+			Expect(b[0]).To(Equal(podNamespace1ObjBytes[key]))
 		})
 	})
 

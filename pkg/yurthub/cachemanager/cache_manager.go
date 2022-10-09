@@ -44,6 +44,7 @@ import (
 
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -179,32 +180,12 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 
-	// start to query storage
-	if !key.IsRootKey() {
-		// Possibly it is a list request with metadata.name fieldSelector
-		// In this case, we cannot use storage.List which can only receive rootKey as argument.
-		// Additionally, we can accelerate the process with in-memory cache.
-		var obj runtime.Object
-		if obj, err = cm.queryOneObject(req); err != nil && err != storage.ErrStorageNotFound {
-			klog.Errorf("failed to query ObjectList with only one obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
-			return nil, err
-		} else if err == storage.ErrStorageNotFound {
-			klog.Infof("cannot find obj of gvk %s for req: %s, return ListObj with empty items", listGvk, util.ReqString(req))
-		}
-
-		items := []runtime.Object{}
-		if obj != nil {
-			items = append(items, obj)
-		}
-		if err := completeListObjWithObjs(listObj, items); err != nil {
-			klog.Errorf("failed to complete the list obj whose gvk is %s for req: %s, %v", listGvk, util.ReqString(req), err)
-			return nil, err
-		}
-		return listObj, nil
-	}
-
 	objs, err := cm.storage.List(key)
-	if err != nil {
+	if err == storage.ErrStorageNotFound && proxyutil.IsListRequestWithNameFieldSelector(req) {
+		// When the request is a list request with FieldSelector "metadata.name", we should not return error
+		// when the specified resource is not found return an empty list object, to keep same as APIServer.
+		return listObj, nil
+	} else if err != nil {
 		klog.Errorf("failed to list key %s for request %s, %v", key.Key(), util.ReqString(req), err)
 		return nil, err
 	} else if len(objs) == 0 {

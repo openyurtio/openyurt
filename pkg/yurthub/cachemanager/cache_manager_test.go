@@ -2782,6 +2782,46 @@ func TestQueryCacheForList(t *testing.T) {
 				data: map[string]struct{}{},
 			},
 		},
+		"list existing resource with metadata.name fieldSelector": {
+			keyBuildInfo: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Group:     "",
+				Version:   "v1",
+				Namespace: "default",
+				Name:      "nginx",
+			},
+			userAgent:  "kubelet",
+			accept:     "application/json",
+			verb:       "GET",
+			path:       "/api/v1/namespaces/default/pods?fieldSelector=metadata.name%3Dnginx",
+			namespaced: true,
+			inputObj: []runtime.Object{
+				&v1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Pod",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "nginx",
+						Namespace:       "default",
+						ResourceVersion: "5",
+					},
+				},
+			},
+			expectResult: struct {
+				err      bool
+				queryErr error
+				rv       string
+				data     map[string]struct{}
+			}{
+				err: false,
+				rv:  "5",
+				data: map[string]struct{}{
+					"pod-default-nginx-5": {},
+				},
+			},
+		},
 	}
 
 	accessor := meta.NewAccessor()
