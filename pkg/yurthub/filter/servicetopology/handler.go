@@ -18,6 +18,7 @@ package servicetopology
 
 import (
 	"io"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -42,7 +43,7 @@ const (
 )
 
 var (
-	topologyValueSets = sets.NewString(AnnotationServiceTopologyValueNode, AnnotationServiceTopologyValueZone, AnnotationServiceTopologyValueNodePool)
+	topologyValueSets = sets.NewString(AnnotationServiceTopologyValueNode, AnnotationServiceTopologyValueZone, AnnotationServiceTopologyValueNodePool, "*")
 )
 
 type serviceTopologyFilterHandler struct {
@@ -145,24 +146,40 @@ func (fh *serviceTopologyFilterHandler) StreamResponseFilter(rc io.ReadCloser, c
 }
 
 func (fh *serviceTopologyFilterHandler) serviceTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
-	needHandle, serviceTopologyType := fh.resolveServiceTopologyType(obj)
-	if !needHandle || len(serviceTopologyType) == 0 {
+	needHandle, serviceTopologyTypes := fh.resolveServiceTopologyType(obj)
+	if !needHandle || serviceTopologyTypes.Len() == 0 {
+		// no service topology settings are configured, so return directly
 		return false, obj
 	}
 
-	switch serviceTopologyType {
-	case AnnotationServiceTopologyValueNode:
-		// close traffic on the same node
-		return fh.nodeTopologyHandler(obj)
-	case AnnotationServiceTopologyValueNodePool, AnnotationServiceTopologyValueZone:
-		// close traffic on the same node pool
-		return fh.nodePoolTopologyHandler(obj)
-	default:
+	// when local node service topology is configured, filter endpoints on the same node
+	if serviceTopologyTypes.Has(AnnotationServiceTopologyValueNode) {
+		// if endpoints are found on the same node, return the filtered object directly.
+		isNil, objInNode := fh.nodeTopologyHandler(obj)
+		if !isNil {
+			return isNil, objInNode
+		}
+	}
+
+	// when nodePool service topology is configured, filter endpoints on the same nodePool
+	if serviceTopologyTypes.Has(AnnotationServiceTopologyValueNodePool) || serviceTopologyTypes.Has(AnnotationServiceTopologyValueZone) {
+		// if endpoints are found on the same pool, return the filtered object directly.
+		isNil, objInPool := fh.nodePoolTopologyHandler(obj)
+		if !isNil {
+			return isNil, objInPool
+		}
+	}
+
+	// when there is a * in service topology setting, return un-filtered object directly
+	if serviceTopologyTypes.Has("*") {
 		return false, obj
 	}
+
+	return true, obj
 }
 
-func (fh *serviceTopologyFilterHandler) resolveServiceTopologyType(obj runtime.Object) (bool, string) {
+func (fh *serviceTopologyFilterHandler) resolveServiceTopologyType(obj runtime.Object) (bool, sets.String) {
+	topologyTypes := sets.NewString()
 	var svcNamespace, svcName string
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
@@ -175,19 +192,25 @@ func (fh *serviceTopologyFilterHandler) resolveServiceTopologyType(obj runtime.O
 		svcNamespace = v.Namespace
 		svcName = v.Name
 	default:
-		return false, ""
+		return false, topologyTypes
 	}
 
 	svc, err := fh.serviceLister.Services(svcNamespace).Get(svcName)
 	if err != nil {
 		klog.Warningf("serviceTopologyFilterHandler: failed to get service %s/%s, err: %v", svcNamespace, svcName, err)
-		return false, ""
+		return false, topologyTypes
 	}
 
-	if topologyValueSets.Has(svc.Annotations[AnnotationServiceTopologyKey]) {
-		return true, svc.Annotations[AnnotationServiceTopologyKey]
+	if v, ok := svc.Annotations[AnnotationServiceTopologyKey]; ok {
+		for _, topologyType := range strings.Split(v, ",") {
+			topologyType = strings.TrimSpace(topologyType)
+			if topologyValueSets.Has(topologyType) {
+				topologyTypes.Insert(topologyType)
+			}
+		}
 	}
-	return false, ""
+
+	return topologyTypes.Len() != 0, topologyTypes
 }
 
 func (fh *serviceTopologyFilterHandler) nodeTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
