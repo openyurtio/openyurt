@@ -81,33 +81,24 @@ func (fh *serviceTopologyFilterHandler) ObjectResponseFilter(b []byte) ([]byte, 
 		// filter endpointSlice before k8s 1.21
 		var items []discoveryV1beta1.EndpointSlice
 		for i := range v.Items {
-			isNil, item := fh.serviceTopologyHandler(&v.Items[i])
-			if !isNil {
-				eps := item.(*discoveryV1beta1.EndpointSlice)
-				items = append(items, *eps)
-			}
+			eps := fh.serviceTopologyHandler(&v.Items[i]).(*discoveryV1beta1.EndpointSlice)
+			items = append(items, *eps)
 		}
 		v.Items = items
 		return fh.serializer.Encode(v)
 	case *discovery.EndpointSliceList:
 		var items []discovery.EndpointSlice
 		for i := range v.Items {
-			isNil, item := fh.serviceTopologyHandler(&v.Items[i])
-			if !isNil {
-				eps := item.(*discovery.EndpointSlice)
-				items = append(items, *eps)
-			}
+			eps := fh.serviceTopologyHandler(&v.Items[i]).(*discovery.EndpointSlice)
+			items = append(items, *eps)
 		}
 		v.Items = items
 		return fh.serializer.Encode(v)
 	case *v1.EndpointsList:
 		var items []v1.Endpoints
 		for i := range v.Items {
-			isNil, item := fh.serviceTopologyHandler(&v.Items[i])
-			if !isNil {
-				ep := item.(*v1.Endpoints)
-				items = append(items, *ep)
-			}
+			ep := fh.serviceTopologyHandler(&v.Items[i]).(*v1.Endpoints)
+			items = append(items, *ep)
 		}
 		v.Items = items
 		return fh.serializer.Encode(v)
@@ -134,20 +125,17 @@ func (fh *serviceTopologyFilterHandler) StreamResponseFilter(rc io.ReadCloser, c
 			return err
 		}
 
-		isNil, filteredObj := fh.serviceTopologyHandler(obj)
-		if !isNil {
-			ch <- watch.Event{
-				Type:   watchType,
-				Object: filteredObj,
-			}
+		ch <- watch.Event{
+			Type:   watchType,
+			Object: fh.serviceTopologyHandler(obj),
 		}
 	}
 }
 
-func (fh *serviceTopologyFilterHandler) serviceTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
+func (fh *serviceTopologyFilterHandler) serviceTopologyHandler(obj runtime.Object) runtime.Object {
 	needHandle, serviceTopologyType := fh.resolveServiceTopologyType(obj)
 	if !needHandle || len(serviceTopologyType) == 0 {
-		return false, obj
+		return obj
 	}
 
 	switch serviceTopologyType {
@@ -158,7 +146,7 @@ func (fh *serviceTopologyFilterHandler) serviceTopologyHandler(obj runtime.Objec
 		// close traffic on the same node pool
 		return fh.nodePoolTopologyHandler(obj)
 	default:
-		return false, obj
+		return obj
 	}
 }
 
@@ -190,36 +178,24 @@ func (fh *serviceTopologyFilterHandler) resolveServiceTopologyType(obj runtime.O
 	return false, ""
 }
 
-func (fh *serviceTopologyFilterHandler) nodeTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
+func (fh *serviceTopologyFilterHandler) nodeTopologyHandler(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
-		newObj := reassembleV1beta1EndpointSlice(v, fh.nodeName, nil)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleV1beta1EndpointSlice(v, fh.nodeName, nil)
 	case *discovery.EndpointSlice:
-		newObj := reassembleEndpointSlice(v, fh.nodeName, nil)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleEndpointSlice(v, fh.nodeName, nil)
 	case *v1.Endpoints:
-		newObj := reassembleEndpoints(v, fh.nodeName, nil)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleEndpoints(v, fh.nodeName, nil)
 	default:
-		return false, obj
+		return obj
 	}
 }
 
-func (fh *serviceTopologyFilterHandler) nodePoolTopologyHandler(obj runtime.Object) (bool, runtime.Object) {
+func (fh *serviceTopologyFilterHandler) nodePoolTopologyHandler(obj runtime.Object) runtime.Object {
 	currentNode, err := fh.nodeGetter(fh.nodeName)
 	if err != nil {
 		klog.Warningf("skip serviceTopologyFilterHandler, failed to get current node %s, err: %v", fh.nodeName, err)
-		return false, obj
+		return obj
 	}
 
 	nodePoolName, ok := currentNode.Labels[nodepoolv1alpha1.LabelCurrentNodePool]
@@ -231,30 +207,18 @@ func (fh *serviceTopologyFilterHandler) nodePoolTopologyHandler(obj runtime.Obje
 	nodePool, err := fh.nodePoolLister.Get(nodePoolName)
 	if err != nil {
 		klog.Warningf("serviceTopologyFilterHandler: failed to get nodepool %s, err: %v", nodePoolName, err)
-		return false, obj
+		return obj
 	}
 
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
-		newObj := reassembleV1beta1EndpointSlice(v, "", nodePool)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleV1beta1EndpointSlice(v, "", nodePool)
 	case *discovery.EndpointSlice:
-		newObj := reassembleEndpointSlice(v, "", nodePool)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleEndpointSlice(v, "", nodePool)
 	case *v1.Endpoints:
-		newObj := reassembleEndpoints(v, "", nodePool)
-		if newObj == nil {
-			return true, obj
-		}
-		return false, newObj
+		return reassembleEndpoints(v, "", nodePool)
 	default:
-		return false, obj
+		return obj
 	}
 }
 
@@ -279,9 +243,8 @@ func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlic
 			}
 		}
 	}
-	if len(newEps) == 0 {
-		return nil
-	}
+
+	// even no endpoints left, empty endpoints slice should be returned
 	endpointSlice.Endpoints = newEps
 	return endpointSlice
 }
@@ -308,9 +271,7 @@ func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName st
 		}
 	}
 
-	if len(newEps) == 0 {
-		return nil
-	}
+	// even no endpoints left, empty endpoints slice should be returned
 	endpointSlice.Endpoints = newEps
 	return endpointSlice
 }
@@ -338,10 +299,8 @@ func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodePool *nod
 			newEpSubsets = append(newEpSubsets, endpoints.Subsets[i])
 		}
 	}
-	if len(newEpSubsets) == 0 {
-		// this endpoints has no valid addresses for ingress controller, return nil to ignore it
-		return nil
-	}
+
+	// even no subsets left, empty subset slice should be returned
 	endpoints.Subsets = newEpSubsets
 	return endpoints
 }
