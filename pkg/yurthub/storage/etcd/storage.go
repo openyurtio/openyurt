@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
-	"go.etcd.io/etcd/client/pkg/v3/transport"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,8 +18,10 @@ import (
 )
 
 const (
-	StorageName        = "pool-coordinator"
-	defaultDialTimeout = 10 * time.Second
+	StorageName                   = "pool-coordinator"
+	defaultDialTimeout            = 10 * time.Second
+	defaultComponentCacheFileName = "component-key-cache"
+	defaultRvLen                  = 32
 )
 
 type pathType string
@@ -36,19 +36,7 @@ type EtcdStorageConfig struct {
 	CertFile      string
 	KeyFile       string
 	CaFile        string
-}
-
-type keySet map[storage.Key]struct{}
-
-// Difference will return keys in s but not in s2
-func (s keySet) Difference(s2 keySet) []storage.Key {
-	keys := []storage.Key{}
-	for k := range s {
-		if _, ok := s2[k]; !ok {
-			keys = append(keys, k)
-		}
-	}
-	return keys
+	LocalCacheDir string
 }
 
 type etcdStorage struct {
@@ -56,28 +44,35 @@ type etcdStorage struct {
 	prefix          string
 	mirrorPrefixMap map[pathType]string
 	client          *clientv3.Client
-	// map component name to its key cache
-	localComponentKeyCache sync.Map
+	// localComponentKeyCache persistently records keys owned by different components
+	// It's useful to recover previous state when yurthub restarts.
+	localComponentKeyCache *componentKeyCache
 	// For etcd storage, we do not need to cache cluster info, because
 	// we can get it form apiserver in pool-coordinator.
 	doNothingAboutClusterInfo
 }
 
 func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, error) {
-	tlsInfo := transport.TLSInfo{
-		CertFile:      cfg.CertFile,
-		KeyFile:       cfg.KeyFile,
-		TrustedCAFile: cfg.CaFile,
+	cacheFilePath := filepath.Join(cfg.LocalCacheDir, defaultComponentCacheFileName)
+	cache := newComponentKeyCache(cacheFilePath)
+	if err := cache.Recover(); err != nil {
+		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
 	}
 
-	tlsConfig, err := tlsInfo.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
-	}
+	// tlsInfo := transport.TLSInfo{
+	// 	CertFile:      cfg.CertFile,
+	// 	KeyFile:       cfg.KeyFile,
+	// 	TrustedCAFile: cfg.CaFile,
+	// }
+
+	// tlsConfig, err := tlsInfo.ClientConfig()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+	// }
 
 	clientConfig := clientv3.Config{
-		Endpoints:   cfg.EtcdEndpoints,
-		TLS:         tlsConfig,
+		Endpoints: cfg.EtcdEndpoints,
+		// TLS:         tlsConfig,
 		DialTimeout: defaultDialTimeout,
 	}
 
@@ -95,9 +90,10 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}()
 
 	return &etcdStorage{
-		ctx:    ctx,
-		prefix: cfg.Prefix,
-		client: client,
+		ctx:                    ctx,
+		prefix:                 cfg.Prefix,
+		client:                 client,
+		localComponentKeyCache: cache,
 		mirrorPrefixMap: map[pathType]string{
 			rvType: "/mirror/rv",
 		},
@@ -105,7 +101,7 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 }
 
 func (s *etcdStorage) mirrorPath(path string, pathType pathType) string {
-	return filepath.Join(s.mirrorPrefixMap[pathType])
+	return filepath.Join(s.mirrorPrefixMap[pathType], path)
 }
 
 func (s *etcdStorage) Name() string {
@@ -113,20 +109,20 @@ func (s *etcdStorage) Name() string {
 }
 
 func (s *etcdStorage) Create(key storage.Key, content []byte) error {
-	if err := utils.ValidateKey(key, storageKey{}); err != nil {
+	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
 		return err
 	}
 
 	keyStr := key.Key()
 	originRv, err := getRvOfObject(content)
 	if err != nil {
-		return fmt.Errorf("failed to get rv from content when creating %s", keyStr)
+		return fmt.Errorf("failed to get rv from content when creating %s, %v", keyStr, err)
 	}
 	txnResp, err := s.client.KV.Txn(s.ctx).If(
 		notFound(keyStr),
 	).Then(
 		clientv3.OpPut(keyStr, string(content)),
-		clientv3.OpPut(s.mirrorPath(keyStr, rvType), originRv),
+		clientv3.OpPut(s.mirrorPath(keyStr, rvType), fixLenRvString(originRv)),
 	).Commit()
 
 	if err != nil {
@@ -180,10 +176,6 @@ func (s *etcdStorage) List(key storage.Key) ([][]byte, error) {
 		return [][]byte{}, err
 	}
 
-	if !key.IsRootKey() {
-		return nil, storage.ErrIsNotRootKey
-	}
-
 	rootKeyStr := key.Key()
 	getResp, err := s.client.Get(s.ctx, rootKeyStr, clientv3.WithPrefix())
 	if err != nil {
@@ -208,10 +200,10 @@ func (s *etcdStorage) Update(key storage.Key, content []byte, rv uint64) ([]byte
 	keyStr := key.Key()
 	txnResp, err := s.client.KV.Txn(s.ctx).If(
 		found(keyStr),
-		clientv3.Compare(clientv3.Value(s.mirrorPath(keyStr, rvType)), "<", fmt.Sprintf("%d", rv)),
+		clientv3.Compare(clientv3.Value(s.mirrorPath(keyStr, rvType)), "<", fixLenRvUint64(rv)),
 	).Then(
 		clientv3.OpPut(keyStr, string(content)),
-		clientv3.OpPut(s.mirrorPath(keyStr, rvType), fmt.Sprintf("%d", rv)),
+		clientv3.OpPut(s.mirrorPath(keyStr, rvType), fixLenRvUint64(rv)),
 	).Else(
 		// Possibly we have two cases here:
 		// 1. key does not exist
@@ -251,12 +243,11 @@ func (s *etcdStorage) ListResourceKeysOfComponent(component string, gvr schema.G
 	}
 
 	keys := []storage.Key{}
-	v, ok := s.localComponentKeyCache.Load(component)
+	keyCache, ok := s.localComponentKeyCache.Load(component)
 	if !ok {
 		return nil, storage.ErrStorageNotFound
 	}
-	keyCache := v.(keySet)
-	for k := range keyCache {
+	for k := range keyCache.m {
 		if strings.HasPrefix(k.Key(), rootKey.Key()) {
 			keys = append(keys, k)
 		}
@@ -283,16 +274,20 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 		}
 	}
 
-	oldKeyCache, newKeyCache := keySet{}, keySet{}
+	newKeyCache := keySet{m: map[storageKey]struct{}{}}
 	for k := range contents {
-		newKeyCache[k] = struct{}{}
+		storageKey, ok := k.(storageKey)
+		if !ok {
+			return storage.ErrUnrecognizedKey
+		}
+		newKeyCache.m[storageKey] = struct{}{}
 	}
-	value, loaded := s.localComponentKeyCache.LoadOrStore(component, newKeyCache)
+	var added, deleted []storageKey
+	oldKeyCache, loaded := s.localComponentKeyCache.LoadOrStore(component, newKeyCache)
+	added = newKeyCache.Difference(oldKeyCache)
 	if loaded {
-		oldKeyCache = value.(keySet)
+		deleted = oldKeyCache.Difference(newKeyCache)
 	}
-	added := newKeyCache.Difference(oldKeyCache)
-	deleted := oldKeyCache.Difference(newKeyCache)
 
 	ops := []clientv3.Op{}
 	for _, k := range added {
@@ -318,15 +313,14 @@ func (s *etcdStorage) DeleteComponentResources(component string) error {
 	if component == "" {
 		return storage.ErrEmptyComponent
 	}
-	value, loaded := s.localComponentKeyCache.LoadAndDelete(component)
+	keyCache, loaded := s.localComponentKeyCache.LoadAndDelete(component)
 	if !loaded {
 		// no need to delete
 		return nil
 	}
 
-	keyCache := value.(keySet)
 	ops := []clientv3.Op{}
-	for k := range keyCache {
+	for k := range keyCache.m {
 		delOp := clientv3.OpDelete(k.Key())
 		ops = append(ops, delOp)
 	}
@@ -340,6 +334,14 @@ func (s *etcdStorage) DeleteComponentResources(component string) error {
 	return nil
 }
 
+func fixLenRvUint64(rv uint64) string {
+	return fmt.Sprintf("%0*d", defaultRvLen, rv)
+}
+
+func fixLenRvString(rv string) string {
+	return fmt.Sprintf("%0*s", defaultRvLen, rv)
+}
+
 // TODO: do not get rv through decoding, which means we have to
 // unmarshal bytes. We should not do any serialization in storage.
 func getRvOfObject(object []byte) (string, error) {
@@ -347,7 +349,7 @@ func getRvOfObject(object []byte) (string, error) {
 	unstructuredObj := new(unstructured.Unstructured)
 	_, _, err := decoder.Decode(object, nil, unstructuredObj)
 	if err != nil {
-		return "", fmt.Errorf("failed to get rv, %v", err)
+		return "", err
 	}
 
 	return unstructuredObj.GetResourceVersion(), nil
