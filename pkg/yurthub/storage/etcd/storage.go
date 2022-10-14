@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package etcd
 
 import (
@@ -7,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +56,8 @@ type EtcdStorageConfig struct {
 	LocalCacheDir string
 }
 
+// TODO: consider how to recover the work if it was interrupted because of restart, in
+// which case we've added/deleted key in local cache but failed to add/delete it in etcd.
 type etcdStorage struct {
 	ctx             context.Context
 	prefix          string
@@ -46,6 +65,16 @@ type etcdStorage struct {
 	client          *clientv3.Client
 	// localComponentKeyCache persistently records keys owned by different components
 	// It's useful to recover previous state when yurthub restarts.
+	// We need this cache at local host instead of in etcd, because we need to ensure each
+	// operation on etcd is atomic. If we store it in etcd, we have to get it first and then
+	// do the action, such as ReplaceComponentList, which makes it non-atomic.
+	// We assume that for resources listed by components on this node consist of two kinds:
+	// 1. common resources: which are also used by other nodes
+	// 2. special resources: which are only used by this nodes
+	// In local cache, we do not need to bother to distinguish these two kinds.
+	// For special resources, this node absolutely can create/update/delete them.
+	// For common resources, thanks to list/watch we can ensure that resources in pool-coordinator
+	// are finally consistent with the cloud, though there maybe a little jitter.
 	localComponentKeyCache *componentKeyCache
 	// For etcd storage, we do not need to cache cluster info, because
 	// we can get it form apiserver in pool-coordinator.
@@ -59,20 +88,20 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
 	}
 
-	// tlsInfo := transport.TLSInfo{
-	// 	CertFile:      cfg.CertFile,
-	// 	KeyFile:       cfg.KeyFile,
-	// 	TrustedCAFile: cfg.CaFile,
-	// }
+	tlsInfo := transport.TLSInfo{
+		CertFile:      cfg.CertFile,
+		KeyFile:       cfg.KeyFile,
+		TrustedCAFile: cfg.CaFile,
+	}
 
-	// tlsConfig, err := tlsInfo.ClientConfig()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
-	// }
+	tlsConfig, err := tlsInfo.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+	}
 
 	clientConfig := clientv3.Config{
-		Endpoints: cfg.EtcdEndpoints,
-		// TLS:         tlsConfig,
+		Endpoints:   cfg.EtcdEndpoints,
+		TLS:         tlsConfig,
 		DialTimeout: defaultDialTimeout,
 	}
 
@@ -132,6 +161,9 @@ func (s *etcdStorage) Create(key storage.Key, content []byte) error {
 	if !txnResp.Succeeded {
 		return storage.ErrKeyExists
 	}
+
+	storageKey := key.(storageKey)
+	s.localComponentKeyCache.AddKey(storageKey.component(), storageKey)
 	return nil
 }
 
@@ -149,6 +181,8 @@ func (s *etcdStorage) Delete(key storage.Key) error {
 		return err
 	}
 
+	storageKey := key.(storageKey)
+	s.localComponentKeyCache.DeleteKey(storageKey.component(), storageKey)
 	return nil
 }
 
@@ -200,7 +234,7 @@ func (s *etcdStorage) Update(key storage.Key, content []byte, rv uint64) ([]byte
 	keyStr := key.Key()
 	txnResp, err := s.client.KV.Txn(s.ctx).If(
 		found(keyStr),
-		clientv3.Compare(clientv3.Value(s.mirrorPath(keyStr, rvType)), "<", fixLenRvUint64(rv)),
+		fresherThan(fixLenRvUint64(rv), s.mirrorPath(keyStr, rvType)),
 	).Then(
 		clientv3.OpPut(keyStr, string(content)),
 		clientv3.OpPut(s.mirrorPath(keyStr, rvType), fixLenRvUint64(rv)),
@@ -234,6 +268,7 @@ func (s *etcdStorage) ListResourceKeysOfComponent(component string, gvr schema.G
 	}
 
 	rootKey, err := s.KeyFunc(storage.KeyBuildInfo{
+		Component: component,
 		Resources: gvr.Resource,
 		Group:     gvr.Group,
 		Version:   gvr.Version,
@@ -260,6 +295,7 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 		return storage.ErrEmptyComponent
 	}
 	rootKey, err := s.KeyFunc(storage.KeyBuildInfo{
+		Component: component,
 		Resources: gvr.Resource,
 		Group:     gvr.Group,
 		Version:   gvr.Version,
@@ -282,25 +318,54 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 		}
 		newKeyCache.m[storageKey] = struct{}{}
 	}
-	var added, deleted []storageKey
+	var addedOrUpdated, deleted []storageKey
 	oldKeyCache, loaded := s.localComponentKeyCache.LoadOrStore(component, newKeyCache)
-	added = newKeyCache.Difference(oldKeyCache)
+	addedOrUpdated = newKeyCache.Difference(keySet{})
 	if loaded {
 		deleted = oldKeyCache.Difference(newKeyCache)
 	}
 
 	ops := []clientv3.Op{}
-	for _, k := range added {
-		putOp := clientv3.OpPut(k.Key(), string(contents[k]))
-		ops = append(ops, putOp)
+	for _, k := range addedOrUpdated {
+		rv, err := getRvOfObject(contents[k])
+		if err != nil {
+			klog.Errorf("failed to process %s in list object, %v", k.Key(), err)
+			continue
+		}
+		createOrUpdateOp := clientv3.OpTxn(
+			[]clientv3.Cmp{
+				// if
+				found(k.Key()),
+			},
+			[]clientv3.Op{
+				// then
+				clientv3.OpTxn([]clientv3.Cmp{
+					// if
+					fresherThan(fixLenRvString(rv), s.mirrorPath(k.Key(), rvType)),
+				}, []clientv3.Op{
+					// then
+					clientv3.OpPut(k.Key(), string(contents[k])),
+					clientv3.OpPut(s.mirrorPath(k.Key(), rvType), fixLenRvString(rv)),
+				}, []clientv3.Op{
+					// else
+					// do nothing
+				}),
+			},
+			[]clientv3.Op{
+				// else
+				clientv3.OpPut(k.Key(), string(contents[k])),
+				clientv3.OpPut(s.mirrorPath(k.Key(), rvType), fixLenRvString(rv)),
+			},
+		)
+		ops = append(ops, createOrUpdateOp)
 	}
 	for _, k := range deleted {
-		delOp := clientv3.OpDelete(k.Key())
-		ops = append(ops, delOp)
+		ops = append(ops,
+			clientv3.OpDelete(k.Key()),
+			clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
+		)
 	}
 
-	// TODO: consider how to recover the work if it was interrupted because of restart, in
-	// which case we've deleted key in local cache but failed to delete it from etcd.
 	_, err = s.client.Txn(s.ctx).If().Then(ops...).Commit()
 	if err != nil {
 		return err
@@ -321,12 +386,12 @@ func (s *etcdStorage) DeleteComponentResources(component string) error {
 
 	ops := []clientv3.Op{}
 	for k := range keyCache.m {
-		delOp := clientv3.OpDelete(k.Key())
-		ops = append(ops, delOp)
+		ops = append(ops,
+			clientv3.OpDelete(k.Key()),
+			clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
+		)
 	}
 
-	// TODO: consider how to recover the work if it was interrupted because of restart, in
-	// which case we've deleted key in local cache but failed to delete it from etcd.
 	_, err := s.client.Txn(s.ctx).If().Then(ops...).Commit()
 	if err != nil {
 		return err
@@ -361,6 +426,10 @@ func notFound(key string) clientv3.Cmp {
 
 func found(key string) clientv3.Cmp {
 	return clientv3.Compare(clientv3.ModRevision(key), ">", 0)
+}
+
+func fresherThan(rv string, key string) clientv3.Cmp {
+	return clientv3.Compare(clientv3.Value(key), "<", rv)
 }
 
 type doNothingAboutClusterInfo struct{}

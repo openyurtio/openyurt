@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package etcd
 
 import (
@@ -10,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
@@ -241,15 +258,262 @@ var _ = Describe("Test EtcdStorage", func() {
 		})
 	})
 
-	Context("Test ListResourceKeysOfComponent", func() {
+	Context("Test ComponentRelatedInterface", func() {
+		var cmKey, key2, key3 storage.Key
+		var cmObj *v1.ConfigMap
+		var pod2Obj, pod3Obj *v1.Pod
+		var cmJson, pod2Json, pod3Json []byte
+		var gvr schema.GroupVersionResource
+		var err error
+		BeforeEach(func() {
+			info := storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Group:     "",
+				Version:   "v1",
+			}
+			gvr = schema.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			}
 
-	})
+			info.Namespace = "default"
+			info.Name = "pod2"
+			key2, _ = etcdstore.KeyFunc(info)
+			info.Namespace = "kube-system"
+			info.Name = "pod3"
+			key3, _ = etcdstore.KeyFunc(info)
+			cmKey, _ = etcdstore.KeyFunc(storage.KeyBuildInfo{
+				Group:     "",
+				Resources: "configmaps",
+				Version:   "v1",
+				Namespace: "default",
+				Name:      "cm",
+				Component: "kubelet",
+			})
 
-	Context("Test ReplaceComponentList", func() {
+			pod2Obj = podObj.DeepCopy()
+			pod2Obj.Namespace = "default"
+			pod2Obj.Name = "pod2"
+			pod2Obj.ResourceVersion = "920"
+			pod3Obj = podObj.DeepCopy()
+			pod3Obj.Namespace = "kube-system"
+			pod3Obj.Name = "pod3"
+			pod3Obj.ResourceVersion = "930"
+			cmObj = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cm",
+					Namespace: "default",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConfigMap",
+					APIVersion: "v1",
+				},
+				Data: map[string]string{
+					"foo": "bar",
+				},
+			}
 
-	})
+			pod2Json, err = json.Marshal(pod2Obj)
+			Expect(err).To(BeNil())
+			pod3Json, err = json.Marshal(pod3Obj)
+			Expect(err).To(BeNil())
+			cmJson, err = json.Marshal(cmObj)
+			Expect(err).To(BeNil())
+		})
+		Context("Test ListResourceKeysOfComponent", func() {
+			It("should return ErrEmptyComponent if component is empty", func() {
+				_, err = etcdstore.ListResourceKeysOfComponent("", gvr)
+				Expect(err).To(Equal(storage.ErrEmptyComponent))
+			})
+			It("should return ErrEmptyResource if resource of gvr is empty", func() {
+				_, err = etcdstore.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+					Resource: "",
+					Version:  "v1",
+					Group:    "",
+				})
+				Expect(err).To(Equal(storage.ErrEmptyResource))
+			})
+			It("should return ErrStorageNotFound if this component has no cache", func() {
+				_, err = etcdstore.ListResourceKeysOfComponent("flannel", gvr)
+				Expect(err).To(Equal(storage.ErrStorageNotFound))
+			})
+			It("should return all keys of gvr if cache of this component is found", func() {
+				By("creating objects in cache")
+				Expect(etcdstore.Create(key1, podJson)).To(BeNil())
+				Expect(etcdstore.Create(key3, pod3Json)).To(BeNil())
+				Expect(etcdstore.Create(cmKey, cmJson)).To(BeNil())
 
-	Context("Test DeleteComponentResources", func() {
+				keys, err := etcdstore.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+					Group:    "",
+					Version:  "v1",
+					Resource: "pods",
+				})
+				Expect(err).To(BeNil())
+				Expect(keys).To(HaveLen(2))
+				Expect(keys).To(ContainElements(key1, key3))
+			})
+		})
 
+		Context("Test ReplaceComponentList", func() {
+			BeforeEach(func() {
+				Expect(etcdstore.Create(key1, podJson)).To(BeNil())
+				Expect(etcdstore.Create(key2, pod2Json)).To(BeNil())
+				Expect(etcdstore.Create(key3, pod3Json)).To(BeNil())
+			})
+			It("should return ErrEmptyComponent if component is empty", func() {
+				Expect(etcdstore.ReplaceComponentList("", gvr, "", map[storage.Key][]byte{})).To(Equal(storage.ErrEmptyComponent))
+			})
+			It("should return ErrEmptyResource if resource of gvr is empty", func() {
+				gvr.Resource = ""
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "", map[storage.Key][]byte{})).To(Equal(storage.ErrEmptyResource))
+			})
+			It("should return ErrInvalidContent if it exists keys that are not passed-in gvr", func() {
+				invalidKey, err := etcdstore.KeyFunc(storage.KeyBuildInfo{
+					Component: "kubelet",
+					Resources: "configmaps",
+					Group:     "",
+					Version:   "v1",
+					Namespace: "default",
+					Name:      "cm",
+				})
+				Expect(err).To(BeNil())
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "default", map[storage.Key][]byte{
+					key2:       pod2Json,
+					invalidKey: {},
+				})).To(Equal(storage.ErrInvalidContent))
+
+				invalidKey, err = etcdstore.KeyFunc(storage.KeyBuildInfo{
+					Component: "kubelet",
+					Resources: "pods",
+					Group:     "",
+					Version:   "v1",
+					Namespace: "kube-system",
+					Name:      "pod4",
+				})
+				Expect(err).To(BeNil())
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "default", map[storage.Key][]byte{
+					key2:       pod2Json,
+					key3:       pod3Json,
+					invalidKey: {},
+				})).To(Equal(storage.ErrInvalidContent))
+			})
+			It("should only use fresher resources in contents to update cache in etcd", func() {
+				pod2Obj.ResourceVersion = "921"
+				newPod2Json, err := json.Marshal(pod2Obj)
+				Expect(err).To(BeNil())
+				pod3Obj.ResourceVersion = "1001" // case of different len(ResourceVersion)
+				newPod3Json, err := json.Marshal(pod3Obj)
+				Expect(err).To(BeNil())
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "", map[storage.Key][]byte{
+					key1: podJson,
+					key2: newPod2Json,
+					key3: newPod3Json,
+				})).To(BeNil())
+
+				buf, err := etcdstore.Get(key1)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(podJson))
+				buf, err = etcdstore.Get(key2)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(newPod2Json))
+				buf, err = etcdstore.Get(key3)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(newPod3Json))
+			})
+			It("should create resource if it does not in etcd", func() {
+				key4, _ := etcdstore.KeyFunc(storage.KeyBuildInfo{
+					Component: "kubelet",
+					Resources: "pods",
+					Version:   "v1",
+					Group:     "",
+					Namespace: "default",
+					Name:      "pod4",
+				})
+				pod4Obj := podObj.DeepCopy()
+				pod4Obj.ResourceVersion = "940"
+				pod4Obj.Name = "pod4"
+				pod4Json, err := json.Marshal(pod4Obj)
+				Expect(err).To(BeNil())
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "", map[storage.Key][]byte{
+					key1: podJson,
+					key2: pod2Json,
+					key3: pod3Json,
+					key4: pod4Json,
+				})).To(BeNil())
+
+				buf, err := etcdstore.Get(key1)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(podJson))
+				buf, err = etcdstore.Get(key2)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(pod2Json))
+				buf, err = etcdstore.Get(key3)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(pod3Json))
+				buf, err = etcdstore.Get(key4)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(pod4Json))
+			})
+			It("should delete resources in etcd if they were in local cache but are not in current contents", func() {
+				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "", map[storage.Key][]byte{
+					key1: podJson,
+				})).To(BeNil())
+				buf, err := etcdstore.Get(key1)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(podJson))
+				_, err = etcdstore.Get(key2)
+				Expect(err).To(Equal(storage.ErrStorageNotFound))
+				_, err = etcdstore.Get(key3)
+				Expect(err).To(Equal(storage.ErrStorageNotFound))
+			})
+		})
+
+		Context("Test DeleteComponentResources", func() {
+			It("should return ErrEmptyComponent if component is empty", func() {
+				Expect(etcdstore.DeleteComponentResources("")).To(Equal(storage.ErrEmptyComponent))
+			})
+			It("should not return err even there is no cache of component", func() {
+				Expect(etcdstore.DeleteComponentResources("flannel")).To(BeNil())
+			})
+			It("should delete cache of component from local cache and etcd", func() {
+				Expect(etcdstore.Create(cmKey, cmJson)).To(BeNil())
+				Expect(etcdstore.Create(key1, podJson)).To(BeNil())
+				Expect(etcdstore.Create(key3, pod3Json)).To(BeNil())
+				keys := []storage.Key{cmKey, key1, key3}
+				cmKey, _ = etcdstore.KeyFunc(storage.KeyBuildInfo{
+					Component: "kube-proxy",
+					Resources: "configmaps",
+					Group:     "",
+					Version:   "v1",
+					Namespace: "default",
+					Name:      "cm-kube-proxy",
+				})
+				cmObj.Name = "cm-kube-proxy"
+				cmJson, err = json.Marshal(cmObj)
+				Expect(err).To(BeNil())
+				Expect(etcdstore.Create(cmKey, cmJson)).To(BeNil())
+
+				Expect(etcdstore.DeleteComponentResources("kubelet")).To(BeNil())
+				for _, k := range keys {
+					_, err := etcdstore.Get(k)
+					Expect(err).To(Equal(storage.ErrStorageNotFound))
+				}
+				buf, err := etcdstore.Get(cmKey)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(cmJson))
+
+				_, found := etcdstore.localComponentKeyCache.Load("kubelet")
+				Expect(found).To(BeFalse())
+				keyset, found := etcdstore.localComponentKeyCache.Load("kube-proxy")
+				Expect(found).To(BeTrue())
+				Expect(keyset).To(Equal(keySet{
+					m: map[storageKey]struct{}{
+						cmKey.(storageKey): {},
+					},
+				}))
+			})
+		})
 	})
 })
