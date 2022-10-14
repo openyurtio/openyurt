@@ -33,7 +33,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -45,7 +45,7 @@ type RemoteProxy struct {
 	reverseProxy         *httputil.ReverseProxy
 	cacheMgr             cachemanager.CacheManager
 	remoteServer         *url.URL
-	filterManager        *filter.Manager
+	filterManager        *manager.Manager
 	currentTransport     http.RoundTripper
 	bearerTransport      http.RoundTripper
 	upgradeHandler       *proxy.UpgradeAwareHandler
@@ -65,7 +65,7 @@ func NewRemoteProxy(remoteServer *url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
 	healthChecker healthchecker.HealthChecker,
-	filterManager *filter.Manager,
+	filterManager *manager.Manager,
 	stopCh <-chan struct{}) (*RemoteProxy, error) {
 	currentTransport := transportMgr.CurrentTransport()
 	if currentTransport == nil {
@@ -159,9 +159,9 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 
 		// filter response data
 		if rp.filterManager != nil {
-			if rp.filterManager.Approve(req) {
+			if ok, runner := rp.filterManager.FindRunner(req); ok {
 				wrapBody, needUncompressed := util.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := rp.filterManager.Filter(req, wrapBody, rp.stopCh)
+				size, filterRc, err := runner.Filter(req, wrapBody, rp.stopCh)
 				if err != nil {
 					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
 					return err

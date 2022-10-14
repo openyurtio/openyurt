@@ -35,5 +35,14 @@ const (
 	SkipDiscardServiceAnnotation = "openyurt.io/skip-discard"
 )
 
-// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
-var DisabledInCloudMode = []string{DiscardCloudServiceFilterName}
+var (
+	// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
+	DisabledInCloudMode = []string{DiscardCloudServiceFilterName}
+
+	// SupportedComponentsForFilter is used for specifying which components are supported by filters as default setting.
+	SupportedComponentsForFilter = map[string]string{
+		MasterServiceFilterName:       "kubelet",
+		DiscardCloudServiceFilterName: "kube-proxy",
+		ServiceTopologyFilterName:     "kube-proxy, coredns, nginx-ingress-controller",
+	}
+)

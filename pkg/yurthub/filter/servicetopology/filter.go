@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -59,6 +60,17 @@ type serviceTopologyFilter struct {
 	nodeName          string
 	workingMode       util.WorkingMode
 	serializerManager *serializer.SerializerManager
+}
+
+func (ssf *serviceTopologyFilter) Name() string {
+	return filter.ServiceTopologyFilterName
+}
+
+func (ssf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.String {
+	return map[string]sets.String{
+		"endpoints":      sets.NewString("list", "watch"),
+		"endpointslices": sets.NewString("list", "watch"),
+	}
 }
 
 func (ssf *serviceTopologyFilter) SetWorkingMode(mode util.WorkingMode) error {
