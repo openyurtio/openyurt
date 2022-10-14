@@ -41,7 +41,6 @@ import (
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 )
 
 var (
@@ -485,19 +484,6 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 		_, err = ki.kubeClient.CoreV1().ConfigMaps("kube-system").Update(context.TODO(), cm, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to configure coredns configmap, %w", err)
-		}
-	}
-
-	// add annotation(openyurt.io/topologyKeys=kubernetes.io/hostname) for service kube-system/kube-dns in order to use the
-	// local coredns instance for resolving.
-	svc, err := ki.kubeClient.CoreV1().Services("kube-system").Get(context.TODO(), "kube-dns", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if svc != nil && len(svc.Annotations[servicetopology.AnnotationServiceTopologyKey]) == 0 {
-		svc.Annotations[servicetopology.AnnotationServiceTopologyKey] = servicetopology.AnnotationServiceTopologyValueNode
-		if _, err := ki.kubeClient.CoreV1().Services("kube-system").Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
-			return err
 		}
 	}
 
