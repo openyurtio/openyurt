@@ -72,6 +72,7 @@ type YurtHubConfiguration struct {
 	HeartbeatFailedRetry              int
 	HeartbeatHealthyThreshold         int
 	HeartbeatTimeoutSeconds           int
+	HeartbeatIntervalSeconds          int
 	MaxRequestInFlight                int
 	JoinToken                         string
 	RootDir                           string
@@ -89,6 +90,7 @@ type YurtHubConfiguration struct {
 	KubeletHealthGracePeriod          time.Duration
 	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
+	CoordinatorServer                 *url.URL
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -155,6 +157,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HeartbeatFailedRetry:              options.HeartbeatFailedRetry,
 		HeartbeatHealthyThreshold:         options.HeartbeatHealthyThreshold,
 		HeartbeatTimeoutSeconds:           options.HeartbeatTimeoutSeconds,
+		HeartbeatIntervalSeconds:          options.HeartbeatIntervalSeconds,
 		MaxRequestInFlight:                options.MaxRequestInFlight,
 		JoinToken:                         options.JoinToken,
 		RootDir:                           options.RootDir,

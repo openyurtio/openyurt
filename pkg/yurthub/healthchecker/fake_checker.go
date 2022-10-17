@@ -18,7 +18,6 @@ package healthchecker
 
 import (
 	"net/url"
-	"time"
 )
 
 type fakeChecker struct {
@@ -26,8 +25,8 @@ type fakeChecker struct {
 	settings map[string]int
 }
 
-// IsHealthy returns healthy status of server
-func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
+// BackendHealthyStatus returns healthy status of server
+func (fc *fakeChecker) BackendHealthyStatus(server *url.URL) bool {
 	s := server.String()
 	if _, ok := fc.settings[s]; !ok {
 		return fc.healthy
@@ -45,16 +44,16 @@ func (fc *fakeChecker) IsHealthy(server *url.URL) bool {
 	return fc.healthy
 }
 
-func (fc *fakeChecker) Run() {
-	return
+func (fc *fakeChecker) IsHealthy() bool {
+	return fc.healthy
 }
 
-func (fc *fakeChecker) UpdateLastKubeletLeaseReqTime(time.Time) {
+func (fc *fakeChecker) RenewKubeletLeaseTime() {
 	return
 }
 
 // NewFakeChecker creates a fake checker
-func NewFakeChecker(healthy bool, settings map[string]int) HealthChecker {
+func NewFakeChecker(healthy bool, settings map[string]int) MultipleBackendsHealthChecker {
 	return &fakeChecker{
 		settings: settings,
 		healthy:  healthy,

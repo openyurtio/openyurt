@@ -56,6 +56,7 @@ type YurtHubOptions struct {
 	HeartbeatFailedRetry      int
 	HeartbeatHealthyThreshold int
 	HeartbeatTimeoutSeconds   int
+	HeartbeatIntervalSeconds  int
 	MaxRequestInFlight        int
 	JoinToken                 string
 	RootDir                   string
@@ -89,6 +90,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HeartbeatFailedRetry:      3,
 		HeartbeatHealthyThreshold: 2,
 		HeartbeatTimeoutSeconds:   2,
+		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
@@ -148,6 +150,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.HeartbeatFailedRetry, "heartbeat-failed-retry", o.HeartbeatFailedRetry, "number of heartbeat request retry after having failed.")
 	fs.IntVar(&o.HeartbeatHealthyThreshold, "heartbeat-healthy-threshold", o.HeartbeatHealthyThreshold, "minimum consecutive successes for the heartbeat to be considered healthy after having failed.")
 	fs.IntVar(&o.HeartbeatTimeoutSeconds, "heartbeat-timeout-seconds", o.HeartbeatTimeoutSeconds, " number of seconds after which the heartbeat times out.")
+	fs.IntVar(&o.HeartbeatIntervalSeconds, "heartbeat-interval-seconds", o.HeartbeatIntervalSeconds, " number of seconds for omitting one time heartbeat to remote server.")
 	fs.IntVar(&o.MaxRequestInFlight, "max-requests-in-flight", o.MaxRequestInFlight, "the maximum number of parallel requests.")
 	fs.StringVar(&o.JoinToken, "join-token", o.JoinToken, "the Join token for bootstrapping hub agent when --cert-mgr-mode=hubself.")
 	fs.StringVar(&o.RootDir, "root-dir", o.RootDir, "directory path for managing hub agent files(pki, cache etc).")
