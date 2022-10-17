@@ -33,15 +33,13 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // RemoteProxy is an reverse proxy for remote server
 type RemoteProxy struct {
-	checker              healthchecker.HealthChecker
 	reverseProxy         *httputil.ReverseProxy
 	cacheMgr             cachemanager.CacheManager
 	remoteServer         *url.URL
@@ -64,8 +62,7 @@ func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
 func NewRemoteProxy(remoteServer *url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	healthChecker healthchecker.HealthChecker,
-	filterManager *filter.Manager,
+	filterManager *manager.Manager,
 	stopCh <-chan struct{}) (*RemoteProxy, error) {
 	currentTransport := transportMgr.CurrentTransport()
 	if currentTransport == nil {
@@ -82,7 +79,6 @@ func NewRemoteProxy(remoteServer *url.URL,
 	bearerUpgradeAwareHandler.UseRequestLocation = true
 
 	proxyBackend := &RemoteProxy{
-		checker:              healthChecker,
 		reverseProxy:         httputil.NewSingleHostReverseProxy(remoteServer),
 		cacheMgr:             cacheMgr,
 		remoteServer:         remoteServer,
@@ -107,6 +103,10 @@ func (rp *RemoteProxy) Name() string {
 	return rp.remoteServer.String()
 }
 
+func (rp *RemoteProxy) RemoteServer() *url.URL {
+	return rp.remoteServer
+}
+
 func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if httpstream.IsUpgradeRequest(req) {
 		klog.V(5).Infof("get upgrade request %s", req.URL)
@@ -119,11 +119,6 @@ func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rp.reverseProxy.ServeHTTP(rw, req)
-}
-
-// IsHealthy returns healthy status of remote server
-func (rp *RemoteProxy) IsHealthy() bool {
-	return rp.checker.IsHealthy(rp.remoteServer)
 }
 
 func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
