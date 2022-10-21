@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,12 +88,6 @@ func WaitForNamespacesDeleted(c clientset.Interface, namespaces []string, timeou
 
 //Set up yurt-e2e-config for e2e-tests
 func SetYurtE2eCfg() error {
-	yurtconfig.YurtE2eCfg.NodeType = strings.ToLower(*NodeType)
-	yurtconfig.YurtE2eCfg.RegionID = *RegionID
-	yurtconfig.YurtE2eCfg.EnableYurtAutonomy = *EnableYurtAutonomy
-	yurtconfig.YurtE2eCfg.AccessKeyID = *AccessKeyID
-	yurtconfig.YurtE2eCfg.AccessKeySecret = *AccessKeySecret
-
 	config, client, err := LoadRestConfigAndClientset(*Kubeconfig)
 	if err != nil {
 		klog.Errorf("pre_check_load_client_set failed errmsg:%v", err)
@@ -102,8 +95,6 @@ func SetYurtE2eCfg() error {
 	}
 	yurtconfig.YurtE2eCfg.KubeClient = client
 	yurtconfig.YurtE2eCfg.RestConfig = config
-	yurtconfig.YurtE2eCfg.ReportDir = *ReportDir
-
 	return nil
 }
 
@@ -116,10 +107,8 @@ func LoadRESTClientConfigFromEnv(kubeconfig string) (*restclient.Config, error) 
 		return nil, err
 	}
 	// Flatten the loaded data to a particular restclient.Config based on the current context.
-	return clientcmd.NewNonInteractiveClientConfig(
+	return clientcmd.NewDefaultClientConfig(
 		*loadedConfig,
-		loadedConfig.CurrentContext,
 		&clientcmd.ConfigOverrides{},
-		loader,
 	).ClientConfig()
 }
