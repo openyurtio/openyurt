@@ -1,0 +1,205 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pool-coordinator-apiserver
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    name: pool-coordinator
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: {{ .Values.poolCoordinator.apiserverPort }}
+      protocol: TCP
+      name: https
+  selector:
+    k8s-app: pool-coordinator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pool-coordinator-etcd
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    name: pool-coordinator
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2379
+      targetPort: {{ .Values.poolCoordinator.etcdPort }}
+      protocol: TCP
+      name: https
+  selector:
+    k8s-app: pool-coordinator
+---
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppDaemon
+metadata:
+  name: pool-coordinator
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: pool-coordinator
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          k8s-app: pool-coordinator
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            k8s-app: pool-coordinator
+        template:
+          metadata:
+            labels:
+              k8s-app: pool-coordinator
+          spec:
+            containers:
+              - command:
+                  - kube-apiserver
+                  - --bind-address=0.0.0.0
+                  - --allow-privileged=true
+                  - --anonymous-auth=true
+                  - --authorization-mode=Node,RBAC
+                  - --client-ca-file=/etc/kubernetes/pki/ca.crt
+                  - --enable-admission-plugins=NodeRestriction
+                  - --enable-bootstrap-token-auth=true
+                  - --disable-admission-plugins=ServiceAccount
+                  - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+                  - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+                  - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+                  - --etcd-servers=http://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
+                  - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+                  - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+                  - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+                  - --secure-port={{ .Values.poolCoordinator.apiserverSecurePort }}
+                  - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+                  - --service-account-key-file=/etc/kubernetes/pki/sa.pub
+                  - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
+                  - --service-cluster-ip-range=10.96.0.0/12
+                  - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+                  - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+                image: "{{ .Values.poolCoordinator.apiserverImage.registry }}/{{ .Values.poolCoordinator.apiserverImage.repository }}:{{ .Values.poolCoordinator.apiserverImage.tag }}"
+                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
+                {{- if .Values.imagePullSecrets }}
+                imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
+                {{- end }}
+                livenessProbe:
+                  failureThreshold: 8
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /livez
+                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    scheme: HTTPS
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                name: kube-apiserver
+                readinessProbe:
+                  failureThreshold: 3
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /readyz
+                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    scheme: HTTPS
+                  periodSeconds: 1
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                resources:
+                  {{- toYaml .Values.poolCoordinator.apiserverResources | nindent 12 }}
+                startupProbe:
+                  failureThreshold: 24
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /livez
+                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    scheme: HTTPS
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                  - mountPath: /etc/ssl/certs
+                    name: ca-certs
+                    readOnly: true
+                  - mountPath: /etc/pki
+                    name: etc-pki
+                    readOnly: true
+                  - mountPath: /etc/kubernetes/pki
+                    name: k8s-certs
+                    readOnly: true
+              - command:
+                  - etcd
+                  - --advertise-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
+                  - --listen-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
+                  - --cert-file=/etc/kubernetes/pki/etcd/server.crt
+                  - --client-cert-auth=true
+                  - --data-dir=/var/lib/etcd
+                  - --key-file=/etc/kubernetes/pki/etcd/server.key
+                  - --listen-metrics-urls=http://0.0.0.0:12381
+                  - --snapshot-count=10000
+                  - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+                image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
+                imagePullPolicy: {{ .Values.poolCoordinator.etcdImage.pullPolicy }}
+                {{- if .Values.imagePullSecrets }}
+                imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
+                {{- end }}
+                name: etcd
+                resources:
+                  {{- toYaml .Values.poolCoordinator.etcdResources | nindent 12 }}
+                startupProbe:
+                  failureThreshold: 24
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /health
+                    port: 12381
+                    scheme: HTTP
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                volumeMounts:
+                  - mountPath: /var/lib/etcd
+                    name: etcd-data
+                  - mountPath: /etc/kubernetes/pki/etcd
+                    name: etcd-certs
+            dnsPolicy: ClusterFirst
+            enableServiceLinks: true
+            hostNetwork: true
+            preemptionPolicy: PreemptLowerPriority
+            priority: 2000001000
+            priorityClassName: system-node-critical
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            terminationGracePeriodSeconds: 30
+            tolerations:
+              - effect: NoExecute
+                operator: Exists
+            volumes:
+              - hostPath:
+                  path: /etc/kubernetes/pki/etcd
+                  type: DirectoryOrCreate
+                name: etcd-certs
+              - emptyDir:
+                  medium: Memory
+                name: etcd-data
+              - hostPath:
+                  path: /etc/ssl/certs
+                  type: DirectoryOrCreate
+                name: ca-certs
+              - hostPath:
+                  path: /etc/pki
+                  type: DirectoryOrCreate
+                name: etc-pki
+              - secret:
+                  secretName: pool-coordinator-certs
+                  defaultMode: 420
+                name: k8s-certs
