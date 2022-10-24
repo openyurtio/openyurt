@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: pool-coordinator-apiserver
   namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
     name: pool-coordinator
 spec:
@@ -20,6 +22,8 @@ kind: Service
 metadata:
   name: pool-coordinator-etcd
   namespace: {{ .Release.Namespace | quote }}
+  annotations:
+    openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
     name: pool-coordinator
 spec:
