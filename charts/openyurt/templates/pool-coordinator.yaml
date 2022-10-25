@@ -188,10 +188,6 @@ spec:
               - effect: NoExecute
                 operator: Exists
             volumes:
-              - hostPath:
-                  path: /etc/kubernetes/pki/etcd
-                  type: DirectoryOrCreate
-                name: etcd-certs
               - emptyDir:
                   medium: Memory
                 name: etcd-data
@@ -204,6 +200,10 @@ spec:
                   type: DirectoryOrCreate
                 name: etc-pki
               - secret:
-                  secretName: pool-coordinator-certs
+                  secretName: pool-coordinator-apiserver-certs
                   defaultMode: 420
                 name: k8s-certs
+              - secret:
+                  secretName: pool-coordinator-etcd-certs
+                  defaultMode: 420
+                name: etcd-certs
