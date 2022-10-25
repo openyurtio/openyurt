@@ -82,7 +82,7 @@ spec:
                   - --service-account-issuer=https://kubernetes.default.svc.cluster.local
                   - --service-account-key-file=/etc/kubernetes/pki/sa.pub
                   - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
-                  - --service-cluster-ip-range=10.96.0.0/12
+                  - --service-cluster-ip-range={{ .Values.poolCoordinator.serviceClusterIPRange }}
                   - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
                   - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
                 image: "{{ .Values.poolCoordinator.apiserverImage.registry }}/{{ .Values.poolCoordinator.apiserverImage.repository }}:{{ .Values.poolCoordinator.apiserverImage.tag }}"
