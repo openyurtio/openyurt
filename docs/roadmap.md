@@ -86,16 +86,9 @@ detail info: https://github.com/orgs/openyurtio/projects/6/views/1
 
 **ControlPlane SIG**
 
-- Provide NodePool Governance Capability
-  - Yurthub adds lease proxy mechanism ([#779](https://github.com/openyurtio/openyurt/issues/779))
-  - Add pool-coordinator-controller component ([#774](https://github.com/openyurtio/openyurt/issues/774))
-  - Yurthub supports writing metadata to pool-coordinator ([#778](https://github.com/openyurtio/openyurt/issues/778))
-  - Add pool-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
-  - Add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
-  - Modify Yurt-Controller-Manager ([#776](https://github.com/openyurtio/openyurt/issues/776))
-- Support to use Helm charts to install OpenYurt ([#824](https://github.com/openyurtio/openyurt/issues/824))
-- Improve OpenYurt Experience Center
-  - support deploy EdgeX Foundry on the edge site
+- Improve components crd naming convention and style ([#852](https://github.com/openyurtio/openyurt/issues/852))
+- Improve service topology function when nodepool or service change ([#871](https://github.com/openyurtio/openyurt/issues/871))
+- Support OTA/Auto update model for DaemonSet workload ([#914](https://github.com/openyurtio/openyurt/issues/914))
 
 detail info: https://github.com/orgs/openyurtio/projects/7
 
@@ -116,3 +109,17 @@ detail info: https://github.com/openyurtio/raven/projects/3
 - Added the definition of equipment Command and data processing process Pipeline.
 - Manage Benchmark based on OpenYurt+EdgeX cloud native device
 
+## v1.2 Roadmap
+
+**ControlPlane SIG**
+
+- Provide NodePool Governance Capability
+  - Yurthub adds lease proxy mechanism ([#779](https://github.com/openyurtio/openyurt/issues/779))
+  - Add pool-coordinator-controller component ([#774](https://github.com/openyurtio/openyurt/issues/774))
+  - Yurthub supports writing metadata to pool-coordinator ([#778](https://github.com/openyurtio/openyurt/issues/778))
+  - Add pool-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
+  - Add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
+  - Modify Yurt-Controller-Manager ([#776](https://github.com/openyurtio/openyurt/issues/776))
+- Improve Yurtadm Join command ([#889](https://github.com/openyurtio/openyurt/issues/889))
+
+detail info: https://github.com/orgs/openyurtio/projects/10
