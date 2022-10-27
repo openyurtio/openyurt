@@ -128,12 +128,6 @@ spec:
                 terminationMessagePath: /dev/termination-log
                 terminationMessagePolicy: File
                 volumeMounts:
-                  - mountPath: /etc/ssl/certs
-                    name: ca-certs
-                    readOnly: true
-                  - mountPath: /etc/pki
-                    name: etc-pki
-                    readOnly: true
                   - mountPath: /etc/kubernetes/pki
                     name: k8s-certs
                     readOnly: true
@@ -191,14 +185,6 @@ spec:
               - emptyDir:
                   medium: Memory
                 name: etcd-data
-              - hostPath:
-                  path: /etc/ssl/certs
-                  type: DirectoryOrCreate
-                name: ca-certs
-              - hostPath:
-                  path: /etc/pki
-                  type: DirectoryOrCreate
-                name: etc-pki
               - secret:
                   secretName: pool-coordinator-apiserver-certs
                   defaultMode: 420
