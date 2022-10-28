@@ -125,6 +125,6 @@ jobs:
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind
-        run: make local-up-openyurt
+        run: NODES_NUM=3 DISABLE_DEFAULT_CNI=true make local-up-openyurt
       - name: Run e2e Tests
         run: make e2e-tests
