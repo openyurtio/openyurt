@@ -23,37 +23,20 @@ package app
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
-	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
+	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/webhook"
 )
 
-func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, error) {
-	lifecycleController, err := lifecyclecontroller.NewNodeLifecycleController(
-		ctx.InformerFactory.Coordination().V1().Leases(),
-		ctx.InformerFactory.Core().V1().Pods(),
-		ctx.InformerFactory.Core().V1().Nodes(),
-		ctx.InformerFactory.Apps().V1().DaemonSets(),
-		// node lifecycle controller uses existing cluster role from node-controller
-		ctx.ClientBuilder.ClientOrDie("node-controller"),
-		//ctx.ComponentConfig.KubeCloudShared.NodeMonitorPeriod.Duration,
-		5*time.Second,
-		ctx.ComponentConfig.NodeLifecycleController.NodeStartupGracePeriod.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.NodeMonitorGracePeriod.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.PodEvictionTimeout.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.NodeEvictionRate,
-		ctx.ComponentConfig.NodeLifecycleController.SecondaryNodeEvictionRate,
-		ctx.ComponentConfig.NodeLifecycleController.LargeClusterSizeThreshold,
-		ctx.ComponentConfig.NodeLifecycleController.UnhealthyZoneThreshold,
-		*ctx.ComponentConfig.NodeLifecycleController.EnableTaintManager,
+func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, error) {
+	poolcoordinatorController := poolcoordinator.NewController(
+		ctx.ClientBuilder.ClientOrDie("poolcoordinator-controller"),
+		ctx.InformerFactory,
 	)
-	if err != nil {
-		return nil, true, err
-	}
-	go lifecycleController.Run(ctx.Stop)
+	go poolcoordinatorController.Run(ctx.Stop)
 	return nil, true, nil
 }
 
@@ -92,5 +75,14 @@ func startServiceTopologyController(ctx ControllerContext) (http.Handler, bool, 
 		return nil, false, err
 	}
 	go svcTopologyController.Run(ctx.Stop)
+	return nil, true, nil
+}
+
+func startWebhookManager(ctx ControllerContext) (http.Handler, bool, error) {
+	webhookManager := webhook.NewWebhookManager(
+		ctx.ClientBuilder.ClientOrDie("webhook manager"),
+		ctx.InformerFactory,
+	)
+	go webhookManager.Run(ctx.Stop)
 	return nil, true, nil
 }

@@ -1,0 +1,22 @@
+{{- if .Values.admissionWebhooks.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: pool-coordinator-webhook
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: pool-coordinator
+    app.kubernetes.io/instance: pool-coordinator
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  type: {{ .Values.admissionWebhooks.service.type }}
+  ports:
+    - port: 443
+      targetPort: {{ .Values.admissionWebhooks.service.port }}
+      protocol: TCP
+      name: https
+  selector:
+      app.kubernetes.io/name: pool-coordinator
+      app.kubernetes.io/instance: pool-coordinator
+
+{{- end -}}
