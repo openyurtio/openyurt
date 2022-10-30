@@ -88,7 +88,7 @@ To experience the power of OpenYurt, please try the detailed [tutorials](https:/
 ### Contributing
 
 If you are willing to be a contributor for the OpenYurt project, please refer to our [CONTRIBUTING](CONTRIBUTING.md) document for details.
-We have also prepared a developer [guide](./docs/developer-guide.md) to help the code contributors.
+We have also prepared a developer [guide](https://openyurt.io/docs/developer-manuals/how-to-contribute) to help the code contributors.
 
 ### Meeting
 
