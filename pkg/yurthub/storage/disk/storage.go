@@ -385,6 +385,54 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 	return nil
 }
 
+func (ds *diskStorage) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
+	var path string
+	switch key.ClusterInfoType {
+	case storage.APIsInfo, storage.Version:
+		path = filepath.Join(ds.baseDir, string(key.ClusterInfoType))
+	case storage.APIResourcesInfo:
+		translatedURLPath := strings.ReplaceAll(key.UrlPath, "/", "_")
+		path = filepath.Join(ds.baseDir, translatedURLPath)
+	default:
+		return storage.ErrUnknownClusterInfoType
+	}
+
+	if err := ds.fsOperator.CreateFile(path, content); err != nil {
+		if err == fs.ErrExists {
+			// file exists, overwrite it with content
+			if werr := ds.fsOperator.Write(path, content); werr != nil {
+				return fmt.Errorf("failed to update clusterInfo %s at path %s, %v", key.ClusterInfoType, path, werr)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to create %s clusterInfo file at path %s, %v", key.ClusterInfoType, path, err)
+	}
+	return nil
+}
+
+func (ds *diskStorage) GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error) {
+	var path string
+	switch key.ClusterInfoType {
+	case storage.APIsInfo, storage.Version:
+		path = filepath.Join(ds.baseDir, string(key.ClusterInfoType))
+	case storage.APIResourcesInfo:
+		translatedURLPath := strings.ReplaceAll(key.UrlPath, "/", "_")
+		path = filepath.Join(ds.baseDir, translatedURLPath)
+	default:
+		return nil, storage.ErrUnknownClusterInfoType
+	}
+
+	var buf []byte
+	var err error
+	if buf, err = ds.fsOperator.Read(path); err != nil {
+		if err == fs.ErrNotExists {
+			return nil, storage.ErrStorageNotFound
+		}
+		return nil, fmt.Errorf("failed to read %s clusterInfo file at %s, %v", key.ClusterInfoType, path, err)
+	}
+	return buf, nil
+}
+
 // Recover will walk the baseDir of this diskStorage, and try to recover the storage
 // using backup file. It works when yurthub or the node breaks down and restart.
 //

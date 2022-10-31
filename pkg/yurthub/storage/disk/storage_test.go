@@ -72,6 +72,20 @@ var nodeObj = v1.Node{
 	Spec: v1.NodeSpec{},
 }
 
+const (
+	versionJSONBytes = `{
+		"major": "1",
+		"minor": "22",
+		"gitVersion": "v1.22.7",
+		"gitCommit": "b56e432f2191419647a6a13b9f5867801850f969",
+		"gitTreeState": "clean",
+		"buildDate": "2022-03-06T21:07:35Z",
+		"goVersion": "go1.16.14",
+		"compiler": "gc",
+		"platform": "linux/amd64"
+	  }`
+)
+
 var _ = BeforeSuite(func() {
 	err := os.RemoveAll(diskStorageTestBaseDir)
 	Expect(err).To(BeNil())
@@ -997,6 +1011,68 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			err = store.DeleteComponentResources("")
 			Expect(err).To(Equal(storage.ErrEmptyComponent))
 		})
+	})
+
+	Context("Test SaveClusterInfo", func() {
+		It("should create new version content if it does not exists", func() {
+			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Version,
+				UrlPath:         "/version",
+			}, []byte(versionJSONBytes))
+			Expect(err).To(BeNil())
+			buf, err := checkFileAt(filepath.Join(baseDir, string(storage.Version)))
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal([]byte(versionJSONBytes)))
+		})
+		It("should overwrite existing version content in storage", func() {
+			newVersionBytes := []byte("new bytes")
+			path := filepath.Join(baseDir, string(storage.Version))
+			err = writeFileAt(path, []byte(versionJSONBytes))
+			Expect(err).To(BeNil())
+			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Version,
+				UrlPath:         "/version",
+			}, newVersionBytes)
+			Expect(err).To(BeNil())
+			buf, err := checkFileAt(path)
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal([]byte(newVersionBytes)))
+		})
+		It("should return ErrUnknownClusterInfoType if it is unknown ClusterInfoType", func() {
+			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Unknown,
+			}, nil)
+			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))
+		})
+		// TODO: add unit-test for api-versions and api-resources
+	})
+
+	Context("Test GetClusterInfo", func() {
+		It("should get version info", func() {
+			path := filepath.Join(baseDir, string(storage.Version))
+			err = writeFileAt(path, []byte(versionJSONBytes))
+			Expect(err).To(BeNil())
+			buf, err := store.GetClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Version,
+				UrlPath:         "/version",
+			})
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal([]byte(versionJSONBytes)))
+		})
+		It("should return ErrStorageNotFound if version info has not been cached", func() {
+			_, err = store.GetClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Version,
+				UrlPath:         "/version",
+			})
+			Expect(err).To(Equal(storage.ErrStorageNotFound))
+		})
+		It("should return ErrUnknownClusterInfoType if it is unknown ClusterInfoType", func() {
+			_, err = store.GetClusterInfo(storage.ClusterInfoKey{
+				ClusterInfoType: storage.Unknown,
+			})
+			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))
+		})
+		// TODO: add unit-test for api-versions and api-resources
 	})
 })
 

@@ -16,16 +16,46 @@ limitations under the License.
 
 package storage
 
+type ClusterInfoKey struct {
+	ClusterInfoType
+	UrlPath string
+}
+
+type ClusterInfoType string
+
+const (
+	Version          ClusterInfoType = "version"
+	APIsInfo         ClusterInfoType = "apis"
+	APIResourcesInfo ClusterInfoType = "api-resources"
+	Unknown          ClusterInfoType = "unknown"
+)
+
 // Store is an interface for caching data into store
-//
+type Store interface {
+	// Name will return the name of this store.
+	Name() string
+	clusterInfoRelatedInterface
+	objectRelatedInterface
+	componentRelatedInterface
+}
+
+// clusterInfoRelatedInterface contains functions for manipulating cluster info cache in the storage.
+type clusterInfoRelatedInterface interface {
+	// SaveClusterInfo will save content of cluster info into storage.
+	// If the content has already existed in the storage, it will be overwritten with content.
+	SaveClusterInfo(key ClusterInfoKey, content []byte) error
+	// GetClusterInfo will get the cluster info of clusterInfoType from storage.
+	// If the cluster info is not found in the storage, return ErrStorageNotFound.
+	GetClusterInfo(key ClusterInfoKey) ([]byte, error)
+}
+
+// objectRelatedInterface contains functions for manipulating resource objects in the format of key-value
+// in the storage.
 // Note:
 // The description for each function in this interface only contains
 // the interface-related error, which means other errors are also possibly returned,
 // such as errors when reading/opening files.
-type Store interface {
-	// Name will return the name of this store.
-	Name() string
-
+type objectRelatedInterface interface {
 	// Create will create content of key in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
@@ -59,17 +89,18 @@ type Store interface {
 	// If force is not set and the rv is staler than what is in the store, ErrUpdateConflict will be returned.
 	Update(key Key, contents []byte, rv uint64) ([]byte, error)
 
-	// KeyFunc will generate the key of the object used by this store.
-	// info contains necessary infos used to generate the key. How to use it
-	// depends on the implementation of the storage.
+	// KeyFunc will generate the key used by this store.
+	// info contains necessary info to generate the key for the object. How to use this info
+	// to generate the key depends on the implementation of storage.
 	KeyFunc(info KeyBuildInfo) (Key, error)
 
 	// TODO: RootKeyFunc()
 	// decouple key with root key
-
-	componentRelatedInterface
 }
 
+// componentRelatedInterface contains functions for manipulating objects in the storage based on the component,
+// such as getting keys of all objects cached for some component. The difference between it and objectRelatedInterface is
+// it doesn't need object key and only provide limited function for special usage, such as gc.
 // TODO: reconsider the interface, if the store should be conscious of the component.
 type componentRelatedInterface interface {
 	// ListResourceKeysOfComponent will get all keys of resource of component.

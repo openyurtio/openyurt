@@ -605,6 +605,16 @@ func TestWithRequestTrace(t *testing.T) {
 			UserAgent:      "",
 			HasRequestInfo: false,
 		},
+		"api-resources info request": {
+			path:         "/apis/discovery.k8s.io/v1",
+			expectType:   storage.APIResourcesInfo,
+			expectResult: true,
+		},
+		"api-versions info request": {
+			path:         "/apis",
+			expectType:   storage.APIsInfo,
+			expectResult: true,
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()

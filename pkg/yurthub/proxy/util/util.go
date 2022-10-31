@@ -370,6 +370,26 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 	})
 }
 
+// IsListRequestWithNameFieldSelector will check if the request has FieldSelector "metadata.name".
+// If found, return true, otherwise false.
+func IsListRequestWithNameFieldSelector(req *http.Request) bool {
+	ctx := req.Context()
+	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+		if info.IsResourceRequest && info.Verb == "list" {
+			opts := metainternalversion.ListOptions{}
+			if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err == nil {
+				if opts.FieldSelector == nil {
+					return false
+				}
+				if _, found := opts.FieldSelector.RequiresExactMatch("metadata.name"); found {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // IsKubeletLeaseReq judge whether the request is a lease request from kubelet
 func IsKubeletLeaseReq(req *http.Request) bool {
 	ctx := req.Context()

@@ -53,3 +53,6 @@ var ErrEmptyComponent = errors.New("component is empty")
 
 // ErrEmptyResource indicates that the resource is empty.
 var ErrEmptyResource = errors.New("resource is empty")
+
+// ErrUnknownClusterInfoType indicates the ClusterInfo type is unknown to the storage.
+var ErrUnknownClusterInfoType = errors.New("unknown ClusterInfoType")
