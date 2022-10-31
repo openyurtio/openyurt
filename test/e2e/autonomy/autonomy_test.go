@@ -42,8 +42,6 @@ const (
 	YurtDefaultNamespaceName = "default"
 	YurtSystemNamespaceName  = "kube-system"
 	YurtCloudNodeName        = "openyurt-e2e-test-control-plane"
-	YurtEdgeNodeName         = "openyurt-e2e-test-worker"
-	YurtEdgeNode2Name        = "openyurt-e2e-test-worker2"
 	NginxServiceName         = "yurt-e2e-test-nginx"
 	CoreDNSServiceName       = "kube-dns"
 )
@@ -59,7 +57,6 @@ var (
 	yurthubContainerID   string
 	kubeProxyContainerID string
 	coreDnsContainerID   string
-	coreDnsNodeName      string
 	nginxContainerID     string
 )
 
@@ -166,7 +163,7 @@ var _ = ginkgo.Describe("edge-autonomy"+YurtE2ENamespaceName, ginkgo.Ordered, gi
 
 			// delete iptables created, to see if kube-proxy will generate new ones and delegate services
 			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'iptables -F'").CombinedOutput()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to remove iptables on node "+YurtEdgeNode2Name)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to remove iptables on node openyurt-e2e-test-worker")
 
 			// check periodically if kube-proxy guided the service request to actual pod
 			gomega.Eventually(func() string {
@@ -181,27 +178,26 @@ var _ = ginkgo.Describe("edge-autonomy"+YurtE2ENamespaceName, ginkgo.Ordered, gi
 
 	var _ = ginkgo.Describe("coredns"+YurtE2ENamespaceName, func() {
 		ginkgo.It("coredns edge-autonomy test", ginkgo.Label("edge-autonomy"), func() {
-			ginkgo.Skip("current coredns does not support edge-autonomy, coredns-edge-autonomy tests will be skipped.")
-			// obtain coredns containerID with crictl
-			cmd := ` /bin/bash -c "crictl ps | grep coredns | awk '{print \$1}'"`
-			opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t "+coreDnsNodeName+cmd).CombinedOutput()
+			// obtain coredns containerID with crictl on edge node1
+			cmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep coredns | awk '{print \$1}'"`
+			opBytes, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get coredns container ID")
 			coreDnsContainerID = strings.TrimSpace(string(opBytes))
 
-			// restart kube-proxy
-			cmd = "docker exec -t " + coreDnsNodeName + " /bin/bash -c 'crictl stop " + coreDnsContainerID + "'"
-			_, err = exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
+			// restart coredns
+			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+coreDnsContainerID+"'").CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop coredns")
 
 			// check periodically if coredns is able of dns resolution
 			gomega.Eventually(func() string {
-				cmd := fmt.Sprintf("docker exec -t openyurt-e2e-test-worker /bin/bash -c 'dig @%s %s.%s.svc.cluster.local", CoreDNSServiceIP, NginxServiceName, YurtDefaultNamespaceName)
+				cmd := fmt.Sprintf("docker exec -t openyurt-e2e-test-worker /bin/bash -c 'dig @%s %s.%s.svc.cluster.local'", CoreDNSServiceIP, NginxServiceName, YurtDefaultNamespaceName)
 				opBytes, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 				if err != nil {
+					klog.Errorf("failed to execute dig command for coredns, %v", err)
 					return ""
 				}
 				return string(opBytes)
-			}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(gomega.ContainSubstring("NOERROR"), "DNS resolution contains error, coreDNS dig failed")
+			}).WithTimeout(30*time.Second).WithPolling(1*time.Second).Should(gomega.ContainSubstring("NOERROR"), "DNS resolution contains error, coreDNS dig failed")
 		})
 	})
 })
@@ -244,15 +240,6 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	CoreDNSServiceIP = coreDNSSvc.Spec.ClusterIP
 	klog.Infof("get ServiceIP of service : " + CoreDNSServiceName + " IP: " + CoreDNSServiceIP)
-
-	//get coredns NodeName
-	opBytes, err := exec.Command("/bin/bash", "-c", "kubectl get po -l k8s-app=kube-dns -n kube-system -o wide | grep worker").CombinedOutput()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get core dns node name")
-	if strings.Contains(string(opBytes), "worker2") {
-		coreDnsNodeName = YurtEdgeNode2Name
-	} else {
-		coreDnsNodeName = YurtEdgeNodeName
-	}
 
 	// disconnect cloud node
 	cmd := exec.Command("/bin/bash", "-c", "docker network disconnect kind "+YurtCloudNodeName)

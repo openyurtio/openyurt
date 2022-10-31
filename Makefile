@@ -17,6 +17,7 @@ TARGET_PLATFORMS ?= linux/amd64
 IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
 GIT_COMMIT = $(shell git rev-parse HEAD)
+ENABLE_AUTONOMY_TESTS ?=true
 
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
@@ -70,9 +71,6 @@ verify-mod:
 	hack/make-rules/verify_mod.sh
 
 # Start up OpenYurt cluster on local machine based on a Kind cluster
-# And you can run the following command on different env by specify TARGET_PLATFORMS, default platform is linux/amd64
-#   - on centos env: make local-up-openyurt
-#   - on MACBook Pro M1: make local-up-openyurt TARGET_PLATFORMS=linux/arm64
 local-up-openyurt:
 	KUBERNETESVERSION=${KUBERNETESVERSION} YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
 
@@ -83,8 +81,12 @@ local-up-openyurt:
 docker-build-and-up-openyurt: docker-build
 	KUBERNETESVERSION=${KUBERNETESVERSION} YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
 
+# Start up e2e tests for OpenYurt
+# And you can run the following command on different env by specify TARGET_PLATFORMS, default platform is linux/amd64
+#   - on centos env: make e2e-tests
+#   - on MACBook Pro M1: make e2e-tests TARGET_PLATFORMS=linux/arm64
 e2e-tests:
-	bash hack/make-rules/run-e2e-tests.sh
+	ENABLE_AUTONOMY_TESTS=${ENABLE_AUTONOMY_TESTS} TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/run-e2e-tests.sh
 
 install-golint: ## check golint if not exist install golint tools
 ifeq (, $(shell which golangci-lint))
