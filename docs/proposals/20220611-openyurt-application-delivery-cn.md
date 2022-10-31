@@ -27,6 +27,8 @@ status: provisional
 
 2）扩展性不够，无法支持更多资源类型，比如：将来要部署边缘网关、支持上层业务时，需要针对性开发新的controller；
 
+3）crd抽象的参数永远不够用，比如：yurtingress不支持imagePullSecret、不支持禁止创建webhook等；
+
 ## 问题思考
 
 1）如果部署服务只是一个镜像，直接使用`yurtdaemonset`即可；
@@ -129,15 +131,29 @@ spec:
           policies: ["topology-foo", "override-foo"]
 ```
 
-## 结论
+## 落地方案调研
 
-基于上面的实现，应用部署到多个nodepool可以类比应用部署到多个集群，即可以参考kubevela的多集群模型，抽象openyurt的nodepool应用部署模型。
+1）fluxcd的helm-controller（https://github.com/fluxcd/helm-controller），会依赖HelmRepository、HelmChart、HelmRelease等CRD，引入这套机制会增加openyurt部署和维护的复杂性。另外上层devops产品也可能会使用fluxcd，有可能会引起冲突；
+
+2）kubevela部署chart应用依赖fluxcd，而且fluxcd需要在openyurt集群中部署。因此，这个方案不会比直接使用fluxcd简单。
+
+3）opneyurt自己实现基于nodepool的chart部署模型；
+
+注：helm的调谐逻辑，可以从helm-controller移植过来；
 
 ## 落地步骤
 
-1）将edgex，ingresscontroller资源封装成chart包，同时helm install后实例间资源不能有重复的；
+1）将nginx-ingress封装到docker镜像里，避免私有化或者内网场景时公网不通、拉取包需要密码等问题；
 
-2）可以基于kubevela开发nodepool特性的Application；或者openyurt对标实现自己的Controller；
+2）扩展yurtingress的参数values，类型为`*apiextensionsv1.JSON`，用它存储chart的自定义参数；
+
+3）开发基于nodepool的调谐逻辑；
+  - 根据nodepool、自定义资源的存在关系，进行增、删、改自定义资源；
+  - 对资源增加finalizer；
+  - 生成chart的默认值，并与自定义值镜像merge；
+  - 执行helm更新操作；
+
+  例子实现：https://github.com/openyurtio/yurt-app-manager/pull/124
 
 ## 缺点
 
