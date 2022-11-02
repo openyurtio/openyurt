@@ -29,7 +29,8 @@ cloudNodeContainerName="openyurt-e2e-test-control-plane"
 edgeNodeContainerName="openyurt-e2e-test-worker"
 edgeNodeContainer2Name="openyurt-e2e-test-worker2"
 KUBECONFIG=${KUBECONFIG:-${HOME}/.kube/config}
-
+TARGET_PLATFORM=${TARGET_PLATFORMS:-linux/amd64}
+ENABLE_AUTONOMY_TESTS=${ENABLE_AUTONOMY_TESTS:-true}
 
 function set_flags() {
     goldflags="${GOLDFLAGS:--s -w $(project_info)}"
@@ -42,19 +43,14 @@ function set_flags() {
     docker cp $KUBECONFIG $edgeNodeContainerName:/root/.kube/config
 }
 
-# set up flannel
-function set_up_flannel() {
-    local flannelYaml="https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"
-    local flannelDs="kube-flannel-ds"
-    local flannelNameSpace="kube-flannel"
-    local POD_CREATE_TIMEOUT=120s
-    curl -o /tmp/flannel.yaml $flannelYaml
-    kubectl apply -f /tmp/flannel.yaml
-    # check if flannel on every node is ready, if so, "daemon set "kube-flannel-ds" successfully rolled out"
-    kubectl rollout status daemonset kube-flannel-ds -n kube-flannel --timeout=${POD_CREATE_TIMEOUT}
-
+# set up network
+function set_up_network() {
     # set up bridge cni plugins for every node
-    wget -O /tmp/cni.tgz https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
+    if [ "$TARGET_PLATFORM" = "linux/amd64" ]; then
+        wget -O /tmp/cni.tgz https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
+    else
+        wget -O /tmp/cni.tgz https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-arm64-v1.1.1.tgz
+    fi
 
     docker cp /tmp/cni.tgz $cloudNodeContainerName:/opt/cni/bin/
     docker exec -t $cloudNodeContainerName /bin/bash -c 'cd /opt/cni/bin && tar -zxf cni.tgz'
@@ -63,7 +59,17 @@ function set_up_flannel() {
     docker exec -t $edgeNodeContainerName /bin/bash -c 'cd /opt/cni/bin && tar -zxf cni.tgz'
 
     docker cp /tmp/cni.tgz $edgeNodeContainer2Name:/opt/cni/bin/
-    docker exec -t $edgeNodeContainer2Name /bin/bash -c 'cd /opt/cni/bin && tar -zxf cni.tgz'    
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c 'cd /opt/cni/bin && tar -zxf cni.tgz'
+
+    # deploy flannel DaemonSet
+    local flannelYaml="https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"
+    local flannelDs="kube-flannel-ds"
+    local flannelNameSpace="kube-flannel"
+    local POD_CREATE_TIMEOUT=120s
+    curl -o /tmp/flannel.yaml $flannelYaml
+    kubectl apply -f /tmp/flannel.yaml
+    # check if flannel on every node is ready, if so, "daemon set "kube-flannel-ds" successfully rolled out"
+    kubectl rollout status daemonset kube-flannel-ds -n kube-flannel --timeout=${POD_CREATE_TIMEOUT}
 }
 
 # install gingko
@@ -83,12 +89,6 @@ function run_non_edge_autonomy_e2e_tests {
     ginkgo --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}" --label-filter='!edge-autonomy' -r -v
 }
 
-function schedule_coreDNS {
-    # make sure there is one and only one coredns running on edge, will scale down and delete core dns tolerations
-    kubectl patch deployment coredns -n kube-system -p '{"spec":{"replicas": 1}}'
-    kubectl patch deployment coredns -n kube-system -p '{"spec":{"template":{"spec":{"tolerations": []}}}}'
-}
-
 function run_e2e_edge_autonomy_tests {
      # check kubeconfig
     if [ ! -f "${KUBECONFIG}" ]; then
@@ -100,7 +100,7 @@ function run_e2e_edge_autonomy_tests {
     ginkgo --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}" --label-filter='edge-autonomy' -r -v
 }
 
-function service_nginx {
+function prepare_autonomy_tests {
 #   run a nginx pod as static pod on each edge node
     local nginxYamlPath="${YURT_ROOT}/test/e2e/yamls/nginx.yaml"
     local nginxServiceYamlPath="${YURT_ROOT}/test/e2e/yamls/nginxService.yaml"
@@ -118,19 +118,27 @@ function service_nginx {
 #   set up dig in edge node1 
     docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/([a-z]{2}.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
     docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/ports.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/old-releases.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
     docker exec -t $edgeNodeContainerName /bin/bash -c "apt-get update && apt-get install dnsutils -y"
+
+#   set up dig in edge node2
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c "sed -i -r 's/([a-z]{2}.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c "sed -i -r 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c "sed -i -r 's/ports.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c "sed -i -r 's/old-releases.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
+    docker exec -t $edgeNodeContainer2Name /bin/bash -c "apt-get update && apt-get install dnsutils -y"
 }
 
 GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} set_flags
 
-set_up_flannel
+set_up_network
 
 get_ginkgo
 
-service_nginx
-
 run_non_edge_autonomy_e2e_tests
 
-schedule_coreDNS
-
-run_e2e_edge_autonomy_tests
+if [ "$ENABLE_AUTONOMY_TESTS" = "true" ]; then
+    prepare_autonomy_tests
+    run_e2e_edge_autonomy_tests
+fi
