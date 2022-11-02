@@ -144,25 +144,23 @@ func TestKeyFunc(t *testing.T) {
 	}
 	keyFunc := disk.KeyFunc
 	for c, s := range cases {
-		key, err := keyFunc(s.info)
-		if err != s.err {
-			t.Errorf("unexpected err for case: %s, want: %s, got: %s", c, err, s.err)
-			continue
-		}
+		t.Run(c, func(t *testing.T) {
+			key, err := keyFunc(s.info)
+			if err != s.err {
+				t.Errorf("unexpected err for case: %s, want: %s, got: %s", c, err, s.err)
+			}
 
-		if err != nil {
-			continue
-		}
+			if err == nil {
+				storageKey := key.(storageKey)
+				if storageKey.Key() != s.key {
+					t.Errorf("unexpected key for case: %s, want: %s, got: %s", c, s.key, storageKey.Key())
+				}
 
-		storageKey := key.(storageKey)
-		if storageKey.Key() != s.key {
-			t.Errorf("unexpected key for case: %s, want: %s, got: %s", c, s.key, storageKey.Key())
-			continue
-		}
-
-		if storageKey.isRootKey() != s.isRoot {
-			t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, storageKey.isRootKey())
-		}
+				if storageKey.isRootKey() != s.isRoot {
+					t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, storageKey.isRootKey())
+				}
+			}
+		})
 	}
 	os.RemoveAll(keyFuncTestDir)
 }

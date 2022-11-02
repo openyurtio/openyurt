@@ -1351,19 +1351,20 @@ func TestExtractInfoFromPath(t *testing.T) {
 	}
 
 	for c, d := range cases {
-		comp, res, ns, n, err := extractInfoFromPath(d.baseDir, d.path, d.isRoot)
-		var gotErrOut string
-		if err != nil {
-			gotErrOut = err.Error()
-		}
-		if d.wantErrOut != gotErrOut {
-			t.Errorf("failed at case: %s, wrong error, want: %s, got: %s", c, d.wantErrOut, gotErrOut)
-			continue
-		}
-		got := strings.Join([]string{comp, res, ns, n}, " ")
-		want := strings.Join(d.want, " ")
-		if got != want {
-			t.Errorf("failed at case: %s, want: %s, got: %s", c, want, got)
-		}
+		t.Run(c, func(t *testing.T) {
+			comp, res, ns, n, err := extractInfoFromPath(d.baseDir, d.path, d.isRoot)
+			var gotErrOut string
+			if err != nil {
+				gotErrOut = err.Error()
+			}
+			if d.wantErrOut != gotErrOut {
+				t.Errorf("failed at case: %s, wrong error, want: %s, got: %s", c, d.wantErrOut, gotErrOut)
+			}
+			got := strings.Join([]string{comp, res, ns, n}, " ")
+			want := strings.Join(d.want, " ")
+			if got != want {
+				t.Errorf("failed at case: %s, want: %s, got: %s", c, want, got)
+			}
+		})
 	}
 }
