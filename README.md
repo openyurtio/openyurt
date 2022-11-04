@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.0.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.1.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -14,7 +14,7 @@ English | [简体中文](./README.zh.md)
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-|Latest Release: Sep 9th, 2022. OpenYurt v1.0.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
+|Latest Release: Nov 4th, 2022. OpenYurt v1.1.0. Please check the [CHANGELOG](CHANGELOG.md) for details.|
 |First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1 |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
@@ -43,7 +43,11 @@ multiple physical regions, which are referred to as `Pools` in OpenYurt.
 \
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
 - **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serve as a node sidecar to handle requests that comes from components(like Kubelet, Kubeproxy and so on) on worker nodes to kube-apiserver.
-- **[Yurt Controller Manager](https://openyurt.io/docs/next/core-concepts/yurt-controller-manager)**: It includes node controller that ships from upstream node controller to support edge computing requirements and csr controller that used to handle CSRs from OpenYurt components.
+- **[Yurt Controller Manager](https://openyurt.io/docs/next/core-concepts/yurt-controller-manager)**: It includes several controllers for edge control loops.
+  `nodelifecycle` controller is shipped from upstream node controller to support edge computing requirements.
+  `yurtcsrapprover` controller is used for handling CSRs from OpenYurt components.
+  `daemonpodupdater` controller is used for providing OTA and Auto upgrade model for DaemonSet workload.
+  `servicetopologycontroller` is used for reconciling endpoints/endpointslices when service or nodepool happen to change.
 - **[Yurt App Manager](https://openyurt.io/docs/next/core-concepts/yurt-app-manager)**: It manages several CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md),
   [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md), [YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)
   and [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md).
@@ -70,7 +74,7 @@ Please check the [resource and system requirements](https://github.com/openyurti
 
 ## Getting started
 
-OpenYurt supports Kubernetes versions up to 1.22. Using higher Kubernetes versions may cause
+OpenYurt supports Kubernetes versions up to 1.23. Using higher Kubernetes versions may cause
 compatibility issues. OpenYurt installation is divided into two parts:
 - [Install OpenYurt Control Plane Components](https://openyurt.io/docs/installation/summary#part-1-install-control-plane-components)
 - [Join Nodes](https://openyurt.io/docs/installation/summary#part-2-join-nodes)

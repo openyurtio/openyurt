@@ -1,5 +1,65 @@
 # CHANGELOG
 
+## v1.1.0
+
+### What's New
+
+**Support OTA/Auto upgrade model for DaemonSet workload**
+
+Extend native DaemonSet `OnDelete` upgrade model by providing OTA and Auto two upgrade models.
+- OTA: workload owner can control the upgrade of workload through the exposed REST API on edge nodes.
+- Auto: Solve the DaemonSet upgrade process blocking problem which caused by node NotReady when the cloud-edge is disconnected.
+
+**Support autonomy feature validation in e2e tests**
+
+In order to test autonomy feature, network interface of control-plane is disconnected for simulating cloud-edge network
+disconnected, and then stop components(like kube-proxy, flannel, coredns, etc.) and check the recovery of these components.
+
+**Improve the Yurthub configuration for enabling the data filter function**
+
+Compares to the previous three configuration items, which include the component name, resource, and
+request verb. after improvement, only component name is need to configure for enabling data filter function. the original
+configuration format is also supported in order to keep consistency.
+
+### Other Notable changes
+
+- cache agent change optimize by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1008
+- Check if error via ListKeys of Storage Interface. by @fujitatomoya in https://github.com/openyurtio/openyurt/pull/1015
+- Add released openyurt versions to projectInfo when building binaries by @Congrool in https://github.com/openyurtio/openyurt/pull/1016
+- add auto pod upgrade controller for daemoset by @xavier-hou in https://github.com/openyurtio/openyurt/pull/970
+- add ota update RESTful API by @xavier-hou in https://github.com/openyurtio/openyurt/pull/1004
+- make servicetopology filter in yurthub work properly when service or nodepool change by @LinFCai in https://github.com/openyurtio/openyurt/pull/1019
+- improve data filter framework by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1025
+- add proposal to unify cloud edge comms solution by @zzguang in https://github.com/openyurtio/openyurt/pull/1027
+- improve health checker for adapting coordinator by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1032
+- Edge-autonomy-e2e-test implementation by @lorrielau in https://github.com/openyurtio/openyurt/pull/1022
+- improve e2e tests for supporting mac env and coredns autonomy by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1045
+- proposal of yurthub cache refactoring by @Congrool in https://github.com/openyurtio/openyurt/pull/897
+
+### Fixes
+
+- even no endpoints left after filter, an empty object should be returned to clients by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1028
+- non resource handle miss for coredns by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1044
+
+### Contributors
+
+**Thank you to everyone who contributed to this release!** ❤
+
+- [@windydayc](https://github.com/windydayc)
+- [@luc99hen](https://github.com/luc99hen)
+- [@Congrool](https://github.com/Congrool)
+- [@huiwq1990](https://github.com/huiwq1990)
+- [@fujitatomoya](https://github.com/fujitatomoya)
+- [@LinFCai](https://github.com/LinFCai)
+- [@xavier-hou](https://github.com/xavier-hou)
+- [@lorrielau](https://github.com/lorrielau)
+- [@YTGhost](https://github.com/YTGhost)
+- [@zzguang](https://github.com/zzguang)
+- [@Lan-ce-lot](https://github.com/Lan-ce-lot)
+
+And thank you very much to everyone else not listed here who contributed in other ways like filing issues,
+giving feedback, helping users in community group, etc. ️
+
 ## v1.0
 
 We're excited to announce the release of OpenYurt 1.0.0!🎉🎉🎉
