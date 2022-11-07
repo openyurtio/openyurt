@@ -36,13 +36,13 @@ const (
 type Store interface {
 	// Name will return the name of this store.
 	Name() string
-	clusterInfoRelatedInterface
-	objectRelatedInterface
-	componentRelatedInterface
+	clusterInfoHandler
+	objectRelatedHandler
+	componentRelatedHandler
 }
 
-// clusterInfoRelatedInterface contains functions for manipulating cluster info cache in the storage.
-type clusterInfoRelatedInterface interface {
+// clusterInfoHandler contains functions for manipulating cluster info cache in the storage.
+type clusterInfoHandler interface {
 	// SaveClusterInfo will save content of cluster info into storage.
 	// If the content has already existed in the storage, it will be overwritten with content.
 	SaveClusterInfo(key ClusterInfoKey, content []byte) error
@@ -51,13 +51,13 @@ type clusterInfoRelatedInterface interface {
 	GetClusterInfo(key ClusterInfoKey) ([]byte, error)
 }
 
-// objectRelatedInterface contains functions for manipulating resource objects in the format of key-value
+// objectRelatedHandler contains functions for manipulating resource objects in the format of key-value
 // in the storage.
 // Note:
 // The description for each function in this interface only contains
 // the interface-related error, which means other errors are also possibly returned,
 // such as errors when reading/opening files.
-type objectRelatedInterface interface {
+type objectRelatedHandler interface {
 	// Create will create content of key in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
@@ -97,11 +97,11 @@ type objectRelatedInterface interface {
 	KeyFunc(info KeyBuildInfo) (Key, error)
 }
 
-// componentRelatedInterface contains functions for manipulating objects in the storage based on the component,
+// componentRelatedHandler contains functions for manipulating objects in the storage based on the component,
 // such as getting keys of all objects cached for some component. The difference between it and objectRelatedInterface is
 // it doesn't need object key and only provide limited function for special usage, such as gc.
 // TODO: reconsider the interface, if the store should be conscious of the component.
-type componentRelatedInterface interface {
+type componentRelatedHandler interface {
 	// ListResourceKeysOfComponent will get all keys of gvr of component.
 	// If component is Empty, ErrEmptyComponent will be returned.
 	// If gvr is Empty, ErrEmptyResource will be returned.
