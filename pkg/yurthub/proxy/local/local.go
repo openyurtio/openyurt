@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -48,15 +49,17 @@ type IsHealthy func() bool
 
 // LocalProxy is responsible for handling requests when remote servers are unhealthy
 type LocalProxy struct {
-	cacheMgr  manager.CacheManager
-	isHealthy IsHealthy
+	cacheMgr          manager.CacheManager
+	isHealthy         IsHealthy
+	minRequestTimeout time.Duration
 }
 
 // NewLocalProxy creates a *LocalProxy
-func NewLocalProxy(cacheMgr manager.CacheManager, isHealthy IsHealthy) *LocalProxy {
+func NewLocalProxy(cacheMgr manager.CacheManager, isHealthy IsHealthy, minRequestTimeout time.Duration) *LocalProxy {
 	return &LocalProxy{
-		cacheMgr:  cacheMgr,
-		isHealthy: isHealthy,
+		cacheMgr:          cacheMgr,
+		isHealthy:         isHealthy,
+		minRequestTimeout: minRequestTimeout,
 	}
 }
 
@@ -173,8 +176,9 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	timeout := time.Duration(0)
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	} else {
-		return nil
+	}
+	if timeout == 0 && lp.minRequestTimeout > 0 {
+		timeout = time.Duration(float64(lp.minRequestTimeout) * (rand.Float64() + 1.0))
 	}
 
 	watchTimer := time.NewTimer(timeout)
