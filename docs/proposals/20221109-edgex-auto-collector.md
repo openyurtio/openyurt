@@ -82,7 +82,7 @@ Non-goals are limited to the scope of this proposal. These features may evolve i
 ![Auto-collector process.png](../img/edgex-auto-collector/auto-collector-process.png)
 ### Catching edgex-compose
 
-Edgex docker compose contains the docker compose files for EdgeX releases. Each release is now on it's own branch. 
+Edgex docker compose contains the docker compose files for EdgeX releases. Each release is now on it's own branch.
 
 Since the hanoi version, edgex-compose repository files follow the following specification. First, different versions are differentiated through the github branch. Each version has four yml files: insecure amd64, secure amd64, insecure arm64, and secure arm64. Each yml file describes the components required for that type of edgex and the configuration information for each component, which is one of our sources of information. In addition, each edgex release will have a compose-builder folder with env files for building public environment variables, which we'll discuss later.
 
@@ -172,7 +172,7 @@ This is the metadata component in edgex hanoi. As you can see, there are a lot o
         SERVICE_HOST: edgex-core-metadata
         SERVICE_PORT: "2000"
       isSecurity: true
-      volumes: 
+      volumes:
       - /tmp/edgex/secrets/ca:/tmp/edgex/secrets/ca
       - /tmp/edgex/secrets/edgex-core-metadata:/tmp/edgex/secrets/edgex-core-metadata
 ```
@@ -291,7 +291,7 @@ type EdgeXSpec struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
   Components []Component `json:"components,omitempty"`
-  
+
 	// deprecated
 	// +optional
 	AdditionalService []ServiceTemplateSpec `json:"additionalServices,omitempty"`
