@@ -215,7 +215,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	_, err = ns.CreateNameSpace(c, YurtE2ENamespaceName)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespaces")
 
-	// get Ningx podIP on edge node worker2
+	// get nginx podIP on edge node worker2
 	cs := c
 	podName := "yurt-e2e-test-nginx-openyurt-e2e-test-worker2"
 	ginkgo.By("get pod info:" + podName)
@@ -225,7 +225,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	Edge2NginxPodIP = pod.Status.PodIP
 	klog.Infof("get PodIP of Nginx on edge node 2: %s", Edge2NginxPodIP)
 
-	// get Ningx serviceIP
+	// get nginx serviceIP
 	ginkgo.By("get service info" + NginxServiceName)
 	nginxSvc, err := c.CoreV1().Services(YurtDefaultNamespaceName).Get(context.Background(), NginxServiceName, metav1.GetOptions{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get service : "+NginxServiceName)
