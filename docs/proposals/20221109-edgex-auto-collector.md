@@ -1,9 +1,9 @@
 ---
 title: Edgex Auto-collector Proposal
 authors:
+  - '@lwmqwer'
   - '@LavenderQAQ'
 reviewers:
-  - '@lwmqwer'
   - '@wawlian'
   - '@rambohe-ch'
 creation-date: 2021-11-08T16:05:00.000Z
