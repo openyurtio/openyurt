@@ -58,7 +58,7 @@ configuration format is also supported in order to keep consistency.
 - [@Lan-ce-lot](https://github.com/Lan-ce-lot)
 
 And thank you very much to everyone else not listed here who contributed in other ways like filing issues,
-giving feedback, helping users in community group, etc. ️
+giving feedback, helping users in community group, etc.
 
 ## v1.0
 
