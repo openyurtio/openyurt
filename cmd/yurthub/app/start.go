@@ -229,17 +229,16 @@ func createHealthCheckerClient(heartbeatTimeoutSeconds int, remoteServers []*url
 		healthCheckerClientsForCloud[remoteServers[i].String()] = c
 	}
 
-	// comment the following code temporarily
-	//cfg := &rest.Config{
-	//	Host:      coordinatorServer.String(),
-	//	Transport: tp.CurrentTransport(),
-	//	Timeout:   time.Duration(heartbeatTimeoutSeconds) * time.Second,
-	//}
-	//c, err := kubernetes.NewForConfig(cfg)
-	//if err != nil {
-	//	return healthCheckerClientsForCloud, healthCheckerClientForCoordinator, err
-	//}
-	//healthCheckerClientForCoordinator = c
+	cfg := &rest.Config{
+		Host:      coordinatorServer.String(),
+		Transport: tp.CurrentTransport(),
+		Timeout:   time.Duration(heartbeatTimeoutSeconds) * time.Second,
+	}
+	c, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return healthCheckerClientsForCloud, healthCheckerClientForCoordinator, err
+	}
+	healthCheckerClientForCoordinator = c
 
 	return healthCheckerClientsForCloud, healthCheckerClientForCoordinator, nil
 }
