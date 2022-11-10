@@ -71,12 +71,12 @@ func TestRrLoadBalancerAlgo(t *testing.T) {
 			u, _ := url.Parse(tc.Servers[i])
 			backends[i] = &RemoteProxy{
 				remoteServer: u,
-				checker:      checker,
 			}
 		}
 
 		rr := &rrLoadBalancerAlgo{
 			backends: backends,
+			checker:  checker,
 		}
 
 		for i := range tc.PickBackends {
@@ -132,12 +132,12 @@ func TestRrLoadBalancerAlgoWithReverseHealthy(t *testing.T) {
 			u, _ := url.Parse(tc.Servers[i])
 			backends[i] = &RemoteProxy{
 				remoteServer: u,
-				checker:      checker,
 			}
 		}
 
 		rr := &rrLoadBalancerAlgo{
 			backends: backends,
+			checker:  checker,
 		}
 
 		for i := range tc.PickBackends {
@@ -204,12 +204,12 @@ func TestPriorityLoadBalancerAlgo(t *testing.T) {
 			u, _ := url.Parse(tc.Servers[i])
 			backends[i] = &RemoteProxy{
 				remoteServer: u,
-				checker:      checker,
 			}
 		}
 
 		rr := &priorityLoadBalancerAlgo{
 			backends: backends,
+			checker:  checker,
 		}
 
 		for i := range tc.PickBackends {
@@ -263,12 +263,12 @@ func TestPriorityLoadBalancerAlgoWithReverseHealthy(t *testing.T) {
 			u, _ := url.Parse(tc.Servers[i])
 			backends[i] = &RemoteProxy{
 				remoteServer: u,
-				checker:      checker,
 			}
 		}
 
 		rr := &priorityLoadBalancerAlgo{
 			backends: backends,
+			checker:  checker,
 		}
 
 		for i := range tc.PickBackends {

@@ -31,12 +31,12 @@ import (
 
 type RestConfigManager struct {
 	remoteServers []*url.URL
-	checker       healthchecker.HealthChecker
+	checker       healthchecker.MultipleBackendsHealthChecker
 	certManager   interfaces.YurtCertificateManager
 }
 
 // NewRestConfigManager creates a *RestConfigManager object
-func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.YurtCertificateManager, healthChecker healthchecker.HealthChecker) (*RestConfigManager, error) {
+func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.YurtCertificateManager, healthChecker healthchecker.MultipleBackendsHealthChecker) (*RestConfigManager, error) {
 	mgr := &RestConfigManager{
 		remoteServers: cfg.RemoteServers,
 		checker:       healthChecker,
@@ -89,7 +89,7 @@ func (rcm *RestConfigManager) getHubselfRestConfig(needHealthyServer bool) *rest
 // getHealthyServer is used to get a healthy server
 func (rcm *RestConfigManager) getHealthyServer() *url.URL {
 	for _, server := range rcm.remoteServers {
-		if rcm.checker.IsHealthy(server) {
+		if rcm.checker.BackendHealthyStatus(server) {
 			return server
 		}
 	}

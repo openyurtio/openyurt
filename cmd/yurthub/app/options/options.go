@@ -23,6 +23,9 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
 
@@ -56,6 +59,7 @@ type YurtHubOptions struct {
 	HeartbeatFailedRetry      int
 	HeartbeatHealthyThreshold int
 	HeartbeatTimeoutSeconds   int
+	HeartbeatIntervalSeconds  int
 	MaxRequestInFlight        int
 	JoinToken                 string
 	RootDir                   string
@@ -72,6 +76,7 @@ type YurtHubOptions struct {
 	WorkingMode               string
 	KubeletHealthGracePeriod  time.Duration
 	EnableNodePool            bool
+	LeaderElection            componentbaseconfig.LeaderElectionConfiguration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -89,6 +94,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HeartbeatFailedRetry:      3,
 		HeartbeatHealthyThreshold: 2,
 		HeartbeatTimeoutSeconds:   2,
+		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
@@ -102,6 +108,15 @@ func NewYurtHubOptions() *YurtHubOptions {
 		WorkingMode:               string(util.WorkingModeEdge),
 		KubeletHealthGracePeriod:  time.Second * 40,
 		EnableNodePool:            true,
+		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
+			LeaderElect:       true,
+			LeaseDuration:     metav1.Duration{Duration: 15 * time.Second},
+			RenewDeadline:     metav1.Duration{Duration: 10 * time.Second},
+			RetryPeriod:       metav1.Duration{Duration: 2 * time.Second},
+			ResourceLock:      resourcelock.LeasesResourceLock,
+			ResourceName:      projectinfo.GetHubName(),
+			ResourceNamespace: "kube-system",
+		},
 	}
 	return o
 }
@@ -148,6 +163,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.HeartbeatFailedRetry, "heartbeat-failed-retry", o.HeartbeatFailedRetry, "number of heartbeat request retry after having failed.")
 	fs.IntVar(&o.HeartbeatHealthyThreshold, "heartbeat-healthy-threshold", o.HeartbeatHealthyThreshold, "minimum consecutive successes for the heartbeat to be considered healthy after having failed.")
 	fs.IntVar(&o.HeartbeatTimeoutSeconds, "heartbeat-timeout-seconds", o.HeartbeatTimeoutSeconds, " number of seconds after which the heartbeat times out.")
+	fs.IntVar(&o.HeartbeatIntervalSeconds, "heartbeat-interval-seconds", o.HeartbeatIntervalSeconds, " number of seconds for omitting one time heartbeat to remote server.")
 	fs.IntVar(&o.MaxRequestInFlight, "max-requests-in-flight", o.MaxRequestInFlight, "the maximum number of parallel requests.")
 	fs.StringVar(&o.JoinToken, "join-token", o.JoinToken, "the Join token for bootstrapping hub agent when --cert-mgr-mode=hubself.")
 	fs.StringVar(&o.RootDir, "root-dir", o.RootDir, "directory path for managing hub agent files(pki, cache etc).")
@@ -165,6 +181,35 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
+	bindFlags(&o.LeaderElection, fs)
+}
+
+// bindFlags binds the LeaderElectionConfiguration struct fields to a flagset
+func bindFlags(l *componentbaseconfig.LeaderElectionConfiguration, fs *pflag.FlagSet) {
+	fs.BoolVar(&l.LeaderElect, "leader-elect", l.LeaderElect, ""+
+		"Start a leader election client and gain leadership based on pool coordinator")
+	fs.DurationVar(&l.LeaseDuration.Duration, "leader-elect-lease-duration", l.LeaseDuration.Duration, ""+
+		"The duration that non-leader candidates will wait after observing a leadership "+
+		"renewal until attempting to acquire leadership of a led but unrenewed leader "+
+		"slot. This is effectively the maximum duration that a leader can be stopped "+
+		"before it is replaced by another candidate. This is only applicable if leader "+
+		"election is enabled.")
+	fs.DurationVar(&l.RenewDeadline.Duration, "leader-elect-renew-deadline", l.RenewDeadline.Duration, ""+
+		"The interval between attempts by the acting master to renew a leadership slot "+
+		"before it stops leading. This must be less than or equal to the lease duration. "+
+		"This is only applicable if leader election is enabled.")
+	fs.DurationVar(&l.RetryPeriod.Duration, "leader-elect-retry-period", l.RetryPeriod.Duration, ""+
+		"The duration the clients should wait between attempting acquisition and renewal "+
+		"of a leadership. This is only applicable if leader election is enabled.")
+	fs.StringVar(&l.ResourceLock, "leader-elect-resource-lock", l.ResourceLock, ""+
+		"The type of resource object that is used for locking during "+
+		"leader election. Supported options are `leases` (default), `endpoints` and `configmaps`.")
+	fs.StringVar(&l.ResourceName, "leader-elect-resource-name", l.ResourceName, ""+
+		"The name of resource object that is used for locking during "+
+		"leader election.")
+	fs.StringVar(&l.ResourceNamespace, "leader-elect-resource-namespace", l.ResourceNamespace, ""+
+		"The namespace of resource object that is used for locking during "+
+		"leader election.")
 }
 
 // verifyDummyIP verify the specified ip is valid or not and set the default ip if empty

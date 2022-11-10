@@ -25,8 +25,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -39,6 +38,7 @@ type loadBalancerAlgo interface {
 
 type rrLoadBalancerAlgo struct {
 	sync.Mutex
+	checker  healthchecker.MultipleBackendsHealthChecker
 	backends []*RemoteProxy
 	next     int
 }
@@ -51,7 +51,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *RemoteProxy {
 	if len(rr.backends) == 0 {
 		return nil
 	} else if len(rr.backends) == 1 {
-		if rr.backends[0].IsHealthy() {
+		if rr.checker.BackendHealthyStatus(rr.backends[0].RemoteServer()) {
 			return rr.backends[0]
 		}
 		return nil
@@ -63,7 +63,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *RemoteProxy {
 		selected := rr.next
 		for i := 0; i < len(rr.backends); i++ {
 			selected = (rr.next + i) % len(rr.backends)
-			if rr.backends[selected].IsHealthy() {
+			if rr.checker.BackendHealthyStatus(rr.backends[selected].RemoteServer()) {
 				hasFound = true
 				break
 			}
@@ -80,6 +80,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *RemoteProxy {
 
 type priorityLoadBalancerAlgo struct {
 	sync.Mutex
+	checker  healthchecker.MultipleBackendsHealthChecker
 	backends []*RemoteProxy
 }
 
@@ -91,7 +92,7 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *RemoteProxy {
 	if len(prio.backends) == 0 {
 		return nil
 	} else if len(prio.backends) == 1 {
-		if prio.backends[0].IsHealthy() {
+		if prio.checker.BackendHealthyStatus(prio.backends[0].RemoteServer()) {
 			return prio.backends[0]
 		}
 		return nil
@@ -99,7 +100,7 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *RemoteProxy {
 		prio.Lock()
 		defer prio.Unlock()
 		for i := 0; i < len(prio.backends); i++ {
-			if prio.backends[i].IsHealthy() {
+			if prio.checker.BackendHealthyStatus(prio.backends[i].RemoteServer()) {
 				return prio.backends[i]
 			}
 		}
@@ -111,14 +112,12 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *RemoteProxy {
 // LoadBalancer is an interface for proxying http request to remote server
 // based on the load balance mode(round-robin or priority)
 type LoadBalancer interface {
-	IsHealthy() bool
 	ServeHTTP(rw http.ResponseWriter, req *http.Request)
 }
 
 type loadBalancer struct {
-	backends    []*RemoteProxy
-	algo        loadBalancerAlgo
-	certManager interfaces.YurtCertificateManager
+	backends []*RemoteProxy
+	algo     loadBalancerAlgo
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
@@ -127,13 +126,12 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	cacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	healthChecker healthchecker.HealthChecker,
-	certManager interfaces.YurtCertificateManager,
-	filterManager *filter.Manager,
+	healthChecker healthchecker.MultipleBackendsHealthChecker,
+	filterManager *manager.Manager,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	backends := make([]*RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
-		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, healthChecker, filterManager, stopCh)
+		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, filterManager, stopCh)
 		if err != nil {
 			klog.Errorf("could not new proxy backend(%s), %v", remoteServers[i].String(), err)
 			continue
@@ -147,33 +145,17 @@ func NewLoadBalancer(
 	var algo loadBalancerAlgo
 	switch lbMode {
 	case "rr":
-		algo = &rrLoadBalancerAlgo{backends: backends}
+		algo = &rrLoadBalancerAlgo{backends: backends, checker: healthChecker}
 	case "priority":
-		algo = &priorityLoadBalancerAlgo{backends: backends}
+		algo = &priorityLoadBalancerAlgo{backends: backends, checker: healthChecker}
 	default:
-		algo = &rrLoadBalancerAlgo{backends: backends}
+		algo = &rrLoadBalancerAlgo{backends: backends, checker: healthChecker}
 	}
 
 	return &loadBalancer{
-		backends:    backends,
-		algo:        algo,
-		certManager: certManager,
+		backends: backends,
+		algo:     algo,
 	}, nil
-}
-
-func (lb *loadBalancer) IsHealthy() bool {
-	// both certificate is not expired and
-	// have at least one healthy remote server,
-	// load balancer can proxy the request to
-	// remote server
-	if lb.certManager.NotExpired() {
-		for i := range lb.backends {
-			if lb.backends[i].IsHealthy() {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
