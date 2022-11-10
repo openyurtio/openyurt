@@ -23,7 +23,10 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
 
@@ -76,6 +79,7 @@ type YurtHubOptions struct {
 	CACertHashes              []string
 	UnsafeSkipCAVerification  bool
 	ClientForTest             kubernetes.Interface
+	LeaderElection            componentbaseconfig.LeaderElectionConfiguration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -109,6 +113,15 @@ func NewYurtHubOptions() *YurtHubOptions {
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
+		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
+			LeaderElect:       true,
+			LeaseDuration:     metav1.Duration{Duration: 15 * time.Second},
+			RenewDeadline:     metav1.Duration{Duration: 10 * time.Second},
+			RetryPeriod:       metav1.Duration{Duration: 2 * time.Second},
+			ResourceLock:      resourcelock.LeasesResourceLock,
+			ResourceName:      projectinfo.GetHubName(),
+			ResourceNamespace: "kube-system",
+		},
 	}
 	return o
 }
@@ -182,6 +195,35 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
 	fs.StringSliceVar(&o.CACertHashes, "discovery-token-ca-cert-hash", o.CACertHashes, "For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").")
 	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
+	bindFlags(&o.LeaderElection, fs)
+}
+
+// bindFlags binds the LeaderElectionConfiguration struct fields to a flagset
+func bindFlags(l *componentbaseconfig.LeaderElectionConfiguration, fs *pflag.FlagSet) {
+	fs.BoolVar(&l.LeaderElect, "leader-elect", l.LeaderElect, ""+
+		"Start a leader election client and gain leadership based on pool coordinator")
+	fs.DurationVar(&l.LeaseDuration.Duration, "leader-elect-lease-duration", l.LeaseDuration.Duration, ""+
+		"The duration that non-leader candidates will wait after observing a leadership "+
+		"renewal until attempting to acquire leadership of a led but unrenewed leader "+
+		"slot. This is effectively the maximum duration that a leader can be stopped "+
+		"before it is replaced by another candidate. This is only applicable if leader "+
+		"election is enabled.")
+	fs.DurationVar(&l.RenewDeadline.Duration, "leader-elect-renew-deadline", l.RenewDeadline.Duration, ""+
+		"The interval between attempts by the acting master to renew a leadership slot "+
+		"before it stops leading. This must be less than or equal to the lease duration. "+
+		"This is only applicable if leader election is enabled.")
+	fs.DurationVar(&l.RetryPeriod.Duration, "leader-elect-retry-period", l.RetryPeriod.Duration, ""+
+		"The duration the clients should wait between attempting acquisition and renewal "+
+		"of a leadership. This is only applicable if leader election is enabled.")
+	fs.StringVar(&l.ResourceLock, "leader-elect-resource-lock", l.ResourceLock, ""+
+		"The type of resource object that is used for locking during "+
+		"leader election. Supported options are `leases` (default), `endpoints` and `configmaps`.")
+	fs.StringVar(&l.ResourceName, "leader-elect-resource-name", l.ResourceName, ""+
+		"The name of resource object that is used for locking during "+
+		"leader election.")
+	fs.StringVar(&l.ResourceNamespace, "leader-elect-resource-namespace", l.ResourceNamespace, ""+
+		"The namespace of resource object that is used for locking during "+
+		"leader election.")
 }
 
 // verifyDummyIP verify the specified ip is valid or not and set the default ip if empty

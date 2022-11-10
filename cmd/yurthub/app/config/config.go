@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	componentbaseconfig "k8s.io/component-base/config"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -89,6 +91,7 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerServing       *apiserver.DeprecatedInsecureServingInfo
 	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
 	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
+	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
