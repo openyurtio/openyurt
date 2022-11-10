@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	componentbaseconfig "k8s.io/component-base/config"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -92,6 +94,7 @@ type YurtHubConfiguration struct {
 	CertIPs                           []net.IP
 	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
+	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -180,6 +183,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
+		LeaderElection:                    options.LeaderElection,
 	}
 
 	return cfg, nil
