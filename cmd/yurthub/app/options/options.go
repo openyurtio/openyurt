@@ -73,6 +73,7 @@ type YurtHubOptions struct {
 	WorkingMode               string
 	KubeletHealthGracePeriod  time.Duration
 	EnableNodePool            bool
+	MinRequestTimeout         time.Duration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -104,6 +105,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		WorkingMode:               string(util.WorkingModeEdge),
 		KubeletHealthGracePeriod:  time.Second * 40,
 		EnableNodePool:            true,
+		MinRequestTimeout:         time.Second * 1800,
 	}
 	return o
 }
@@ -168,6 +170,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
+	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
 }
 
 // verifyDummyIP verify the specified ip is valid or not and set the default ip if empty

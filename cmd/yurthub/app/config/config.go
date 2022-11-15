@@ -91,6 +91,7 @@ type YurtHubConfiguration struct {
 	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
 	CoordinatorServer                 *url.URL
+	MinRequestTimeout                 time.Duration
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -174,6 +175,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
+		MinRequestTimeout:                 options.MinRequestTimeout,
 	}
 
 	return cfg, nil
