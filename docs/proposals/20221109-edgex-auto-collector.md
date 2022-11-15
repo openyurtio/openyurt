@@ -7,7 +7,7 @@ reviewers:
   - '@wawlian'
   - '@rambohe-ch'
 creation-date: 2021-11-08T16:05:00.000Z
-last-updated: 2022-11-08T17:00:00.000Z
+last-updated: 2022-11-14T12:15:00.000Z
 status: provisional
 ---
 
@@ -48,8 +48,6 @@ yurt-edgex-manager will be combined with yurt-device-controller and renamed yurt
 This proposal describes a method for automatically collecting and synchronizing information about edgex components into a standardized yaml file. The yurt-edgex-manager will read the standardized yaml file and deploy the edgex component from the yaml file. When a new version of edgex appears, openyurt automatically synchronizes to it, reducing the labor consumption for adapting to the new version frequently. In addition, the proposal also needs to handle the images of components in edgex, automatically pull them and push them to the repository in openyurt. Finally, we'll consider providing some user customization permission to modify the configuration of some edgex components.
 
 ## Motivation
-
-Currently, yurt-edgex-manager supports only hanoi and jarkata version of edgex, which are manually written. Considering that the yurt-edgex-manager needs to synchronize the new version of edgex in the future, it will be very troublesome to manually arrange it every time, and the image management and version management will also bring more burdens.
 
 Currently, yurt-edgex-manager supports only hanoi and jarkata version of edgex, which are manually written. Considering that the yurt-edgex-manager needs to synchronize the new version of edgex in the future, it will be very troublesome to manually arrange it every time, and the image management and version management will also bring more burdens.
 
