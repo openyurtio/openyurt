@@ -20,42 +20,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/initsystem"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
-//NewPostcheckPhase creates a yurtadm workflow phase that check the health status of node components.
-func NewPostcheckPhase() workflow.Phase {
-	return workflow.Phase{
-		Name:  "postcheck",
-		Short: "postcheck",
-		Run:   runPostCheck,
-		InheritFlags: []string{
-			options.TokenStr,
-		},
-	}
-}
-
-// runPostCheck executes the node health check process.
-func runPostCheck(c workflow.RunData) error {
-	j, ok := c.(joindata.YurtJoinData)
-	if !ok {
-		return fmt.Errorf("Postcheck edge-node phase invoked with an invalid data struct. ")
-	}
-
+// RunPostCheck executes the node health check process.
+func RunPostCheck(data joindata.YurtJoinData) error {
 	klog.V(1).Infof("check kubelet status.")
 	if err := checkKubeletStatus(); err != nil {
 		return err
@@ -63,16 +39,15 @@ func runPostCheck(c workflow.RunData) error {
 	klog.V(1).Infof("kubelet service is active")
 
 	klog.V(1).Infof("waiting hub agent ready.")
-	if err := checkYurthubHealthz(j); err != nil {
+	if err := checkYurthubHealthz(data); err != nil {
 		return err
 	}
 	klog.V(1).Infof("hub agent is ready")
 
-	nodeRegistration := j.NodeRegistration()
-	return patchNode(nodeRegistration.Name, nodeRegistration.CRISocket)
+	return nil
 }
 
-//checkKubeletStatus check if kubelet is healthy.
+// checkKubeletStatus check if kubelet is healthy.
 func checkKubeletStatus() error {
 	initSystem, err := initsystem.GetInitSystem()
 	if err != nil {
@@ -84,9 +59,9 @@ func checkKubeletStatus() error {
 	return nil
 }
 
-//checkYurthubHealthz check if YurtHub is healthy.
+// checkYurthubHealthz check if YurtHub is healthy.
 func checkYurthubHealthz(joinData joindata.YurtJoinData) error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", joinData.YurtHubServer()), edgenode.ServerHealthzURLPath), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", joinData.YurtHubServer()), constants.ServerHealthzURLPath), nil)
 	if err != nil {
 		return err
 	}
@@ -101,20 +76,5 @@ func checkYurthubHealthz(joinData joindata.YurtJoinData) error {
 			return false, nil
 		}
 		return string(ok) == "OK", nil
-	})
-}
-
-//patchNode patch annotations for worker node.
-func patchNode(nodeName, criSocket string) error {
-	client, err := kubeconfig.ClientSetFromFile(filepath.Join(constants.KubernetesDir, constants.KubeletKubeConfigFileName))
-	if err != nil {
-		return err
-	}
-
-	return apiclient.PatchNode(client, nodeName, func(n *v1.Node) {
-		if n.ObjectMeta.Annotations == nil {
-			n.ObjectMeta.Annotations = make(map[string]string)
-		}
-		n.ObjectMeta.Annotations[constants.AnnotationKubeadmCRISocket] = criSocket
 	})
 }

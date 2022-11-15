@@ -29,6 +29,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 const (
@@ -117,7 +119,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 
 	//2. find --hostname-override in 10-kubeadm.conf
-	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, KubeletHostname)
+	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, constants.KubeletHostname)
 	if nodeName != "" {
 		nodeName = strings.Split(nodeName, NodeNameSplit)[1]
 		return nodeName, nil
@@ -126,13 +128,13 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 
 	//3. find --hostname-override in EnvironmentFile
-	environmentFiles, err := GetContentFormFile(kubeadmConfPath, KubeletEnvironmentFile)
+	environmentFiles, err := GetContentFormFile(kubeadmConfPath, constants.KubeletEnvironmentFile)
 	if err != nil {
 		return "", err
 	}
 	for _, ef := range environmentFiles {
 		ef = strings.Split(ef, "-")[1]
-		nodeName, err = GetSingleContentFromFile(ef, KubeletHostname)
+		nodeName, err = GetSingleContentFromFile(ef, constants.KubeletHostname)
 		if nodeName != "" {
 			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
 			return nodeName, nil
@@ -142,7 +144,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 
 	//4. read nodeName from /etc/hostname
-	content, err := os.ReadFile(Hostname)
+	content, err := os.ReadFile(constants.Hostname)
 	if err != nil {
 		return "", err
 	}
@@ -211,7 +213,7 @@ func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
 	}
 
 	if kbCfgPath == "" {
-		kbCfgPath = KubeCondfigPath
+		kbCfgPath = constants.KubeCondfigPath
 	}
 
 	return kbCfgPath, nil
@@ -230,5 +232,5 @@ func Exec(cmd *exec.Cmd) error {
 
 // GetPodManifestPath return podManifestPath, use default value of kubeadm/minikube/kind. etc.
 func GetPodManifestPath() string {
-	return StaticPodPath // /etc/kubernetes/manifests
+	return constants.StaticPodPath // /etc/kubernetes/manifests
 }

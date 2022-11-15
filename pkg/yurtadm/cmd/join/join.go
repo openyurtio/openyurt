@@ -22,7 +22,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/lithammer/dedent"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -32,26 +31,12 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/discovery/token"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	yurtphase "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
+	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
-)
-
-var (
-	joinWorkerNodeDoneMsg = dedent.Dedent(`
-		This node has joined the cluster:
-		* Certificate signing request was sent to apiserver and a response was received.
-		* The Kubelet was informed of the new secure connection details.
-
-		Run 'kubectl get nodes' on the control-plane to see this node join the cluster.
-
-		`)
 )
 
 type joinOptions struct {
@@ -74,7 +59,7 @@ type joinOptions struct {
 func newJoinOptions() *joinOptions {
 	return &joinOptions{
 		nodeType:                 yurtconstants.EdgeNode,
-		criSocket:                constants.DefaultDockerCRISocket,
+		criSocket:                yurtconstants.DefaultDockerCRISocket,
 		pauseImage:               yurtconstants.PauseImagePath,
 		yurthubImage:             fmt.Sprintf("%s/%s:%s", yurtconstants.DefaultOpenYurtImageRegistry, yurtconstants.Yurthub, yurtconstants.DefaultOpenYurtVersion),
 		caCertHashes:             make([]string, 0),
@@ -85,35 +70,36 @@ func newJoinOptions() *joinOptions {
 	}
 }
 
+type nodeJoiner struct {
+	*joinData
+	inReader     io.Reader
+	outWriter    io.Writer
+	outErrWriter io.Writer
+}
+
 // NewCmdJoin returns "yurtadm join" command.
-func NewCmdJoin(out io.Writer, joinOptions *joinOptions) *cobra.Command {
-	if joinOptions == nil {
-		joinOptions = newJoinOptions()
-	}
-	joinRunner := workflow.NewRunner()
+func NewCmdJoin(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
+	joinOptions := newJoinOptions()
 
 	cmd := &cobra.Command{
 		Use:   "join [api-server-endpoint]",
 		Short: "Run this on any machine you wish to join an existing cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := joinRunner.Run(args); err != nil {
+			o, err := newJoinData(args, joinOptions)
+			if err != nil {
 				return err
 			}
-			fmt.Fprint(out, joinWorkerNodeDoneMsg)
+
+			joiner := newJoinerWithJoinData(o, in, out, outErr)
+			if err := joiner.Run(); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
 
 	addJoinConfigFlags(cmd.Flags(), joinOptions)
 
-	joinRunner.AppendPhase(yurtphase.NewPreparePhase())
-	joinRunner.AppendPhase(yurtphase.NewPreflightPhase())
-	joinRunner.AppendPhase(yurtphase.NewEdgeNodePhase())
-	joinRunner.AppendPhase(yurtphase.NewPostcheckPhase())
-	joinRunner.SetDataInitializer(func(cmd *cobra.Command, args []string) (workflow.RunData, error) {
-		return newJoinData(cmd, args, joinOptions, out)
-	})
-	joinRunner.BindToCommand(cmd)
 	return cmd
 }
 
@@ -173,6 +159,34 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	)
 }
 
+func newJoinerWithJoinData(o *joinData, in io.Reader, out io.Writer, outErr io.Writer) *nodeJoiner {
+	return &nodeJoiner{
+		o,
+		in,
+		out,
+		outErr,
+	}
+}
+
+// Run use kubeadm to join the node.
+func (nodeJoiner *nodeJoiner) Run() error {
+	joinData := nodeJoiner.joinData
+
+	if err := yurtphases.RunPrepare(joinData); err != nil {
+		return err
+	}
+
+	if err := yurtphases.RunJoinNode(joinData, nodeJoiner.outWriter, nodeJoiner.outErrWriter); err != nil {
+		return err
+	}
+
+	if err := yurtphases.RunPostCheck(joinData); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type joinData struct {
 	joinNodeData             *joindata.NodeRegistration
 	apiServerEndpoint        string
@@ -193,7 +207,7 @@ type joinData struct {
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
 // This func takes care of validating joinOptions passed to the command, and then it converts
 // options into the internal JoinData type that is used as input all the phases in the kubeadm join workflow
-func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Writer) (*joinData, error) {
+func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// if an APIServerEndpoint from which to retrieve cluster information was not provided, unset the Discovery.BootstrapToken object
 	var apiServerEndpoint string
 	if len(args) == 0 {
@@ -267,7 +281,7 @@ func newJoinData(cmd *cobra.Command, args []string, opt *joinOptions, out io.Wri
 	}
 
 	// get tls bootstrap config
-	cfg, err := token.RetrieveBootstrapConfig(data)
+	cfg, err := yurtadmutil.RetrieveBootstrapConfig(data)
 	if err != nil {
 		klog.Errorf("failed to retrieve bootstrap config, %v", err)
 		return nil, err

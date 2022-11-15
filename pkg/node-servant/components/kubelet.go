@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
@@ -92,7 +93,7 @@ func (op *kubeletOperator) writeYurthubKubeletConfig() (string, error) {
 		return "", err
 	}
 	fullPath := op.getYurthubKubeletConf()
-	err = os.WriteFile(fullPath, []byte(enutil.OpenyurtKubeletConf), fileMode)
+	err = os.WriteFile(fullPath, []byte(constants.KubeletConfForNode), fileMode)
 	if err != nil {
 		return "", err
 	}
@@ -165,17 +166,17 @@ func (op *kubeletOperator) getAppendSetting() string {
 }
 
 func (op *kubeletOperator) getYurthubKubeletConf() string {
-	return filepath.Join(op.openyurtDir, enutil.KubeletConfName)
+	return filepath.Join(op.openyurtDir, constants.KubeletKubeConfigFileName)
 }
 
 func restartKubeletService() error {
-	klog.Info("restartKubelet: " + enutil.DaemonReload)
-	cmd := exec.Command("bash", "-c", enutil.DaemonReload)
+	klog.Info("restartKubelet: " + constants.DaemonReload)
+	cmd := exec.Command("bash", "-c", constants.DaemonReload)
 	if err := enutil.Exec(cmd); err != nil {
 		return err
 	}
-	klog.Info("restartKubelet: " + enutil.RestartKubeletSvc)
-	cmd = exec.Command("bash", "-c", enutil.RestartKubeletSvc)
+	klog.Info("restartKubelet: " + constants.RestartKubeletSvc)
+	cmd = exec.Command("bash", "-c", constants.RestartKubeletSvc)
 	if err := enutil.Exec(cmd); err != nil {
 		return err
 	}
