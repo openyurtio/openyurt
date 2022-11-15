@@ -37,10 +37,12 @@ func (k storageKey) isRootKey() bool {
 }
 
 // Key for disk storage is
-// /<Component>/<Resource>/<Namespace>/<Name>, or
-// /<Component>/<Resource>/<Name>, if there's no namespace provided in info.
-// /<Component>/<Resource>/<Namespace>, if there's no name provided in info.
-// /<Component>/<Resource>, if there's no namespace and name provided in info.
+// /<Component>/<Resource.Version.Group>/<Namespace>/<Name>, or
+// /<Component>/<Resource.Version.Group>/<Name>, if there's no namespace provided in info.
+// /<Component>/<Resource.Version.Group>/<Namespace>, if there's no name provided in info.
+// /<Component>/<Resource.Version.Group>, if there's no namespace and name provided in info.
+// If diskStorage does not run in enhancement mode, it will use the prefix of key as:
+// /<Component>/<Resource>/
 func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	isRoot := false
 	if info.Component == "" {
@@ -58,12 +60,17 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 		group = "core"
 	}
 
-	gvrName := strings.Join([]string{info.Resources, info.Version, group}, ".")
-	var path string
-	if info.Resources == "namespaces" {
-		path = filepath.Join(info.Component, gvrName, info.Name)
+	var path, resource string
+	if ds.enhancementMode {
+		resource = strings.Join([]string{info.Resources, info.Version, group}, ".")
 	} else {
-		path = filepath.Join(info.Component, gvrName, info.Namespace, info.Name)
+		resource = info.Resources
+	}
+
+	if info.Resources == "namespaces" {
+		path = filepath.Join(info.Component, resource, info.Name)
+	} else {
+		path = filepath.Join(info.Component, resource, info.Namespace, info.Name)
 	}
 
 	return storageKey{

@@ -1368,3 +1368,64 @@ func TestExtractInfoFromPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIfEnhancement(t *testing.T) {
+	cases := []struct {
+		existingFile map[string][]byte
+		want         bool
+		description  string
+	}{
+		{
+			existingFile: map[string][]byte{
+				"/kubelet/pods/default/nginx": []byte("nginx-pod"),
+			},
+			want:        false,
+			description: "should not run in enhancement mode if there's old cache",
+		},
+		{
+			existingFile: map[string][]byte{},
+			want:         true,
+			description:  "should run in enhancement mode if there's no old cache",
+		},
+		{
+			existingFile: map[string][]byte{
+				"/kubelet/pods.v1.core/default/nginx": []byte("nginx-pod"),
+			},
+			want:        true,
+			description: "should run in enhancement mode if all cache are resource.version.group format",
+		},
+		{
+			existingFile: map[string][]byte{
+				"/kubelet/pods.v1.core/default/nginx":             []byte("nginx-pod"),
+				"/_internal/restmapper/cache-crd-restmapper.conf": []byte("restmapper"),
+				"/version": []byte("version"),
+			},
+			want:        true,
+			description: "should ignore internal dirs",
+		},
+	}
+
+	for _, c := range cases {
+		baseDir := diskStorageTestBaseDir
+		t.Run(c.description, func(t *testing.T) {
+			os.RemoveAll(baseDir)
+			fsOperator := fs.FileSystemOperator{}
+			fsOperator.CreateDir(baseDir)
+
+			for f, b := range c.existingFile {
+				path := filepath.Join(baseDir, f)
+				if err := fsOperator.CreateFile(path, b); err != nil {
+					t.Errorf("failed to create file %s, %v", path, err)
+				}
+			}
+
+			mode, err := ifEnhancement(baseDir, fsOperator)
+			if err != nil {
+				t.Errorf("failed to create disk storage, %v", err)
+			}
+			if mode != c.want {
+				t.Errorf("unexpected running mode, want: %v, got: %v", c.want, mode)
+			}
+		})
+	}
+}

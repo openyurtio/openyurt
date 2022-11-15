@@ -51,6 +51,7 @@ type diskStorage struct {
 	keyPendingStatus map[string]struct{}
 	serializer       runtime.Serializer
 	fsOperator       *fs.FileSystemOperator
+	enhancementMode  bool
 }
 
 // NewDiskStorage creates a storage.Store for caching data into local disk
@@ -76,7 +77,16 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 		fsOperator:       fsOperator,
 	}
 
-	err := ds.Recover()
+	enhancementMode, err := ifEnhancement(ds.baseDir, *ds.fsOperator)
+	if err != nil {
+		return nil, fmt.Errorf("cannot detect running mode of disk storage, %v", err)
+	}
+	ds.enhancementMode = enhancementMode
+	if ds.enhancementMode {
+		klog.Info("yurthub disk storage will run in enhancement mode")
+	}
+
+	err = ds.Recover()
 	if err != nil {
 		// we should ensure that there no tmp file last when local storage start to work.
 		// Otherwise, it means the baseDir cannot serve as local storage dir, because there're some subpath
@@ -587,6 +597,36 @@ func (ds *diskStorage) unLockKey(key storageKey) {
 	ds.Lock()
 	defer ds.Unlock()
 	delete(ds.keyPendingStatus, key.Key())
+}
+
+func ifEnhancement(baseDir string, fsOperator fs.FileSystemOperator) (bool, error) {
+	compDirs, err := fsOperator.List(baseDir, fs.ListModeDirs, false)
+	if err != nil {
+		return false, fmt.Errorf("failed to list dirs under %s, %v", baseDir, err)
+	}
+
+	for _, compDir := range compDirs {
+		_, dirName := filepath.Split(compDir)
+		if dirName == "_internal" {
+			// It's for internal use, not component dir.
+			continue
+		}
+
+		resDirs, err := fsOperator.List(compDir, fs.ListModeDirs, false)
+		if err != nil {
+			return false, fmt.Errorf("failed to list dirs under %s, %v", compDir, err)
+		}
+
+		for _, resDir := range resDirs {
+			// Containing resources of old format, so we should run in old mode.
+			_, name := filepath.Split(resDir)
+			if len(strings.Split(name, ".")) == 1 {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
 }
 
 func getTmpKey(key storageKey) storageKey {
