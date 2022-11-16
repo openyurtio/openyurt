@@ -19,7 +19,6 @@ package ns
 import (
 	"context"
 
-	"github.com/onsi/gomega"
 	apiv1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,8 +32,8 @@ func DeleteNameSpace(c clientset.Interface, ns string) (err error) {
 	err = c.CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
-	if !apierrs.IsNotFound(err) {
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces:"+ns)
+	if err != nil && !apierrs.IsNotFound(err) {
+		return
 	}
 	err = util.WaitForNamespacesDeleted(c, []string{ns}, util.DefaultNamespaceDeletionTimeout)
 	return

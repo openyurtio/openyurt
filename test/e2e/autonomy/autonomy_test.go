@@ -210,10 +210,10 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get client set")
 
 	err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
-	util.ExpectNoError(err)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to delete namespace")
 	ginkgo.By("create e2e-test namespace")
 	_, err = ns.CreateNameSpace(c, YurtE2ENamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespaces")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
 	// get nginx podIP on edge node worker2
 	cs := c
@@ -251,13 +251,14 @@ var _ = ginkgo.BeforeSuite(func() {
 var _ = ginkgo.AfterSuite(func() {
 	// reconnect cloud node to docker network
 	cmd := exec.Command("/bin/bash", "-c", "docker network connect kind "+YurtCloudNodeName)
-	error := cmd.Run()
-	gomega.Expect(error).NotTo(gomega.HaveOccurred(), "fail to reconnect cloud node to kind bridge")
+	err := cmd.Run()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to reconnect cloud node to kind bridge")
 	klog.Infof("successfully reconnected cloud node")
 
 	ginkgo.By("delete namespace:" + YurtE2ENamespaceName)
-	err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
+	gomega.Eventually(func() error {
+		return ns.DeleteNameSpace(c, YurtE2ENamespaceName)
+	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(gomega.Succeed())
 })
 
 func TestEdgeAutonomy(t *testing.T) {
