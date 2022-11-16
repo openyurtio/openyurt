@@ -11,7 +11,7 @@ spec:
   type: ClusterIP
   ports:
     - port: 443
-      targetPort: {{ .Values.poolCoordinator.apiserverPort }}
+      targetPort: {{ .Values.poolCoordinator.apiserverSecurePort }}
       protocol: TCP
       name: https
   selector:
@@ -45,6 +45,9 @@ spec:
   selector:
     matchLabels:
       k8s-app: pool-coordinator
+  nodepoolSelector:
+    matchLabels:
+      openyurt.io/node-pool-type: "edge"
   workloadTemplate:
     deploymentTemplate:
       metadata:
@@ -139,7 +142,7 @@ spec:
                   - --client-cert-auth=true
                   - --data-dir=/var/lib/etcd
                   - --key-file=/etc/kubernetes/pki/etcd/server.key
-                  - --listen-metrics-urls=http://0.0.0.0:12381
+                  - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
                   - --snapshot-count=10000
                   - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
                 image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
@@ -155,7 +158,7 @@ spec:
                   httpGet:
                     host: 127.0.0.1
                     path: /health
-                    port: 12381
+                    port: {{ .Values.poolCoordinator.etcdMetricPort }}
                     scheme: HTTP
                   initialDelaySeconds: 10
                   periodSeconds: 10
