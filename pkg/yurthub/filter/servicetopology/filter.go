@@ -30,7 +30,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	filterutil "github.com/openyurtio/openyurt/pkg/yurthub/filter/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
@@ -38,15 +37,16 @@ import (
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
+func Register(filters *filter.Filters, sm *serializer.SerializerManager) {
 	filters.Register(filter.ServiceTopologyFilterName, func() (filter.Runner, error) {
-		return NewFilter(), nil
+		return NewFilter(sm), nil
 	})
 }
 
-func NewFilter() *serviceTopologyFilter {
+func NewFilter(sm *serializer.SerializerManager) *serviceTopologyFilter {
 	return &serviceTopologyFilter{
-		workingMode: util.WorkingModeEdge,
+		workingMode:       util.WorkingModeEdge,
+		serializerManager: sm,
 	}
 }
 
@@ -147,21 +147,11 @@ func (ssf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 	return nil
 }
 
-func (ssf *serviceTopologyFilter) SetSerializerManager(s *serializer.SerializerManager) error {
-	ssf.serializerManager = s
-	return nil
-}
-
 func (ssf *serviceTopologyFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
 	if ok := cache.WaitForCacheSync(stopCh, ssf.nodeSynced, ssf.serviceSynced, ssf.nodePoolSynced); !ok {
 		return 0, rc, nil
 	}
-	s := filterutil.CreateSerializer(req, ssf.serializerManager)
-	if s == nil {
-		klog.Errorf("skip filter, failed to create serializer in serviceTopologyFilter")
-		return 0, rc, nil
-	}
 
-	handler := NewServiceTopologyFilterHandler(ssf.nodeName, s, ssf.serviceLister, ssf.nodepoolLister, ssf.nodeGetter)
-	return filter.NewFilterReadCloser(req, rc, handler, s, filter.ServiceTopologyFilterName, stopCh)
+	handler := NewServiceTopologyFilterHandler(ssf.nodeName, ssf.serviceLister, ssf.nodepoolLister, ssf.nodeGetter)
+	return filter.NewFilterReadCloser(req, ssf.serializerManager, rc, handler, ssf.Name(), stopCh)
 }

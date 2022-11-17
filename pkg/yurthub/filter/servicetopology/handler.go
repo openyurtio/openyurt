@@ -17,19 +17,15 @@ limitations under the License.
 package servicetopology
 
 import (
-	"io"
-
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/watch"
 	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	appslisters "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/listers/apps/v1alpha1"
 )
@@ -47,7 +43,6 @@ var (
 
 type serviceTopologyFilterHandler struct {
 	nodeName       string
-	serializer     *serializer.Serializer
 	serviceLister  listers.ServiceLister
 	nodePoolLister appslisters.NodePoolLister
 	nodeGetter     filter.NodeGetter
@@ -55,27 +50,19 @@ type serviceTopologyFilterHandler struct {
 
 func NewServiceTopologyFilterHandler(
 	nodeName string,
-	serializer *serializer.Serializer,
 	serviceLister listers.ServiceLister,
 	nodePoolLister appslisters.NodePoolLister,
-	nodeGetter filter.NodeGetter) filter.Handler {
+	nodeGetter filter.NodeGetter) filter.ObjectHandler {
 	return &serviceTopologyFilterHandler{
 		nodeName:       nodeName,
-		serializer:     serializer,
 		serviceLister:  serviceLister,
 		nodePoolLister: nodePoolLister,
 		nodeGetter:     nodeGetter,
 	}
 }
 
-//ObjectResponseFilter filter the endpointSlice or endpoints from get response object and return the bytes
-func (fh *serviceTopologyFilterHandler) ObjectResponseFilter(b []byte) ([]byte, error) {
-	obj, err := fh.serializer.Decode(b)
-	if err != nil || obj == nil {
-		klog.Errorf("skip serviceTopologyFilterHandler: failed to decode response in ObjectResponseFilter, %v", err)
-		return b, nil
-	}
-
+// RuntimeObjectFilter filter the endpointSlice or endpoints from response object and return the filtered object
+func (fh *serviceTopologyFilterHandler) RuntimeObjectFilter(obj runtime.Object) (runtime.Object, bool) {
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSliceList:
 		// filter endpointSlice before k8s 1.21
@@ -85,7 +72,7 @@ func (fh *serviceTopologyFilterHandler) ObjectResponseFilter(b []byte) ([]byte, 
 			items = append(items, *eps)
 		}
 		v.Items = items
-		return fh.serializer.Encode(v)
+		return v, false
 	case *discovery.EndpointSliceList:
 		var items []discovery.EndpointSlice
 		for i := range v.Items {
@@ -93,7 +80,7 @@ func (fh *serviceTopologyFilterHandler) ObjectResponseFilter(b []byte) ([]byte, 
 			items = append(items, *eps)
 		}
 		v.Items = items
-		return fh.serializer.Encode(v)
+		return v, false
 	case *v1.EndpointsList:
 		var items []v1.Endpoints
 		for i := range v.Items {
@@ -101,34 +88,11 @@ func (fh *serviceTopologyFilterHandler) ObjectResponseFilter(b []byte) ([]byte, 
 			items = append(items, *ep)
 		}
 		v.Items = items
-		return fh.serializer.Encode(v)
+		return v, false
+	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discovery.EndpointSlice:
+		return fh.serviceTopologyHandler(v), false
 	default:
-		return b, nil
-	}
-}
-
-// StreamResponseFilter filter the endpointslice or endpoints from watch response object and return the bytes
-func (fh *serviceTopologyFilterHandler) StreamResponseFilter(rc io.ReadCloser, ch chan watch.Event) error {
-	defer func() {
-		close(ch)
-	}()
-
-	d, err := fh.serializer.WatchDecoder(rc)
-	if err != nil {
-		klog.Errorf("StreamResponseFilter of serviceTopologyFilterHandler ended with error, %v", err)
-		return err
-	}
-
-	for {
-		watchType, obj, err := d.Decode()
-		if err != nil {
-			return err
-		}
-
-		ch <- watch.Event{
-			Type:   watchType,
-			Object: fh.serviceTopologyHandler(obj),
-		}
+		return obj, false
 	}
 }
 
