@@ -36,3 +36,5 @@ yurtTunnelServer:
     pullPolicy: IfNotPresent
     tag: v1.1.0
 
+yurtHub:
+  cacheAgents: ""
