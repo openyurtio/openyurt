@@ -38,7 +38,7 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1`
 )
 
-//setIpv4Forward turn on the node ipv4 forward.
+// SetIpv4Forward turn on the node ipv4 forward.
 func SetIpv4Forward() error {
 	klog.Infof("Setting ipv4 forward")
 	if err := os.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
@@ -47,7 +47,7 @@ func SetIpv4Forward() error {
 	return nil
 }
 
-//setBridgeSetting turn on the node bridge-nf-call-iptables.
+// SetBridgeSetting turn on the node bridge-nf-call-iptables.
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
 	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
@@ -69,7 +69,7 @@ func SetBridgeSetting() error {
 	return nil
 }
 
-// setSELinux turn off the node selinux.
+// SetSELinux turn off the node selinux.
 func SetSELinux() error {
 	klog.Info("Disabling SELinux.")
 	selinux.SetDisabled()

@@ -17,29 +17,14 @@ limitations under the License.
 package token
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-)
-
-const (
-	TmpDownloadDir = "/tmp"
-
-	KubeadmUrlFormat      = "https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/%s/kubeadm"
-	DefaultKubeadmVersion = "v1.22.3"
-
-	MiniumKubeadmVersion = "v1.22.3"
 )
 
 func NewCmdToken(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
@@ -50,7 +35,8 @@ func NewCmdToken(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
 		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			if err := CheckAndInstallKubeadm(); err != nil {
+			if _, err := exec.LookPath("kubeadm"); err != nil {
+				klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallUrl)
 				return err
 			}
 
@@ -67,63 +53,4 @@ func NewCmdToken(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
 	}
 
 	return cmd
-}
-
-type kubeadmVersion struct {
-	ClientVersion clientVersion `json:"clientVersion"`
-}
-type clientVersion struct {
-	GitVersion string `json:"gitVersion"`
-}
-
-func CheckAndInstallKubeadm() error {
-	klog.V(2).Infof("Check and install kubeadm")
-	kubeadmExist := false
-
-	if _, err := exec.LookPath("kubeadm"); err == nil {
-		if b, err := exec.Command("kubeadm", "version", "-o", "json").CombinedOutput(); err == nil {
-			klog.V(2).InfoS("kubeadm", "version", string(b))
-			info := kubeadmVersion{}
-			if err := json.Unmarshal(b, &info); err != nil {
-				return fmt.Errorf("Can't get the existing kubeadm version: %w", err)
-			}
-			kubeadmVersion := info.ClientVersion.GitVersion
-
-			c, err := semver.NewConstraint(fmt.Sprintf(">= %s", MiniumKubeadmVersion))
-			if err != nil {
-				return fmt.Errorf("kubeadm version constraint build fail, err: %s", err.Error())
-			}
-			v, err := semver.NewVersion(kubeadmVersion)
-			if err != nil {
-				return fmt.Errorf("current kubeadm version build fail, err: %s", err.Error())
-			}
-
-			if c.Check(v) {
-				klog.V(2).Infof("Kubeadm %s already exist, skip install.", kubeadmVersion)
-				kubeadmExist = true
-			} else {
-				return fmt.Errorf("The existing kubeadm version %s is not supported, please clean it. Valid server versions are %v.", kubeadmVersion, MiniumKubeadmVersion)
-			}
-		} else {
-			klog.ErrorS(err, "kubeadm version fail")
-		}
-	} else {
-		klog.ErrorS(err, "kubeadm look path fail")
-	}
-
-	if !kubeadmExist {
-		// download and install kubeadm
-		packageUrl := fmt.Sprintf(KubeadmUrlFormat, DefaultKubeadmVersion, runtime.GOARCH)
-		savePath := fmt.Sprintf("%s/kubeadm", TmpDownloadDir)
-		klog.V(2).Infof("Download kubeadm from: %s", packageUrl)
-		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-			return fmt.Errorf("Download kubeadm fail: %w", err)
-		}
-		comp := "kubeadm"
-		target := fmt.Sprintf("/usr/bin/%s", comp)
-		if err := edgenode.CopyFile(TmpDownloadDir+"/"+comp, target, constants.DirMode); err != nil {
-			return err
-		}
-	}
-	return nil
 }

@@ -74,7 +74,7 @@ func (op *yurtHubOperator) Install() error {
 	klog.Infof("setting up yurthub on node")
 	// 1-1. replace variables in yaml file
 	klog.Infof("setting up yurthub apiServer addr")
-	yurthubTemplate, err := templates.SubsituteTemplate(enutil.YurthubTemplate, map[string]string{
+	yurthubTemplate, err := templates.SubsituteTemplate(constants.YurthubTemplate, map[string]string{
 		"yurthubServerAddr":    constants.DefaultYurtHubServerAddr,
 		"kubernetesServerAddr": op.apiServerAddr,
 		"image":                op.yurthubImage,
@@ -146,7 +146,7 @@ func (op *yurtHubOperator) UnInstall() error {
 }
 
 func getYurthubYaml(podManifestPath string) string {
-	return filepath.Join(podManifestPath, enutil.YurthubYamlName)
+	return filepath.Join(podManifestPath, constants.YurthubYamlName)
 }
 
 func getYurthubConf() string {
@@ -160,8 +160,8 @@ func getYurthubCacheDir() string {
 
 func waitUntilYurthubExit(timeout time.Duration, period time.Duration) error {
 	klog.Info("wait for yurt-hub exit")
-	serverHealthzURL, _ := url.Parse(fmt.Sprintf("http://%s", enutil.ServerHealthzServer))
-	serverHealthzURL.Path = enutil.ServerHealthzURLPath
+	serverHealthzURL, _ := url.Parse(fmt.Sprintf("http://%s", constants.ServerHealthzServer))
+	serverHealthzURL.Path = constants.ServerHealthzURLPath
 
 	return wait.PollImmediate(period, timeout, func() (bool, error) {
 		_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
@@ -176,11 +176,11 @@ func waitUntilYurthubExit(timeout time.Duration, period time.Duration) error {
 
 // hubHealthcheck will check the status of yurthub pod
 func hubHealthcheck(timeout time.Duration) error {
-	serverHealthzURL, err := url.Parse(fmt.Sprintf("http://%s", enutil.ServerHealthzServer))
+	serverHealthzURL, err := url.Parse(fmt.Sprintf("http://%s", constants.ServerHealthzServer))
 	if err != nil {
 		return err
 	}
-	serverHealthzURL.Path = enutil.ServerHealthzURLPath
+	serverHealthzURL.Path = constants.ServerHealthzURLPath
 
 	start := time.Now()
 	return wait.PollImmediate(hubHealthzCheckFrequency, timeout, func() (bool, error) {

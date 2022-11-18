@@ -73,21 +73,6 @@ func ParseArgumentListToMap(arguments []string) map[string]string {
 	return resultingMap
 }
 
-// ReplaceArgument gets a command list; converts it to a map for easier modification, runs the provided function that
-// returns a new modified map, and then converts the map back to a command string slice
-func ReplaceArgument(command []string, argMutateFunc func(map[string]string) map[string]string) []string {
-	argMap := ParseArgumentListToMap(command)
-
-	// Save the first command (the executable) if we're sure it's not an argument (i.e. no --)
-	var newCommand []string
-	if len(command) > 0 && !strings.HasPrefix(command[0], "--") {
-		newCommand = append(newCommand, command[0])
-	}
-	newArgMap := argMutateFunc(argMap)
-	newCommand = append(newCommand, BuildArgumentListFromMap(newArgMap, map[string]string{})...)
-	return newCommand
-}
-
 // parseArgument parses the argument "--foo=bar" to "foo" and "bar"
 func parseArgument(arg string) (string, string, error) {
 	if !strings.HasPrefix(arg, "--") {

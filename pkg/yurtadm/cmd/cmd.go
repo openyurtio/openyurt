@@ -45,7 +45,7 @@ func NewYurtadmCommand() *cobra.Command {
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
 	cmds.AddCommand(yurtinit.NewCmdInit())
-	cmds.AddCommand(join.NewCmdJoin(os.Stdout, nil))
+	cmds.AddCommand(join.NewCmdJoin(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, nil))
 	cmds.AddCommand(token.NewCmdToken(os.Stdin, os.Stdout, os.Stderr))
 

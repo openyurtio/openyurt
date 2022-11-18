@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
@@ -47,7 +48,7 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 		kubeadmConfPath = os.Getenv("KUBELET_SVC")
 	}
 	if kubeadmConfPath == "" {
-		kubeadmConfPath = enutil.KubeletSvcPath
+		kubeadmConfPath = constants.KubeletSvcPath
 	}
 	o.kubeadmConfPath = kubeadmConfPath
 
@@ -59,7 +60,7 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 
 	openyurtDir := os.Getenv("OPENYURT_DIR")
 	if openyurtDir == "" {
-		openyurtDir = enutil.OpenyurtDir
+		openyurtDir = constants.OpenyurtDir
 	}
 	o.openyurtDir = openyurtDir
 

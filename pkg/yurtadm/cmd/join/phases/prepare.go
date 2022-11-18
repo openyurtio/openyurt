@@ -20,38 +20,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/system"
 )
 
-// NewPreparePhase creates a yurtadm workflow phase that initialize the node environment.
-func NewPreparePhase() workflow.Phase {
-	return workflow.Phase{
-		Name:  "Initialize system environment.",
-		Short: "Initialize system environment.",
-		Run:   runPrepare,
-		InheritFlags: []string{
-			options.TokenStr,
-		},
-	}
-}
-
-//runPrepare executes the node initialization process.
-func runPrepare(c workflow.RunData) error {
-	data, ok := c.(joindata.YurtJoinData)
-	if !ok {
-		return fmt.Errorf("Prepare phase invoked with an invalid data struct. ")
-	}
-
+// RunPrepare executes the node initialization process.
+func RunPrepare(data joindata.YurtJoinData) error {
 	// cleanup at first
-	staticPodsPath := filepath.Join(constants.KubernetesDir, constants.ManifestsSubDirName)
+	staticPodsPath := filepath.Join(constants.KubeletConfigureDir, constants.ManifestsSubDirName)
 	if err := os.RemoveAll(staticPodsPath); err != nil {
 		klog.Warningf("remove %s: %v", staticPodsPath, err)
 	}
@@ -65,20 +48,76 @@ func runPrepare(c workflow.RunData) error {
 	if err := system.SetSELinux(); err != nil {
 		return err
 	}
-	if err := kubernetes.CheckAndInstallKubelet(data.KubernetesResourceServer(), data.KubernetesVersion()); err != nil {
+	if err := yurtadmutil.CheckAndInstallKubelet(data.KubernetesResourceServer(), data.KubernetesVersion()); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletService(); err != nil {
+	if err := yurtadmutil.CheckAndInstallKubeadm(data.KubernetesResourceServer(), data.KubernetesVersion()); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletUnitConfig(); err != nil {
+	if err := yurtadmutil.CheckAndInstallKubernetesCni(); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletConfigForNode(); err != nil {
+	if err := yurtadmutil.SetKubeletService(); err != nil {
 		return err
 	}
-	if err := kubernetes.SetKubeletCaCert(data.TLSBootstrapCfg()); err != nil {
+	if err := yurtadmutil.SetKubeletUnitConfig(); err != nil {
 		return err
 	}
+	if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
+		return err
+	}
+	if err := addYurthubStaticYaml(data, filepath.Join(constants.KubeletConfigureDir, constants.ManifestsSubDirName)); err != nil {
+		return err
+	}
+	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
+		return err
+	}
+	if err := yurtadmutil.SetKubeadmJoinConfig(data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// addYurthubStaticYaml generate YurtHub static yaml for worker node.
+func addYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
+	klog.Info("[join-node] Adding edge hub static yaml")
+	if _, err := os.Stat(podManifestPath); err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(podManifestPath, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
+			return err
+		}
+	}
+
+	// There can be multiple master IP addresses
+	serverAddrs := strings.Split(data.ServerAddr(), ",")
+	for i := 0; i < len(serverAddrs); i++ {
+		serverAddrs[i] = fmt.Sprintf("https://%s", serverAddrs[i])
+	}
+
+	kubernetesServerAddrs := strings.Join(serverAddrs, ",")
+
+	ctx := map[string]string{
+		"kubernetesServerAddr": kubernetesServerAddrs,
+		"image":                data.YurtHubImage(),
+		"joinToken":            data.JoinToken(),
+		"workingMode":          data.NodeRegistration().WorkingMode,
+		"organizations":        data.NodeRegistration().Organizations,
+		"yurthubServerAddr":    data.YurtHubServer(),
+	}
+
+	yurthubTemplate, err := templates.SubsituteTemplate(constants.YurthubTemplate, ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(filepath.Join(podManifestPath, constants.YurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
+		return err
+	}
+	klog.Info("[join-node] Add hub agent static yaml is ok")
 	return nil
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
-	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -53,7 +53,7 @@ func NewConvertOptions() *Options {
 		yurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
 		workingMode:               string(hubutil.WorkingModeEdge),
 		kubeadmConfPaths:          strings.Join(components.GetDefaultKubeadmConfPath(), ","),
-		openyurtDir:               enutil.OpenyurtDir,
+		openyurtDir:               constants.OpenyurtDir,
 		enableDummyIf:             true,
 		enableNodePool:            true,
 	}

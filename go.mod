@@ -4,7 +4,6 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
-	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.579
 	github.com/davecgh/go-spew v1.1.1

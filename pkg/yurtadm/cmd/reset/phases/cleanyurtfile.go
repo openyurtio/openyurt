@@ -24,7 +24,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 func NewCleanYurtFilePhase() workflow.Phase {
@@ -47,7 +46,7 @@ func runCleanfile(c workflow.RunData) error {
 		constants.YurttunnelAgentWorkdir,
 		constants.YurttunnelServerWorkdir,
 		constants.YurtHubWorkdir,
-		edgenode.KubeletSvcPath,
+		constants.KubeletSvcPath,
 		constants.KubeletServiceFilepath,
 		constants.KubeCniDir,
 		constants.KubeletConfigureDir,
