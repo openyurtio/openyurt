@@ -255,10 +255,14 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to reconnect cloud node to kind bridge")
 	klog.Infof("successfully reconnected cloud node")
 
-	ginkgo.By("delete namespace:" + YurtE2ENamespaceName)
 	gomega.Eventually(func() error {
-		return ns.DeleteNameSpace(c, YurtE2ENamespaceName)
-	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(gomega.Succeed())
+		_, err = c.Discovery().ServerVersion()
+		return err
+	}).WithTimeout(20 * time.Second).WithPolling(1 * time.Second).Should(gomega.Succeed())
+
+	ginkgo.By("delete namespace:" + YurtE2ENamespaceName)
+	err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
 })
 
 func TestEdgeAutonomy(t *testing.T) {
