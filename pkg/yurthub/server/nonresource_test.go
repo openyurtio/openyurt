@@ -19,11 +19,12 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
@@ -70,7 +72,7 @@ func TestLocalCacheHandler(t *testing.T) {
 	}{
 		"failed to get from local cache": {
 			path:             "/version",
-			initData:         []byte{},
+			initData:         nil,
 			statusCode:       http.StatusOK,
 			metav1StatusCode: http.StatusInternalServerError,
 		},
@@ -83,8 +85,13 @@ func TestLocalCacheHandler(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			key := fmt.Sprintf("non-reosurce-info%s", tt.path)
-			sw.UpdateRaw(key, tt.initData)
+			key := storage.ClusterInfoKey{
+				ClusterInfoType: nonResourceReqPaths[tt.path],
+				UrlPath:         tt.path,
+			}
+			if tt.initData != nil {
+				sw.SaveClusterInfo(key, tt.initData)
+			}
 
 			req, err := http.NewRequest("GET", "", nil)
 			if err != nil {
@@ -111,13 +118,12 @@ func TestLocalCacheHandler(t *testing.T) {
 
 			} else {
 				if !bytes.Equal(b, tt.initData) {
-					t.Errorf("expect response data %v, but got %v", tt.initData, b)
+					t.Errorf("expect response data %s, but got %s", tt.initData, b)
 				}
-
 			}
 
-			if err := sw.Delete(key); err != nil {
-				t.Errorf("failed to remove %s, %v", key, err)
+			if err := os.RemoveAll(filepath.Join(rootDir, tt.path)); err != nil {
+				t.Errorf("failed to remove file, %v", err)
 			}
 		})
 	}
@@ -198,11 +204,6 @@ func TestNonResourceHandler(t *testing.T) {
 				if !bytes.Equal(b, tt.initData) {
 					t.Errorf("expect response data %v, but got %v", tt.initData, b)
 				}
-			}
-
-			key := fmt.Sprintf("non-reosurce-info%s", tt.path)
-			if err := sw.Delete(key); err != nil {
-				t.Errorf("failed to remove %s, %v", key, err)
 			}
 		})
 	}

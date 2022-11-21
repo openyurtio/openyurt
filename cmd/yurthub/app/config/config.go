@@ -45,7 +45,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtcorev1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
@@ -108,14 +108,18 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		}
 	}
 
-	storageManager, err := factory.CreateStorage(options.DiskCachePath)
+	storageManager, err := disk.NewDiskStorage(options.DiskCachePath)
 	if err != nil {
 		klog.Errorf("could not create storage manager, %v", err)
 		return nil, err
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
 	serializerManager := serializer.NewSerializerManager()
-	restMapperManager := meta.NewRESTMapperManager(storageManager)
+	restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
+	if err != nil {
+		klog.Errorf("failed to create restMapperManager at path %s, %v", options.DiskCachePath, err)
+		return nil, err
+	}
 
 	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
 	proxyServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxyPort)

@@ -36,8 +36,9 @@ import (
 
 	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 const (
@@ -68,7 +69,7 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
 	ctx := req.Context()
 	if reqInfo, ok := apirequest.RequestInfoFrom(ctx); ok && reqInfo != nil && reqInfo.IsResourceRequest {
-		klog.V(3).Infof("go into local proxy for request %s", util.ReqString(req))
+		klog.V(3).Infof("go into local proxy for request %s", hubutil.ReqString(req))
 		switch reqInfo.Verb {
 		case "watch":
 			err = lp.localWatch(w, req)
@@ -81,12 +82,12 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if err != nil {
-			klog.Errorf("could not proxy local for %s, %v", util.ReqString(req), err)
+			klog.Errorf("could not proxy local for %s, %v", hubutil.ReqString(req), err)
 			util.Err(err, w, req)
 		}
 	} else {
-		klog.Errorf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))
-		util.Err(apierrors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", util.ReqString(req))), w, req)
+		klog.Errorf("request(%s) is not supported when cluster is unhealthy", hubutil.ReqString(req))
+		util.Err(apierrors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", hubutil.ReqString(req))), w, req)
 	}
 }
 
@@ -116,12 +117,12 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
-	reqContentType, _ := util.ReqContentTypeFrom(ctx)
+	reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)
 	if info.Resource == "events" && len(reqContentType) != 0 {
-		ctx = util.WithRespContentType(ctx, reqContentType)
+		ctx = hubutil.WithRespContentType(ctx, reqContentType)
 		req = req.WithContext(ctx)
 		stopCh := make(chan struct{})
-		rc, prc := util.NewDualReadCloser(req, req.Body, false)
+		rc, prc := hubutil.NewDualReadCloser(req, req.Body, false)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			klog.V(2).Infof("cache events when cluster is unhealthy, %v", lp.cacheMgr.CacheResponse(req, prc, stopCh))
 		}(req, prc, stopCh)
@@ -167,7 +168,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	}
 
 	ctx := req.Context()
-	contentType, _ := util.ReqContentTypeFrom(ctx)
+	contentType, _ := hubutil.ReqContentTypeFrom(ctx)
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.WriteHeader(http.StatusOK)
@@ -189,7 +190,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Infof("exit request %s for context: %v", util.ReqString(req), ctx.Err())
+			klog.Infof("exit request %s for context: %v", hubutil.ReqString(req), ctx.Err())
 			return nil
 		case <-watchTimer.C:
 			return nil
@@ -205,21 +206,21 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 // localReqCache handles Get/List/Update requests when remote servers are unhealthy
 func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) error {
 	if !lp.cacheMgr.CanCacheFor(req) {
-		klog.Errorf("can not cache for %s", util.ReqString(req))
-		return apierrors.NewBadRequest(fmt.Sprintf("can not cache for %s", util.ReqString(req)))
+		klog.Errorf("can not cache for %s", hubutil.ReqString(req))
+		return apierrors.NewBadRequest(fmt.Sprintf("can not cache for %s", hubutil.ReqString(req)))
 	}
 
 	obj, err := lp.cacheMgr.QueryCache(req)
 	if errors.Is(err, storage.ErrStorageNotFound) || errors.Is(err, hubmeta.ErrGVRNotRecognized) {
-		klog.Errorf("object not found for %s", util.ReqString(req))
+		klog.Errorf("object not found for %s", hubutil.ReqString(req))
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
 		return apierrors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
-		klog.Errorf("failed to query cache for %s, %v", util.ReqString(req), err)
+		klog.Errorf("failed to query cache for %s, %v", hubutil.ReqString(req), err)
 		return apierrors.NewInternalError(err)
 	} else if obj == nil {
-		klog.Errorf("no cache object for %s", util.ReqString(req))
-		return apierrors.NewInternalError(fmt.Errorf("no cache object for %s", util.ReqString(req)))
+		klog.Errorf("no cache object for %s", hubutil.ReqString(req))
+		return apierrors.NewInternalError(fmt.Errorf("no cache object for %s", hubutil.ReqString(req)))
 	}
 
 	return util.WriteObject(http.StatusOK, obj, w, req)

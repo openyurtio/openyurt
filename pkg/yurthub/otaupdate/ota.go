@@ -33,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 type OTAHandler func(kubernetes.Interface, string) http.Handler
@@ -40,7 +41,18 @@ type OTAHandler func(kubernetes.Interface, string) http.Handler
 // GetPods return pod list
 func GetPods(store cachemanager.StorageWrapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		objs, err := store.List("kubelet/pods")
+		podsKey, err := store.KeyFunc(storage.KeyBuildInfo{
+			Component: "kubelet",
+			Resources: "pods",
+			Version:   "v1",
+			Group:     "",
+		})
+		if err != nil {
+			klog.Errorf("get pods key failed, %v", err)
+			WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
+			return
+		}
+		objs, err := store.List(podsKey)
 		if err != nil {
 			klog.Errorf("Get pod list failed, %v", err)
 			WriteErr(w, "Get pod list failed", http.StatusInternalServerError)

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -28,7 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 const (
@@ -46,7 +47,8 @@ var (
 // RESTMapperManager is responsible for managing different kind of RESTMapper
 type RESTMapperManager struct {
 	sync.RWMutex
-	storage storage.Store
+	cachedFilePath string
+	storage        fs.FileSystemOperator
 	// UnsafeDefaultRESTMapper is used to save the GVK and GVR mapping relationships of built-in resources
 	unsafeDefaultRESTMapper *meta.DefaultRESTMapper
 	// dynamicRESTMapper is used to save the GVK and GVR mapping relationships of Custom Resources
@@ -74,23 +76,37 @@ func NewDefaultRESTMapperFromScheme() *meta.DefaultRESTMapper {
 	return mapper
 }
 
-func NewRESTMapperManager(storage storage.Store) *RESTMapperManager {
+func NewRESTMapperManager(baseDir string) (*RESTMapperManager, error) {
 	var dm map[schema.GroupVersionResource]schema.GroupVersionKind
+	cachedFilePath := filepath.Join(baseDir, CacheDynamicRESTMapperKey)
 	// Recover the mapping relationship between GVR and GVK from the hard disk
-	b, err := storage.Get(CacheDynamicRESTMapperKey)
-	if err == nil && len(b) != 0 {
-		dm = unmarshalDynamicRESTMapper(b)
-		klog.Infof("reset DynamicRESTMapper to %v", dm)
-	} else {
+	storage := fs.FileSystemOperator{}
+	b, err := storage.Read(cachedFilePath)
+	if err == fs.ErrNotExists {
 		dm = make(map[schema.GroupVersionResource]schema.GroupVersionKind)
+		err = storage.CreateFile(filepath.Join(baseDir, CacheDynamicRESTMapperKey), []byte{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to init dynamic RESTMapper file at %s, %v", cachedFilePath, err)
+		}
 		klog.Infof("initialize an empty DynamicRESTMapper")
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to read existing RESTMapper file at %s, %v", cachedFilePath, err)
+	}
+
+	if len(b) != 0 {
+		dm, err = unmarshalDynamicRESTMapper(b)
+		if err != nil {
+			return nil, fmt.Errorf("unrecognized content in %s for err %v, initialization of RESTMapper failed", cachedFilePath, err)
+		}
+		klog.Infof("reset DynamicRESTMapper to %v", dm)
 	}
 
 	return &RESTMapperManager{
 		unsafeDefaultRESTMapper: unsafeSchemeRESTMapper,
 		dynamicRESTMapper:       dm,
+		cachedFilePath:          cachedFilePath,
 		storage:                 storage,
-	}
+	}, nil
 }
 
 // Obtain gvk according to gvr in dynamicRESTMapper
@@ -135,16 +151,17 @@ func (rm *RESTMapperManager) deleteKind(gvk schema.GroupVersionKind) error {
 
 // Used to update local files saved on disk
 func (rm *RESTMapperManager) updateCachedDynamicRESTMapper() error {
-	if rm.storage == nil {
-		return nil
-	}
 	rm.RLock()
 	d, err := marshalDynamicRESTMapper(rm.dynamicRESTMapper)
 	rm.RUnlock()
 	if err != nil {
 		return err
 	}
-	return rm.storage.Update(CacheDynamicRESTMapperKey, d)
+	err = rm.storage.Write(rm.cachedFilePath, d)
+	if err != nil {
+		return fmt.Errorf("failed to update cached dynamic RESTMapper, %v", err)
+	}
+	return nil
 }
 
 // KindFor is used to find GVK based on GVR information.
@@ -193,11 +210,7 @@ func (rm *RESTMapperManager) UpdateKind(gvk schema.GroupVersionKind) error {
 // and delete the corresponding file in the disk (cache-crd-restmapper.conf), it should be used carefully.
 func (rm *RESTMapperManager) ResetRESTMapper() error {
 	rm.dynamicRESTMapper = make(map[schema.GroupVersionResource]schema.GroupVersionKind)
-	err := rm.storage.DeleteCollection(CacheDynamicRESTMapperKey)
-	if err != nil {
-		return err
-	}
-	return nil
+	return rm.storage.DeleteFile(rm.cachedFilePath)
 }
 
 // marshalDynamicRESTMapper converts dynamicRESTMapper to the []byte format, which is used to save data to disk
@@ -212,12 +225,12 @@ func marshalDynamicRESTMapper(dynamicRESTMapper map[schema.GroupVersionResource]
 }
 
 // unmarshalDynamicRESTMapper converts bytes of data to map[schema.GroupVersionResource]schema.GroupVersionKind format, used to recover data from disk
-func unmarshalDynamicRESTMapper(data []byte) map[schema.GroupVersionResource]schema.GroupVersionKind {
+func unmarshalDynamicRESTMapper(data []byte) (map[schema.GroupVersionResource]schema.GroupVersionKind, error) {
 	dm := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 	cacheMapper := make(map[string]string)
 	err := json.Unmarshal(data, &cacheMapper)
 	if err != nil {
-		klog.Errorf("failed to get cached CRDRESTMapper, %v", err)
+		return nil, fmt.Errorf("failed to get cached CRDRESTMapper, %v", err)
 	}
 
 	for gvrString, kindString := range cacheMapper {
@@ -238,7 +251,7 @@ func unmarshalDynamicRESTMapper(data []byte) map[schema.GroupVersionResource]sch
 		}
 		dm[gvr] = gvk
 	}
-	return dm
+	return dm, nil
 }
 
 // IsSchemeResource is used to determine whether gvr is a built-in resource

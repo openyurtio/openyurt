@@ -33,7 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
@@ -44,7 +44,7 @@ func TestFindRunner(t *testing.T) {
 	sharedFactory, yurtSharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
 		yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
 	serializerManager := serializer.NewSerializerManager()
-	storageManager, err := factory.CreateStorage("/tmp")
+	storageManager, err := disk.NewDiskStorage("/tmp/filter_manager")
 	if err != nil {
 		t.Fatalf("could not create storage manager, %v", err)
 	}

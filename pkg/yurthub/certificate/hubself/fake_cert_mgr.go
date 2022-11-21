@@ -27,7 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 var (
@@ -64,6 +64,7 @@ type FakeYurtHubCertManager struct {
 	rootDir          string
 	hubName          string
 	yurthubConifFile string
+	certStore        fs.FileSystemOperator
 }
 
 // NewFakeYurtHubCertManager new a YurtCertificateManager instance
@@ -90,6 +91,7 @@ func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPE
 		rootDir:          rd,
 		hubName:          hn,
 		yurthubConifFile: yurthubConfigFile,
+		certStore:        fs.FileSystemOperator{},
 	}
 
 	return fyc, nil
@@ -97,16 +99,11 @@ func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPE
 
 // Start create the yurthub.conf file
 func (fyc *FakeYurtHubCertManager) Start() {
-	dStorage, err := disk.NewDiskStorage(fyc.rootDir)
-	if err != nil {
-		klog.Errorf("failed to create storage, %v", err)
-	}
 	fileName := fmt.Sprintf(hubConfigFileName, fyc.hubName)
 	yurthubConf := filepath.Join(fyc.rootDir, fileName)
-	if err := dStorage.Create(fileName, []byte(fyc.yurthubConifFile)); err != nil {
-		klog.Errorf("Unable to create the file %q: %v", yurthubConf, err)
+	if err := fyc.certStore.CreateFile(yurthubConf, []byte(fyc.yurthubConifFile)); err != nil {
+		klog.Errorf("Unable to create the file %s: %v", yurthubConf, err)
 	}
-	return
 }
 
 // Stop do nothing
