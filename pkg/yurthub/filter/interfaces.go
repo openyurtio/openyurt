@@ -21,8 +21,8 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 type FilterInitializer interface {
@@ -45,16 +45,12 @@ type Runner interface {
 	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
 }
 
-// Handler customizes data filtering processing interface for each handler.
-// In the data filtering framework, data is mainly divided into two types:
-// 	Object data: data returned by list/get request.
-// 	Streaming data: The data returned by the watch request will be continuously pushed to the edge by the cloud.
-type Handler interface {
-	// StreamResponseFilter is used to filter processing of streaming data.
-	StreamResponseFilter(rc io.ReadCloser, ch chan watch.Event) error
-
-	// ObjectResponseFilter is used to filter processing of object data.
-	ObjectResponseFilter(b []byte) ([]byte, error)
+// ObjectHandler is used for filtering runtime object.
+// runtime object includes List object(like ServiceList) that has multiple items and
+// Standalone object(like Service).
+// the second return value(bool): is used to specify the returned object is nil or not.
+type ObjectHandler interface {
+	RuntimeObjectFilter(obj runtime.Object) (runtime.Object, bool)
 }
 
 type NodeGetter func(name string) (*v1.Node, error)

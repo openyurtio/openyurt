@@ -21,22 +21,22 @@ import (
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	filterutil "github.com/openyurtio/openyurt/pkg/yurthub/filter/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
+func Register(filters *filter.Filters, sm *serializer.SerializerManager) {
 	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.Runner, error) {
-		return NewFilter(), nil
+		return NewFilter(sm), nil
 	})
 }
 
-func NewFilter() *discardCloudServiceFilter {
-	return &discardCloudServiceFilter{}
+func NewFilter(sm *serializer.SerializerManager) *discardCloudServiceFilter {
+	return &discardCloudServiceFilter{
+		serializerManager: sm,
+	}
 }
 
 type discardCloudServiceFilter struct {
@@ -53,18 +53,6 @@ func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets
 	}
 }
 
-func (sf *discardCloudServiceFilter) SetSerializerManager(s *serializer.SerializerManager) error {
-	sf.serializerManager = s
-	return nil
-}
-
 func (sf *discardCloudServiceFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	s := filterutil.CreateSerializer(req, sf.serializerManager)
-	if s == nil {
-		klog.Errorf("skip filter, failed to create serializer in discardCloudServiceFilter")
-		return 0, rc, nil
-	}
-
-	handler := NewDiscardCloudServiceFilterHandler(s)
-	return filter.NewFilterReadCloser(req, rc, handler, s, filter.DiscardCloudServiceFilterName, stopCh)
+	return filter.NewFilterReadCloser(req, sf.serializerManager, rc, NewDiscardCloudServiceFilterHandler(), sf.Name(), stopCh)
 }

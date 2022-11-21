@@ -54,7 +54,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
 	}
 	filters := filter.NewFilters(options.DisabledResourceFilters)
-	registerAllFilters(filters)
+	registerAllFilters(filters, serializerManager)
 
 	mutatedMasterServiceHost, mutatedMasterServicePort, _ := net.SplitHostPort(apiserverAddr)
 	if options.AccessServerThroughHub {
@@ -66,7 +66,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	runners, err := createFilterRunners(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	runners, err := createFilterRunners(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,6 @@ func (m *Manager) FindRunner(req *http.Request) (bool, filter.Runner) {
 func createFilterRunners(filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	serializerManager *serializer.SerializerManager,
 	storageWrapper cachemanager.StorageWrapper,
 	workingMode util.WorkingMode,
 	nodeName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.Runner, error) {
@@ -108,7 +107,7 @@ func createFilterRunners(filters *filter.Filters,
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, nodeName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
+	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
 	initializerChain := filter.FilterInitializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
@@ -116,8 +115,8 @@ func createFilterRunners(filters *filter.Filters,
 
 // registerAllFilters by order, the front registered filter will be
 // called before the latter registered ones.
-func registerAllFilters(filters *filter.Filters) {
-	servicetopology.Register(filters)
-	masterservice.Register(filters)
-	discardcloudservice.Register(filters)
+func registerAllFilters(filters *filter.Filters, sm *serializer.SerializerManager) {
+	servicetopology.Register(filters, sm)
+	masterservice.Register(filters, sm)
+	discardcloudservice.Register(filters, sm)
 }

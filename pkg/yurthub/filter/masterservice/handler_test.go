@@ -17,47 +17,26 @@ limitations under the License.
 package masterservice
 
 import (
-	"bytes"
-	"io"
-	"net/http"
-	"sync"
+	"reflect"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
-func TestObjectResponseFilter(t *testing.T) {
+func TestRuntimeObjectFilter(t *testing.T) {
 	fh := &masterServiceFilterHandler{
 		host: "169.251.2.1",
 		port: 10268,
 	}
 
 	testcases := map[string]struct {
-		group        string
-		version      string
-		resources    string
-		userAgent    string
-		accept       string
-		verb         string
-		path         string
-		originalList runtime.Object
-		expectResult runtime.Object
+		responseObject runtime.Object
+		expectObject   runtime.Object
 	}{
 		"serviceList contains kubernetes service": {
-			group:     "",
-			version:   "v1",
-			resources: "services",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/services",
-			originalList: &corev1.ServiceList{
+			responseObject: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -90,7 +69,7 @@ func TestObjectResponseFilter(t *testing.T) {
 					},
 				},
 			},
-			expectResult: &corev1.ServiceList{
+			expectObject: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -125,14 +104,7 @@ func TestObjectResponseFilter(t *testing.T) {
 			},
 		},
 		"serviceList does not contain kubernetes service": {
-			group:     "",
-			version:   "v1",
-			resources: "services",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/services",
-			originalList: &corev1.ServiceList{
+			responseObject: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -150,7 +122,7 @@ func TestObjectResponseFilter(t *testing.T) {
 					},
 				},
 			},
-			expectResult: &corev1.ServiceList{
+			expectObject: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -164,20 +136,77 @@ func TestObjectResponseFilter(t *testing.T) {
 									Port: 80,
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+		"it's a kubernetes service": {
+			responseObject: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MasterServiceName,
+					Namespace: MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.0.1",
+					Ports: []corev1.ServicePort{
+						{
+							Port: 443,
+							Name: MasterServicePortName,
+						},
+					},
+				},
+			},
+			expectObject: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MasterServiceName,
+					Namespace: MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: fh.host,
+					Ports: []corev1.ServicePort{
+						{
+							Port: fh.port,
+							Name: MasterServicePortName,
+						},
+					},
+				},
+			},
+		},
+		"it's not a kubernetes service": {
+			responseObject: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc",
+					Namespace: MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.0.1",
+					Ports: []corev1.ServicePort{
+						{
+							Port: 443,
+							Name: MasterServicePortName,
+						},
+					},
+				},
+			},
+			expectObject: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc",
+					Namespace: MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.0.1",
+					Ports: []corev1.ServicePort{
+						{
+							Port: 443,
+							Name: MasterServicePortName,
 						},
 					},
 				},
 			},
 		},
 		"not serviceList": {
-			group:     "",
-			version:   "v1",
-			resources: "pods",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/pods",
-			originalList: &corev1.PodList{
+			responseObject: &corev1.PodList{
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -195,7 +224,7 @@ func TestObjectResponseFilter(t *testing.T) {
 					},
 				},
 			},
-			expectResult: &corev1.PodList{
+			expectObject: &corev1.PodList{
 				Items: []corev1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -218,257 +247,14 @@ func TestObjectResponseFilter(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			req, _ := http.NewRequest(tt.verb, tt.path, nil)
-			req.Header.Set("User-Agent", tt.userAgent)
-			req.Header.Set("Accept", tt.accept)
-			fh.req = req
-			fh.serializer = serializer.NewSerializerManager().
-				CreateSerializer(tt.accept, tt.group, tt.version, tt.resources)
-
-			originalBytes, err := fh.serializer.Encode(tt.originalList)
-			if err != nil {
-				t.Errorf("encode originalList error: %v\n", err)
-			}
-
-			filteredBytes, err := fh.ObjectResponseFilter(originalBytes)
-			if err != nil {
-				t.Errorf("ObjectResponseFilter got error: %v\n", err)
-			}
-
-			expectedBytes, err := fh.serializer.Encode(tt.expectResult)
-			if err != nil {
-				t.Errorf("encode expectedResult error: %v\n", err)
-			}
-
-			if !bytes.Equal(filteredBytes, expectedBytes) {
-				result, _ := fh.serializer.Decode(filteredBytes)
-				t.Errorf("ObjectResponseFilter got error, expected: \n%v\nbut got: \n%v\n", tt.expectResult, result)
-			}
-		})
-	}
-}
-
-func TestStreamResponseFilter(t *testing.T) {
-	fh := &masterServiceFilterHandler{
-		host: "169.251.2.1",
-		port: 10268,
-	}
-
-	testcases := map[string]struct {
-		group        string
-		version      string
-		resources    string
-		userAgent    string
-		accept       string
-		verb         string
-		path         string
-		inputObj     []watch.Event
-		expectResult []runtime.Object
-	}{
-		"watch kubernetes service": {
-			group:     "",
-			version:   "v1",
-			resources: "services",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/services?watch=true",
-			inputObj: []watch.Event{
-				{Type: watch.Modified, Object: &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      MasterServiceName,
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "10.96.0.1",
-						Ports: []corev1.ServicePort{
-							{
-								Port: 443,
-								Name: MasterServicePortName,
-							},
-						},
-					},
-				}},
-				{Type: watch.Modified, Object: &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "svc1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "10.96.105.188",
-						Ports: []corev1.ServicePort{
-							{
-								Port: 80,
-							},
-						},
-					},
-				}},
-			},
-			expectResult: []runtime.Object{
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      MasterServiceName,
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: fh.host,
-						Ports: []corev1.ServicePort{
-							{
-								Port: fh.port,
-								Name: MasterServicePortName,
-							},
-						},
-					},
-				},
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "svc1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "10.96.105.188",
-						Ports: []corev1.ServicePort{
-							{
-								Port: 80,
-							},
-						},
-					},
-				},
-			},
-		},
-		"watch without kubernetes service": {
-			group:     "",
-			version:   "v1",
-			resources: "services",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/services?watch=true",
-			inputObj: []watch.Event{
-				{Type: watch.Modified, Object: &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "svc1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "10.96.188.105",
-						Ports: []corev1.ServicePort{
-							{
-								Port: 80,
-							},
-						},
-					},
-				}},
-			},
-			expectResult: []runtime.Object{
-				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "svc1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.ServiceSpec{
-						ClusterIP: "10.96.188.105",
-						Ports: []corev1.ServicePort{
-							{
-								Port: 80,
-							},
-						},
-					},
-				},
-			},
-		},
-		"watch pods": {
-			group:     "",
-			version:   "v1",
-			resources: "pods",
-			userAgent: "kubelet",
-			accept:    "application/json",
-			verb:      "GET",
-			path:      "/api/v1/namespaces/default/pods?watch=true",
-			inputObj: []watch.Event{
-				{Type: watch.Modified, Object: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pod1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "nginx",
-								Image: "nginx",
-							},
-						},
-					},
-				}},
-			},
-			expectResult: []runtime.Object{
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pod1",
-						Namespace: MasterServiceNamespace,
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "nginx",
-								Image: "nginx",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for k, tt := range testcases {
-		t.Run(k, func(t *testing.T) {
-			wg := sync.WaitGroup{}
-			req, _ := http.NewRequest(tt.verb, tt.path, nil)
-			req.Header.Set("User-Agent", tt.userAgent)
-			req.Header.Set("Accept", tt.accept)
-			fh.req = req
-
-			fh.serializer = serializer.NewSerializerManager().
-				CreateSerializer(tt.accept, tt.group, tt.version, tt.resources)
-
-			r, w := io.Pipe()
-			wg.Add(1)
-			go func(w *io.PipeWriter) {
-				defer wg.Done()
-				for i := range tt.inputObj {
-					if _, err := fh.serializer.WatchEncode(w, &tt.inputObj[i]); err != nil {
-						t.Errorf("%d: encode watch unexpected error: %v", i, err)
-						continue
-					}
-					time.Sleep(100 * time.Millisecond)
+			newObj, isNil := fh.RuntimeObjectFilter(tt.responseObject)
+			if tt.expectObject == nil {
+				if !isNil {
+					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)
 				}
-				w.Close()
-			}(w)
-
-			rc := io.NopCloser(r)
-			ch := make(chan watch.Event, len(tt.inputObj))
-
-			wg.Add(1)
-			go func(rc io.ReadCloser, ch chan watch.Event) {
-				defer wg.Done()
-				err := fh.StreamResponseFilter(rc, ch)
-				if err != nil && err != io.EOF {
-					t.Errorf("failed to filter stream at case %s, %v", k, err)
-				}
-			}(rc, ch)
-
-			for i := 0; i < len(tt.expectResult); i++ {
-				event := <-ch
-
-				resultBytes, _ := fh.serializer.Encode(event.Object)
-				expectedBytes, _ := fh.serializer.Encode(tt.expectResult[i])
-
-				if !bytes.Equal(resultBytes, expectedBytes) {
-					t.Errorf("StreamResponseFilter got error, expected: \n%v\nbut got: \n%v\n", tt.expectResult[i], event.Object)
-					break
-				}
+			} else if !reflect.DeepEqual(newObj, tt.expectObject) {
+				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n, isNil=%v", tt.expectObject, newObj, isNil)
 			}
-			wg.Wait()
 		})
 	}
 }

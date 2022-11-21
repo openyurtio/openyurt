@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type Factory func() (Runner, error)
@@ -115,89 +116,149 @@ func (fis FilterInitializers) Initialize(ins Runner) error {
 }
 
 type filterReadCloser struct {
-	req        *http.Request
-	rc         io.ReadCloser
-	data       *bytes.Buffer
-	ch         chan watch.Event
-	handler    Handler
-	isWatch    bool
-	serializer *serializer.Serializer
-	ownerName  string
-	stopCh     <-chan struct{}
+	rc          io.ReadCloser
+	filterCache *bytes.Buffer
+	watchDataCh chan *bytes.Buffer
+	serializer  *serializer.Serializer
+	handler     ObjectHandler
+	isWatch     bool
+	ownerName   string
+	stopCh      <-chan struct{}
 }
 
 // NewFilterReadCloser create an filterReadCloser object
 func NewFilterReadCloser(
 	req *http.Request,
+	sm *serializer.SerializerManager,
 	rc io.ReadCloser,
-	handler Handler,
-	serializer *serializer.Serializer,
+	handler ObjectHandler,
 	ownerName string,
 	stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
-	dr := &filterReadCloser{
-		req:        req,
-		rc:         rc,
-		ch:         make(chan watch.Event),
-		data:       new(bytes.Buffer),
-		handler:    handler,
-		isWatch:    info.Verb == "watch",
-		serializer: serializer,
-		ownerName:  ownerName,
-		stopCh:     stopCh,
+	respContentType, _ := util.RespContentTypeFrom(ctx)
+	s := CreateSerializer(respContentType, info, sm)
+	if s == nil {
+		klog.Errorf("skip filter, failed to create serializer in %s", ownerName)
+		return 0, rc, nil
 	}
 
-	if dr.isWatch {
-		go func(req *http.Request, rc io.ReadCloser, ch chan watch.Event) {
-			err := handler.StreamResponseFilter(rc, ch)
-			if err != nil && err != io.EOF && !errors.Is(err, context.Canceled) {
-				klog.Errorf("filter(%s) watch response ended with error, %v", dr.ownerName, err)
-			}
-		}(req, rc, dr.ch)
-		return 0, dr, nil
-	} else {
-		var newData []byte
-		n, err := dr.data.ReadFrom(rc)
-		if err != nil {
-			return int(n), dr, err
-		}
+	frc := &filterReadCloser{
+		rc:          rc,
+		watchDataCh: make(chan *bytes.Buffer),
+		filterCache: new(bytes.Buffer),
+		serializer:  s,
+		handler:     handler,
+		isWatch:     info.Verb == "watch",
+		ownerName:   ownerName,
+		stopCh:      stopCh,
+	}
 
-		newData, err = handler.ObjectResponseFilter(dr.data.Bytes())
-		dr.data = bytes.NewBuffer(newData)
-		return len(newData), dr, err
+	if frc.isWatch {
+		go func(req *http.Request, rc io.ReadCloser, ch chan *bytes.Buffer) {
+			err := frc.StreamResponseFilter(rc, ch)
+			if err != nil && err != io.EOF && !errors.Is(err, context.Canceled) {
+				klog.Errorf("filter(%s) watch response ended with error, %v", frc.ownerName, err)
+			}
+		}(req, rc, frc.watchDataCh)
+		return 0, frc, nil
+	} else {
+		var err error
+		frc.filterCache, err = frc.ObjectResponseFilter(rc)
+		return frc.filterCache.Len(), frc, err
 	}
 }
 
-// Read read data into p and write into pipe
-func (dr *filterReadCloser) Read(p []byte) (int, error) {
-	if dr.isWatch {
+// Read get data into p and write into pipe
+func (frc *filterReadCloser) Read(p []byte) (int, error) {
+	var ok bool
+	if frc.isWatch {
+		if frc.filterCache.Len() != 0 {
+			return frc.filterCache.Read(p)
+		} else {
+			frc.filterCache.Reset()
+		}
+
 		select {
-		case watchEvent, ok := <-dr.ch:
+		case frc.filterCache, ok = <-frc.watchDataCh:
 			if !ok {
 				return 0, io.EOF
 			}
-
-			buf := &bytes.Buffer{}
-			n, err := dr.serializer.WatchEncode(buf, &watchEvent)
-			if err != nil {
-				klog.Errorf("filter(%s) failed to encode resource in Reader %v", dr.ownerName, err)
-				return 0, err
-			}
-			copied := copy(p, buf.Bytes())
-			if copied != n {
-				return 0, fmt.Errorf("filter(%s) expect copy %d bytes, but only %d bytes copyied", dr.ownerName, n, copied)
-			}
-
-			return n, nil
+			return frc.filterCache.Read(p)
 		}
 	} else {
-		return dr.data.Read(p)
+		return frc.filterCache.Read(p)
 	}
 }
 
-// Close close readers
-func (dr *filterReadCloser) Close() error {
-	return dr.rc.Close()
+// Close will close readers
+func (frc *filterReadCloser) Close() error {
+	if frc.filterCache != nil {
+		frc.filterCache.Reset()
+	}
+	return frc.rc.Close()
+}
+
+func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buffer, error) {
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(rc)
+	if err != nil {
+		return &buf, err
+	}
+	obj, err := frc.serializer.Decode(buf.Bytes())
+	if err != nil || obj == nil {
+		klog.Errorf("skip filter, failed to decode response in HandleObjectResponse of %s %v", frc.ownerName, err)
+		return &buf, nil
+	}
+
+	filteredObj, isNil := frc.handler.RuntimeObjectFilter(obj)
+	if isNil {
+		return &buf, nil
+	}
+
+	newData, err := frc.serializer.Encode(filteredObj)
+	return bytes.NewBuffer(newData), err
+}
+
+func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *bytes.Buffer) error {
+	defer close(ch)
+
+	d, err := frc.serializer.WatchDecoder(rc)
+	if err != nil {
+		klog.Errorf("failed to get watch decoder in StreamResponseFilter of %s, %v", frc.ownerName, err)
+		return err
+	}
+
+	for {
+		watchType, obj, err := d.Decode()
+		if err != nil {
+			return err
+		}
+
+		newObj, isNil := frc.handler.RuntimeObjectFilter(obj)
+		if isNil {
+			continue
+		}
+
+		wEvent := watch.Event{
+			Type:   watchType,
+			Object: newObj,
+		}
+
+		buf := &bytes.Buffer{}
+		_, err = frc.serializer.WatchEncode(buf, &wEvent)
+		if err != nil {
+			klog.Errorf("failed to encode resource in StreamResponseFilter of %s, %v", frc.ownerName, err)
+			return err
+		}
+		ch <- buf
+	}
+}
+
+func CreateSerializer(respContentType string, info *apirequest.RequestInfo, sm *serializer.SerializerManager) *serializer.Serializer {
+	if respContentType == "" || info == nil || info.APIVersion == "" || info.Resource == "" {
+		klog.Infof("CreateSerializer failed , info is :%+v", info)
+		return nil
+	}
+	return sm.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
 }

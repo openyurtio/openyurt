@@ -22,22 +22,22 @@ import (
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	filterutil "github.com/openyurtio/openyurt/pkg/yurthub/filter/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
+func Register(filters *filter.Filters, sm *serializer.SerializerManager) {
 	filters.Register(filter.MasterServiceFilterName, func() (filter.Runner, error) {
-		return NewFilter(), nil
+		return NewFilter(sm), nil
 	})
 }
 
-func NewFilter() *masterServiceFilter {
-	return &masterServiceFilter{}
+func NewFilter(sm *serializer.SerializerManager) *masterServiceFilter {
+	return &masterServiceFilter{
+		serializerManager: sm,
+	}
 }
 
 type masterServiceFilter struct {
@@ -56,11 +56,6 @@ func (msf *masterServiceFilter) SupportedResourceAndVerbs() map[string]sets.Stri
 	}
 }
 
-func (msf *masterServiceFilter) SetSerializerManager(s *serializer.SerializerManager) error {
-	msf.serializerManager = s
-	return nil
-}
-
 func (msf *masterServiceFilter) SetMasterServiceHost(host string) error {
 	msf.host = host
 	return nil
@@ -77,12 +72,6 @@ func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {
 }
 
 func (msf *masterServiceFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	s := filterutil.CreateSerializer(req, msf.serializerManager)
-	if s == nil {
-		klog.Errorf("skip filter, failed to create serializer in masterServiceFilter")
-		return 0, rc, nil
-	}
-
-	handler := NewMasterServiceFilterHandler(req, s, msf.host, msf.port)
-	return filter.NewFilterReadCloser(req, rc, handler, s, filter.MasterServiceFilterName, stopCh)
+	handler := NewMasterServiceFilterHandler(msf.host, msf.port)
+	return filter.NewFilterReadCloser(req, msf.serializerManager, rc, handler, msf.Name(), stopCh)
 }
