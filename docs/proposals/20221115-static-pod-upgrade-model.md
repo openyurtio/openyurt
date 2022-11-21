@@ -4,9 +4,9 @@ authors:
   - ""
 reviewers:
   - ""
-creation-date: 
-last-updated: 
-status: 
+creation-date:
+last-updated:
+status:
 ---
 
 # Static Pod Upgrade Model
@@ -51,7 +51,7 @@ If this proposal adds new terms, or defines some, make the changes to the book's
 
 ## Summary
 
-In this proposal, we hope to put forward a new method to control the upgrade of static pods automatically, so we add a new CRD(UpgradeableStaticPod) to control the upgrade of static pods. Meanwhile, we provide two upgrade strategy for static pod: Auto and OTA.
+In this proposal, we hope to put forward a new method to control the upgrade of static pods automatically, so we add a new CRD(StaticPod) to control the upgrade of static pods. Meanwhile, we provide two upgrade strategy for static pod: Auto and OTA.
 
 ## Motivation
 
@@ -59,9 +59,14 @@ We all know that static pods are managed directly by the kubelet daemon on a spe
 
 ### Goals
 
-- Define the API of the new CRD
-- Provide corresponding controller
-- Support Auto and OTA upgrade strategy
+1. Provide common upgrade model for upgrading static pod.
+2. Provide Auto upgrade model for static pod in order to get rid of blocking upgrade by notReady nodes.
+3. Provide OTA upgrade model for static pod when end user hope to control the time of upgrade.
+
+### Non Goals
+
+1. Systemd service(like kubelet) upgrade will not be covered.
+2. Do not consider the details of the static pod installation.
 
 ## Proposal
 
@@ -69,60 +74,64 @@ We all know that static pods are managed directly by the kubelet daemon on a spe
 
 #### New CRD
 ```go
-// StaticPodUpdateStrategy defines a strategy to update a static pod.
-type StaticPodUpdateStrategy struct {
-	// Type of Static Pod update. Can be "RollingUpdate" or "OTA".
+// StaticPodUpgradeStrategy defines a strategy to upgrade a static pod.
+type StaticPodUpgradeStrategy struct {
+	// Type of Static Pod upgrade. Can be "Auto" or "OTA".
 	// +optional
 	Type StaticPodUpgradeStrategyType
 
-	// Rolling update config params. Present only if type = "RollingUpdate".
-	//---
-	// TODO: Update this to follow our convention for oneOf, whatever we decide it
-	// to be. Same as Deployment `strategy.rollingUpdate`.
-	// See https://github.com/kubernetes/kubernetes/issues/35345
-	// +optional
+	// Auto upgrade config params. Present only if type = "Auto".
 	MaxUnavailable intstr.IntOrString
 }
 
-// StaticPodUpgradeStrategyType is a strategy according to which a static pod
-// gets updated.
+// StaticPodUpgradeStrategyType is a strategy according to which a static pod gets upgraded.
 type StaticPodUpgradeStrategyType string
 
 const (
-	// RollingUpgradeStaticPodStrategyType - Replace the old static pod by new ones using rolling update i.e. replace them on each node one after the other.
-	RollingUpgradeStaticPodStrategyType StaticPodUpgradeStrategyType = "RollingUpdate"
+	// AutoStaticPodUpgradeStrategyType - Replace the old static pod by new ones using auto upgrade i.e. replace them on each node one after the other.
+	AutoStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "Auto"
 
-	// OTAUpgradeStaticPodStrategyType - Replace the old static pod only when it's killed
-	OTAUpgradeStaticPodStrategyType StaticPodUpgradeStrategyType = "OTA"
+	// OTAStaticPodUpgradeStrategyType - Replace the old static pod only when it's killed
+	OTAStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "OTA"
 )
 
-// UpgradeableStaticPodSpec defines the desired state of UpgradeableStaticPod
-type UpgradeableStaticPodSpec struct {
+// StaticPodSpec defines the desired state of StaticPod
+type StaticPodSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// StaticPodName indicates the static pod desired to be upgraded.
+    StaticPodName string `json:"staticPodName`
+	
 	// StaticPodManifest indicates the Static Pod desired to be upgraded. The corresponding
 	// manifest file name is `ManifestName.yaml`.
 	StaticPodManifest string `json:"staticPodManifest"`
 
-	// An update strategy to replace existing static pods with new ones.
+	// An upgrade strategy to replace existing static pods with new ones.
 	// +optional
-	UpdateStrategy StaticPodUpdateStrategy `json:"updateStrategy"`
-
-	//// The directory where the manifests of static pods are stored.
-	//ManifestPath string `json:"manifestPath"`
-	// Use default /etc/kubernetes/manifest
+	UpgradeStrategy StaticPodUpgradeStrategy `json:"upgradeStrategy"`
 
 	// An object that describes the desired upgrade static pod.
 	Template v1.PodTemplateSpec `json:"template"`
 }
 
-type UpgradeableStaticPodConditionType string
+type StaticPodConditionType string
 
-// UpgradeableStaticPodCondition describes the state of a UpgradeableStaticPodCondition at a certain point.
-type UpgradeableStaticPodCondition struct {
-	// Type of UpgradeableStaticPod condition.
-	Type UpgradeableStaticPodConditionType `json:"type,omitempty"`
+const (
+	// StaticPodUpgradeSuccess means static pods on all nodes have been upgraded to the latest version
+    StaticPodUpgradeSuccess StaticPodConditionType = "Success"
+	
+	// StaticPodUpgradeExecuting means static pods upgrade task is in progress
+    StaticPodUpgradeExecuting StaticPodConditionType = "Upgrading"
+	
+	// StaticPodUpgradeFailed means that exist pods failed to upgrade during the upgrade process
+    StaticPodUpgradeFailed StaticPodConditionType = "Failed"
+)
+
+// StaticPodCondition describes the state of a StaticPodCondition at a certain point.
+type StaticPodCondition struct {
+	// Type of StaticPod condition.
+	Type StaticPodConditionType `json:"type,omitempty"`
 
 	// Status of the condition, one of True, False, Unknown.
 	Status v1.ConditionStatus `json:"status,omitempty"`
@@ -137,8 +146,8 @@ type UpgradeableStaticPodCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
-// UpgradeableStaticPodStatus defines the observed state of UpgradeableStaticPod
-type UpgradeableStaticPodStatus struct {
+// StaticPodStatus defines the observed state of StaticPod
+type StaticPodStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -148,8 +157,8 @@ type UpgradeableStaticPodStatus struct {
 	// The number of static pods that have been upgraded.
 	UpgradedNumber int32
 
-	// Represents the latest available observations of UpgradeableStaticPod's current state.
-	Conditions []UpgradeableStaticPodCondition
+	// Represents the latest available observations of StaticPod's current state.
+	Conditions []StaticPodCondition
 }
 ```
 
@@ -183,12 +192,12 @@ Auto Upgrade is the default static pod upgrade strategy we want to provide. The 
 
 #### OTA Upgrade
 
-OTA upgrade strategy focuses on scenarios where edge side users need to autonomously control the upgrade of static pods. The strategy is accomplished by controller together with YurtHub component. The overall implementation process is the same as [`daemonPodUpdater`](https://openyurt.io/docs/next/user-manuals/workload/daemon-pod-updater). 
+OTA upgrade strategy focuses on scenarios where edge side users need to autonomously control the upgrade of static pods. The strategy is accomplished by controller together with YurtHub component. The overall implementation process is the same as [`daemonPodUpdater`](https://openyurt.io/docs/next/user-manuals/workload/daemon-pod-updater).
 
 ##### Controller
 
-- Controller will set the static pod condition `PodNeedUpgrade` to true when user submits a new upgrade request. 
-- If the node is `ready`, controller will create an upgrade-task pod to store the static pod manifest in advance, with file name `xxx.yaml.upgrade`. 
+- Controller will set the static pod condition `PodNeedUpgrade` to true when user submits a new upgrade request.
+- If the node is `ready`, controller will create an upgrade-task pod to store the static pod manifest in advance, with file name `xxx.yaml.upgrade`.
 
 ##### YurtHub
 
