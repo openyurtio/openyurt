@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// HealthChecker is an interface for checking healthy stats of one server
+// HealthChecker is an interface for checking healthy status of one server
 type HealthChecker interface {
 	// RenewKubeletLeaseTime is used for notifying whether kubelet stopped or not,
 	// when kubelet lease renew time is stopped to report, health checker will stop check

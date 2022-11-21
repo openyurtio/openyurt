@@ -18,10 +18,10 @@ package masterservice
 
 import (
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -46,17 +46,28 @@ type masterServiceFilter struct {
 	port              int32
 }
 
+func (msf *masterServiceFilter) Name() string {
+	return filter.MasterServiceFilterName
+}
+
+func (msf *masterServiceFilter) SupportedResourceAndVerbs() map[string]sets.String {
+	return map[string]sets.String{
+		"services": sets.NewString("list", "watch"),
+	}
+}
+
 func (msf *masterServiceFilter) SetSerializerManager(s *serializer.SerializerManager) error {
 	msf.serializerManager = s
 	return nil
 }
 
-func (msf *masterServiceFilter) SetMasterServiceAddr(addr string) error {
-	host, portStr, err := net.SplitHostPort(addr)
-	if err != nil {
-		return err
-	}
+func (msf *masterServiceFilter) SetMasterServiceHost(host string) error {
 	msf.host = host
+	return nil
+
+}
+
+func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {
 	port, err := strconv.ParseInt(portStr, 10, 32)
 	if err != nil {
 		return err

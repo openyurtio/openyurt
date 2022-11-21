@@ -22,14 +22,8 @@ import (
 )
 
 type YurtE2eConfig struct {
-	NodeType           string
-	RegionID           string
-	AccessKeyID        string
-	AccessKeySecret    string
-	EnableYurtAutonomy bool
-	KubeClient         *clientset.Clientset
-	RestConfig         *restclient.Config
-	ReportDir          string
+	KubeClient *clientset.Clientset
+	RestConfig *restclient.Config
 }
 
 var YurtE2eCfg YurtE2eConfig

@@ -18,18 +18,18 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 )
 
 var nonResourceReqPaths = []string{
@@ -38,16 +38,13 @@ var nonResourceReqPaths = []string{
 	"/apis/discovery.k8s.io/v1beta1",
 }
 
-var cfg *config.YurtHubConfiguration
-var clientSet *kubernetes.Clientset
+type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler
 
-func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, cs *kubernetes.Clientset) http.Handler {
+func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
 	wrapMux := mux.NewRouter()
-	cfg = config
-	clientSet = cs
 	// register handler for non resource requests
 	for i := range nonResourceReqPaths {
-		wrapMux.HandleFunc(nonResourceReqPaths[i], withNonResourceRequest).Methods("GET")
+		wrapMux.Handle(nonResourceReqPaths[i], localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, nonResourceReqPaths[i])).Methods("GET")
 	}
 
 	// register handler for other requests
@@ -55,88 +52,54 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func withNonResourceRequest(w http.ResponseWriter, req *http.Request) {
-	for i := range nonResourceReqPaths {
-		if req.URL.Path == nonResourceReqPaths[i] {
-			cacheNonResourceInfo(w, req, cfg.StorageWrapper, fmt.Sprintf("non-reosurce-info%s", nonResourceReqPaths[i]), nonResourceReqPaths[i], false)
-			break
-		}
-	}
-
-}
-
-func cacheNonResourceInfo(w http.ResponseWriter, req *http.Request, sw cachemanager.StorageWrapper, key string, path string, isFake bool) {
-	nonResourceInfo, err := getClientSetQueryInfo(path, isFake)
-	copyHeader(w.Header(), req.Header)
-	if err == nil {
-		_, err = w.Write(nonResourceInfo)
-		if err != nil {
-			klog.Errorf("failed to write the non-resource info, the error is: %v", err)
-			ErrNonResource(err, w, req)
-			return
-		}
-
-		klog.Infof("success to query the cache non-resource info: %s", key)
-		w.WriteHeader(http.StatusOK)
-		sw.UpdateRaw(key, nonResourceInfo)
-	} else {
-		infoCache, err := sw.GetRaw(key)
-		if err != nil {
-			klog.Errorf("the non-resource info cannot be acquired, the error is: %v", err)
-			ErrNonResource(err, w, req)
-			return
-		}
-		_, err = w.Write(infoCache)
-		if err != nil {
-			klog.Errorf("failed to write the non-resource info, the error is: %v", err)
-			ErrNonResource(err, w, req)
-			return
-		}
-
-		klog.Infof("success to non-resource info: %s", key)
-		w.WriteHeader(http.StatusOK)
-	}
-
-}
-
-func getClientSetQueryInfo(path string, isFake bool) ([]byte, error) {
-	if clientSet == nil {
-		// used for unit test
-		if isFake {
-			return []byte(fmt.Sprintf("fake-non-resource-info-%s", path)), nil
-		}
-		klog.Errorf("the kubernetes clientSet is nil, and return the fake value for test")
-		return nil, errors.New("the kubernetes clientSet is nil")
-	}
-	nonResourceInfo, err := clientSet.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw()
-	if err != nil {
-		return nil, err
-	}
-	return nonResourceInfo, nil
-}
-
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		if k == "Content-Type" || k == "Content-Length" {
-			for _, v := range vv {
-				dst.Add(k, v)
+func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw cachemanager.StorageWrapper, path string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := fmt.Sprintf("non-reosurce-info%s", path)
+		restCfg := restMgr.GetRestConfig(true)
+		if restCfg == nil {
+			klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
+			if nonResourceData, err := sw.GetRaw(key); err != nil {
+				writeErrResponse(path, err, w)
+			} else {
+				writeRawJSON(nonResourceData, w)
 			}
+			return
 		}
-	}
+
+		kubeClient, err := kubernetes.NewForConfig(restCfg)
+		if err != nil {
+			writeErrResponse(path, err, w)
+			return
+		}
+		handler(kubeClient, sw, path).ServeHTTP(w, r)
+	})
 }
 
-func ErrNonResource(err error, w http.ResponseWriter, req *http.Request) {
+func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := fmt.Sprintf("non-reosurce-info%s", path)
+		if nonResourceData, err := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw(); err != nil {
+			writeErrResponse(path, err, w)
+		} else {
+			writeRawJSON(nonResourceData, w)
+			sw.UpdateRaw(key, nonResourceData)
+		}
+	})
+}
+
+func writeErrResponse(path string, err error, w http.ResponseWriter) {
+	klog.Errorf("failed to handle %s non resource request, %v", path, err)
 	status := responsewriters.ErrorToAPIStatus(err)
-	code := int(status.Code)
-	// when writing an error, check to see if the status indicates a retry after period
-	if status.Details != nil && status.Details.RetryAfterSeconds > 0 {
-		delay := strconv.Itoa(int(status.Details.RetryAfterSeconds))
-		w.Header().Set("Retry-After", delay)
+	output, err := json.Marshal(status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	writeRawJSON(output, w)
+}
 
-	if code == http.StatusNoContent {
-		w.WriteHeader(code)
-	}
-	klog.Errorf("%v counter the error %v", req.URL, err)
-
+func writeRawJSON(output []byte, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(output)
 }

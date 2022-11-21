@@ -66,7 +66,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -160,7 +160,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 		return cnt > 2 // after 6 seconds, become healthy
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -230,7 +230,98 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
 	}
 }
+func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+	serializerM := serializer.NewSerializerManager()
+	cacheM, _ := cachemanager.NewCacheManager(sWrapper, serializerM, nil, nil)
 
+	fn := func() bool {
+		return false
+	}
+
+	lp := NewLocalProxy(cacheM, fn, 10*time.Second)
+
+	testcases := map[string]struct {
+		userAgent string
+		accept    string
+		verb      string
+		path      string
+		code      int
+		floor     time.Duration
+		ceil      time.Duration
+	}{
+		"watch request": {
+			userAgent: "kubelet",
+			accept:    "application/json",
+			verb:      "GET",
+			path:      "/api/v1/nodes?watch=true&timeoutSeconds=5",
+			code:      http.StatusOK,
+			floor:     5 * time.Second,
+			ceil:      6 * time.Second,
+		},
+		"watch request without timeout": {
+			userAgent: "kubelet",
+			accept:    "application/json",
+			verb:      "GET",
+			path:      "/api/v1/nodes?watch=true",
+			code:      http.StatusOK,
+			floor:     10 * time.Second,
+			ceil:      20 * time.Second,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tt.verb, tt.path, nil)
+			if len(tt.accept) != 0 {
+				req.Header.Set("Accept", tt.accept)
+			}
+
+			if len(tt.userAgent) != 0 {
+				req.Header.Set("User-Agent", tt.userAgent)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			var start, end time.Time
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				start = time.Now()
+				lp.ServeHTTP(w, req)
+				end = time.Now()
+			})
+
+			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestContentType(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+
+			resp := httptest.NewRecorder()
+			handler.ServeHTTP(resp, req)
+			result := resp.Result()
+			if result.StatusCode != tt.code {
+				t.Errorf("got status code %d, but expect %d", result.StatusCode, tt.code)
+			}
+
+			if tt.floor.Seconds() != 0 {
+				if start.Add(tt.floor).After(end) {
+					t.Errorf("exec time is less than floor time %v", tt.floor)
+				}
+			}
+
+			if start.Add(tt.ceil).Before(end) {
+				t.Errorf("exec time is more than ceil time %v", tt.ceil)
+			}
+		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
+}
 func TestServeHTTPForPost(t *testing.T) {
 	dStorage, err := disk.NewDiskStorage(rootDir)
 	if err != nil {
@@ -244,7 +335,7 @@ func TestServeHTTPForPost(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -324,7 +415,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -391,7 +482,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -531,7 +622,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn)
+	lp := NewLocalProxy(cacheM, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent    string

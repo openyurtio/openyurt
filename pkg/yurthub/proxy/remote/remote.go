@@ -43,7 +43,7 @@ type RemoteProxy struct {
 	reverseProxy         *httputil.ReverseProxy
 	cacheMgr             cachemanager.CacheManager
 	remoteServer         *url.URL
-	filterManager        *filter.Manager
+	filterManager        *manager.Manager
 	currentTransport     http.RoundTripper
 	bearerTransport      http.RoundTripper
 	upgradeHandler       *proxy.UpgradeAwareHandler
@@ -154,9 +154,9 @@ func (rp *RemoteProxy) modifyResponse(resp *http.Response) error {
 
 		// filter response data
 		if rp.filterManager != nil {
-			if rp.filterManager.Approve(req) {
+			if ok, runner := rp.filterManager.FindRunner(req); ok {
 				wrapBody, needUncompressed := util.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := rp.filterManager.Filter(req, wrapBody, rp.stopCh)
+				size, filterRc, err := runner.Filter(req, wrapBody, rp.stopCh)
 				if err != nil {
 					klog.Errorf("failed to filter response for %s, %v", util.ReqString(req), err)
 					return err

@@ -58,7 +58,7 @@ e35EltCRCjoejRHTuN9TC0uCoVipAiAXaJIx/Q47vGwiw6Y8KXsNU6y54gTbOSxX
 -----END RSA PRIVATE KEY-----`
 )
 
-type fakeYurtHubCertManager struct {
+type FakeYurtHubCertManager struct {
 	certificatePEM   string
 	keyPEM           string
 	rootDir          string
@@ -84,7 +84,7 @@ func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPE
 		rd = filepath.Join(HubRootDir, hn)
 	}
 
-	fyc := &fakeYurtHubCertManager{
+	fyc := &FakeYurtHubCertManager{
 		certificatePEM:   certificatePEM,
 		keyPEM:           keyPEM,
 		rootDir:          rd,
@@ -96,7 +96,7 @@ func NewFakeYurtHubCertManager(rootDir, yurthubConfigFile, certificatePEM, keyPE
 }
 
 // Start create the yurthub.conf file
-func (fyc *fakeYurtHubCertManager) Start() {
+func (fyc *FakeYurtHubCertManager) Start() {
 	dStorage, err := disk.NewDiskStorage(fyc.rootDir)
 	if err != nil {
 		klog.Errorf("failed to create storage, %v", err)
@@ -110,10 +110,10 @@ func (fyc *fakeYurtHubCertManager) Start() {
 }
 
 // Stop do nothing
-func (fyc *fakeYurtHubCertManager) Stop() {}
+func (fyc *FakeYurtHubCertManager) Stop() {}
 
 // Current returns the certificate created by the entered fyc.certificatePEM and fyc.keyPEM
-func (fyc *fakeYurtHubCertManager) Current() *tls.Certificate {
+func (fyc *FakeYurtHubCertManager) Current() *tls.Certificate {
 	certificate, err := tls.X509KeyPair([]byte(fyc.certificatePEM), []byte(fyc.keyPEM))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to initialize certificate: %v", err))
@@ -128,31 +128,31 @@ func (fyc *fakeYurtHubCertManager) Current() *tls.Certificate {
 }
 
 // ServerHealthy returns true
-func (fyc *fakeYurtHubCertManager) ServerHealthy() bool {
+func (fyc *FakeYurtHubCertManager) ServerHealthy() bool {
 	return true
 }
 
 // Update do nothing
-func (fyc *fakeYurtHubCertManager) Update(_ *config.YurtHubConfiguration) error {
+func (fyc *FakeYurtHubCertManager) Update(_ *config.YurtHubConfiguration) error {
 	return nil
 }
 
 // GetCaFile returns the empty path
-func (fyc *fakeYurtHubCertManager) GetCaFile() string {
+func (fyc *FakeYurtHubCertManager) GetCaFile() string {
 	return ""
 }
 
 // GetConfFilePath returns the path of yurtHub config file path
-func (fyc *fakeYurtHubCertManager) GetConfFilePath() string {
+func (fyc *FakeYurtHubCertManager) GetConfFilePath() string {
 	return fyc.getHubConfFile()
 }
 
 // NotExpired returns true
-func (fyc *fakeYurtHubCertManager) NotExpired() bool {
+func (fyc *FakeYurtHubCertManager) NotExpired() bool {
 	return fyc.Current() != nil
 }
 
 // getHubConfFile returns the path of hub agent conf file.
-func (fyc *fakeYurtHubCertManager) getHubConfFile() string {
+func (fyc *FakeYurtHubCertManager) getHubConfFile() string {
 	return filepath.Join(fyc.rootDir, fmt.Sprintf(hubConfigFileName, fyc.hubName))
 }

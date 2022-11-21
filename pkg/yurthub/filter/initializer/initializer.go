@@ -53,7 +53,8 @@ type WantsStorageWrapper interface {
 
 // WantsMasterServiceAddr is an interface for setting mutated master service address
 type WantsMasterServiceAddr interface {
-	SetMasterServiceAddr(addr string) error
+	SetMasterServiceHost(host string) error
+	SetMasterServicePort(port string) error
 }
 
 // WantsWorkingMode is an interface for setting working mode
@@ -68,7 +69,8 @@ type genericFilterInitializer struct {
 	serializerManager *serializer.SerializerManager
 	storageWrapper    cachemanager.StorageWrapper
 	nodeName          string
-	masterServiceAddr string
+	masterServiceHost string
+	masterServicePort string
 	workingMode       util.WorkingMode
 }
 
@@ -77,8 +79,7 @@ func New(factory informers.SharedInformerFactory,
 	yurtFactory yurtinformers.SharedInformerFactory,
 	sm *serializer.SerializerManager,
 	sw cachemanager.StorageWrapper,
-	nodeName string,
-	masterServiceAddr string,
+	nodeName, masterServiceHost, masterServicePort string,
 	workingMode util.WorkingMode) *genericFilterInitializer {
 	return &genericFilterInitializer{
 		factory:           factory,
@@ -86,7 +87,8 @@ func New(factory informers.SharedInformerFactory,
 		serializerManager: sm,
 		storageWrapper:    sw,
 		nodeName:          nodeName,
-		masterServiceAddr: masterServiceAddr,
+		masterServiceHost: masterServiceHost,
+		masterServicePort: masterServicePort,
 		workingMode:       workingMode,
 	}
 }
@@ -106,7 +108,11 @@ func (fi *genericFilterInitializer) Initialize(ins filter.Runner) error {
 	}
 
 	if wants, ok := ins.(WantsMasterServiceAddr); ok {
-		if err := wants.SetMasterServiceAddr(fi.masterServiceAddr); err != nil {
+		if err := wants.SetMasterServiceHost(fi.masterServiceHost); err != nil {
+			return err
+		}
+
+		if err := wants.SetMasterServicePort(fi.masterServicePort); err != nil {
 			return err
 		}
 	}

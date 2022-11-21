@@ -19,6 +19,7 @@ package kubernetes
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -36,17 +37,21 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	kubeadmconstants "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/util/templates"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/token"
 )
 
 const (
-	// DisableNodeControllerJobNameBase is the prefix of the DisableNodeControllerJob name
-	DisableNodeControllerJobNameBase = "yurtctl-disable-node-controller"
+	TmpDownloadDir = "/tmp"
+	// TokenUser defines token user
+	TokenUser = "tls-bootstrap-token-user"
 )
 
 var (
@@ -96,7 +101,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 	}
 }
 
-//CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
+// CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
 func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) error {
 	if strings.Contains(clusterVersion, "-") {
 		clusterVersion = strings.Split(clusterVersion, "-")[0]
@@ -122,29 +127,23 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 	}
 
 	if !kubeletExist {
-		//download and install kubernetes-node
-		packageUrl := fmt.Sprintf(constants.KubeUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
-		savePath := fmt.Sprintf("%s/kubernetes-node-linux-%s.tar.gz", constants.TmpDownloadDir, runtime.GOARCH)
-		if _, err := os.Stat(savePath); errors.Is(err, os.ErrNotExist) {
-			klog.V(1).Infof("Download kubelet from: %s", packageUrl)
-			if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
-				return fmt.Errorf("Download kubelet fail: %w", err)
-			}
-		} else {
-			klog.V(1).Infof("Skip download kubelet, use already exist file: %s", savePath)
+		//download and install kubelet
+		packageUrl := fmt.Sprintf(constants.KubeletUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
+		savePath := fmt.Sprintf("%s/kubelet", constants.TmpDownloadDir)
+		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
+		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+			return fmt.Errorf("download kubelet fail: %w", err)
 		}
-
-		if err := util.Untar(savePath, constants.TmpDownloadDir); err != nil {
+		if err := edgenode.CopyFile(savePath, "/usr/bin/kubelet", constants.DirMode); err != nil {
 			return err
-		}
-		for _, comp := range []string{"kubectl", "kubeadm", "kubelet"} {
-			target := fmt.Sprintf("/usr/bin/%s", comp)
-			if err := edgenode.CopyFile(constants.TmpDownloadDir+"/kubernetes/node/bin/"+comp, target, constants.DirMode); err != nil {
-				return err
-			}
 		}
 	}
 
+	return nil
+}
+
+// CheckAndInstallKubernetesCni install kubernetes-cni, skip install if they exist.
+func CheckAndInstallKubernetesCni() error {
 	if _, err := os.Stat(constants.KubeCniDir); err == nil {
 		klog.Infof("Cni dir %s already exist, skip install.", constants.KubeCniDir)
 		return nil
@@ -167,6 +166,57 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
 		return err
 	}
+	return nil
+}
+
+type kubeadmVersion struct {
+	ClientVersion clientVersion `json:"clientVersion"`
+}
+type clientVersion struct {
+	GitVersion string `json:"gitVersion"`
+}
+
+// CheckAndInstallKubeadm install kubeadm, skip install if it exist.
+func CheckAndInstallKubeadm(kubernetesResourceServer, clusterVersion string) error {
+	if strings.Contains(clusterVersion, "-") {
+		clusterVersion = strings.Split(clusterVersion, "-")[0]
+	}
+
+	klog.Infof("Check and install kubeadm %s", clusterVersion)
+	if clusterVersion == "" {
+		return ErrClusterVersionEmpty
+	}
+	kubeadmExist := false
+	if _, err := exec.LookPath("kubeadm"); err == nil {
+		if b, err := exec.Command("kubeadm", "version", "-o", "json").CombinedOutput(); err == nil {
+			klog.V(1).InfoS("kubeadm", "version", string(b))
+			info := kubeadmVersion{}
+			if err := json.Unmarshal(b, &info); err != nil {
+				return fmt.Errorf("can't get the existing kubeadm version: %w", err)
+			}
+			kubeadmVersion := info.ClientVersion.GitVersion
+			if kubeadmVersion == clusterVersion {
+				klog.Infof("Kubeadm %s already exist, skip install.", clusterVersion)
+				kubeadmExist = true
+			} else {
+				return fmt.Errorf("The existing kubeadm version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeadmVersion, clusterVersion)
+			}
+		}
+	}
+
+	if !kubeadmExist {
+		// download and install kubeadm
+		packageUrl := fmt.Sprintf(constants.KubeadmUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
+		savePath := fmt.Sprintf("%s/kubeadm", TmpDownloadDir)
+		klog.V(1).Infof("Download kubeadm from %s", packageUrl)
+		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+			return fmt.Errorf("download kubeadm fail: %w", err)
+		}
+		if err := edgenode.CopyFile(savePath, "/usr/bin/kubeadm", constants.DirMode); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -216,7 +266,7 @@ func SetKubeletUnitConfig() error {
 
 // SetKubeletConfigForNode write kubelet.conf for join node.
 func SetKubeletConfigForNode() error {
-	kubeconfigFilePath := filepath.Join(kubeadmconstants.KubernetesDir, kubeadmconstants.KubeletKubeConfigFileName)
+	kubeconfigFilePath := filepath.Join(constants.KubeletConfigureDir, constants.KubeletKubeConfigFileName)
 	kubeletConfigDir := filepath.Dir(kubeconfigFilePath)
 	if _, err := os.Stat(kubeletConfigDir); err != nil {
 		if os.IsNotExist(err) {
@@ -235,42 +285,19 @@ func SetKubeletConfigForNode() error {
 	return nil
 }
 
-// SetKubeletCaCert write ca.crt for join node.
-func SetKubeletCaCert(config *clientcmdapi.Config) error {
-	kubeletCaCertPath := filepath.Join(kubeadmconstants.KubernetesDir, "pki", kubeadmconstants.CACertName)
-	kubeletCaCertDir := filepath.Dir(kubeletCaCertPath)
-	if _, err := os.Stat(kubeletCaCertDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(kubeletCaCertDir, os.ModePerm); err != nil {
-				klog.Errorf("Create dir %s fail: %v", kubeletCaCertDir, err)
-				return err
-			}
-		} else {
-			klog.Errorf("Describe dir %s fail: %v", kubeletCaCertDir, err)
-			return err
-		}
-	}
-
-	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(config)
-	if err := os.WriteFile(kubeletCaCertPath, []byte(clusterinfo.CertificateAuthorityData), constants.DirMode); err != nil {
-		return err
-	}
-	return nil
-}
-
 // GetKubernetesVersionFromCluster get kubernetes cluster version from master.
 func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error) {
 	var kubernetesVersion string
 	// Also, the config map really should be KubeadmConfigConfigMap...
-	configMap, err := apiclient.GetConfigMapWithRetry(client, metav1.NamespaceSystem, kubeadmconstants.KubeadmConfigConfigMap)
+	configMap, err := apiclient.GetConfigMapWithRetry(client, metav1.NamespaceSystem, constants.KubeadmConfigConfigMap)
 	if err != nil {
 		return kubernetesVersion, pkgerrors.Wrap(err, "failed to get config map")
 	}
 
 	// gets ClusterConfiguration from kubeadm-config
-	clusterConfigurationData, ok := configMap.Data[kubeadmconstants.ClusterConfigurationConfigMapKey]
+	clusterConfigurationData, ok := configMap.Data[constants.ClusterConfigurationConfigMapKey]
 	if !ok {
-		return kubernetesVersion, pkgerrors.Errorf("unexpected error when reading kubeadm-config ConfigMap: %s key value pair missing", kubeadmconstants.ClusterConfigurationConfigMapKey)
+		return kubernetesVersion, pkgerrors.Errorf("unexpected error when reading kubeadm-config ConfigMap: %s key value pair missing", constants.ClusterConfigurationConfigMapKey)
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(clusterConfigurationData))
@@ -293,4 +320,107 @@ func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error
 
 	klog.Infof("kubernetes version: %s", kubernetesVersion)
 	return kubernetesVersion, nil
+}
+
+func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
+	kubeadmJoinConfigFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
+	kubeadmJoinConfigDir := filepath.Dir(kubeadmJoinConfigFilePath)
+	if _, err := os.Stat(kubeadmJoinConfigDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeadmJoinConfigDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeadmJoinConfigDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeadmJoinConfigDir, err)
+			return err
+		}
+	}
+
+	nodeReg := data.NodeRegistration()
+	KubeadmJoinDiscoveryFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinDiscoveryFileName)
+	ctx := map[string]interface{}{
+		"kubeConfigPath":         KubeadmJoinDiscoveryFilePath,
+		"tlsBootstrapToken":      data.JoinToken(),
+		"ignorePreflightErrors":  data.IgnorePreflightErrors().List(),
+		"podInfraContainerImage": data.PauseImage(),
+		"nodeLabels":             constructNodeLabels(data.NodeLabels(), nodeReg.WorkingMode, projectinfo.GetEdgeWorkerLabelKey()),
+		"criSocket":              nodeReg.CRISocket,
+		"name":                   nodeReg.Name,
+	}
+	if nodeReg.CRISocket == constants.DefaultDockerCRISocket {
+		ctx["networkPlugin"] = "cni"
+	} else {
+		ctx["containerRuntime"] = "remote"
+		ctx["containerRuntimeEndpoint"] = nodeReg.CRISocket
+	}
+
+	kubeadmJoinTemplate, err := templates.SubsituteTemplate(constants.KubeadmJoinConf, ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(kubeadmJoinConfigFilePath, []byte(kubeadmJoinTemplate), constants.DirMode); err != nil {
+		return err
+	}
+	return nil
+}
+
+// constructNodeLabels make up node labels string
+func constructNodeLabels(nodeLabels map[string]string, workingMode, edgeWorkerLabel string) string {
+	if nodeLabels == nil {
+		nodeLabels = make(map[string]string)
+	}
+	if _, ok := nodeLabels[edgeWorkerLabel]; !ok {
+		if workingMode == "cloud" {
+			nodeLabels[edgeWorkerLabel] = "false"
+		} else {
+			nodeLabels[edgeWorkerLabel] = "true"
+		}
+	}
+	var labelsStr string
+	for k, v := range nodeLabels {
+		if len(labelsStr) == 0 {
+			labelsStr = fmt.Sprintf("%s=%s", k, v)
+		} else {
+			labelsStr = fmt.Sprintf("%s,%s=%s", labelsStr, k, v)
+		}
+	}
+
+	return labelsStr
+}
+
+func SetDiscoveryConfig(data joindata.YurtJoinData) error {
+	cfg, err := token.RetrieveValidatedConfigInfo(nil, data)
+	if err != nil {
+		return err
+	}
+
+	cluster := kubeconfigutil.GetClusterFromKubeConfig(cfg)
+	cluster.Server = fmt.Sprintf("https://%s", strings.Split(data.ServerAddr(), ",")[0])
+
+	discoveryConfigFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinDiscoveryFileName)
+	if err := kubeconfigutil.WriteToDisk(discoveryConfigFilePath, cfg); err != nil {
+		return pkgerrors.Wrap(err, "couldn't save discovery.conf to disk")
+	}
+
+	return nil
+}
+
+// RetrieveBootstrapConfig get clientcmdapi config by bootstrap token
+func RetrieveBootstrapConfig(data joindata.YurtJoinData) (*clientcmdapi.Config, error) {
+	cfg, err := token.RetrieveValidatedConfigInfo(nil, data)
+	if err != nil {
+		return nil, err
+	}
+
+	clusterinfo := kubeconfigutil.GetClusterFromKubeConfig(cfg)
+	return kubeconfigutil.CreateWithToken(
+		// If there are multiple master IP addresses, take the first one here
+		fmt.Sprintf("https://%s", strings.Split(data.ServerAddr(), ",")[0]),
+		"kubernetes",
+		TokenUser,
+		clusterinfo.CertificateAuthorityData,
+		data.JoinToken(),
+	), nil
 }

@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.0.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.1.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -14,7 +14,7 @@
 
 |![notification](docs/img/bell-outline-badge.svg) What is NEW!|
 |------------------|
-| 最新发布：2022-09-09  OpenYurt v1.0.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
+| 最新发布：2022-11-04  OpenYurt v1.1.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节.|
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1 |
 
 OpenYurt (官网: https://openyurt.io) 是基于Upstream Kubernetes构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
@@ -40,7 +40,11 @@ OpenYurt 遵循经典的云边一体化架构。
 
 上图展示了OpenYurt的核心架构。OpenYurt 的主要组件包括：
 - **[YurtHub](https://openyurt.io/zh/docs/next/core-concepts/yurthub/)**：YurtHub以静态pod模式在工作节点上运行，它作为节点的Sidecar处理所有来自工作节点上的组件(如Kubelet, Kubeproxy等)到kube-apiserver的请求。
-- **[Yurt Controller Manager](https://openyurt.io/zh/docs/next/core-concepts/yurt-controller-manager)**：目前包括节点控制器和CSR控制器。节点控制器基于原生节点控制器增强来支持边缘计算需求。CSR控制器用于处理来自OpenYurt组件的CSR请求。
+- **[Yurt Controller Manager](https://openyurt.io/zh/docs/next/core-concepts/yurt-controller-manager)**：目前包括如下控制器。
+  `nodelifecycle` 控制器基于原生节点控制器增强来支持边缘计算需求
+  `yurtcsrapprover` 控制器用于处理来自OpenYurt组件的TLS证书申请
+  `daemonpodupdater` 控制器主要为DaemonSet工作负载提供OTA和Auto两种新型升级模型
+  `servicetopologycontroller` 控制器主要用于配合Yurthub中的服务拓扑流量路由功能，实时响应Service和NodePool的变化
 - **[Yurt App Manager](https://openyurt.io/zh/docs/next/core-concepts/yurt-app-manager)**：它管理OpenYurt中引入的四个CRD资源:[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)，[YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(以前的UnitedDeployment)，[YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)， [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md)。
 `NodePool`为同一区域或站点内的节点资源提供了方便的管理。`YurtAppSet`定义了一个基于节点池维度的工作负载管理模型。`YurtAppDaemon`从节点池维度提供一种类似K8s DaemonSet的工作负载管理模型。`YurtIngress`负责将Ingress Controller部署到用户指定的节点池。
 - **[Yurt Tunnel](https://openyurt.io/zh/docs/next/core-concepts/yurttunnel) (server/agent)**：`TunnelServer`通过反向代理与在每个边缘节点中运行的 TunnelAgent 守护进程建立连接并以此在云端的控制平面与处于企业内网(Intranet)环境的边缘节点之间建立安全的网络访问。
@@ -62,7 +66,7 @@ OpenYurt 遵循经典的云边一体化架构。
 安装OpenYurt前，请检查[资源和系统要求](https://github.com/openyurtio/openyurt.io/blob/master/i18n/zh/docusaurus-plugin-content-docs/current/usage-conditions/resource-and-system-requirements.md)
 
 ## 开始使用
-OpenYurt 支持最高版本为1.22的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
+OpenYurt 支持最高版本为1.23的 Kubernetes 。使用更高版本的 Kubernetes 可能会导致兼容性问题。
 
 OpenYurt集群安装分成2个部分，分别为安装OpenYurt管控组件和节点接入。
 - [安装OpenYurt管控组件](https://openyurt.io/zh/docs/installation/summary/#part-1-%E5%AE%89%E8%A3%85openyurt%E7%AE%A1%E6%8E%A7%E7%BB%84%E4%BB%B6)
@@ -76,7 +80,7 @@ OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 
 ## 社区
 ### 贡献
-如果您愿意为 OpenYurt 项目做贡献，请参阅我们的 [CONTRIBUTING](CONTRIBUTING.md) 文档以获取详细信息。我们还准备了开发人员指南来帮助代码贡献者。
+如果您愿意为 OpenYurt 项目做贡献，请参阅我们的 [CONTRIBUTING](CONTRIBUTING.md) 文档以获取详细信息。我们还准备了[开发人员指南](https://openyurt.io/docs/developer-manuals/how-to-contribute)来帮助代码贡献者。
 
 ### 周会
 

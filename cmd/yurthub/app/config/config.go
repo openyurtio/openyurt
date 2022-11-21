@@ -44,10 +44,7 @@ import (
 	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/factory"
@@ -93,9 +90,10 @@ type YurtHubConfiguration struct {
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
-	FilterManager                     *filter.Manager
+	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
 	CoordinatorServer                 *url.URL
+	MinRequestTimeout                 time.Duration
 	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
 }
 
@@ -134,8 +132,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNs(options.YurtHubCertOrganizations)
 	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName, tenantNs)
-	filterManager, err := createFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host, proxySecureServerDummyAddr, proxySecureServerAddr)
-
+	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -181,6 +178,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
+		MinRequestTimeout:                 options.MinRequestTimeout,
 		LeaderElection:                    options.LeaderElection,
 	}
 
@@ -295,69 +293,6 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
 
-}
-
-// registerAllFilters by order, the front registered filter will be
-// called before the behind registered ones.
-func registerAllFilters(filters *filter.Filters) {
-	servicetopology.Register(filters)
-	masterservice.Register(filters)
-	discardcloudservice.Register(filters)
-}
-
-// generateNameToFilterMapping return union filters that initializations completed.
-func generateNameToFilterMapping(filters *filter.Filters,
-	sharedFactory informers.SharedInformerFactory,
-	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	serializerManager *serializer.SerializerManager,
-	storageWrapper cachemanager.StorageWrapper,
-	workingMode util.WorkingMode,
-	nodeName, mutatedMasterServiceAddr string) (map[string]filter.Runner, error) {
-	if filters == nil {
-		return nil, nil
-	}
-
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, nodeName, mutatedMasterServiceAddr, workingMode)
-	initializerChain := filter.FilterInitializers{}
-	initializerChain = append(initializerChain, genericInitializer)
-	return filters.NewFromFilters(initializerChain)
-}
-
-// createFilterManager will create a filter manager for data filtering framework.
-func createFilterManager(options *options.YurtHubOptions,
-	sharedFactory informers.SharedInformerFactory,
-	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	serializerManager *serializer.SerializerManager,
-	storageWrapper cachemanager.StorageWrapper,
-	apiserverAddr string,
-	proxySecureServerDummyAddr string,
-	proxySecureServerAddr string,
-) (*filter.Manager, error) {
-	if !options.EnableResourceFilter {
-		return nil, nil
-	}
-
-	if options.WorkingMode == string(util.WorkingModeCloud) {
-		options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
-	}
-	filters := filter.NewFilters(options.DisabledResourceFilters)
-	registerAllFilters(filters)
-
-	mutatedMasterServiceAddr := apiserverAddr
-	if options.AccessServerThroughHub {
-		if options.EnableDummyIf {
-			mutatedMasterServiceAddr = proxySecureServerDummyAddr
-		} else {
-			mutatedMasterServiceAddr = proxySecureServerAddr
-		}
-	}
-
-	filterMapping, err := generateNameToFilterMapping(filters, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return filter.NewFilterManager(sharedFactory, filterMapping), nil
 }
 
 // serviceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.

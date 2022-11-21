@@ -41,7 +41,6 @@ import (
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 )
 
 var (
@@ -488,19 +487,6 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 		}
 	}
 
-	// add annotation(openyurt.io/topologyKeys=kubernetes.io/hostname) for service kube-system/kube-dns in order to use the
-	// local coredns instance for resolving.
-	svc, err := ki.kubeClient.CoreV1().Services("kube-system").Get(context.TODO(), "kube-dns", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if svc != nil && len(svc.Annotations[servicetopology.AnnotationServiceTopologyKey]) == 0 {
-		svc.Annotations[servicetopology.AnnotationServiceTopologyKey] = servicetopology.AnnotationServiceTopologyValueNode
-		if _, err := ki.kubeClient.CoreV1().Services("kube-system").Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
-
 	// kubectl patch deployment coredns -n kube-system  -p '{"spec": {"template": {"spec": {"volumes": [{"configMap":{"name":"yurt-tunnel-nodes"},"name": "edge"}]}}}}'
 	// kubectl patch deployment coredns -n kube-system   -p '{"spec": { "template": { "spec": { "containers": [{"name":"coredns","volumeMounts": [{"mountPath": "/etc/edge", "name": "edge", "readOnly": true }]}]}}}}'
 	dp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
@@ -509,6 +495,20 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 	}
 
 	if dp != nil {
+		replicasChanged := false
+		nodeList, err := ki.kubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		} else if nodeList == nil {
+			return fmt.Errorf("failed to list nodes")
+		}
+
+		if dp.Spec.Replicas == nil || len(nodeList.Items) != int(*dp.Spec.Replicas) {
+			replicas := int32(len(nodeList.Items))
+			dp.Spec.Replicas = &replicas
+			replicasChanged = true
+		}
+
 		dp.Spec.Template.Spec.HostNetwork = true
 		hasEdgeVolume := false
 		for i := range dp.Spec.Template.Spec.Volumes {
@@ -555,8 +555,35 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 				})
 		}
 
-		if !hasEdgeVolume || !hasEdgeVolumeMount {
+		if replicasChanged || !hasEdgeVolume || !hasEdgeVolumeMount {
 			_, err = ki.kubeClient.AppsV1().Deployments("kube-system").Update(context.TODO(), dp, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// configure hostname service topology for kube-dns service
+	svc, err := ki.kubeClient.CoreV1().Services("kube-system").Get(context.TODO(), "kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	topologyChanged := false
+	if svc != nil {
+		if svc.Annotations == nil {
+			svc.Annotations = make(map[string]string)
+		}
+
+		if val, ok := svc.Annotations["openyurt.io/topologyKeys"]; ok && val == "kubernetes.io/hostname" {
+			// topology annotation does not need to change
+		} else {
+			svc.Annotations["openyurt.io/topologyKeys"] = "kubernetes.io/hostname"
+			topologyChanged = true
+		}
+
+		if topologyChanged {
+			_, err = ki.kubeClient.CoreV1().Services("kube-system").Update(context.TODO(), svc, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}

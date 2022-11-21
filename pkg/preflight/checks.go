@@ -18,7 +18,6 @@ package preflight
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -30,13 +29,11 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	utilsexec "k8s.io/utils/exec"
 
-	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
@@ -196,7 +193,7 @@ func (nc NodeServantJobCheck) Check() (warnings []error, errorList []error) {
 	return nil, errorList
 }
 
-//  FileExistingCheck checks that the given file already exist.
+// FileExistingCheck checks that the given file already exist.
 type FileExistingCheck struct {
 	Path  string
 	Label string
@@ -349,40 +346,6 @@ func (ipc ImagePullCheck) Check() (warnings, errorList []error) {
 		}
 	}
 	return warnings, errorList
-}
-
-// RunConvertClusterChecks executes all cluster-level checks.
-func RunConvertClusterChecks(cliSet *kubernetes.Clientset, ignorePreflightErrors sets.String) error {
-	nodeLst, err := cliSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	jobLst, err := cliSet.BatchV1().Jobs("kube-system").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	checks := []Checker{
-		NodeReadyCheck{NodeLst: nodeLst},
-		NodeEdgeWorkerLabelCheck{NodeLst: nodeLst},
-		JobExistCheck{JobLst: jobLst, Prefix: kubeutil.DisableNodeControllerJobNameBase, Label: "DisableNodeController"},
-		JobExistCheck{JobLst: jobLst, Prefix: nodeservant.ConvertJobNameBase, Label: "NodeServantConvert"},
-		JobExistCheck{JobLst: jobLst, Prefix: nodeservant.ConvertPreflightJobNameBase, Label: "NodeServantPreflightCheck"},
-	}
-	return RunChecks(checks, os.Stderr, ignorePreflightErrors)
-}
-
-// RunNodeServantJobCheck runs preflight-check job for each node.
-func RunNodeServantJobCheck(
-	cliSet *kubernetes.Clientset, jobLst []*batchv1.Job,
-	waitServantJobTimeout time.Duration, checkServantJobPeriod time.Duration,
-	ignorePreflightErrors sets.String) error {
-
-	checks := []Checker{
-		NodeServantJobCheck{cliSet: cliSet, jobLst: jobLst, waitServantJobTimeout: waitServantJobTimeout, checkServantJobPeriod: checkServantJobPeriod},
-	}
-	return RunChecks(checks, os.Stderr, ignorePreflightErrors)
 }
 
 func RunConvertNodeChecks(o KubePathOperator, ignorePreflightErrors sets.String, deployTunnel bool) error {

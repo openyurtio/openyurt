@@ -21,13 +21,54 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"reflect"
 	"testing"
 
+	"github.com/spf13/cobra"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 )
+
+func TestAddFlags(t *testing.T) {
+	args := []string{
+		"--kind-config-path=/home/root/.kube/config.yaml",
+		"--node-num=100",
+		"--cluster-name=test-openyurt",
+		"--cloud-nodes=worker3",
+		"--openyurt-version=v1.0.1",
+		"--kubernetes-version=v1.22.7",
+		"--use-local-images=true",
+		"--kube-config=/home/root/.kube/config",
+		"--ignore-error=true",
+		"--enable-dummy-if=true",
+		"--disable-default-cni=true",
+	}
+	o := newKindOptions()
+	cmd := &cobra.Command{}
+	fs := cmd.Flags()
+	addFlags(fs, o)
+	fs.Parse(args)
+
+	expectedOpts := &kindOptions{
+		KindConfigPath:    "/home/root/.kube/config.yaml",
+		NodeNum:           100,
+		ClusterName:       "test-openyurt",
+		CloudNodes:        "worker3",
+		OpenYurtVersion:   "v1.0.1",
+		KubernetesVersion: "v1.22.7",
+		UseLocalImages:    true,
+		KubeConfig:        "/home/root/.kube/config",
+		IgnoreError:       true,
+		EnableDummyIf:     true,
+		DisableDefaultCNI: true,
+	}
+
+	if !reflect.DeepEqual(expectedOpts, o) {
+		t.Errorf("expect options: %v, but got %v", expectedOpts, o)
+	}
+}
 
 func TestValidateKubernetesVersion(t *testing.T) {
 	cases := map[string]struct {
@@ -563,6 +604,7 @@ func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
 		configObj     *corev1.ConfigMap
 		serviceObj    *corev1.Service
 		deploymentObj *v1.Deployment
+		nodeObj       *corev1.Node
 		want          interface{}
 	}{
 		configObj: &corev1.ConfigMap{
@@ -596,10 +638,15 @@ func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
 				},
 			},
 		},
+		nodeObj: &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+		},
 		want: nil,
 	}
 
-	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj, case1.serviceObj, case1.deploymentObj)
+	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj, case1.serviceObj, case1.deploymentObj, case1.nodeObj)
 	err := initializer.configureCoreDnsAddon()
 	if err != case1.want {
 		t.Errorf("failed to configure core dns addon")
@@ -639,12 +686,13 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 		serviceObj       *corev1.Service
 		podObj           *corev1.Pod
 		deploymentObj    *v1.Deployment
+		nodeObjs         []*corev1.Node
 		want             interface{}
 	}{
 		coreDnsConfigObj: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "coredns"},
 			Data: map[string]string{
-				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local",
+				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local {",
 			},
 		},
 		proxyConfigObj: &corev1.ConfigMap{
@@ -693,12 +741,33 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 				AvailableReplicas:  3,
 			},
 		},
+		nodeObjs: []*corev1.Node{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo1",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo2",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo3",
+				},
+			},
+		},
 		want: nil,
 	}
 
 	var fakeOut io.Writer
 	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.proxyConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
+	client := clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.proxyConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
+	for i := range case1.nodeObjs {
+		client.Tracker().Add(case1.nodeObjs[i])
+	}
+	initializer.kubeClient = client
 	err := initializer.configureAddons()
 	if err != case1.want {
 		t.Errorf("failed to configure addons")
