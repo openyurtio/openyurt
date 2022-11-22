@@ -18,14 +18,12 @@ package interfaces
 
 import (
 	"k8s.io/client-go/util/certificate"
-
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 )
 
 // YurtCertificateManager is responsible for managing node certificate for yurthub
 type YurtCertificateManager interface {
 	certificate.Manager
-	Update(cfg *config.YurtHubConfiguration) error
+	Update(joinToken string) error
 	GetConfFilePath() string
 	GetCaFile() string
 	NotExpired() bool

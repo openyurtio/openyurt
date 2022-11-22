@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 )
 
@@ -49,7 +48,7 @@ func updateTokenHandler(certificateMgr interfaces.YurtCertificateManager) http.H
 			return
 		}
 
-		err = certificateMgr.Update(&config.YurtHubConfiguration{JoinToken: joinToken})
+		err = certificateMgr.Update(joinToken)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "could not update bootstrap token, %v", err)

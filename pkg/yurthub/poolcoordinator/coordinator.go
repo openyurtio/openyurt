@@ -19,6 +19,7 @@ package poolcoordinator
 import (
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
@@ -86,4 +87,9 @@ func (coordinator *Coordinator) cacheIsUploaded() bool {
 func (coordinator *Coordinator) IsReady() bool {
 
 	return true
+}
+
+func (coordinator *Coordinator) PoolCacheManager() cachemanager.CacheManager {
+
+	return nil
 }

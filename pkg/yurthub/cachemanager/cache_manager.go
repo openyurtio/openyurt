@@ -31,6 +31,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +46,6 @@ import (
 
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -181,7 +182,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	}
 
 	objs, err := cm.storage.List(key)
-	if err == storage.ErrStorageNotFound && proxyutil.IsListRequestWithNameFieldSelector(req) {
+	if err == storage.ErrStorageNotFound && isListRequestWithNameFieldSelector(req) {
 		// When the request is a list request with FieldSelector "metadata.name", we should not return error
 		// when the specified resource is not found return an empty list object, to keep same as APIServer.
 		return listObj, nil
@@ -857,4 +858,24 @@ func inMemoryCacheKeyFunc(reqInfo *apirequest.RequestInfo) (string, error) {
 
 	key := filepath.Join(res, ns, name)
 	return key, nil
+}
+
+// isListRequestWithNameFieldSelector will check if the request has FieldSelector "metadata.name".
+// If found, return true, otherwise false.
+func isListRequestWithNameFieldSelector(req *http.Request) bool {
+	ctx := req.Context()
+	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+		if info.IsResourceRequest && info.Verb == "list" {
+			opts := metainternalversion.ListOptions{}
+			if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err == nil {
+				if opts.FieldSelector == nil {
+					return false
+				}
+				if _, found := opts.FieldSelector.RequiresExactMatch("metadata.name"); found {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

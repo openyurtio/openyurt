@@ -18,28 +18,33 @@ package remote
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type loadBalancerAlgo interface {
-	PickOne() *RemoteProxy
+	PickOne() *util.RemoteProxy
 	Name() string
 }
 
 type rrLoadBalancerAlgo struct {
 	sync.Mutex
 	checker  healthchecker.MultipleBackendsHealthChecker
-	backends []*RemoteProxy
+	backends []*util.RemoteProxy
 	next     int
 }
 
@@ -47,7 +52,7 @@ func (rr *rrLoadBalancerAlgo) Name() string {
 	return "rr algorithm"
 }
 
-func (rr *rrLoadBalancerAlgo) PickOne() *RemoteProxy {
+func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 	if len(rr.backends) == 0 {
 		return nil
 	} else if len(rr.backends) == 1 {
@@ -81,14 +86,14 @@ func (rr *rrLoadBalancerAlgo) PickOne() *RemoteProxy {
 type priorityLoadBalancerAlgo struct {
 	sync.Mutex
 	checker  healthchecker.MultipleBackendsHealthChecker
-	backends []*RemoteProxy
+	backends []*util.RemoteProxy
 }
 
 func (prio *priorityLoadBalancerAlgo) Name() string {
 	return "priority algorithm"
 }
 
-func (prio *priorityLoadBalancerAlgo) PickOne() *RemoteProxy {
+func (prio *priorityLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 	if len(prio.backends) == 0 {
 		return nil
 	} else if len(prio.backends) == 1 {
@@ -116,22 +121,35 @@ type LoadBalancer interface {
 }
 
 type loadBalancer struct {
-	backends []*RemoteProxy
-	algo     loadBalancerAlgo
+	backends      []*util.RemoteProxy
+	algo          loadBalancerAlgo
+	localCacheMgr cachemanager.CacheManager
+	filterManager *manager.Manager
+	coordinator   *poolcoordinator.Coordinator
+	workingMode   hubutil.WorkingMode
+	stopCh        <-chan struct{}
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
 func NewLoadBalancer(
 	lbMode string,
 	remoteServers []*url.URL,
-	cacheMgr cachemanager.CacheManager,
+	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
+	coordinator *poolcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterManager *manager.Manager,
+	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
-	backends := make([]*RemoteProxy, 0, len(remoteServers))
+	lb := &loadBalancer{
+		localCacheMgr: localCacheMgr,
+		filterManager: filterManager,
+		workingMode:   workingMode,
+		stopCh:        stopCh,
+	}
+	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
-		b, err := NewRemoteProxy(remoteServers[i], cacheMgr, transportMgr, filterManager, stopCh)
+		b, err := util.NewRemoteProxy(remoteServers[i], lb.modifyResponse, lb.errorHandler, transportMgr, stopCh)
 		if err != nil {
 			klog.Errorf("could not new proxy backend(%s), %v", remoteServers[i].String(), err)
 			continue
@@ -169,4 +187,122 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), util.ReqString(req))
 	rp.ServeHTTP(rw, req)
+}
+
+func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
+	klog.Errorf("remote proxy error handler: %s, %v", hubutil.ReqString(req), err)
+	if lb.localCacheMgr == nil || !lb.localCacheMgr.CanCacheFor(req) {
+		rw.WriteHeader(http.StatusBadGateway)
+		return
+	}
+
+	ctx := req.Context()
+	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+		if info.Verb == "get" || info.Verb == "list" {
+			if obj, err := lb.localCacheMgr.QueryResourceFromCache(req); err == nil {
+				hubutil.WriteObject(http.StatusOK, obj, rw, req)
+				return
+			}
+		}
+	}
+	rw.WriteHeader(http.StatusBadGateway)
+}
+
+func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
+	if resp == nil || resp.Request == nil {
+		klog.Infof("no request info in response, skip cache response")
+		return nil
+	}
+
+	req := resp.Request
+	ctx := req.Context()
+
+	// re-added transfer-encoding=chunked response header for watch request
+	info, exists := apirequest.RequestInfoFrom(ctx)
+	if exists {
+		if info.Verb == "watch" {
+			klog.V(5).Infof("add transfer-encoding=chunked header into response for req %s", hubutil.ReqString(req))
+			h := resp.Header
+			if hv := h.Get("Transfer-Encoding"); hv == "" {
+				h.Add("Transfer-Encoding", "chunked")
+			}
+		}
+	}
+
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusPartialContent {
+		// prepare response content type
+		reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)
+		respContentType := resp.Header.Get("Content-Type")
+		if len(respContentType) == 0 {
+			respContentType = reqContentType
+		}
+		ctx = hubutil.WithRespContentType(ctx, respContentType)
+		req = req.WithContext(ctx)
+
+		// filter response data
+		if lb.filterManager != nil {
+			if ok, runner := lb.filterManager.FindRunner(req); ok {
+				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
+				size, filterRc, err := runner.Filter(req, wrapBody, lb.stopCh)
+				if err != nil {
+					klog.Errorf("failed to filter response for %s, %v", hubutil.ReqString(req), err)
+					return err
+				}
+				resp.Body = filterRc
+				if size > 0 {
+					resp.ContentLength = int64(size)
+					resp.Header.Set("Content-Length", fmt.Sprint(size))
+				}
+
+				// after gunzip in filter, the header content encoding should be removed.
+				// because there's no need to gunzip response.body again.
+				if needUncompressed {
+					resp.Header.Del("Content-Encoding")
+				}
+			}
+		}
+
+		if lb.workingMode == hubutil.WorkingModeEdge {
+			// cache resp with storage interface
+			lb.cacheResponse(req)
+		}
+	} else if resp.StatusCode == http.StatusNotFound && info.Verb == "list" && lb.localCacheMgr != nil {
+		// 404 Not Found: The CRD may have been unregistered and should be updated locally as well.
+		// Other types of requests may return a 404 response for other reasons (for example, getting a pod that doesn't exist).
+		// And the main purpose is to return 404 when list an unregistered resource locally, so here only consider the list request.
+		gvr := schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}
+
+		err := lb.localCacheMgr.DeleteKindFor(gvr)
+		if err != nil {
+			klog.Errorf("failed: %v", err)
+		}
+	}
+	return nil
+}
+
+func (lb *loadBalancer) cacheResponse(req *http.Request) {
+	if lb.localCacheMgr.CanCacheFor(req) {
+		ctx := req.Context()
+		req = req.WithContext(ctx)
+		rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, req.Body, false)
+		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
+			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
+				klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+			}
+		}(req, prc1, ctx.Done())
+
+		poolCacheMgr := lb.coordinator.PoolCacheManager()
+		if poolCacheMgr != nil {
+			go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
+				if err := poolCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
+					klog.Errorf("failed to cache req %s in pool cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+				}
+			}(req, prc2, ctx.Done())
+		}
+		req.Body = rc
+	}
 }
