@@ -258,7 +258,7 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Eventually(func() error {
 		_, err = c.Discovery().ServerVersion()
 		return err
-	}).WithTimeout(20 * time.Second).WithPolling(1 * time.Second).Should(gomega.Succeed())
+	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(gomega.Succeed())
 
 	ginkgo.By("delete namespace:" + YurtE2ENamespaceName)
 	err = ns.DeleteNameSpace(c, YurtE2ENamespaceName)
