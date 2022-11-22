@@ -144,6 +144,7 @@ func NewLoadBalancer(
 	lb := &loadBalancer{
 		localCacheMgr: localCacheMgr,
 		filterManager: filterManager,
+		coordinator:   coordinator,
 		workingMode:   workingMode,
 		stopCh:        stopCh,
 	}

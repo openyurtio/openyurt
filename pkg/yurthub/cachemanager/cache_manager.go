@@ -69,7 +69,6 @@ type cacheManager struct {
 	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           *CacheAgent
 	listSelectorCollector map[storage.Key]string
-	sharedFactory         informers.SharedInformerFactory
 	inMemoryCache         map[string]runtime.Object
 }
 
@@ -87,7 +86,6 @@ func NewCacheManager(
 		cacheAgents:           cacheAgents,
 		restMapperManager:     restMapperMgr,
 		listSelectorCollector: make(map[storage.Key]string),
-		sharedFactory:         sharedFactory,
 		inMemoryCache:         make(map[string]runtime.Object),
 	}
 

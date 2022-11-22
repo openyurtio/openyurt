@@ -39,15 +39,16 @@ import (
 )
 
 type yurtReverseProxy struct {
-	resolver            apirequest.RequestInfoResolver
-	loadBalancer        remote.LoadBalancer
-	checker             healthchecker.HealthChecker
-	localProxy          http.Handler
-	poolProxy           http.Handler
-	maxRequestsInFlight int
-	tenantMgr           tenant.Interface
-	coordinator         *poolcoordinator.Coordinator
-	workingMode         hubutil.WorkingMode
+	resolver                apirequest.RequestInfoResolver
+	loadBalancer            remote.LoadBalancer
+	cloudHealthChecker      healthchecker.MultipleBackendsHealthChecker
+	coordinatorHealtChecker healthchecker.HealthChecker
+	localProxy              http.Handler
+	poolProxy               http.Handler
+	maxRequestsInFlight     int
+	tenantMgr               tenant.Interface
+	coordinator             *poolcoordinator.Coordinator
+	workingMode             hubutil.WorkingMode
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -90,10 +91,8 @@ func NewYurtReverseProxyHandler(
 		poolProxy, err = pool.NewPoolCoordinatorProxy(
 			yurtHubCfg.CoordinatorServer,
 			localCacheMgr,
-			coordinator,
 			transportMgr,
-			coordinatorHealthChecker.IsHealthy,
-			cloudHealthChecker.IsHealthy,
+			coordinator.IsReady,
 			stopCh)
 		if err != nil {
 			return nil, err
@@ -101,15 +100,16 @@ func NewYurtReverseProxyHandler(
 	}
 
 	yurtProxy := &yurtReverseProxy{
-		resolver:            resolver,
-		loadBalancer:        lb,
-		checker:             cloudHealthChecker,
-		localProxy:          localProxy,
-		poolProxy:           poolProxy,
-		maxRequestsInFlight: yurtHubCfg.MaxRequestInFlight,
-		coordinator:         coordinator,
-		tenantMgr:           tenantMgr,
-		workingMode:         yurtHubCfg.WorkingMode,
+		resolver:                resolver,
+		loadBalancer:            lb,
+		cloudHealthChecker:      cloudHealthChecker,
+		coordinatorHealtChecker: coordinatorHealthChecker,
+		localProxy:              localProxy,
+		poolProxy:               poolProxy,
+		maxRequestsInFlight:     yurtHubCfg.MaxRequestInFlight,
+		coordinator:             coordinator,
+		tenantMgr:               tenantMgr,
+		workingMode:             yurtHubCfg.WorkingMode,
 	}
 
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
@@ -170,7 +170,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	// For request that do not need to be handled by pool-coordinator, or
 	// pool-coordinator is disabled or unhealthy, fall through the normal case, which
 	// handling the request with cloud apiserver or local cache.
-	if p.checker.IsHealthy() {
+	if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
@@ -178,10 +178,9 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 }
 
 func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) {
-	p.checker.RenewKubeletLeaseTime()
-	if p.poolProxy != nil {
-		p.poolProxy.ServeHTTP(rw, req)
-	} else if p.localProxy != nil {
+	p.cloudHealthChecker.RenewKubeletLeaseTime()
+	p.coordinatorHealtChecker.RenewKubeletLeaseTime()
+	if p.localProxy != nil {
 		p.localProxy.ServeHTTP(rw, req)
 	} else {
 		// Only in cloud mode, poolProxy and localProxy can both be nil.
