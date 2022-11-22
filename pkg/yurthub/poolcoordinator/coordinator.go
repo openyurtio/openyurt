@@ -64,7 +64,7 @@ type Coordinator struct {
 	serializerMgr             *serializer.SerializerManager
 	etcdStorageCfg            *etcd.EtcdStorageConfig
 	poolCacheManager          cachemanager.CacheManager
-	localCacheUploader        *localCacheUploader
+	diskStorage               storage.Store
 	cloudLeaseClient          coordclientset.LeaseInterface
 	hubElector                *HubElector
 	electStatus               int32
@@ -81,10 +81,6 @@ func NewCoordinator(
 	kubeClient kubernetes.Interface,
 	transportMgr transport.Interface,
 	elector *HubElector) (*Coordinator, error) {
-	uploader := &localCacheUploader{
-		diskStorage: cfg.StorageWrapper.GetStorage(),
-	}
-
 	etcdStorageCfg := &etcd.EtcdStorageConfig{
 		EtcdEndpoints: []string{cfg.CoordinatorStorageAddr},
 		CaFile:        cfg.CoordinatorStorageCaFile,
@@ -103,14 +99,14 @@ func NewCoordinator(
 	}
 
 	coordinator := &Coordinator{
-		ctx:                ctx,
-		etcdStorageCfg:     etcdStorageCfg,
-		cloudLeaseClient:   kubeClient.CoordinationV1().Leases(corev1.NamespaceNodeLease),
-		localCacheUploader: uploader,
-		informerFactory:    cfg.SharedFactory,
-		serializerMgr:      cfg.SerializerManager,
-		restMapperMgr:      cfg.RESTMapperManager,
-		hubElector:         elector,
+		ctx:              ctx,
+		etcdStorageCfg:   etcdStorageCfg,
+		cloudLeaseClient: kubeClient.CoordinationV1().Leases(corev1.NamespaceNodeLease),
+		informerFactory:  cfg.SharedFactory,
+		diskStorage:      cfg.StorageWrapper.GetStorage(),
+		serializerMgr:    cfg.SerializerManager,
+		restMapperMgr:    cfg.RESTMapperManager,
+		hubElector:       elector,
 	}
 
 	informerSyncLeaseManager := &coordinatorLeaseInformerManager{
@@ -139,6 +135,12 @@ func NewCoordinator(
 
 func (coordinator *Coordinator) Run() {
 	for {
+		var poolCacheManager cachemanager.CacheManager
+		var cancelEtcdStorage func()
+		var needUploadLocalCache bool
+		var needCancelEtcdStorage bool
+		var isPoolCacheSynced bool
+
 		select {
 		case <-coordinator.ctx.Done():
 			coordinator.poolScopeCacheSyncManager.EnsureStop()
@@ -156,8 +158,10 @@ func (coordinator *Coordinator) Run() {
 				coordinator.poolScopeCacheSyncManager.EnsureStop()
 				coordinator.delegateNodeLeaseManager.EnsureStop()
 				coordinator.informerSyncLeaseManager.EnsureStop()
-				coordinator.stopPoolCacheManager()
-				coordinator.needUploadLocalCache = true
+				needUploadLocalCache = true
+				needCancelEtcdStorage = true
+				isPoolCacheSynced = false
+				poolCacheManager = nil
 			case LeaderHub:
 				coordinator.poolScopeCacheSyncManager.EnsureStart()
 				coordinator.delegateNodeLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
@@ -177,16 +181,33 @@ func (coordinator *Coordinator) Run() {
 							coordinator.detectPoolCacheSynced(newObj)
 						},
 						DeleteFunc: func(_ interface{}) {
+							coordinator.Lock()
+							defer coordinator.Unlock()
 							coordinator.isPoolCacheSynced = false
 						},
 					},
 				})
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(); err != nil {
+					ctx, cancel := context.WithCancel(coordinator.ctx)
+					etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
+					if err != nil {
+						cancel()
+						klog.Errorf("failed to create etcd storage, %v", err)
+						continue
+					}
+					if err := coordinator.uploadLocalCache(etcdStore); err != nil {
+						cancel()
 						klog.Errorf("failed to upload local cache when yurthub becomes leader, %v", err)
 						continue
 					}
-					coordinator.needUploadLocalCache = false
+					needUploadLocalCache = false
+					poolCacheManager = cachemanager.NewCacheManager(
+						cachemanager.NewStorageWrapper(etcdStore),
+						coordinator.serializerMgr,
+						coordinator.restMapperMgr,
+						coordinator.informerFactory,
+					)
+					cancelEtcdStorage = cancel
 				}
 			case FollowerHub:
 				coordinator.poolScopeCacheSyncManager.EnsureStop()
@@ -199,55 +220,79 @@ func (coordinator *Coordinator) Run() {
 							coordinator.detectPoolCacheSynced(newObj)
 						},
 						DeleteFunc: func(_ interface{}) {
+							coordinator.Lock()
+							defer coordinator.Unlock()
 							coordinator.isPoolCacheSynced = false
 						},
 					},
 				})
+
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(); err != nil {
+					ctx, cancel := context.WithCancel(coordinator.ctx)
+					etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
+					if err != nil {
+						cancel()
+						klog.Errorf("failed to create etcd storage, %v", err)
+						continue
+					}
+					if err := coordinator.uploadLocalCache(etcdStore); err != nil {
+						cancel()
 						klog.Errorf("failed to upload local cache when yurthub becomes follower, %v", err)
 						continue
 					}
-					coordinator.needUploadLocalCache = false
+					needUploadLocalCache = false
+					poolCacheManager = cachemanager.NewCacheManager(
+						cachemanager.NewStorageWrapper(etcdStore),
+						coordinator.serializerMgr,
+						coordinator.restMapperMgr,
+						coordinator.informerFactory,
+					)
+					cancelEtcdStorage = cancel
 				}
+				isPoolCacheSynced = false
 			}
+
+			// We should make sure that all fields update should happen
+			// after acquire lock to avoid race condition.
+			// Because the caller of IsReady() may be concurrent.
+			coordinator.Lock()
 			coordinator.electStatus = electorStatus
+			coordinator.poolCacheManager = poolCacheManager
+			if needCancelEtcdStorage {
+				coordinator.cancelEtcdStorage()
+			}
+			coordinator.cancelEtcdStorage = cancelEtcdStorage
+			coordinator.needUploadLocalCache = needUploadLocalCache
+			coordinator.isPoolCacheSynced = isPoolCacheSynced
+			coordinator.Unlock()
 		}
 	}
 }
 
-func (coordinator *Coordinator) IsReady() bool {
-	return coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced
-}
-
-func (coordinator *Coordinator) PoolCacheManager() cachemanager.CacheManager {
-	return coordinator.poolCacheManager
-}
-
-func (coordinator *Coordinator) uploadLocalCache() error {
-	ctx, cancel := context.WithCancel(coordinator.ctx)
-	etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
-	if err != nil {
-		cancel()
-		return fmt.Errorf("failed to create etcd storage, %v", err)
+// IsReady will return the poolCacheManager and true if the pool-coordinator is ready.
+// Pool-Coordinator ready means it is ready to handle request. To be specific, it should
+// satisfy the following 3 condition:
+// 1. Pool-Coordinator is healthy
+// 2. Pool-Scoped resources have been synced with cloud, through list/watch
+// 3. local cache has been uploaded to pool-coordinator
+func (coordinator *Coordinator) IsReady() (cachemanager.CacheManager, bool) {
+	// If electStatus is not PendingHub, it means pool-coordinator is healthy.
+	coordinator.Lock()
+	defer coordinator.Unlock()
+	if coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced && !coordinator.needUploadLocalCache {
+		return coordinator.poolCacheManager, true
 	}
-	coordinator.localCacheUploader.etcdStorage = etcdStore
-	klog.Info("uploading local cache")
-	coordinator.localCacheUploader.Upload()
-
-	coordinator.poolCacheManager = cachemanager.NewCacheManager(
-		cachemanager.NewStorageWrapper(etcdStore),
-		coordinator.serializerMgr,
-		coordinator.restMapperMgr,
-		coordinator.informerFactory,
-	)
-	coordinator.cancelEtcdStorage = cancel
-	return nil
+	return nil, false
 }
 
-func (coordinator *Coordinator) stopPoolCacheManager() {
-	coordinator.cancelEtcdStorage()
-	coordinator.poolCacheManager = nil
+func (coordinator *Coordinator) uploadLocalCache(etcdStore storage.Store) error {
+	uploader := &localCacheUploader{
+		diskStorage: coordinator.diskStorage,
+		etcdStorage: etcdStore,
+	}
+	klog.Info("uploading local cache")
+	uploader.Upload()
+	return nil
 }
 
 func (coordinator *Coordinator) delegateNodeLease(obj interface{}) {
@@ -277,6 +322,8 @@ func (coordinator *Coordinator) detectPoolCacheSynced(obj interface{}) {
 	lease := obj.(*coordinationv1.Lease)
 	renewTime := lease.Spec.RenewTime
 	if time.Now().After(renewTime.Add(defaultPoolCacheStaleDuration)) {
+		coordinator.Lock()
+		defer coordinator.Unlock()
 		coordinator.isPoolCacheSynced = false
 	}
 }

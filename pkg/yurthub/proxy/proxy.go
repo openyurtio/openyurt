@@ -92,7 +92,10 @@ func NewYurtReverseProxyHandler(
 			yurtHubCfg.CoordinatorServer,
 			localCacheMgr,
 			transportMgr,
-			coordinator.IsReady,
+			func() bool {
+				_, isReady := coordinator.IsReady()
+				return isReady
+			},
 			stopCh)
 		if err != nil {
 			return nil, err
@@ -161,7 +164,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		// 2. create/get subjectaccessreview resources for enabling logs/exec through pool-coordinator.
 		// 3. creat event resources for maintenance
 		// We assume that if pool-coordinator is not enabled or is not healthy, IsReady will return false.
-		if p.coordinator.IsReady() {
+		if _, isReady := p.coordinator.IsReady(); isReady {
 			p.poolProxy.ServeHTTP(rw, req)
 			return
 		}
