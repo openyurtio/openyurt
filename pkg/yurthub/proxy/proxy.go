@@ -92,6 +92,7 @@ func NewYurtReverseProxyHandler(
 			yurtHubCfg.CoordinatorServer,
 			localCacheMgr,
 			transportMgr,
+			yurtHubCfg.FilterManager,
 			func() bool {
 				_, isReady := coordinator.IsReady()
 				return isReady

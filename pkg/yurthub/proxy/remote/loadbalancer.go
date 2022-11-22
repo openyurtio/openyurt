@@ -35,7 +35,7 @@ import (
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type loadBalancerAlgo interface {
@@ -184,11 +184,11 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rp := lb.algo.PickOne()
 	if rp == nil {
 		// exceptional case
-		klog.Errorf("could not pick one healthy backends by %s for request %s", lb.algo.Name(), util.ReqString(req))
+		klog.Errorf("could not pick one healthy backends by %s for request %s", lb.algo.Name(), hubutil.ReqString(req))
 		http.Error(rw, "could not pick one healthy backends, try again to go through local proxy.", http.StatusInternalServerError)
 		return
 	}
-	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), util.ReqString(req))
+	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
 	rp.ServeHTTP(rw, req)
 }
 
@@ -202,7 +202,7 @@ func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, 
 	ctx := req.Context()
 	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
 		if info.Verb == "get" || info.Verb == "list" {
-			if obj, err := lb.localCacheMgr.QueryResourceFromCache(req); err == nil {
+			if obj, err := lb.localCacheMgr.QueryCache(req); err == nil {
 				hubutil.WriteObject(http.StatusOK, obj, rw, req)
 				return
 			}
