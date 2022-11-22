@@ -17,6 +17,7 @@ limitations under the License.
 package remote
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -288,19 +289,23 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 func (lb *loadBalancer) cacheResponse(req *http.Request) {
 	if lb.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
-		poolScoped, ok := hubutil.IfPoolScopedResourceFrom(ctx)
-		poolCacheManager, isReady := lb.coordinator.IsReady()
-		// TODO:
+		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
 
-		// If is not pool-scoped request and the pool-coordinator is ready,
-		// we can cache the response to pool-coordinator.
-		// For pool-scoped data, it the responsibility of coordinator to list/watch and
-		// sync the pool-coordinator cache with cloud.
-		if ok && !poolScoped && isReady && poolCacheManager != nil {
+		if isHealthy && poolCacheManager != nil {
+			if !isLeaderHubUserAgent(ctx) && isPoolScopedCtx(ctx) {
+				// We do not allow the non-leader yurthub to cache pool-scoped resources
+				// into pool-coordinator to ensure that only one yurthub can update pool-scoped
+				// cache to avoid inconsistency of data.
+				lb.cacheToLocal(req)
+				return
+			}
 			lb.cacheToLocalAndPool(req, poolCacheManager)
-		} else {
-			lb.cacheToLocal(req)
+			return
 		}
+
+		// When pool-coordinator is not healthy or not be enabled, we can
+		// only cache the response at local.
+		lb.cacheToLocal(req)
 	}
 }
 
@@ -334,4 +339,14 @@ func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, poolCacheMgr cach
 		}(req, prc2, ctx.Done())
 	}
 	req.Body = rc
+}
+
+func isLeaderHubUserAgent(reqCtx context.Context) bool {
+	comp, hasComp := hubutil.ClientComponentFrom(reqCtx)
+	return hasComp && comp == poolcoordinator.DefaultPoolScopedUserAgent
+}
+
+func isPoolScopedCtx(reqCtx context.Context) bool {
+	poolScoped, hasPoolScoped := hubutil.IfPoolScopedResourceFrom(reqCtx)
+	return hasPoolScoped && poolScoped
 }

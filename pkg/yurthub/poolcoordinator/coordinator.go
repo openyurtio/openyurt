@@ -53,7 +53,6 @@ const (
 	leaseDelegateRetryTimes           = 5
 	defaultInformerLeaseRenewDuration = 10 * time.Second
 	defaultPoolCacheStaleDuration     = 30 * time.Second
-	defaultPoolScopedUserAgent        = "leader-yurthub"
 	namespaceInformerLease            = "kube-system"
 	nameInformerLease                 = "leader-informer-sync"
 )
@@ -122,7 +121,7 @@ func NewCoordinator(
 		coordinatorClient: coordinatorClient,
 	}
 
-	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), defaultPoolScopedUserAgent)
+	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), DefaultPoolScopedUserAgent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proxied client, %v", err)
 	}
@@ -294,6 +293,17 @@ func (coordinator *Coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	coordinator.Lock()
 	defer coordinator.Unlock()
 	if coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced && !coordinator.needUploadLocalCache {
+		return coordinator.poolCacheManager, true
+	}
+	return nil, false
+}
+
+// IsCoordinatorHealthy will return the poolCacheManager and true if the pool-coordinator is healthy.
+// We assume coordinator is healthy when the elect status is LeaderHub and FollowerHub.
+func (coordinator *Coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
+	coordinator.Lock()
+	defer coordinator.Unlock()
+	if coordinator.electStatus != PendingHub {
 		return coordinator.poolCacheManager, true
 	}
 	return nil, false

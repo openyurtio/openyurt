@@ -16,3 +16,7 @@ var (
 		{Component: "kubelet", Resources: "nodes", Group: "", Version: "v1"}: {},
 	}
 )
+
+const (
+	DefaultPoolScopedUserAgent = "leader-yurthub"
+)
