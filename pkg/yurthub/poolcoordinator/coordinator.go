@@ -35,6 +35,7 @@ import (
 	coordclientset "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
@@ -52,6 +53,7 @@ const (
 	leaseDelegateRetryTimes           = 5
 	defaultInformerLeaseRenewDuration = 10 * time.Second
 	defaultPoolCacheStaleDuration     = 30 * time.Second
+	defaultPoolScopedUserAgent        = "leader-yurthub"
 	namespaceInformerLease            = "kube-system"
 	nameInformerLease                 = "leader-informer-sync"
 )
@@ -120,9 +122,13 @@ func NewCoordinator(
 		coordinatorClient: coordinatorClient,
 	}
 
+	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), defaultPoolScopedUserAgent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create proxied client, %v", err)
+	}
 	poolScopedCacheSyncManager := &poolScopedCacheSyncManager{
 		ctx:               ctx,
-		proxiedClient:     cfg.ProxiedClient,
+		proxiedClient:     proxiedClient,
 		coordinatorClient: cfg.CoordinatorClient,
 		nodeName:          cfg.NodeName,
 	}
@@ -556,4 +562,18 @@ func ifInformerSyncLease(obj interface{}) bool {
 	}
 
 	return lease.Name == nameInformerLease && lease.Namespace == namespaceInformerLease
+}
+
+func buildProxiedClientWithUserAgent(proxyAddr string, userAgent string) (kubernetes.Interface, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(proxyAddr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfig.UserAgent = userAgent
+	client, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

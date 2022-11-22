@@ -99,7 +99,6 @@ type YurtHubConfiguration struct {
 	CoordinatorStorageCertFile        string
 	CoordinatorStorageKeyFile         string
 	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
-	ProxiedClient                     kubernetes.Interface
 	CoordinatorClient                 kubernetes.Interface
 }
 
@@ -195,7 +194,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
 		LeaderElection:                    options.LeaderElection,
-		ProxiedClient:                     proxiedClient,
 	}
 
 	return cfg, nil
