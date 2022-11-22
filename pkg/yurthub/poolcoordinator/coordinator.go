@@ -41,6 +41,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	yurtrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
@@ -62,10 +63,10 @@ type Coordinator struct {
 	informerFactory           informers.SharedInformerFactory
 	restMapperMgr             *meta.RESTMapperManager
 	serializerMgr             *serializer.SerializerManager
+	restConfigMgr             *yurtrest.RestConfigManager
 	etcdStorageCfg            *etcd.EtcdStorageConfig
 	poolCacheManager          cachemanager.CacheManager
 	diskStorage               storage.Store
-	cloudLeaseClient          coordclientset.LeaseInterface
 	hubElector                *HubElector
 	electStatus               int32
 	isPoolCacheSynced         bool
@@ -78,7 +79,7 @@ type Coordinator struct {
 func NewCoordinator(
 	ctx context.Context,
 	cfg *config.YurtHubConfiguration,
-	kubeClient kubernetes.Interface,
+	restMgr *yurtrest.RestConfigManager,
 	transportMgr transport.Interface,
 	elector *HubElector) (*Coordinator, error) {
 	etcdStorageCfg := &etcd.EtcdStorageConfig{
@@ -99,14 +100,14 @@ func NewCoordinator(
 	}
 
 	coordinator := &Coordinator{
-		ctx:              ctx,
-		etcdStorageCfg:   etcdStorageCfg,
-		cloudLeaseClient: kubeClient.CoordinationV1().Leases(corev1.NamespaceNodeLease),
-		informerFactory:  cfg.SharedFactory,
-		diskStorage:      cfg.StorageWrapper.GetStorage(),
-		serializerMgr:    cfg.SerializerManager,
-		restMapperMgr:    cfg.RESTMapperManager,
-		hubElector:       elector,
+		ctx:             ctx,
+		etcdStorageCfg:  etcdStorageCfg,
+		restConfigMgr:   restMgr,
+		informerFactory: cfg.SharedFactory,
+		diskStorage:     cfg.StorageWrapper.GetStorage(),
+		serializerMgr:   cfg.SerializerManager,
+		restMapperMgr:   cfg.RESTMapperManager,
+		hubElector:      elector,
 	}
 
 	informerSyncLeaseManager := &coordinatorLeaseInformerManager{
@@ -163,13 +164,20 @@ func (coordinator *Coordinator) Run() {
 				isPoolCacheSynced = false
 				poolCacheManager = nil
 			case LeaderHub:
+				cloudLeaseClient, err := coordinator.newCloudLeaseClient()
+				if err != nil {
+					klog.Errorf("cloud not get cloud lease client when becoming leader yurthub, %v", err)
+					continue
+				}
 				coordinator.poolScopeCacheSyncManager.EnsureStart()
 				coordinator.delegateNodeLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
 					FilterFunc: ifDelegateHeartBeat,
 					Handler: cache.ResourceEventHandlerFuncs{
-						AddFunc: coordinator.delegateNodeLease,
+						AddFunc: func(obj interface{}) {
+							coordinator.delegateNodeLease(cloudLeaseClient, obj)
+						},
 						UpdateFunc: func(_, newObj interface{}) {
-							coordinator.delegateNodeLease(newObj)
+							coordinator.delegateNodeLease(cloudLeaseClient, newObj)
 						},
 					},
 				})
@@ -285,6 +293,19 @@ func (coordinator *Coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	return nil, false
 }
 
+func (coordinator *Coordinator) newCloudLeaseClient() (coordclientset.LeaseInterface, error) {
+	restCfg := coordinator.restConfigMgr.GetRestConfig(true)
+	if restCfg == nil {
+		return nil, fmt.Errorf("no cloud server is healthy")
+	}
+	cloudClient, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cloud client, %v", err)
+	}
+
+	return cloudClient.CoordinationV1().Leases(corev1.NamespaceNodeLease), nil
+}
+
 func (coordinator *Coordinator) uploadLocalCache(etcdStore storage.Store) error {
 	uploader := &localCacheUploader{
 		diskStorage: coordinator.diskStorage,
@@ -295,15 +316,15 @@ func (coordinator *Coordinator) uploadLocalCache(etcdStore storage.Store) error 
 	return nil
 }
 
-func (coordinator *Coordinator) delegateNodeLease(obj interface{}) {
+func (coordinator *Coordinator) delegateNodeLease(cloudLeaseClient coordclientset.LeaseInterface, obj interface{}) {
 	newLease := obj.(*coordinationv1.Lease)
 	for i := 0; i < leaseDelegateRetryTimes; i++ {
 		// ResourceVersions of lease objects in pool-coordinator always have different rv
 		// from what of cloud lease. So we should get cloud lease first and then update
 		// it with lease from pool-coordinator.
-		cloudLease, err := coordinator.cloudLeaseClient.Get(coordinator.ctx, newLease.Name, metav1.GetOptions{})
+		cloudLease, err := cloudLeaseClient.Get(coordinator.ctx, newLease.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			if _, err := coordinator.cloudLeaseClient.Create(coordinator.ctx, cloudLease, metav1.CreateOptions{}); err != nil {
+			if _, err := cloudLeaseClient.Create(coordinator.ctx, cloudLease, metav1.CreateOptions{}); err != nil {
 				klog.Errorf("failed to create lease %s at cloud, %v", newLease.Name, err)
 				continue
 			}
@@ -311,7 +332,7 @@ func (coordinator *Coordinator) delegateNodeLease(obj interface{}) {
 
 		lease := newLease.DeepCopy()
 		lease.ResourceVersion = cloudLease.ResourceVersion
-		if _, err := coordinator.cloudLeaseClient.Update(coordinator.ctx, lease, metav1.UpdateOptions{}); err != nil {
+		if _, err := cloudLeaseClient.Update(coordinator.ctx, lease, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update lease %s at cloud, %v", newLease.Name, err)
 			continue
 		}

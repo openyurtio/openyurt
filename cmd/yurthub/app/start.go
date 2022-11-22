@@ -196,7 +196,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	// TODO: cloud client load balance
 	klog.Infof("%d. create coordinator", trace)
-	coordinator, err := poolcoordinator.NewCoordinator(ctx, cfg, cloudClients[cfg.RemoteServers[0].String()], transportManager, elector)
+	coordinator, err := poolcoordinator.NewCoordinator(ctx, cfg, restConfigMgr, transportManager, elector)
 	if err != nil {
 		klog.Errorf("failed to create coordinator, %v", err)
 	}
