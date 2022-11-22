@@ -25,6 +25,7 @@ import (
 
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,6 +37,8 @@ import (
 
 const (
 	StorageName                   = "pool-coordinator"
+	defaultTimeout                = 5 * time.Second
+	defaultHealthCheckPeriod      = 10 * time.Second
 	defaultDialTimeout            = 10 * time.Second
 	defaultComponentCacheFileName = "component-key-cache"
 	defaultRvLen                  = 32
@@ -63,6 +66,7 @@ type etcdStorage struct {
 	prefix          string
 	mirrorPrefixMap map[pathType]string
 	client          *clientv3.Client
+	clientConfig    clientv3.Config
 	// localComponentKeyCache persistently records keys owned by different components
 	// It's useful to recover previous state when yurthub restarts.
 	// We need this cache at local host instead of in etcd, because we need to ensure each
@@ -110,23 +114,19 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 		return nil, fmt.Errorf("failed to create etcd client, %v", err)
 	}
 
-	go func() {
-		// shutdown
-		<-ctx.Done()
-		if err := client.Close(); err != nil {
-			klog.Errorf("failed to close the connection to etcd, %v", err)
-		}
-	}()
-
-	return &etcdStorage{
+	s := &etcdStorage{
 		ctx:                    ctx,
 		prefix:                 cfg.Prefix,
 		client:                 client,
+		clientConfig:           clientConfig,
 		localComponentKeyCache: cache,
 		mirrorPrefixMap: map[pathType]string{
 			rvType: "/mirror/rv",
 		},
-	}, nil
+	}
+
+	go s.clientLifeCycleManagement()
+	return s, nil
 }
 
 func (s *etcdStorage) mirrorPath(path string, pathType pathType) string {
@@ -135,6 +135,49 @@ func (s *etcdStorage) mirrorPath(path string, pathType pathType) string {
 
 func (s *etcdStorage) Name() string {
 	return StorageName
+}
+
+func (s *etcdStorage) clientLifeCycleManagement() {
+	reconnect := func(ctx context.Context) {
+		t := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if client, err := clientv3.New(s.clientConfig); err == nil {
+					klog.Infof("client reconnected to etcd server, %s", client.ActiveConnection().GetState().String())
+					if err := s.client.Close(); err != nil {
+						klog.Errorf("failed to close old client, %v", err)
+					}
+					s.client = client
+					return
+				}
+				continue
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			klog.Info("etcdstorage lifecycle routine exited")
+			return
+		default:
+			timeoutCtx, cancel := context.WithTimeout(s.ctx, defaultDialTimeout)
+			healthCli := healthpb.NewHealthClient(s.client.ActiveConnection())
+			resp, err := healthCli.Check(timeoutCtx, &healthpb.HealthCheckRequest{})
+			// We should call cancel in case Check request does not timeout, to release resource.
+			cancel()
+			if err != nil {
+				klog.Errorf("check health of etcd failed, err: %v, try to reconnect", err)
+				reconnect(s.ctx)
+			} else if resp != nil && resp.Status != healthpb.HealthCheckResponse_SERVING {
+				klog.Errorf("unexpected health status from etcd, status: %s", resp.Status.String())
+			}
+			time.Sleep(defaultHealthCheckPeriod)
+		}
+	}
 }
 
 func (s *etcdStorage) Create(key storage.Key, content []byte) error {
@@ -147,7 +190,10 @@ func (s *etcdStorage) Create(key storage.Key, content []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to get rv from content when creating %s, %v", keyStr, err)
 	}
-	txnResp, err := s.client.KV.Txn(s.ctx).If(
+
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	txnResp, err := s.client.KV.Txn(ctx).If(
 		notFound(keyStr),
 	).Then(
 		clientv3.OpPut(keyStr, string(content)),
@@ -173,7 +219,9 @@ func (s *etcdStorage) Delete(key storage.Key) error {
 	}
 
 	keyStr := key.Key()
-	_, err := s.client.Txn(s.ctx).If().Then(
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	_, err := s.client.Txn(ctx).If().Then(
 		clientv3.OpDelete(keyStr),
 		clientv3.OpDelete(s.mirrorPath(keyStr, rvType)),
 	).Commit()
@@ -192,7 +240,9 @@ func (s *etcdStorage) Get(key storage.Key) ([]byte, error) {
 	}
 
 	keyStr := key.Key()
-	getResp, err := s.client.Get(s.ctx, keyStr)
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	getResp, err := s.client.Get(ctx, keyStr)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +261,9 @@ func (s *etcdStorage) List(key storage.Key) ([][]byte, error) {
 	}
 
 	rootKeyStr := key.Key()
-	getResp, err := s.client.Get(s.ctx, rootKeyStr, clientv3.WithPrefix())
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	getResp, err := s.client.Get(ctx, rootKeyStr, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +284,9 @@ func (s *etcdStorage) Update(key storage.Key, content []byte, rv uint64) ([]byte
 	}
 
 	keyStr := key.Key()
-	txnResp, err := s.client.KV.Txn(s.ctx).If(
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	txnResp, err := s.client.KV.Txn(ctx).If(
 		found(keyStr),
 		fresherThan(fixLenRvUint64(rv), s.mirrorPath(keyStr, rvType)),
 	).Then(
@@ -366,7 +420,9 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 		)
 	}
 
-	_, err = s.client.Txn(s.ctx).If().Then(ops...).Commit()
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	_, err = s.client.Txn(ctx).If().Then(ops...).Commit()
 	if err != nil {
 		return err
 	}
@@ -392,7 +448,9 @@ func (s *etcdStorage) DeleteComponentResources(component string) error {
 		)
 	}
 
-	_, err := s.client.Txn(s.ctx).If().Then(ops...).Commit()
+	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
+	defer cancel()
+	_, err := s.client.Txn(ctx).If().Then(ops...).Commit()
 	if err != nil {
 		return err
 	}

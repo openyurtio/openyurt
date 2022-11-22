@@ -19,7 +19,10 @@ package etcd
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -70,6 +73,32 @@ var _ = Describe("Test EtcdStorage", func() {
 		}
 		podJson, err = json.Marshal(podObj)
 		Expect(err).To(BeNil())
+	})
+
+	Context("Test Lifecycle", Focus, func() {
+		It("should reconnect to etcd if connect once broken", Focus, func() {
+			Expect(etcdstore.Create(key1, podJson)).Should(BeNil())
+			Expect(etcdCmd.Process.Kill()).To(BeNil())
+			By("waiting for the etcd exited")
+			Eventually(func() bool {
+				_, err := etcdstore.Get(key1)
+				return err != nil
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+
+			devNull, err := os.OpenFile("/dev/null", os.O_RDWR, 0755)
+			Expect(err).To(BeNil())
+			etcdCmd = exec.Command("/usr/local/etcd/etcd", "--data-dir="+etcdDataDir)
+			etcdCmd.Stdout = devNull
+			etcdCmd.Stderr = devNull
+			Expect(etcdCmd.Start()).To(BeNil())
+			By("waiting for storage function recovery")
+			Eventually(func() bool {
+				if _, err := etcdstore.Get(key1); err != nil {
+					return false
+				}
+				return true
+			}, 30*time.Second, 500*time.Microsecond).Should(BeTrue())
+		})
 	})
 
 	Context("Test Create", func() {
