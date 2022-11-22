@@ -95,6 +95,8 @@ type YurtHubConfiguration struct {
 	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
 	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
+	ProxiedClient                     kubernetes.Interface
+	CoordinatorClient                 kubernetes.Interface
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
