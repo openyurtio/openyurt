@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -343,7 +344,7 @@ func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, poolCacheMgr cach
 
 func isLeaderHubUserAgent(reqCtx context.Context) bool {
 	comp, hasComp := hubutil.ClientComponentFrom(reqCtx)
-	return hasComp && comp == poolcoordinator.DefaultPoolScopedUserAgent
+	return hasComp && comp == coordinatorconstants.DefaultPoolScopedUserAgent
 }
 
 func isPoolScopedCtx(reqCtx context.Context) bool {

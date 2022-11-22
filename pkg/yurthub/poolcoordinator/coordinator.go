@@ -44,6 +44,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	yurtrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
@@ -68,6 +69,7 @@ type Coordinator struct {
 	etcdStorageCfg            *etcd.EtcdStorageConfig
 	poolCacheManager          cachemanager.CacheManager
 	diskStorage               storage.Store
+	etcdStorage               storage.Store
 	hubElector                *HubElector
 	electStatus               int32
 	isPoolCacheSynced         bool
@@ -121,7 +123,7 @@ func NewCoordinator(
 		coordinatorClient: coordinatorClient,
 	}
 
-	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), DefaultPoolScopedUserAgent)
+	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), constants.DefaultPoolScopedUserAgent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proxied client, %v", err)
 	}
@@ -130,6 +132,7 @@ func NewCoordinator(
 		proxiedClient:     proxiedClient,
 		coordinatorClient: cfg.CoordinatorClient,
 		nodeName:          cfg.NodeName,
+		getEtcdStore:      coordinator.getEtcdStore,
 	}
 
 	coordinator.informerSyncLeaseManager = informerSyncLeaseManager
@@ -146,6 +149,8 @@ func (coordinator *Coordinator) Run() {
 		var needUploadLocalCache bool
 		var needCancelEtcdStorage bool
 		var isPoolCacheSynced bool
+		var etcdStorage storage.Store
+		var err error
 
 		select {
 		case <-coordinator.ctx.Done():
@@ -167,14 +172,25 @@ func (coordinator *Coordinator) Run() {
 				needUploadLocalCache = true
 				needCancelEtcdStorage = true
 				isPoolCacheSynced = false
+				etcdStorage = nil
 				poolCacheManager = nil
 			case LeaderHub:
+				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				if err != nil {
+					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
+					continue
+				}
+
 				cloudLeaseClient, err := coordinator.newCloudLeaseClient()
 				if err != nil {
 					klog.Errorf("cloud not get cloud lease client when becoming leader yurthub, %v", err)
 					continue
 				}
-				coordinator.poolScopeCacheSyncManager.EnsureStart()
+				if err := coordinator.poolScopeCacheSyncManager.EnsureStart(); err != nil {
+					klog.Errorf("failed to sync pool-scoped resource, %v", err)
+					continue
+				}
+
 				coordinator.delegateNodeLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
 					FilterFunc: ifDelegateHeartBeat,
 					Handler: cache.ResourceEventHandlerFuncs{
@@ -200,29 +216,21 @@ func (coordinator *Coordinator) Run() {
 						},
 					},
 				})
+
 				if coordinator.needUploadLocalCache {
-					ctx, cancel := context.WithCancel(coordinator.ctx)
-					etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
-					if err != nil {
-						cancel()
-						klog.Errorf("failed to create etcd storage, %v", err)
-						continue
-					}
-					if err := coordinator.uploadLocalCache(etcdStore); err != nil {
-						cancel()
+					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes leader, %v", err)
-						continue
+					} else {
+						needUploadLocalCache = false
 					}
-					needUploadLocalCache = false
-					poolCacheManager = cachemanager.NewCacheManager(
-						cachemanager.NewStorageWrapper(etcdStore),
-						coordinator.serializerMgr,
-						coordinator.restMapperMgr,
-						coordinator.informerFactory,
-					)
-					cancelEtcdStorage = cancel
 				}
 			case FollowerHub:
+				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				if err != nil {
+					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
+					continue
+				}
+
 				coordinator.poolScopeCacheSyncManager.EnsureStop()
 				coordinator.delegateNodeLeaseManager.EnsureStop()
 				coordinator.informerSyncLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
@@ -241,39 +249,24 @@ func (coordinator *Coordinator) Run() {
 				})
 
 				if coordinator.needUploadLocalCache {
-					ctx, cancel := context.WithCancel(coordinator.ctx)
-					etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
-					if err != nil {
-						cancel()
-						klog.Errorf("failed to create etcd storage, %v", err)
-						continue
-					}
-					if err := coordinator.uploadLocalCache(etcdStore); err != nil {
-						cancel()
+					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes follower, %v", err)
-						continue
+					} else {
+						needUploadLocalCache = false
 					}
-					needUploadLocalCache = false
-					poolCacheManager = cachemanager.NewCacheManager(
-						cachemanager.NewStorageWrapper(etcdStore),
-						coordinator.serializerMgr,
-						coordinator.restMapperMgr,
-						coordinator.informerFactory,
-					)
-					cancelEtcdStorage = cancel
 				}
-				isPoolCacheSynced = false
 			}
 
 			// We should make sure that all fields update should happen
 			// after acquire lock to avoid race condition.
 			// Because the caller of IsReady() may be concurrent.
 			coordinator.Lock()
-			coordinator.electStatus = electorStatus
-			coordinator.poolCacheManager = poolCacheManager
 			if needCancelEtcdStorage {
 				coordinator.cancelEtcdStorage()
 			}
+			coordinator.electStatus = electorStatus
+			coordinator.poolCacheManager = poolCacheManager
+			coordinator.etcdStorage = etcdStorage
 			coordinator.cancelEtcdStorage = cancelEtcdStorage
 			coordinator.needUploadLocalCache = needUploadLocalCache
 			coordinator.isPoolCacheSynced = isPoolCacheSynced
@@ -307,6 +300,26 @@ func (coordinator *Coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
 		return coordinator.poolCacheManager, true
 	}
 	return nil, false
+}
+
+func (coordinator *Coordinator) buildPoolCacheStore() (cachemanager.CacheManager, storage.Store, func(), error) {
+	ctx, cancel := context.WithCancel(coordinator.ctx)
+	etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
+	if err != nil {
+		cancel()
+		return nil, nil, nil, fmt.Errorf("failed to create etcd storage, %v", err)
+	}
+	poolCacheManager := cachemanager.NewCacheManager(
+		cachemanager.NewStorageWrapper(etcdStore),
+		coordinator.serializerMgr,
+		coordinator.restMapperMgr,
+		coordinator.informerFactory,
+	)
+	return poolCacheManager, etcdStore, cancel, nil
+}
+
+func (coordinator *Coordinator) getEtcdStore() storage.Store {
+	return coordinator.etcdStorage
 }
 
 func (coordinator *Coordinator) newCloudLeaseClient() (coordclientset.LeaseInterface, error) {
@@ -380,19 +393,32 @@ type poolScopedCacheSyncManager struct {
 	// nodeName will be used to update the ownerReference of informer synced lease.
 	nodeName            string
 	informerSyncedLease *coordinationv1.Lease
+	getEtcdStore        func() storage.Store
 	cancel              func()
 }
 
-func (p *poolScopedCacheSyncManager) EnsureStart() {
+func (p *poolScopedCacheSyncManager) EnsureStart() error {
 	if !p.isRunning {
+		if err := p.coordinatorClient.CoordinationV1().Leases(namespaceInformerLease).Delete(p.ctx, nameInformerLease, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete informer sync lease, %v", err)
+		}
+
+		etcdStore := p.getEtcdStore()
+		if etcdStore == nil {
+			return fmt.Errorf("got empty etcd storage")
+		}
+		if err := etcdStore.DeleteComponentResources(constants.DefaultPoolScopedUserAgent); err != nil {
+			return fmt.Errorf("failed to clean old pool-scoped cache, %v", err)
+		}
+
 		ctx, cancel := context.WithCancel(p.ctx)
 		hasInformersSynced := []cache.InformerSynced{}
 		informerFactory := informers.NewSharedInformerFactory(p.proxiedClient, 0)
-		for gvr := range PoolScopedResources {
+		for gvr := range constants.PoolScopedResources {
 			informer, err := informerFactory.ForResource(gvr)
 			if err != nil {
-				klog.Errorf("failed to add informer for %s, %v", gvr.String(), err)
-				continue
+				cancel()
+				return fmt.Errorf("failed to add informer for %s, %v", gvr.String(), err)
 			}
 			hasInformersSynced = append(hasInformersSynced, informer.Informer().HasSynced)
 		}
@@ -402,6 +428,7 @@ func (p *poolScopedCacheSyncManager) EnsureStart() {
 		p.cancel = cancel
 		p.isRunning = true
 	}
+	return nil
 }
 
 func (p *poolScopedCacheSyncManager) EnsureStop() {
@@ -518,7 +545,7 @@ func (l *localCacheUploader) createOrUpdate(key storage.Key, objBytes []byte, rv
 
 func (l *localCacheUploader) resourcesToUpload() map[storage.Key][]byte {
 	objBytes := map[storage.Key][]byte{}
-	for info := range UploadResourcesKeyBuildInfo {
+	for info := range constants.UploadResourcesKeyBuildInfo {
 		gvr := schema.GroupVersionResource{
 			Group:    info.Group,
 			Version:  info.Version,
