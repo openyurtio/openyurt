@@ -78,7 +78,7 @@ type objectRelatedHandler interface {
 	// List will retrieve all contents whose keys have the prefix of rootKey.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
-	// If the key exists in the store but no other keys has it as prefix, an empty slice
+	// If the key exists in the store but no other keys having it as prefix, an empty slice
 	// of content will be returned.
 	List(key Key) ([][]byte, error)
 
