@@ -102,7 +102,7 @@ type StaticPodSpec struct {
 
 	// StaticPodName indicates the static pod desired to be upgraded.
     StaticPodName string `json:"staticPodName`
-	
+
 	// StaticPodManifest indicates the Static Pod desired to be upgraded. The corresponding
 	// manifest file name is `ManifestName.yaml`.
 	StaticPodManifest string `json:"staticPodManifest"`
@@ -120,10 +120,10 @@ type StaticPodConditionType string
 const (
 	// StaticPodUpgradeSuccess means static pods on all nodes have been upgraded to the latest version
     StaticPodUpgradeSuccess StaticPodConditionType = "Success"
-	
+
 	// StaticPodUpgradeExecuting means static pods upgrade task is in progress
     StaticPodUpgradeExecuting StaticPodConditionType = "Upgrading"
-	
+
 	// StaticPodUpgradeFailed means that exist pods failed to upgrade during the upgrade process
     StaticPodUpgradeFailed StaticPodConditionType = "Failed"
 )
@@ -205,7 +205,7 @@ YurtHub will provide two REST APIs for upgrade, just the same as DaemonSet.
 
 1. `GET /pods`
 This API allows you to get information about the pods on the node.
-2. `POST /openyurt.io/v1/namespaces/{ns}/static/pods/{podname}/upgrade`
+2. `POST /openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade`
 This API will replace the old static pod manifest with the new one, if it exists. And if the new manifest(`xxx.yaml.upgrade`) doesn't exist, OpenYurt will request the latest version from the cloud.
 
 #### Other
