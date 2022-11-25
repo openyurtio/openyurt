@@ -22,19 +22,10 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
-func NewCleanYurtFilePhase() workflow.Phase {
-	return workflow.Phase{
-		Name:  "Clean up the directories and files related to openyurt.",
-		Short: "Clean up the directories and files related to openyurt.",
-		Run:   runCleanfile,
-	}
-}
-
-func runCleanfile(c workflow.RunData) error {
+func RunCleanYurtFile() error {
 	for _, comp := range []string{"kubectl", "kubeadm", "kubelet"} {
 		target := fmt.Sprintf("/usr/bin/%s", comp)
 		if err := os.RemoveAll(target); err != nil {

@@ -19,39 +19,17 @@ package reset
 
 import (
 	"io"
-	"strings"
 
-	"github.com/lithammer/dedent"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/phases/workflow"
-	utilruntime "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/runtime"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset/phases"
-)
-
-var (
-	iptablesCleanupInstructions = dedent.Dedent(`
-		The reset process does not reset or clean up iptables rules or IPVS tables.
-		If you wish to reset iptables, you must do so manually by using the "iptables" command.
-
-		If your cluster was setup to utilize IPVS, run ipvsadm --clear (or similar)
-		to reset your system's IPVS tables.
-
-		The reset process does not clean your kubeconfig files and you must remove them manually.
-		Please, check the contents of the $HOME/.kube/config file.
-	`)
-
-	cniCleanupInstructions = dedent.Dedent(`
-		The reset process does not clean CNI configuration. To do so, you must remove /etc/cni/net.d
-	`)
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 // resetOptions defines all the options exposed via flags by kubeadm reset.
 type resetOptions struct {
+	certificatesDir       string
 	criSocketPath         string
 	forceReset            bool
 	ignorePreflightErrors []string
@@ -60,127 +38,111 @@ type resetOptions struct {
 // resetData defines all the runtime information used when running the kubeadm reset workflow;
 // this data is shared across all the phases that are included in the workflow.
 type resetData struct {
+	certificatesDir       string
 	criSocketPath         string
 	forceReset            bool
-	ignorePreflightErrors sets.String
-	inputReader           io.Reader
-	outputWriter          io.Writer
-	dirsToClean           []string
+	ignorePreflightErrors []string
 }
 
 // newResetOptions returns a struct ready for being used for creating cmd join flags.
 func newResetOptions() *resetOptions {
 	return &resetOptions{
-		forceReset: false,
+		certificatesDir: constants.DefaultCertificatesDir,
+		forceReset:      false,
 	}
 }
 
 // newResetData returns a new resetData struct to be used for the execution of the kubeadm reset workflow.
-func newResetData(cmd *cobra.Command, options *resetOptions, in io.Reader, out io.Writer) (*resetData, error) {
-	var criSocketPath string
-	var err error
-	if options.criSocketPath == "" {
-		criSocketPath, err = utilruntime.DetectCRISocket()
-		if err != nil {
-			return nil, err
-		}
-		klog.V(1).Infof("[reset] Detected and using CRI socket: %s", criSocketPath)
-	} else {
-		criSocketPath = options.criSocketPath
-		klog.V(1).Infof("[reset] Using specified CRI socket: %s", criSocketPath)
-	}
-
-	var ignoreErrors sets.String
-	for _, item := range options.ignorePreflightErrors {
-		ignoreErrors.Insert(strings.ToLower(item))
-	}
-
+func newResetData(options *resetOptions) (*resetData, error) {
 	return &resetData{
-		criSocketPath:         criSocketPath,
+		certificatesDir:       options.certificatesDir,
+		criSocketPath:         options.criSocketPath,
 		forceReset:            options.forceReset,
-		ignorePreflightErrors: ignoreErrors,
-		inputReader:           in,
-		outputWriter:          out,
+		ignorePreflightErrors: options.ignorePreflightErrors,
 	}, nil
 }
 
 // AddResetFlags adds reset flags
 func AddResetFlags(flagSet *flag.FlagSet, resetOptions *resetOptions) {
+	flagSet.StringVar(
+		&resetOptions.certificatesDir, constants.CertificatesDir, resetOptions.certificatesDir,
+		"The path to the directory where the certificates are stored. If specified, clean this directory. (default \"/etc/kubernetes/pki\")",
+	)
 	flagSet.BoolVarP(
-		&resetOptions.forceReset, options.ForceReset, "f", false,
+		&resetOptions.forceReset, constants.ForceReset, "f", false,
 		"Reset the node without prompting for confirmation.",
 	)
 	flagSet.StringVar(
-		&resetOptions.criSocketPath, options.NodeCRISocket, resetOptions.criSocketPath,
+		&resetOptions.criSocketPath, constants.NodeCRISocket, resetOptions.criSocketPath,
 		"Path to the CRI socket to connect",
 	)
 	flagSet.StringSliceVar(
-		&resetOptions.ignorePreflightErrors, options.IgnorePreflightErrors, resetOptions.ignorePreflightErrors,
+		&resetOptions.ignorePreflightErrors, constants.IgnorePreflightErrors, resetOptions.ignorePreflightErrors,
 		"A list of checks whose errors will be shown as warnings. Example: 'IsPrivilegedUser,Swap'. Value 'all' ignores errors from all checks.",
 	)
 }
 
-// NewCmdReset returns the "yurtadm reset" command
-func NewCmdReset(in io.Reader, out io.Writer, resetOptions *resetOptions) *cobra.Command {
-	if resetOptions == nil {
-		resetOptions = newResetOptions()
+type nodeReseter struct {
+	*resetData
+	inReader     io.Reader
+	outWriter    io.Writer
+	outErrWriter io.Writer
+}
+
+func newReseterWithResetData(o *resetData, in io.Reader, out io.Writer, outErr io.Writer) *nodeReseter {
+	return &nodeReseter{
+		o,
+		in,
+		out,
+		outErr,
 	}
-	resetRunner := workflow.NewRunner()
+}
+
+// Run use kubeadm to reset the node.
+func (nodeReseter *nodeReseter) Run() error {
+	resetData := nodeReseter.resetData
+
+	if err := yurtphases.RunResetNode(resetData, nodeReseter.inReader, nodeReseter.outWriter, nodeReseter.outErrWriter); err != nil {
+		return err
+	}
+
+	if err := yurtphases.RunCleanYurtFile(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// NewCmdReset returns the "yurtadm reset" command
+func NewCmdReset(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
+	resetOptions := newResetOptions()
 
 	cmd := &cobra.Command{
 		Use:   "reset",
 		Short: "Performs a best effort revert of changes made to this host by 'yurtadm join'",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := resetRunner.InitData(args)
+			o, err := newResetData(resetOptions)
 			if err != nil {
 				return err
 			}
 
-			err = resetRunner.Run(args)
-			if err != nil {
+			reseter := newReseterWithResetData(o, in, out, outErr)
+			if err := reseter.Run(); err != nil {
 				return err
 			}
 
-			// Then clean contents from the stateful kubelet, etcd and cni directories
-			data := c.(*resetData)
-			cleanDirs(data)
-
-			// output help text instructing user how to remove cni folders
-			klog.Info(cniCleanupInstructions)
-			// Output help text instructing user how to remove iptables rules
-			klog.Info(iptablesCleanupInstructions)
 			return nil
 		},
 	}
 
 	AddResetFlags(cmd.Flags(), resetOptions)
 
-	// initialize the workflow runner with the list of phases
-	resetRunner.AppendPhase(yurtphases.NewPreflightPhase())
-	resetRunner.AppendPhase(yurtphases.NewCleanupNodePhase())
-	resetRunner.AppendPhase(yurtphases.NewCleanYurtFilePhase())
-
-	// sets the data builder function, that will be used by the runner
-	// both when running the entire workflow or single phases
-	resetRunner.SetDataInitializer(func(cmd *cobra.Command, args []string) (workflow.RunData, error) {
-		return newResetData(cmd, resetOptions, in, out)
-	})
-
-	// binds the Runner to kubeadm init command by altering
-	// command help, adding --skip-phases flag and by adding phases subcommands
-	resetRunner.BindToCommand(cmd)
-
 	return cmd
 }
 
-func cleanDirs(data *resetData) {
-	klog.Infof("[reset] Deleting contents of stateful directories: %v\n", data.dirsToClean)
-	for _, dir := range data.dirsToClean {
-		klog.V(1).Infof("[reset] Deleting contents of %s", dir)
-		if err := yurtphases.CleanDir(dir); err != nil {
-			klog.Warningf("[reset] Failed to delete contents of %q directory: %v", dir, err)
-		}
-	}
+// CertificatesDir returns the certificatesDir flag.
+func (r *resetData) CertificatesDir() string {
+	return r.certificatesDir
 }
 
 // ForceReset returns the forceReset flag.
@@ -188,19 +150,9 @@ func (r *resetData) ForceReset() bool {
 	return r.forceReset
 }
 
-// InputReader returns the io.reader used to read messages.
-func (r *resetData) InputReader() io.Reader {
-	return r.inputReader
-}
-
 // IgnorePreflightErrors returns the list of preflight errors to ignore.
-func (r *resetData) IgnorePreflightErrors() sets.String {
+func (r *resetData) IgnorePreflightErrors() []string {
 	return r.ignorePreflightErrors
-}
-
-// AddDirsToClean add a list of dirs to the list of dirs that will be removed.
-func (r *resetData) AddDirsToClean(dirs ...string) {
-	r.dirsToClean = append(r.dirsToClean, dirs...)
 }
 
 // CRISocketPath returns the criSocketPath.

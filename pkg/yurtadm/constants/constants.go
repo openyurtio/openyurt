@@ -41,6 +41,7 @@ const (
 	KubeletSvcPath           = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
 	YurthubStaticPodFileName = "yurthub.yaml"
 	PauseImagePath           = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
+	DefaultCertificatesDir   = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket   = "/var/run/dockershim.sock"
 	YurthubYamlName          = "yurt-hub.yaml"
 	// ManifestsSubDirName defines directory name to store manifests
@@ -73,6 +74,41 @@ const (
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
+
+	// AdminKubeConfigPath
+	AdminKubeConfigPath = "/etc/kubernetes/admin.conf"
+	// CertificatesDir
+	CertificatesDir = "cert-dir"
+	// ForceReset
+	ForceReset = "force"
+	// IgnorePreflightErrors sets the path a list of checks whose errors will be shown as warnings. Example: 'IsPrivilegedUser,Swap'. Value 'all' ignores errors from all checks.
+	IgnorePreflightErrors = "ignore-preflight-errors"
+	// kubeconfigPath
+	KubeconfigPath = "kubeconfig"
+	// KubernetesResourceServer flag sets the address for download k8s node resources.
+	KubernetesResourceServer = "kubernetes-resource-server"
+	// NodeCRISocket flag sets the CRI socket to connect to.
+	NodeCRISocket = "cri-socket"
+	// NodeLabels flag sets the labels for worker node.
+	NodeLabels = "node-labels"
+	// NodeName flag sets the node name.
+	NodeName = "node-name"
+	// NodeType flag sets the type of worker node to edge or cloud.
+	NodeType = "node-type"
+	// Organizations flag sets the extra organizations of hub agent client certificate.
+	Organizations = "organizations"
+	// PauseImage flag sets the pause image for worker node.
+	PauseImage = "pause-image"
+	// TokenStr flags sets both the discovery-token and the tls-bootstrap-token when those values are not provided
+	TokenStr = "token"
+	// TokenDiscoveryCAHash flag instruct kubeadm to validate that the root CA public key matches this hash (for token-based discovery)
+	TokenDiscoveryCAHash = "discovery-token-ca-cert-hash"
+	// TokenDiscoverySkipCAHash flag instruct kubeadm to skip CA hash verification (for token-based discovery)
+	TokenDiscoverySkipCAHash = "discovery-token-unsafe-skip-ca-verification"
+	// YurtHubImage flag sets the yurthub image for worker node.
+	YurtHubImage = "yurthub-image"
+	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
+	YurtHubServerAddr = "yurthub-server-addr"
 
 	ServerHealthzServer          = "127.0.0.1:10267"
 	ServerHealthzURLPath         = "/v1/healthz"

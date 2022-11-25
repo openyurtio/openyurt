@@ -30,7 +30,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/cmd/options"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
@@ -106,7 +105,7 @@ func NewCmdJoin(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
 // addJoinConfigFlags adds join flags bound to the config to the specified flagset
 func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
-		&joinOptions.token, options.TokenStr, "",
+		&joinOptions.token, yurtconstants.TokenStr, "",
 		"Use this token for both discovery-token and tls-bootstrap-token when those values are not provided.",
 	)
 	flagSet.StringVar(
@@ -114,11 +113,11 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"Sets the node is edge or cloud",
 	)
 	flagSet.StringVar(
-		&joinOptions.nodeName, options.NodeName, joinOptions.nodeName,
+		&joinOptions.nodeName, yurtconstants.NodeName, joinOptions.nodeName,
 		`Specify the node name. if not specified, hostname will be used.`,
 	)
 	flagSet.StringVar(
-		&joinOptions.criSocket, options.NodeCRISocket, joinOptions.criSocket,
+		&joinOptions.criSocket, yurtconstants.NodeCRISocket, joinOptions.criSocket,
 		"Path to the CRI socket to connect",
 	)
 	flagSet.StringVar(
@@ -134,15 +133,15 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"Sets the image version of yurthub component",
 	)
 	flagSet.StringSliceVar(
-		&joinOptions.caCertHashes, options.TokenDiscoveryCAHash, joinOptions.caCertHashes,
+		&joinOptions.caCertHashes, yurtconstants.TokenDiscoveryCAHash, joinOptions.caCertHashes,
 		"For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").",
 	)
 	flagSet.BoolVar(
-		&joinOptions.unsafeSkipCAVerification, options.TokenDiscoverySkipCAHash, false,
+		&joinOptions.unsafeSkipCAVerification, yurtconstants.TokenDiscoverySkipCAHash, false,
 		"For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.",
 	)
 	flagSet.StringSliceVar(
-		&joinOptions.ignorePreflightErrors, options.IgnorePreflightErrors, joinOptions.ignorePreflightErrors,
+		&joinOptions.ignorePreflightErrors, yurtconstants.IgnorePreflightErrors, joinOptions.ignorePreflightErrors,
 		"A list of checks whose errors will be shown as warnings. Example: 'IsPrivilegedUser,Swap'. Value 'all' ignores errors from all checks.",
 	)
 	flagSet.StringVar(
