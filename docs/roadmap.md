@@ -94,20 +94,18 @@ detail info: https://github.com/orgs/openyurtio/projects/7
 
 **DataPlane SIG**
 
-- support SLB as public network exporter for gateway ([#22](https://github.com/openyurtio/raven/issues/22))
-- add reconciliation loop to check route entries and vpn connections periodically. ([#10](https://github.com/openyurtio/raven/issues/10))
-- support distribute route path decision ([#14](https://github.com/openyurtio/raven/issues/14))
-- [feature request]merge yurt-tunnel-server/agent into raven except ANP ([#40](https://github.com/openyurtio/raven/issues/40))
-- [feature request]enhance ANP for yurt-tunnel in raven ([#41](https://github.com/openyurtio/raven/issues/41))
+- Add unit tests ([#14](https://github.com/openyurtio/node-resource-manager/pull/14))
 
-detail info: https://github.com/openyurtio/raven/projects/3
+detail info: https://github.com/orgs/openyurtio/projects/8/views/1
 
 **IoT SIG**
 
-- define `YurtDeviceInterface` for integrating IOT systems seamlessly
-- support enable security features for EdgeX instance by yurt-edgex-manager
-- Added the definition of equipment Command and data processing process Pipeline.
-- Manage Benchmark based on OpenYurt+EdgeX cloud native device
+- [Feature] Add webhook for edgex ([#22](https://github.com/openyurtio/yurt-edgex-manager/issues/22))
+- Update yurt-edgex-manager to support kubernetes 1.22+ ([#21](https://github.com/openyurtio/yurt-edgex-manager/issues/21))
+- [unit test] improve unit test coverage for yurt-device-controller ([#41](https://github.com/openyurtio/yurt-device-controller/issues/41))
+- Add webhook test case in e2e ([#34](https://github.com/openyurtio/yurt-edgex-manager/issues/34))
+
+detail info: https://github.com/orgs/openyurtio/projects/4
 
 ## v1.2 Roadmap
 
@@ -121,5 +119,40 @@ detail info: https://github.com/openyurtio/raven/projects/3
   - Add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
   - Modify Yurt-Controller-Manager ([#776](https://github.com/openyurtio/openyurt/issues/776))
 - Improve Yurtadm Join command ([#889](https://github.com/openyurtio/openyurt/issues/889))
+- Improve Yurtadm Reset command ([#1058](https://github.com/openyurtio/openyurt/issues/1058))
 
 detail info: https://github.com/orgs/openyurtio/projects/10
+
+**DataPlane SIG**
+
+- support SLB as public network exporter for gateway ([#22](https://github.com/openyurtio/raven/issues/22))
+- add reconciliation loop to check route entries and vpn connections periodically. ([#10](https://github.com/openyurtio/raven/issues/10))
+- [Raven-L7] Endpoints manager implementation ([#69](https://github.com/openyurtio/raven/issues/69))
+- [Raven-L7] Raven l7 proxy implementation ([#70](https://github.com/openyurtio/raven/issues/70))
+- [Raven-L7] DNS manager implementation ([#66](https://github.com/openyurtio/raven/issues/66))
+- [Raven-L7] Cert manager implementation ([#67](https://github.com/openyurtio/raven/issues/67))
+- support to use helm to deploy raven ([#73](https://github.com/openyurtio/raven/issues/73))
+
+detail info: https://github.com/orgs/openyurtio/projects/9
+
+**IoT SIG**
+
+- [Design] Auto collect edgex deployment information and feed yurt-edgex-manager ([#24](https://github.com/openyurtio/yurt-edgex-manager/issues/24))
+- [EdgeX Auto-Collector] Perform special processing on some of the edgex environment variables ([#63](https://github.com/openyurtio/yurt-edgex-manager/issues/63))
+- [EdgeX Auto-Collector] Rewrite the controller part which read the edgex configuration section ([#62](https://github.com/openyurtio/yurt-edgex-manager/issues/62))
+- [EdgeX Auto-Collector] Synchronize the images of edgex to openyurt ([#60](https://github.com/openyurtio/yurt-edgex-manager/issues/60))
+- [EdgeX Auto-Collector] Collect volumes information about each component ([#61](https://github.com/openyurtio/yurt-edgex-manager/issues/61))
+- [EdgeX Auto-Collector] Set the Auto-Collector to be triggered periodically ([#65](https://github.com/openyurtio/yurt-edgex-manager/issues/65))
+- [EdgeX Auto-Collector] Modify CRD to give users the option to deploy a secure or insecure version of edgex ([#67](https://github.com/openyurtio/yurt-edgex-manager/issues/67))
+- [EdgeX Auto-Collector] Upgrade apiVersion and deprecate additionalServices and additionalDeployments in new version ([#68](https://github.com/openyurtio/yurt-edgex-manager/issues/68))
+
+detail info: https://github.com/orgs/openyurtio/projects/2
+
+## v1.3 Roadmap
+
+**ControlPlane SIG**
+
+- move scattered controllers into yurt-controller-manager ([#1067](https://github.com/openyurtio/openyurt/issues/1067))
+- combine yurtctl tool into yurtadm tool ([#1059](https://github.com/openyurtio/openyurt/issues/1059))
+
+detail info: https://github.com/orgs/openyurtio/projects/11
