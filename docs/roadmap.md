@@ -112,12 +112,12 @@ detail info: https://github.com/orgs/openyurtio/projects/4
 **ControlPlane SIG**
 
 - Provide NodePool Governance Capability
-  - Yurthub adds lease proxy mechanism ([#779](https://github.com/openyurtio/openyurt/issues/779))
-  - Add pool-coordinator-controller component ([#774](https://github.com/openyurtio/openyurt/issues/774))
-  - Yurthub supports writing metadata to pool-coordinator ([#778](https://github.com/openyurtio/openyurt/issues/778))
-  - Add pool-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
-  - Add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
-  - Modify Yurt-Controller-Manager ([#776](https://github.com/openyurtio/openyurt/issues/776))
+  - add pool-coordinator-certificate controller ([#774](https://github.com/openyurtio/openyurt/issues/774))
+  - add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
+  - remove nodelifecycle controller and add pool-coordinator controller in yurt-controller-manager component ([#776](https://github.com/openyurtio/openyurt/issues/776))
+  - add pool-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
+  - yurthub are delegated to report heartbeats for nodes that disconnected with cloud ([#779](https://github.com/openyurtio/openyurt/issues/779))
+- pool-coordinator supports share pool scope data in the nodepool ([#778](https://github.com/openyurtio/openyurt/issues/778))
 - Improve Yurtadm Join command ([#889](https://github.com/openyurtio/openyurt/issues/889))
 - Improve Yurtadm Reset command ([#1058](https://github.com/openyurtio/openyurt/issues/1058))
 
@@ -154,5 +154,7 @@ detail info: https://github.com/orgs/openyurtio/projects/2
 
 - move scattered controllers into yurt-controller-manager ([#1067](https://github.com/openyurtio/openyurt/issues/1067))
 - combine yurtctl tool into yurtadm tool ([#1059](https://github.com/openyurtio/openyurt/issues/1059))
+- support OTA and Auto upgrade model for static pod ([#1079](https://github.com/openyurtio/openyurt/issues/1079))
+- install yurthub component on edge nodes depending on StaticPod cr resource ([#1080](https://github.com/openyurtio/openyurt/issues/1080))
 
 detail info: https://github.com/orgs/openyurtio/projects/11
