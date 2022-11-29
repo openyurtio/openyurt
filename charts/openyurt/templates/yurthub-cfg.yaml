@@ -44,7 +44,7 @@ kind: ConfigMap
 metadata:
   name: yurt-hub-cfg
 data:
-  cache_agents: {{ .Values.yurtHub.cacheAgents }}
+  cache_agents: {{ .Values.yurtHub.cacheAgents | quote }}
   servicetopology: ""
   discardcloudservice: ""
   masterservice: ""
