@@ -17,8 +17,9 @@ limitations under the License.
 package constants
 
 import (
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 var (

@@ -60,23 +60,31 @@ const (
 
 type Coordinator struct {
 	sync.Mutex
-	ctx                       context.Context
-	cancelEtcdStorage         func()
-	informerFactory           informers.SharedInformerFactory
-	restMapperMgr             *meta.RESTMapperManager
-	serializerMgr             *serializer.SerializerManager
-	restConfigMgr             *yurtrest.RestConfigManager
-	etcdStorageCfg            *etcd.EtcdStorageConfig
-	poolCacheManager          cachemanager.CacheManager
-	diskStorage               storage.Store
-	etcdStorage               storage.Store
-	hubElector                *HubElector
-	electStatus               int32
-	isPoolCacheSynced         bool
-	needUploadLocalCache      bool
+	ctx                  context.Context
+	cancelEtcdStorage    func()
+	informerFactory      informers.SharedInformerFactory
+	restMapperMgr        *meta.RESTMapperManager
+	serializerMgr        *serializer.SerializerManager
+	restConfigMgr        *yurtrest.RestConfigManager
+	etcdStorageCfg       *etcd.EtcdStorageConfig
+	poolCacheManager     cachemanager.CacheManager
+	diskStorage          storage.Store
+	etcdStorage          storage.Store
+	hubElector           *HubElector
+	electStatus          int32
+	isPoolCacheSynced    bool
+	needUploadLocalCache bool
+	// poolScopeCacheSyncManager is used to sync pool-scoped resources from cloud to poolcoordinator.
 	poolScopeCacheSyncManager *poolScopedCacheSyncManager
-	informerSyncLeaseManager  *coordinatorLeaseInformerManager
-	delegateNodeLeaseManager  *coordinatorLeaseInformerManager
+	// informerSyncLeaseManager is used to detect the leader-informer-sync lease
+	// to check its RenewTime. If its renewTime is not updated after defaultInformerLeaseRenewDuration
+	// we can think that the poolcoordinator cache is stale and the poolcoordinator is not ready.
+	// It will start if yurthub becomes leader or follower.
+	informerSyncLeaseManager *coordinatorLeaseInformerManager
+	// delegateNodeLeaseManager is used to list/watch kube-node-lease from poolcoordinator. If the
+	// node lease contains DelegateHeartBeat label, it will triger the eventhandler which will
+	// use cloud client to send it to cloud APIServer.
+	delegateNodeLeaseManager *coordinatorLeaseInformerManager
 }
 
 func NewCoordinator(
