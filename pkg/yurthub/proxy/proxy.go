@@ -17,6 +17,7 @@ limitations under the License.
 package proxy
 
 import (
+	"errors"
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -146,38 +147,28 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if util.IsKubeletLeaseReq(req) {
-		p.handleKubeletLease(rw, req)
-		return
-	}
-
 	if p.workingMode == hubutil.WorkingModeCloud {
 		p.loadBalancer.ServeHTTP(rw, req)
 		return
 	}
 
-	if util.IsEventCreateRequest(req) ||
-		util.IsPoolScopedResouceListWatchRequest(req) ||
-		util.IsSubjectAccessReviewCreateGetRequest(req) {
-		// For pool-scoped request, we should check if pool-coordinator is ready for request.
-		// We may handle two kinds of request through pool-coordinator:
-		// 1. list/watch request for pool-scoped resources for traffic multiplexing.
-		// 2. create/get subjectaccessreview resources for enabling logs/exec through pool-coordinator.
-		// 3. creat event resources for maintenance
-		// We assume that if pool-coordinator is not enabled or is not healthy, IsReady will return false.
-		if _, isReady := p.coordinator.IsReady(); isReady {
-			p.poolProxy.ServeHTTP(rw, req)
-			return
+	switch {
+	case util.IsKubeletLeaseReq(req):
+		p.handleKubeletLease(rw, req)
+	case util.IsEventCreateRequest(req):
+		p.eventHandler(rw, req)
+	case util.IsPoolScopedResouceListWatchRequest(req):
+		p.poolScopedResouceHandler(rw, req)
+	case util.IsSubjectAccessReviewCreateGetRequest(req):
+		p.subjectAccessReviewHandler(rw, req)
+	default:
+		// For resource request that do not need to be handled by pool-coordinator,
+		// handling the request with cloud apiserver or local cache.
+		if p.cloudHealthChecker.IsHealthy() {
+			p.loadBalancer.ServeHTTP(rw, req)
+		} else {
+			p.localProxy.ServeHTTP(rw, req)
 		}
-	}
-
-	// For request that do not need to be handled by pool-coordinator, or
-	// pool-coordinator is disabled or unhealthy, fall through the normal case, which
-	// handling the request with cloud apiserver or local cache.
-	if p.cloudHealthChecker.IsHealthy() {
-		p.loadBalancer.ServeHTTP(rw, req)
-	} else {
-		p.localProxy.ServeHTTP(rw, req)
 	}
 }
 
@@ -186,9 +177,53 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 	p.coordinatorHealtChecker.RenewKubeletLeaseTime()
 	if p.localProxy != nil {
 		p.localProxy.ServeHTTP(rw, req)
-	} else {
-		// Only in cloud mode, poolProxy and localProxy can both be nil.
-		// So we should proxy the kubelet lease request with lb.
-		p.loadBalancer.ServeHTTP(rw, req)
 	}
+}
+
+func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Request) {
+	if p.cloudHealthChecker.IsHealthy() {
+		p.loadBalancer.ServeHTTP(rw, req)
+		// TODO: We should also consider create the event in pool-coordinator when the cloud is healthy.
+	} else if _, isReady := p.coordinator.IsReady(); isReady {
+		p.poolProxy.ServeHTTP(rw, req)
+	} else {
+		p.localProxy.ServeHTTP(rw, req)
+	}
+}
+
+func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req *http.Request) {
+	if _, isReady := p.coordinator.IsReady(); isReady {
+		p.poolProxy.ServeHTTP(rw, req)
+	} else if p.cloudHealthChecker.IsHealthy() {
+		p.loadBalancer.ServeHTTP(rw, req)
+	} else {
+		p.localProxy.ServeHTTP(rw, req)
+	}
+}
+
+func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
+	if isRequestFromPoolCoordinator(req) {
+		if _, isReady := p.coordinator.IsReady(); isReady {
+			p.poolProxy.ServeHTTP(rw, req)
+		} else {
+			err := errors.New("request is from pool-coordinator but it's currently not healthy")
+			klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
+			util.Err(err, rw, req)
+		}
+	} else {
+		if p.cloudHealthChecker.IsHealthy() {
+			p.loadBalancer.ServeHTTP(rw, req)
+		} else {
+			err := errors.New("request is from cloud APIServer but it's currently not healthy")
+			klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
+			util.Err(err, rw, req)
+		}
+	}
+}
+
+func isRequestFromPoolCoordinator(req *http.Request) bool {
+	// TODO: need a way to check if the logs/exec request is from APIServer or PoolCoordinator.
+	// We should avoid sending SubjectAccessReview to Pool-Coordinator if the logs/exec requests
+	// come from APIServer, which may fail for RBAC differences, vise versa.
+	return false
 }
