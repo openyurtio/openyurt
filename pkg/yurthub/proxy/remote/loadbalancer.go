@@ -293,14 +293,24 @@ func (lb *loadBalancer) cacheResponse(req *http.Request) {
 		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
 
 		if isHealthy && poolCacheManager != nil {
-			if !isLeaderHubUserAgent(ctx) && isPoolScopedCtx(ctx) {
-				// We do not allow the non-leader yurthub to cache pool-scoped resources
-				// into pool-coordinator to ensure that only one yurthub can update pool-scoped
-				// cache to avoid inconsistency of data.
-				lb.cacheToLocal(req)
-				return
+			if !isLeaderHubUserAgent(ctx) {
+				if isPoolScopedCtx(ctx) {
+					// We do not allow the non-leader yurthub to cache pool-scoped resources
+					// into pool-coordinator to ensure that only one yurthub can update pool-scoped
+					// cache to avoid inconsistency of data.
+					lb.cacheToLocal(req)
+				} else {
+					lb.cacheToLocalAndPool(req, poolCacheManager)
+				}
+			} else {
+				if isPoolScopedCtx(ctx) {
+					// Leader Yurthub will always list/watch all resources, which contain may resource this
+					// node does not need.
+					lb.cacheToPool(req, poolCacheManager)
+				} else {
+					klog.Errorf("failed to cache response for request %s, leader yurthub does not cache non-poolscoped resources.", hubutil.ReqString(req))
+				}
 			}
-			lb.cacheToLocalAndPool(req, poolCacheManager)
 			return
 		}
 
@@ -316,6 +326,18 @@ func (lb *loadBalancer) cacheToLocal(req *http.Request) {
 	rc, prc := hubutil.NewDualReadCloser(req, req.Body, false)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
+			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+		}
+	}(req, prc, ctx.Done())
+	req.Body = rc
+}
+
+func (lb *loadBalancer) cacheToPool(req *http.Request, poolCacheManager cachemanager.CacheManager) {
+	ctx := req.Context()
+	req = req.WithContext(ctx)
+	rc, prc := hubutil.NewDualReadCloser(req, req.Body, false)
+	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
+		if err := poolCacheManager.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
