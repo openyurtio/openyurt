@@ -94,10 +94,12 @@ func NewCoordinator(
 	transportMgr transport.Interface,
 	elector *HubElector) (*Coordinator, error) {
 	etcdStorageCfg := &etcd.EtcdStorageConfig{
+		Prefix:        cfg.CoordinatorStoragePrefix,
 		EtcdEndpoints: []string{cfg.CoordinatorStorageAddr},
 		CaFile:        cfg.CoordinatorStorageCaFile,
 		CertFile:      cfg.CoordinatorStorageCertFile,
 		KeyFile:       cfg.CoordinatorStorageKeyFile,
+		LocalCacheDir: cfg.DiskCachePath,
 	}
 
 	coordinatorRESTCfg := &rest.Config{

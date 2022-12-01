@@ -65,6 +65,7 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerSecureAddr      string
 	YurtHubProxyServerDummyAddr       string
 	YurtHubProxyServerSecureDummyAddr string
+	DiskCachePath                     string
 	GCFrequency                       int
 	CertMgrMode                       string
 	KubeletRootCAFilePath             string
@@ -93,6 +94,7 @@ type YurtHubConfiguration struct {
 	CertIPs                           []net.IP
 	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
+	CoordinatorStoragePrefix          string
 	CoordinatorStorageAddr            string // ip:port
 	CoordinatorStorageCaFile          string
 	CoordinatorStorageCertFile        string
@@ -167,6 +169,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubProxyServerSecureAddr:      proxySecureServerAddr,
 		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,
 		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
+		DiskCachePath:                     options.DiskCachePath,
 		GCFrequency:                       options.GCFrequency,
 		KubeletRootCAFilePath:             options.KubeletRootCAFilePath,
 		KubeletPairFilePath:               options.KubeletPairFilePath,
@@ -192,6 +195,11 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
+		CoordinatorStoragePrefix:          options.CoordinatorStoragePrefix,
+		CoordinatorStorageAddr:            options.CoordinatorStorageAddr,
+		CoordinatorStorageCaFile:          options.CoordinatorStorageCaFile,
+		CoordinatorStorageCertFile:        options.CoordinatorStorageCertFile,
+		CoordinatorStorageKeyFile:         options.CoordinatorStorageKeyFile,
 		LeaderElection:                    options.LeaderElection,
 	}
 
