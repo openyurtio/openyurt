@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -36,6 +37,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
+)
+
+const (
+	watchCheckInterval = 5 * time.Second
 )
 
 type loadBalancerAlgo interface {
@@ -189,6 +194,34 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
+	if util.IsPoolScopedResouceListWatchRequest(req) {
+		// We get here possibly because the pool-coordinator is not ready.
+		// We should cancel the watch request when pool-coordinator becomes ready.
+		klog.Infof("pool-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
+		clientReqCtx := req.Context()
+		cloudServeCtx, cloudServeCancel := context.WithCancel(clientReqCtx)
+
+		go func() {
+			t := time.NewTicker(watchCheckInterval)
+			defer t.Stop()
+			for {
+				select {
+				case <-t.C:
+					if _, isReady := lb.coordinator.IsReady(); isReady {
+						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
+						cloudServeCancel()
+						return
+					}
+				case <-clientReqCtx.Done():
+					return
+				}
+			}
+		}()
+
+		newReq := req.Clone(cloudServeCtx)
+		req = newReq
+	}
+
 	rp.ServeHTTP(rw, req)
 }
 
