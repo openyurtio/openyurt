@@ -87,7 +87,14 @@ func NewYurtReverseProxyHandler(
 	if yurtHubCfg.WorkingMode == hubutil.WorkingModeEdge {
 		// When yurthub works in Edge mode, we may use local proxy or pool proxy to handle
 		// the request when offline.
-		localProxy = local.NewLocalProxy(localCacheMgr, cloudHealthChecker.IsHealthy, yurtHubCfg.MinRequestTimeout)
+		localProxy = local.NewLocalProxy(localCacheMgr,
+			cloudHealthChecker.IsHealthy,
+			func() bool {
+				_, ready := coordinator.IsHealthy()
+				return ready
+			},
+			yurtHubCfg.MinRequestTimeout,
+		)
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 		poolProxy, err = pool.NewPoolCoordinatorProxy(
 			yurtHubCfg.CoordinatorServer,
