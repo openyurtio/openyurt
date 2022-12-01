@@ -329,13 +329,15 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
 		if isHealthy && poolCacheManager != nil {
 			if !isLeaderHubUserAgent(ctx) {
-				if isPoolScopedCtx(ctx) {
-					// We do not allow the non-leader yurthub to cache pool-scoped resources
+				if isRequestOfNodeAndPod(ctx) {
+					// Currently, for request that does not come from "leader-yurthub",
+					// we only cache pod and node resources to pool-coordinator.
+					// Note: We do not allow the non-leader yurthub to cache pool-scoped resources
 					// into pool-coordinator to ensure that only one yurthub can update pool-scoped
 					// cache to avoid inconsistency of data.
-					lb.cacheToLocal(req, resp)
-				} else {
 					lb.cacheToLocalAndPool(req, resp, poolCacheManager)
+				} else {
+					lb.cacheToLocal(req, resp)
 				}
 			} else {
 				if isPoolScopedCtx(ctx) {
@@ -407,4 +409,14 @@ func isLeaderHubUserAgent(reqCtx context.Context) bool {
 func isPoolScopedCtx(reqCtx context.Context) bool {
 	poolScoped, hasPoolScoped := hubutil.IfPoolScopedResourceFrom(reqCtx)
 	return hasPoolScoped && poolScoped
+}
+
+func isRequestOfNodeAndPod(reqCtx context.Context) bool {
+	reqInfo, ok := apirequest.RequestInfoFrom(reqCtx)
+	if !ok {
+		return false
+	}
+
+	return (reqInfo.Resource == "nodes" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1") ||
+		(reqInfo.Resource == "pods" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1")
 }
