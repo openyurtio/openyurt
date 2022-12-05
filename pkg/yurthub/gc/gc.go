@@ -18,13 +18,13 @@ package gc
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -56,6 +57,7 @@ func NewGCManager(cfg *config.YurtHubConfiguration, restConfigManager *rest.Rest
 		gcFrequency = defaultEventGcInterval
 	}
 	mgr := &GCManager{
+		// TODO: use disk storage directly
 		store:             cfg.StorageWrapper,
 		nodeName:          cfg.NodeName,
 		restConfigManager: restConfigManager,
@@ -90,7 +92,11 @@ func (m *GCManager) Run() {
 }
 
 func (m *GCManager) gcPodsWhenRestart() {
-	localPodKeys, err := m.store.ListKeys("kubelet/pods")
+	localPodKeys, err := m.store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "pods",
+	})
 	if err != nil {
 		klog.Errorf("failed to list keys for kubelet pods, %v", err)
 		return
@@ -100,6 +106,9 @@ func (m *GCManager) gcPodsWhenRestart() {
 	}
 	klog.Infof("list pod keys from storage, total: %d", len(localPodKeys))
 
+	if len(localPodKeys) == 0 {
+		return
+	}
 	cfg := m.restConfigManager.GetRestConfig(true)
 	if cfg == nil {
 		klog.Errorf("could not get rest config, so skip gc pods when restart")
@@ -118,17 +127,25 @@ func (m *GCManager) gcPodsWhenRestart() {
 		return
 	}
 
-	currentPodKeys := make(map[string]struct{}, len(podList.Items))
+	currentPodKeys := make(map[storage.Key]struct{}, len(podList.Items))
 	for i := range podList.Items {
 		name := podList.Items[i].Name
 		ns := podList.Items[i].Namespace
-
-		key, _ := util.KeyFunc("kubelet", "pods", ns, name)
+		key, err := m.store.KeyFunc(storage.KeyBuildInfo{
+			Component: "kubelet",
+			Namespace: ns,
+			Name:      name,
+			Resources: "pods",
+		})
+		if err != nil {
+			klog.Errorf("failed to get pod key for %s/%s, %v", ns, name, err)
+			continue
+		}
 		currentPodKeys[key] = struct{}{}
 	}
 	klog.V(2).Infof("list all of pod that on the node: total: %d", len(currentPodKeys))
 
-	deletedPods := make([]string, 0)
+	deletedPods := make([]storage.Key, 0)
 	for i := range localPodKeys {
 		if _, ok := currentPodKeys[localPodKeys[i]]; !ok {
 			deletedPods = append(deletedPods, localPodKeys[i])
@@ -155,7 +172,11 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 		return
 	}
 
-	localEventKeys, err := m.store.ListKeys(fmt.Sprintf("%s/events", component))
+	localEventKeys, err := m.store.ListResourceKeysOfComponent(component, schema.GroupVersionResource{
+		Group:    "events.k8s.io",
+		Version:  "v1",
+		Resource: "events",
+	})
 	if err != nil {
 		klog.Errorf("could not list keys for %s events, %v", component, err)
 		return
@@ -165,9 +186,9 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 	}
 	klog.Infof("list %s event keys from storage, total: %d", component, len(localEventKeys))
 
-	deletedEvents := make([]string, 0)
+	deletedEvents := make([]storage.Key, 0)
 	for _, key := range localEventKeys {
-		_, _, ns, name := util.SplitKey(key)
+		_, _, ns, name := util.SplitKey(key.Key())
 		if len(ns) == 0 || len(name) == 0 {
 			klog.Infof("could not get namespace or name for event %s", key)
 			continue

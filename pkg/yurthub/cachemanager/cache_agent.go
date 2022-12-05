@@ -18,9 +18,11 @@ package cachemanager
 
 import (
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -31,32 +33,43 @@ const (
 	sepForAgent = ","
 )
 
-func (cm *cacheManager) initCacheAgents() error {
-	if cm.sharedFactory == nil {
-		return nil
-	}
-	configmapInformer := cm.sharedFactory.Core().V1().ConfigMaps().Informer()
-	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    cm.addConfigmap,
-		UpdateFunc: cm.updateConfigmap,
-		DeleteFunc: cm.deleteConfigmap,
-	})
-
-	klog.Infof("init cache agents to %v", cm.cacheAgents)
-	return nil
+type CacheAgent struct {
+	sync.Mutex
+	agents sets.String
+	store  StorageWrapper
 }
 
-func (cm *cacheManager) addConfigmap(obj interface{}) {
+func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
+	ca := &CacheAgent{
+		agents: sets.NewString(util.DefaultCacheAgents...),
+		store:  store,
+	}
+	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
+	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    ca.addConfigmap,
+		UpdateFunc: ca.updateConfigmap,
+		DeleteFunc: ca.deleteConfigmap,
+	})
+
+	klog.Infof("init cache agents to %v", ca.agents)
+	return ca
+}
+
+func (ca *CacheAgent) HasAny(items ...string) bool {
+	return ca.agents.HasAny(items...)
+}
+
+func (ca *CacheAgent) addConfigmap(obj interface{}) {
 	cfg, ok := obj.(*corev1.ConfigMap)
 	if !ok {
 		return
 	}
 
-	deletedAgents := cm.updateCacheAgents(cfg.Data[util.CacheUserAgentsKey], "add")
-	cm.deleteAgentCache(deletedAgents)
+	deletedAgents := ca.updateCacheAgents(cfg.Data[util.CacheUserAgentsKey], "add")
+	ca.deleteAgentCache(deletedAgents)
 }
 
-func (cm *cacheManager) updateConfigmap(oldObj, newObj interface{}) {
+func (ca *CacheAgent) updateConfigmap(oldObj, newObj interface{}) {
 	oldCfg, ok := oldObj.(*corev1.ConfigMap)
 	if !ok {
 		return
@@ -71,22 +84,22 @@ func (cm *cacheManager) updateConfigmap(oldObj, newObj interface{}) {
 		return
 	}
 
-	deletedAgents := cm.updateCacheAgents(newCfg.Data[util.CacheUserAgentsKey], "update")
-	cm.deleteAgentCache(deletedAgents)
+	deletedAgents := ca.updateCacheAgents(newCfg.Data[util.CacheUserAgentsKey], "update")
+	ca.deleteAgentCache(deletedAgents)
 }
 
-func (cm *cacheManager) deleteConfigmap(obj interface{}) {
+func (ca *CacheAgent) deleteConfigmap(obj interface{}) {
 	_, ok := obj.(*corev1.ConfigMap)
 	if !ok {
 		return
 	}
 
-	deletedAgents := cm.updateCacheAgents("", "delete")
-	cm.deleteAgentCache(deletedAgents)
+	deletedAgents := ca.updateCacheAgents("", "delete")
+	ca.deleteAgentCache(deletedAgents)
 }
 
 // updateCacheAgents update cache agents
-func (cm *cacheManager) updateCacheAgents(cacheAgents, action string) sets.String {
+func (ca *CacheAgent) updateCacheAgents(cacheAgents, action string) sets.String {
 	newAgents := sets.NewString(util.DefaultCacheAgents...)
 	for _, agent := range strings.Split(cacheAgents, sepForAgent) {
 		agent = strings.TrimSpace(agent)
@@ -95,29 +108,32 @@ func (cm *cacheManager) updateCacheAgents(cacheAgents, action string) sets.Strin
 		}
 	}
 
-	cm.Lock()
-	defer cm.Unlock()
+	ca.Lock()
+	defer ca.Unlock()
 
-	if cm.cacheAgents.Equal(newAgents) {
+	if ca.agents.Equal(newAgents) {
 		return sets.String{}
 	}
 
-	deletedAgents := cm.cacheAgents.Difference(newAgents)
-	cm.cacheAgents = newAgents
-	klog.Infof("current cache agents: %v after %s, deleted agents: %v", cm.cacheAgents, action, deletedAgents)
+	// get deleted and added agents
+	deletedAgents := ca.agents.Difference(newAgents)
+	ca.agents = newAgents
 
+	klog.Infof("current cache agents: %v after %s, deleted agents: %v", ca.agents, action, deletedAgents)
+
+	// return deleted agents
 	return deletedAgents
 }
 
-func (cm *cacheManager) deleteAgentCache(deletedAgents sets.String) {
+func (ca *CacheAgent) deleteAgentCache(deletedAgents sets.String) {
 	// delete cache data for deleted agents
 	if deletedAgents.Len() > 0 {
-		keys := deletedAgents.List()
-		for i := range keys {
-			if err := cm.storage.DeleteCollection(keys[i]); err != nil {
-				klog.Errorf("failed to cleanup cache for deleted agent(%s), %v", keys[i], err)
+		components := deletedAgents.List()
+		for i := range components {
+			if err := ca.store.DeleteComponentResources(components[i]); err != nil {
+				klog.Errorf("failed to cleanup cache for deleted agent(%s), %v", components[i], err)
 			} else {
-				klog.Infof("cleanup cache for agent(%s) successfully", keys[i])
+				klog.Infof("cleanup cache for agent(%s) successfully", components[i])
 			}
 		}
 	}

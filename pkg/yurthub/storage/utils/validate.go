@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2022 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package factory
+package utils
 
 import (
+	"reflect"
+
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
-// CreateStorage create a storage.Store for backend storage
-func CreateStorage(cachePath string) (storage.Store, error) {
-	return disk.NewDiskStorage(cachePath)
+// TODO: should also valid the key format
+func ValidateKey(key storage.Key, validKeyType interface{}) error {
+	if reflect.TypeOf(key) != reflect.TypeOf(validKeyType) {
+		return storage.ErrUnrecognizedKey
+	}
+	if key.Key() == "" {
+		return storage.ErrKeyIsEmpty
+	}
+	return nil
+}
+
+func ValidateKV(key storage.Key, content []byte, valideKeyType interface{}) error {
+	if err := ValidateKey(key, valideKeyType); err != nil {
+		return err
+	}
+	if len(content) == 0 {
+		return storage.ErrKeyHasNoContent
+	}
+	return nil
 }

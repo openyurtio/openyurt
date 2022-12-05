@@ -21,7 +21,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
@@ -39,11 +38,6 @@ type WantsYurtSharedInformerFactory interface {
 // WantsNodeName is an interface for setting node name
 type WantsNodeName interface {
 	SetNodeName(nodeName string) error
-}
-
-// WantsSerializerManager is an interface for setting serializer manager
-type WantsSerializerManager interface {
-	SetSerializerManager(s *serializer.SerializerManager) error
 }
 
 // WantsStorageWrapper is an interface for setting StorageWrapper
@@ -66,7 +60,6 @@ type WantsWorkingMode interface {
 type genericFilterInitializer struct {
 	factory           informers.SharedInformerFactory
 	yurtFactory       yurtinformers.SharedInformerFactory
-	serializerManager *serializer.SerializerManager
 	storageWrapper    cachemanager.StorageWrapper
 	nodeName          string
 	masterServiceHost string
@@ -77,14 +70,12 @@ type genericFilterInitializer struct {
 // New creates an filterInitializer object
 func New(factory informers.SharedInformerFactory,
 	yurtFactory yurtinformers.SharedInformerFactory,
-	sm *serializer.SerializerManager,
 	sw cachemanager.StorageWrapper,
 	nodeName, masterServiceHost, masterServicePort string,
 	workingMode util.WorkingMode) *genericFilterInitializer {
 	return &genericFilterInitializer{
 		factory:           factory,
 		yurtFactory:       yurtFactory,
-		serializerManager: sm,
 		storageWrapper:    sw,
 		nodeName:          nodeName,
 		masterServiceHost: masterServiceHost,
@@ -125,12 +116,6 @@ func (fi *genericFilterInitializer) Initialize(ins filter.Runner) error {
 
 	if wants, ok := ins.(WantsYurtSharedInformerFactory); ok {
 		if err := wants.SetYurtSharedInformerFactory(fi.yurtFactory); err != nil {
-			return err
-		}
-	}
-
-	if wants, ok := ins.(WantsSerializerManager); ok {
-		if err := wants.SetSerializerManager(fi.serializerManager); err != nil {
 			return err
 		}
 	}

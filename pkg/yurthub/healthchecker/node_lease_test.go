@@ -50,7 +50,7 @@ func TestNodeLeaseManager_Update(t *testing.T) {
 		},
 	}
 
-	gr := schema.GroupResource{Group: "v1", Resource: "lease"}
+	gr := schema.GroupResource{Group: "v1", Resource: "leases"}
 	noConnectionUpdateErr := apierrors.NewServerTimeout(gr, "put", 1)
 
 	cases := []struct {

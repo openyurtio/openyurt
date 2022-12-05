@@ -66,8 +66,8 @@ func TestUpdateCacheAgents(t *testing.T) {
 	}
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			m := &cacheManager{
-				cacheAgents: sets.NewString(util.DefaultCacheAgents...),
+			m := &CacheAgent{
+				agents: sets.NewString(tt.initAgents...),
 			}
 
 			m.updateCacheAgents(strings.Join(tt.initAgents, ","), "")
@@ -79,8 +79,8 @@ func TestUpdateCacheAgents(t *testing.T) {
 				t.Errorf("Got deleted agents: %v, expect agents: %v", deletedAgents, tt.deletedAgents)
 			}
 
-			if !m.cacheAgents.Equal(tt.resultAgents) {
-				t.Errorf("Got cache agents: %v, expect agents: %v", m.cacheAgents, tt.resultAgents)
+			if !m.agents.Equal(tt.resultAgents) {
+				t.Errorf("Got cache agents: %v, expect agents: %v", m.agents, tt.resultAgents)
 			}
 		})
 	}

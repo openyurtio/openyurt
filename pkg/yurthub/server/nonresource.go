@@ -19,7 +19,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -30,12 +29,13 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
-var nonResourceReqPaths = []string{
-	"/version",
-	"/apis/discovery.k8s.io/v1",
-	"/apis/discovery.k8s.io/v1beta1",
+var nonResourceReqPaths = map[string]storage.ClusterInfoType{
+	"/version":                       storage.Version,
+	"/apis/discovery.k8s.io/v1":      storage.APIResourcesInfo,
+	"/apis/discovery.k8s.io/v1beta1": storage.APIResourcesInfo,
 }
 
 type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler
@@ -43,8 +43,8 @@ type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.S
 func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
 	wrapMux := mux.NewRouter()
 	// register handler for non resource requests
-	for i := range nonResourceReqPaths {
-		wrapMux.Handle(nonResourceReqPaths[i], localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, nonResourceReqPaths[i])).Methods("GET")
+	for path := range nonResourceReqPaths {
+		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
 	}
 
 	// register handler for other requests
@@ -54,11 +54,14 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 
 func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := fmt.Sprintf("non-reosurce-info%s", path)
+		key := storage.ClusterInfoKey{
+			ClusterInfoType: nonResourceReqPaths[path],
+			UrlPath:         path,
+		}
 		restCfg := restMgr.GetRestConfig(true)
 		if restCfg == nil {
 			klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
-			if nonResourceData, err := sw.GetRaw(key); err != nil {
+			if nonResourceData, err := sw.GetClusterInfo(key); err != nil {
 				writeErrResponse(path, err, w)
 			} else {
 				writeRawJSON(nonResourceData, w)
@@ -77,12 +80,15 @@ func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManag
 
 func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := fmt.Sprintf("non-reosurce-info%s", path)
+		key := storage.ClusterInfoKey{
+			ClusterInfoType: nonResourceReqPaths[path],
+			UrlPath:         path,
+		}
 		if nonResourceData, err := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw(); err != nil {
 			writeErrResponse(path, err, w)
 		} else {
 			writeRawJSON(nonResourceData, w)
-			sw.UpdateRaw(key, nonResourceData)
+			sw.SaveClusterInfo(key, nonResourceData)
 		}
 	})
 }
