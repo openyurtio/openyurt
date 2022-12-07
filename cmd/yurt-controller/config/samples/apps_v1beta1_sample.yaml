@@ -1,0 +1,6 @@
+apiVersion: apps.openyurt.io/v1beta1
+kind: Sample
+metadata:
+  name: sample-sample
+spec:
+  # TODO(user): Add fields here

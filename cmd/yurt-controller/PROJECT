@@ -3,4 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: yurt-controller
 repo: github.com/openyurtio/openyurt
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openyurt.io
+  group: apps
+  kind: Sample
+  path: github.com/openyurtio/openyurt/api/v1beta1
+  version: v1beta1
 version: "3"
