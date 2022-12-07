@@ -1,0 +1,6 @@
+domain: openyurt.io
+layout:
+- go.kubebuilder.io/v3
+projectName: yurt-controller
+repo: github.com/openyurtio/openyurt
+version: "3"
