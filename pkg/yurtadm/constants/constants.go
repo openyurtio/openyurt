@@ -177,6 +177,7 @@ nodeRegistration:
   name: {{.name}}
   ignorePreflightErrors:
     - FileAvailable--etc-kubernetes-kubelet.conf
+    - DirAvailable--etc-kubernetes-manifests
     {{- range $index, $value := .ignorePreflightErrors}}
     - {{$value}}
     {{- end}}
