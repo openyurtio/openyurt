@@ -26,8 +26,10 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator"
 	poolcoordinatorcertmanager "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/webhook"
 )
 
 func startPoolCoordinatorCertManager(ctx ControllerContext) (http.Handler, bool, error) {
@@ -36,6 +38,15 @@ func startPoolCoordinatorCertManager(ctx ControllerContext) (http.Handler, bool,
 		ctx.InformerFactory.Core().V1().Pods(),
 	)
 	go poolcoordinatorCertManager.Run(1, ctx.Stop)
+	return nil, true, nil
+}
+
+func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, error) {
+	poolcoordinatorController := poolcoordinator.NewController(
+		ctx.ClientBuilder.ClientOrDie("poolcoordinator-controller"),
+		ctx.InformerFactory,
+	)
+	go poolcoordinatorController.Run(ctx.Stop)
 	return nil, true, nil
 }
 
@@ -74,5 +85,14 @@ func startServiceTopologyController(ctx ControllerContext) (http.Handler, bool, 
 		return nil, false, err
 	}
 	go svcTopologyController.Run(ctx.Stop)
+	return nil, true, nil
+}
+
+func startWebhookManager(ctx ControllerContext) (http.Handler, bool, error) {
+	webhookManager := webhook.NewWebhookManager(
+		ctx.ClientBuilder.ClientOrDie("webhook manager"),
+		ctx.InformerFactory,
+	)
+	go webhookManager.Run(ctx.Stop)
 	return nil, true, nil
 }
