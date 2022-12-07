@@ -39,21 +39,21 @@ const (
 type HubElector struct {
 	coordinatorClient           kubernetes.Interface
 	coordinatorHealthChecker    healthchecker.HealthChecker
-	cloudAPIServerHealthChecker healthchecker.HealthChecker
+	cloudAPIServerHealthChecker healthchecker.MultipleBackendsHealthChecker
 	electorStatus               chan int32
 	le                          *leaderelection.LeaderElector
 	inElecting                  bool
 }
 
-func NewHubElector(cfg *config.YurtHubConfiguration, coordinatorClient kubernetes.Interface, cloudAPIServerHealthyChecker healthchecker.HealthChecker, stopCh <-chan struct{}) (*HubElector, error) {
-	coordinatorHealthyChecker, err := healthchecker.NewCoordinatorHealthChecker(cfg, coordinatorClient, cloudAPIServerHealthyChecker, stopCh)
-	if err != nil {
-		return nil, err
-	}
-
+func NewHubElector(
+	cfg *config.YurtHubConfiguration,
+	coordinatorClient kubernetes.Interface,
+	coordinatorHealthChecker healthchecker.HealthChecker,
+	cloudAPIServerHealthyChecker healthchecker.MultipleBackendsHealthChecker,
+	stopCh <-chan struct{}) (*HubElector, error) {
 	he := &HubElector{
 		coordinatorClient:           coordinatorClient,
-		coordinatorHealthChecker:    coordinatorHealthyChecker,
+		coordinatorHealthChecker:    coordinatorHealthChecker,
 		cloudAPIServerHealthChecker: cloudAPIServerHealthyChecker,
 		electorStatus:               make(chan int32),
 	}
@@ -79,7 +79,8 @@ func NewHubElector(cfg *config.YurtHubConfiguration, coordinatorClient kubernete
 				he.electorStatus <- LeaderHub
 			},
 			OnStoppedLeading: func() {
-
+				klog.Infof("yurthub of %s is no more a leader", cfg.NodeName)
+				he.electorStatus <- PendingHub
 			},
 		},
 	})
