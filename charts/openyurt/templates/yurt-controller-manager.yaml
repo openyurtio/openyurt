@@ -16,19 +16,9 @@ rules:
     resources:
       - nodes
     verbs:
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
-  - apiGroups:
-      - ""
-    resources:
-      - nodes/status
-    verbs:
-      - patch
-      - update
   - apiGroups:
       - ""
     resources:
@@ -40,8 +30,12 @@ rules:
     resources:
       - pods
     verbs:
+      - create
       - delete
+      - get
       - list
+      - patch
+      - update
       - watch
   - apiGroups:
       - ""
@@ -199,3 +193,15 @@ spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
+        env:
+        - name: WEBHOOK_CERT_DIR
+          value: {{ .Values.admissionWebhooks.certificate.mountPath }}
+        volumeMounts:
+        - mountPath: {{ .Values.admissionWebhooks.certificate.mountPath }}
+          name: cert
+          readOnly: true
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: pool-coordinator-admission

@@ -24,11 +24,11 @@ import (
 
 // TODO: should also valid the key format
 func ValidateKey(key storage.Key, validKeyType interface{}) error {
+	if key == nil || key.Key() == "" {
+		return storage.ErrKeyIsEmpty
+	}
 	if reflect.TypeOf(key) != reflect.TypeOf(validKeyType) {
 		return storage.ErrUnrecognizedKey
-	}
-	if key.Key() == "" {
-		return storage.ErrKeyIsEmpty
 	}
 	return nil
 }

@@ -104,7 +104,7 @@ func (ds *diskStorage) Name() string {
 
 // Create will create a new file with content. key indicates the path of the file.
 func (ds *diskStorage) Create(key storage.Key, content []byte) error {
-	if err := utils.ValidateKey(key, storageKey{}); err != nil {
+	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
 		return err
 	}
 	storageKey := key.(storageKey)

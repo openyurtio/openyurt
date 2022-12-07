@@ -210,7 +210,7 @@ func TestNewCoordinatorHealthChecker(t *testing.T) {
 			if tt.cloudAPIServerUnhealthy {
 				if delegateLease == nil || len(delegateLease.Annotations) == 0 {
 					t.Errorf("expect delegate heartbeat annotaion, but got nil")
-				} else if v, ok := delegateLease.Annotations[delegateHeartBeat]; !ok || v != "true" {
+				} else if v, ok := delegateLease.Annotations[DelegateHeartBeat]; !ok || v != "true" {
 					t.Errorf("expect delegate heartbeat annotaion and v is true, but got empty or %v", v)
 				}
 			}

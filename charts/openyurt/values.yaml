@@ -13,6 +13,26 @@ yurtControllerManager:
     type: ClusterIP
     port: 80
 
+admissionWebhooks:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 9443
+  failurePolicy: Fail
+  certificate:
+    mountPath: /tmp/k8s-webhook-server/serving-certs
+  patch:
+    enabled: true
+    image:
+      repository: docker.io/oamdev/kube-webhook-certgen
+      tag: v2.4.1
+      pullPolicy: IfNotPresent
+    affinity: {}
+    tolerations: [{"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"}]
+  certManager:
+    enabled: false
+    revisionHistoryLimit: 3
+
 yurtTunnelAgent:
   replicaCount: 1
   tolerations: []
@@ -35,6 +55,37 @@ yurtTunnelServer:
     repository: openyurt/yurt-tunnel-server
     pullPolicy: IfNotPresent
     tag: v1.1.0
+
+poolCoordinator:
+  apiserverSecurePort: 10270
+  apiserverImage:
+    registry: docker.io
+    repository: google_containers/kube-apiserver
+    pullPolicy: IfNotPresent
+    tag: v1.20.0
+  apiserverResources:
+    requests:
+      cpu: 250m
+  serviceClusterIPRange: 10.96.0.0/12
+  etcdPort: 12379
+  etcdMetricPort: 12381
+  etcdImage:
+    registry: docker.io
+    repository: google_containers/etcd
+    pullPolicy: IfNotPresent
+    tag: 3.5.0-0
+  etcdResources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  kubectlImage:
+    registry: docker.io
+    repository: viejo/kubectl
+    pullPolicy: IfNotPresent
+    tag: latest
 
 yurtHub:
   cacheAgents: ""
