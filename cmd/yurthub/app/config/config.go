@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	componentbaseconfig "k8s.io/component-base/config"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -40,6 +38,7 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -91,6 +90,17 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerServing       *apiserver.DeprecatedInsecureServingInfo
 	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
 	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
+	YurtHubProxyServerAddr          string
+	DiskCachePath                   string
+	CoordinatorPKIDir               string
+	EnableCoordinator               bool
+	CoordinatorServerURL            *url.URL
+	CoordinatorStoragePrefix        string
+	CoordinatorStorageAddr          string // ip:port
+	CoordinatorStorageCaFile        string
+	CoordinatorStorageCertFile      string
+	CoordinatorStorageKeyFile       string
+	CoordinatorClient               kubernetes.Interface
 	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
 }
 
@@ -148,6 +158,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:             filterManager,
 		MinRequestTimeout:         options.MinRequestTimeout,
 		TenantNs:                  tenantNs,
+		YurtHubProxyServerAddr:    fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+		DiskCachePath:             options.DiskCachePath,
+		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
+		EnableCoordinator:         options.EnableCoordinator,
+		CoordinatorServerURL:      coordinatorServerURL,
+		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
+		CoordinatorStorageAddr:    options.CoordinatorStorageAddr,
+		LeaderElection:            options.LeaderElection,
 	}
 
 	certMgr, err := createCertManager(options, us)

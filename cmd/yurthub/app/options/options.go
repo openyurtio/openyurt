@@ -44,42 +44,47 @@ const (
 
 // YurtHubOptions is the main settings for the yurthub
 type YurtHubOptions struct {
-	ServerAddr                string
-	YurtHubHost               string // YurtHub server host (e.g.: expose metrics API)
-	YurtHubProxyHost          string // YurtHub proxy server host
-	YurtHubPort               int
-	YurtHubProxyPort          int
-	YurtHubProxySecurePort    int
-	GCFrequency               int
-	YurtHubCertOrganizations  []string
-	NodeName                  string
-	NodePoolName              string
-	LBMode                    string
-	HeartbeatFailedRetry      int
-	HeartbeatHealthyThreshold int
-	HeartbeatTimeoutSeconds   int
-	HeartbeatIntervalSeconds  int
-	MaxRequestInFlight        int
-	JoinToken                 string
-	RootDir                   string
-	Version                   bool
-	EnableProfiling           bool
-	EnableDummyIf             bool
-	EnableIptables            bool
-	HubAgentDummyIfIP         string
-	HubAgentDummyIfName       string
-	DiskCachePath             string
-	AccessServerThroughHub    bool
-	EnableResourceFilter      bool
-	DisabledResourceFilters   []string
-	WorkingMode               string
-	KubeletHealthGracePeriod  time.Duration
-	EnableNodePool            bool
-	MinRequestTimeout         time.Duration
-	CACertHashes              []string
-	UnsafeSkipCAVerification  bool
-	ClientForTest             kubernetes.Interface
-	LeaderElection            componentbaseconfig.LeaderElectionConfiguration
+	ServerAddr                 string
+	YurtHubHost                string // YurtHub server host (e.g.: expose metrics API)
+	YurtHubProxyHost           string // YurtHub proxy server host
+	YurtHubPort                int
+	YurtHubProxyPort           int
+	YurtHubProxySecurePort     int
+	GCFrequency                int
+	YurtHubCertOrganizations   []string
+	NodeName                   string
+	NodePoolName               string
+	LBMode                     string
+	HeartbeatFailedRetry       int
+	HeartbeatHealthyThreshold  int
+	HeartbeatTimeoutSeconds    int
+	HeartbeatIntervalSeconds   int
+	MaxRequestInFlight         int
+	JoinToken                  string
+	RootDir                    string
+	Version                    bool
+	EnableProfiling            bool
+	EnableDummyIf              bool
+	EnableIptables             bool
+	HubAgentDummyIfIP          string
+	HubAgentDummyIfName        string
+	DiskCachePath              string
+	AccessServerThroughHub     bool
+	EnableResourceFilter       bool
+	DisabledResourceFilters    []string
+	WorkingMode                string
+	KubeletHealthGracePeriod   time.Duration
+	EnableNodePool             bool
+	MinRequestTimeout          time.Duration
+	CACertHashes               []string
+	UnsafeSkipCAVerification   bool
+	ClientForTest              kubernetes.Interface
+	CoordinatorStoragePrefix   string
+	CoordinatorStorageAddr     string
+	CoordinatorStorageCaFile   string
+	CoordinatorStorageCertFile string
+	CoordinatorStorageKeyFile  string
+	LeaderElection             componentbaseconfig.LeaderElectionConfiguration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -113,6 +118,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
+		CoordinatorStoragePrefix:  "/registry",
 		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
 			LeaderElect:       true,
 			LeaseDuration:     metav1.Duration{Duration: 15 * time.Second},
@@ -195,6 +201,11 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
 	fs.StringSliceVar(&o.CACertHashes, "discovery-token-ca-cert-hash", o.CACertHashes, "For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").")
 	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
+	fs.StringVar(&o.CoordinatorStoragePrefix, "coordinator-storage-prefix", o.CoordinatorStoragePrefix, "Pool-Coordinator etcd storage prefix, same as etcd-prefix of Kube-APIServer")
+	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Pool-Coordinator etcd, in the format ip:port")
+	fs.StringVar(&o.CoordinatorStorageCaFile, "coordinator-storage-ca", o.CoordinatorStorageCaFile, "CA file path to communicate with Pool-Coordinator etcd")
+	fs.StringVar(&o.CoordinatorStorageCertFile, "coordinator-storage-cert", o.CoordinatorStorageCertFile, "Cert file path to communicate with Pool-Coordinator etcd")
+	fs.StringVar(&o.CoordinatorStorageKeyFile, "coordinator-storage-key", o.CoordinatorStorageKeyFile, "Key file path to communicate with Pool-Coordinator etcd")
 	bindFlags(&o.LeaderElection, fs)
 }
 

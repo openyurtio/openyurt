@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	delegateHeartBeat = "openyurt.io/delegate-heartbeat"
+	DelegateHeartBeat = "openyurt.io/delegate-heartbeat"
 )
 
 type setNodeLease func(*coordinationv1.Lease) error
@@ -114,9 +114,9 @@ func (chc *coordinatorHealthChecker) getLastNodeLease() *coordinationv1.Lease {
 			if chc.latestLease.Annotations == nil {
 				chc.latestLease.Annotations = make(map[string]string)
 			}
-			chc.latestLease.Annotations[delegateHeartBeat] = "true"
+			chc.latestLease.Annotations[DelegateHeartBeat] = "true"
 		} else {
-			delete(chc.latestLease.Annotations, delegateHeartBeat)
+			delete(chc.latestLease.Annotations, DelegateHeartBeat)
 		}
 	}
 

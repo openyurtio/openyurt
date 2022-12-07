@@ -70,7 +70,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -164,7 +164,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 		return cnt > 2 // after 6 seconds, become healthy
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -247,7 +247,7 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 10*time.Second)
+	lp := NewLocalProxy(cacheM, fn, fn, 10*time.Second)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -339,7 +339,7 @@ func TestServeHTTPForPost(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -419,7 +419,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent string
@@ -486,7 +486,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent    string
@@ -639,7 +639,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 		return false
 	}
 
-	lp := NewLocalProxy(cacheM, fn, 0)
+	lp := NewLocalProxy(cacheM, fn, fn, 0)
 
 	testcases := map[string]struct {
 		userAgent    string

@@ -61,6 +61,7 @@ type objectRelatedHandler interface {
 	// Create will create content of key in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
+	// If content is empty, either nil or []byte{}, ErrKeyHasNoContent will be returned.
 	// If this key has already existed in this store, ErrKeyExists will be returned.
 	Create(key Key, content []byte) error
 
@@ -78,7 +79,7 @@ type objectRelatedHandler interface {
 	// List will retrieve all contents whose keys have the prefix of rootKey.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
-	// If the key exists in the store but no other keys has it as prefix, an empty slice
+	// If the key exists in the store but no other keys having it as prefix, an empty slice
 	// of content will be returned.
 	List(key Key) ([][]byte, error)
 
@@ -88,7 +89,7 @@ type objectRelatedHandler interface {
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
-	// If force is not set and the rv is staler than what is in the store, ErrUpdateConflict will be returned.
+	// If rv is staler than what is in the store, ErrUpdateConflict will be returned.
 	Update(key Key, contents []byte, rv uint64) ([]byte, error)
 
 	// KeyFunc will generate the key used by this store.
