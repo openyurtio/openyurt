@@ -77,7 +77,7 @@ func NewDefaultRESTMapperFromScheme() *meta.DefaultRESTMapper {
 }
 
 func NewRESTMapperManager(baseDir string) (*RESTMapperManager, error) {
-	var dm map[schema.GroupVersionResource]schema.GroupVersionKind
+	dm := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 	cachedFilePath := filepath.Join(baseDir, CacheDynamicRESTMapperKey)
 	// Recover the mapping relationship between GVR and GVK from the hard disk
 	storage := fs.FileSystemOperator{}
