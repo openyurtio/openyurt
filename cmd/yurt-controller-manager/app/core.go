@@ -27,9 +27,19 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator"
+	poolcoordinatorcertmanager "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/webhook"
 )
+
+func startPoolCoordinatorCertManager(ctx ControllerContext) (http.Handler, bool, error) {
+	poolcoordinatorCertManager := poolcoordinatorcertmanager.NewPoolCoordinatorCertManager(
+		ctx.ClientBuilder.ClientOrDie("poolcoordinator-cert-manager"),
+		ctx.InformerFactory.Core().V1().Pods(),
+	)
+	go poolcoordinatorCertManager.Run(1, ctx.Stop)
+	return nil, true, nil
+}
 
 func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, error) {
 	poolcoordinatorController := poolcoordinator.NewController(

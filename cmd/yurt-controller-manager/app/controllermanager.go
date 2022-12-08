@@ -309,6 +309,7 @@ var ControllersDisabledByDefault = sets.NewString()
 // paired to their InitFunc.  This allows for structured downstream composition and subdivision.
 func NewControllerInitializers() map[string]InitFunc {
 	controllers := map[string]InitFunc{}
+	controllers["poolcoordinatorcertmanager"] = startPoolCoordinatorCertManager
 	controllers["poolcoordinator"] = startPoolCoordinatorController
 	controllers["yurtcsrapprover"] = startYurtCSRApproverController
 	controllers["daemonpodupdater"] = startDaemonPodUpdaterController
