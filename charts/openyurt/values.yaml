@@ -42,7 +42,7 @@ poolCoordinator:
     registry: docker.io
     repository: google_containers/kube-apiserver
     pullPolicy: IfNotPresent
-    tag: v1.20.0
+    tag: v1.21.0
   apiserverResources:
     requests:
       cpu: 250m
@@ -61,11 +61,11 @@ poolCoordinator:
     requests:
       cpu: 100m
       memory: 256Mi
-  kubectlImage:
-    registry: docker.io
-    repository: viejo/kubectl
-    pullPolicy: IfNotPresent
-    tag: latest
+#  kubectlImage:
+#    registry: docker.io
+#    repository: viejo/kubectl
+#    pullPolicy: IfNotPresent
+#    tag: latest
 
 yurtHub:
   cacheAgents: ""
