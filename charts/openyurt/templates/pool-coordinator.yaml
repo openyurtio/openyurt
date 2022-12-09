@@ -125,7 +125,7 @@ spec:
                   - --enable-admission-plugins=NodeRestriction
                   - --enable-bootstrap-token-auth=true
                   - --disable-admission-plugins=ServiceAccount
-                  - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+                  - --etcd-cafile=/etc/kubernetes/pki/ca.crt
                   - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
                   - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
                   - --etcd-servers=http://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
@@ -183,19 +183,22 @@ spec:
                 terminationMessagePolicy: File
                 volumeMounts:
                   - mountPath: /etc/kubernetes/pki
-                    name: k8s-certs
+                    name: dynamic-certs
+                    readOnly: true
+                  - mountPath: /etc/kubernetes/pki
+                    name: static-certs
                     readOnly: true
               - command:
                   - etcd
                   - --advertise-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
                   - --listen-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
-                  - --cert-file=/etc/kubernetes/pki/etcd/server.crt
+                  - --cert-file=/etc/kubernetes/pki/etcd-server.crt
                   - --client-cert-auth=true
                   - --data-dir=/var/lib/etcd
-                  - --key-file=/etc/kubernetes/pki/etcd/server.key
+                  - --key-file=/etc/kubernetes/pki/etcd-server.key
                   - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
                   - --snapshot-count=10000
-                  - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+                  - --trusted-ca-file=/etc/kubernetes/pki/ca.crt
                 image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
                 imagePullPolicy: {{ .Values.poolCoordinator.etcdImage.pullPolicy }}
                 {{- if .Values.imagePullSecrets }}
@@ -218,8 +221,12 @@ spec:
                 volumeMounts:
                   - mountPath: /var/lib/etcd
                     name: etcd-data
-                  - mountPath: /etc/kubernetes/pki/etcd
-                    name: etcd-certs
+                  - mountPath: /etc/kubernetes/pki
+                    name: dynamic-certs
+                    readOnly: true
+                  - mountPath: /etc/kubernetes/pki
+                    name: static-certs
+                    readOnly: true
 #              - image: "{{ .Values.poolCoordinator.kubectlImage.registry }}/{{ .Values.poolCoordinator.kubectlImage.repository }}:{{ .Values.poolCoordinator.kubectlImage.tag }}"
 #                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
 #                {{- if .Values.imagePullSecrets }}
@@ -266,13 +273,13 @@ spec:
                   medium: Memory
                 name: etcd-data
               - secret:
-                  secretName: pool-coordinator-apiserver-certs
+                  secretName: pool-coordinator-dynamic-certs
                   defaultMode: 420
-                name: k8s-certs
+                name: dynamic-certs
               - secret:
-                  secretName: pool-coordinator-etcd-certs
+                  secretName: pool-coordinator-static-certs
                   defaultMode: 420
-                name: etcd-certs
+                name: static-certs
 #              - secret:
 #                  secretName: pool-coordinator-self-kubeconfig
 #                  defaultMode: 420
