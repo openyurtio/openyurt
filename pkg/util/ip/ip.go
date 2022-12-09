@@ -79,3 +79,12 @@ func RemoveDupIPs(ips []net.IP) []net.IP {
 	}
 	return results
 }
+
+// Parse a list of IP Strings to net.IP type
+func ParseIPList(ips []string) []net.IP {
+	results := make([]net.IP, len(ips))
+	for idx, ip := range ips {
+		results[idx] = net.ParseIP(ip)
+	}
+	return results
+}

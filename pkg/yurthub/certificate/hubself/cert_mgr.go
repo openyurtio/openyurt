@@ -208,12 +208,8 @@ func (ycm *yurtHubCertManager) ServerHealthy() bool {
 }
 
 // Update update bootstrap conf file by new bearer token.
-func (ycm *yurtHubCertManager) Update(cfg *config.YurtHubConfiguration) error {
-	if cfg == nil {
-		return nil
-	}
-
-	err := ycm.updateBootstrapConfFile(cfg.JoinToken)
+func (ycm *yurtHubCertManager) Update(joinToken string) error {
+	err := ycm.updateBootstrapConfFile(joinToken)
 	if err != nil {
 		klog.Errorf("could not update hub agent bootstrap config file, %v", err)
 		return err
