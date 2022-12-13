@@ -207,7 +207,7 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			for {
 				select {
 				case <-t.C:
-					if _, isReady := lb.coordinator.IsReady(); isReady {
+					if _, isReady := (*lb.coordinator).IsReady(); isReady {
 						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
 						cloudServeCancel()
 						return
@@ -326,7 +326,7 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 		resp.Body = wrapPrc
 
-		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
+		poolCacheManager, isHealthy := (*lb.coordinator).IsHealthy()
 		if isHealthy && poolCacheManager != nil {
 			if !isLeaderHubUserAgent(ctx) {
 				if isRequestOfNodeAndPod(ctx) {

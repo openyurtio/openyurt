@@ -43,12 +43,12 @@ type yurtReverseProxy struct {
 	resolver                apirequest.RequestInfoResolver
 	loadBalancer            remote.LoadBalancer
 	cloudHealthChecker      healthchecker.MultipleBackendsHealthChecker
-	coordinatorHealtChecker healthchecker.HealthChecker
+	coordinatorHealtChecker *healthchecker.HealthChecker
 	localProxy              http.Handler
 	poolProxy               http.Handler
 	maxRequestsInFlight     int
 	tenantMgr               tenant.Interface
-	coordinator             *poolcoordinator.Coordinator
+	isCoordinatorReady      func() bool
 	workingMode             hubutil.WorkingMode
 }
 
@@ -60,7 +60,7 @@ func NewYurtReverseProxyHandler(
 	transportMgr transport.Interface,
 	coordinator *poolcoordinator.Coordinator,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
-	coordinatorHealthChecker healthchecker.HealthChecker,
+	coordinatorHealthChecker *healthchecker.HealthChecker,
 	tenantMgr tenant.Interface,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
@@ -83,28 +83,30 @@ func NewYurtReverseProxyHandler(
 	}
 
 	var localProxy, poolProxy http.Handler
+	isCoordinatorHealthy := func() bool {
+		_, healthy := (*coordinator).IsHealthy()
+		return healthy
+	}
+	isCoordinatorReady := func() bool {
+		_, ready := (*coordinator).IsReady()
+		return ready
+	}
 
 	if yurtHubCfg.WorkingMode == hubutil.WorkingModeEdge {
 		// When yurthub works in Edge mode, we may use local proxy or pool proxy to handle
 		// the request when offline.
 		localProxy = local.NewLocalProxy(localCacheMgr,
 			cloudHealthChecker.IsHealthy,
-			func() bool {
-				_, ready := coordinator.IsHealthy()
-				return ready
-			},
+			isCoordinatorHealthy,
 			yurtHubCfg.MinRequestTimeout,
 		)
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 		poolProxy, err = pool.NewPoolCoordinatorProxy(
-			yurtHubCfg.CoordinatorServer,
+			yurtHubCfg.CoordinatorServerURL,
 			localCacheMgr,
 			transportMgr,
 			yurtHubCfg.FilterManager,
-			func() bool {
-				_, isReady := coordinator.IsReady()
-				return isReady
-			},
+			isCoordinatorReady,
 			stopCh)
 		if err != nil {
 			return nil, err
@@ -119,7 +121,7 @@ func NewYurtReverseProxyHandler(
 		localProxy:              localProxy,
 		poolProxy:               poolProxy,
 		maxRequestsInFlight:     yurtHubCfg.MaxRequestInFlight,
-		coordinator:             coordinator,
+		isCoordinatorReady:      isCoordinatorReady,
 		tenantMgr:               tenantMgr,
 		workingMode:             yurtHubCfg.WorkingMode,
 	}
@@ -181,7 +183,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 
 func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) {
 	p.cloudHealthChecker.RenewKubeletLeaseTime()
-	p.coordinatorHealtChecker.RenewKubeletLeaseTime()
+	(*p.coordinatorHealtChecker).RenewKubeletLeaseTime()
 	if p.localProxy != nil {
 		p.localProxy.ServeHTTP(rw, req)
 	}
@@ -191,7 +193,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 	if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
 		// TODO: We should also consider create the event in pool-coordinator when the cloud is healthy.
-	} else if _, isReady := p.coordinator.IsReady(); isReady {
+	} else if p.isCoordinatorReady() {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
@@ -199,7 +201,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 }
 
 func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req *http.Request) {
-	if _, isReady := p.coordinator.IsReady(); isReady {
+	if p.isCoordinatorReady() {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
@@ -210,7 +212,7 @@ func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req 
 
 func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
 	if isRequestFromPoolCoordinator(req) {
-		if _, isReady := p.coordinator.IsReady(); isReady {
+		if p.isCoordinatorReady() {
 			p.poolProxy.ServeHTTP(rw, req)
 		} else {
 			err := errors.New("request is from pool-coordinator but it's currently not healthy")
