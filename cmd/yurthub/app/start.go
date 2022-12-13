@@ -180,26 +180,36 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	tenantMgr := tenant.New(cfg.YurtHubCertOrganizations, cfg.SharedFactory, ctx.Done())
 	trace++
 
-	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-	// We temporarily set the coordinator as fake coordinator, which will always think the poolcoodinator
-	// is unready and unhealthy. When the poolcoordinator is actually enabled and running, it will be replaced
-	// with the real coordinator.
-	// We use such machanism to initiate the coordinator, because the coordinator needs client to communicate with
-	// coordinator server and the client will not be initiated until the secret informer syncs. The informer factory
-	// will start bellow which is after we create the proxy handler. So we just use a fake coordinator to make it
-	// work around and initiate the coordinator in an async way. See coordinatorRun, which takes the responsibility of
-	// initiating the coordinator.
-	// The same reason for fake coordinator health checker.
+	// start shared informers before coordinator running
+	cfg.SharedFactory.Start(ctx.Done())
+	cfg.YurtSharedFactory.Start(ctx.Done())
+
 	var coordinator poolcoordinator.Coordinator = &poolcoordinator.FakeCoordinator{}
 	var coordinatorHealthChecker healthchecker.HealthChecker = healthchecker.NewFakeChecker(false, make(map[string]int))
-	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(cfg, cacheMgr, transportManager, &coordinator, cloudHealthChecker, &coordinatorHealthChecker, tenantMgr, ctx.Done())
+	var coordinatorTransportManager transport.Interface = nil
+	if cfg.EnableCoordinator {
+		klog.Infof("%d. start to run coordinator", trace)
+		coordinatorHealthChecker, coordinatorTransportManager, coordinator, err = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker)
+		if err != nil {
+			return fmt.Errorf("failed to run coordinator, %v", err)
+		}
+		trace++
+	}
+
+	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
+	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
+		cfg,
+		cacheMgr,
+		transportManager,
+		cloudHealthChecker,
+		tenantMgr,
+		coordinator,
+		coordinatorTransportManager,
+		coordinatorHealthChecker,
+		ctx.Done())
 	if err != nil {
 		return fmt.Errorf("could not create reverse proxy handler, %w", err)
 	}
-	trace++
-
-	klog.Infof("%d. start to initinate the coordinator asynchronously", trace)
-	go coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker, &coordinator, &coordinatorHealthChecker)
 	trace++
 
 	if cfg.EnableDummyIf {
@@ -212,10 +222,6 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		trace++
 		klog.Infof("%d. new %s server and begin to serve, dummy proxy server: %s, secure dummy proxy server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerDummyAddr, cfg.YurtHubProxyServerSecureDummyAddr)
 	}
-
-	// start shared informers before start hub server
-	cfg.SharedFactory.Start(ctx.Done())
-	cfg.YurtSharedFactory.Start(ctx.Done())
 
 	klog.Infof("%d. new %s server and begin to serve, proxy server: %s, secure proxy server: %s, hub server: %s", trace, projectinfo.GetHubName(), cfg.YurtHubProxyServerAddr, cfg.YurtHubProxyServerSecureAddr, cfg.YurtHubServerAddr)
 	s, err := server.NewYurtHubServer(cfg, certManager, yurtProxyHandler, restConfigMgr)
@@ -249,18 +255,14 @@ func createClients(heartbeatTimeoutSeconds int, remoteServers []*url.URL, coordi
 func coordinatorRun(ctx context.Context,
 	cfg *config.YurtHubConfiguration,
 	restConfigMgr *hubrest.RestConfigManager,
-	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
-	coordinator *poolcoordinator.Coordinator,
-	coordinatorHealthChecker *healthchecker.HealthChecker) {
+	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker) (healthchecker.HealthChecker, transport.Interface, poolcoordinator.Coordinator, error) {
 	coordinatorCertManager, err := coordinatorcertmgr.NewCertManager(cfg.CoordinatorPKIDir, cfg.YurtClient, cfg.SharedFactory)
 	if err != nil {
-		klog.Errorf("failed to create coordinator cert manager, %v", err)
-		return
+		return nil, nil, nil, fmt.Errorf("failed to create coordinator cert manager, %v", err)
 	}
 	coordinatorTransportMgr, err := poolCoordinatorTransportMgrGetter(cfg.HeartbeatTimeoutSeconds, cfg.CoordinatorServerURL, coordinatorCertManager, ctx.Done())
 	if err != nil {
-		klog.Errorf("failed to create coordinator transport manager, %v", err)
-		return
+		return nil, nil, nil, fmt.Errorf("failed to create coordinator transport manager, %v", err)
 	}
 
 	coordinatorClient, err := kubernetes.NewForConfig(&rest.Config{
@@ -269,34 +271,27 @@ func coordinatorRun(ctx context.Context,
 		Timeout:   time.Duration(cfg.HeartbeatTimeoutSeconds),
 	})
 	if err != nil {
-		klog.Errorf("failed to get coordinator client for pool coordinator, %v", err)
-		return
+		return nil, coordinatorTransportMgr, nil, fmt.Errorf("failed to get coordinator client for pool coordinator, %v", err)
 	}
 
 	coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(cfg, coordinatorClient, cloudHealthChecker, ctx.Done())
 	if err != nil {
-		klog.Errorf("failed to create coordinator health checker, %v", err)
-		return
+		return nil, coordinatorTransportMgr, nil, fmt.Errorf("failed to create coordinator health checker, %v", err)
 	}
 
 	var elector *poolcoordinator.HubElector
 	elector, err = poolcoordinator.NewHubElector(cfg, coordinatorClient, coorHealthChecker, cloudHealthChecker, ctx.Done())
 	if err != nil {
-		klog.Errorf("failed to create hub elector, %v", err)
-		return
+		return coorHealthChecker, coordinatorTransportMgr, nil, fmt.Errorf("failed to create hub elector, %v", err)
 	}
 	elector.Run(ctx.Done())
 
 	coor, err := poolcoordinator.NewCoordinator(ctx, cfg, restConfigMgr, coordinatorCertManager, coordinatorTransportMgr, elector)
 	if err != nil {
-		klog.Errorf("failed to create coordinator, %v", err)
-		return
+		return coorHealthChecker, coordinatorTransportMgr, nil, fmt.Errorf("failed to create coordinator, %v", err)
 	}
 	coor.Run()
-	// Initiate the coordinator and coordinator health checker in reverse proxy handler,
-	//  which are temporarily set as fake.
-	*coordinator = coor
-	*coordinatorHealthChecker = coorHealthChecker
+	return coorHealthChecker, coordinatorTransportMgr, coor, nil
 }
 
 func poolCoordinatorTransportMgrGetter(heartbeatTimeoutSeconds int, coordinatorServer *url.URL, coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {

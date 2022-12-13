@@ -43,13 +43,14 @@ type yurtReverseProxy struct {
 	resolver                apirequest.RequestInfoResolver
 	loadBalancer            remote.LoadBalancer
 	cloudHealthChecker      healthchecker.MultipleBackendsHealthChecker
-	coordinatorHealtChecker *healthchecker.HealthChecker
+	coordinatorHealtChecker healthchecker.HealthChecker
 	localProxy              http.Handler
 	poolProxy               http.Handler
 	maxRequestsInFlight     int
 	tenantMgr               tenant.Interface
 	isCoordinatorReady      func() bool
 	workingMode             hubutil.WorkingMode
+	enablePoolCoordinator   bool
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -58,10 +59,11 @@ func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinator *poolcoordinator.Coordinator,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
-	coordinatorHealthChecker *healthchecker.HealthChecker,
 	tenantMgr tenant.Interface,
+	coordinator poolcoordinator.Coordinator,
+	coordinatorTransportMgr transport.Interface,
+	coordinatorHealthChecker healthchecker.HealthChecker,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -84,11 +86,11 @@ func NewYurtReverseProxyHandler(
 
 	var localProxy, poolProxy http.Handler
 	isCoordinatorHealthy := func() bool {
-		_, healthy := (*coordinator).IsHealthy()
+		_, healthy := coordinator.IsHealthy()
 		return healthy
 	}
 	isCoordinatorReady := func() bool {
-		_, ready := (*coordinator).IsReady()
+		_, ready := coordinator.IsReady()
 		return ready
 	}
 
@@ -101,15 +103,18 @@ func NewYurtReverseProxyHandler(
 			yurtHubCfg.MinRequestTimeout,
 		)
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
-		poolProxy, err = pool.NewPoolCoordinatorProxy(
-			yurtHubCfg.CoordinatorServerURL,
-			localCacheMgr,
-			transportMgr,
-			yurtHubCfg.FilterManager,
-			isCoordinatorReady,
-			stopCh)
-		if err != nil {
-			return nil, err
+
+		if yurtHubCfg.EnableCoordinator {
+			poolProxy, err = pool.NewPoolCoordinatorProxy(
+				yurtHubCfg.CoordinatorServerURL,
+				localCacheMgr,
+				coordinatorTransportMgr,
+				yurtHubCfg.FilterManager,
+				isCoordinatorReady,
+				stopCh)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -122,6 +127,7 @@ func NewYurtReverseProxyHandler(
 		poolProxy:               poolProxy,
 		maxRequestsInFlight:     yurtHubCfg.MaxRequestInFlight,
 		isCoordinatorReady:      isCoordinatorReady,
+		enablePoolCoordinator:   yurtHubCfg.EnableCoordinator,
 		tenantMgr:               tenantMgr,
 		workingMode:             yurtHubCfg.WorkingMode,
 	}
@@ -142,7 +148,10 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	handler = util.WithRequestTraceFull(handler)
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
-	handler = util.WithIfPoolScopedResource(handler)
+
+	if p.enablePoolCoordinator {
+		handler = util.WithIfPoolScopedResource(handler)
+	}
 
 	if p.tenantMgr != nil && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
@@ -183,7 +192,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 
 func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) {
 	p.cloudHealthChecker.RenewKubeletLeaseTime()
-	(*p.coordinatorHealtChecker).RenewKubeletLeaseTime()
+	p.coordinatorHealtChecker.RenewKubeletLeaseTime()
 	if p.localProxy != nil {
 		p.localProxy.ServeHTTP(rw, req)
 	}
@@ -193,7 +202,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 	if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
 		// TODO: We should also consider create the event in pool-coordinator when the cloud is healthy.
-	} else if p.isCoordinatorReady() {
+	} else if p.isCoordinatorReady() && p.poolProxy != nil {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
@@ -201,7 +210,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 }
 
 func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req *http.Request) {
-	if p.isCoordinatorReady() {
+	if p.isCoordinatorReady() && p.poolProxy != nil {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)

@@ -96,6 +96,7 @@ type YurtHubConfiguration struct {
 	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
 	MinRequestTimeout                 time.Duration
+	EnableCoordinator                 bool
 	CoordinatorServerURL              *url.URL
 	CoordinatorStoragePrefix          string
 	CoordinatorStorageAddr            string // ip:port
@@ -110,9 +111,12 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
-	CoordinatorServerURL, err := url.Parse(options.CoordinatorServerAddr)
-	if err != nil {
-		return nil, err
+	var coordinatorServerURL *url.URL
+	if options.EnableCoordinator {
+		coordinatorServerURL, err = url.Parse(options.CoordinatorServerAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	hubCertOrgs := make([]string, 0)
@@ -202,7 +206,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
-		CoordinatorServerURL:              CoordinatorServerURL,
+		EnableCoordinator:                 options.EnableCoordinator,
+		CoordinatorServerURL:              coordinatorServerURL,
 		CoordinatorStoragePrefix:          options.CoordinatorStoragePrefix,
 		CoordinatorStorageAddr:            options.CoordinatorStorageAddr,
 		LeaderElection:                    options.LeaderElection,
