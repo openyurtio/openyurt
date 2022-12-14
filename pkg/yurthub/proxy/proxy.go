@@ -17,13 +17,20 @@ limitations under the License.
 package proxy
 
 import (
+	"bytes"
 	"errors"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
+	v1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
@@ -220,7 +227,10 @@ func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req 
 }
 
 func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
-	if isRequestFromPoolCoordinator(req) {
+	if isSubjectAccessReviewFromPoolCoordinator(req) {
+		// check if the logs/exec request is from APIServer or PoolCoordinator.
+		// We should avoid sending SubjectAccessReview to Pool-Coordinator if the logs/exec requests
+		// come from APIServer, which may fail for RBAC differences, vise versa.
 		if p.isCoordinatorReady() {
 			p.poolProxy.ServeHTTP(rw, req)
 		} else {
@@ -239,9 +249,38 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 	}
 }
 
-func isRequestFromPoolCoordinator(req *http.Request) bool {
-	// TODO: need a way to check if the logs/exec request is from APIServer or PoolCoordinator.
-	// We should avoid sending SubjectAccessReview to Pool-Coordinator if the logs/exec requests
-	// come from APIServer, which may fail for RBAC differences, vise versa.
+func isSubjectAccessReviewFromPoolCoordinator(req *http.Request) bool {
+	var buf bytes.Buffer
+	if n, err := buf.ReadFrom(req.Body); err != nil || n == 0 {
+		klog.Errorf("failed to read SubjectAccessReview from request %s, read %d bytes, %v", hubutil.ReqString(req), n, err)
+		return false
+	}
+	req.Body = ioutil.NopCloser(&buf)
+
+	subjectAccessReviewGVK := schema.GroupVersionKind{
+		Group:   v1.SchemeGroupVersion.Group,
+		Version: v1.SchemeGroupVersion.Version,
+		Kind:    "SubjectAccessReview"}
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
+	obj := &v1.SubjectAccessReview{}
+	got, gvk, err := decoder.Decode(buf.Bytes(), nil, obj)
+	if err != nil {
+		klog.Errorf("failed to decode SubjectAccessReview in request %s, %v", hubutil.ReqString(req), err)
+		return false
+	}
+	if (*gvk) != subjectAccessReviewGVK {
+		klog.Errorf("unexpected gvk: %s in request: %s, want: %s", gvk.String(), hubutil.ReqString(req), subjectAccessReviewGVK.String())
+		return false
+	}
+
+	sav := got.(*v1.SubjectAccessReview)
+	for _, g := range sav.Spec.Groups {
+		if g == "openyurt:pool-coordinator" {
+			return true
+		}
+	}
+
+	klog.V(4).Infof("SubjectAccessReview in request %s is not for pool-coordinator, whose group: %s, user: %s",
+		hubutil.ReqString(req), strings.Join(sav.Spec.Groups, ";"), sav.Spec.User)
 	return false
 }
