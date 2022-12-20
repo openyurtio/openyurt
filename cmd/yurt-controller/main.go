@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -27,12 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appsv1beta1 "github.com/openyurtio/openyurt/api/v1beta1"
-	"github.com/openyurtio/openyurt/controllers"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/controller"
+	"github.com/openyurtio/openyurt/pkg/webhook"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -66,29 +69,29 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "b854b867.openyurt.io",
+		Scheme:                     scheme,
+		MetricsBindAddress:         metricsAddr,
+		Port:                       9443,
+		HealthProbeBindAddress:     probeAddr,
+		LeaderElection:             enableLeaderElection,
+		LeaderElectionID:           "controller.openyurt.io",
+		LeaderElectionResourceLock: resourcelock.LeasesResourceLock, // use lease to election
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.SampleReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = controller.SetupWithManager(mgr, context.Background()); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Sample")
 		os.Exit(1)
 	}
-	if err = (&appsv1beta1.Sample{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Sample")
+
+	if err = webhook.SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

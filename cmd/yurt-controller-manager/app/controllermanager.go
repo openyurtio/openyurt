@@ -52,10 +52,10 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
-	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/config"
 )
 
 const (

@@ -1,4 +1,5 @@
 _output
+bin
 .idea
 .DS_Store
 gopath

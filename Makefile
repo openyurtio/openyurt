@@ -171,3 +171,69 @@ docker-push-node-servant:
 	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
 	docker run --rm --privileged tonistiigi/binfmt --install all
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
+
+# yurt-controller
+
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) crd:crdVersions=v1 rbac:roleName=yurt-controller-role webhook paths="./pkg/..." output:crd:artifacts:config=config/yurt-controller/crd/bases  output:rbac:artifacts:config=config/yurt-controller/rbac output:webhook:artifacts:config=config/yurt-controller/webhook
+
+.PHONY: generate
+## controller-gen: Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations. 
+## code-generator: generate informer,clientset,list
+generate: controller-gen code-generator
+	$(CONTROLLER_GEN) object:headerFile="./pkg/controller/hack/boilerplate.go.txt" paths="./pkg/..."
+	hack/make-rules/generate_group.sh
+
+.PHONY: code-generator
+code-generator: defaulter-gen client-gen lister-gen informer-gen
+
+# code-generator
+DEFAULTER_GEN = $(shell pwd)/bin/defaulter-gen-v0.25.4
+.PHONY: defaulter-gen
+defaulter-gen: ## Download defaulter-gen locally if necessary.
+	$(call go-get-tool,$(DEFAULTER_GEN),k8s.io/code-generator/cmd/defaulter-gen)
+
+CLIENT_GEN = $(shell pwd)/bin/client-gen-v0.25.4
+.PHONY: client-gen
+client-gen: ## Download client-gen locally if necessary.
+	$(call go-get-tool,$(CLIENT_GEN),k8s.io/code-generator/cmd/client-gen)
+
+LISTER_GEN = $(shell pwd)/bin/lister-gen-v0.25.4
+.PHONY: lister-gen
+lister-gen: ## Download lister-gen locally if necessary.
+	$(call go-get-tool,$(LISTER_GEN),k8s.io/code-generator/cmd/lister-gen)
+
+INFORMER_GEN = $(shell pwd)/bin/informer-gen-v0.25.4
+.PHONY: informer-gen
+informer-gen: ## Download informer-gen locally if necessary.
+	$(call go-get-tool,$(INFORMER_GEN),k8s.io/code-generator/cmd/informer-gen)
+
+# controller-gen
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen-v0.7.0
+.PHONY: controller-gen
+controller-gen: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
+
+KUSTOMIZE = $(shell pwd)/bin/kustomize-v3.8.7
+.PHONY: kustomize
+kustomize: ## Download kustomize locally if necessary.
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$$TMP_DIR/bin go get $(2) ;\
+TOOL_BIN=$$(ls -1 bin/ |head -n 1) ;\
+cp $$TMP_DIR/bin/$$TOOL_BIN $(1) ;\
+cp -rf $(1) $(PROJECT_DIR)/bin/$$TOOL_BIN ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
