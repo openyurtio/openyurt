@@ -18,8 +18,8 @@ limitations under the License.
 package webhook
 
 import (
+	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"k8s.io/client-go/informers"
@@ -29,11 +29,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/utils"
 )
 
-const (
-	CertDirEnvName = "WEBHOOK_CERT_DIR"
-	DefaultCertDir = "/tmp/k8s-webhook-server/serving-certs"
-)
-
 type Handler struct {
 	Path        string
 	HttpHandler func(http.ResponseWriter, *http.Request)
@@ -41,7 +36,7 @@ type Handler struct {
 
 type Webhook interface {
 	Handler() []Handler
-	Init(<-chan struct{})
+	Init(*Certs, <-chan struct{})
 }
 
 type WebhookManager struct {
@@ -50,13 +45,26 @@ type WebhookManager struct {
 	webhooks []Webhook
 }
 
+func webhookCertDir() string {
+	return utils.GetEnv("WEBHOOK_CERT_DIR", "/tmp/k8s-webhook-server/serving-certs")
+}
+
+func webhookNamespace() string {
+	return utils.GetEnv("WEBHOOK_NAMESPACE", "kube-system")
+}
+
+func webhookServiceName() string {
+	return utils.GetEnv("WEBHOOK_SERVICE_NAME", "yurt-controller-manager-webhook")
+}
+
+func webhookServicePort() string {
+	return utils.GetEnv("WEBHOOK_SERVICE_PORT", "9443")
+}
+
 func NewWebhookManager(kc client.Interface, informerFactory informers.SharedInformerFactory) *WebhookManager {
 	m := &WebhookManager{}
 
-	m.certdir = os.Getenv(CertDirEnvName)
-	if m.certdir == "" {
-		m.certdir = DefaultCertDir
-	}
+	m.certdir = webhookCertDir()
 
 	h := NewPoolcoordinatorWebhook(kc, informerFactory)
 	m.addWebhook(h)
@@ -69,22 +77,25 @@ func (m *WebhookManager) addWebhook(webhook Webhook) {
 }
 
 func (m *WebhookManager) Run(stopCH <-chan struct{}) {
-	for _, h := range m.webhooks {
-		h.Init(stopCH)
-		for _, hh := range h.Handler() {
-			http.HandleFunc(hh.Path, hh.HttpHandler)
-		}
-	}
-
 	err := utils.EnsureDir(m.certdir)
 	if err != nil {
 		klog.Error(err)
 	}
-	cert := m.certdir + "/tls.crt"
+	crt := m.certdir + "/tls.crt"
 	key := m.certdir + "/tls.key"
 
+	certs := GenerateCerts(webhookNamespace(), webhookServiceName())
+	err = utils.WriteFile(crt, certs.Cert)
+	if err != nil {
+		klog.Error(err)
+	}
+	err = utils.WriteFile(key, certs.Key)
+	if err != nil {
+		klog.Error(err)
+	}
+
 	for {
-		if utils.FileExists(cert) && utils.FileExists(key) {
+		if utils.FileExists(crt) && utils.FileExists(key) {
 			klog.Info("tls key and cert ok.")
 			break
 		} else {
@@ -93,6 +104,13 @@ func (m *WebhookManager) Run(stopCH <-chan struct{}) {
 		}
 	}
 
-	klog.Info("Listening on port 443...")
-	klog.Fatal(http.ListenAndServeTLS(":443", cert, key, nil))
+	for _, h := range m.webhooks {
+		h.Init(certs, stopCH)
+		for _, hh := range h.Handler() {
+			http.HandleFunc(hh.Path, hh.HttpHandler)
+		}
+	}
+
+	klog.Infof("Listening on port %s ...", webhookServicePort())
+	klog.Fatal(http.ListenAndServeTLS(fmt.Sprintf(":%s", webhookServicePort()), crt, key, nil))
 }
