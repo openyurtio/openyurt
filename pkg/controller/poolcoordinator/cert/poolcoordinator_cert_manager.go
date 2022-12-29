@@ -138,7 +138,7 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorDynamicSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		CommonName:   PoolcoordinatorETCDCN,
+		CommonName:   PoolcoordinatorAPIServerCN,
 		Organization: []string{PoolcoordinatorOrg},
 		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 			return waitUntilSVCReady(i, PoolcoordinatorAPIServerSVC, c)
@@ -149,7 +149,7 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorDynamicSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		CommonName:   PoolcoordinatorAPIServerCN,
+		CommonName:   PoolcoordinatorETCDCN,
 		Organization: []string{PoolcoordinatorOrg},
 		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 			return waitUntilSVCReady(i, PoolcoordinatorETCDSVC, c)
