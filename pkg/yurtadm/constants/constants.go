@@ -166,7 +166,7 @@ preferences: {}
 `
 
 	KubeadmJoinConf = `
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: {{.apiVersion}}
 kind: JoinConfiguration
 discovery:
   file:

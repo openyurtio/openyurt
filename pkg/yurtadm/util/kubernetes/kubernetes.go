@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-version"
 	pkgerrors "github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -353,6 +354,22 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 	} else {
 		ctx["containerRuntime"] = "remote"
 		ctx["containerRuntimeEndpoint"] = nodeReg.CRISocket
+	}
+
+	v1, err := version.NewVersion(data.KubernetesVersion())
+	if err != nil {
+		return err
+	}
+	v2, err := version.NewVersion("v1.22.0")
+	if err != nil {
+		return err
+	}
+	// This is to adapt the apiVersion of JoinConfiguration
+	// https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta3/
+	if v1.LessThan(v2) {
+		ctx["apiVersion"] = "kubeadm.k8s.io/v1beta2"
+	} else {
+		ctx["apiVersion"] = "kubeadm.k8s.io/v1beta3"
 	}
 
 	kubeadmJoinTemplate, err := templates.SubsituteTemplate(constants.KubeadmJoinConf, ctx)
