@@ -17,51 +17,169 @@ limitations under the License.
 package cert
 
 import (
-	"context"
+	"crypto"
+	"crypto/x509"
 	"fmt"
+	"net"
+	"reflect"
 	"time"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	certificatesv1 "k8s.io/api/certificates/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authentication/user"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	client "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdAPI "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
-	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
 
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
-	"github.com/openyurtio/openyurt/pkg/util/ip"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
-	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 )
 
 const (
-	commonNamePrefix = "system:node:poolcoordinator"
-	certDir          = "/tmp" // tmp file directory for certmanager to write cert files
+	// tmp file directory for certmanager to write cert files
+	certDir = "/tmp"
 
-	ComponentName                      = "yurt-controller-manager_poolcoordinator"
-	PoolcoordinatorNS                  = "kube-system"
-	PoolcoordinatorAPIServerSVC        = "pool-coordinator-apiserver"
-	PoolcoordinatorETCDSVC             = "pool-coordinator-etcd"
-	PoolcoordinatorAPIServerSecertName = "pool-coordinator-apiserver-certs"
-	PoolcoordinatorETCDSecertName      = "pool-coordinator-etcd-certs"
-	PoolcoordinatorAPIServerClientCN   = "openyurt:pool-coordinator:apiserver"
+	ComponentName               = "yurt-controller-manager_poolcoordinator"
+	PoolcoordinatorNS           = "kube-system"
+	PoolcoordinatorAPIServerSVC = "pool-coordinator-apiserver"
+	PoolcoordinatorETCDSVC      = "pool-coordinator-etcd"
+
+	// CA certs contains the pool-coordinator CA certs
+	PoolCoordinatorCASecretName = "pool-coordinator-ca-certs"
+	// Static certs is shared among all pool-coordinator system, which contains:
+	// - ca.crt
+	// - apiserver-etcd-client.crt
+	// - apiserver-etcd-client.key
+	// - sa.pub
+	// - sa.key
+	// - apiserver-kubelet-client.crt  (not self signed)
+	// - apiserver-kubelet-client.key （not self signed)
+	// - admin.conf (kube-config)
+	PoolcoordinatorStaticSecertName = "pool-coordinator-static-certs"
+	// Dynamic certs will not be shared among clients or servers, contains:
+	// - apiserver.crt
+	// - apiserver.key
+	// - etcd-server.crt
+	// - etcd-server.key
+	// todo: currently we only create one copy, this will be refined in the future to assign customized certs for differnet nodepools
+	PoolcoordinatorDynamicSecertName = "pool-coordinator-dynamic-certs"
+	// Yurthub certs shared by all yurthub, contains:
+	// - ca.crt
+	// - pool-coordinator-yurthub-client.crt
+	// - pool-coordinator-yurthub-client.key
+	PoolcoordinatorYurthubClientSecertName = "pool-coordinator-yurthub-certs"
+	// Monitoring kubeconfig contains: monitoring kubeconfig for poolcoordinator
+	// - kubeconfig
+	PoolcoordinatorMonitoringKubeconfigSecertName = "pool-coordinator-monitoring-kubeconfig"
 
 	PoolcoordinatorOrg      = "openyurt:pool-coordinator"
 	PoolcoordinatorAdminOrg = "system:masters"
 
-	KubeConfigMonitoringClientCN = "openyurt:pool-coordinator:monitoring"
-	KubeConfigAdminClientCN      = "cluster-admin"
+	PoolcoordinatorAPIServerCN     = "openyurt:pool-coordinator:apiserver"
+	PoolcoordinatorETCDCN          = "openyurt:pool-coordinator:etcd"
+	PoolcoordinatorYurthubClientCN = "openyurt:pool-coordinator:yurthub"
+	KubeConfigMonitoringClientCN   = "openyurt:pool-coordinator:monitoring"
+	KubeConfigAdminClientCN        = "cluster-admin"
 )
+
+type certInitFunc = func(client.Interface, <-chan struct{}) ([]net.IP, []string, error)
+
+type CertConfig struct {
+	// certName should be unique,  will be used as output name ${certName}.crt
+	CertName string
+	// secretName is where the certs should be stored
+	SecretName string
+	// used as kubeconfig
+	IsKubeConfig bool
+
+	ExtKeyUsage  []x509.ExtKeyUsage
+	CommonName   string
+	Organization []string
+	DNSNames     []string
+	IPs          []net.IP
+
+	// certInit is used for initilize those attrs which has to be determined dynamically
+	// e.g. TLS server cert's IP & DNSNames
+	certInit certInitFunc
+}
+
+func (c *CertConfig) init(clientSet client.Interface, stopCh <-chan struct{}) (err error) {
+	if c.certInit != nil {
+		c.IPs, c.DNSNames, err = c.certInit(clientSet, stopCh)
+		if err != nil {
+			return errors.Wrapf(err, "fail to init cert %s", c.CertName)
+		}
+	}
+	return nil
+}
+
+var allSelfSignedCerts []CertConfig = []CertConfig{
+	{
+		CertName:     "apiserver-etcd-client",
+		SecretName:   PoolcoordinatorStaticSecertName,
+		IsKubeConfig: false,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		CommonName:   PoolcoordinatorETCDCN,
+		Organization: []string{PoolcoordinatorOrg},
+	},
+	{
+		CertName:     "pool-coordinator-yurthub-client",
+		SecretName:   PoolcoordinatorYurthubClientSecertName,
+		IsKubeConfig: false,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		CommonName:   PoolcoordinatorYurthubClientCN,
+		Organization: []string{PoolcoordinatorOrg},
+	},
+	{
+		CertName:     "apiserver",
+		SecretName:   PoolcoordinatorDynamicSecertName,
+		IsKubeConfig: false,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		CommonName:   PoolcoordinatorAPIServerCN,
+		Organization: []string{PoolcoordinatorOrg},
+		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			return waitUntilSVCReady(i, PoolcoordinatorAPIServerSVC, c)
+		},
+	},
+	{
+		CertName:     "etcd-server",
+		SecretName:   PoolcoordinatorDynamicSecertName,
+		IsKubeConfig: false,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		CommonName:   PoolcoordinatorETCDCN,
+		Organization: []string{PoolcoordinatorOrg},
+		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			return waitUntilSVCReady(i, PoolcoordinatorETCDSVC, c)
+		},
+	},
+	{
+		CertName:     "kubeconfig",
+		SecretName:   PoolcoordinatorMonitoringKubeconfigSecertName,
+		IsKubeConfig: true,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		CommonName:   KubeConfigMonitoringClientCN,
+		Organization: []string{PoolcoordinatorOrg},
+		// As a clientAuth cert, kubeconfig cert don't need IP&DNS to work,
+		// but kubeconfig need this extra information to verify if it's out of date
+		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			return waitUntilSVCReady(i, PoolcoordinatorAPIServerSVC, c)
+		},
+	},
+	{
+		CertName:     "admin.conf",
+		SecretName:   PoolcoordinatorStaticSecertName,
+		IsKubeConfig: true,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		CommonName:   KubeConfigAdminClientCN,
+		Organization: []string{PoolcoordinatorAdminOrg},
+		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			return waitUntilSVCReady(i, PoolcoordinatorAPIServerSVC, c)
+		},
+	},
+}
 
 // PoolCoordinatorCertManager manages certificates releted with poolcoordinator pod
 type PoolCoordinatorCertManager struct {
@@ -99,14 +217,10 @@ func (c *PoolCoordinatorCertManager) Run(threadiness int, stopCh <-chan struct{}
 	defer klog.Info("Shutting down poolcoordinatorCertManager controller")
 	defer c.podWorkQueue.ShutDown()
 
-	// Prepare certs shared among all poolcoordinators
-	if err := initPoolCoordinatorCerts(c.kubeclientset, stopCh); err != nil {
-		klog.Errorf("poolcoordinatorCertManager init certs fail, %v", err)
-	}
-
-	// Prepare kubeconfigs
-	if err := initPoolCoordinatorKubeConfigs(c.kubeclientset, stopCh); err != nil {
-		klog.Errorf("poolcoordinatorCertManager init kubeconfigs fail, %v", err)
+	// prepare some necessary assets (CA, certs, kubeconfigs) for pool-coordinator
+	err := initPoolCoordinator(c.kubeclientset, stopCh)
+	if err != nil {
+		klog.Errorf("fail to init poolcoordinator %v", err)
 	}
 
 	// Synchronize the cache before starting to process events
@@ -143,63 +257,118 @@ func (c *PoolCoordinatorCertManager) syncHandler(key string) error {
 	return nil
 }
 
-func initPoolCoordinatorCerts(clientSet client.Interface, stopCh <-chan struct{}) error {
-	if err := initAPIServerTLSCert(clientSet, stopCh); err != nil {
-		return err
+func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) error {
+
+	// Prepare CA certs
+	caCert, caKey, reuseCA, err := initCA(clientSet)
+	if err != nil {
+		return errors.Wrap(err, "init poolcoordinator failed")
 	}
+
+	// Prepare certs used by poolcoordinators
+
+	// 1. prepare selfsigned certs
+	var selfSignedCerts []CertConfig
+
+	if reuseCA {
+		// if CA is reused
+		// then we can check if there are selfsigned certs can be reused too
+		for _, certConf := range allSelfSignedCerts {
+
+			// 1.1 check if cert exist
+			cert, _, err := LoadCertAndKeyFromSecret(clientSet, certConf)
+			if err != nil {
+				klog.Infof("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName)
+				selfSignedCerts = append(selfSignedCerts, certConf)
+				continue
+			}
+
+			// 1.2 check if cert is autorized by current CA
+			if !IsCertFromCA(cert, caCert) {
+				klog.Infof("existing cert %s is not authorized by current CA", certConf.CertName)
+				selfSignedCerts = append(selfSignedCerts, certConf)
+				continue
+			}
+
+			// 1.3 check has dynamic attrs changed
+			if certConf.certInit != nil {
+				if err := certConf.init(clientSet, stopCh); err != nil {
+					// if cert init failed, skip this cert
+					klog.Errorf("fail to init cert when checking dynamic attrs: %v", err)
+					continue
+				} else {
+					// check if dynamic IP address has changed
+					if !reflect.DeepEqual(certConf.IPs, cert.IPAddresses) {
+						klog.Infof("cert %s IP has changed", certConf.CertName)
+						selfSignedCerts = append(selfSignedCerts, certConf)
+						continue
+					}
+				}
+			}
+
+			klog.Infof("cert %s not change, reuse it", certConf.CertName)
+		}
+	} else {
+		// create all certs with new CA
+		selfSignedCerts = allSelfSignedCerts
+	}
+
+	// create self signed certs
+	for _, certConf := range selfSignedCerts {
+		if err := initPoolCoordinatorCert(clientSet, certConf, caCert, caKey, stopCh); err != nil {
+			klog.Errorf("create cert %s fail: %v", certConf.CertName, err)
+			return err
+		}
+	}
+
+	// 2. prepare not self signed certs ( apiserver-kubelet-client cert)
 	if err := initAPIServerClientCert(clientSet, stopCh); err != nil {
 		return err
 	}
-	return initETCDServerTLSCert(clientSet, stopCh)
-}
 
-func initPoolCoordinatorKubeConfigs(clientSet client.Interface, stopCh <-chan struct{}) error {
-	return initPoolCoordinatorMonitoringKubeConfig(clientSet, stopCh)
-}
-
-// init tls server certificates for poolcoordinators
-func initTLSCert(clientSet client.Interface, serviceName, certName, secretName string, stopCh <-chan struct{}) (err error) {
-	var serverSVC *corev1.Service
-
-	// wait until get tls server Service
-	err = wait.PollUntil(1*time.Second, func() (bool, error) {
-		serverSVC, err = clientSet.CoreV1().Services(PoolcoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
-		if err == nil {
-			klog.Infof("poolcoordinator %s service get successfully", serviceName)
-			return true, nil
-		}
-		klog.Infof("waiting for the poolcoordinator %s service", serviceName)
-		return false, nil
-	}, stopCh)
-
-	// prepare certmanager
-	ips := ip.ParseIPList(serverSVC.Spec.ClusterIPs)
-	dnsnames := serveraddr.GetDefaultDomainsForSvc(PoolcoordinatorNS, serviceName)
-	serverCertMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
-		CertDir:        certDir,
-		ComponentName:  fmt.Sprintf("%s-%s", ComponentName, certName),
-		SignerName:     certificatesv1.KubeletServingSignerName,
-		ForServerUsage: true,
-		CommonName:     fmt.Sprintf("%s-%s", commonNamePrefix, certName),
-		Organizations:  []string{user.NodesGroup},
-		IPs:            ips,
-		DNSNames:       dnsnames,
-	})
-
-	if err != nil {
-		klog.Errorf("create %s serverCertMgr fail", certName)
+	// 3. prepare ca cert in static secret
+	if err := WriteCertAndKeyIntoSecret(clientSet, "ca", PoolcoordinatorStaticSecertName, caCert, nil); err != nil {
 		return err
 	}
 
-	return WriteCertIntoSecret(clientSet, certName, secretName, serverCertMgr, stopCh)
+	// 4. prepare sa key pairs
+	if err := initSAKeyPair(clientSet, PoolcoordinatorStaticSecertName, "sa"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func initETCDServerTLSCert(clientSet client.Interface, stopCh <-chan struct{}) (err error) {
-	return initTLSCert(clientSet, PoolcoordinatorETCDSVC, "server", PoolcoordinatorETCDSecertName, stopCh)
-}
+// Prepare CA certs,
+// check if pool-coordinator CA already exist, if not creat one
+func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.Signer, reuse bool, err error) {
+	// try load CA cert&key from secret
+	caCert, caKey, err = LoadCertAndKeyFromSecret(clientSet, CertConfig{
+		SecretName:   PoolCoordinatorCASecretName,
+		CertName:     "ca",
+		IsKubeConfig: false,
+	})
 
-func initAPIServerTLSCert(clientSet client.Interface, stopCh <-chan struct{}) (err error) {
-	return initTLSCert(clientSet, PoolcoordinatorAPIServerSVC, "apiserver", PoolcoordinatorAPIServerSecertName, stopCh)
+	if err == nil {
+		// if CA already exist
+		klog.Info("CA already exist in secret, reuse it")
+		return caCert, caKey, true, nil
+	} else {
+		// if not exist
+		// create new CA certs
+		klog.Infof("fail to get CA from secret: %v, create new CA", err)
+		// write it into the secret
+		caCert, caKey, err = NewSelfSignedCA()
+		if err != nil {
+			return nil, nil, false, errors.Wrap(err, "fail to write CA assets into secret when initializing poolcoordinator")
+		}
+
+		err = WriteCertAndKeyIntoSecret(clientSet, "ca", PoolCoordinatorCASecretName, caCert, caKey)
+		if err != nil {
+			return nil, nil, false, errors.Wrap(err, "fail to write CA assets into secret when initializing poolcoordinator")
+		}
+	}
+	return caCert, caKey, false, nil
 }
 
 func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{}) (err error) {
@@ -208,113 +377,23 @@ func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{})
 		ComponentName:  fmt.Sprintf("%s-%s", ComponentName, "apiserver-client"),
 		SignerName:     certificatesv1.KubeAPIServerClientSignerName,
 		ForServerUsage: false,
-		CommonName:     PoolcoordinatorAPIServerClientCN,
+		CommonName:     PoolcoordinatorAPIServerCN,
 		Organizations:  []string{PoolcoordinatorOrg},
 	})
 	if err != nil {
 		return err
 	}
 
-	return WriteCertIntoSecret(clientSet, "apiserver-kubelet-client", PoolcoordinatorAPIServerSecertName, certMgr, stopCh)
+	return WriteCertIntoSecret(clientSet, "apiserver-kubelet-client", PoolcoordinatorStaticSecertName, certMgr, stopCh)
 }
 
-// get poolcoordinator apiserver address
-func getAPIServerSVCURL(clientSet client.Interface) (string, error) {
-	serverSVC, err := clientSet.CoreV1().Services(PoolcoordinatorNS).Get(context.TODO(), PoolcoordinatorAPIServerSVC, metav1.GetOptions{})
+// create new public/private key pair for signing service account users
+// and write them into secret
+func initSAKeyPair(clientSet client.Interface, keyName, secretName string) (err error) {
+	key, err := NewPrivateKey()
 	if err != nil {
-		return "", err
-	}
-	apiServerURL, _ := GetURLFromSVC(serverSVC)
-	return apiServerURL, nil
-}
-
-// get CA certs from cluster-info in kube-public namespace
-func getCACerts(clientSet client.Interface) ([]byte, error) {
-	// get cluster-info
-	clusterinfo, err := clientSet.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.TODO(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "fail to create sa key pair")
 	}
 
-	// parse kubeconfig
-	kubeConfigString, ok := clusterinfo.Data[bootstrapapi.KubeConfigKey]
-	if !ok || len(kubeConfigString) == 0 {
-		return nil, pkgerrors.Errorf("there is no %s key in the %s ConfigMap.",
-			bootstrapapi.KubeConfigKey, bootstrapapi.ConfigMapClusterInfo)
-	}
-
-	inSecureConfig, err := clientcmd.Load([]byte(kubeConfigString))
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "couldn't parse the kubeconfig file in the %s ConfigMap", bootstrapapi.ConfigMapClusterInfo)
-	}
-
-	var cluster *clientcmdAPI.Cluster
-	for _, obj := range inSecureConfig.Clusters {
-		cluster = obj
-	}
-
-	// get ca cert
-	if cluster == nil {
-		return nil, pkgerrors.Errorf("there is no item in the clusters.")
-	}
-
-	return cluster.CertificateAuthorityData, nil
-}
-
-func initPoolCoordinatorKubeConfig(clientSet client.Interface, commonName, orgName, secretName string, stopCh <-chan struct{}) error {
-
-	caCert, err := getCACerts(clientSet)
-	if err != nil {
-		return pkgerrors.Wrapf(err, "couldn't get CA certs")
-	}
-
-	apiServerURL, err := getAPIServerSVCURL(clientSet)
-	if err != nil {
-		return pkgerrors.Wrapf(err, "couldn't get PoolCoordinator APIServer service url")
-	}
-
-	certMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
-		CertDir:        certDir,
-		ComponentName:  fmt.Sprintf("%s-%s", ComponentName, "kubeconfig-monitoring-client"),
-		SignerName:     certificatesv1.KubeAPIServerClientSignerName,
-		ForServerUsage: false,
-		CommonName:     commonName,
-		Organizations:  []string{orgName},
-	})
-	if err != nil {
-		return err
-	}
-
-	key, cert, err := GetCertAndKeyFromCertMgr(certMgr, stopCh)
-	if err != nil {
-		return pkgerrors.Wrapf(err, "couldn't get cert&key from %s certmanager", commonName)
-	}
-
-	kubeConfig := kubeconfig.CreateWithCerts(apiServerURL, "cluster", commonName, caCert, key, cert)
-	kubeConfigByte, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	// write certificate data into secret
-	secretClient, err := NewSecretClient(clientSet, PoolcoordinatorNS, secretName)
-	if err != nil {
-		return err
-	}
-	err = secretClient.AddData("kubeconfig", kubeConfigByte)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("successfully write %s kubeconfig into secret %s", commonName, secretName)
-
-	return nil
-}
-
-// func initPoolCoordinatorAdminKubeConfig(clientSet client.Interface, stopCh <-chan struct{}) error {
-// 	return initPoolCoordinatorKubeConfig(clientSet, KubeConfigAdminClientCN, PoolcoordinatorAdminOrg, "poolcoordinator-admin-kubeconfig", stopCh)
-// }
-
-func initPoolCoordinatorMonitoringKubeConfig(clientSet client.Interface, stopCh <-chan struct{}) error {
-	return initPoolCoordinatorKubeConfig(clientSet, KubeConfigMonitoringClientCN, PoolcoordinatorOrg, "poolcoordinator-monitoring-kubeconfig", stopCh)
+	return WriteKeyPairIntoSecret(clientSet, secretName, keyName, key)
 }
