@@ -183,10 +183,7 @@ spec:
                 terminationMessagePolicy: File
                 volumeMounts:
                   - mountPath: /etc/kubernetes/pki
-                    name: dynamic-certs
-                    readOnly: true
-                  - mountPath: /etc/kubernetes/pki
-                    name: static-certs
+                    name: pool-coordinator-certs
                     readOnly: true
               - command:
                   - etcd
@@ -222,10 +219,7 @@ spec:
                   - mountPath: /var/lib/etcd
                     name: etcd-data
                   - mountPath: /etc/kubernetes/pki
-                    name: dynamic-certs
-                    readOnly: true
-                  - mountPath: /etc/kubernetes/pki
-                    name: static-certs
+                    name: pool-coordinator-certs
                     readOnly: true
 #              - image: "{{ .Values.poolCoordinator.kubectlImage.registry }}/{{ .Values.poolCoordinator.kubectlImage.repository }}:{{ .Values.poolCoordinator.kubectlImage.tag }}"
 #                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
@@ -272,14 +266,15 @@ spec:
               - emptyDir:
                   medium: Memory
                 name: etcd-data
-              - secret:
-                  secretName: pool-coordinator-dynamic-certs
-                  defaultMode: 420
-                name: dynamic-certs
-              - secret:
-                  secretName: pool-coordinator-static-certs
-                  defaultMode: 420
-                name: static-certs
+              - projected:
+                sources:
+                  - secret:
+                      secretName: pool-coordinator-dynamic-certs
+                      defaultMode: 420
+                  - secret:
+                      secretName: pool-coordinator-static-certs
+                      defaultMode: 420
+                name: pool-coordinator-certs
 #              - secret:
 #                  secretName: pool-coordinator-self-kubeconfig
 #                  defaultMode: 420
