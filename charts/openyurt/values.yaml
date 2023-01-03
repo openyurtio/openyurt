@@ -1,4 +1,3 @@
-
 imagePullSecrets: []
 
 yurtControllerManager:
@@ -28,7 +27,14 @@ admissionWebhooks:
       tag: v2.4.1
       pullPolicy: IfNotPresent
     affinity: {}
-    tolerations: [{"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"}]
+    tolerations:
+      [
+        {
+          "key": "node-role.kubernetes.io/master",
+          "operator": "Exists",
+          "effect": "NoSchedule",
+        },
+      ]
   certManager:
     enabled: false
     revisionHistoryLimit: 3

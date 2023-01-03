@@ -128,7 +128,7 @@ spec:
                   - --etcd-cafile=/etc/kubernetes/pki/ca.crt
                   - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
                   - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
-                  - --etcd-servers=http://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
+                  - --etcd-servers=https://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
                   - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
                   - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
                   - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
@@ -183,10 +183,7 @@ spec:
                 terminationMessagePolicy: File
                 volumeMounts:
                   - mountPath: /etc/kubernetes/pki
-                    name: dynamic-certs
-                    readOnly: true
-                  - mountPath: /etc/kubernetes/pki
-                    name: static-certs
+                    name: pool-coordinator-certs
                     readOnly: true
               - command:
                   - etcd
@@ -222,10 +219,7 @@ spec:
                   - mountPath: /var/lib/etcd
                     name: etcd-data
                   - mountPath: /etc/kubernetes/pki
-                    name: dynamic-certs
-                    readOnly: true
-                  - mountPath: /etc/kubernetes/pki
-                    name: static-certs
+                    name: pool-coordinator-certs
                     readOnly: true
 #              - image: "{{ .Values.poolCoordinator.kubectlImage.registry }}/{{ .Values.poolCoordinator.kubectlImage.repository }}:{{ .Values.poolCoordinator.kubectlImage.tag }}"
 #                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
@@ -272,14 +266,17 @@ spec:
               - emptyDir:
                   medium: Memory
                 name: etcd-data
-              - secret:
-                  secretName: pool-coordinator-dynamic-certs
-                  defaultMode: 420
-                name: dynamic-certs
-              - secret:
-                  secretName: pool-coordinator-static-certs
-                  defaultMode: 420
-                name: static-certs
+              - projected:
+                  sources:
+                    - secret:
+                        name: dynamic-certs
+                        secretName: pool-coordinator-dynamic-certs
+                        defaultMode: 420
+                    - secret:
+                        name: static-certs
+                        secretName: pool-coordinator-static-certs
+                        defaultMode: 420
+                name: pool-coordinator-certs
 #              - secret:
 #                  secretName: pool-coordinator-self-kubeconfig
 #                  defaultMode: 420

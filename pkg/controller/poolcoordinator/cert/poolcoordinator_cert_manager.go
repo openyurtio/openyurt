@@ -149,6 +149,9 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorDynamicSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPs: []net.IP{
+			net.ParseIP("127.0.0.1"),
+		},
 		CommonName:   PoolcoordinatorETCDCN,
 		Organization: []string{PoolcoordinatorOrg},
 		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
@@ -332,7 +335,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 	}
 
 	// 4. prepare sa key pairs
-	if err := initSAKeyPair(clientSet, PoolcoordinatorStaticSecertName, "sa"); err != nil {
+	if err := initSAKeyPair(clientSet, "sa", PoolcoordinatorStaticSecertName); err != nil {
 		return err
 	}
 
