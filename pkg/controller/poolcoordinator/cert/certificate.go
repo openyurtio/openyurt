@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"net"
 	"time"
 
 	"github.com/pkg/errors"
@@ -85,10 +86,25 @@ func NewSignedCert(client client.Interface, cfg *CertConfig, key crypto.Signer, 
 
 	// initialize cert if necessary
 	if cfg.certInit != nil {
-		cfg.IPs, cfg.DNSNames, err = cfg.certInit(client, stopCh)
+		if cfg.IPs == nil {
+			cfg.IPs = []net.IP{}
+		}
+		if cfg.DNSNames == nil {
+			cfg.DNSNames = []string{}
+		}
+
+		ips, dnsNames, err := cfg.certInit(client, stopCh)
 		if err != nil {
 			return nil, errors.Wrapf(err, "init cert %s fail", cfg.CertName)
 		}
+
+		for _, ip := range ips {
+			cfg.IPs = append(cfg.IPs, ip)
+		}
+		for _, dnsName := range dnsNames {
+			cfg.DNSNames = append(cfg.DNSNames, dnsName)
+		}
+
 	}
 
 	// prepare cert serial number
@@ -117,13 +133,13 @@ func NewSignedCert(client client.Interface, cfg *CertConfig, key crypto.Signer, 
 	return x509.ParseCertificate(certDERBytes)
 }
 
-func LoadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (*x509.Certificate, crypto.Signer, error) {
+func loadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (*x509.Certificate, crypto.Signer, error) {
 
 	secretName := certConf.SecretName
 	certName := certConf.CertName
 
 	// get secret
-	caSecret, err := clientSet.CoreV1().Secrets(PoolcoordinatorNS).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := clientSet.CoreV1().Secrets(PoolcoordinatorNS).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -132,7 +148,7 @@ func LoadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (
 	var ok bool
 
 	if certConf.IsKubeConfig {
-		kubeConfigBytes, ok := caSecret.Data[certName]
+		kubeConfigBytes, ok := secret.Data[certName]
 		if !ok {
 			return nil, nil, errors.Errorf("%s not exist in %s secret", certName, secretName)
 		}
@@ -145,11 +161,11 @@ func LoadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (
 		certBytes = authInfo.ClientCertificateData
 		keyBytes = authInfo.ClientKeyData
 	} else {
-		certBytes, ok = caSecret.Data[fmt.Sprintf("%s.crt", certName)]
+		certBytes, ok = secret.Data[fmt.Sprintf("%s.crt", certName)]
 		if !ok {
 			return nil, nil, errors.Errorf("%s.crt not exist in %s secret", certName, secretName)
 		}
-		keyBytes, ok = caSecret.Data[fmt.Sprintf("%s.key", certName)]
+		keyBytes, ok = secret.Data[fmt.Sprintf("%s.key", certName)]
 		if !ok {
 			return nil, nil, errors.Wrapf(err, "%s.key not exist in %s secret", certName, secretName)
 		}
@@ -238,6 +254,10 @@ func initPoolCoordinatorCert(client client.Interface, cfg CertConfig, caCert *x5
 // EncodeCertPEM returns PEM-endcoded certificate data
 func EncodeCertPEM(c *x509.Certificate) ([]byte, error) {
 
+	if c == nil {
+		return nil, nil
+	}
+
 	block := pem.Block{
 		Type:  certificateBlockType,
 		Bytes: c.Raw,
@@ -247,6 +267,10 @@ func EncodeCertPEM(c *x509.Certificate) ([]byte, error) {
 
 // EncodePublicKeyPEM returns PEM-encoded public data
 func EncodePublicKeyPEM(key crypto.PublicKey) ([]byte, error) {
+	if key == nil {
+		return nil, nil
+	}
+
 	der, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return []byte{}, err
@@ -406,7 +430,7 @@ func WriteKeyPairIntoSecret(clientSet client.Interface, secretName, keyName stri
 	if err != nil {
 		return errors.Wrapf(err, "fail to marshal public key into PEM format %s", keyName)
 	}
-	err = secretClient.AddData(fmt.Sprintf("%s.key", keyName), publicKeyPEM)
+	err = secretClient.AddData(fmt.Sprintf("%s.pub", keyName), publicKeyPEM)
 	if err != nil {
 		return errors.Wrapf(err, "fail to write %s.pub into secret %s", keyName, secretName)
 	}

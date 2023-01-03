@@ -128,13 +128,13 @@ type LoadBalancer interface {
 }
 
 type loadBalancer struct {
-	backends      []*util.RemoteProxy
-	algo          loadBalancerAlgo
-	localCacheMgr cachemanager.CacheManager
-	filterManager *manager.Manager
-	coordinator   *poolcoordinator.Coordinator
-	workingMode   hubutil.WorkingMode
-	stopCh        <-chan struct{}
+	backends          []*util.RemoteProxy
+	algo              loadBalancerAlgo
+	localCacheMgr     cachemanager.CacheManager
+	filterManager     *manager.Manager
+	coordinatorGetter func() poolcoordinator.Coordinator
+	workingMode       hubutil.WorkingMode
+	stopCh            <-chan struct{}
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
@@ -143,17 +143,17 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinator *poolcoordinator.Coordinator,
+	coordinatorGetter func() poolcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterManager *manager.Manager,
 	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{
-		localCacheMgr: localCacheMgr,
-		filterManager: filterManager,
-		coordinator:   coordinator,
-		workingMode:   workingMode,
-		stopCh:        stopCh,
+		localCacheMgr:     localCacheMgr,
+		filterManager:     filterManager,
+		coordinatorGetter: coordinatorGetter,
+		workingMode:       workingMode,
+		stopCh:            stopCh,
 	}
 	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
@@ -194,7 +194,11 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
-	if util.IsPoolScopedResouceListWatchRequest(req) {
+
+	// If pool-scoped resource request is from leader-yurthub, it should always be sent to the cloud APIServer.
+	// Thus we do not need to start a check routine for it. But for other requests, we need to periodically check
+	// the pool-coordinator status, and switch the traffic to pool-coordinator if it is ready.
+	if util.IsPoolScopedResouceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
 		// We get here possibly because the pool-coordinator is not ready.
 		// We should cancel the watch request when pool-coordinator becomes ready.
 		klog.Infof("pool-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
@@ -207,7 +211,14 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			for {
 				select {
 				case <-t.C:
-					if _, isReady := lb.coordinator.IsReady(); isReady {
+					if lb.coordinatorGetter == nil {
+						continue
+					}
+					coordinator := lb.coordinatorGetter()
+					if coordinator == nil {
+						continue
+					}
+					if _, isReady := coordinator.IsReady(); isReady {
 						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
 						cloudServeCancel()
 						return
@@ -323,10 +334,24 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 	if lb.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
-		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		// after gunzip in filter, the header content encoding should be removed.
+		// because there's no need to gunzip response.body again.
+		if needUncompressed {
+			resp.Header.Del("Content-Encoding")
+		}
 		resp.Body = wrapPrc
 
-		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
+		var poolCacheManager cachemanager.CacheManager
+		var isHealthy bool
+
+		coordinator := lb.coordinatorGetter()
+		if coordinator == nil {
+			isHealthy = false
+		} else {
+			poolCacheManager, isHealthy = coordinator.IsHealthy()
+		}
+
 		if isHealthy && poolCacheManager != nil {
 			if !isLeaderHubUserAgent(ctx) {
 				if isRequestOfNodeAndPod(ctx) {
@@ -360,31 +385,31 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, false)
+	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
-	req.Body = rc
+	resp.Body = rc
 }
 
 func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, poolCacheManager cachemanager.CacheManager) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, false)
+	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := poolCacheManager.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
-	req.Body = rc
+	resp.Body = rc
 }
 
 func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Response, poolCacheMgr cachemanager.CacheManager) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, false)
+	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
@@ -398,7 +423,7 @@ func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Respon
 			}
 		}(req, prc2, ctx.Done())
 	}
-	req.Body = rc
+	resp.Body = rc
 }
 
 func isLeaderHubUserAgent(reqCtx context.Context) bool {
@@ -419,4 +444,13 @@ func isRequestOfNodeAndPod(reqCtx context.Context) bool {
 
 	return (reqInfo.Resource == "nodes" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1") ||
 		(reqInfo.Resource == "pods" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1")
+}
+
+func isRequestFromLeaderYurthub(req *http.Request) bool {
+	ctx := req.Context()
+	agent, ok := hubutil.ClientComponentFrom(ctx)
+	if !ok {
+		return false
+	}
+	return agent == coordinatorconstants.DefaultPoolScopedUserAgent
 }

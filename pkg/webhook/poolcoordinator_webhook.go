@@ -19,6 +19,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,7 +27,9 @@ import (
 
 	"github.com/wI2L/jsondiff"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
@@ -60,10 +63,7 @@ const (
 	// when ready nodes in a pool is below this value, we don't allow pod transition any more
 	PoolReadyNodeNumberRatioThresholdDefault = 0.35
 
-	ValidatePath string = "/pool-coordinator-webhook-validate"
-	MutatePath   string = "/pool-coordinator-webhook-mutate"
-	HealthPath   string = "/pool-coordinator-webhook-health"
-	MaxRetries          = 30
+	MaxRetries = 30
 )
 
 type PoolCoordinatorWebhook struct {
@@ -78,6 +78,15 @@ type PoolCoordinatorWebhook struct {
 	nodepoolMap *utils.NodepoolMap
 
 	nodePoolUpdateQueue workqueue.RateLimitingInterface
+
+	validatingConfigurationName string
+	mutatingConfigurationName   string
+	validatingName              string
+	mutatingName                string
+	serviceName                 string
+	validatingPath              string
+	mutatingPath                string
+	namespace                   string
 }
 
 type validation struct {
@@ -168,11 +177,13 @@ func (pa *PodAdmission) validateDel() (validation, error) {
 func (pa *PodAdmission) mutateAddToleration() ([]byte, error) {
 	toadd := []corev1.Toleration{
 		{Key: "node.kubernetes.io/unreachable",
-			Operator: "Exists",
-			Effect:   "NoExecute"},
+			Operator:          "Exists",
+			Effect:            "NoExecute",
+			TolerationSeconds: nil},
 		{Key: "node.kubernetes.io/not-ready",
-			Operator: "Exists",
-			Effect:   "NoExecute"},
+			Operator:          "Exists",
+			Effect:            "NoExecute",
+			TolerationSeconds: nil},
 	}
 	tols := pa.pod.Spec.Tolerations
 	merged, changed := utils.MergeTolerations(tols, toadd)
@@ -203,6 +214,10 @@ func (pa *PodAdmission) mutateReview() (*admissionv1.AdmissionReview, error) {
 		return pa.reviewResponse(pa.request.UID, false, http.StatusBadRequest, ""), err
 	}
 
+	if pa.node == nil {
+		return pa.reviewResponse(pa.request.UID, true, http.StatusAccepted, "node not assigned yet, nothing to do"), nil
+	}
+
 	if pa.request.Operation != admissionv1.Create && pa.request.Operation != admissionv1.Update {
 		reason := fmt.Sprintf("Operation %v is accepted always", pa.request.Operation)
 		return pa.reviewResponse(pa.request.UID, true, http.StatusAccepted, reason), nil
@@ -214,6 +229,7 @@ func (pa *PodAdmission) mutateReview() (*admissionv1.AdmissionReview, error) {
 	}
 
 	// add tolerations if not yet
+	klog.Infof("add tolerations to pod %s\n", pa.pod.Name)
 	val, err := pa.mutateAddToleration()
 	if err != nil {
 		return pa.reviewResponse(pa.request.UID, true, http.StatusAccepted, "could not merge tolerations"), err
@@ -269,7 +285,6 @@ func (h *PoolCoordinatorWebhook) serveHealth(w http.ResponseWriter, r *http.Requ
 // ServeValidatePods validates an admission request and then writes an admission
 func (h *PoolCoordinatorWebhook) serveValidatePods(w http.ResponseWriter, r *http.Request) {
 	klog.Info("uri", r.RequestURI)
-	klog.Info("received validation request")
 
 	pa, err := h.NewPodAdmission(r)
 	if err != nil {
@@ -304,7 +319,6 @@ func (h *PoolCoordinatorWebhook) serveValidatePods(w http.ResponseWriter, r *htt
 // ServeMutatePods mutates an admission request and then writes an admission
 func (h *PoolCoordinatorWebhook) serveMutatePods(w http.ResponseWriter, r *http.Request) {
 	klog.Info("uri", r.RequestURI)
-	klog.Info("received validation request")
 
 	pa, err := h.NewPodAdmission(r)
 	if err != nil {
@@ -371,18 +385,26 @@ func (h *PoolCoordinatorWebhook) NewPodAdmission(r *http.Request) (*PodAdmission
 
 	req := in.Request
 
+	if req.Kind.Kind != "Pod" {
+		return nil, fmt.Errorf("only pods are supported")
+	}
+
 	pod := &corev1.Pod{}
 
-	if err := json.Unmarshal(req.OldObject.Raw, pod); err != nil {
+	if req.Operation == admissionv1.Delete || req.Operation == admissionv1.Update {
+		err = json.Unmarshal(req.OldObject.Raw, pod)
+	} else {
+		err = json.Unmarshal(req.Object.Raw, pod)
+	}
+
+	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
 
-	nodeName := pod.Spec.NodeName
-	node, err := h.nodeLister.Get(nodeName)
-	if err != nil {
-		return nil, err
-	}
+	nodeName := pod.Spec.NodeSelector["kubernetes.io/hostname"]
+	klog.Infof("pod %s is on node: %s\n", pod.Name, nodeName)
+	node, _ := h.nodeLister.Get(nodeName)
 
 	pa := &PodAdmission{
 		request:     req,
@@ -411,6 +433,15 @@ func NewPoolcoordinatorWebhook(kc client.Interface, informerFactory informers.Sh
 	h.leaseLister = h.leaseInformer.Lister().Leases(corev1.NamespaceNodeLease)
 
 	h.nodepoolMap = utils.NewNodepoolMap()
+
+	h.serviceName = utils.GetEnv("WEBHOOK_SERVICE_NAME", "yurt-controller-manager-webhook")
+	h.namespace = utils.GetEnv("WEBHOOK_NAMESPACE", "kube-system")
+	h.validatingConfigurationName = utils.GetEnv("WEBHOOK_POD_VALIDATING_CONFIGURATION_NAME", "yurt-controller-manager")
+	h.mutatingConfigurationName = utils.GetEnv("WEBHOOK_POD_MUTATING_CONFIGURATION_NAME", "yurt-controller-manager")
+	h.validatingName = utils.GetEnv("WEBHOOK_POD_VALIDATING_NAME", "vpoolcoordinator.openyurt.io")
+	h.mutatingName = utils.GetEnv("WEBHOOK_POD_MUTATING_NAME", "mpoolcoordinator.openyurt.io")
+	h.validatingPath = utils.GetEnv("WEBHOOK_POD_VALIDATING_PATH", "/pool-coordinator-webhook-validate")
+	h.mutatingPath = utils.GetEnv("WEBHOOK_POD_MUTATING_PATH", "/pool-coordinator-webhook-mutate")
 
 	h.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    h.onNodeCreate,
@@ -451,6 +482,7 @@ func (h *PoolCoordinatorWebhook) syncHandler(key string) error {
 	if node == nil && err != nil {
 		// the node has been deleted
 		h.nodepoolMap.DelNode(name)
+		klog.Infof("node %s removed\n", name)
 		return nil
 	}
 
@@ -461,11 +493,14 @@ func (h *PoolCoordinatorWebhook) syncHandler(key string) error {
 				return nil
 			} else {
 				h.nodepoolMap.Del(opool, name)
+				klog.Infof("pool %s: node %s removed\n", opool, name)
 			}
 		}
 		h.nodepoolMap.Add(pool, name)
+		klog.Infof("pool %s: node %s added\n", pool, name)
 	} else {
 		h.nodepoolMap.DelNode(name)
+		klog.Infof("node %s removed\n", name)
 	}
 
 	h.nodePoolUpdateQueue.Done(key)
@@ -497,12 +532,113 @@ func (h *PoolCoordinatorWebhook) nodePoolWorker() {
 
 func (h *PoolCoordinatorWebhook) Handler() []Handler {
 	return []Handler{
-		{MutatePath, h.serveMutatePods},
-		{ValidatePath, h.serveMutatePods},
+		{h.mutatingPath, h.serveMutatePods},
+		{h.validatingPath, h.serveValidatePods},
 	}
 }
 
-func (h *PoolCoordinatorWebhook) Init(stopCH <-chan struct{}) {
+func (h *PoolCoordinatorWebhook) ensureValidatingConfiguration(certs *Certs) {
+	fail := admissionregistrationv1.Fail
+	sideEffects := admissionregistrationv1.SideEffectClassNone
+	config := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: h.validatingConfigurationName,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name: h.validatingName,
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				CABundle: certs.CACert,
+				Service: &admissionregistrationv1.ServiceReference{
+					Name:      h.serviceName,
+					Namespace: h.namespace,
+					Path:      &h.validatingPath,
+				},
+			},
+			Rules: []admissionregistrationv1.RuleWithOperations{
+				{Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Delete},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				}},
+			FailurePolicy:           &fail,
+			SideEffects:             &sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+		}},
+	}
+
+	if _, err := h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+		context.TODO(), h.validatingConfigurationName, metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("validatewebhookconfiguratiion %s not found, create it.", h.validatingConfigurationName)
+			if _, err = h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(
+				context.TODO(), config, metav1.CreateOptions{}); err != nil {
+				klog.Fatal(err)
+			}
+		}
+	} else {
+		klog.Infof("validatingwebhookconfiguratiion %s already exists, update it.", h.validatingConfigurationName)
+		if _, err = h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(
+			context.TODO(), config, metav1.UpdateOptions{}); err != nil {
+			klog.Fatal(err)
+		}
+	}
+}
+
+func (h *PoolCoordinatorWebhook) ensureMutatingConfiguration(certs *Certs) {
+	fail := admissionregistrationv1.Fail
+	sideEffects := admissionregistrationv1.SideEffectClassNone
+	config := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: h.mutatingConfigurationName,
+		},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{
+			Name: h.mutatingName,
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				CABundle: certs.CACert,
+				Service: &admissionregistrationv1.ServiceReference{
+					Name:      h.serviceName,
+					Namespace: h.namespace,
+					Path:      &h.mutatingPath,
+				},
+			},
+			Rules: []admissionregistrationv1.RuleWithOperations{
+				{Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				}},
+			FailurePolicy:           &fail,
+			SideEffects:             &sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+		}},
+	}
+
+	if _, err := h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
+		context.TODO(), h.mutatingConfigurationName, metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("validatewebhookconfiguratiion %s not found, create it.", h.mutatingConfigurationName)
+			if _, err = h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(
+				context.TODO(), config, metav1.CreateOptions{}); err != nil {
+				klog.Fatal(err)
+			}
+		}
+	} else {
+		klog.Infof("validatingwebhookconfiguratiion %s already exists, update it.", h.mutatingConfigurationName)
+		if _, err = h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(
+			context.TODO(), config, metav1.UpdateOptions{}); err != nil {
+			klog.Fatal(err)
+		}
+	}
+}
+
+func (h *PoolCoordinatorWebhook) Init(certs *Certs, stopCH <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCH, h.nodeSynced, h.leaseSynced) {
 		klog.Error("sync poolcoordinator webhook timeout")
 	}
@@ -521,4 +657,7 @@ func (h *PoolCoordinatorWebhook) Init(stopCH <-chan struct{}) {
 		defer h.nodePoolUpdateQueue.ShutDown()
 		<-stopCH
 	}()
+
+	h.ensureValidatingConfiguration(certs)
+	h.ensureMutatingConfiguration(certs)
 }

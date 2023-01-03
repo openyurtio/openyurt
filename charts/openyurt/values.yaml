@@ -1,4 +1,3 @@
-
 imagePullSecrets: []
 
 yurtControllerManager:
@@ -14,24 +13,17 @@ yurtControllerManager:
     port: 80
 
 admissionWebhooks:
-  enabled: true
   service:
     type: ClusterIP
     port: 9443
   failurePolicy: Fail
   certificate:
     mountPath: /tmp/k8s-webhook-server/serving-certs
-  patch:
-    enabled: true
-    image:
-      repository: docker.io/oamdev/kube-webhook-certgen
-      tag: v2.4.1
-      pullPolicy: IfNotPresent
-    affinity: {}
-    tolerations: [{"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"}]
-  certManager:
-    enabled: false
-    revisionHistoryLimit: 3
+  names:
+    validatingWebhookName: vpoolcoordinator.openyurt.io
+    mutatingWebhookName: mpoolcoordinator.openyurt.io
+    webhookPodValidatingPath: /pool-coordinator-webhook-validate
+    webhookPodMutatingPath: /pool-coordinator-webhook-mutate
 
 yurtTunnelAgent:
   replicaCount: 1

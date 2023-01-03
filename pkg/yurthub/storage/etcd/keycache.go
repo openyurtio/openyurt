@@ -69,12 +69,12 @@ func (s keySet) Difference(s2 keySet) []storageKey {
 // ...
 type componentKeyCache struct {
 	sync.Mutex
-	ctx           context.Context
-	cache         map[string]keySet
-	filePath      string
-	keyFunc       func(storage.KeyBuildInfo) (storage.Key, error)
-	fsOperator    fs.FileSystemOperator
-	getEtcdClient func() *clientv3.Client
+	ctx        context.Context
+	cache      map[string]keySet
+	filePath   string
+	keyFunc    func(storage.KeyBuildInfo) (storage.Key, error)
+	fsOperator fs.FileSystemOperator
+	etcdClient *clientv3.Client
 }
 
 func (c *componentKeyCache) Recover() error {
@@ -84,27 +84,28 @@ func (c *componentKeyCache) Recover() error {
 		if err := c.fsOperator.CreateFile(c.filePath, []byte{}); err != nil {
 			return fmt.Errorf("failed to create cache file at %s, %v", c.filePath, err)
 		}
-		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to recover key cache from %s, %v", c.filePath, err)
 	}
 
-	// successfully read from file
-	if len(buf) == 0 {
-		return nil
-	}
-	lines := strings.Split(string(buf), "\n")
-	for i, l := range lines {
-		s := strings.Split(l, ":")
-		if len(s) != 2 {
-			return fmt.Errorf("failed to parse line %d, invalid format", i)
+	if len(buf) != 0 {
+		// We've got content from file
+		lines := strings.Split(string(buf), "\n")
+		for i, l := range lines {
+			s := strings.Split(l, ":")
+			if len(s) != 2 {
+				return fmt.Errorf("failed to parse line %d, invalid format", i)
+			}
+			comp, keys := s[0], strings.Split(s[1], ",")
+			ks := keySet{m: map[storageKey]struct{}{}}
+			for _, key := range keys {
+				ks.m[storageKey{
+					comp: comp,
+					path: key,
+				}] = struct{}{}
+			}
+			c.cache[comp] = ks
 		}
-		comp, keys := s[0], strings.Split(s[1], ",")
-		ks := keySet{m: map[storageKey]struct{}{}}
-		for _, key := range keys {
-			ks.m[storageKey{path: key}] = struct{}{}
-		}
-		c.cache[comp] = ks
 	}
 
 	poolScopedKeyset, err := c.getPoolScopedKeyset()
@@ -120,11 +121,6 @@ func (c *componentKeyCache) Recover() error {
 }
 
 func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
-	client := c.getEtcdClient()
-	if client == nil {
-		return nil, fmt.Errorf("got empty etcd client")
-	}
-
 	keys := &keySet{m: map[storageKey]struct{}{}}
 	for gvr := range coordinatorconstants.PoolScopedResources {
 		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
@@ -138,7 +134,7 @@ func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate keys for %s, %v", gvr.String(), err)
 		}
-		getResp, err := client.Get(getCtx, rootKey.Key(), clientv3.WithPrefix(), clientv3.WithKeysOnly())
+		getResp, err := c.etcdClient.Get(getCtx, rootKey.Key(), clientv3.WithPrefix(), clientv3.WithKeysOnly())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get from etcd for %s, %v", gvr.String(), err)
 		}
@@ -261,19 +257,11 @@ func (c *componentKeyCache) flush() error {
 	return nil
 }
 
-func newComponentKeyCache(filePath string) *componentKeyCache {
-	return &componentKeyCache{
-		filePath:   filePath,
-		cache:      map[string]keySet{},
-		fsOperator: fs.FileSystemOperator{},
-	}
-}
-
 // We assume that path points to a namespaced resource.
 func getNamespaceAndNameFromKeyPath(path string) (string, string, error) {
-	elems := strings.Split(path, "/")
+	elems := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	if len(elems) < 2 {
-		return "", "", fmt.Errorf("unrecognized path: %v", path)
+		return "", "", fmt.Errorf("unrecognized path: %s", path)
 	}
 
 	return elems[len(elems)-2], elems[len(elems)-1], nil

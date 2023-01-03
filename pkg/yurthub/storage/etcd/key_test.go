@@ -36,6 +36,7 @@ func TestKeyFunc(t *testing.T) {
 	}{
 		"core group normal case": {
 			info: storage.KeyBuildInfo{
+				Component: "kubelet",
 				Group:     "",
 				Resources: "pods",
 				Version:   "v1",
@@ -47,6 +48,7 @@ func TestKeyFunc(t *testing.T) {
 
 		"special prefix for node resource": {
 			info: storage.KeyBuildInfo{
+				Component: "kubelet",
 				Group:     "",
 				Resources: "nodes",
 				Version:   "v1",
@@ -57,6 +59,7 @@ func TestKeyFunc(t *testing.T) {
 		},
 		"not core group": {
 			info: storage.KeyBuildInfo{
+				Component: "kubelet",
 				Group:     "apps",
 				Resources: "deployments",
 				Version:   "v1",
@@ -67,6 +70,7 @@ func TestKeyFunc(t *testing.T) {
 		},
 		"special prefix for service resource": {
 			info: storage.KeyBuildInfo{
+				Component: "kube-proxy",
 				Group:     "networking.k8s.io",
 				Resources: "ingresses",
 				Version:   "v1",
@@ -77,6 +81,7 @@ func TestKeyFunc(t *testing.T) {
 		},
 		"empty resources": {
 			info: storage.KeyBuildInfo{
+				Component: "yurthub",
 				Group:     "",
 				Resources: "",
 				Version:   "v1",
@@ -84,6 +89,16 @@ func TestKeyFunc(t *testing.T) {
 				Name:      "",
 			},
 			err: storage.ErrEmptyResource,
+		},
+		"empty component": {
+			info: storage.KeyBuildInfo{
+				Group:     "",
+				Resources: "nodes",
+				Version:   "v1",
+				Namespace: "",
+				Name:      "test-node",
+			},
+			err: storage.ErrEmptyComponent,
 		},
 	}
 

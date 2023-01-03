@@ -149,7 +149,7 @@ func Test_createInsecureRestClientConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := createInsecureRestClientConfig(tt.args.remoteServer)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createInsecureRestClientConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CreateInsecureRestClientConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})

@@ -42,9 +42,12 @@ type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.S
 
 func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
 	wrapMux := mux.NewRouter()
-	// register handler for non resource requests
-	for path := range nonResourceReqPaths {
-		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
+
+	if !config.EnableCoordinator {
+		// register handler for non resource requests
+		for path := range nonResourceReqPaths {
+			wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
+		}
 	}
 
 	// register handler for other requests

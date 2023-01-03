@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -78,6 +79,7 @@ type YurtHubConfiguration struct {
 	MaxRequestInFlight                int
 	JoinToken                         string
 	RootDir                           string
+	CoordinatorPKIDir                 string
 	EnableProfiling                   bool
 	EnableDummyIf                     bool
 	EnableIptables                    bool
@@ -88,19 +90,17 @@ type YurtHubConfiguration struct {
 	TLSConfig                         *tls.Config
 	SharedFactory                     informers.SharedInformerFactory
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
+	YurtClient                        kubernetes.Interface
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
 	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
-	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
+	EnableCoordinator                 bool
+	CoordinatorServerURL              *url.URL
 	CoordinatorStoragePrefix          string
 	CoordinatorStorageAddr            string // ip:port
-	CoordinatorStorageCaFile          string
-	CoordinatorStorageCertFile        string
-	CoordinatorStorageKeyFile         string
 	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
-	CoordinatorClient                 kubernetes.Interface
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -108,6 +108,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	var coordinatorServerURL *url.URL
+	if options.EnableCoordinator {
+		coordinatorServerURL, err = url.Parse(options.CoordinatorServerAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	hubCertOrgs := make([]string, 0)
@@ -136,12 +144,13 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
-	proxiedClient, err := buildProxiedClient(fmt.Sprintf("http://%s", proxyServerAddr))
+	proxyServerURL := fmt.Sprintf("http://%s", proxyServerAddr)
+	proxiedClient, err := buildProxiedClient(proxyServerURL)
 	if err != nil {
 		return nil, err
 	}
 	sharedFactory := informers.NewSharedInformerFactory(proxiedClient, 24*time.Hour)
-	yurtSharedFactory, err := createYurtSharedInformers(proxiedClient, options.EnableNodePool)
+	yurtSharedFactory, err := createYurtSharedInformers(proxyServerURL, options.EnableNodePool)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +190,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MaxRequestInFlight:                options.MaxRequestInFlight,
 		JoinToken:                         options.JoinToken,
 		RootDir:                           options.RootDir,
+		CoordinatorPKIDir:                 filepath.Join(options.RootDir, "poolcoordinator"),
 		EnableProfiling:                   options.EnableProfiling,
 		EnableDummyIf:                     options.EnableDummyIf,
 		EnableIptables:                    options.EnableIptables,
@@ -191,15 +201,15 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		RESTMapperManager:                 restMapperManager,
 		SharedFactory:                     sharedFactory,
 		YurtSharedFactory:                 yurtSharedFactory,
+		YurtClient:                        proxiedClient,
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
+		EnableCoordinator:                 options.EnableCoordinator,
+		CoordinatorServerURL:              coordinatorServerURL,
 		CoordinatorStoragePrefix:          options.CoordinatorStoragePrefix,
 		CoordinatorStorageAddr:            options.CoordinatorStorageAddr,
-		CoordinatorStorageCaFile:          options.CoordinatorStorageCaFile,
-		CoordinatorStorageCertFile:        options.CoordinatorStorageCertFile,
-		CoordinatorStorageKeyFile:         options.CoordinatorStorageKeyFile,
 		LeaderElection:                    options.LeaderElection,
 	}
 
@@ -251,10 +261,14 @@ func buildProxiedClient(proxyAddr string) (kubernetes.Interface, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createYurtSharedInformers(proxiedClient kubernetes.Interface, enableNodePool bool) (yurtinformers.SharedInformerFactory, error) {
+func createYurtSharedInformers(proxyAddr string, enableNodePool bool) (yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var yurtClient yurtclientset.Interface
 	var err error
+	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
+	if err != nil {
+		return nil, err
+	}
 
 	fakeYurtClient := &fake.Clientset{}
 	fakeWatch := watch.NewFake()

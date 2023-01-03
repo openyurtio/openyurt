@@ -43,46 +43,45 @@ const (
 
 // YurtHubOptions is the main settings for the yurthub
 type YurtHubOptions struct {
-	ServerAddr                 string
-	YurtHubHost                string // YurtHub server host (e.g.: expose metrics API)
-	YurtHubProxyHost           string // YurtHub proxy server host
-	YurtHubPort                string
-	YurtHubProxyPort           string
-	YurtHubProxySecurePort     string
-	GCFrequency                int
-	YurtHubCertOrganizations   string
-	KubeletRootCAFilePath      string
-	KubeletPairFilePath        string
-	NodeName                   string
-	NodePoolName               string
-	LBMode                     string
-	HeartbeatFailedRetry       int
-	HeartbeatHealthyThreshold  int
-	HeartbeatTimeoutSeconds    int
-	HeartbeatIntervalSeconds   int
-	MaxRequestInFlight         int
-	JoinToken                  string
-	RootDir                    string
-	Version                    bool
-	EnableProfiling            bool
-	EnableDummyIf              bool
-	EnableIptables             bool
-	HubAgentDummyIfIP          string
-	HubAgentDummyIfName        string
-	DiskCachePath              string
-	AccessServerThroughHub     bool
-	EnableResourceFilter       bool
-	DisabledResourceFilters    []string
-	WorkingMode                string
-	KubeletHealthGracePeriod   time.Duration
-	CoordinatorStoragePrefix   string
-	CoordinatorStorageAddr     string
-	CoordinatorStorageCaFile   string
-	CoordinatorStorageCertFile string
-	CoordinatorStorageKeyFile  string
-	EnableNodePool             bool
-	MinRequestTimeout          time.Duration
-	LeaderElection             componentbaseconfig.LeaderElectionConfiguration
+	ServerAddr                string
+	YurtHubHost               string // YurtHub server host (e.g.: expose metrics API)
+	YurtHubProxyHost          string // YurtHub proxy server host
+	YurtHubPort               string
+	YurtHubProxyPort          string
+	YurtHubProxySecurePort    string
+	GCFrequency               int
+	YurtHubCertOrganizations  string
+	KubeletRootCAFilePath     string
+	KubeletPairFilePath       string
+	NodeName                  string
+	NodePoolName              string
+	LBMode                    string
+	HeartbeatFailedRetry      int
+	HeartbeatHealthyThreshold int
+	HeartbeatTimeoutSeconds   int
+	HeartbeatIntervalSeconds  int
+	MaxRequestInFlight        int
+	JoinToken                 string
+	RootDir                   string
+	Version                   bool
+	EnableProfiling           bool
+	EnableDummyIf             bool
+	EnableIptables            bool
+	HubAgentDummyIfIP         string
+	HubAgentDummyIfName       string
+	DiskCachePath             string
+	AccessServerThroughHub    bool
+	EnableResourceFilter      bool
+	DisabledResourceFilters   []string
+	WorkingMode               string
+	KubeletHealthGracePeriod  time.Duration
+	EnableCoordinator         bool
+	CoordinatorServerAddr     string
+	CoordinatorStoragePrefix  string
+	CoordinatorStorageAddr    string
+	EnableNodePool            bool
+	MinRequestTimeout         time.Duration
+	LeaderElection            componentbaseconfig.LeaderElectionConfiguration
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -115,6 +114,8 @@ func NewYurtHubOptions() *YurtHubOptions {
 		KubeletHealthGracePeriod:  time.Second * 40,
 		EnableNodePool:            true,
 		MinRequestTimeout:         time.Second * 1800,
+		CoordinatorServerAddr:     fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorAPIServerSvcName, util.DefaultPoolCoordinatorAPIServerSvcPort),
+		CoordinatorStorageAddr:    fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorEtcdSvcName, util.DefaultPoolCoordinatorEtcdSvcPort),
 		CoordinatorStoragePrefix:  "/registry",
 		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
 			LeaderElect:       true,
@@ -190,11 +191,10 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
+	fs.BoolVar(&o.EnableCoordinator, "enable-coordinator", o.EnableCoordinator, "make yurthub aware of the pool coordinator")
+	fs.StringVar(&o.CoordinatorServerAddr, "coordinator-server-addr", o.CoordinatorServerAddr, "Coordinator APIServer address in format https://host:port")
 	fs.StringVar(&o.CoordinatorStoragePrefix, "coordinator-storage-prefix", o.CoordinatorStoragePrefix, "Pool-Coordinator etcd storage prefix, same as etcd-prefix of Kube-APIServer")
-	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Pool-Coordinator etcd, in the format ip:port")
-	fs.StringVar(&o.CoordinatorStorageCaFile, "coordinator-storage-ca", o.CoordinatorStorageCaFile, "CA file path to communicate with Pool-Coordinator etcd")
-	fs.StringVar(&o.CoordinatorStorageCertFile, "coordinator-storage-cert", o.CoordinatorStorageCertFile, "Cert file path to communicate with Pool-Coordinator etcd")
-	fs.StringVar(&o.CoordinatorStorageKeyFile, "coordinator-storage-key", o.CoordinatorStorageKeyFile, "Key file path to communicate with Pool-Coordinator etcd")
+	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Pool-Coordinator etcd, in the format host:port")
 	bindFlags(&o.LeaderElection, fs)
 }
 

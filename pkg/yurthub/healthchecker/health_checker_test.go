@@ -176,7 +176,7 @@ func TestNewCoordinatorHealthChecker(t *testing.T) {
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			cfg := &config.YurtHubConfiguration{
-				CoordinatorServer:         &url.URL{Host: "127.0.0.1:18080"},
+				CoordinatorServerURL:      &url.URL{Host: "127.0.0.1:18080"},
 				NodeName:                  node.Name,
 				HeartbeatFailedRetry:      2,
 				HeartbeatHealthyThreshold: 1,

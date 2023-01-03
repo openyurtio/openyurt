@@ -130,8 +130,8 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorYurthubClientSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		CommonName:   PoolcoordinatorYurthubClientCN,
-		Organization: []string{PoolcoordinatorOrg},
+		CommonName:   KubeConfigAdminClientCN,
+		Organization: []string{PoolcoordinatorAdminOrg},
 	},
 	{
 		CertName:     "apiserver",
@@ -149,6 +149,9 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorDynamicSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPs: []net.IP{
+			net.ParseIP("127.0.0.1"),
+		},
 		CommonName:   PoolcoordinatorETCDCN,
 		Organization: []string{PoolcoordinatorOrg},
 		certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
@@ -276,7 +279,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 		for _, certConf := range allSelfSignedCerts {
 
 			// 1.1 check if cert exist
-			cert, _, err := LoadCertAndKeyFromSecret(clientSet, certConf)
+			cert, _, err := loadCertAndKeyFromSecret(clientSet, certConf)
 			if err != nil {
 				klog.Infof("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName)
 				selfSignedCerts = append(selfSignedCerts, certConf)
@@ -331,8 +334,13 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 		return err
 	}
 
-	// 4. prepare sa key pairs
-	if err := initSAKeyPair(clientSet, PoolcoordinatorStaticSecertName, "sa"); err != nil {
+	// 4. prepare ca cert in yurthub secret
+	if err := WriteCertAndKeyIntoSecret(clientSet, "ca", PoolcoordinatorYurthubClientSecertName, caCert, nil); err != nil {
+		return err
+	}
+
+	// 5. prepare sa key pairs
+	if err := initSAKeyPair(clientSet, "sa", PoolcoordinatorStaticSecertName); err != nil {
 		return err
 	}
 
@@ -343,7 +351,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 // check if pool-coordinator CA already exist, if not creat one
 func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.Signer, reuse bool, err error) {
 	// try load CA cert&key from secret
-	caCert, caKey, err = LoadCertAndKeyFromSecret(clientSet, CertConfig{
+	caCert, caKey, err = loadCertAndKeyFromSecret(clientSet, CertConfig{
 		SecretName:   PoolCoordinatorCASecretName,
 		CertName:     "ca",
 		IsKubeConfig: false,
