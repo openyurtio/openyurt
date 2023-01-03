@@ -267,13 +267,15 @@ spec:
                   medium: Memory
                 name: etcd-data
               - projected:
-                sources:
-                  - secret:
-                      secretName: pool-coordinator-dynamic-certs
-                      defaultMode: 420
-                  - secret:
-                      secretName: pool-coordinator-static-certs
-                      defaultMode: 420
+                  sources:
+                    - secret:
+                        name: dynamic-certs
+                        secretName: pool-coordinator-dynamic-certs
+                        defaultMode: 420
+                    - secret:
+                        name: static-certs
+                        secretName: pool-coordinator-static-certs
+                        defaultMode: 420
                 name: pool-coordinator-certs
 #              - secret:
 #                  secretName: pool-coordinator-self-kubeconfig
