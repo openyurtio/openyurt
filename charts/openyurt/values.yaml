@@ -30,6 +30,7 @@ yurtTunnelServer:
   parameters:
     certDnsNames: ""
     certIps: ""
+    tunnelAgentConnectPort: 10262
   image:
     registry: docker.io
     repository: openyurt/yurt-tunnel-server
