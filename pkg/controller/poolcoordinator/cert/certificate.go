@@ -406,7 +406,7 @@ func WriteKeyPairIntoSecret(clientSet client.Interface, secretName, keyName stri
 	if err != nil {
 		return errors.Wrapf(err, "fail to marshal public key into PEM format %s", keyName)
 	}
-	err = secretClient.AddData(fmt.Sprintf("%s.key", keyName), publicKeyPEM)
+	err = secretClient.AddData(fmt.Sprintf("%s.pub", keyName), publicKeyPEM)
 	if err != nil {
 		return errors.Wrapf(err, "fail to write %s.pub into secret %s", keyName, secretName)
 	}
