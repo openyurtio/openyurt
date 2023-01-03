@@ -332,7 +332,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 	}
 
 	// 4. prepare sa key pairs
-	if err := initSAKeyPair(clientSet, PoolcoordinatorStaticSecertName, "sa"); err != nil {
+	if err := initSAKeyPair(clientSet, "sa", PoolcoordinatorStaticSecertName); err != nil {
 		return err
 	}
 
