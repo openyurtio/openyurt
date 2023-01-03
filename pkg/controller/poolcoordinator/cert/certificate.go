@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"net"
 	"time"
 
 	"github.com/pkg/errors"
@@ -85,10 +86,25 @@ func NewSignedCert(client client.Interface, cfg *CertConfig, key crypto.Signer, 
 
 	// initialize cert if necessary
 	if cfg.certInit != nil {
-		cfg.IPs, cfg.DNSNames, err = cfg.certInit(client, stopCh)
+		if cfg.IPs == nil {
+			cfg.IPs = []net.IP{}
+		}
+		if cfg.DNSNames == nil {
+			cfg.DNSNames = []string{}
+		}
+
+		ips, dnsNames, err := cfg.certInit(client, stopCh)
 		if err != nil {
 			return nil, errors.Wrapf(err, "init cert %s fail", cfg.CertName)
 		}
+
+		for _, ip := range ips {
+			cfg.IPs = append(cfg.IPs, ip)
+		}
+		for _, dnsName := range dnsNames {
+			cfg.DNSNames = append(cfg.DNSNames, dnsName)
+		}
+
 	}
 
 	// prepare cert serial number
