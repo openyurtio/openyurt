@@ -123,8 +123,8 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - port: 10262
-      targetPort: 10262
+    - port: {{ .Values.yurtTunnelServer.parameters.tunnelAgentConnectPort }}
+      targetPort: {{ .Values.yurtTunnelServer.parameters.tunnelAgentConnectPort }}
       nodePort: 31008
       name: tcp
   selector:
@@ -202,6 +202,7 @@ spec:
             - --proxy-strategy=destHost
             - --cert-dns-names={{ .Values.yurtTunnelServer.parameters.certDnsNames }}
             - --cert-ips={{ .Values.yurtTunnelServer.parameters.certIps }}
+            - --tunnel-agent-connect-port={{ .Values.yurtTunnelServer.parameters.tunnelAgentConnectPort }}
             - --v=2
           env:
             - name: NODE_IP
