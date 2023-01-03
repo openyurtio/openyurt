@@ -128,7 +128,7 @@ spec:
                   - --etcd-cafile=/etc/kubernetes/pki/ca.crt
                   - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
                   - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
-                  - --etcd-servers=http://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
+                  - --etcd-servers=https://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
                   - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
                   - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
                   - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
