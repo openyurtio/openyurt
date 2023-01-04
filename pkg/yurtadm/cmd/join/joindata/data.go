@@ -43,4 +43,5 @@ type YurtJoinData interface {
 	NodeLabels() map[string]string
 	IgnorePreflightErrors() sets.String
 	KubernetesResourceServer() string
+	ReuseCNIBin() bool
 }

@@ -26,20 +26,12 @@ import (
 )
 
 func RunCleanYurtFile() error {
-	for _, comp := range []string{"kubectl", "kubeadm", "kubelet"} {
-		target := fmt.Sprintf("/usr/bin/%s", comp)
-		if err := os.RemoveAll(target); err != nil {
-			klog.Warningf("Clean file %s fail: %v, please clean it manually.", target, err)
-		}
-	}
-
 	for _, file := range []string{constants.KubeletWorkdir,
 		constants.YurttunnelAgentWorkdir,
 		constants.YurttunnelServerWorkdir,
 		constants.YurtHubWorkdir,
 		constants.KubeletSvcPath,
 		constants.KubeletServiceFilepath,
-		constants.KubeCniDir,
 		constants.KubeletConfigureDir,
 		constants.SysctlK8sConfig} {
 		if err := os.RemoveAll(file); err != nil {
