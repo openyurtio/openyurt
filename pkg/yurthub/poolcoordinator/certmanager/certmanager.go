@@ -50,7 +50,7 @@ var certFileNames = map[CertFileType]string{
 	YurthubClientKey:  "pool-coordinator-yurthub-client.key",
 }
 
-func NewCertManager(caFilePath string, yurtClient kubernetes.Interface, yurtInformerFactory informers.SharedInformerFactory) (*CertManager, error) {
+func NewCertManager(caFilePath string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
 	store := fs.FileSystemOperator{}
 	dir, _ := filepath.Split(caFilePath)
 	if err := store.CreateDir(dir); err != nil && err != fs.ErrExists {
@@ -74,7 +74,7 @@ func NewCertManager(caFilePath string, yurtClient kubernetes.Interface, yurtInfo
 		}
 		return coreinformers.NewFilteredSecretInformer(yurtClient, constants.PoolCoordinatorClientSecretNamespace, 0, nil, tweakListOptions)
 	}
-	secretInformer := yurtInformerFactory.InformerFor(&corev1.Secret{}, secretInformerFunc)
+	secretInformer := informerFactory.InformerFor(&corev1.Secret{}, secretInformerFunc)
 	secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			klog.V(4).Infof("notify secret add event for %s", constants.PoolCoordinatorClientSecretName)
