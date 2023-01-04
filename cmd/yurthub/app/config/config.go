@@ -136,12 +136,13 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
 	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
-	proxiedClient, err := buildProxiedClient(fmt.Sprintf("http://%s", proxyServerAddr))
+	proxyServerURL := fmt.Sprintf("http://%s", proxyServerAddr)
+	proxiedClient, err := buildProxiedClient(proxyServerURL)
 	if err != nil {
 		return nil, err
 	}
 	sharedFactory := informers.NewSharedInformerFactory(proxiedClient, 24*time.Hour)
-	yurtSharedFactory, err := createYurtSharedInformers(proxiedClient, options.EnableNodePool)
+	yurtSharedFactory, err := createYurtSharedInformers(proxyServerURL, options.EnableNodePool)
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +252,14 @@ func buildProxiedClient(proxyAddr string) (kubernetes.Interface, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createYurtSharedInformers(proxiedClient kubernetes.Interface, enableNodePool bool) (yurtinformers.SharedInformerFactory, error) {
+func createYurtSharedInformers(proxyAddr string, enableNodePool bool) (yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var yurtClient yurtclientset.Interface
 	var err error
+	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
+	if err != nil {
+		return nil, err
+	}
 
 	fakeYurtClient := &fake.Clientset{}
 	fakeWatch := watch.NewFake()
