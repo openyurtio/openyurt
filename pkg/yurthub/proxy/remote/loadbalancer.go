@@ -132,7 +132,7 @@ type loadBalancer struct {
 	algo          loadBalancerAlgo
 	localCacheMgr cachemanager.CacheManager
 	filterManager *manager.Manager
-	coordinator   *poolcoordinator.Coordinator
+	coordinator   poolcoordinator.Coordinator
 	workingMode   hubutil.WorkingMode
 	stopCh        <-chan struct{}
 }
@@ -143,7 +143,7 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinator *poolcoordinator.Coordinator,
+	coordinator poolcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterManager *manager.Manager,
 	workingMode hubutil.WorkingMode,
@@ -360,31 +360,31 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, false)
+	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
-	req.Body = rc
+	resp.Body = rc
 }
 
 func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, poolCacheManager cachemanager.CacheManager) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, false)
+	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := poolCacheManager.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
-	req.Body = rc
+	resp.Body = rc
 }
 
 func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Response, poolCacheMgr cachemanager.CacheManager) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
-	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, false)
+	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
 			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
@@ -398,7 +398,7 @@ func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Respon
 			}
 		}(req, prc2, ctx.Done())
 	}
-	req.Body = rc
+	resp.Body = rc
 }
 
 func isLeaderHubUserAgent(reqCtx context.Context) bool {

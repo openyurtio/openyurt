@@ -245,12 +245,12 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 		req = req.WithContext(ctx)
 		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 
-		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, false)
+		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			if err := pp.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
 				klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, ctx.Done())
-		req.Body = rc
+		resp.Body = rc
 	}
 }

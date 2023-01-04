@@ -35,5 +35,7 @@ var (
 )
 
 const (
-	DefaultPoolScopedUserAgent = "leader-yurthub"
+	DefaultPoolScopedUserAgent           = "leader-yurthub"
+	PoolCoordinatorClientSecretName      = "pool-coordinator-yurthub-certs"
+	PoolCoordinatorClientSecretNamespace = "kube-system"
 )

@@ -28,9 +28,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
+
+type CertGetter interface {
+	// Current returns the currently selected certificate, as well as
+	// the associated certificate and key data in PEM format.
+	Current() *tls.Certificate
+	// Return CA file path.
+	GetCaFile() string
+}
 
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver
 type Interface interface {
@@ -46,21 +53,21 @@ type Interface interface {
 type transportManager struct {
 	currentTransport *http.Transport
 	bearerTransport  *http.Transport
-	certManager      interfaces.YurtCertificateManager
+	certGetter       CertGetter
 	closeAll         func()
 	close            func(string)
 	stopCh           <-chan struct{}
 }
 
 // NewTransportManager create a transport interface object.
-func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
-	caFile := certMgr.GetCaFile()
+func NewTransportManager(certGetter CertGetter, stopCh <-chan struct{}) (Interface, error) {
+	caFile := certGetter.GetCaFile()
 	if len(caFile) == 0 {
 		return nil, fmt.Errorf("ca cert file was not prepared when new transport")
 	}
 	klog.V(2).Infof("use %s ca cert file to access remote server", caFile)
 
-	cfg, err := tlsConfig(certMgr, caFile)
+	cfg, err := tlsConfig(certGetter, caFile)
 	if err != nil {
 		klog.Errorf("could not get tls config when new transport, %v", err)
 		return nil, err
@@ -92,7 +99,7 @@ func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-cha
 	tm := &transportManager{
 		currentTransport: t,
 		bearerTransport:  bt,
-		certManager:      certMgr,
+		certGetter:       certGetter,
 		closeAll:         d.CloseAll,
 		close:            d.Close,
 		stopCh:           stopCh,
@@ -115,10 +122,10 @@ func (tm *transportManager) Close(address string) {
 }
 
 func (tm *transportManager) start() {
-	lastCert := tm.certManager.Current()
+	lastCert := tm.certGetter.Current()
 
 	go wait.Until(func() {
-		curr := tm.certManager.Current()
+		curr := tm.certGetter.Current()
 
 		if lastCert == nil && curr == nil {
 			// maybe at yurthub startup, just wait for cert generated, do nothing
@@ -143,7 +150,7 @@ func (tm *transportManager) start() {
 	}, 10*time.Second, tm.stopCh)
 }
 
-func tlsConfig(certMgr interfaces.YurtCertificateManager, caFile string) (*tls.Config, error) {
+func tlsConfig(certMgr CertGetter, caFile string) (*tls.Config, error) {
 	root, err := rootCertPool(caFile)
 	if err != nil {
 		return nil, err

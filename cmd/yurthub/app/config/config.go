@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -78,6 +79,7 @@ type YurtHubConfiguration struct {
 	MaxRequestInFlight                int
 	JoinToken                         string
 	RootDir                           string
+	CoordinatorPKIDir                 string
 	EnableProfiling                   bool
 	EnableDummyIf                     bool
 	EnableIptables                    bool
@@ -88,19 +90,18 @@ type YurtHubConfiguration struct {
 	TLSConfig                         *tls.Config
 	SharedFactory                     informers.SharedInformerFactory
 	YurtSharedFactory                 yurtinformers.SharedInformerFactory
+	YurtClient                        kubernetes.Interface
 	WorkingMode                       util.WorkingMode
 	KubeletHealthGracePeriod          time.Duration
 	FilterManager                     *manager.Manager
 	CertIPs                           []net.IP
-	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
+	EnableCoordinator                 bool
+	CoordinatorServerURL              *url.URL
 	CoordinatorStoragePrefix          string
 	CoordinatorStorageAddr            string // ip:port
-	CoordinatorStorageCaFile          string
-	CoordinatorStorageCertFile        string
-	CoordinatorStorageKeyFile         string
-	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
 	CoordinatorClient                 kubernetes.Interface
+	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -108,6 +109,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	var coordinatorServerURL *url.URL
+	if options.EnableCoordinator {
+		coordinatorServerURL, err = url.Parse(options.CoordinatorServerAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	hubCertOrgs := make([]string, 0)
@@ -181,6 +190,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MaxRequestInFlight:                options.MaxRequestInFlight,
 		JoinToken:                         options.JoinToken,
 		RootDir:                           options.RootDir,
+		CoordinatorPKIDir:                 filepath.Join(options.RootDir, "poolcoordinator"),
 		EnableProfiling:                   options.EnableProfiling,
 		EnableDummyIf:                     options.EnableDummyIf,
 		EnableIptables:                    options.EnableIptables,
@@ -191,15 +201,15 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		RESTMapperManager:                 restMapperManager,
 		SharedFactory:                     sharedFactory,
 		YurtSharedFactory:                 yurtSharedFactory,
+		YurtClient:                        proxiedClient,
 		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
+		EnableCoordinator:                 options.EnableCoordinator,
+		CoordinatorServerURL:              coordinatorServerURL,
 		CoordinatorStoragePrefix:          options.CoordinatorStoragePrefix,
 		CoordinatorStorageAddr:            options.CoordinatorStorageAddr,
-		CoordinatorStorageCaFile:          options.CoordinatorStorageCaFile,
-		CoordinatorStorageCertFile:        options.CoordinatorStorageCertFile,
-		CoordinatorStorageKeyFile:         options.CoordinatorStorageKeyFile,
 		LeaderElection:                    options.LeaderElection,
 	}
 
