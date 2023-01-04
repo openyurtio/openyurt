@@ -274,7 +274,6 @@ func coordinatorRun(ctx context.Context,
 	var coordinatorHealthChecker healthchecker.HealthChecker
 	var coordinatorTransportMgr transport.Interface
 	var coordinator poolcoordinator.Coordinator
-	var coordinatorCertManager *coordinatorcertmgr.CertManager
 	var returnErr error
 
 	readyCh := make(chan struct{})
@@ -289,7 +288,7 @@ func coordinatorRun(ctx context.Context,
 			return
 		}
 
-		coorTransportMgr, err := poolCoordinatorTransportMgrGetter(cfg.HeartbeatTimeoutSeconds, cfg.CoordinatorServerURL, coordinatorCertManager, ctx.Done())
+		coorTransportMgr, err := poolCoordinatorTransportMgrGetter(cfg.HeartbeatTimeoutSeconds, cfg.CoordinatorServerURL, coorCertManager, ctx.Done())
 		if err != nil {
 			returnErr = fmt.Errorf("failed to create coordinator transport manager, %v", err)
 			return
