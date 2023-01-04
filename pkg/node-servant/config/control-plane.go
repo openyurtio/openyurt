@@ -70,7 +70,6 @@ func newStaticPodRunner(podManifestsPath string) (Runner, error) {
 
 func (spr *staticPodRunner) Do() error {
 	var kasPodUpdated bool
-	var kcmPodUpdated bool
 	// read kube-apiserver static pod
 	kasObj, err := fileutil.ReadObjectFromYamlFile(spr.kasStaticPodPath)
 	if err != nil {
@@ -101,40 +100,9 @@ func (spr *staticPodRunner) Do() error {
 		kasPodUpdated = true
 	}
 
-	// read kube-controller-manager static pod
-	kcmObj, err := fileutil.ReadObjectFromYamlFile(spr.kcmStaticPodPath)
-	if err != nil {
-		return err
-	}
-	kcmPod, ok := kcmObj.(*v1.Pod)
-	if !ok {
-		return fmt.Errorf("manifest file(%s) is not a static pod", spr.kcmStaticPodPath)
-	}
-
-	// disable NodeLifeCycle controller
-	for i := range kcmPod.Spec.Containers {
-		for j := range kcmPod.Spec.Containers[i].Command {
-			if strings.Contains(kcmPod.Spec.Containers[i].Command[j], "--controllers=") {
-				if !strings.Contains(kcmPod.Spec.Containers[i].Command[j], "-nodelifecycle,") {
-					// insert -nodelifecycle, after =
-					insertPoint := strings.Index(kcmPod.Spec.Containers[i].Command[j], "=") + 1
-					kcmPod.Spec.Containers[i].Command[j] = kcmPod.Spec.Containers[i].Command[j][:insertPoint] + "-nodelifecycle," + kcmPod.Spec.Containers[i].Command[j][insertPoint:]
-					kcmPodUpdated = true
-					break
-				}
-			}
-		}
-	}
-
 	// update static pod files
 	if kasPodUpdated {
 		if err := fileutil.WriteObjectToYamlFile(kasPod, spr.kasStaticPodPath); err != nil {
-			return err
-		}
-	}
-
-	if kcmPodUpdated {
-		if err := fileutil.WriteObjectToYamlFile(kcmPod, spr.kcmStaticPodPath); err != nil {
 			return err
 		}
 	}

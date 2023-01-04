@@ -65,7 +65,7 @@ func NewCoordinatorHealthChecker(cfg *config.YurtHubConfiguration, checkerClient
 		heartbeatInterval:        cfg.HeartbeatIntervalSeconds,
 	}
 	chc.coordinatorProber = newProber(checkerClient,
-		cfg.CoordinatorServer.String(),
+		cfg.CoordinatorServerURL.String(),
 		cfg.NodeName,
 		cfg.HeartbeatFailedRetry,
 		cfg.HeartbeatHealthyThreshold,

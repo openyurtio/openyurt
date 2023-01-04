@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -91,15 +92,13 @@ type YurtHubConfiguration struct {
 	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
 	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
 	YurtHubProxyServerAddr          string
+	ProxiedClient                   kubernetes.Interface
 	DiskCachePath                   string
 	CoordinatorPKIDir               string
 	EnableCoordinator               bool
 	CoordinatorServerURL            *url.URL
 	CoordinatorStoragePrefix        string
 	CoordinatorStorageAddr          string // ip:port
-	CoordinatorStorageCaFile        string
-	CoordinatorStorageCertFile      string
-	CoordinatorStorageKeyFile       string
 	CoordinatorClient               kubernetes.Interface
 	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
 }
@@ -109,6 +108,14 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	var coordinatorServerURL *url.URL
+	if options.EnableCoordinator {
+		coordinatorServerURL, err = url.Parse(options.CoordinatorServerAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	storageManager, err := disk.NewDiskStorage(options.DiskCachePath)
@@ -125,7 +132,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 
 	workingMode := util.WorkingMode(options.WorkingMode)
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.EnableNodePool)
+	proxiedClient, sharedFactory, yurtSharedFactory, err := createClientAndSharedInformers(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.EnableNodePool)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +166,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MinRequestTimeout:         options.MinRequestTimeout,
 		TenantNs:                  tenantNs,
 		YurtHubProxyServerAddr:    fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
 		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
 		EnableCoordinator:         options.EnableCoordinator,
@@ -221,18 +229,18 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 }
 
 // createSharedInformers create sharedInformers from the given proxyAddr.
-func createSharedInformers(proxyAddr string, enableNodePool bool) (informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+func createClientAndSharedInformers(proxyAddr string, enableNodePool bool) (kubernetes.Interface, informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var yurtClient yurtclientset.Interface
 	var err error
 	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	client, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	fakeYurtClient := &fake.Clientset{}
@@ -243,11 +251,11 @@ func createSharedInformers(proxyAddr string, enableNodePool bool) (informers.Sha
 	if enableNodePool {
 		yurtClient, err = yurtclientset.NewForConfig(kubeConfig)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 
-	return informers.NewSharedInformerFactory(client, 24*time.Hour),
+	return client, informers.NewSharedInformerFactory(client, 24*time.Hour),
 		yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
 }
 

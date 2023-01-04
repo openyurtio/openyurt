@@ -44,6 +44,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	yurtrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
@@ -58,7 +59,24 @@ const (
 	nameInformerLease                 = "leader-informer-sync"
 )
 
-type Coordinator struct {
+// Coordinator will track the status of pool coordinator, and change the
+// cache and proxy behaviour of yurthub accordingly.
+type Coordinator interface {
+	// Start the Coordinator.
+	Run()
+	// IsReady will return the poolCacheManager and true if the pool-coordinator is ready.
+	// Pool-Coordinator ready means it is ready to handle request. To be specific, it should
+	// satisfy the following 3 condition:
+	// 1. Pool-Coordinator is healthy
+	// 2. Pool-Scoped resources have been synced with cloud, through list/watch
+	// 3. local cache has been uploaded to pool-coordinator
+	IsReady() (cachemanager.CacheManager, bool)
+	// IsCoordinatorHealthy will return the poolCacheManager and true if the pool-coordinator is healthy.
+	// We assume coordinator is healthy when the elect status is LeaderHub and FollowerHub.
+	IsHealthy() (cachemanager.CacheManager, bool)
+}
+
+type coordinator struct {
 	sync.Mutex
 	ctx                  context.Context
 	cancelEtcdStorage    func()
@@ -73,6 +91,7 @@ type Coordinator struct {
 	hubElector           *HubElector
 	electStatus          int32
 	isPoolCacheSynced    bool
+	certMgr              *certmanager.CertManager
 	needUploadLocalCache bool
 	// poolScopeCacheSyncManager is used to sync pool-scoped resources from cloud to poolcoordinator.
 	poolScopeCacheSyncManager *poolScopedCacheSyncManager
@@ -91,20 +110,21 @@ func NewCoordinator(
 	ctx context.Context,
 	cfg *config.YurtHubConfiguration,
 	restMgr *yurtrest.RestConfigManager,
-	transportMgr transport.Interface,
-	elector *HubElector) (*Coordinator, error) {
+	certMgr *certmanager.CertManager,
+	coordinatorTransMgr transport.Interface,
+	elector *HubElector) (*coordinator, error) {
 	etcdStorageCfg := &etcd.EtcdStorageConfig{
 		Prefix:        cfg.CoordinatorStoragePrefix,
 		EtcdEndpoints: []string{cfg.CoordinatorStorageAddr},
-		CaFile:        cfg.CoordinatorStorageCaFile,
-		CertFile:      cfg.CoordinatorStorageCertFile,
-		KeyFile:       cfg.CoordinatorStorageKeyFile,
+		CaFile:        certMgr.GetCaFile(),
+		CertFile:      certMgr.GetFilePath(certmanager.YurthubClientCert),
+		KeyFile:       certMgr.GetFilePath(certmanager.YurthubClientKey),
 		LocalCacheDir: cfg.DiskCachePath,
 	}
 
 	coordinatorRESTCfg := &rest.Config{
-		Host:      cfg.CoordinatorServer.String(),
-		Transport: transportMgr.CurrentTransport(),
+		Host:      cfg.CoordinatorServerURL.String(),
+		Transport: coordinatorTransMgr.CurrentTransport(),
 		Timeout:   defaultInformerLeaseRenewDuration,
 	}
 	coordinatorClient, err := kubernetes.NewForConfig(coordinatorRESTCfg)
@@ -112,10 +132,11 @@ func NewCoordinator(
 		return nil, fmt.Errorf("failed to create client for pool coordinator, %v", err)
 	}
 
-	coordinator := &Coordinator{
+	coordinator := &coordinator{
 		ctx:             ctx,
 		etcdStorageCfg:  etcdStorageCfg,
 		restConfigMgr:   restMgr,
+		certMgr:         certMgr,
 		informerFactory: cfg.SharedFactory,
 		diskStorage:     cfg.StorageWrapper.GetStorage(),
 		serializerMgr:   cfg.SerializerManager,
@@ -152,7 +173,7 @@ func NewCoordinator(
 	return coordinator, nil
 }
 
-func (coordinator *Coordinator) Run() {
+func (coordinator *coordinator) Run() {
 	for {
 		var poolCacheManager cachemanager.CacheManager
 		var cancelEtcdStorage func()
@@ -291,7 +312,7 @@ func (coordinator *Coordinator) Run() {
 // 1. Pool-Coordinator is healthy
 // 2. Pool-Scoped resources have been synced with cloud, through list/watch
 // 3. local cache has been uploaded to pool-coordinator
-func (coordinator *Coordinator) IsReady() (cachemanager.CacheManager, bool) {
+func (coordinator *coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	// If electStatus is not PendingHub, it means pool-coordinator is healthy.
 	coordinator.Lock()
 	defer coordinator.Unlock()
@@ -303,7 +324,7 @@ func (coordinator *Coordinator) IsReady() (cachemanager.CacheManager, bool) {
 
 // IsCoordinatorHealthy will return the poolCacheManager and true if the pool-coordinator is healthy.
 // We assume coordinator is healthy when the elect status is LeaderHub and FollowerHub.
-func (coordinator *Coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
+func (coordinator *coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
 	coordinator.Lock()
 	defer coordinator.Unlock()
 	if coordinator.electStatus != PendingHub {
@@ -312,7 +333,7 @@ func (coordinator *Coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
 	return nil, false
 }
 
-func (coordinator *Coordinator) buildPoolCacheStore() (cachemanager.CacheManager, storage.Store, func(), error) {
+func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager, storage.Store, func(), error) {
 	ctx, cancel := context.WithCancel(coordinator.ctx)
 	etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
 	if err != nil {
@@ -328,11 +349,11 @@ func (coordinator *Coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 	return poolCacheManager, etcdStore, cancel, nil
 }
 
-func (coordinator *Coordinator) getEtcdStore() storage.Store {
+func (coordinator *coordinator) getEtcdStore() storage.Store {
 	return coordinator.etcdStorage
 }
 
-func (coordinator *Coordinator) newCloudLeaseClient() (coordclientset.LeaseInterface, error) {
+func (coordinator *coordinator) newCloudLeaseClient() (coordclientset.LeaseInterface, error) {
 	restCfg := coordinator.restConfigMgr.GetRestConfig(true)
 	if restCfg == nil {
 		return nil, fmt.Errorf("no cloud server is healthy")
@@ -345,7 +366,7 @@ func (coordinator *Coordinator) newCloudLeaseClient() (coordclientset.LeaseInter
 	return cloudClient.CoordinationV1().Leases(corev1.NamespaceNodeLease), nil
 }
 
-func (coordinator *Coordinator) uploadLocalCache(etcdStore storage.Store) error {
+func (coordinator *coordinator) uploadLocalCache(etcdStore storage.Store) error {
 	uploader := &localCacheUploader{
 		diskStorage: coordinator.diskStorage,
 		etcdStorage: etcdStore,
@@ -355,7 +376,7 @@ func (coordinator *Coordinator) uploadLocalCache(etcdStore storage.Store) error 
 	return nil
 }
 
-func (coordinator *Coordinator) delegateNodeLease(cloudLeaseClient coordclientset.LeaseInterface, obj interface{}) {
+func (coordinator *coordinator) delegateNodeLease(cloudLeaseClient coordclientset.LeaseInterface, obj interface{}) {
 	newLease := obj.(*coordinationv1.Lease)
 	for i := 0; i < leaseDelegateRetryTimes; i++ {
 		// ResourceVersions of lease objects in pool-coordinator always have different rv
@@ -378,7 +399,7 @@ func (coordinator *Coordinator) delegateNodeLease(cloudLeaseClient coordclientse
 	}
 }
 
-func (coordinator *Coordinator) detectPoolCacheSynced(obj interface{}) {
+func (coordinator *coordinator) detectPoolCacheSynced(obj interface{}) {
 	lease := obj.(*coordinationv1.Lease)
 	renewTime := lease.Spec.RenewTime
 	if time.Now().After(renewTime.Add(defaultPoolCacheStaleDuration)) {
