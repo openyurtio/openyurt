@@ -54,8 +54,10 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurtadmutil.CheckAndInstallKubeadm(data.KubernetesResourceServer(), data.KubernetesVersion()); err != nil {
 		return err
 	}
-	if !(data.ReuseCNIBin()) && (err := yurtadmutil.CheckAndInstallKubernetesCni(); err != nil) {
-		return err
+	if !data.ReuseCNIBin() {
+		if err := yurtadmutil.CheckAndInstallKubernetesCni(); err != nil {
+			return err
+		}
 	}
 	if err := yurtadmutil.SetKubeletService(); err != nil {
 		return err
