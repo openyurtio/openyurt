@@ -17,7 +17,6 @@ limitations under the License.
 package phases
 
 import (
-	"fmt"
 	"os"
 
 	"k8s.io/klog/v2"
