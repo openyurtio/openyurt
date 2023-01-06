@@ -251,7 +251,7 @@ func (ycm *yurtHubCertManager) initCaCert() error {
 		klog.Infof("%s file not exists, so create it", caFile)
 	}
 
-	insecureRestConfig, err := createInsecureRestClientConfig(ycm.remoteServers[0])
+	insecureRestConfig, err := CreateInsecureRestClientConfig(ycm.remoteServers[0])
 	if err != nil {
 		klog.Errorf("could not create insecure rest config, %v", err)
 		return err
@@ -524,8 +524,8 @@ func createBasic(apiServerAddr string, caCert []byte) *clientcmdapi.Config {
 	}
 }
 
-// createInsecureRestClientConfig create insecure rest client config.
-func createInsecureRestClientConfig(remoteServer *url.URL) (*restclient.Config, error) {
+// CreateInsecureRestClientConfig create insecure rest client config.
+func CreateInsecureRestClientConfig(remoteServer *url.URL) (*restclient.Config, error) {
 	if remoteServer == nil {
 		return nil, fmt.Errorf("no healthy remote server")
 	}

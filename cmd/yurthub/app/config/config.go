@@ -100,7 +100,6 @@ type YurtHubConfiguration struct {
 	CoordinatorServerURL              *url.URL
 	CoordinatorStoragePrefix          string
 	CoordinatorStorageAddr            string // ip:port
-	CoordinatorClient                 kubernetes.Interface
 	LeaderElection                    componentbaseconfig.LeaderElectionConfiguration
 }
 

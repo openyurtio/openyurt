@@ -128,13 +128,13 @@ type LoadBalancer interface {
 }
 
 type loadBalancer struct {
-	backends      []*util.RemoteProxy
-	algo          loadBalancerAlgo
-	localCacheMgr cachemanager.CacheManager
-	filterManager *manager.Manager
-	coordinator   poolcoordinator.Coordinator
-	workingMode   hubutil.WorkingMode
-	stopCh        <-chan struct{}
+	backends          []*util.RemoteProxy
+	algo              loadBalancerAlgo
+	localCacheMgr     cachemanager.CacheManager
+	filterManager     *manager.Manager
+	coordinatorGetter func() poolcoordinator.Coordinator
+	workingMode       hubutil.WorkingMode
+	stopCh            <-chan struct{}
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
@@ -143,17 +143,17 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinator poolcoordinator.Coordinator,
+	coordinatorGetter func() poolcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterManager *manager.Manager,
 	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{
-		localCacheMgr: localCacheMgr,
-		filterManager: filterManager,
-		coordinator:   coordinator,
-		workingMode:   workingMode,
-		stopCh:        stopCh,
+		localCacheMgr:     localCacheMgr,
+		filterManager:     filterManager,
+		coordinatorGetter: coordinatorGetter,
+		workingMode:       workingMode,
+		stopCh:            stopCh,
 	}
 	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
@@ -207,7 +207,14 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			for {
 				select {
 				case <-t.C:
-					if _, isReady := lb.coordinator.IsReady(); isReady {
+					if lb.coordinatorGetter == nil {
+						continue
+					}
+					coordinator := lb.coordinatorGetter()
+					if coordinator == nil {
+						continue
+					}
+					if _, isReady := coordinator.IsReady(); isReady {
 						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
 						cloudServeCancel()
 						return
@@ -326,7 +333,16 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 		resp.Body = wrapPrc
 
-		poolCacheManager, isHealthy := lb.coordinator.IsHealthy()
+		var poolCacheManager cachemanager.CacheManager
+		var isHealthy bool
+
+		coordinator := lb.coordinatorGetter()
+		if coordinator == nil {
+			isHealthy = false
+		} else {
+			poolCacheManager, isHealthy = coordinator.IsHealthy()
+		}
+
 		if isHealthy && poolCacheManager != nil {
 			if !isLeaderHubUserAgent(ctx) {
 				if isRequestOfNodeAndPod(ctx) {

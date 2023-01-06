@@ -161,7 +161,7 @@ func NewCoordinator(
 	poolScopedCacheSyncManager := &poolScopedCacheSyncManager{
 		ctx:               ctx,
 		proxiedClient:     proxiedClient,
-		coordinatorClient: cfg.CoordinatorClient,
+		coordinatorClient: coordinatorClient,
 		nodeName:          cfg.NodeName,
 		getEtcdStore:      coordinator.getEtcdStore,
 	}
@@ -175,12 +175,10 @@ func NewCoordinator(
 
 func (coordinator *coordinator) Run() {
 	for {
-		var poolCacheManager cachemanager.CacheManager
-		var cancelEtcdStorage func()
+		var cancelEtcdStorage = func() {}
 		var needUploadLocalCache bool
 		var needCancelEtcdStorage bool
 		var isPoolCacheSynced bool
-		var etcdStorage storage.Store
 		var err error
 
 		select {
@@ -203,10 +201,9 @@ func (coordinator *coordinator) Run() {
 				needUploadLocalCache = true
 				needCancelEtcdStorage = true
 				isPoolCacheSynced = false
-				etcdStorage = nil
-				poolCacheManager = nil
+				coordinator.poolCacheManager = nil
 			case LeaderHub:
-				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue
@@ -249,14 +246,14 @@ func (coordinator *coordinator) Run() {
 				})
 
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
+					if err := coordinator.uploadLocalCache(coordinator.etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes leader, %v", err)
 					} else {
 						needUploadLocalCache = false
 					}
 				}
 			case FollowerHub:
-				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue
@@ -280,7 +277,7 @@ func (coordinator *coordinator) Run() {
 				})
 
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
+					if err := coordinator.uploadLocalCache(coordinator.etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes follower, %v", err)
 					} else {
 						needUploadLocalCache = false
@@ -293,11 +290,9 @@ func (coordinator *coordinator) Run() {
 			// Because the caller of IsReady() may be concurrent.
 			coordinator.Lock()
 			if needCancelEtcdStorage {
-				coordinator.cancelEtcdStorage()
+				cancelEtcdStorage()
 			}
 			coordinator.electStatus = electorStatus
-			coordinator.poolCacheManager = poolCacheManager
-			coordinator.etcdStorage = etcdStorage
 			coordinator.cancelEtcdStorage = cancelEtcdStorage
 			coordinator.needUploadLocalCache = needUploadLocalCache
 			coordinator.isPoolCacheSynced = isPoolCacheSynced
@@ -316,7 +311,8 @@ func (coordinator *coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	// If electStatus is not PendingHub, it means pool-coordinator is healthy.
 	coordinator.Lock()
 	defer coordinator.Unlock()
-	if coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced && !coordinator.needUploadLocalCache {
+	// fixme:  coordinator.isPoolCacheSynced now is not considered
+	if coordinator.electStatus != PendingHub && !coordinator.needUploadLocalCache {
 		return coordinator.poolCacheManager, true
 	}
 	return nil, false
@@ -430,7 +426,8 @@ type poolScopedCacheSyncManager struct {
 
 func (p *poolScopedCacheSyncManager) EnsureStart() error {
 	if !p.isRunning {
-		if err := p.coordinatorClient.CoordinationV1().Leases(namespaceInformerLease).Delete(p.ctx, nameInformerLease, metav1.DeleteOptions{}); err != nil {
+		err := p.coordinatorClient.CoordinationV1().Leases(namespaceInformerLease).Delete(p.ctx, nameInformerLease, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete informer sync lease, %v", err)
 		}
 
