@@ -19,7 +19,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net/url"
 	"path/filepath"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
