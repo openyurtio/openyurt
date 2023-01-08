@@ -50,22 +50,15 @@ var certFileNames = map[CertFileType]string{
 	YurthubClientKey:  "pool-coordinator-yurthub-client.key",
 }
 
-func NewCertManager(caFilePath string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
+func NewCertManager(pkiDir string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
 	store := fs.FileSystemOperator{}
-	dir, _ := filepath.Split(caFilePath)
-	if err := store.CreateDir(dir); err != nil && err != fs.ErrExists {
-		return nil, fmt.Errorf("failed to create dir %s, %v", dir, err)
+	if err := store.CreateDir(pkiDir); err != nil && err != fs.ErrExists {
+		return nil, fmt.Errorf("failed to create dir %s, %v", pkiDir, err)
 	}
 
 	certMgr := &CertManager{
-		pkiDir: dir,
+		pkiDir: pkiDir,
 		store:  store,
-	}
-
-	// try to use last cert files when restart.
-	certPath, keyPath := certMgr.GetFilePath(YurthubClientCert), certMgr.GetFilePath(YurthubClientKey)
-	if cert, err := tls.LoadX509KeyPair(certPath, keyPath); err == nil {
-		certMgr.cert = &cert
 	}
 
 	secretInformerFunc := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
@@ -100,6 +93,9 @@ type CertManager struct {
 	pkiDir string
 	cert   *tls.Certificate
 	store  fs.FileSystemOperator
+
+	// Used for unit test.
+	secret *corev1.Secret
 }
 
 func (c *CertManager) Current() *tls.Certificate {
@@ -145,6 +141,7 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 		klog.Errorf("failed to update client cert, %v", err)
 	}
 	c.cert = &cert
+	c.secret = secret.DeepCopy()
 }
 
 func (c *CertManager) deleteCerts() {
