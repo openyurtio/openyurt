@@ -183,6 +183,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	var coordinatorGetter func() poolcoordinator.Coordinator
 	var coordinatorHealthCheckerGetter func() healthchecker.HealthChecker
 	var coordinatorTransportManagerGetter func() transport.Interface = nil
+	coordinatorInformerRegistryChan := make(chan struct{})
 
 	if cfg.EnableCoordinator {
 		klog.Infof("%d. start to run coordinator", trace)
@@ -190,14 +191,15 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		// if certs has been got from cloud APIServer.
 		trace++
 		// Waitting for the coordinator to run, before using it to create other components.
-		coordinatorHealthCheckerGetter, coordinatorTransportManagerGetter, coordinatorGetter, err = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker)
+		coordinatorHealthCheckerGetter, coordinatorTransportManagerGetter, coordinatorGetter, err = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker, coordinatorInformerRegistryChan)
 		if err != nil {
 			return fmt.Errorf("failed to wait for coordinator to run, %v", err)
 		}
 	}
 
-	// wait for async coordinator informer registry
-	time.Sleep(time.Second * 5)
+	// wait for coordinator informer registry
+	<-coordinatorInformerRegistryChan
+
 	// Start the informer factory if all informers have been registered
 	cfg.SharedFactory.Start(ctx.Done())
 	cfg.YurtSharedFactory.Start(ctx.Done())
@@ -268,19 +270,16 @@ func createClients(heartbeatTimeoutSeconds int, remoteServers []*url.URL, coordi
 func coordinatorRun(ctx context.Context,
 	cfg *config.YurtHubConfiguration,
 	restConfigMgr *hubrest.RestConfigManager,
-	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker) (func() healthchecker.HealthChecker, func() transport.Interface, func() poolcoordinator.Coordinator, error) {
+	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
+	coordinatorInformerRegistryChan chan struct{}) (func() healthchecker.HealthChecker, func() transport.Interface, func() poolcoordinator.Coordinator, error) {
 	var coordinatorHealthChecker healthchecker.HealthChecker
 	var coordinatorTransportMgr transport.Interface
 	var coordinator poolcoordinator.Coordinator
 	var returnErr error
 
-	readyCh := make(chan struct{})
-
 	go func() {
-		// We should notify others(waittingForReady) if the routine exited.
-		defer close(readyCh)
-
 		coorCertManager, err := coordinatorcertmgr.NewCertManager(cfg.CoordinatorPKIDir, cfg.YurtClient, cfg.SharedFactory)
+		close(coordinatorInformerRegistryChan) // notify the coordinator secret informer registry event
 		if err != nil {
 			returnErr = fmt.Errorf("failed to create coordinator cert manager, %v", err)
 			return

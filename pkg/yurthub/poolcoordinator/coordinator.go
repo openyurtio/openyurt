@@ -201,9 +201,13 @@ func (coordinator *coordinator) Run() {
 				needUploadLocalCache = true
 				needCancelEtcdStorage = true
 				isPoolCacheSynced = false
+				coordinator.Lock()
 				coordinator.poolCacheManager = nil
+				coordinator.Unlock()
 			case LeaderHub:
+				coordinator.Lock()
 				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				coordinator.Unlock()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue
@@ -253,7 +257,9 @@ func (coordinator *coordinator) Run() {
 					}
 				}
 			case FollowerHub:
+				coordinator.Lock()
 				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				coordinator.Unlock()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue

@@ -43,7 +43,6 @@ var supportedResourceAndVerbsForFilter = map[string]map[string]sets.String{
 	},
 	ServiceTopologyFilterName: {
 		"endpoints":      sets.NewString("list", "watch"),
-		"pods":           sets.NewString("list", "watch"),
 		"endpointslices": sets.NewString("list", "watch"),
 	},
 }
