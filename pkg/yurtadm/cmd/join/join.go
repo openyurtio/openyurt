@@ -271,7 +271,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 			Organizations: opt.organizations,
 		},
 		kubernetesResourceServer: opt.kubernetesResourceServer,
-		reuseCNIBin:           opt.reuseCNIBin,
+		reuseCNIBin:              opt.reuseCNIBin,
 	}
 
 	// parse node labels
