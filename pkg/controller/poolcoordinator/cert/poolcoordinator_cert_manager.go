@@ -130,8 +130,8 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 		SecretName:   PoolcoordinatorYurthubClientSecertName,
 		IsKubeConfig: false,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		CommonName:   PoolcoordinatorYurthubClientCN,
-		Organization: []string{PoolcoordinatorOrg},
+		CommonName:   KubeConfigAdminClientCN,
+		Organization: []string{PoolcoordinatorAdminOrg},
 	},
 	{
 		CertName:     "apiserver",
