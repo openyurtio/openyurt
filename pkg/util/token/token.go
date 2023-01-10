@@ -38,9 +38,9 @@ import (
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/pubkeypin"
+	"github.com/openyurtio/openyurt/pkg/util"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/util/pubkeypin"
 )
 
 const (
@@ -51,6 +51,14 @@ const (
 	// PatchNodeTimeout specifies how long kubeadm should wait for applying the label and taint on the control-plane before timing out
 	PatchNodeTimeout = 2 * time.Minute
 )
+
+// BootstrapData is used for retrieving Cluster-Info from remote server,
+// and it includes remote server address, bootstrap token and CaCertHashes.
+type BootstrapData struct {
+	ServerAddr   string
+	JoinToken    string
+	CaCertHashes []string
+}
 
 // BootstrapTokenString is a token of the format abcdef.abcdef0123456789 that is used
 // for both validation of the practically of the API server from a joining node's point
@@ -77,20 +85,20 @@ func newBootstrapTokenString(token string) (*BootstrapTokenString, error) {
 
 // RetrieveValidatedConfigInfo is a private implementation of RetrieveValidatedConfigInfo.
 // It accepts an optional clientset that can be used for testing purposes.
-func RetrieveValidatedConfigInfo(client kubernetes.Interface, data joindata.YurtJoinData) (*clientcmdapi.Config, error) {
-	token, err := newBootstrapTokenString(data.JoinToken())
+func RetrieveValidatedConfigInfo(client kubernetes.Interface, data *BootstrapData) (*clientcmdapi.Config, error) {
+	token, err := newBootstrapTokenString(data.JoinToken)
 	if err != nil {
 		return nil, err
 	}
 
 	// Load the CACertHashes into a pubkeypin.Set
 	pubKeyPins := pubkeypin.NewSet()
-	if err = pubKeyPins.Allow(data.CaCertHashes().List()...); err != nil {
+	if err = pubKeyPins.Allow(data.CaCertHashes...); err != nil {
 		return nil, err
 	}
 
 	// If there are multiple master IP addresses, take the first one here
-	endpoint := strings.Split(data.ServerAddr(), ",")[0]
+	endpoint := strings.Split(data.ServerAddr, ",")[0]
 	insecureBootstrapConfig := buildInsecureBootstrapKubeConfig(endpoint, "kubernetes")
 	clusterName := insecureBootstrapConfig.Contexts[insecureBootstrapConfig.CurrentContext].Cluster
 
@@ -218,7 +226,8 @@ func getClusterInfo(client kubernetes.Interface, kubeconfig *clientcmdapi.Config
 	var err error
 
 	// Create client from kubeconfig
-	if client == nil {
+	if util.IsNil(client) {
+		klog.V(2).Infof("[discovery] kube client is nil, use bootstrap config(%v) to create client", kubeconfig)
 		client, err = kubeconfigutil.ToClientSet(kubeconfig)
 		if err != nil {
 			return nil, err

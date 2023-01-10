@@ -30,11 +30,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 )
 
@@ -197,7 +197,7 @@ type joinData struct {
 	pauseImage               string
 	yurthubImage             string
 	kubernetesVersion        string
-	caCertHashes             sets.String
+	caCertHashes             []string
 	nodeLabels               map[string]string
 	kubernetesResourceServer string
 	yurthubServer            string
@@ -254,7 +254,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		pauseImage:            opt.pauseImage,
 		yurthubImage:          opt.yurthubImage,
 		yurthubServer:         opt.yurthubServer,
-		caCertHashes:          sets.NewString(opt.caCertHashes...),
+		caCertHashes:          opt.caCertHashes,
 		organizations:         opt.organizations,
 		nodeLabels:            make(map[string]string),
 		joinNodeData: &joindata.NodeRegistration{
@@ -355,7 +355,7 @@ func (j *joinData) IgnorePreflightErrors() sets.String {
 	return j.ignorePreflightErrors
 }
 
-func (j *joinData) CaCertHashes() sets.String {
+func (j *joinData) CaCertHashes() []string {
 	return j.caCertHashes
 }
 
