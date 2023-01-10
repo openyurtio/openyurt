@@ -563,16 +563,16 @@ func TestIgnorePreflightErrors(t *testing.T) {
 
 func TestCaCertHashes(t *testing.T) {
 	jd := joinData{
-		caCertHashes: sets.String{},
+		caCertHashes: []string{},
 	}
 
 	tests := []struct {
 		name   string
-		expect sets.String
+		expect []string
 	}{
 		{
 			"normal",
-			sets.String{},
+			[]string{},
 		},
 	}
 

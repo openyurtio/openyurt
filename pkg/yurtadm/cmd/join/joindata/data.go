@@ -39,7 +39,7 @@ type YurtJoinData interface {
 	TLSBootstrapCfg() *clientcmdapi.Config
 	BootstrapClient() *clientset.Clientset
 	NodeRegistration() *NodeRegistration
-	CaCertHashes() sets.String
+	CaCertHashes() []string
 	NodeLabels() map[string]string
 	IgnorePreflightErrors() sets.String
 	KubernetesResourceServer() string

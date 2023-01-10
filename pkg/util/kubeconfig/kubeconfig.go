@@ -58,6 +58,15 @@ func CreateWithToken(serverURL, clusterName, userName string, caCert []byte, tok
 	return config
 }
 
+// ClientSetFromFile returns a ready-to-use client from a kubeconfig file
+func ClientSetFromFile(path string) (*clientset.Clientset, error) {
+	config, err := clientcmd.LoadFromFile(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load admin kubeconfig")
+	}
+	return ToClientSet(config)
+}
+
 // ToClientSet converts a KubeConfig object to a client
 func ToClientSet(config *clientcmdapi.Config) (*clientset.Clientset, error) {
 	overrides := clientcmd.ConfigOverrides{Timeout: "10s"}

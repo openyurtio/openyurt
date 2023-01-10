@@ -39,14 +39,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/util/templates"
+	"github.com/openyurtio/openyurt/pkg/util/token"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	kubeconfigutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubeconfig"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/token"
 )
 
 const (
@@ -408,7 +408,11 @@ func constructNodeLabels(nodeLabels map[string]string, workingMode, edgeWorkerLa
 }
 
 func SetDiscoveryConfig(data joindata.YurtJoinData) error {
-	cfg, err := token.RetrieveValidatedConfigInfo(nil, data)
+	cfg, err := token.RetrieveValidatedConfigInfo(nil, &token.BootstrapData{
+		ServerAddr:   data.ServerAddr(),
+		JoinToken:    data.JoinToken(),
+		CaCertHashes: data.CaCertHashes(),
+	})
 	if err != nil {
 		return err
 	}
@@ -426,7 +430,11 @@ func SetDiscoveryConfig(data joindata.YurtJoinData) error {
 
 // RetrieveBootstrapConfig get clientcmdapi config by bootstrap token
 func RetrieveBootstrapConfig(data joindata.YurtJoinData) (*clientcmdapi.Config, error) {
-	cfg, err := token.RetrieveValidatedConfigInfo(nil, data)
+	cfg, err := token.RetrieveValidatedConfigInfo(nil, &token.BootstrapData{
+		ServerAddr:   data.ServerAddr(),
+		JoinToken:    data.JoinToken(),
+		CaCertHashes: data.CaCertHashes(),
+	})
 	if err != nil {
 		return nil, err
 	}
