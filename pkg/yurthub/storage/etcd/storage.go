@@ -33,6 +33,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/utils"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 const (
@@ -87,11 +88,6 @@ type etcdStorage struct {
 
 func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, error) {
 	cacheFilePath := filepath.Join(cfg.LocalCacheDir, defaultComponentCacheFileName)
-	cache := newComponentKeyCache(cacheFilePath)
-	if err := cache.Recover(); err != nil {
-		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
-	}
-
 	tlsInfo := transport.TLSInfo{
 		CertFile:      cfg.CertFile,
 		KeyFile:       cfg.KeyFile,
@@ -115,17 +111,30 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}
 
 	s := &etcdStorage{
-		ctx:                    ctx,
-		prefix:                 cfg.Prefix,
-		client:                 client,
-		clientConfig:           clientConfig,
-		localComponentKeyCache: cache,
+		ctx:          ctx,
+		prefix:       cfg.Prefix,
+		client:       client,
+		clientConfig: clientConfig,
 		mirrorPrefixMap: map[pathType]string{
 			rvType: "/mirror/rv",
 		},
 	}
 
+	cache := &componentKeyCache{
+		ctx:        ctx,
+		filePath:   cacheFilePath,
+		cache:      map[string]keySet{},
+		fsOperator: fs.FileSystemOperator{},
+		keyFunc:    s.KeyFunc,
+		etcdClient: client,
+	}
+	if err := cache.Recover(); err != nil {
+		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
+	}
+	s.localComponentKeyCache = cache
+
 	go s.clientLifeCycleManagement()
+
 	return s, nil
 }
 

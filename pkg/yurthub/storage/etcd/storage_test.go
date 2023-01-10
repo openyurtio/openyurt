@@ -75,8 +75,8 @@ var _ = Describe("Test EtcdStorage", func() {
 		Expect(err).To(BeNil())
 	})
 
-	Context("Test Lifecycle", Focus, func() {
-		It("should reconnect to etcd if connect once broken", Focus, func() {
+	Context("Test Lifecycle", func() {
+		It("should reconnect to etcd if connect once broken", func() {
 			Expect(etcdstore.Create(key1, podJson)).Should(BeNil())
 			Expect(etcdCmd.Process.Kill()).To(BeNil())
 			By("waiting for the etcd exited")
