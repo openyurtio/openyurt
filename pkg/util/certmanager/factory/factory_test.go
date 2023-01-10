@@ -17,6 +17,7 @@ limitations under the License.
 package factory
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"reflect"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -36,40 +38,20 @@ const (
 	succeed = "\u2713"
 )
 
-var cs = &fake.Clientset{}
-var fc = &factory{
-	clientset: cs,
-}
-
-func TestNewCertManagerFactory(t *testing.T) {
-	cs := &fake.Clientset{}
-	tests := []struct {
-		name      string
-		clientSet kubernetes.Interface
-		expect    CertManagerFactory
-	}{
-		{
-			"normal",
-			cs,
-			fc,
-		},
+func TestNewCertManagerFactoryWithFnAndStore(t *testing.T) {
+	csFn := func(current *tls.Certificate) (kubernetes.Interface, error) {
+		return &fake.Clientset{}, nil
+	}
+	store, err := store.NewFileStoreWrapper(projectinfo.GetHubName(), "/var/lib", "/var/lib", "", "")
+	if err != nil {
+		t.Errorf("failed to new file store, %v", err)
+		return
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := NewCertManagerFactory(cs)
+	cmf := NewCertManagerFactoryWithFnAndStore(csFn, store)
 
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	if _, ok := cmf.(CertManagerFactory); !ok {
+		t.Errorf("expect CertManagerFactory object, but got %v", cmf)
 	}
 }
 
@@ -100,10 +82,11 @@ func TestNew(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tf := func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
 			{
+				fc := NewCertManagerFactory(&fake.Clientset{})
 				_, get := fc.New(tt.cfg)
 
 				if !reflect.DeepEqual(get, tt.expect) {
@@ -112,7 +95,6 @@ func TestNew(t *testing.T) {
 				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 
 			}
-		}
-		t.Run(tt.name, tf)
+		})
 	}
 }

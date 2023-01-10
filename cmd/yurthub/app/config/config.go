@@ -65,9 +65,6 @@ type YurtHubConfiguration struct {
 	YurtHubProxyServerDummyAddr       string
 	YurtHubProxyServerSecureDummyAddr string
 	GCFrequency                       int
-	CertMgrMode                       string
-	KubeletRootCAFilePath             string
-	KubeletPairFilePath               string
 	NodeName                          string
 	HeartbeatFailedRetry              int
 	HeartbeatHealthyThreshold         int
@@ -92,6 +89,7 @@ type YurtHubConfiguration struct {
 	CertIPs                           []net.IP
 	CoordinatorServer                 *url.URL
 	MinRequestTimeout                 time.Duration
+	CaCertHashes                      []string
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -156,8 +154,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,
 		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
 		GCFrequency:                       options.GCFrequency,
-		KubeletRootCAFilePath:             options.KubeletRootCAFilePath,
-		KubeletPairFilePath:               options.KubeletPairFilePath,
 		NodeName:                          options.NodeName,
 		HeartbeatFailedRetry:              options.HeartbeatFailedRetry,
 		HeartbeatHealthyThreshold:         options.HeartbeatHealthyThreshold,
@@ -180,6 +176,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:                     filterManager,
 		CertIPs:                           certIPs,
 		MinRequestTimeout:                 options.MinRequestTimeout,
+		CaCertHashes:                      options.CACertHashes,
 	}
 
 	return cfg, nil

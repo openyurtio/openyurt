@@ -18,49 +18,48 @@ package transport
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/util/certmanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver
 type Interface interface {
-	// concurrent use by multiple goroutines
 	// CurrentTransport get transport that used by load balancer
+	// and can be used by multiple goroutines concurrently.
 	CurrentTransport() http.RoundTripper
 	// BearerTransport returns transport for proxying request with bearer token in header
 	BearerTransport() http.RoundTripper
-	// close all net connections that specified by address
+	// Close all net connections that specified by address
 	Close(address string)
 }
 
 type transportManager struct {
 	currentTransport *http.Transport
 	bearerTransport  *http.Transport
-	certManager      interfaces.YurtCertificateManager
+	certManager      certificate.YurtCertificateManager
 	closeAll         func()
 	close            func(string)
 	stopCh           <-chan struct{}
 }
 
 // NewTransportManager create a transport interface object.
-func NewTransportManager(certMgr interfaces.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
+func NewTransportManager(certMgr certificate.YurtCertificateManager, stopCh <-chan struct{}) (Interface, error) {
 	caFile := certMgr.GetCaFile()
 	if len(caFile) == 0 {
 		return nil, fmt.Errorf("ca cert file was not prepared when new transport")
 	}
 	klog.V(2).Infof("use %s ca cert file to access remote server", caFile)
 
-	cfg, err := tlsConfig(certMgr, caFile)
+	cfg, err := tlsConfig(certMgr.GetAPIServerClientCert, caFile)
 	if err != nil {
 		klog.Errorf("could not get tls config when new transport, %v", err)
 		return nil, err
@@ -115,10 +114,10 @@ func (tm *transportManager) Close(address string) {
 }
 
 func (tm *transportManager) start() {
-	lastCert := tm.certManager.Current()
+	lastCert := tm.certManager.GetAPIServerClientCert()
 
 	go wait.Until(func() {
-		curr := tm.certManager.Current()
+		curr := tm.certManager.GetAPIServerClientCert()
 
 		if lastCert == nil && curr == nil {
 			// maybe at yurthub startup, just wait for cert generated, do nothing
@@ -143,48 +142,17 @@ func (tm *transportManager) start() {
 	}, 10*time.Second, tm.stopCh)
 }
 
-func tlsConfig(certMgr interfaces.YurtCertificateManager, caFile string) (*tls.Config, error) {
-	root, err := rootCertPool(caFile)
+func tlsConfig(current func() *tls.Certificate, caFile string) (*tls.Config, error) {
+	// generate the TLS configuration based on the latest certificate
+	rootCert, err := certmanager.GenCertPoolUseCA(caFile)
+	if err != nil {
+		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
+		return nil, err
+	}
+	tlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(current, rootCert, "client")
 	if err != nil {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
-		// Can't use SSLv3 because of POODLE and BEAST
-		// Can't use TLSv1.0 because of POODLE and BEAST using CBC cipher
-		// Can't use TLSv1.1 because of RC4 cipher usage
-		MinVersion: tls.VersionTLS12,
-		RootCAs:    root,
-	}
-
-	if certMgr != nil {
-		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert := certMgr.Current()
-			if cert == nil {
-				return &tls.Certificate{Certificate: nil}, nil
-			}
-			return cert, nil
-		}
-	}
-
-	return tlsConfig, nil
-}
-
-func rootCertPool(caFile string) (*x509.CertPool, error) {
-	if len(caFile) > 0 {
-		if caFileExists, err := util.FileExists(caFile); err != nil {
-			return nil, err
-		} else if caFileExists {
-			caData, err := os.ReadFile(caFile)
-			if err != nil {
-				return nil, err
-			}
-
-			certPool := x509.NewCertPool()
-			certPool.AppendCertsFromPEM(caData)
-			return certPool, nil
-		}
-	}
-
-	return nil, fmt.Errorf("failed to load ca file(%s)", caFile)
+	return tlsCfg, nil
 }

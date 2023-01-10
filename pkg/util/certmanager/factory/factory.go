@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager/store"
 )
 
@@ -78,20 +79,33 @@ type CertManagerFactory interface {
 	New(*CertManagerConfig) (certificate.Manager, error)
 }
 
+type factory struct {
+	clientsetFn certificate.ClientsetFunc
+	fileStore   certificate.FileStore
+}
+
 func NewCertManagerFactory(clientSet kubernetes.Interface) CertManagerFactory {
 	return &factory{
-		clientset: clientSet,
+		clientsetFn: func(current *tls.Certificate) (kubernetes.Interface, error) {
+			return clientSet, nil
+		},
 	}
 }
 
-type factory struct {
-	clientset kubernetes.Interface
+func NewCertManagerFactoryWithFnAndStore(clientsetFn certificate.ClientsetFunc, store certificate.FileStore) CertManagerFactory {
+	return &factory{
+		clientsetFn: clientsetFn,
+		fileStore:   store,
+	}
 }
 
 func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
-	store, err := store.NewFileStoreWrapper(cfg.ComponentName, cfg.CertDir, cfg.CertDir, "", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize the server certificate store: %w", err)
+	var err error
+	if util.IsNil(f.fileStore) {
+		f.fileStore, err = store.NewFileStoreWrapper(cfg.ComponentName, cfg.CertDir, cfg.CertDir, "", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize the server certificate store: %w", err)
+		}
 	}
 
 	ips, dnsNames := cfg.IPs, cfg.DNSNames
@@ -139,12 +153,11 @@ func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
 	}
 
 	return certificate.NewManager(&certificate.Config{
-		ClientsetFn: func(current *tls.Certificate) (kubernetes.Interface, error) {
-			return f.clientset, nil
-		},
+		ClientsetFn:      f.clientsetFn,
 		SignerName:       cfg.SignerName,
 		GetTemplate:      getTemplate,
 		Usages:           usages,
-		CertificateStore: store,
+		CertificateStore: f.fileStore,
+		Logf:             klog.Infof,
 	})
 }

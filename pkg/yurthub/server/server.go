@@ -21,22 +21,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	certificatesv1 "k8s.io/api/certificates/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
-	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 )
@@ -59,7 +52,7 @@ type yurtHubServer struct {
 
 // NewYurtHubServer creates a Server object
 func NewYurtHubServer(cfg *config.YurtHubConfiguration,
-	certificateMgr interfaces.YurtCertificateManager,
+	certificateMgr certificate.YurtCertificateManager,
 	proxyHandler http.Handler,
 	rest *rest.RestConfigManager) (Server, error) {
 	hubMux := mux.NewRouter()
@@ -152,8 +145,7 @@ func (s *yurtHubServer) Run() {
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr interfaces.YurtCertificateManager,
-	rest *rest.RestConfigManager) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, certificateMgr certificate.YurtCertificateManager, rest *rest.RestConfigManager) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(certificateMgr)).Methods("POST", "PUT")
 
@@ -181,56 +173,17 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 // GenUseCertMgrAndTLSConfig create a certificate manager for the yurthub server and generate a TLS configuration
-func GenUseCertMgrAndTLSConfig(
-	restConfigMgr *rest.RestConfigManager,
-	certificateMgr interfaces.YurtCertificateManager,
-	certDir, nodeName string,
-	certIPs []net.IP,
-	stopCh <-chan struct{}) (*tls.Config, error) {
-	cfg := restConfigMgr.GetRestConfig(false)
-	if cfg == nil {
-		return nil, fmt.Errorf("failed to prepare rest config based ong hub agent client certificate")
-	}
-
-	clientSet, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// create a certificate manager for the yurthub server and run the csr approver for both yurthub
-	serverCertMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
-		CertDir:        certDir,
-		ComponentName:  fmt.Sprintf("%s-server", projectinfo.GetHubName()),
-		SignerName:     certificatesv1.KubeletServingSignerName,
-		ForServerUsage: true,
-		CommonName:     fmt.Sprintf("system:node:%s", nodeName),
-		Organizations:  []string{user.NodesGroup},
-		IPs:            certIPs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	serverCertMgr.Start()
-
+func GenUseCertMgrAndTLSConfig(certificateMgr certificate.YurtCertificateManager) (*tls.Config, error) {
 	// generate the TLS configuration based on the latest certificate
 	rootCert, err := certmanager.GenCertPoolUseCA(certificateMgr.GetCaFile())
 	if err != nil {
 		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
 		return nil, err
 	}
-	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, rootCert, "server")
+	tlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(certificateMgr.GetHubServerCert, rootCert, "server")
 	if err != nil {
 		return nil, err
 	}
-
-	// waiting for the certificate is generated
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
-		// keep polling until the certificate is signed
-		if serverCertMgr.Current() != nil {
-			return true, nil
-		}
-		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetHubName())
-		return false, nil
-	}, stopCh)
 
 	return tlsCfg, nil
 }

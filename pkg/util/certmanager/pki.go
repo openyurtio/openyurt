@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/util/certificate"
 )
 
-// GenTLSConfigUseCertMgrAndCertPool generates a TLS configuration
-// using the given certificate manager and x509 CertPool
-func GenTLSConfigUseCertMgrAndCertPool(
-	m certificate.Manager,
+// GenTLSConfigUseCurrentCertAndCertPool generates a TLS configuration
+// using the given current certificate and x509 CertPool
+func GenTLSConfigUseCurrentCertAndCertPool(
+	current func() *tls.Certificate,
 	root *x509.CertPool,
 	mode string) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
@@ -45,21 +45,25 @@ func GenTLSConfigUseCertMgrAndCertPool(
 	case "server":
 		tlsConfig.ClientCAs = root
 		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
-		tlsConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert := m.Current()
-			if cert == nil {
-				return &tls.Certificate{Certificate: nil}, nil
+		if current != nil {
+			tlsConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				cert := current()
+				if cert == nil {
+					return &tls.Certificate{Certificate: nil}, nil
+				}
+				return cert, nil
 			}
-			return cert, nil
 		}
 	case "client":
 		tlsConfig.RootCAs = root
-		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			cert := m.Current()
-			if cert == nil {
-				return &tls.Certificate{Certificate: nil}, nil
+		if current != nil {
+			tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				cert := current()
+				if cert == nil {
+					return &tls.Certificate{Certificate: nil}, nil
+				}
+				return cert, nil
 			}
-			return cert, nil
 		}
 	default:
 		return nil, fmt.Errorf("unsupported cert manager mode(only server or client), %s", mode)

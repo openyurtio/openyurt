@@ -168,6 +168,16 @@ func (hc *cloudAPIServerHealthChecker) IsHealthy() bool {
 	return false
 }
 
+func (hc *cloudAPIServerHealthChecker) PickHealthyServer() (*url.URL, error) {
+	for server, prober := range hc.probers {
+		if prober.IsHealthy() {
+			return url.Parse(server)
+		}
+	}
+
+	return nil, nil
+}
+
 // BackendHealthyStatus returns the healthy stats of specified server
 func (hc *cloudAPIServerHealthChecker) BackendHealthyStatus(server *url.URL) bool {
 	if prober, ok := hc.probers[server.String()]; ok {

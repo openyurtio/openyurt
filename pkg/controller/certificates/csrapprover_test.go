@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -91,7 +91,7 @@ func TestIsYurtCSR(t *testing.T) {
 						certificatesv1.UsageKeyEncipherment,
 						certificatesv1.UsageClientAuth,
 					},
-					Request: newCSRData("system:node:xxx", []string{hubself.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
+					Request: newCSRData("system:node:xxx", []string{token.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
 				},
 			},
 			exp: true,
@@ -106,7 +106,7 @@ func TestIsYurtCSR(t *testing.T) {
 						certificatesv1.UsageKeyEncipherment,
 						certificatesv1.UsageClientAuth,
 					},
-					Request: newCSRData("system:node:xxx", []string{hubself.YurtHubCSROrg, user.NodesGroup, "unknown org"}, []string{}, []net.IP{}),
+					Request: newCSRData("system:node:xxx", []string{token.YurtHubCSROrg, user.NodesGroup, "unknown org"}, []string{}, []net.IP{}),
 				},
 			},
 			exp: false,
