@@ -190,7 +190,7 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 	for _, key := range localEventKeys {
 		_, _, ns, name := util.SplitKey(key.Key())
 		if len(ns) == 0 || len(name) == 0 {
-			klog.Infof("could not get namespace or name for event %s", key)
+			klog.Infof("could not get namespace or name for event %s", key.Key())
 			continue
 		}
 
@@ -198,16 +198,16 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 		if apierrors.IsNotFound(err) {
 			deletedEvents = append(deletedEvents, key)
 		} else if err != nil {
-			klog.Errorf("could not get %s %s event for node(%s), %v", component, key, m.nodeName, err)
+			klog.Errorf("could not get %s %s event for node(%s), %v", component, key.Key(), m.nodeName, err)
 			break
 		}
 	}
 
 	for _, key := range deletedEvents {
 		if err := m.store.Delete(key); err != nil {
-			klog.Errorf("failed to gc events %s, %v", key, err)
+			klog.Errorf("failed to gc events %s, %v", key.Key(), err)
 		} else {
-			klog.Infof("gc events %s successfully", key)
+			klog.Infof("gc events %s successfully", key.Key())
 		}
 	}
 }

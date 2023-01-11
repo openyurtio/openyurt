@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -27,7 +26,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	apiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/dynamiccertificates"
+	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -41,10 +44,13 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	yurtcorev1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
@@ -56,40 +62,33 @@ import (
 
 // YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
-	LBMode                            string
-	RemoteServers                     []*url.URL
-	YurtHubServerAddr                 string
-	YurtHubCertOrganizations          []string
-	YurtHubProxyServerAddr            string
-	YurtHubProxyServerSecureAddr      string
-	YurtHubProxyServerDummyAddr       string
-	YurtHubProxyServerSecureDummyAddr string
-	GCFrequency                       int
-	NodeName                          string
-	HeartbeatFailedRetry              int
-	HeartbeatHealthyThreshold         int
-	HeartbeatTimeoutSeconds           int
-	HeartbeatIntervalSeconds          int
-	MaxRequestInFlight                int
-	JoinToken                         string
-	RootDir                           string
-	EnableProfiling                   bool
-	EnableDummyIf                     bool
-	EnableIptables                    bool
-	HubAgentDummyIfName               string
-	StorageWrapper                    cachemanager.StorageWrapper
-	SerializerManager                 *serializer.SerializerManager
-	RESTMapperManager                 *meta.RESTMapperManager
-	TLSConfig                         *tls.Config
-	SharedFactory                     informers.SharedInformerFactory
-	YurtSharedFactory                 yurtinformers.SharedInformerFactory
-	WorkingMode                       util.WorkingMode
-	KubeletHealthGracePeriod          time.Duration
-	FilterManager                     *manager.Manager
-	CertIPs                           []net.IP
-	CoordinatorServer                 *url.URL
-	MinRequestTimeout                 time.Duration
-	CaCertHashes                      []string
+	LBMode                          string
+	RemoteServers                   []*url.URL
+	GCFrequency                     int
+	NodeName                        string
+	HeartbeatFailedRetry            int
+	HeartbeatHealthyThreshold       int
+	HeartbeatTimeoutSeconds         int
+	HeartbeatIntervalSeconds        int
+	MaxRequestInFlight              int
+	EnableProfiling                 bool
+	StorageWrapper                  cachemanager.StorageWrapper
+	SerializerManager               *serializer.SerializerManager
+	RESTMapperManager               *meta.RESTMapperManager
+	SharedFactory                   informers.SharedInformerFactory
+	YurtSharedFactory               yurtinformers.SharedInformerFactory
+	WorkingMode                     util.WorkingMode
+	KubeletHealthGracePeriod        time.Duration
+	FilterManager                   *manager.Manager
+	CoordinatorServer               *url.URL
+	MinRequestTimeout               time.Duration
+	TenantNs                        string
+	NetworkMgr                      *network.NetworkManager
+	CertManager                     certificate.YurtCertificateManager
+	YurtHubServerServing            *apiserver.DeprecatedInsecureServingInfo
+	YurtHubProxyServerServing       *apiserver.DeprecatedInsecureServingInfo
+	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
+	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -97,13 +96,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.ServerAddr)
 	if err != nil {
 		return nil, err
-	}
-
-	hubCertOrgs := make([]string, 0)
-	if options.YurtHubCertOrganizations != "" {
-		for _, orgStr := range strings.Split(options.YurtHubCertOrganizations, ",") {
-			hubCertOrgs = append(hubCertOrgs, orgStr)
-		}
 	}
 
 	storageManager, err := disk.NewDiskStorage(options.DiskCachePath)
@@ -119,17 +111,12 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
-	hubServerAddr := net.JoinHostPort(options.YurtHubHost, options.YurtHubPort)
-	proxyServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxyPort)
-	proxySecureServerAddr := net.JoinHostPort(options.YurtHubProxyHost, options.YurtHubProxySecurePort)
-	proxyServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxyPort)
-	proxySecureServerDummyAddr := net.JoinHostPort(options.HubAgentDummyIfIP, options.YurtHubProxySecurePort)
 	workingMode := util.WorkingMode(options.WorkingMode)
-	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s", proxyServerAddr), options.EnableNodePool)
+	sharedFactory, yurtSharedFactory, err := createSharedInformers(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.EnableNodePool)
 	if err != nil {
 		return nil, err
 	}
-	tenantNs := util.ParseTenantNs(options.YurtHubCertOrganizations)
+	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName, tenantNs)
 	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
 	if err != nil {
@@ -137,46 +124,46 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 
-	// use dummy ip and bind ip as cert IP SANs
-	certIPs := ipUtils.RemoveDupIPs([]net.IP{
-		net.ParseIP(options.HubAgentDummyIfIP),
-		net.ParseIP(options.YurtHubHost),
-		net.ParseIP(options.YurtHubProxyHost),
-	})
-
 	cfg := &YurtHubConfiguration{
-		LBMode:                            options.LBMode,
-		RemoteServers:                     us,
-		YurtHubServerAddr:                 hubServerAddr,
-		YurtHubCertOrganizations:          hubCertOrgs,
-		YurtHubProxyServerAddr:            proxyServerAddr,
-		YurtHubProxyServerSecureAddr:      proxySecureServerAddr,
-		YurtHubProxyServerDummyAddr:       proxyServerDummyAddr,
-		YurtHubProxyServerSecureDummyAddr: proxySecureServerDummyAddr,
-		GCFrequency:                       options.GCFrequency,
-		NodeName:                          options.NodeName,
-		HeartbeatFailedRetry:              options.HeartbeatFailedRetry,
-		HeartbeatHealthyThreshold:         options.HeartbeatHealthyThreshold,
-		HeartbeatTimeoutSeconds:           options.HeartbeatTimeoutSeconds,
-		HeartbeatIntervalSeconds:          options.HeartbeatIntervalSeconds,
-		MaxRequestInFlight:                options.MaxRequestInFlight,
-		JoinToken:                         options.JoinToken,
-		RootDir:                           options.RootDir,
-		EnableProfiling:                   options.EnableProfiling,
-		EnableDummyIf:                     options.EnableDummyIf,
-		EnableIptables:                    options.EnableIptables,
-		HubAgentDummyIfName:               options.HubAgentDummyIfName,
-		WorkingMode:                       workingMode,
-		StorageWrapper:                    storageWrapper,
-		SerializerManager:                 serializerManager,
-		RESTMapperManager:                 restMapperManager,
-		SharedFactory:                     sharedFactory,
-		YurtSharedFactory:                 yurtSharedFactory,
-		KubeletHealthGracePeriod:          options.KubeletHealthGracePeriod,
-		FilterManager:                     filterManager,
-		CertIPs:                           certIPs,
-		MinRequestTimeout:                 options.MinRequestTimeout,
-		CaCertHashes:                      options.CACertHashes,
+		LBMode:                    options.LBMode,
+		RemoteServers:             us,
+		GCFrequency:               options.GCFrequency,
+		NodeName:                  options.NodeName,
+		HeartbeatFailedRetry:      options.HeartbeatFailedRetry,
+		HeartbeatHealthyThreshold: options.HeartbeatHealthyThreshold,
+		HeartbeatTimeoutSeconds:   options.HeartbeatTimeoutSeconds,
+		HeartbeatIntervalSeconds:  options.HeartbeatIntervalSeconds,
+		MaxRequestInFlight:        options.MaxRequestInFlight,
+		EnableProfiling:           options.EnableProfiling,
+		WorkingMode:               workingMode,
+		StorageWrapper:            storageWrapper,
+		SerializerManager:         serializerManager,
+		RESTMapperManager:         restMapperManager,
+		SharedFactory:             sharedFactory,
+		YurtSharedFactory:         yurtSharedFactory,
+		KubeletHealthGracePeriod:  options.KubeletHealthGracePeriod,
+		FilterManager:             filterManager,
+		MinRequestTimeout:         options.MinRequestTimeout,
+		TenantNs:                  tenantNs,
+	}
+
+	certMgr, err := createCertManager(options, us)
+	if err != nil {
+		return nil, err
+	}
+	cfg.CertManager = certMgr
+
+	if options.EnableDummyIf {
+		klog.V(2).Infof("create dummy network interface %s(%s) and init iptables manager", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
+		networkMgr, err := network.NewNetworkManager(options)
+		if err != nil {
+			return nil, fmt.Errorf("could not create network manager, %w", err)
+		}
+		cfg.NetworkMgr = networkMgr
+	}
+
+	if err = prepareServerServing(options, certMgr, cfg); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -313,4 +300,98 @@ func serviceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
 	}
 
 	return true
+}
+
+func createCertManager(options *options.YurtHubOptions, remoteServers []*url.URL) (certificate.YurtCertificateManager, error) {
+	// use dummy ip and bind ip as cert IP SANs
+	certIPs := ipUtils.RemoveDupIPs([]net.IP{
+		net.ParseIP(options.HubAgentDummyIfIP),
+		net.ParseIP(options.YurtHubHost),
+		net.ParseIP(options.YurtHubProxyHost),
+	})
+
+	cfg := &token.CertificateManagerConfiguration{
+		RootDir:                  options.RootDir,
+		NodeName:                 options.NodeName,
+		JoinToken:                options.JoinToken,
+		CaCertHashes:             options.CACertHashes,
+		YurtHubCertOrganizations: options.YurtHubCertOrganizations,
+		CertIPs:                  certIPs,
+		RemoteServers:            remoteServers,
+		Client:                   options.ClientForTest,
+	}
+	certManager, err := token.NewYurtHubCertManager(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cert manager for yurthub, %v", err)
+	}
+
+	certManager.Start()
+	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
+		isReady := certManager.Ready()
+		if isReady {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
+	}
+
+	return certManager, nil
+}
+
+func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
+	if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+		BindAddress: net.ParseIP(options.YurtHubHost),
+		BindPort:    options.YurtHubPort,
+		BindNetwork: "tcp",
+	}).ApplyTo(&cfg.YurtHubServerServing); err != nil {
+		return err
+	}
+
+	if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+		BindAddress: net.ParseIP(options.YurtHubProxyHost),
+		BindPort:    options.YurtHubProxyPort,
+		BindNetwork: "tcp",
+	}).ApplyTo(&cfg.YurtHubProxyServerServing); err != nil {
+		return err
+	}
+
+	yurtHubSecureProxyHost := options.YurtHubProxyHost
+	if options.EnableDummyIf {
+		yurtHubSecureProxyHost = options.HubAgentDummyIfIP
+		if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+			BindAddress: net.ParseIP(options.HubAgentDummyIfIP),
+			BindPort:    options.YurtHubProxyPort,
+			BindNetwork: "tcp",
+		}).ApplyTo(&cfg.YurtHubDummyProxyServerServing); err != nil {
+			return err
+		}
+	}
+
+	serverCertPath := certMgr.GetHubServerCertFile()
+	serverCaPath := certMgr.GetCaFile()
+	klog.V(2).Infof("server cert path is: %s, ca path is: %s", serverCertPath, serverCaPath)
+	caBundleProvider, err := dynamiccertificates.NewDynamicCAContentFromFile("client-ca-bundle", serverCaPath)
+	if err != nil {
+		return err
+	}
+
+	if err := (&apiserveroptions.SecureServingOptions{
+		BindAddress: net.ParseIP(yurtHubSecureProxyHost),
+		BindPort:    options.YurtHubProxySecurePort,
+		BindNetwork: "tcp",
+		ServerCert: apiserveroptions.GeneratableKeyCert{
+			CertKey: apiserveroptions.CertKey{
+				CertFile: serverCertPath,
+				KeyFile:  serverCertPath,
+			},
+		},
+	}).ApplyTo(&cfg.YurtHubSecureProxyServerServing); err != nil {
+		return err
+	}
+	cfg.YurtHubSecureProxyServerServing.ClientCA = caBundleProvider
+	cfg.YurtHubSecureProxyServerServing.DisableHTTP2 = true
+
+	return nil
 }

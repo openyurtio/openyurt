@@ -439,10 +439,9 @@ func TestWithSaTokenSubsitute(t *testing.T) {
 	}
 
 	resolver := newTestRequestInfoResolver()
-	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
 
 	stopCh := make(<-chan struct{})
-	tenantMgr := tenant.New(orgs, nil, stopCh)
+	tenantMgr := tenant.New("myspace", nil, stopCh)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)
@@ -530,10 +529,9 @@ func TestWithSaTokenSubsituteTenantTokenEmpty(t *testing.T) {
 	}
 
 	resolver := newTestRequestInfoResolver()
-	orgs := []string{"system:bootstrappers:openyurt:tenant:myspace"}
 
 	stopCh := make(<-chan struct{})
-	tenantMgr := tenant.New(orgs, nil, stopCh)
+	tenantMgr := tenant.New("myspace", nil, stopCh)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)

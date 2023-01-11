@@ -22,8 +22,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type Interface interface {
@@ -64,9 +62,7 @@ func (mgr *tenantManager) WaitForCacheSync() bool {
 	return mgr.IsSynced
 }
 
-func New(orgs []string, factory informers.SharedInformerFactory, stopCh <-chan struct{}) Interface {
-
-	tenantNs := util.ParseTenantNsFromOrgs(orgs)
+func New(tenantNs string, factory informers.SharedInformerFactory, stopCh <-chan struct{}) Interface {
 	klog.Infof("parse tenant ns: %s", tenantNs)
 	if tenantNs == "" {
 		return nil
