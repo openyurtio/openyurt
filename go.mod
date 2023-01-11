@@ -27,6 +27,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
 	github.com/wI2L/jsondiff v0.3.0
+	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8

@@ -18,6 +18,7 @@ package etcd
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/utils"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 const (
@@ -57,6 +59,7 @@ type EtcdStorageConfig struct {
 	KeyFile       string
 	CaFile        string
 	LocalCacheDir string
+	UnSecure      bool
 }
 
 // TODO: consider how to recover the work if it was interrupted because of restart, in
@@ -86,21 +89,20 @@ type etcdStorage struct {
 }
 
 func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, error) {
+	var tlsConfig *tls.Config
+	var err error
 	cacheFilePath := filepath.Join(cfg.LocalCacheDir, defaultComponentCacheFileName)
-	cache := newComponentKeyCache(cacheFilePath)
-	if err := cache.Recover(); err != nil {
-		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
-	}
+	if !cfg.UnSecure {
+		tlsInfo := transport.TLSInfo{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			TrustedCAFile: cfg.CaFile,
+		}
 
-	tlsInfo := transport.TLSInfo{
-		CertFile:      cfg.CertFile,
-		KeyFile:       cfg.KeyFile,
-		TrustedCAFile: cfg.CaFile,
-	}
-
-	tlsConfig, err := tlsInfo.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+		tlsConfig, err = tlsInfo.ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+		}
 	}
 
 	clientConfig := clientv3.Config{
@@ -115,17 +117,30 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}
 
 	s := &etcdStorage{
-		ctx:                    ctx,
-		prefix:                 cfg.Prefix,
-		client:                 client,
-		clientConfig:           clientConfig,
-		localComponentKeyCache: cache,
+		ctx:          ctx,
+		prefix:       cfg.Prefix,
+		client:       client,
+		clientConfig: clientConfig,
 		mirrorPrefixMap: map[pathType]string{
 			rvType: "/mirror/rv",
 		},
 	}
 
+	cache := &componentKeyCache{
+		ctx:        ctx,
+		filePath:   cacheFilePath,
+		cache:      map[string]keySet{},
+		fsOperator: fs.FileSystemOperator{},
+		keyFunc:    s.KeyFunc,
+		etcdClient: client,
+	}
+	if err := cache.Recover(); err != nil {
+		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
+	}
+	s.localComponentKeyCache = cache
+
 	go s.clientLifeCycleManagement()
+
 	return s, nil
 }
 
