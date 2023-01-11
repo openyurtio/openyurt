@@ -194,7 +194,10 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
-	if util.IsPoolScopedResouceListWatchRequest(req) {
+	// If pool-scoped resource request is from leader-yurthub, it should always be sent to the cloud APIServer.
+	// Thus we do not need to start a check routine for it. But for other requests, we need to periodically check
+	// the pool-coordinator status, and switch the traffic to pool-coordinator if it is ready.
+	if util.IsPoolScopedResouceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
 		// We get here possibly because the pool-coordinator is not ready.
 		// We should cancel the watch request when pool-coordinator becomes ready.
 		klog.Infof("pool-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
@@ -419,4 +422,13 @@ func isRequestOfNodeAndPod(reqCtx context.Context) bool {
 
 	return (reqInfo.Resource == "nodes" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1") ||
 		(reqInfo.Resource == "pods" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1")
+}
+
+func isRequestFromLeaderYurthub(req *http.Request) bool {
+	ctx := req.Context()
+	agent, ok := hubutil.ClientComponentFrom(ctx)
+	if !ok {
+		return false
+	}
+	return agent == coordinatorconstants.DefaultPoolScopedUserAgent
 }
