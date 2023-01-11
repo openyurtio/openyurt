@@ -18,6 +18,7 @@ package etcd
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -58,6 +59,7 @@ type EtcdStorageConfig struct {
 	KeyFile       string
 	CaFile        string
 	LocalCacheDir string
+	UnSecure      bool
 }
 
 // TODO: consider how to recover the work if it was interrupted because of restart, in
@@ -87,16 +89,20 @@ type etcdStorage struct {
 }
 
 func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, error) {
+	var tlsConfig *tls.Config
+	var err error
 	cacheFilePath := filepath.Join(cfg.LocalCacheDir, defaultComponentCacheFileName)
-	tlsInfo := transport.TLSInfo{
-		CertFile:      cfg.CertFile,
-		KeyFile:       cfg.KeyFile,
-		TrustedCAFile: cfg.CaFile,
-	}
+	if !cfg.UnSecure {
+		tlsInfo := transport.TLSInfo{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			TrustedCAFile: cfg.CaFile,
+		}
 
-	tlsConfig, err := tlsInfo.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+		tlsConfig, err = tlsInfo.ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+		}
 	}
 
 	clientConfig := clientv3.Config{

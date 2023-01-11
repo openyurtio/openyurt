@@ -34,6 +34,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
+// TODO: These tests should be integration tests instead of unit tests.
+// Currently, we will install the etcd cmd BeforeSuite to make these tests work around.
+// But they are better moved to integration test dir.
 var _ = Describe("Test EtcdStorage", func() {
 	var etcdstore *etcdStorage
 	var key1 storage.Key
@@ -47,6 +50,7 @@ var _ = Describe("Test EtcdStorage", func() {
 			Prefix:        "/" + randomize,
 			EtcdEndpoints: []string{"127.0.0.1:2379"},
 			LocalCacheDir: filepath.Join(keyCacheDir, randomize),
+			UnSecure:      true,
 		}
 		s, err := NewStorage(context.Background(), cfg)
 		Expect(err).To(BeNil())
@@ -87,7 +91,7 @@ var _ = Describe("Test EtcdStorage", func() {
 
 			devNull, err := os.OpenFile("/dev/null", os.O_RDWR, 0755)
 			Expect(err).To(BeNil())
-			etcdCmd = exec.Command("/usr/local/etcd/etcd", "--data-dir="+etcdDataDir)
+			etcdCmd = exec.Command(etcdCmdPath, "--data-dir="+etcdDataDir)
 			etcdCmd.Stdout = devNull
 			etcdCmd.Stderr = devNull
 			Expect(etcdCmd.Start()).To(BeNil())
