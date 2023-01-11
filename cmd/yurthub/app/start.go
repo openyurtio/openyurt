@@ -195,10 +195,9 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		if err != nil {
 			return fmt.Errorf("failed to wait for coordinator to run, %v", err)
 		}
+		// wait for coordinator informer registry
+		<-coordinatorInformerRegistryChan
 	}
-
-	// wait for coordinator informer registry
-	<-coordinatorInformerRegistryChan
 
 	// Start the informer factory if all informers have been registered
 	cfg.SharedFactory.Start(ctx.Done())
