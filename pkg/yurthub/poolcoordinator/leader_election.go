@@ -55,7 +55,7 @@ func NewHubElector(
 		coordinatorClient:           coordinatorClient,
 		coordinatorHealthChecker:    coordinatorHealthChecker,
 		cloudAPIServerHealthChecker: cloudAPIServerHealthyChecker,
-		electorStatus:               make(chan int32),
+		electorStatus:               make(chan int32, 1),
 	}
 
 	rl, err := resourcelock.New(cfg.LeaderElection.ResourceLock,
@@ -75,7 +75,7 @@ func NewHubElector(
 		RetryPeriod:   cfg.LeaderElection.RetryPeriod.Duration,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				klog.Infof("yurthub of %s became lease", cfg.NodeName)
+				klog.Infof("yurthub of %s became leader", cfg.NodeName)
 				he.electorStatus <- LeaderHub
 			},
 			OnStoppedLeading: func() {

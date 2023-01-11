@@ -51,7 +51,7 @@ type PoolCoordinatorProxy struct {
 func NewPoolCoordinatorProxy(
 	poolCoordinatorAddr *url.URL,
 	localCacheMgr cachemanager.CacheManager,
-	transportMgr transport.Interface,
+	transportMgrGetter func() transport.Interface,
 	filterMgr *manager.Manager,
 	isCoordinatorReady func() bool,
 	stopCh <-chan struct{}) (*PoolCoordinatorProxy, error) {
@@ -66,17 +66,33 @@ func NewPoolCoordinatorProxy(
 		stopCh:             stopCh,
 	}
 
-	proxy, err := util.NewRemoteProxy(
-		poolCoordinatorAddr,
-		pp.modifyResponse,
-		pp.errorHandler,
-		transportMgr,
-		stopCh)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create remote proxy for pool-coordinator, %v", err)
-	}
+	go func() {
+		ticker := time.NewTicker(time.Second * 5)
+		for {
+			select {
+			case <-ticker.C:
+				transportMgr := transportMgrGetter()
+				if transportMgr == nil {
+					break
+				}
+				proxy, err := util.NewRemoteProxy(
+					poolCoordinatorAddr,
+					pp.modifyResponse,
+					pp.errorHandler,
+					transportMgr,
+					stopCh)
+				if err != nil {
+					klog.Errorf("failed to create remote proxy for pool-coordinator, %v", err)
+					return
+				}
 
-	pp.poolCoordinatorProxy = proxy
+				pp.poolCoordinatorProxy = proxy
+				klog.Infof("create remote proxy for pool-coordinator success")
+				return
+			}
+		}
+	}()
+
 	return pp, nil
 }
 
@@ -117,7 +133,7 @@ func (pp *PoolCoordinatorProxy) poolPost(rw http.ResponseWriter, req *http.Reque
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	klog.V(4).Infof("pool handle post, req=%s, reqInfo=%s", hubutil.ReqString(req), hubutil.ReqInfoString(info))
-	if util.IsSubjectAccessReviewCreateGetRequest(req) || util.IsEventCreateRequest(req) {
+	if (util.IsSubjectAccessReviewCreateGetRequest(req) || util.IsEventCreateRequest(req)) && pp.poolCoordinatorProxy != nil {
 		// kubelet needs to create subjectaccessreviews for auth
 		pp.poolCoordinatorProxy.ServeHTTP(rw, req)
 		return nil
@@ -127,7 +143,7 @@ func (pp *PoolCoordinatorProxy) poolPost(rw http.ResponseWriter, req *http.Reque
 }
 
 func (pp *PoolCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Request) error {
-	if util.IsPoolScopedResouceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req) {
+	if (util.IsPoolScopedResouceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req)) && pp.poolCoordinatorProxy != nil {
 		pp.poolCoordinatorProxy.ServeHTTP(rw, req)
 		return nil
 	}
@@ -135,7 +151,7 @@ func (pp *PoolCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Requ
 }
 
 func (pp *PoolCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Request) error {
-	if util.IsPoolScopedResouceListWatchRequest(req) {
+	if util.IsPoolScopedResouceListWatchRequest(req) && pp.poolCoordinatorProxy != nil {
 		clientReqCtx := req.Context()
 		poolServeCtx, poolServeCancel := context.WithCancel(clientReqCtx)
 
@@ -243,7 +259,7 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 	if pp.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
 		req = req.WithContext(ctx)
-		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 
 		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
@@ -251,6 +267,12 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 				klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, ctx.Done())
+
+		// after gunzip in filter, the header content encoding should be removed.
+		// because there's no need to gunzip response.body again.
+		if needUncompressed {
+			resp.Header.Del("Content-Encoding")
+		}
 		resp.Body = rc
 	}
 }

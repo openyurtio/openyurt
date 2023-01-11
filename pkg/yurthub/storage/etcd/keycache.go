@@ -120,48 +120,49 @@ func (c *componentKeyCache) Recover() error {
 }
 
 func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
-	client := c.getEtcdClient()
-	if client == nil {
-		return nil, fmt.Errorf("got empty etcd client")
-	}
+	// FIXME: now  getEtcdClient would cause nil pointer
+	//client := c.getEtcdClient()
+	//if client == nil {
+	//	return nil, fmt.Errorf("got empty etcd client")
+	//}
 
 	keys := &keySet{m: map[storageKey]struct{}{}}
-	for gvr := range coordinatorconstants.PoolScopedResources {
-		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
-		defer cancel()
-		rootKey, err := c.keyFunc(storage.KeyBuildInfo{
-			Component: coordinatorconstants.DefaultPoolScopedUserAgent,
-			Group:     gvr.Group,
-			Version:   gvr.Version,
-			Resources: gvr.Resource,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate keys for %s, %v", gvr.String(), err)
-		}
-		getResp, err := client.Get(getCtx, rootKey.Key(), clientv3.WithPrefix(), clientv3.WithKeysOnly())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get from etcd for %s, %v", gvr.String(), err)
-		}
-
-		for _, kv := range getResp.Kvs {
-			ns, name, err := getNamespaceAndNameFromKeyPath(string(kv.Key))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse namespace and name of %s", kv.Key)
-			}
-			key, err := c.keyFunc(storage.KeyBuildInfo{
-				Component: coordinatorconstants.DefaultPoolScopedUserAgent,
-				Group:     gvr.Group,
-				Version:   gvr.Version,
-				Resources: gvr.Resource,
-				Namespace: ns,
-				Name:      name,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create resource key for %v", kv.Key)
-			}
-			keys.m[key.(storageKey)] = struct{}{}
-		}
-	}
+	//for gvr := range coordinatorconstants.PoolScopedResources {
+	//getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
+	//defer cancel()
+	//rootKey, err := c.keyFunc(storage.KeyBuildInfo{
+	//	Component: coordinatorconstants.DefaultPoolScopedUserAgent,
+	//	Group:     gvr.Group,
+	//	Version:   gvr.Version,
+	//	Resources: gvr.Resource,
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to generate keys for %s, %v", gvr.String(), err)
+	//}
+	//getResp, err := client.Get(getCtx, rootKey.Key(), clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get from etcd for %s, %v", gvr.String(), err)
+	//}
+	//
+	//for _, kv := range getResp.Kvs {
+	//	ns, name, err := getNamespaceAndNameFromKeyPath(string(kv.Key))
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to parse namespace and name of %s", kv.Key)
+	//	}
+	//	key, err := c.keyFunc(storage.KeyBuildInfo{
+	//		Component: coordinatorconstants.DefaultPoolScopedUserAgent,
+	//		Group:     gvr.Group,
+	//		Version:   gvr.Version,
+	//		Resources: gvr.Resource,
+	//		Namespace: ns,
+	//		Name:      name,
+	//	})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to create resource key for %v", kv.Key)
+	//	}
+	//	keys.m[key.(storageKey)] = struct{}{}
+	//}
+	//}
 	return keys, nil
 }
 
