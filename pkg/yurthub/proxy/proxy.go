@@ -37,7 +37,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/pool"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
@@ -186,14 +186,12 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	com, _ := hubutil.ClientComponentFrom(req.Context())
-
 	switch {
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsEventCreateRequest(req):
 		p.eventHandler(rw, req)
-	case util.IsPoolScopedResouceListWatchRequest(req) && com != constants.DefaultPoolScopedUserAgent:
+	case util.IsPoolScopedResouceListWatchRequest(req):
 		p.poolScopedResouceHandler(rw, req)
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
@@ -232,6 +230,15 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 }
 
 func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req *http.Request) {
+	agent, ok := hubutil.ClientComponentFrom(req.Context())
+	if ok && agent == coordinatorconstants.DefaultPoolScopedUserAgent {
+		// list/watch request from leader-yurthub
+		// It should always be proxied to cloud APIServer to get latest resource, which will
+		// be cached into pool cache.
+		p.loadBalancer.ServeHTTP(rw, req)
+		return
+	}
+
 	if p.isCoordinatorReady() && p.poolProxy != nil {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else if p.cloudHealthChecker.IsHealthy() {
