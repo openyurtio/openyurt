@@ -109,6 +109,8 @@ const (
 	YurtHubImage = "yurthub-image"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
+	// ReuseCNIBin flag sets whether to reuse local CNI binaries or not.
+	ReuseCNIBin = "reuse-cni-bin"
 
 	ServerHealthzServer          = "127.0.0.1:10267"
 	ServerHealthzURLPath         = "/v1/healthz"

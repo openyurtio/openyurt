@@ -52,6 +52,7 @@ type joinOptions struct {
 	nodeLabels               string
 	kubernetesResourceServer string
 	yurthubServer            string
+	reuseCNIBin              bool
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -66,6 +67,7 @@ func newJoinOptions() *joinOptions {
 		ignorePreflightErrors:    make([]string, 0),
 		kubernetesResourceServer: yurtconstants.DefaultKubernetesResourceServer,
 		yurthubServer:            yurtconstants.DefaultYurtHubServerAddr,
+		reuseCNIBin:              false,
 	}
 }
 
@@ -156,6 +158,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.yurthubServer, yurtconstants.YurtHubServerAddr, joinOptions.yurthubServer,
 		"Sets the address for yurthub server addr",
 	)
+	flagSet.BoolVar(
+		&joinOptions.reuseCNIBin, yurtconstants.ReuseCNIBin, false,
+		"Whether to reuse local CNI binaries or to download new ones",
+	)
 }
 
 func newJoinerWithJoinData(o *joinData, in io.Reader, out io.Writer, outErr io.Writer) *nodeJoiner {
@@ -201,6 +207,7 @@ type joinData struct {
 	nodeLabels               map[string]string
 	kubernetesResourceServer string
 	yurthubServer            string
+	reuseCNIBin              bool
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -264,6 +271,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 			Organizations: opt.organizations,
 		},
 		kubernetesResourceServer: opt.kubernetesResourceServer,
+		reuseCNIBin:              opt.reuseCNIBin,
 	}
 
 	// parse node labels
@@ -365,4 +373,8 @@ func (j *joinData) NodeLabels() map[string]string {
 
 func (j *joinData) KubernetesResourceServer() string {
 	return j.kubernetesResourceServer
+}
+
+func (j *joinData) ReuseCNIBin() bool {
+	return j.reuseCNIBin
 }

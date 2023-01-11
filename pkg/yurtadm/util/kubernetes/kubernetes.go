@@ -144,11 +144,17 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 }
 
 // CheckAndInstallKubernetesCni install kubernetes-cni, skip install if they exist.
-func CheckAndInstallKubernetesCni() error {
-	if _, err := os.Stat(constants.KubeCniDir); err == nil {
-		klog.Infof("Cni dir %s already exist, skip install.", constants.KubeCniDir)
-		return nil
+func CheckAndInstallKubernetesCni(reuseCNIBin bool) error {
+	if reuseCNIBin {
+		if _, err := os.Stat(constants.KubeCniDir); err == nil {
+			klog.Infof("Cni dir %s exists, reuse the CNI binaries.", constants.KubeCniDir)
+			return nil
+		} else {
+			klog.Errorf("Cni dir %s does not exist, cannot reuse the CNI binaries!", constants.KubeCniDir)
+			return err
+		}
 	}
+
 	//download and install kubernetes-cni
 	cniUrl := fmt.Sprintf(constants.CniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
 	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)

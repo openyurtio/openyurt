@@ -56,6 +56,7 @@ func TestNewJoinOptions(t *testing.T) {
 				ignorePreflightErrors:    make([]string, 0),
 				kubernetesResourceServer: yurtconstants.DefaultKubernetesResourceServer,
 				yurthubServer:            yurtconstants.DefaultYurtHubServerAddr,
+				reuseCNIBin:              false,
 			},
 		},
 	}
