@@ -194,7 +194,8 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
-	if util.IsPoolScopedResouceListWatchRequest(req) {
+	com, _ := hubutil.ClientComponentFrom(req.Context())
+	if util.IsPoolScopedResouceListWatchRequest(req) && com != coordinatorconstants.DefaultPoolScopedUserAgent {
 		// We get here possibly because the pool-coordinator is not ready.
 		// We should cancel the watch request when pool-coordinator becomes ready.
 		klog.Infof("pool-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
@@ -330,7 +331,12 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 	if lb.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
-		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		// after gunzip in filter, the header content encoding should be removed.
+		// because there's no need to gunzip response.body again.
+		if needUncompressed {
+			resp.Header.Del("Content-Encoding")
+		}
 		resp.Body = wrapPrc
 
 		var poolCacheManager cachemanager.CacheManager

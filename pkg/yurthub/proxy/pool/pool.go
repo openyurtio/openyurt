@@ -259,7 +259,7 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 	if pp.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
 		req = req.WithContext(ctx)
-		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
+		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 
 		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
@@ -267,6 +267,12 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 				klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, ctx.Done())
+
+		// after gunzip in filter, the header content encoding should be removed.
+		// because there's no need to gunzip response.body again.
+		if needUncompressed {
+			resp.Header.Del("Content-Encoding")
+		}
 		resp.Body = rc
 	}
 }
