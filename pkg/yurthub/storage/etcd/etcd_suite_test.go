@@ -17,8 +17,10 @@ limitations under the License.
 package etcd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +31,9 @@ var keyCacheDir = "/tmp/etcd-test"
 var etcdDataDir = "/tmp/storagetest.etcd"
 var devNull *os.File
 var etcdCmd *exec.Cmd
+var downloadURL = "https://github.com/etcd-io/etcd/releases/download"
+var etcdVersion = "v3.5.0"
+var etcdCmdPath = "/tmp/etcd/etcd"
 
 var _ = BeforeSuite(func() {
 	Expect(os.RemoveAll(keyCacheDir)).To(BeNil())
@@ -38,7 +43,14 @@ var _ = BeforeSuite(func() {
 	var err error
 	devNull, err = os.OpenFile("/dev/null", os.O_RDWR, 0755)
 	Expect(err).To(BeNil())
-	etcdCmd = exec.Command("/usr/local/etcd/etcd", "--data-dir="+etcdDataDir)
+
+	// It will check if etcd cmd can be found in PATH, otherwise
+	// it will be installed.
+	etcdCmdPath, err = ensureEtcdCmd()
+	Expect(err).To(BeNil())
+	Expect(len(etcdCmdPath)).ShouldNot(BeZero())
+
+	etcdCmd = exec.Command(etcdCmdPath, "--data-dir="+etcdDataDir)
 	etcdCmd.Stdout = devNull
 	etcdCmd.Stderr = devNull
 	Expect(etcdCmd.Start()).To(BeNil())
@@ -51,6 +63,38 @@ var _ = AfterSuite(func() {
 	Expect(etcdCmd.Process.Kill()).To(BeNil())
 	Expect(devNull.Close()).To(BeNil())
 })
+
+func ensureEtcdCmd() (string, error) {
+	path, err := exec.LookPath("etcd")
+	if err == nil {
+		return path, nil
+	}
+
+	return installEtcd()
+}
+
+func installEtcd() (string, error) {
+	releaseURL := fmt.Sprintf("%s/%s/etcd-%s-linux-amd64.tar.gz", downloadURL, etcdVersion, etcdVersion)
+	downloadPath := fmt.Sprintf("/tmp/etcd/etcd-%s-linux-amd64.tar.gz", etcdVersion)
+	downloadDir := "/tmp/etcd"
+	if err := exec.Command("bash", "-c", "rm -rf "+downloadDir).Run(); err != nil {
+		return "", fmt.Errorf("failed to delete %s, %v", downloadDir, err)
+	}
+
+	if err := exec.Command("bash", "-c", "mkdir "+downloadDir).Run(); err != nil {
+		return "", fmt.Errorf("failed to create dir %s, %v", downloadDir, err)
+	}
+
+	if err := exec.Command("bash", "-c", "curl -L "+releaseURL+" -o "+downloadPath).Run(); err != nil {
+		return "", fmt.Errorf("failed to download etcd release %s at %s, %v", releaseURL, downloadPath, err)
+	}
+
+	if err := exec.Command("tar", "-zxvf", downloadPath, "-C", downloadDir, "--strip-components=1").Run(); err != nil {
+		return "", fmt.Errorf("failed to extract tar at %s, %v", downloadPath, err)
+	}
+
+	return filepath.Join(downloadDir, "etcd"), nil
+}
 
 func TestEtcd(t *testing.T) {
 	RegisterFailHandler(Fail)

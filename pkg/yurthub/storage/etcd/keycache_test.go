@@ -17,6 +17,7 @@ limitations under the License.
 package etcd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,7 +27,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	mvccpb "go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	etcdmock "github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd/mock"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
@@ -34,9 +40,24 @@ var _ = Describe("Test componentKeyCache setup", func() {
 	var cache *componentKeyCache
 	var fileName string
 	var f fs.FileSystemOperator
+	var mockedClient *clientv3.Client
 	BeforeEach(func() {
+		kv := etcdmock.KV{}
+		kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+			Return(&clientv3.GetResponse{})
+		kv.On("Get", "/registry/endpointslices", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+			Return(&clientv3.GetResponse{})
+		etcdStorage := &etcdStorage{prefix: "/registry"}
+		mockedClient = &clientv3.Client{KV: kv}
 		fileName = uuid.New().String()
-		cache = newComponentKeyCache(filepath.Join(keyCacheDir, fileName))
+		cache = &componentKeyCache{
+			ctx:        context.Background(),
+			filePath:   filepath.Join(keyCacheDir, fileName),
+			cache:      map[string]keySet{},
+			fsOperator: fs.FileSystemOperator{},
+			etcdClient: mockedClient,
+			keyFunc:    etcdStorage.KeyFunc,
+		}
 	})
 	AfterEach(func() {
 		Expect(os.RemoveAll(filepath.Join(keyCacheDir, fileName)))
@@ -44,13 +65,92 @@ var _ = Describe("Test componentKeyCache setup", func() {
 
 	It("should recover when cache file does not exist", func() {
 		Expect(cache.Recover()).To(BeNil())
-		Expect(len(cache.cache)).To(BeZero())
+		Expect(len(cache.cache)).To(Equal(1))
 	})
 
 	It("should recover when cache file is empty", func() {
 		Expect(f.CreateFile(filepath.Join(keyCacheDir, fileName), []byte{})).To(BeNil())
 		Expect(cache.Recover()).To(BeNil())
-		Expect(len(cache.cache)).To(BeZero())
+		Expect(len(cache.cache)).To(Equal(1))
+	})
+
+	Context("Test get pool-scoped resource keys from etcd", func() {
+		BeforeEach(func() {
+			kv := etcdmock.KV{}
+			kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+				Return(&clientv3.GetResponse{
+					Kvs: []*mvccpb.KeyValue{
+						{Key: []byte("/registry/services/endpoints/default/nginx")},
+						{Key: []byte("/registry/services/endpoints/kube-system/kube-dns")},
+					},
+				})
+			kv.On("Get", "/registry/endpointslices", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+				Return(&clientv3.GetResponse{
+					Kvs: []*mvccpb.KeyValue{
+						{Key: []byte("/registry/endpointslices/default/nginx")},
+						{Key: []byte("/registry/endpointslices/kube-system/kube-dns")},
+					},
+				})
+			mockedClient.KV = kv
+		})
+
+		It("should recover leader-yurthub cache from etcd", func() {
+			Expect(cache.Recover()).To(BeNil())
+			Expect(cache.cache[coordinatorconstants.DefaultPoolScopedUserAgent]).Should(Equal(
+				keySet{
+					m: map[storageKey]struct{}{
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/services/endpoints/default/nginx",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/services/endpoints/kube-system/kube-dns",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/endpointslices/default/nginx",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/endpointslices/kube-system/kube-dns",
+						}: {},
+					},
+				},
+			))
+		})
+
+		It("should replace leader-yurthub cache read from local file with keys from etcd", func() {
+			Expect(f.CreateFile(filepath.Join(keyCacheDir, fileName), []byte(
+				"leader-yurthub:/registry/services/endpoints/default/nginx-local,"+
+					"/registry/services/endpoints/kube-system/kube-dns-local,"+
+					"/registry/endpointslices/default/nginx-local,"+
+					"/registry/endpointslices/kube-system/kube-dns-local",
+			))).To(BeNil())
+			Expect(cache.Recover()).To(BeNil())
+			Expect(cache.cache[coordinatorconstants.DefaultPoolScopedUserAgent]).Should(Equal(
+				keySet{
+					m: map[storageKey]struct{}{
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/services/endpoints/default/nginx",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/services/endpoints/kube-system/kube-dns",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/endpointslices/default/nginx",
+						}: {},
+						{
+							comp: coordinatorconstants.DefaultPoolScopedUserAgent,
+							path: "/registry/endpointslices/kube-system/kube-dns",
+						}: {},
+					},
+				},
+			))
+		})
 	})
 
 	It("should recover when cache file exists and contains valid data", func() {
@@ -62,14 +162,26 @@ var _ = Describe("Test componentKeyCache setup", func() {
 		Expect(cache.cache).To(Equal(map[string]keySet{
 			"kubelet": {
 				m: map[storageKey]struct{}{
-					{path: "/registry/pods/default/pod1"}: {},
-					{path: "/registry/pods/default/pod2"}: {},
+					{
+						comp: "kubelet",
+						path: "/registry/pods/default/pod1",
+					}: {},
+					{
+						comp: "kubelet",
+						path: "/registry/pods/default/pod2",
+					}: {},
 				},
 			},
 			"kube-proxy": {
 				m: map[storageKey]struct{}{
-					{path: "/registry/configmaps/kube-system/kube-proxy"}: {},
+					{
+						comp: "kube-proxy",
+						path: "/registry/configmaps/kube-system/kube-proxy",
+					}: {},
 				},
+			},
+			coordinatorconstants.DefaultPoolScopedUserAgent: {
+				m: map[storageKey]struct{}{},
 			},
 		}))
 	})
@@ -87,8 +199,22 @@ var _ = Describe("Test componentKeyCache function", func() {
 	var fileName string
 	var key1, key2, key3 storageKey
 	BeforeEach(func() {
+		kv := etcdmock.KV{}
+		kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+			Return(&clientv3.GetResponse{})
+		kv.On("Get", "/registry/endpointslices", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
+			Return(&clientv3.GetResponse{})
+		mockedClient := &clientv3.Client{KV: kv}
+		etcdStorage := etcdStorage{prefix: "/registry"}
 		fileName = uuid.New().String()
-		cache = newComponentKeyCache(filepath.Join(keyCacheDir, fileName))
+		cache = &componentKeyCache{
+			ctx:        context.Background(),
+			filePath:   filepath.Join(keyCacheDir, fileName),
+			cache:      map[string]keySet{},
+			fsOperator: fs.FileSystemOperator{},
+			etcdClient: mockedClient,
+			keyFunc:    etcdStorage.KeyFunc,
+		}
 		key1 = storageKey{
 			path: "/registry/pods/default/pod1",
 		}
