@@ -14,19 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package interfaces
+package certificate
 
 import (
-	"k8s.io/client-go/util/certificate"
-
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"crypto/tls"
 )
 
 // YurtCertificateManager is responsible for managing node certificate for yurthub
 type YurtCertificateManager interface {
-	certificate.Manager
-	Update(cfg *config.YurtHubConfiguration) error
-	GetConfFilePath() string
+	Start()
+	Stop()
+	// Ready should be called after yurt certificate manager started by Start.
+	Ready() bool
+	UpdateBootstrapConf(joinToken string) error
+	GetHubConfFile() string
 	GetCaFile() string
-	NotExpired() bool
+	GetAPIServerClientCert() *tls.Certificate
+	GetHubServerCert() *tls.Certificate
+	GetHubServerCertFile() string
 }

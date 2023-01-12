@@ -174,7 +174,7 @@ func (s *fakeStore) Update(certPEM, keyPEM []byte) (*tls.Certificate, error) {
 	return s.cert, nil
 }
 
-func TestGenTLSConfigUseCertMgrAndCertPool(t *testing.T) {
+func TestGenTLSConfigUseCurrentCertAndCertPool(t *testing.T) {
 	store := &fakeStore{
 		cert: storeCertData.certificate,
 	}
@@ -222,7 +222,7 @@ func TestGenTLSConfigUseCertMgrAndCertPool(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
 			{
-				_, get := GenTLSConfigUseCertMgrAndCertPool(tt.m, tt.root, tt.mode)
+				_, get := GenTLSConfigUseCurrentCertAndCertPool(tt.m.Current, tt.root, tt.mode)
 
 				if !reflect.DeepEqual(get, tt.expect) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)

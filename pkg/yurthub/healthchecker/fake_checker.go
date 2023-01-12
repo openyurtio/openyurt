@@ -52,6 +52,16 @@ func (fc *fakeChecker) RenewKubeletLeaseTime() {
 	return
 }
 
+func (fc *fakeChecker) PickHealthyServer() (*url.URL, error) {
+	for server := range fc.settings {
+		if fc.healthy {
+			return url.Parse(server)
+		}
+	}
+
+	return nil, nil
+}
+
 // NewFakeChecker creates a fake checker
 func NewFakeChecker(healthy bool, settings map[string]int) MultipleBackendsHealthChecker {
 	return &fakeChecker{

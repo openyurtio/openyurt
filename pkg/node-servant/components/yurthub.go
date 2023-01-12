@@ -30,10 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/templates"
-	constants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -150,7 +151,7 @@ func getYurthubYaml(podManifestPath string) string {
 }
 
 func getYurthubConf() string {
-	return filepath.Join(hubself.HubRootDir, hubself.HubName)
+	return filepath.Join(token.DefaultRootDir, projectinfo.GetHubName())
 }
 
 func getYurthubCacheDir() string {

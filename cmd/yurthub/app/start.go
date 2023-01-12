@@ -19,7 +19,6 @@ package app
 import (
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -33,7 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -87,24 +86,23 @@ func NewCmdStartYurtHub(stopCh <-chan struct{}) *cobra.Command {
 func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	trace := 1
 	klog.Infof("%d. register cert managers", trace)
-	certManager, err := hubself.NewYurtHubCertManager(cfg)
+	certManager, err := token.NewYurtHubCertManager(nil, cfg, stopCh)
 	if err != nil {
 		return fmt.Errorf("failed to create cert manager for yurthub, %v", err)
 	}
 	trace++
 
 	certManager.Start()
+	defer certManager.Stop()
 	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
-		curr := certManager.Current()
-		if curr != nil {
+		isReady := certManager.Ready()
+		if isReady {
 			return true, nil
 		}
-
-		klog.Infof("waiting for preparing client certificate")
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("client certificate preparation failed, %v", err)
+		return fmt.Errorf("hub certificates preparation failed, %v", err)
 	}
 	trace++
 
@@ -137,16 +135,15 @@ func Run(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) error {
 	}
 	trace++
 
-	klog.Infof("%d. new restConfig manager for %s mode", trace, cfg.CertMgrMode)
-	restConfigMgr, err := hubrest.NewRestConfigManager(cfg, certManager, healthChecker)
+	klog.Infof("%d. new restConfig manager", trace)
+	restConfigMgr, err := hubrest.NewRestConfigManager(certManager, healthChecker)
 	if err != nil {
 		return fmt.Errorf("could not new restConfig manager, %w", err)
 	}
 	trace++
 
 	klog.Infof("%d. create tls config for secure servers ", trace)
-	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(
-		restConfigMgr, certManager, filepath.Join(cfg.RootDir, "pki"), cfg.NodeName, cfg.CertIPs, stopCh)
+	cfg.TLSConfig, err = server.GenUseCertMgrAndTLSConfig(certManager)
 	if err != nil {
 		return fmt.Errorf("could not create tls config, %w", err)
 	}

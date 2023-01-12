@@ -40,7 +40,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/hubself"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -432,7 +432,7 @@ func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x5
 		return false
 	} else {
 		for _, org := range x509cr.Subject.Organization {
-			if org != hubself.YurtHubCSROrg && org != user.NodesGroup && !strings.HasPrefix(org, yurtHubNodeCertOrgPrefix) {
+			if org != token.YurtHubCSROrg && org != user.NodesGroup && !strings.HasPrefix(org, yurtHubNodeCertOrgPrefix) {
 				return false
 			}
 		}

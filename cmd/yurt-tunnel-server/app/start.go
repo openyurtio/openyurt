@@ -177,12 +177,12 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}, stopCh)
 
 	// 6. generate the TLS configuration based on the latest certificate
-	tlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(serverCertMgr, cfg.RootCert, "server")
+	tlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(serverCertMgr.Current, cfg.RootCert, "server")
 	if err != nil {
 		return err
 	}
 
-	proxyClientTlsCfg, err := certmanager.GenTLSConfigUseCertMgrAndCertPool(tunnelProxyCertMgr, cfg.RootCert, "client")
+	proxyClientTlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(tunnelProxyCertMgr.Current, cfg.RootCert, "client")
 	if err != nil {
 		return err
 	}

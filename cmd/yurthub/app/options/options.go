@@ -48,8 +48,6 @@ type YurtHubOptions struct {
 	YurtHubProxySecurePort    string
 	GCFrequency               int
 	YurtHubCertOrganizations  string
-	KubeletRootCAFilePath     string
-	KubeletPairFilePath       string
 	NodeName                  string
 	NodePoolName              string
 	LBMode                    string
@@ -74,6 +72,8 @@ type YurtHubOptions struct {
 	KubeletHealthGracePeriod  time.Duration
 	EnableNodePool            bool
 	MinRequestTimeout         time.Duration
+	CACertHashes              []string
+	UnsafeSkipCAVerification  bool
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -85,8 +85,6 @@ func NewYurtHubOptions() *YurtHubOptions {
 		YurtHubPort:               util.YurtHubPort,
 		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
 		GCFrequency:               120,
-		KubeletRootCAFilePath:     util.DefaultKubeletRootCAFilePath,
-		KubeletPairFilePath:       util.DefaultKubeletPairFilePath,
 		LBMode:                    "rr",
 		HeartbeatFailedRetry:      3,
 		HeartbeatHealthyThreshold: 2,
@@ -106,6 +104,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		KubeletHealthGracePeriod:  time.Second * 40,
 		EnableNodePool:            true,
 		MinRequestTimeout:         time.Second * 1800,
+		UnsafeSkipCAVerification:  true,
 	}
 	return o
 }
@@ -132,6 +131,10 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
 	}
 
+	if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
+		return fmt.Errorf("Set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
+	}
+
 	return nil
 }
 
@@ -144,8 +147,6 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringVar(&o.YurtHubCertOrganizations, "hub-cert-organizations", o.YurtHubCertOrganizations, "Organizations that will be added into hub's client certificate in hubself cert-mgr-mode, the format is: certOrg1,certOrg1,...")
-	fs.StringVar(&o.KubeletRootCAFilePath, "kubelet-ca-file", o.KubeletRootCAFilePath, "the ca file path used by kubelet.")
-	fs.StringVar(&o.KubeletPairFilePath, "kubelet-client-certificate", o.KubeletPairFilePath, "the path of kubelet client certificate file.")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs hub agent")
 	fs.StringVar(&o.LBMode, "lb-mode", o.LBMode, "the mode of load balancer to connect remote servers(rr, priority)")
@@ -171,6 +172,8 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
+	fs.StringSliceVar(&o.CACertHashes, "discovery-token-ca-cert-hash", []string{}, "For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").")
+	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
 }
 
 // verifyDummyIP verify the specified ip is valid or not and set the default ip if empty

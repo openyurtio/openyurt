@@ -20,78 +20,48 @@ import (
 	"net/url"
 
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/interfaces"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type RestConfigManager struct {
-	remoteServers []*url.URL
-	checker       healthchecker.MultipleBackendsHealthChecker
-	certManager   interfaces.YurtCertificateManager
+	checker     healthchecker.MultipleBackendsHealthChecker
+	certManager certificate.YurtCertificateManager
 }
 
 // NewRestConfigManager creates a *RestConfigManager object
-func NewRestConfigManager(cfg *config.YurtHubConfiguration, certMgr interfaces.YurtCertificateManager, healthChecker healthchecker.MultipleBackendsHealthChecker) (*RestConfigManager, error) {
+func NewRestConfigManager(certManager certificate.YurtCertificateManager, healthChecker healthchecker.MultipleBackendsHealthChecker) (*RestConfigManager, error) {
 	mgr := &RestConfigManager{
-		remoteServers: cfg.RemoteServers,
-		checker:       healthChecker,
-		certManager:   certMgr,
+		checker:     healthChecker,
+		certManager: certManager,
 	}
 	return mgr, nil
 }
 
 // GetRestConfig gets rest client config according to the mode of certificateManager
 func (rcm *RestConfigManager) GetRestConfig(needHealthyServer bool) *rest.Config {
-	return rcm.getHubselfRestConfig(needHealthyServer)
-}
-
-// getHubselfRestConfig gets rest client config from hub agent conf file.
-func (rcm *RestConfigManager) getHubselfRestConfig(needHealthyServer bool) *rest.Config {
-	healthyServer := rcm.remoteServers[0]
+	var healthyServer *url.URL
 	if needHealthyServer {
-		healthyServer = rcm.getHealthyServer()
+		healthyServer, _ = rcm.checker.PickHealthyServer()
 		if healthyServer == nil {
 			klog.Infof("all of remote servers are unhealthy, so return nil for rest config")
 			return nil
 		}
 	}
 
-	// certificate expired, rest config can not be used to connect remote server,
-	// so return nil for rest config
-	if rcm.certManager.Current() == nil {
-		klog.Infof("certificate expired, so return nil for rest config")
+	kubeconfig, err := clientcmd.BuildConfigFromFlags("", rcm.certManager.GetHubConfFile())
+	if err != nil {
+		klog.Errorf("could not load kube config(%s), %v", rcm.certManager.GetHubConfFile(), err)
 		return nil
 	}
 
-	hubConfFile := rcm.certManager.GetConfFilePath()
-	if isExist, _ := util.FileExists(hubConfFile); isExist {
-		cfg, err := util.LoadRESTClientConfig(hubConfFile)
-		if err != nil {
-			klog.Errorf("could not get rest config for %s, %v", hubConfFile, err)
-			return nil
-		}
-
+	if healthyServer != nil {
 		// re-fix host connecting healthy server
-		cfg.Host = healthyServer.String()
-		klog.Infof("re-fix hub rest config host successfully with server %s", cfg.Host)
-		return cfg
+		kubeconfig.Host = healthyServer.String()
+		klog.Infof("re-fix hub rest config host successfully with server %s", kubeconfig.Host)
 	}
-
-	klog.Errorf("%s config file(%s) is not exist", projectinfo.GetHubName(), hubConfFile)
-	return nil
-}
-
-// getHealthyServer is used to get a healthy server
-func (rcm *RestConfigManager) getHealthyServer() *url.URL {
-	for _, server := range rcm.remoteServers {
-		if rcm.checker.BackendHealthyStatus(server) {
-			return server
-		}
-	}
-	return nil
+	return kubeconfig
 }

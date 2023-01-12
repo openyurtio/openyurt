@@ -22,20 +22,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -54,13 +48,7 @@ const (
 	WorkingModeCloud WorkingMode = "cloud"
 	// WorkingModeEdge represents yurthub is working in edge mode, which means yurthub is deployed on the edge side.
 	WorkingModeEdge WorkingMode = "edge"
-)
 
-const (
-	// DefaultKubeletPairFilePath represents the default kubelet pair file path
-	DefaultKubeletPairFilePath = "/var/lib/kubelet/pki/kubelet-client-current.pem"
-	// DefaultKubeletRootCAFilePath represents the default kubelet ca file path
-	DefaultKubeletRootCAFilePath = "/etc/kubernetes/pki/ca.crt"
 	// ProxyReqContentType represents request content type context key
 	ProxyReqContentType ProxyKeyType = iota
 	// ProxyRespContentType represents response content type context key
@@ -305,93 +293,6 @@ func FileExists(filename string) (bool, error) {
 	return true, nil
 }
 
-// LoadKubeletRestClientConfig load *rest.Config for accessing healthyServer
-func LoadKubeletRestClientConfig(healthyServer *url.URL, kubeletRootCAFilePath, kubeletPairFilePath string) (*rest.Config, error) {
-	if healthyServer == nil {
-		return nil, errors.New("healthyServer cannot be nil")
-	}
-	tlsClientConfig := rest.TLSClientConfig{}
-	if _, err := certutil.NewPool(kubeletRootCAFilePath); err != nil {
-		klog.Errorf("Expected to load root CA config from %s, but got err: %v", kubeletRootCAFilePath, err)
-	} else {
-		tlsClientConfig.CAFile = kubeletRootCAFilePath
-	}
-
-	if can, _ := certutil.CanReadCertAndKey(kubeletPairFilePath, kubeletPairFilePath); !can {
-		return nil, fmt.Errorf("error reading %s, certificate and key must be supplied as a pair", kubeletPairFilePath)
-	}
-	tlsClientConfig.KeyFile = kubeletPairFilePath
-	tlsClientConfig.CertFile = kubeletPairFilePath
-
-	return &rest.Config{
-		Host:            healthyServer.String(),
-		TLSClientConfig: tlsClientConfig,
-	}, nil
-}
-
-func LoadRESTClientConfig(kubeconfig string) (*rest.Config, error) {
-	// Load structured kubeconfig data from the given path.
-	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
-	loadedConfig, err := loader.Load()
-	if err != nil {
-		return nil, err
-	}
-	// Flatten the loaded data to a particular restclient.Config based on the current context.
-	return clientcmd.NewNonInteractiveClientConfig(
-		*loadedConfig,
-		loadedConfig.CurrentContext,
-		&clientcmd.ConfigOverrides{},
-		loader,
-	).ClientConfig()
-}
-
-func LoadKubeConfig(kubeconfig string) (*clientcmdapi.Config, error) {
-	loader := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
-	loadedConfig, err := loader.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	return loadedConfig, nil
-}
-
-func CreateKubeConfigFile(kubeClientConfig *rest.Config, kubeconfigPath string) error {
-	if kubeClientConfig == nil {
-		return fmt.Errorf("kube client config cannot be nil")
-	}
-	// Get the CA data from the bootstrap client config.
-	caFile, caData := kubeClientConfig.CAFile, []byte{}
-	if len(caFile) == 0 {
-		caData = kubeClientConfig.CAData
-	}
-
-	// Build resulting kubeconfig.
-	kubeconfigData := clientcmdapi.Config{
-		// Define a cluster stanza based on the bootstrap kubeconfig.
-		Clusters: map[string]*clientcmdapi.Cluster{"default-cluster": {
-			Server:                   kubeClientConfig.Host,
-			InsecureSkipTLSVerify:    kubeClientConfig.Insecure,
-			CertificateAuthority:     caFile,
-			CertificateAuthorityData: caData,
-		}},
-		// Define auth based on the obtained client cert.
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{"default-auth": {
-			ClientCertificate: kubeClientConfig.CertFile,
-			ClientKey:         kubeClientConfig.KeyFile,
-		}},
-		// Define a context that connects the auth info and cluster, and set it as the default
-		Contexts: map[string]*clientcmdapi.Context{"default-context": {
-			Cluster:   "default-cluster",
-			AuthInfo:  "default-auth",
-			Namespace: "default",
-		}},
-		CurrentContext: "default-context",
-	}
-
-	// Marshal to disk
-	return clientcmd.WriteToFile(kubeconfigData, kubeconfigPath)
-}
-
 // gzipReaderCloser will gunzip the data if response header
 // contains Content-Encoding=gzip header.
 type gzipReaderCloser struct {
@@ -432,7 +333,6 @@ func NewGZipReaderCloser(header http.Header, body io.ReadCloser, req *http.Reque
 }
 
 func ParseTenantNs(certOrg string) string {
-
 	if !strings.Contains(certOrg, "openyurt:tenant:") {
 		return ""
 	}
@@ -441,20 +341,15 @@ func ParseTenantNs(certOrg string) string {
 }
 
 func ParseTenantNsFromOrgs(orgs []string) string {
-
+	var ns string
 	if len(orgs) == 0 {
-
-		return ""
+		return ns
 	}
 
-	ns := ""
 	for _, v := range orgs {
-
-		tns := ParseTenantNs(v)
-
-		if tns != "" {
-			ns = tns
-			break
+		ns := ParseTenantNs(v)
+		if len(ns) != 0 {
+			return ns
 		}
 	}
 
@@ -462,7 +357,6 @@ func ParseTenantNsFromOrgs(orgs []string) string {
 }
 
 func ParseBearerToken(token string) string {
-
 	if token == "" {
 		return ""
 	}

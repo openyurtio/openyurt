@@ -35,6 +35,7 @@ type HealthChecker interface {
 type MultipleBackendsHealthChecker interface {
 	HealthChecker
 	BackendHealthyStatus(server *url.URL) bool
+	PickHealthyServer() (*url.URL, error)
 }
 
 // BackendProber is used to send heartbeat to backend and verify backend
