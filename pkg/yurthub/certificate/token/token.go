@@ -52,7 +52,7 @@ import (
 
 const (
 	YurtHubCSROrg           = "openyurt:yurthub"
-	defaultRootDir          = "/var/lib"
+	DefaultRootDir          = "/var/lib"
 	hubPkiDirName           = "pki"
 	hubCaFileName           = "ca.crt"
 	bootstrapConfigFileName = "bootstrap-hub.conf"
@@ -85,7 +85,7 @@ func NewYurtHubCertManager(client clientset.Interface, cfg *config.YurtHubConfig
 
 	hubRunDir := cfg.RootDir
 	if len(cfg.RootDir) == 0 {
-		hubRunDir = filepath.Join(defaultRootDir, projectinfo.GetHubName())
+		hubRunDir = filepath.Join(DefaultRootDir, projectinfo.GetHubName())
 	}
 
 	ycm := &yurtHubCertManager{

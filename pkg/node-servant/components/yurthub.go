@@ -34,6 +34,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -150,7 +151,7 @@ func getYurthubYaml(podManifestPath string) string {
 }
 
 func getYurthubConf() string {
-	return filepath.Join("/var/lib", projectinfo.GetHubName())
+	return filepath.Join(token.DefaultRootDir, projectinfo.GetHubName())
 }
 
 func getYurthubCacheDir() string {
