@@ -299,8 +299,7 @@ func (coordinator *coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	// If electStatus is not PendingHub, it means pool-coordinator is healthy.
 	coordinator.Lock()
 	defer coordinator.Unlock()
-	// fixme:  coordinator.isPoolCacheSynced now is not considered
-	if coordinator.electStatus != PendingHub && !coordinator.needUploadLocalCache {
+	if coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced && !coordinator.needUploadLocalCache {
 		return coordinator.poolCacheManager, true
 	}
 	return nil, false
