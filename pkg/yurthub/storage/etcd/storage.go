@@ -42,6 +42,8 @@ const (
 	defaultTimeout                = 5 * time.Second
 	defaultHealthCheckPeriod      = 10 * time.Second
 	defaultDialTimeout            = 10 * time.Second
+	defaultMaxSendSize            = 100 * 1024 * 1024
+	defaultMaxReceiveSize         = 100 * 1024 * 1024
 	defaultComponentCacheFileName = "component-key-cache"
 	defaultRvLen                  = 32
 )
@@ -106,9 +108,11 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}
 
 	clientConfig := clientv3.Config{
-		Endpoints:   cfg.EtcdEndpoints,
-		TLS:         tlsConfig,
-		DialTimeout: defaultDialTimeout,
+		Endpoints:          cfg.EtcdEndpoints,
+		TLS:                tlsConfig,
+		DialTimeout:        defaultDialTimeout,
+		MaxCallRecvMsgSize: defaultMaxReceiveSize,
+		MaxCallSendMsgSize: defaultMaxSendSize,
 	}
 
 	client, err := clientv3.New(clientConfig)
