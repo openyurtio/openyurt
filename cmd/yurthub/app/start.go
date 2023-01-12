@@ -148,25 +148,25 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	tenantMgr := tenant.New(cfg.TenantNs, cfg.SharedFactory, ctx.Done())
 	trace++
 
-	var coordinatorGetter func() poolcoordinator.Coordinator
-	var coordinatorHealthCheckerGetter func() healthchecker.HealthChecker
-	var coordinatorTransportManagerGetter func() transport.Interface = nil
-	coordinatorInformerRegistryChan := make(chan struct{})
+	var coordinatorHealthCheckerGetter func() healthchecker.HealthChecker = getFakeCoordinatorHealthChecker
+	var coordinatorTransportManagerGetter func() transport.Interface = getFakeCoordinatorTransportManager
+	var coordinatorGetter func() poolcoordinator.Coordinator = getFakeCoordinator
 
 	if cfg.EnableCoordinator {
 		klog.Infof("%d. start to run coordinator", trace)
-		// coordinatorRun will register secret informer into sharedInformerFactory, and start a new goroutine to periodically check
-		// if certs has been got from cloud APIServer.
 		trace++
-		// Waitting for the coordinator to run, before using it to create other components.
+
+		coordinatorInformerRegistryChan := make(chan struct{})
+		// coordinatorRun will register secret informer into sharedInformerFactory, and start a new goroutine to periodically check
+		// if certs has been got from cloud APIServer. It will close the coordinatorInformerRegistryChan if the secret channel has
+		// been registered into informer factory.
 		coordinatorHealthCheckerGetter, coordinatorTransportManagerGetter, coordinatorGetter, err = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker, coordinatorInformerRegistryChan)
 		if err != nil {
 			return fmt.Errorf("failed to wait for coordinator to run, %v", err)
 		}
+		// wait for coordinator informer registry
+		<-coordinatorInformerRegistryChan
 	}
-
-	// wait for coordinator informer registry
-	<-coordinatorInformerRegistryChan
 
 	// Start the informer factory if all informers have been registered
 	cfg.SharedFactory.Start(ctx.Done())
@@ -221,12 +221,8 @@ func createClients(heartbeatTimeoutSeconds int, remoteServers []*url.URL, coordi
 }
 
 // coordinatorRun will initialize and start all coordinator-related components in an async way.
-// It returns a func waittingForReady, which will block until the initialization routine exited.
-// If the initialization succeeds, waittingForReady will return these coordinator-related components, including:
-// 1. coordinator HealthChecker
-// 2. coordinator TransportManager
-// 3. and the coordinator
-// Otherwise, the error is not nil.
+// It returns Getter function for coordinator, coordinator health checker and coordinator transport manager,
+// which will return the relative component if it has been initialized, otherwise it will return nil.
 func coordinatorRun(ctx context.Context,
 	cfg *config.YurtHubConfiguration,
 	restConfigMgr *hubrest.RestConfigManager,
@@ -314,4 +310,16 @@ func poolCoordinatorTransportMgrGetter(heartbeatTimeoutSeconds int, coordinatorS
 		return nil, fmt.Errorf("failed to create transport manager for pool coordinator, %v", err)
 	}
 	return coordinatorTransportMgr, nil
+}
+
+func getFakeCoordinator() poolcoordinator.Coordinator {
+	return &poolcoordinator.FakeCoordinator{}
+}
+
+func getFakeCoordinatorHealthChecker() healthchecker.HealthChecker {
+	return healthchecker.NewFakeChecker(false, make(map[string]int))
+}
+
+func getFakeCoordinatorTransportManager() transport.Interface {
+	return nil
 }
