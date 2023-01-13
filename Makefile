@@ -171,6 +171,3 @@ docker-push-node-servant:
 	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
 	docker run --rm --privileged tonistiigi/binfmt --install all
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
-
-docker-build-laurence-yurthub:
-	docker buildx build --no-cache --push --platform linux/amd64  -f hack/dockerfiles/Dockerfile.yurthub . -t ack-agility-registry.cn-shanghai.cr.aliyuncs.com/edgepaas/yurthub:pool-coordinator
