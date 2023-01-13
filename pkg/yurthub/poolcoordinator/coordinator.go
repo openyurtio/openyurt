@@ -186,10 +186,12 @@ func NewCoordinator(
 
 func (coordinator *coordinator) Run() {
 	for {
+		var poolCacheManager cachemanager.CacheManager
 		var cancelEtcdStorage = func() {}
 		var needUploadLocalCache bool
 		var needCancelEtcdStorage bool
 		var isPoolCacheSynced bool
+		var etcdStorage storage.Store
 		var err error
 
 		select {
@@ -213,13 +215,10 @@ func (coordinator *coordinator) Run() {
 				needUploadLocalCache = true
 				needCancelEtcdStorage = true
 				isPoolCacheSynced = false
-				coordinator.Lock()
-				coordinator.poolCacheManager = nil
-				coordinator.Unlock()
+				etcdStorage = nil
+				poolCacheManager = nil
 			case LeaderHub:
-				coordinator.Lock()
-				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
-				coordinator.Unlock()
+				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue
@@ -250,16 +249,14 @@ func (coordinator *coordinator) Run() {
 				coordinator.poolCacheSyncedDetector.EnsureStart()
 
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(coordinator.etcdStorage); err != nil {
+					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes leader, %v", err)
 					} else {
 						needUploadLocalCache = false
 					}
 				}
 			case FollowerHub:
-				coordinator.Lock()
-				coordinator.poolCacheManager, coordinator.etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
-				coordinator.Unlock()
+				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
 					continue
@@ -270,7 +267,7 @@ func (coordinator *coordinator) Run() {
 				coordinator.poolCacheSyncedDetector.EnsureStart()
 
 				if coordinator.needUploadLocalCache {
-					if err := coordinator.uploadLocalCache(coordinator.etcdStorage); err != nil {
+					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
 						klog.Errorf("failed to upload local cache when yurthub becomes follower, %v", err)
 					} else {
 						needUploadLocalCache = false
@@ -286,6 +283,8 @@ func (coordinator *coordinator) Run() {
 				cancelEtcdStorage()
 			}
 			coordinator.electStatus = electorStatus
+			coordinator.poolCacheManager = poolCacheManager
+			coordinator.etcdStorage = etcdStorage
 			coordinator.cancelEtcdStorage = cancelEtcdStorage
 			coordinator.needUploadLocalCache = needUploadLocalCache
 			coordinator.isPoolCacheSynced = isPoolCacheSynced
@@ -304,8 +303,7 @@ func (coordinator *coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	// If electStatus is not PendingHub, it means pool-coordinator is healthy.
 	coordinator.Lock()
 	defer coordinator.Unlock()
-	// fixme:  coordinator.isPoolCacheSynced now is not considered
-	if coordinator.electStatus != PendingHub && !coordinator.needUploadLocalCache {
+	if coordinator.electStatus != PendingHub && coordinator.isPoolCacheSynced && !coordinator.needUploadLocalCache {
 		metrics.Metrics.ObservePoolCoordinatorReadyStatus(1)
 		return coordinator.poolCacheManager, true
 	}

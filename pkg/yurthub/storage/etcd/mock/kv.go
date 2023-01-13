@@ -23,17 +23,17 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-var _ clientv3.KV = KV{}
+var _ clientv3.KV = &KV{}
 
 type KV struct {
 	mock.Mock
 }
 
-func (kv KV) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
+func (kv *KV) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
 	return nil, nil
 }
 
-func (kv KV) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+func (kv *KV) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	interfaceOpts := []interface{}{key}
 	for _, opt := range opts {
 		interfaceOpts = append(interfaceOpts, opt)
@@ -43,18 +43,18 @@ func (kv KV) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*c
 	return resp, nil
 }
 
-func (kv KV) Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
+func (kv *KV) Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
 	return nil, nil
 }
 
-func (kv KV) Compact(ctx context.Context, rev int64, opts ...clientv3.CompactOption) (*clientv3.CompactResponse, error) {
+func (kv *KV) Compact(ctx context.Context, rev int64, opts ...clientv3.CompactOption) (*clientv3.CompactResponse, error) {
 	return nil, nil
 }
 
-func (kv KV) Do(ctx context.Context, op clientv3.Op) (clientv3.OpResponse, error) {
+func (kv *KV) Do(ctx context.Context, op clientv3.Op) (clientv3.OpResponse, error) {
 	return clientv3.OpResponse{}, nil
 }
 
-func (kv KV) Txn(ctx context.Context) clientv3.Txn {
+func (kv *KV) Txn(ctx context.Context) clientv3.Txn {
 	return nil
 }

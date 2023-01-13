@@ -73,6 +73,15 @@ const (
 	ProxyListSelector
 	// ProxyPoolScopedResource represents if this request is asking for pool-scoped resources
 	ProxyPoolScopedResource
+	// DefaultPoolCoordinatorEtcdSvcName represents default pool coordinator etcd service
+	DefaultPoolCoordinatorEtcdSvcName = "pool-coordinator-etcd"
+	// DefaultPoolCoordinatorAPIServerSvcName represents default pool coordinator apiServer service
+	DefaultPoolCoordinatorAPIServerSvcName = "pool-coordinator-apiserver"
+	// DefaultPoolCoordinatorEtcdSvcPort represents default pool coordinator etcd port
+	DefaultPoolCoordinatorEtcdSvcPort = "2379"
+	// DefaultPoolCoordinatorAPIServerSvcPort represents default pool coordinator apiServer port
+	DefaultPoolCoordinatorAPIServerSvcPort = "443"
+
 	YurtHubNamespace   = "kube-system"
 	CacheUserAgentsKey = "cache_agents"
 

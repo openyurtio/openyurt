@@ -42,7 +42,7 @@ var _ = Describe("Test componentKeyCache setup", func() {
 	var f fs.FileSystemOperator
 	var mockedClient *clientv3.Client
 	BeforeEach(func() {
-		kv := etcdmock.KV{}
+		kv := &etcdmock.KV{}
 		kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
 			Return(&clientv3.GetResponse{})
 		kv.On("Get", "/registry/endpointslices", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
@@ -76,7 +76,7 @@ var _ = Describe("Test componentKeyCache setup", func() {
 
 	Context("Test get pool-scoped resource keys from etcd", func() {
 		BeforeEach(func() {
-			kv := etcdmock.KV{}
+			kv := &etcdmock.KV{}
 			kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
 				Return(&clientv3.GetResponse{
 					Kvs: []*mvccpb.KeyValue{
@@ -199,7 +199,7 @@ var _ = Describe("Test componentKeyCache function", func() {
 	var fileName string
 	var key1, key2, key3 storageKey
 	BeforeEach(func() {
-		kv := etcdmock.KV{}
+		kv := &etcdmock.KV{}
 		kv.On("Get", "/registry/services/endpoints", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).
 			Return(&clientv3.GetResponse{})
 		kv.On("Get", "/registry/endpointslices", mock.AnythingOfType("clientv3.OpOption"), mock.AnythingOfType("clientv3.OpOption")).

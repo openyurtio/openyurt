@@ -114,6 +114,8 @@ func NewYurtHubOptions() *YurtHubOptions {
 		KubeletHealthGracePeriod:  time.Second * 40,
 		EnableNodePool:            true,
 		MinRequestTimeout:         time.Second * 1800,
+		CoordinatorServerAddr:     fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorAPIServerSvcName, util.DefaultPoolCoordinatorAPIServerSvcPort),
+		CoordinatorStorageAddr:    fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorEtcdSvcName, util.DefaultPoolCoordinatorEtcdSvcPort),
 		CoordinatorStoragePrefix:  "/registry",
 		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
 			LeaderElect:       true,

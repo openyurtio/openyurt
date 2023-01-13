@@ -204,10 +204,6 @@ spec:
         imagePullPolicy: {{ .Values.yurtControllerManager.image.pullPolicy }}
         command:
           - yurt-controller-manager
-        {{- if .Values.imagePullSecrets }}
-        imagePullSecrets:
-          {{ toYaml .Values.imagePullSecrets | nindent 10 }}
-        {{- end }}
         ports:
           - name: webhook-server
             containerPort: {{ .Values.admissionWebhooks.service.port }}
