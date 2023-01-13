@@ -53,7 +53,7 @@ type HubMetrics struct {
 	proxyLatencyCollector                 *prometheus.GaugeVec
 	poolCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
 	poolCoordinatorHealthyStatusCollector *prometheus.GaugeVec
-	poolCoordinatorReadyStatuaCollector   *prometheus.GaugeVec
+	poolCoordinatorReadyStatusCollector   *prometheus.GaugeVec
 }
 
 func newHubMetrics() *HubMetrics {
@@ -154,7 +154,7 @@ func newHubMetrics() *HubMetrics {
 		proxyTrafficCollector:                 proxyTrafficCollector,
 		proxyLatencyCollector:                 proxyLatencyCollector,
 		poolCoordinatorHealthyStatusCollector: poolCoordinatorHealthyStatusCollector,
-		poolCoordinatorReadyStatuaCollector:   poolCoordinatorReadyStatusCollector,
+		poolCoordinatorReadyStatusCollector:   poolCoordinatorReadyStatusCollector,
 		poolCoordinatorYurthubRoleCollector:   poolCoordinatorYurthubRoleCollector,
 	}
 }
@@ -177,7 +177,7 @@ func (hm *HubMetrics) ObservePoolCoordinatorYurthubRole(status int32) {
 }
 
 func (hm *HubMetrics) ObservePoolCoordinatorReadyStatus(status int32) {
-	hm.poolCoordinatorReadyStatuaCollector.WithLabelValues().Set(float64(status))
+	hm.poolCoordinatorReadyStatusCollector.WithLabelValues().Set(float64(status))
 }
 
 func (hm *HubMetrics) ObservePoolCoordinatorHealthyStatus(status int32) {

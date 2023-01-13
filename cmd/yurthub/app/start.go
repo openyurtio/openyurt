@@ -192,10 +192,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		// coordinatorRun will register secret informer into sharedInformerFactory, and start a new goroutine to periodically check
 		// if certs has been got from cloud APIServer. It will close the coordinatorInformerRegistryChan if the secret channel has
 		// been registered into informer factory.
-		coordinatorHealthCheckerGetter, coordinatorTransportManagerGetter, coordinatorGetter, err = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker, coordinatorInformerRegistryChan)
-		if err != nil {
-			return fmt.Errorf("failed to wait for coordinator to run, %v", err)
-		}
+		coordinatorHealthCheckerGetter, coordinatorTransportManagerGetter, coordinatorGetter = coordinatorRun(ctx, cfg, restConfigMgr, cloudHealthChecker, coordinatorInformerRegistryChan)
 		// wait for coordinator informer registry
 		klog.Infof("waiting for coordinator informer registry")
 		<-coordinatorInformerRegistryChan
@@ -269,7 +266,7 @@ func coordinatorRun(ctx context.Context,
 	cfg *config.YurtHubConfiguration,
 	restConfigMgr *hubrest.RestConfigManager,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
-	coordinatorInformerRegistryChan chan struct{}) (func() healthchecker.HealthChecker, func() transport.Interface, func() poolcoordinator.Coordinator, error) {
+	coordinatorInformerRegistryChan chan struct{}) (func() healthchecker.HealthChecker, func() transport.Interface, func() poolcoordinator.Coordinator) {
 	var coordinatorHealthChecker healthchecker.HealthChecker
 	var coordinatorTransportMgr transport.Interface
 	var coordinator poolcoordinator.Coordinator
@@ -331,7 +328,7 @@ func coordinatorRun(ctx context.Context,
 			return coordinatorTransportMgr
 		}, func() poolcoordinator.Coordinator {
 			return coordinator
-		}, nil
+		}
 }
 
 func poolCoordinatorTransportMgrGetter(heartbeatTimeoutSeconds int, coordinatorServer *url.URL, coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {
