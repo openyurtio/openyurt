@@ -279,7 +279,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 		for _, certConf := range allSelfSignedCerts {
 
 			// 1.1 check if cert exist
-			cert, _, err := LoadCertAndKeyFromSecret(clientSet, certConf)
+			cert, _, err := loadCertAndKeyFromSecret(clientSet, certConf)
 			if err != nil {
 				klog.Infof("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName)
 				selfSignedCerts = append(selfSignedCerts, certConf)
@@ -351,7 +351,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 // check if pool-coordinator CA already exist, if not creat one
 func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.Signer, reuse bool, err error) {
 	// try load CA cert&key from secret
-	caCert, caKey, err = LoadCertAndKeyFromSecret(clientSet, CertConfig{
+	caCert, caKey, err = loadCertAndKeyFromSecret(clientSet, CertConfig{
 		SecretName:   PoolCoordinatorCASecretName,
 		CertName:     "ca",
 		IsKubeConfig: false,
