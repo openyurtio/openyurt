@@ -76,10 +76,6 @@ var (
 			successMsg: "Auto approving yurt-tunnel-agent client certificate",
 		},
 		{
-			recognize:  isPoolCoordinatorTLSServerCert,
-			successMsg: "Auto approving poolcoordinator-apiserver server certificate",
-		},
-		{
 			recognize:  isPoolCoordinatorClientCert,
 			successMsg: "Auto approving poolcoordinator-apiserver client certificate",
 		},
@@ -494,32 +490,6 @@ func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr
 	}
 
 	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
-		return false
-	}
-
-	return true
-}
-
-// isPoolCoordinatorTLSServerCert is used to recognize csr from poolcoordinator https server(APIServer, etcdServer)
-func isPoolCoordinatorTLSServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if csr.Spec.SignerName != certificatesv1.KubeletServingSignerName {
-		return false
-	}
-
-	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != user.NodesGroup {
-		return false
-	}
-
-	// at least one of dnsNames or ipAddresses must be specified
-	if len(x509cr.DNSNames) == 0 && len(x509cr.IPAddresses) == 0 {
-		return false
-	}
-
-	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
-		return false
-	}
-
-	if !serverRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
 		return false
 	}
 

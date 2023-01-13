@@ -63,6 +63,11 @@ users:
 `
 )
 
+type configClientWithCerts struct {
+	clientKey  []byte
+	clientCert []byte
+}
+
 type configClient struct {
 	clusterName string
 	userName    string
@@ -72,6 +77,37 @@ type configClient struct {
 
 type configClientWithToken struct {
 	token string
+}
+
+func TestCreateWithCerts(t *testing.T) {
+	var createBasicTest = []struct {
+		name        string
+		cc          configClient
+		ccWithCerts configClientWithCerts
+		expected    string
+	}{
+		{"empty config", configClient{}, configClientWithCerts{}, ""},
+		{"clusterName kubernetes", configClient{clusterName: "kubernetes"}, configClientWithCerts{}, ""},
+	}
+	for _, rt := range createBasicTest {
+		t.Run(rt.name, func(t *testing.T) {
+			cwc := CreateWithCerts(
+				rt.cc.serverURL,
+				rt.cc.clusterName,
+				rt.cc.userName,
+				rt.cc.caCert,
+				rt.ccWithCerts.clientKey,
+				rt.ccWithCerts.clientCert,
+			)
+			if cwc.Kind != rt.expected {
+				t.Errorf(
+					"failed CreateWithCerts:\n\texpected: %s\n\t  actual: %s",
+					rt.expected,
+					cwc.Kind,
+				)
+			}
+		})
+	}
 }
 
 func TestCreateWithToken(t *testing.T) {

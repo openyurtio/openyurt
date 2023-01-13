@@ -92,3 +92,46 @@ func TestRemoveDupIPs(t *testing.T) {
 		})
 	}
 }
+
+func TestParseIPList(t *testing.T) {
+	tests := []struct {
+		name      string
+		ipStrings []string
+		ips       []net.IP
+	}{
+		{
+			"list with formated ip",
+			[]string{"1.1.1.1"},
+			[]net.IP{net.IPv4(1, 1, 1, 1)},
+		},
+		{
+			"list with not formated ip",
+			[]string{"1111"},
+			[]net.IP{nil},
+		},
+		{
+			"empty list",
+			[]string{},
+			[]net.IP{},
+		},
+		{
+			"nil list",
+			nil,
+			[]net.IP{},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", test.name)
+			{
+				get := ParseIPList(test.ipStrings)
+				if !reflect.DeepEqual(get, test.ips) {
+					t.Errorf("\texpect %v, but get %v", test.ips, get)
+				}
+			}
+		})
+	}
+}
