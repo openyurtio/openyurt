@@ -81,6 +81,7 @@ func NewHubElector(
 			OnStoppedLeading: func() {
 				klog.Infof("yurthub of %s is no more a leader", cfg.NodeName)
 				he.electorStatus <- FollowerHub
+				he.inElecting = false
 			},
 		},
 	})
