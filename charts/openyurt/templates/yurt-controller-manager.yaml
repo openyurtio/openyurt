@@ -185,10 +185,12 @@ spec:
     spec:
       serviceAccountName: yurt-controller-manager
       hostNetwork: true
+      {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-        - name: regsecret
+      {{ toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
       tolerations:
-        - operator: "Exists"
+      - operator: "Exists"
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node

@@ -141,6 +141,7 @@ spec:
                   - --client-cert-auth=true
                   - --max-txn-ops=1000
                   - --data-dir=/var/lib/etcd
+                  - --max-request-bytes=100000000
                   - --key-file=/etc/kubernetes/pki/etcd-server.key
                   - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
                   - --snapshot-count=10000
