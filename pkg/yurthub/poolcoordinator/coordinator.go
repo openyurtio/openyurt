@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"strconv"
 	"sync"
 	"time"
@@ -202,6 +203,7 @@ func (coordinator *coordinator) Run() {
 			if !ok {
 				return
 			}
+			metrics.Metrics.ObservePoolCoordinatorYurthubRole(electorStatus)
 
 			switch electorStatus {
 			case PendingHub:
@@ -228,10 +230,12 @@ func (coordinator *coordinator) Run() {
 					klog.Errorf("cloud not get cloud lease client when becoming leader yurthub, %v", err)
 					continue
 				}
+				klog.Infof("coordinator newCloudLeaseClient success.")
 				if err := coordinator.poolCacheSyncManager.EnsureStart(); err != nil {
 					klog.Errorf("failed to sync pool-scoped resource, %v", err)
 					continue
 				}
+				klog.Infof("coordinator poolCacheSyncManager has ensure started")
 				coordinator.delegateNodeLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
 					FilterFunc: ifDelegateHeartBeat,
 					Handler: cache.ResourceEventHandlerFuncs{
@@ -302,8 +306,10 @@ func (coordinator *coordinator) IsReady() (cachemanager.CacheManager, bool) {
 	defer coordinator.Unlock()
 	// fixme:  coordinator.isPoolCacheSynced now is not considered
 	if coordinator.electStatus != PendingHub && !coordinator.needUploadLocalCache {
+		metrics.Metrics.ObservePoolCoordinatorReadyStatus(1)
 		return coordinator.poolCacheManager, true
 	}
+	metrics.Metrics.ObservePoolCoordinatorReadyStatus(0)
 	return nil, false
 }
 
@@ -313,8 +319,10 @@ func (coordinator *coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
 	coordinator.Lock()
 	defer coordinator.Unlock()
 	if coordinator.electStatus != PendingHub {
+		metrics.Metrics.ObservePoolCoordinatorHealthyStatus(1)
 		return coordinator.poolCacheManager, true
 	}
+	metrics.Metrics.ObservePoolCoordinatorHealthyStatus(0)
 	return nil, false
 }
 
@@ -422,6 +430,7 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 		hasInformersSynced := []cache.InformerSynced{}
 		informerFactory := informers.NewSharedInformerFactory(p.proxiedClient, 0)
 		for gvr := range constants.PoolScopedResources {
+			klog.Infof("coordinator informer with resources gvr %+v registered", gvr)
 			informer, err := informerFactory.ForResource(gvr)
 			if err != nil {
 				cancel()
