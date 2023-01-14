@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"strconv"
 	"sync"
 	"time"
@@ -169,6 +170,10 @@ func NewCoordinator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proxied client, %v", err)
 	}
+
+	// init pool scope resources
+	resources.InitPoolScopeResourcesManger(proxiedClient, cfg.SharedFactory)
+
 	poolScopedCacheSyncManager := &poolScopedCacheSyncManager{
 		ctx:               ctx,
 		proxiedClient:     proxiedClient,
@@ -185,6 +190,9 @@ func NewCoordinator(
 }
 
 func (coordinator *coordinator) Run() {
+	// waiting for pool scope resource synced
+	resources.WaitUntilPoolScopeResourcesSync(coordinator.ctx)
+
 	for {
 		var poolCacheManager cachemanager.CacheManager
 		var cancelEtcdStorage = func() {}
@@ -427,7 +435,7 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 		ctx, cancel := context.WithCancel(p.ctx)
 		hasInformersSynced := []cache.InformerSynced{}
 		informerFactory := informers.NewSharedInformerFactory(p.proxiedClient, 0)
-		for gvr := range constants.PoolScopedResources {
+		for _, gvr := range resources.GetPoolScopeResources() {
 			klog.Infof("coordinator informer with resources gvr %+v registered", gvr)
 			informer, err := informerFactory.ForResource(gvr)
 			if err != nil {
