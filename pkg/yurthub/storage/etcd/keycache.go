@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"strings"
 	"sync"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
