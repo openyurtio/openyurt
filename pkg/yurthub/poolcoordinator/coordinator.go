@@ -20,10 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/klog/v2"
 	"strconv"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
