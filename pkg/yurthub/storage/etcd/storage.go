@@ -395,6 +395,7 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 	oldKeyCache, loaded := s.localComponentKeyCache.LoadOrStore(component, newKeyCache)
 	addedOrUpdated = newKeyCache.Difference(keySet{})
 	if loaded {
+		// FIXME: delete keys may cause unexpected problem
 		deleted = oldKeyCache.Difference(newKeyCache)
 	}
 
