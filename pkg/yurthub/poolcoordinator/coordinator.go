@@ -174,7 +174,7 @@ func NewCoordinator(
 	}
 
 	// init pool scope resources
-	resources.InitPoolScopeResourcesManger(proxiedClient, cfg.SharedFactory)
+	resources.InitPoolScopeResourcesManger(proxiedClient)
 
 	dynamicClient, err := buildDynamicClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), constants.DefaultPoolScopedUserAgent)
 	if err != nil {
