@@ -25,6 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
@@ -43,11 +44,9 @@ type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.S
 func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
 	wrapMux := mux.NewRouter()
 
-	if !config.EnableCoordinator {
-		// register handler for non resource requests
-		for path := range nonResourceReqPaths {
-			wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
-		}
+	// register handler for non resource requests
+	for path := range nonResourceReqPaths {
+		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
 	}
 
 	// register handler for other requests
@@ -64,16 +63,22 @@ func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManag
 		restCfg := restMgr.GetRestConfig(true)
 		if restCfg == nil {
 			klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
-			if nonResourceData, err := sw.GetClusterInfo(key); err != nil {
+			if nonResourceData, err := sw.GetClusterInfo(key); err == nil {
+				w.WriteHeader(http.StatusOK)
+				writeRawJSON(nonResourceData, w)
+			} else if err == storage.ErrStorageNotFound {
+				w.WriteHeader(http.StatusNotFound)
 				writeErrResponse(path, err, w)
 			} else {
-				writeRawJSON(nonResourceData, w)
+				w.WriteHeader(http.StatusInternalServerError)
+				writeErrResponse(path, err, w)
 			}
 			return
 		}
 
 		kubeClient, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			writeErrResponse(path, err, w)
 			return
 		}
@@ -87,11 +92,19 @@ func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.Storag
 			ClusterInfoType: nonResourceReqPaths[path],
 			UrlPath:         path,
 		}
-		if nonResourceData, err := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO()).Raw(); err != nil {
+
+		result := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO())
+		code := pointer.IntPtr(0)
+		result.StatusCode(code)
+		if result.Error() != nil {
+			err := result.Error()
+			w.WriteHeader(*code)
 			writeErrResponse(path, err, w)
 		} else {
-			writeRawJSON(nonResourceData, w)
-			sw.SaveClusterInfo(key, nonResourceData)
+			body, _ := result.Raw()
+			w.WriteHeader(*code)
+			writeRawJSON(body, w)
+			sw.SaveClusterInfo(key, body)
 		}
 	})
 }
@@ -109,6 +122,5 @@ func writeErrResponse(path string, err error, w http.ResponseWriter) {
 
 func writeRawJSON(output []byte, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	w.Write(output)
 }
