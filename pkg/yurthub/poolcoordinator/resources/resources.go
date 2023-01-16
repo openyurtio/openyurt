@@ -28,7 +28,7 @@ type PoolScopeResourcesManger struct {
 
 var poolScopeResourcesManger *PoolScopeResourcesManger
 
-func InitPoolScopeResourcesManger(client kubernetes.Interface) *PoolScopeResourcesManger {
+func InitPoolScopeResourcesManger(client kubernetes.Interface, factory informers.SharedInformerFactory) *PoolScopeResourcesManger {
 	poolScopeResourcesManger = &PoolScopeResourcesManger{
 		k8sClient:                client,
 		validPoolScopedResources: make(map[string]*verifiablePoolScopeResource),
