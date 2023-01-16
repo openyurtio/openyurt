@@ -19,6 +19,7 @@ package manager
 import (
 	"net"
 	"net/http"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
@@ -58,7 +59,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 
 	mutatedMasterServiceHost, mutatedMasterServicePort, _ := net.SplitHostPort(apiserverAddr)
 	if options.AccessServerThroughHub {
-		mutatedMasterServicePort = options.YurtHubProxySecurePort
+		mutatedMasterServicePort = strconv.Itoa(options.YurtHubProxySecurePort)
 		if options.EnableDummyIf {
 			mutatedMasterServiceHost = options.HubAgentDummyIfIP
 		} else {

@@ -57,14 +57,10 @@ func NewIptablesManager(dummyIfIP, dummyIfPort string) *IptablesManager {
 
 func makeupIptablesRules(ifIP, ifPort string) []iptablesRule {
 	return []iptablesRule{
-		// accept traffic to 169.254.2.1:10261
+		// accept traffic to 169.254.2.1:10261/169.254.2.1:10268
 		{iptables.Prepend, iptables.TableFilter, iptables.ChainInput, []string{"-p", "tcp", "-m", "comment", "--comment", "for container access hub agent", "--dport", ifPort, "--destination", ifIP, "-j", "ACCEPT"}},
-		// accept traffic from 169.254.2.1:10261
+		// accept traffic from 169.254.2.1:10261/169.254.2.1:10268
 		{iptables.Prepend, iptables.TableFilter, iptables.ChainOutput, []string{"-p", "tcp", "--sport", ifPort, "-s", ifIP, "-j", "ACCEPT"}},
-		// accept traffic to localhost:10261
-		{iptables.Prepend, iptables.TableFilter, iptables.ChainInput, []string{"-p", "tcp", "--dport", ifPort, "--destination", "localhost", "-j", "ACCEPT"}},
-		// accept traffic from localhost:10261
-		{iptables.Prepend, iptables.TableFilter, iptables.ChainOutput, []string{"-p", "tcp", "--sport", ifPort, "-s", "localhost", "-j", "ACCEPT"}},
 	}
 }
 

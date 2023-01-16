@@ -17,13 +17,13 @@ limitations under the License.
 package network
 
 import (
-	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 )
 
 const (
@@ -38,29 +38,17 @@ type NetworkManager struct {
 	enableIptables  bool
 }
 
-func NewNetworkManager(cfg *config.YurtHubConfiguration) (*NetworkManager, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("configuration for hub agent is nil")
-	}
-
-	ip, port, err := net.SplitHostPort(cfg.YurtHubProxyServerDummyAddr)
-	if err != nil {
-		return nil, err
-	}
+func NewNetworkManager(options *options.YurtHubOptions) (*NetworkManager, error) {
 	m := &NetworkManager{
 		ifController:    NewDummyInterfaceController(),
-		iptablesManager: NewIptablesManager(ip, port),
-		dummyIfIP:       net.ParseIP(ip),
-		dummyIfName:     cfg.HubAgentDummyIfName,
-		enableIptables:  cfg.EnableIptables,
+		iptablesManager: NewIptablesManager(options.HubAgentDummyIfIP, strconv.Itoa(options.YurtHubProxyPort)),
+		dummyIfIP:       net.ParseIP(options.HubAgentDummyIfIP),
+		dummyIfName:     options.HubAgentDummyIfName,
+		enableIptables:  options.EnableIptables,
 	}
 	// secure port
-	_, securePort, err := net.SplitHostPort(cfg.YurtHubProxyServerSecureDummyAddr)
-	if err != nil {
-		return nil, err
-	}
-	m.iptablesManager.rules = append(m.iptablesManager.rules, makeupIptablesRules(ip, securePort)...)
-	if err = m.configureNetwork(); err != nil {
+	m.iptablesManager.rules = append(m.iptablesManager.rules, makeupIptablesRules(options.HubAgentDummyIfIP, strconv.Itoa(options.YurtHubProxySecurePort))...)
+	if err := m.configureNetwork(); err != nil {
 		return nil, err
 	}
 

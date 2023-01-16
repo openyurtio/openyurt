@@ -62,9 +62,9 @@ const (
 	YurtHubNamespace   = "kube-system"
 	CacheUserAgentsKey = "cache_agents"
 
-	YurtHubProxyPort       = "10261"
-	YurtHubPort            = "10267"
-	YurtHubProxySecurePort = "10268"
+	YurtHubProxyPort       = 10261
+	YurtHubPort            = 10267
+	YurtHubProxySecurePort = 10268
 )
 
 var (

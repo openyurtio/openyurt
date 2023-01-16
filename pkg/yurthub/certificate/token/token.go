@@ -39,7 +39,6 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
@@ -65,6 +64,17 @@ var (
 	caCertIsNotReadyError            = errors.New("ca.crt file")
 )
 
+type CertificateManagerConfiguration struct {
+	RootDir                  string
+	NodeName                 string
+	JoinToken                string
+	CaCertHashes             []string
+	YurtHubCertOrganizations []string
+	CertIPs                  []net.IP
+	RemoteServers            []*url.URL
+	Client                   clientset.Interface
+}
+
 type yurtHubCertManager struct {
 	client                     clientset.Interface
 	remoteServers              []*url.URL
@@ -72,7 +82,7 @@ type yurtHubCertManager struct {
 	apiServerClientCertManager certificate.Manager
 	hubServerCertManager       certificate.Manager
 	apiServerClientCertStore   certificate.FileStore
-	serverCertStore            certificate.FileStore
+	hubServerCertStore         certificate.FileStore
 	hubRunDir                  string
 	hubName                    string
 	joinToken                  string
@@ -80,7 +90,7 @@ type yurtHubCertManager struct {
 }
 
 // NewYurtHubCertManager new a YurtCertificateManager instance
-func NewYurtHubCertManager(client clientset.Interface, cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) (hubCert.YurtCertificateManager, error) {
+func NewYurtHubCertManager(cfg *CertificateManagerConfiguration) (hubCert.YurtCertificateManager, error) {
 	var err error
 
 	hubRunDir := cfg.RootDir
@@ -89,7 +99,7 @@ func NewYurtHubCertManager(client clientset.Interface, cfg *config.YurtHubConfig
 	}
 
 	ycm := &yurtHubCertManager{
-		client:        client,
+		client:        cfg.Client,
 		remoteServers: cfg.RemoteServers,
 		hubRunDir:     hubRunDir,
 		hubName:       projectinfo.GetHubName(),
@@ -112,12 +122,12 @@ func NewYurtHubCertManager(client clientset.Interface, cfg *config.YurtHubConfig
 	}
 
 	// 3. prepare yurthub server certificate manager
-	ycm.serverCertStore, err = store.NewFileStoreWrapper(fmt.Sprintf("%s-server", ycm.hubName), ycm.getPkiDir(), ycm.getPkiDir(), "", "")
+	ycm.hubServerCertStore, err = store.NewFileStoreWrapper(fmt.Sprintf("%s-server", ycm.hubName), ycm.getPkiDir(), ycm.getPkiDir(), "", "")
 	if err != nil {
 		return ycm, errors.Wrap(err, "couldn't new hub server cert store")
 	}
 
-	ycm.hubServerCertManager, err = ycm.newHubServerCertificateManager(ycm.serverCertStore, cfg.NodeName, cfg.CertIPs)
+	ycm.hubServerCertManager, err = ycm.newHubServerCertificateManager(ycm.hubServerCertStore, cfg.NodeName, cfg.CertIPs)
 	if err != nil {
 		return ycm, errors.Wrap(err, "couldn't new hub server certificate manager")
 	}
@@ -286,7 +296,7 @@ func (ycm *yurtHubCertManager) GetHubServerCert() *tls.Certificate {
 }
 
 func (ycm *yurtHubCertManager) GetHubServerCertFile() string {
-	return ycm.serverCertStore.CurrentPath()
+	return ycm.hubServerCertStore.CurrentPath()
 }
 
 // newAPIServerClientCertificateManager create a certificate manager for yurthub component to prepare client certificate

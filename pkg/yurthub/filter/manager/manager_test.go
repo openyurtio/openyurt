@@ -146,7 +146,7 @@ func TestFindRunner(t *testing.T) {
 				AccessServerThroughHub:  tt.accessServerThroughHub,
 				EnableDummyIf:           tt.enableDummyIf,
 				NodeName:                "test",
-				YurtHubProxySecurePort:  "10268",
+				YurtHubProxySecurePort:  10268,
 				HubAgentDummyIfIP:       "127.0.0.1",
 				YurtHubProxyHost:        "127.0.0.1",
 			}
