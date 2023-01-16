@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
@@ -31,47 +32,42 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
-// type state int
-
-// const (
-// 	done       state = 0
-// 	processing state = 1
-// )
-
-// type status struct
-
-type keySet struct {
-	m map[storageKey]struct{}
-}
+type storageKeySet map[storageKey]struct{}
 
 // Difference will return keys in s but not in s2
-func (s keySet) Difference(s2 keySet) []storageKey {
-	keys := []storageKey{}
-	if s2.m == nil {
-		for k := range s.m {
-			keys = append(keys, k)
+func (s storageKeySet) Difference(s2 storageKeySet) storageKeySet {
+	keys := storageKeySet{}
+	if s2 == nil {
+		for k := range s {
+			keys[k] = struct{}{}
 		}
 		return keys
 	}
 
-	for k := range s.m {
-		if _, ok := s2.m[k]; !ok {
-			keys = append(keys, k)
+	for k := range s {
+		if _, ok := s2[k]; !ok {
+			keys[k] = struct{}{}
 		}
 	}
+
 	return keys
+}
+
+type keyCache struct {
+	m map[schema.GroupVersionResource]storageKeySet
 }
 
 // Do not directly modify value returned from functions of componentKeyCache, such as Load.
 // Because it usually returns reference of internal objects for efficiency.
 // The format in file is:
-// component0:key0,key1...
-// component1:key0,key1...
+// component0#group.version.resource:key0,key1;group.version.resource:key2,key3...
+// component1#group.version.resource:key4,key5...
 // ...
 type componentKeyCache struct {
 	sync.Mutex
-	ctx        context.Context
-	cache      map[string]keySet
+	ctx context.Context
+	// map component to keyCache
+	cache      map[string]keyCache
 	filePath   string
 	keyFunc    func(storage.KeyBuildInfo) (storage.Key, error)
 	fsOperator fs.FileSystemOperator
@@ -91,22 +87,11 @@ func (c *componentKeyCache) Recover() error {
 
 	if len(buf) != 0 {
 		// We've got content from file
-		lines := strings.Split(string(buf), "\n")
-		for i, l := range lines {
-			s := strings.Split(l, ":")
-			if len(s) != 2 {
-				return fmt.Errorf("failed to parse line %d, invalid format", i)
-			}
-			comp, keys := s[0], strings.Split(s[1], ",")
-			ks := keySet{m: map[storageKey]struct{}{}}
-			for _, key := range keys {
-				ks.m[storageKey{
-					comp: comp,
-					path: key,
-				}] = struct{}{}
-			}
-			c.cache[comp] = ks
+		cache, err := unmarshal(buf)
+		if err != nil {
+			return fmt.Errorf("failed to parse file content at %s, %v", c.filePath, err)
 		}
+		c.cache = cache
 	}
 
 	poolScopedKeyset, err := c.getPoolScopedKeyset()
@@ -121,8 +106,8 @@ func (c *componentKeyCache) Recover() error {
 	return nil
 }
 
-func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
-	keys := &keySet{m: map[storageKey]struct{}{}}
+func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
+	keys := &keyCache{m: make(map[schema.GroupVersionResource]storageKeySet)}
 	for _, gvr := range resources.GetPoolScopeResources() {
 		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
 		defer cancel()
@@ -156,61 +141,107 @@ func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create resource key for %v", kv.Key)
 			}
-			keys.m[key.(storageKey)] = struct{}{}
+
+			if _, ok := keys.m[gvr]; !ok {
+				keys.m[gvr] = storageKeySet{key.(storageKey): {}}
+			} else {
+				keys.m[gvr][key.(storageKey)] = struct{}{}
+			}
 		}
 	}
 	return keys, nil
 }
 
-func (c *componentKeyCache) Load(component string) (keySet, bool) {
+// Load returns keyCache of component which contains keys of all gvr.
+func (c *componentKeyCache) Load(component string) (keyCache, bool) {
 	c.Lock()
 	defer c.Unlock()
 	cache, ok := c.cache[component]
 	return cache, ok
 }
 
+// AddKey will add key to the key cache of such component. If the component
+// does not have its cache, it will be created first.
 func (c *componentKeyCache) AddKey(component string, key storageKey) {
 	c.Lock()
 	defer c.Unlock()
 	defer c.flush()
 	if _, ok := c.cache[component]; !ok {
-		c.cache[component] = keySet{m: map[storageKey]struct{}{
-			key: {},
+		c.cache[component] = keyCache{m: map[schema.GroupVersionResource]storageKeySet{
+			key.gvr: {
+				key: struct{}{},
+			},
 		}}
 		return
 	}
 
-	keyset := c.cache[component]
-	if keyset.m == nil {
-		keyset.m = map[storageKey]struct{}{
-			key: {},
+	keyCache := c.cache[component]
+	if keyCache.m == nil {
+		keyCache.m = map[schema.GroupVersionResource]storageKeySet{
+			key.gvr: {
+				key: struct{}{},
+			},
 		}
 		return
 	}
 
-	c.cache[component].m[key] = struct{}{}
+	if _, ok := keyCache.m[key.gvr]; !ok {
+		keyCache.m[key.gvr] = storageKeySet{key: {}}
+		return
+	}
+	keyCache.m[key.gvr][key] = struct{}{}
 }
 
+// DeleteKey deletes specified key from the key cache of the component.
 func (c *componentKeyCache) DeleteKey(component string, key storageKey) {
 	c.Lock()
 	defer c.Unlock()
-	delete(c.cache[component].m, key)
+	if _, ok := c.cache[component]; !ok {
+		return
+	}
+	if c.cache[component].m == nil {
+		return
+	}
+	if _, ok := c.cache[component].m[key.gvr]; !ok {
+		return
+	}
+	delete(c.cache[component].m[key.gvr], key)
 	c.flush()
 }
 
-func (c *componentKeyCache) LoadOrStore(component string, keyset keySet) (keySet, bool) {
+// LoadOrStore will load the keyset of specified gvr from cache of the component if it exists,
+// otherwise it will be created with passed-in keyset argument. It will return the key set
+// finally in the component cache, and a bool value indicating whether the returned key set
+// is loaded or stored.
+func (c *componentKeyCache) LoadOrStore(component string, gvr schema.GroupVersionResource, keyset storageKeySet) (storageKeySet, bool) {
 	c.Lock()
 	defer c.Unlock()
 	if cache, ok := c.cache[component]; ok {
-		return cache, true
+		if cache.m == nil {
+			cache.m = make(map[schema.GroupVersionResource]storageKeySet)
+		}
+
+		if set, ok := cache.m[gvr]; ok {
+			return set, true
+		} else {
+			cache.m[gvr] = keyset
+			c.flush()
+			return keyset, false
+		}
 	} else {
-		c.cache[component] = keyset
+		c.cache[component] = keyCache{
+			m: map[schema.GroupVersionResource]storageKeySet{
+				gvr: keyset,
+			},
+		}
 		c.flush()
 		return keyset, false
 	}
 }
 
-func (c *componentKeyCache) LoadAndDelete(component string) (keySet, bool) {
+// LoadAndDelete will load and delete the key cache of specified component.
+// Return the original cache and true if it was deleted, otherwise empty cache and false.
+func (c *componentKeyCache) LoadAndDelete(component string) (keyCache, bool) {
 	c.Lock()
 	defer c.Unlock()
 	if cache, ok := c.cache[component]; ok {
@@ -218,33 +249,33 @@ func (c *componentKeyCache) LoadAndDelete(component string) (keySet, bool) {
 		c.flush()
 		return cache, true
 	}
-	return keySet{}, false
+	return keyCache{}, false
 }
-
-func (c *componentKeyCache) DeleteAllKeysOfComponent(component string) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.cache, component)
-	c.flush()
-}
-
-// func (c *componentKeyCache) MarkAsProcessing() {
-
-// }
-
-// func (c *componentKeyCache) MarkAsDone() {
-
-// }
 
 func (c *componentKeyCache) flush() error {
+	buf := marshal(c.cache)
+	if err := c.fsOperator.Write(c.filePath, buf); err != nil {
+		return fmt.Errorf("failed to flush cache to file %s, %v", c.filePath, err)
+	}
+	return nil
+}
+
+func marshal(cache map[string]keyCache) []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-	for comp, ks := range c.cache {
-		line := bytes.NewBufferString(fmt.Sprintf("%s:", comp))
-		keys := make([]string, 0, len(ks.m))
-		for k := range ks.m {
-			keys = append(keys, k.Key())
+	for comp, ks := range cache {
+		line := bytes.NewBufferString(fmt.Sprintf("%s#", comp))
+		for gvr, s := range ks.m {
+			gvrStr := strings.Join([]string{gvr.Group, gvr.Version, gvr.Resource}, "_")
+			keys := make([]string, 0, len(s))
+			for k := range s {
+				keys = append(keys, k.Key())
+			}
+			line.WriteString(fmt.Sprintf("%s:%s;", gvrStr, strings.Join(keys, ",")))
 		}
-		line.WriteString(strings.Join(keys, ","))
+		if len(ks.m) != 0 {
+			// discard last ';'
+			line.Truncate(line.Len() - 1)
+		}
 		line.WriteByte('\n')
 		buf.Write(line.Bytes())
 	}
@@ -252,10 +283,59 @@ func (c *componentKeyCache) flush() error {
 		// discard last '\n'
 		buf.Truncate(buf.Len() - 1)
 	}
-	if err := c.fsOperator.Write(c.filePath, buf.Bytes()); err != nil {
-		return fmt.Errorf("failed to flush cache to file %s, %v", c.filePath, err)
+	return buf.Bytes()
+}
+
+func unmarshal(buf []byte) (map[string]keyCache, error) {
+	cache := map[string]keyCache{}
+	if len(buf) == 0 {
+		return cache, nil
 	}
-	return nil
+
+	lines := strings.Split(string(buf), "\n")
+	for i, l := range lines {
+		s := strings.Split(l, "#")
+		if len(s) != 2 {
+			return nil, fmt.Errorf("failed to parse line %d, invalid format", i)
+		}
+		comp := s[0]
+
+		keySet := keyCache{m: map[schema.GroupVersionResource]storageKeySet{}}
+		if len(s[1]) > 0 {
+			gvrKeys := strings.Split(s[1], ";")
+			for _, gvrKey := range gvrKeys {
+				ss := strings.Split(gvrKey, ":")
+				if len(ss) != 2 {
+					return nil, fmt.Errorf("failed to parse gvr keys %s at line %d, invalid format", gvrKey, i)
+				}
+				gvrStrs := strings.Split(ss[0], "_")
+				if len(gvrStrs) != 3 {
+					return nil, fmt.Errorf("failed to parse gvr %s at line %d, invalid format", ss[0], i)
+				}
+				gvr := schema.GroupVersionResource{
+					Group:    gvrStrs[0],
+					Version:  gvrStrs[1],
+					Resource: gvrStrs[2],
+				}
+
+				set := storageKeySet{}
+				if len(ss[1]) != 0 {
+					keys := strings.Split(ss[1], ",")
+					for _, k := range keys {
+						key := storageKey{
+							comp: comp,
+							path: k,
+							gvr:  gvr,
+						}
+						set[key] = struct{}{}
+					}
+				}
+				keySet.m[gvr] = set
+			}
+		}
+		cache[comp] = keySet
+	}
+	return cache, nil
 }
 
 // We assume that path points to a namespaced resource.

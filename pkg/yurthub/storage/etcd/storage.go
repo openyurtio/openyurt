@@ -133,7 +133,7 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	cache := &componentKeyCache{
 		ctx:        ctx,
 		filePath:   cacheFilePath,
-		cache:      map[string]keySet{},
+		cache:      map[string]keyCache{},
 		fsOperator: fs.FileSystemOperator{},
 		keyFunc:    s.KeyFunc,
 		etcdClient: client,
@@ -339,15 +339,8 @@ func (s *etcdStorage) ListResourceKeysOfComponent(component string, gvr schema.G
 	if component == "" {
 		return nil, storage.ErrEmptyComponent
 	}
-
-	rootKey, err := s.KeyFunc(storage.KeyBuildInfo{
-		Component: component,
-		Resources: gvr.Resource,
-		Group:     gvr.Group,
-		Version:   gvr.Version,
-	})
-	if err != nil {
-		return nil, err
+	if gvr.Resource == "" {
+		return nil, storage.ErrEmptyResource
 	}
 
 	keys := []storage.Key{}
@@ -355,8 +348,8 @@ func (s *etcdStorage) ListResourceKeysOfComponent(component string, gvr schema.G
 	if !ok {
 		return nil, storage.ErrStorageNotFound
 	}
-	for k := range keyCache.m {
-		if strings.HasPrefix(k.Key(), rootKey.Key()) {
+	if keyCache.m != nil {
+		for k := range keyCache.m[gvr] {
 			keys = append(keys, k)
 		}
 	}
@@ -377,30 +370,28 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 	if err != nil {
 		return err
 	}
-	for key := range contents {
-		if !strings.HasPrefix(key.Key(), rootKey.Key()) {
-			return storage.ErrInvalidContent
-		}
-	}
 
-	newKeyCache := keySet{m: map[storageKey]struct{}{}}
+	newKeySet := storageKeySet{}
 	for k := range contents {
 		storageKey, ok := k.(storageKey)
 		if !ok {
 			return storage.ErrUnrecognizedKey
 		}
-		newKeyCache.m[storageKey] = struct{}{}
+		if !strings.HasPrefix(k.Key(), rootKey.Key()) {
+			return storage.ErrInvalidContent
+		}
+		newKeySet[storageKey] = struct{}{}
 	}
-	var addedOrUpdated, deleted []storageKey
-	oldKeyCache, loaded := s.localComponentKeyCache.LoadOrStore(component, newKeyCache)
-	addedOrUpdated = newKeyCache.Difference(keySet{})
+
+	var addedOrUpdated, deleted storageKeySet
+	oldKeySet, loaded := s.localComponentKeyCache.LoadOrStore(component, gvr, newKeySet)
+	addedOrUpdated = newKeySet.Difference(storageKeySet{})
 	if loaded {
-		// FIXME: delete keys may cause unexpected problem
-		deleted = oldKeyCache.Difference(newKeyCache)
+		deleted = oldKeySet.Difference(newKeySet)
 	}
 
 	ops := []clientv3.Op{}
-	for _, k := range addedOrUpdated {
+	for k := range addedOrUpdated {
 		rv, err := getRvOfObject(contents[k])
 		if err != nil {
 			klog.Errorf("failed to process %s in list object, %v", k.Key(), err)
@@ -433,7 +424,7 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 		)
 		ops = append(ops, createOrUpdateOp)
 	}
-	for _, k := range deleted {
+	for k := range deleted {
 		ops = append(ops,
 			clientv3.OpDelete(k.Key()),
 			clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
@@ -455,17 +446,19 @@ func (s *etcdStorage) DeleteComponentResources(component string) error {
 		return storage.ErrEmptyComponent
 	}
 	keyCache, loaded := s.localComponentKeyCache.LoadAndDelete(component)
-	if !loaded {
+	if !loaded || keyCache.m == nil {
 		// no need to delete
 		return nil
 	}
 
 	ops := []clientv3.Op{}
-	for k := range keyCache.m {
-		ops = append(ops,
-			clientv3.OpDelete(k.Key()),
-			clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
-		)
+	for _, keySet := range keyCache.m {
+		for k := range keySet {
+			ops = append(ops,
+				clientv3.OpDelete(k.Key()),
+				clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
+			)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
