@@ -30,6 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coordclientset "k8s.io/client-go/kubernetes/typed/coordination/v1"
@@ -47,6 +49,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
@@ -169,9 +172,18 @@ func NewCoordinator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proxied client, %v", err)
 	}
+
+	// init pool scope resources
+	resources.InitPoolScopeResourcesManger(proxiedClient, cfg.SharedFactory)
+
+	dynamicClient, err := buildDynamicClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), constants.DefaultPoolScopedUserAgent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client, %v", err)
+	}
+
 	poolScopedCacheSyncManager := &poolScopedCacheSyncManager{
 		ctx:               ctx,
-		proxiedClient:     proxiedClient,
+		dynamicClient:     dynamicClient,
 		coordinatorClient: coordinatorClient,
 		nodeName:          cfg.NodeName,
 		getEtcdStore:      coordinator.getEtcdStore,
@@ -185,6 +197,9 @@ func NewCoordinator(
 }
 
 func (coordinator *coordinator) Run() {
+	// waiting for pool scope resource synced
+	resources.WaitUntilPoolScopeResourcesSync(coordinator.ctx)
+
 	for {
 		var poolCacheManager cachemanager.CacheManager
 		var cancelEtcdStorage = func() {}
@@ -398,8 +413,8 @@ func (coordinator *coordinator) delegateNodeLease(cloudLeaseClient coordclientse
 type poolScopedCacheSyncManager struct {
 	ctx       context.Context
 	isRunning bool
-	// proxiedClient is a client of Cloud APIServer which is proxied by yurthub.
-	proxiedClient kubernetes.Interface
+	// dynamicClient is a dynamic client of Cloud APIServer which is proxied by yurthub.
+	dynamicClient dynamic.Interface
 	// coordinatorClient is a client of APIServer in pool-coordinator.
 	coordinatorClient kubernetes.Interface
 	// nodeName will be used to update the ownerReference of informer synced lease.
@@ -426,18 +441,14 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 
 		ctx, cancel := context.WithCancel(p.ctx)
 		hasInformersSynced := []cache.InformerSynced{}
-		informerFactory := informers.NewSharedInformerFactory(p.proxiedClient, 0)
-		for gvr := range constants.PoolScopedResources {
+		dynamicInformerFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(p.dynamicClient, 0, metav1.NamespaceAll, nil)
+		for _, gvr := range resources.GetPoolScopeResources() {
 			klog.Infof("coordinator informer with resources gvr %+v registered", gvr)
-			informer, err := informerFactory.ForResource(gvr)
-			if err != nil {
-				cancel()
-				return fmt.Errorf("failed to add informer for %s, %v", gvr.String(), err)
-			}
+			informer := dynamicInformerFactory.ForResource(gvr)
 			hasInformersSynced = append(hasInformersSynced, informer.Informer().HasSynced)
 		}
 
-		informerFactory.Start(ctx.Done())
+		dynamicInformerFactory.Start(ctx.Done())
 		go p.holdInformerSync(ctx, hasInformersSynced)
 		p.cancel = cancel
 		p.isRunning = true
@@ -692,6 +703,20 @@ func buildProxiedClientWithUserAgent(proxyAddr string, userAgent string) (kubern
 
 	kubeConfig.UserAgent = userAgent
 	client, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func buildDynamicClientWithUserAgent(proxyAddr string, userAgent string) (dynamic.Interface, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(proxyAddr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfig.UserAgent = userAgent
+	client, err := dynamic.NewForConfig(kubeConfig)
 	if err != nil {
 		return nil, err
 	}

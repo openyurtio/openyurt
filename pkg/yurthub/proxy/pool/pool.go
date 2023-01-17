@@ -108,6 +108,7 @@ func (pp *PoolCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 		util.Err(errors.NewBadRequest(fmt.Sprintf("pool-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
 		return
 	}
+	req.Header.Del("Authorization") // delete token with cloud apiServer RBAC and use yurthub authorization
 	if reqInfo.IsResourceRequest {
 		switch reqInfo.Verb {
 		case "create":
