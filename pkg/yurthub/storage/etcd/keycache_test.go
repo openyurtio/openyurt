@@ -86,6 +86,11 @@ var _ = Describe("Test componentKeyCache setup", func() {
 			fsOperator: fs.FileSystemOperator{},
 			etcdClient: mockedClient,
 			keyFunc:    etcdStorage.KeyFunc,
+			poolScopedResourcesGetter: func() []schema.GroupVersionResource {
+				return []schema.GroupVersionResource{
+					endpointGVR, endpointSliceGVR,
+				}
+			},
 		}
 	})
 	AfterEach(func() {
@@ -266,6 +271,11 @@ var _ = Describe("Test componentKeyCache function", func() {
 			fsOperator: fs.FileSystemOperator{},
 			etcdClient: mockedClient,
 			keyFunc:    etcdStorage.KeyFunc,
+			poolScopedResourcesGetter: func() []schema.GroupVersionResource {
+				return []schema.GroupVersionResource{
+					endpointGVR, endpointSliceGVR,
+				}
+			},
 		}
 		key1 = storageKey{
 			path: "/registry/pods/default/pod1",

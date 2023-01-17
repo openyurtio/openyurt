@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/utils"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
@@ -131,12 +132,13 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}
 
 	cache := &componentKeyCache{
-		ctx:        ctx,
-		filePath:   cacheFilePath,
-		cache:      map[string]keyCache{},
-		fsOperator: fs.FileSystemOperator{},
-		keyFunc:    s.KeyFunc,
-		etcdClient: client,
+		ctx:                       ctx,
+		filePath:                  cacheFilePath,
+		cache:                     map[string]keyCache{},
+		fsOperator:                fs.FileSystemOperator{},
+		keyFunc:                   s.KeyFunc,
+		etcdClient:                client,
+		poolScopedResourcesGetter: resources.GetPoolScopeResources,
 	}
 	if err := cache.Recover(); err != nil {
 		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)

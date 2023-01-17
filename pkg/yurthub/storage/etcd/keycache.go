@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
@@ -67,11 +66,12 @@ type componentKeyCache struct {
 	sync.Mutex
 	ctx context.Context
 	// map component to keyCache
-	cache      map[string]keyCache
-	filePath   string
-	keyFunc    func(storage.KeyBuildInfo) (storage.Key, error)
-	fsOperator fs.FileSystemOperator
-	etcdClient *clientv3.Client
+	cache                     map[string]keyCache
+	filePath                  string
+	keyFunc                   func(storage.KeyBuildInfo) (storage.Key, error)
+	fsOperator                fs.FileSystemOperator
+	etcdClient                *clientv3.Client
+	poolScopedResourcesGetter func() []schema.GroupVersionResource
 }
 
 func (c *componentKeyCache) Recover() error {
@@ -108,7 +108,7 @@ func (c *componentKeyCache) Recover() error {
 
 func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
 	keys := &keyCache{m: make(map[schema.GroupVersionResource]storageKeySet)}
-	for _, gvr := range resources.GetPoolScopeResources() {
+	for _, gvr := range c.poolScopedResourcesGetter() {
 		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
 		defer cancel()
 		rootKey, err := c.keyFunc(storage.KeyBuildInfo{
