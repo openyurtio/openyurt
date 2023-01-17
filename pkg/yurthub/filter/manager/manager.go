@@ -28,6 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
@@ -120,4 +121,5 @@ func registerAllFilters(filters *filter.Filters, sm *serializer.SerializerManage
 	servicetopology.Register(filters, sm)
 	masterservice.Register(filters, sm)
 	discardcloudservice.Register(filters, sm)
+	inclusterconfig.Register(filters, sm)
 }
