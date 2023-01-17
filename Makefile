@@ -127,47 +127,27 @@ docker-build-node-servant:
 # Build and Push the docker images with multi-arch
 docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-node-servant
 
-docker-push-yurthub:
-	docker buildx rm yurthub-container-builder || true
-	docker buildx create --use --name=yurthub-container-builder
+
+docker-buildx-builder:
+	if ! docker buildx ls | grep -q container-builder; then\
+		docker buildx create --name container-builder --use;\
+	fi
 	# enable qemu for arm64 build
 	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
 	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
 	docker run --rm --privileged tonistiigi/binfmt --install all
+
+docker-push-yurthub: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
 
-docker-push-yurt-controller-manager:
-	docker buildx rm ycm-container-builder || true
-	docker buildx create --use --name=ycm-container-builder
-	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
+docker-push-yurt-controller-manager: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
 
-docker-push-yurt-tunnel-server:
-	docker buildx rm tunnel-server-container-builder || true
-	docker buildx create --use --name=tunnel-server-container-builder
-	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
+docker-push-yurt-tunnel-server: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
 
-docker-push-yurt-tunnel-agent:
-	docker buildx rm tunnel-agent-container-builder || true
-	docker buildx create --use --name=tunnel-agent-container-builder
-	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
+docker-push-yurt-tunnel-agent: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
 
-docker-push-node-servant:
-	docker buildx rm node-servant-container-builder || true
-	docker buildx create --use --name=node-servant-container-builder
-	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
+docker-push-node-servant: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
