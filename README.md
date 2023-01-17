@@ -109,7 +109,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1aya4w279-Ea7ZbfdhPARpshRdUUxfwg)
+- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1na15xup2-kCl_AzzsU256RlNJroKtMA)
 - DingTalk: Now no slots in Community Group1(GroupID 31993519), please join Community Group2  (Chinese)
 
 <div align="left">
