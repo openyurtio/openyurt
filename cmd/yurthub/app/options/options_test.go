@@ -24,6 +24,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	componentbaseconfig "k8s.io/component-base/config"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -60,6 +63,18 @@ func TestNewYurtHubOptions(t *testing.T) {
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
+		CoordinatorServerAddr:     fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorAPIServerSvcName, util.DefaultPoolCoordinatorAPIServerSvcPort),
+		CoordinatorStorageAddr:    fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorEtcdSvcName, util.DefaultPoolCoordinatorEtcdSvcPort),
+		CoordinatorStoragePrefix:  "/registry",
+		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
+			LeaderElect:       true,
+			LeaseDuration:     metav1.Duration{Duration: 15 * time.Second},
+			RenewDeadline:     metav1.Duration{Duration: 10 * time.Second},
+			RetryPeriod:       metav1.Duration{Duration: 2 * time.Second},
+			ResourceLock:      resourcelock.LeasesResourceLock,
+			ResourceName:      projectinfo.GetHubName(),
+			ResourceNamespace: "kube-system",
+		},
 	}
 
 	options := NewYurtHubOptions()
