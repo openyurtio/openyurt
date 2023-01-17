@@ -82,8 +82,9 @@ const (
 	// DefaultPoolCoordinatorAPIServerSvcPort represents default pool coordinator apiServer port
 	DefaultPoolCoordinatorAPIServerSvcPort = "443"
 
-	YurtHubNamespace   = "kube-system"
-	CacheUserAgentsKey = "cache_agents"
+	YurtHubNamespace      = "kube-system"
+	CacheUserAgentsKey    = "cache_agents"
+	PoolScopeResourcesKey = "pool_scope_resources"
 
 	YurtHubProxyPort       = "10261"
 	YurtHubPort            = "10267"

@@ -40,6 +40,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -181,7 +182,7 @@ func WithIfPoolScopedResource(handler http.Handler) http.Handler {
 		ctx := req.Context()
 		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
 			var ifPoolScopedResource bool
-			if info.IsResourceRequest && isPoolScopedResource(info) {
+			if info.IsResourceRequest && resources.IsPoolScopeResources(info) {
 				ifPoolScopedResource = true
 			}
 			ctx = util.WithIfPoolScopedResource(ctx, ifPoolScopedResource)
@@ -189,18 +190,6 @@ func WithIfPoolScopedResource(handler http.Handler) http.Handler {
 		}
 		handler.ServeHTTP(w, req)
 	})
-}
-
-func isPoolScopedResource(info *apirequest.RequestInfo) bool {
-	if info != nil {
-		if info.APIGroup == "" && info.APIVersion == "v1" && info.Resource == "endpoints" {
-			return true
-		}
-		if info.APIGroup == "discovery.k8s.io" && info.APIVersion == "v1" && info.Resource == "endpointslices" {
-			return true
-		}
-	}
-	return false
 }
 
 type wrapperResponseWriter struct {

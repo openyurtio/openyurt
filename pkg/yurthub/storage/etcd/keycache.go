@@ -26,6 +26,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
@@ -122,7 +123,7 @@ func (c *componentKeyCache) Recover() error {
 
 func (c *componentKeyCache) getPoolScopedKeyset() (*keySet, error) {
 	keys := &keySet{m: map[storageKey]struct{}{}}
-	for gvr := range coordinatorconstants.PoolScopedResources {
+	for _, gvr := range resources.GetPoolScopeResources() {
 		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
 		defer cancel()
 		rootKey, err := c.keyFunc(storage.KeyBuildInfo{

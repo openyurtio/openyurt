@@ -139,7 +139,7 @@ spec:
                   - --listen-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
                   - --cert-file=/etc/kubernetes/pki/etcd-server.crt
                   - --client-cert-auth=true
-                  - --max-txn-ops=1000
+                  - --max-txn-ops=102400
                   - --data-dir=/var/lib/etcd
                   - --max-request-bytes=100000000
                   - --key-file=/etc/kubernetes/pki/etcd-server.key
