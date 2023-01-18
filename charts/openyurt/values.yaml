@@ -50,5 +50,31 @@ yurtTunnelServer:
     pullPolicy: IfNotPresent
     tag: v1.1.0
 
+poolCoordinator:
+  apiserverSecurePort: 10270
+  apiserverImage:
+    registry: docker.io
+    repository: google_containers/kube-apiserver
+    pullPolicy: IfNotPresent
+    tag: v1.22.0
+  apiserverResources:
+    requests:
+      cpu: 250m
+  serviceClusterIPRange: 10.96.0.0/12
+  etcdPort: 12379
+  etcdMetricPort: 12381
+  etcdImage:
+    registry: docker.io
+    repository: google_containers/etcd
+    pullPolicy: IfNotPresent
+    tag: 3.5.0-0
+  etcdResources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
 yurtHub:
   cacheAgents: ""
