@@ -109,6 +109,10 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 	}
 	storageKey := key.(storageKey)
 
+	if !storageKey.isRootKey() && len(content) == 0 {
+		return storage.ErrKeyHasNoContent
+	}
+
 	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}

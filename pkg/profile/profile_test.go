@@ -29,15 +29,17 @@ func fakeServer(h http.Handler) error {
 }
 
 func TestInstall(t *testing.T) {
-	m := mux.NewRouter()
-	Install(m)
-	go fakeServer(m)
-	r, err := http.Get("http://localhost:9090/debug/pprof/")
-	if err != nil {
-		t.Error(" failed to send request to fake server")
-	}
+	t.Run("TestInstall", func(t *testing.T) {
+		m := mux.NewRouter()
+		Install(m)
+		go fakeServer(m)
+		r, err := http.Get("http://localhost:9090/debug/pprof/")
+		if err != nil {
+			t.Errorf("failed to send request to fake server, %v", err)
+		}
 
-	if r.StatusCode != http.StatusOK {
-		t.Error(err)
-	}
+		if r.StatusCode != http.StatusOK {
+			t.Error(err)
+		}
+	})
 }

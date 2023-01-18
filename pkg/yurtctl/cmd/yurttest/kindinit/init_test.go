@@ -652,28 +652,6 @@ func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
 		t.Errorf("failed to configure core dns addon")
 	}
 }
-func TestInitializer_ConfigureKubeProxyAddon(t *testing.T) {
-	var fakeOut io.Writer
-	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-
-	case1 := struct {
-		configObj *corev1.ConfigMap
-		want      interface{}
-	}{
-		configObj: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "kube-proxy"},
-			Data: map[string]string{
-				"config.conf": "{ cd .. \n kubeconfig:  \n  cluster",
-			},
-		},
-		want: nil,
-	}
-	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj)
-	err := initializer.ConfigureKubeProxyAddon()
-	if err != case1.want {
-		t.Errorf("failed to configure core dns addon")
-	}
-}
 
 func TestInitializer_ConfigureAddons(t *testing.T) {
 
@@ -682,7 +660,6 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 
 	case1 := struct {
 		coreDnsConfigObj *corev1.ConfigMap
-		proxyConfigObj   *corev1.ConfigMap
 		serviceObj       *corev1.Service
 		podObj           *corev1.Pod
 		deploymentObj    *v1.Deployment
@@ -695,13 +672,6 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local {",
 			},
 		},
-		proxyConfigObj: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "kube-proxy"},
-			Data: map[string]string{
-				"config.conf": "{ cd .. \n kubeconfig:  \n  cluster",
-			},
-		},
-
 		serviceObj: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:   "kube-system",
@@ -763,7 +733,7 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 
 	var fakeOut io.Writer
 	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	client := clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.proxyConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
+	client := clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
 	for i := range case1.nodeObjs {
 		client.Tracker().Add(case1.nodeObjs[i])
 	}

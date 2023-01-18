@@ -44,13 +44,16 @@ var (
 )
 
 type HubMetrics struct {
-	serversHealthyCollector   *prometheus.GaugeVec
-	inFlightRequestsCollector *prometheus.GaugeVec
-	inFlightRequestsGauge     prometheus.Gauge
-	rejectedRequestsCounter   prometheus.Counter
-	closableConnsCollector    *prometheus.GaugeVec
-	proxyTrafficCollector     *prometheus.CounterVec
-	proxyLatencyCollector     *prometheus.GaugeVec
+	serversHealthyCollector               *prometheus.GaugeVec
+	inFlightRequestsCollector             *prometheus.GaugeVec
+	inFlightRequestsGauge                 prometheus.Gauge
+	rejectedRequestsCounter               prometheus.Counter
+	closableConnsCollector                *prometheus.GaugeVec
+	proxyTrafficCollector                 *prometheus.CounterVec
+	proxyLatencyCollector                 *prometheus.GaugeVec
+	poolCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
+	poolCoordinatorHealthyStatusCollector *prometheus.GaugeVec
+	poolCoordinatorReadyStatusCollector   *prometheus.GaugeVec
 }
 
 func newHubMetrics() *HubMetrics {
@@ -108,6 +111,30 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of proxy latency of incoming requests(unit: ms)",
 		},
 		[]string{"client", "verb", "resource", "subresources", "type"})
+	poolCoordinatorYurthubRoleCollector := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "pool_coordinator_yurthub_role",
+			Help:      "pool coordinator status of yurthub. 1: LeaderHub, 2: FollowerHub 3: Pending",
+		},
+		[]string{})
+	poolCoordinatorHealthyStatusCollector := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "pool_coordinator_healthy_status",
+			Help:      "pool coordinator heahty status 1: healthy, 0: unhealthy",
+		},
+		[]string{})
+	poolCoordinatorReadyStatusCollector := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "pool_coordinator_ready_status",
+			Help:      "pool coordinator ready status 1: ready, 0: notReady",
+		},
+		[]string{})
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
@@ -115,14 +142,20 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
 	prometheus.MustRegister(proxyLatencyCollector)
+	prometheus.MustRegister(poolCoordinatorYurthubRoleCollector)
+	prometheus.MustRegister(poolCoordinatorHealthyStatusCollector)
+	prometheus.MustRegister(poolCoordinatorReadyStatusCollector)
 	return &HubMetrics{
-		serversHealthyCollector:   serversHealthyCollector,
-		inFlightRequestsCollector: inFlightRequestsCollector,
-		inFlightRequestsGauge:     inFlightRequestsGauge,
-		rejectedRequestsCounter:   rejectedRequestsCounter,
-		closableConnsCollector:    closableConnsCollector,
-		proxyTrafficCollector:     proxyTrafficCollector,
-		proxyLatencyCollector:     proxyLatencyCollector,
+		serversHealthyCollector:               serversHealthyCollector,
+		inFlightRequestsCollector:             inFlightRequestsCollector,
+		inFlightRequestsGauge:                 inFlightRequestsGauge,
+		rejectedRequestsCounter:               rejectedRequestsCounter,
+		closableConnsCollector:                closableConnsCollector,
+		proxyTrafficCollector:                 proxyTrafficCollector,
+		proxyLatencyCollector:                 proxyLatencyCollector,
+		poolCoordinatorHealthyStatusCollector: poolCoordinatorHealthyStatusCollector,
+		poolCoordinatorReadyStatusCollector:   poolCoordinatorReadyStatusCollector,
+		poolCoordinatorYurthubRoleCollector:   poolCoordinatorYurthubRoleCollector,
 	}
 }
 
@@ -137,6 +170,18 @@ func (hm *HubMetrics) Reset() {
 
 func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
 	hm.serversHealthyCollector.WithLabelValues(server).Set(float64(status))
+}
+
+func (hm *HubMetrics) ObservePoolCoordinatorYurthubRole(status int32) {
+	hm.poolCoordinatorYurthubRoleCollector.WithLabelValues().Set(float64(status))
+}
+
+func (hm *HubMetrics) ObservePoolCoordinatorReadyStatus(status int32) {
+	hm.poolCoordinatorReadyStatusCollector.WithLabelValues().Set(float64(status))
+}
+
+func (hm *HubMetrics) ObservePoolCoordinatorHealthyStatus(status int32) {
+	hm.poolCoordinatorHealthyStatusCollector.WithLabelValues().Set(float64(status))
 }
 
 func (hm *HubMetrics) IncInFlightRequests(verb, resource, subresource, client string) {

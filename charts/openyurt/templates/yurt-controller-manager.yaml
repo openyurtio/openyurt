@@ -178,8 +178,10 @@ spec:
     spec:
       serviceAccountName: yurt-controller-manager
       hostNetwork: true
+      imagePullSecrets:
+        - name: regsecret
       tolerations:
-      - operator: "Exists"
+        - operator: "Exists"
       affinity:
         nodeAffinity:
           # we prefer allocating ecm on cloud node

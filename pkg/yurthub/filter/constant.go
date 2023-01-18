@@ -29,6 +29,10 @@ const (
 	// on kube-proxy list/watch service request from edge nodes.
 	DiscardCloudServiceFilterName = "discardcloudservice"
 
+	// InClusterConfigFilterName filter is used to comment kubeconfig in kube-system/kube-proxy configmap
+	// in order to make kube-proxy to use InClusterConfig to access kube-apiserver.
+	InClusterConfigFilterName = "inclusterconfig"
+
 	// SkipDiscardServiceAnnotation is annotation used by LB service.
 	// If end users want to use specified LB service at the edge side,
 	// End users should add annotation["openyurt.io/skip-discard"]="true" for LB service.
@@ -44,5 +48,6 @@ var (
 		MasterServiceFilterName:       "kubelet",
 		DiscardCloudServiceFilterName: "kube-proxy",
 		ServiceTopologyFilterName:     "kube-proxy, coredns, nginx-ingress-controller",
+		InClusterConfigFilterName:     "kubelet",
 	}
 )

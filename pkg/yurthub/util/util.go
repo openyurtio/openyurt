@@ -59,8 +59,20 @@ const (
 	ProxyReqCanCache
 	// ProxyListSelector represents label selector and filed selector string for list request
 	ProxyListSelector
-	YurtHubNamespace   = "kube-system"
-	CacheUserAgentsKey = "cache_agents"
+	// ProxyPoolScopedResource represents if this request is asking for pool-scoped resources
+	ProxyPoolScopedResource
+	// DefaultPoolCoordinatorEtcdSvcName represents default pool coordinator etcd service
+	DefaultPoolCoordinatorEtcdSvcName = "pool-coordinator-etcd"
+	// DefaultPoolCoordinatorAPIServerSvcName represents default pool coordinator apiServer service
+	DefaultPoolCoordinatorAPIServerSvcName = "pool-coordinator-apiserver"
+	// DefaultPoolCoordinatorEtcdSvcPort represents default pool coordinator etcd port
+	DefaultPoolCoordinatorEtcdSvcPort = "2379"
+	// DefaultPoolCoordinatorAPIServerSvcPort represents default pool coordinator apiServer port
+	DefaultPoolCoordinatorAPIServerSvcPort = "443"
+
+	YurtHubNamespace      = "kube-system"
+	CacheUserAgentsKey    = "cache_agents"
+	PoolScopeResourcesKey = "pool_scope_resources"
 
 	YurtHubProxyPort       = 10261
 	YurtHubPort            = 10267
@@ -132,6 +144,19 @@ func ListSelectorFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
+// WithIfPoolScopedResource returns a copy of parent in which IfPoolScopedResource is set,
+// indicating whether this request is asking for pool-scoped resources.
+func WithIfPoolScopedResource(parent context.Context, ifPoolScoped bool) context.Context {
+	return WithValue(parent, ProxyPoolScopedResource, ifPoolScoped)
+}
+
+// IfPoolScopedResourceFrom returns the value of IfPoolScopedResource indicating whether this request
+// is asking for pool-scoped resource.
+func IfPoolScopedResourceFrom(ctx context.Context) (bool, bool) {
+	info, ok := ctx.Value(ProxyPoolScopedResource).(bool)
+	return info, ok
+}
+
 // ReqString formats a string for request
 func ReqString(req *http.Request) string {
 	ctx := req.Context()
@@ -166,6 +191,84 @@ func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req 
 	}
 
 	return fmt.Errorf("request info is not found when write object, %s", ReqString(req))
+}
+
+func NewTripleReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser, io.ReadCloser) {
+	pr1, pw1 := io.Pipe()
+	pr2, pw2 := io.Pipe()
+	tr := &tripleReadCloser{
+		req: req,
+		rc:  rc,
+		pw1: pw1,
+		pw2: pw2,
+	}
+	return tr, pr1, pr2
+}
+
+type tripleReadCloser struct {
+	req *http.Request
+	rc  io.ReadCloser
+	pw1 *io.PipeWriter
+	pw2 *io.PipeWriter
+	// isRespBody shows rc(is.ReadCloser) is a response.Body
+	// or not(maybe a request.Body). if it is true(it's a response.Body),
+	// we should close the response body in Close func, else not,
+	// it(request body) will be closed by http request caller
+	isRespBody bool
+}
+
+// Read read data into p and write into pipe
+func (dr *tripleReadCloser) Read(p []byte) (n int, err error) {
+	defer func() {
+		if dr.req != nil && dr.isRespBody {
+			ctx := dr.req.Context()
+			info, _ := apirequest.RequestInfoFrom(ctx)
+			if info.IsResourceRequest {
+				comp, _ := ClientComponentFrom(ctx)
+				metrics.Metrics.AddProxyTrafficCollector(comp, info.Verb, info.Resource, info.Subresource, n)
+			}
+		}
+	}()
+
+	n, err = dr.rc.Read(p)
+	if n > 0 {
+		var n1, n2 int
+		var err error
+		if n1, err = dr.pw1.Write(p[:n]); err != nil {
+			klog.Errorf("tripleReader: failed to write to pw1 %v", err)
+			return n1, err
+		}
+		if n2, err = dr.pw2.Write(p[:n]); err != nil {
+			klog.Errorf("tripleReader: failed to write to pw2 %v", err)
+			return n2, err
+		}
+	}
+
+	return
+}
+
+// Close close two readers
+func (dr *tripleReadCloser) Close() error {
+	errs := make([]error, 0)
+	if dr.isRespBody {
+		if err := dr.rc.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if err := dr.pw1.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := dr.pw2.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("failed to close dualReader, %v", errs)
+	}
+
+	return nil
 }
 
 // NewDualReadCloser create an dualReadCloser object

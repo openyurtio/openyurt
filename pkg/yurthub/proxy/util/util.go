@@ -40,6 +40,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -172,6 +173,21 @@ func WithRequestClientComponent(handler http.Handler) http.Handler {
 			}
 		}
 
+		handler.ServeHTTP(w, req)
+	})
+}
+
+func WithIfPoolScopedResource(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+			var ifPoolScopedResource bool
+			if info.IsResourceRequest && resources.IsPoolScopeResources(info) {
+				ifPoolScopedResource = true
+			}
+			ctx = util.WithIfPoolScopedResource(ctx, ifPoolScopedResource)
+			req = req.WithContext(ctx)
+		}
 		handler.ServeHTTP(w, req)
 	})
 }
@@ -432,4 +448,45 @@ func Err(err error, w http.ResponseWriter, req *http.Request) {
 	}
 
 	klog.Errorf("request info is not found when err write, %s", util.ReqString(req))
+}
+
+func IsPoolScopedResouceListWatchRequest(req *http.Request) bool {
+	ctx := req.Context()
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok {
+		return false
+	}
+
+	isPoolScopedResource, ok := util.IfPoolScopedResourceFrom(ctx)
+	return ok && isPoolScopedResource && (info.Verb == "list" || info.Verb == "watch")
+}
+
+func IsSubjectAccessReviewCreateGetRequest(req *http.Request) bool {
+	ctx := req.Context()
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok {
+		return false
+	}
+
+	comp, ok := util.ClientComponentFrom(ctx)
+	if !ok {
+		return false
+	}
+
+	return info.IsResourceRequest &&
+		comp == "kubelet" &&
+		info.Resource == "subjectaccessreviews" &&
+		(info.Verb == "create" || info.Verb == "get")
+}
+
+func IsEventCreateRequest(req *http.Request) bool {
+	ctx := req.Context()
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok {
+		return false
+	}
+
+	return info.IsResourceRequest &&
+		info.Resource == "events" &&
+		info.Verb == "create"
 }

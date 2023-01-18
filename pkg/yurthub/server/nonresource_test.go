@@ -44,6 +44,11 @@ import (
 
 var rootDir = "/tmp/cache-local"
 
+var (
+	notFoundError = errors.New("not found")
+	internalError = errors.New("internal error")
+)
+
 func TestLocalCacheHandler(t *testing.T) {
 	dStorage, err := disk.NewDiskStorage(rootDir)
 	if err != nil {
@@ -65,10 +70,10 @@ func TestLocalCacheHandler(t *testing.T) {
 		statusCode       int
 		metav1StatusCode int
 	}{
-		"failed to get from local cache": {
+		"failed to get from local cache, because it does not exist": {
 			path:             "/version",
 			initData:         nil,
-			statusCode:       http.StatusOK,
+			statusCode:       http.StatusNotFound,
 			metav1StatusCode: http.StatusInternalServerError,
 		},
 		"get from local cache normally": {
@@ -144,11 +149,17 @@ func TestNonResourceHandler(t *testing.T) {
 			initData:   []byte("fake resource"),
 			statusCode: http.StatusOK,
 		},
-		"failed to get non resource": {
+		"failed to get non resource because of internal error": {
 			path:             "/apis/discovery.k8s.io/v1beta1",
-			err:              errors.New("fake error"),
-			statusCode:       http.StatusOK,
+			err:              internalError,
+			statusCode:       http.StatusInternalServerError,
 			metav1StatusCode: http.StatusInternalServerError,
+		},
+		"failed to get non resource because it does not exist": {
+			path:             "/apis/discovery.k8s.io/v1",
+			err:              notFoundError,
+			statusCode:       http.StatusNotFound,
+			metav1StatusCode: http.StatusNotFound,
 		},
 	}
 
@@ -156,13 +167,22 @@ func TestNonResourceHandler(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			fakeClient := &fakerest.RESTClient{
 				Client: fakerest.CreateHTTPClient(func(request *http.Request) (*http.Response, error) {
-					if tt.err == nil {
+					switch tt.err {
+					case nil:
 						return &http.Response{
 							StatusCode: http.StatusOK,
 							Body:       ioutil.NopCloser(strings.NewReader(string(tt.initData))),
 						}, nil
-					} else {
-						return nil, tt.err
+					case notFoundError:
+						return &http.Response{
+							StatusCode: http.StatusNotFound,
+							Body:       ioutil.NopCloser(bytes.NewReader([]byte{})),
+						}, nil
+					default:
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       ioutil.NopCloser(bytes.NewReader([]byte{})),
+						}, err
 					}
 				}),
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),

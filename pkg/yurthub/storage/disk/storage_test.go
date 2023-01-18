@@ -332,6 +332,10 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			Expect(info.IsDir()).To(BeTrue())
 		})
+		It("should return ErrKeyHasNoContent if it is not rootKey and has no content", func() {
+			err = store.Create(podKey, []byte{})
+			Expect(err).To(Equal(storage.ErrKeyHasNoContent))
+		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			err = store.Create(storageKey{}, podBytes)
 			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
