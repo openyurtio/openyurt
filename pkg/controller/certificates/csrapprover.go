@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	poolcoordinatorCert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
@@ -73,6 +74,10 @@ var (
 		{
 			recognize:  isYurtTunnelAgentCert,
 			successMsg: "Auto approving yurt-tunnel-agent client certificate",
+		},
+		{
+			recognize:  isPoolCoordinatorClientCert,
+			successMsg: "Auto approving poolcoordinator-apiserver client certificate",
 		},
 	}
 )
@@ -481,6 +486,23 @@ func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr
 	}
 
 	if x509cr.Subject.CommonName != constants.YurtTunnelAgentCSRCN {
+		return false
+	}
+
+	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
+		return false
+	}
+
+	return true
+}
+
+// isYurtTunnelProxyClientCert is used to recognize csr from poolcoordinator client certificate .
+func isPoolCoordinatorClientCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
+		return false
+	}
+
+	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != poolcoordinatorCert.PoolcoordinatorOrg {
 		return false
 	}
 

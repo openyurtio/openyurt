@@ -45,6 +45,16 @@ rules:
       - watch
   - apiGroups:
       - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+      - update
+      - list
+      - patch
+  - apiGroups:
+      - ""
       - events.k8s.io
     resources:
       - events
@@ -77,6 +87,7 @@ rules:
     resources:
       - certificatesigningrequests
     verbs:
+      - create
       - get
       - list
       - watch
@@ -125,6 +136,14 @@ rules:
       - ""
     resources:
       - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
     verbs:
       - get
       - list

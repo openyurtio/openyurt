@@ -23,37 +23,19 @@ package app
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
-	lifecyclecontroller "github.com/openyurtio/openyurt/pkg/controller/nodelifecycle"
+	poolcoordinatorcertmanager "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 )
 
-func startNodeLifecycleController(ctx ControllerContext) (http.Handler, bool, error) {
-	lifecycleController, err := lifecyclecontroller.NewNodeLifecycleController(
-		ctx.InformerFactory.Coordination().V1().Leases(),
+func startPoolCoordinatorCertManager(ctx ControllerContext) (http.Handler, bool, error) {
+	poolcoordinatorCertManager := poolcoordinatorcertmanager.NewPoolCoordinatorCertManager(
+		ctx.ClientBuilder.ClientOrDie("poolcoordinator-cert-manager"),
 		ctx.InformerFactory.Core().V1().Pods(),
-		ctx.InformerFactory.Core().V1().Nodes(),
-		ctx.InformerFactory.Apps().V1().DaemonSets(),
-		// node lifecycle controller uses existing cluster role from node-controller
-		ctx.ClientBuilder.ClientOrDie("node-controller"),
-		//ctx.ComponentConfig.KubeCloudShared.NodeMonitorPeriod.Duration,
-		5*time.Second,
-		ctx.ComponentConfig.NodeLifecycleController.NodeStartupGracePeriod.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.NodeMonitorGracePeriod.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.PodEvictionTimeout.Duration,
-		ctx.ComponentConfig.NodeLifecycleController.NodeEvictionRate,
-		ctx.ComponentConfig.NodeLifecycleController.SecondaryNodeEvictionRate,
-		ctx.ComponentConfig.NodeLifecycleController.LargeClusterSizeThreshold,
-		ctx.ComponentConfig.NodeLifecycleController.UnhealthyZoneThreshold,
-		*ctx.ComponentConfig.NodeLifecycleController.EnableTaintManager,
 	)
-	if err != nil {
-		return nil, true, err
-	}
-	go lifecycleController.Run(ctx.Stop)
+	go poolcoordinatorCertManager.Run(1, ctx.Stop)
 	return nil, true, nil
 }
 
