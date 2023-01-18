@@ -411,10 +411,6 @@ func (ki *Initializer) configureAddons() error {
 		return err
 	}
 
-	if err := ki.ConfigureKubeProxyAddon(); err != nil {
-		return err
-	}
-
 	// re-construct kube-proxy pods
 	podList, err := ki.kubeClient.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -590,31 +586,6 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 		}
 	}
 
-	return nil
-}
-
-func (ki *Initializer) ConfigureKubeProxyAddon() error {
-	// configure configmap kube-system/kube-proxy in order to make kube-proxy access kube-apiserver by going through yurthub
-	cm, err := ki.kubeClient.CoreV1().ConfigMaps("kube-system").Get(context.TODO(), "kube-proxy", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if cm != nil && strings.Contains(cm.Data["config.conf"], "kubeconfig") {
-		lines := strings.Split(cm.Data["config.conf"], "\n")
-		for i := range lines {
-			if strings.Contains(lines[i], "kubeconfig:") {
-				lines = append(lines[:i], lines[i+1:]...)
-				break
-			}
-		}
-		cm.Data["config.conf"] = strings.Join(lines, "\n")
-
-		// update kube-proxy configmap
-		_, err = ki.kubeClient.CoreV1().ConfigMaps("kube-system").Update(context.TODO(), cm, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to configure kube-proxy configmap, %w", err)
-		}
-	}
 	return nil
 }
 
