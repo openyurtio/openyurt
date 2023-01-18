@@ -14,31 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package constants
 
 import (
-	"reflect"
-
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
-// TODO: should also valid the key format
-func ValidateKey(key storage.Key, validKeyType interface{}) error {
-	if key == nil || key.Key() == "" {
-		return storage.ErrKeyIsEmpty
+var (
+	UploadResourcesKeyBuildInfo = map[storage.KeyBuildInfo]struct{}{
+		{Component: "kubelet", Resources: "pods", Group: "", Version: "v1"}:  {},
+		{Component: "kubelet", Resources: "nodes", Group: "", Version: "v1"}: {},
 	}
-	if reflect.TypeOf(key) != reflect.TypeOf(validKeyType) {
-		return storage.ErrUnrecognizedKey
-	}
-	return nil
-}
+)
 
-func ValidateKV(key storage.Key, content []byte, valideKeyType interface{}) error {
-	if err := ValidateKey(key, valideKeyType); err != nil {
-		return err
-	}
-	if len(content) == 0 {
-		return storage.ErrKeyHasNoContent
-	}
-	return nil
-}
+const (
+	DefaultPoolScopedUserAgent           = "leader-yurthub"
+	PoolCoordinatorClientSecretName      = "pool-coordinator-yurthub-certs"
+	PoolCoordinatorClientSecretNamespace = "kube-system"
+)

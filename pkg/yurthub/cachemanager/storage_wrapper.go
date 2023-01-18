@@ -46,6 +46,7 @@ type StorageWrapper interface {
 	DeleteComponentResources(component string) error
 	SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
 	GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
+	GetStorage() storage.Store
 }
 
 type storageWrapper struct {
@@ -68,6 +69,10 @@ func (sw *storageWrapper) Name() string {
 
 func (sw *storageWrapper) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	return sw.store.KeyFunc(info)
+}
+
+func (sw *storageWrapper) GetStorage() storage.Store {
+	return sw.store
 }
 
 // Create store runtime object into backend storage

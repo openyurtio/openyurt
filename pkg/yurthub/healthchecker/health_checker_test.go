@@ -176,7 +176,7 @@ func TestNewCoordinatorHealthChecker(t *testing.T) {
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			cfg := &config.YurtHubConfiguration{
-				CoordinatorServer:         &url.URL{Host: "127.0.0.1:18080"},
+				CoordinatorServerURL:      &url.URL{Host: "127.0.0.1:18080"},
 				NodeName:                  node.Name,
 				HeartbeatFailedRetry:      2,
 				HeartbeatHealthyThreshold: 1,
@@ -210,7 +210,7 @@ func TestNewCoordinatorHealthChecker(t *testing.T) {
 			if tt.cloudAPIServerUnhealthy {
 				if delegateLease == nil || len(delegateLease.Annotations) == 0 {
 					t.Errorf("expect delegate heartbeat annotaion, but got nil")
-				} else if v, ok := delegateLease.Annotations[delegateHeartBeat]; !ok || v != "true" {
+				} else if v, ok := delegateLease.Annotations[DelegateHeartBeat]; !ok || v != "true" {
 					t.Errorf("expect delegate heartbeat annotaion and v is true, but got empty or %v", v)
 				}
 			}
