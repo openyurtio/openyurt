@@ -165,7 +165,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		FilterManager:             filterManager,
 		MinRequestTimeout:         options.MinRequestTimeout,
 		TenantNs:                  tenantNs,
-		YurtHubProxyServerAddr:    fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+		YurtHubProxyServerAddr:    fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
 		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
