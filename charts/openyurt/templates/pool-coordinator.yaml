@@ -36,57 +36,6 @@ spec:
   selector:
     k8s-app: pool-coordinator
 ---
-#apiVersion: v1
-#kind: ConfigMap
-#metadata:
-#  name: pool-coordinator-init-rbac
-#  namespace: {{ .Release.Namespace | quote }}
-#data:
-#  pool-coordinator-init-rbac.yaml: |
-#    apiVersion: rbac.authorization.k8s.io/v1
-#    kind: ClusterRoleBinding
-#    metadata:
-#      name: openyurt:pool-coordinator:monitoring
-#    roleRef:
-#      apiGroup: rbac.authorization.k8s.io
-#      kind: ClusterRole
-#      name: openyurt:pool-coordinator:monitoring
-#    subjects:
-#    - apiGroup: rbac.authorization.k8s.io
-#      kind: User
-#      name: openyurt:pool-coordinator:monitoring
-#    ---
-#    apiVersion: rbac.authorization.k8s.io/v1
-#    kind: ClusterRoleBinding
-#    metadata:
-#      name: openyurt:pool-coordinator:apiserver
-#    roleRef:
-#      apiGroup: rbac.authorization.k8s.io
-#      kind: ClusterRole
-#      name: openyurt:pool-coordinator:apiserver
-#    subjects:
-#    - apiGroup: rbac.authorization.k8s.io
-#      kind: User
-#      name: openyurt:pool-coordinator:apiserver
-#    ---
-#    apiVersion: rbac.authorization.k8s.io/v1
-#    kind: ClusterRole
-#    metadata:
-#      name: openyurt:pool-coordinator:apiserver
-#    rules:
-#    - apiGroups: [""]
-#      resources:  ["pods/attach", "pods/exec", "pods/portforward", "pods/proxy", "pods/log"]
-#      verbs: ["get", "list"]
-#    ---
-#    apiVersion: rbac.authorization.k8s.io/v1
-#    kind: ClusterRole
-#    metadata:
-#      name: openyurt:pool-coordinator:monitoring
-#    rules:
-#    - apiGroups: [""]
-#      resources: [""]
-#      verbs: ["get", "list", "watch"]
-#---
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppDaemon
 metadata:
@@ -141,9 +90,6 @@ spec:
                   - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
                 image: "{{ .Values.poolCoordinator.apiserverImage.registry }}/{{ .Values.poolCoordinator.apiserverImage.repository }}:{{ .Values.poolCoordinator.apiserverImage.tag }}"
                 imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
-                {{- if .Values.imagePullSecrets }}
-                imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
-                {{- end }}
                 livenessProbe:
                   failureThreshold: 8
                   httpGet:
@@ -166,8 +112,10 @@ spec:
                   periodSeconds: 1
                   successThreshold: 1
                   timeoutSeconds: 15
+                {{- if .Values.poolCoordinator.apiserverResources }}
                 resources:
-                  {{- toYaml .Values.poolCoordinator.apiserverResources | nindent 12 }}
+                  {{- toYaml .Values.poolCoordinator.apiserverResources | nindent 18 }}
+                {{- end }}
                 startupProbe:
                   failureThreshold: 24
                   httpGet:
@@ -191,19 +139,20 @@ spec:
                   - --listen-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
                   - --cert-file=/etc/kubernetes/pki/etcd-server.crt
                   - --client-cert-auth=true
+                  - --max-txn-ops=102400
                   - --data-dir=/var/lib/etcd
+                  - --max-request-bytes=100000000
                   - --key-file=/etc/kubernetes/pki/etcd-server.key
                   - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
                   - --snapshot-count=10000
                   - --trusted-ca-file=/etc/kubernetes/pki/ca.crt
                 image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
                 imagePullPolicy: {{ .Values.poolCoordinator.etcdImage.pullPolicy }}
-                {{- if .Values.imagePullSecrets }}
-                imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
-                {{- end }}
                 name: etcd
+                {{- if .Values.poolCoordinator.etcdResources}}
                 resources:
-                  {{- toYaml .Values.poolCoordinator.etcdResources | nindent 12 }}
+                  {{- toYaml .Values.poolCoordinator.etcdResources | nindent 18 }}
+                {{- end }}
                 startupProbe:
                   failureThreshold: 24
                   httpGet:
@@ -221,33 +170,11 @@ spec:
                   - mountPath: /etc/kubernetes/pki
                     name: pool-coordinator-certs
                     readOnly: true
-#              - image: "{{ .Values.poolCoordinator.kubectlImage.registry }}/{{ .Values.poolCoordinator.kubectlImage.repository }}:{{ .Values.poolCoordinator.kubectlImage.tag }}"
-#                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
-#                {{- if .Values.imagePullSecrets }}
-#                imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 8 }}
-#                {{- end }}
-#                  lifecycle:
-#                    postStart:
-#                      exec:
-#                        command:
-#                          - kubectl
-#                          - apply
-#                          - -f
-#                          - /etc/kubernetes/pool-coordinator-init-rbac.yaml
-#                  name: kubectl
-#                  resources:
-#                    {{- toYaml .Values.poolCoordinator.etcdResources | nindent 12 }}
-#                  securityContext:
-#                    privileged: true
-#                  terminationMessagePath: /dev/termination-log
-#                  terminationMessagePolicy: File
-#                  tty: true
-#                  volumeMounts:
-#                    - mountPath: /root/.kube/
-#                      name: kubeconfig
-#                    - mountPath: /etc/kubernetes/pool-coordinator-init-rbac.yaml
-#                      name: pool-coordinator-init-rbac
             dnsPolicy: ClusterFirst
+            {{- if .Values.imagePullSecrets }}
+            imagePullSecrets:
+            {{ toYaml .Values.imagePullSecrets | nindent 14 }}
+            {{- end }}
             enableServiceLinks: true
             hostNetwork: true
             preemptionPolicy: PreemptLowerPriority
@@ -269,18 +196,9 @@ spec:
               - projected:
                   sources:
                     - secret:
-                        name: dynamic-certs
-                        secretName: pool-coordinator-dynamic-certs
+                        name: pool-coordinator-dynamic-certs
                         defaultMode: 420
                     - secret:
-                        name: static-certs
-                        secretName: pool-coordinator-static-certs
+                        name: pool-coordinator-static-certs
                         defaultMode: 420
                 name: pool-coordinator-certs
-#              - secret:
-#                  secretName: pool-coordinator-self-kubeconfig
-#                  defaultMode: 420
-#                name: kubeconfig
-#              - configMap:
-#                  name: pool-coordinator-init-rbac
-#                name: pool-coordinator-init-rbac
