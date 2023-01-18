@@ -26,29 +26,6 @@ admissionWebhooks:
     webhookPodValidatingPath: /pool-coordinator-webhook-validate
     webhookPodMutatingPath: /pool-coordinator-webhook-mutate
 
-yurtTunnelAgent:
-  replicaCount: 1
-  tolerations: []
-  parameters:
-    tunnelserverAddr: ""
-  image:
-    registry: docker.io
-    repository: openyurt/yurt-tunnel-agent
-    pullPolicy: IfNotPresent
-    tag: v1.1.0
-
-yurtTunnelServer:
-  replicaCount: 1
-  tolerations: []
-  parameters:
-    certDnsNames: ""
-    certIps: ""
-    tunnelAgentConnectPort: 10262
-  image:
-    registry: docker.io
-    repository: openyurt/yurt-tunnel-server
-    pullPolicy: IfNotPresent
-    tag: v1.1.0
 
 poolCoordinator:
   apiserverSecurePort: 10270
