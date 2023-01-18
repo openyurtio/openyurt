@@ -42,6 +42,7 @@ var SpecialDefaultResourcePrefixes = map[schema.GroupResource]string{
 type storageKey struct {
 	comp string
 	path string
+	gvr  schema.GroupVersionResource
 }
 
 func (k storageKey) Key() string {
@@ -74,5 +75,10 @@ func (s *etcdStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	return storageKey{
 		comp: info.Component,
 		path: path,
+		gvr: schema.GroupVersionResource{
+			Group:    info.Group,
+			Version:  info.Version,
+			Resource: info.Resources,
+		},
 	}, nil
 }

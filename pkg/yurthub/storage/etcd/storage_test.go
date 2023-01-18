@@ -490,6 +490,7 @@ var _ = Describe("Test EtcdStorage", func() {
 				Expect(buf).To(Equal(pod4Json))
 			})
 			It("should delete resources in etcd if they were in local cache but are not in current contents", func() {
+				Expect(etcdstore.Create(cmKey, cmJson)).Should(BeNil())
 				Expect(etcdstore.ReplaceComponentList("kubelet", gvr, "", map[storage.Key][]byte{
 					key1: podJson,
 				})).To(BeNil())
@@ -500,6 +501,11 @@ var _ = Describe("Test EtcdStorage", func() {
 				Expect(err).To(Equal(storage.ErrStorageNotFound))
 				_, err = etcdstore.Get(key3)
 				Expect(err).To(Equal(storage.ErrStorageNotFound))
+
+				// Should not delete resources of other gvr
+				buf, err = etcdstore.Get(cmKey)
+				Expect(err).To(BeNil())
+				Expect(buf).To(Equal(cmJson))
 			})
 		})
 
@@ -539,11 +545,13 @@ var _ = Describe("Test EtcdStorage", func() {
 
 				_, found := etcdstore.localComponentKeyCache.Load("kubelet")
 				Expect(found).To(BeFalse())
-				keyset, found := etcdstore.localComponentKeyCache.Load("kube-proxy")
+				cache, found := etcdstore.localComponentKeyCache.Load("kube-proxy")
 				Expect(found).To(BeTrue())
-				Expect(keyset).To(Equal(keySet{
-					m: map[storageKey]struct{}{
-						cmKey.(storageKey): {},
+				Expect(cache).To(Equal(keyCache{
+					m: map[schema.GroupVersionResource]storageKeySet{
+						cmGVR: {
+							cmKey.(storageKey): {},
+						},
 					},
 				}))
 			})
