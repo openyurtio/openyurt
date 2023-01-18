@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/docs"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/token"
@@ -48,6 +49,7 @@ func NewYurtadmCommand() *cobra.Command {
 	cmds.AddCommand(join.NewCmdJoin(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(token.NewCmdToken(os.Stdin, os.Stdout, os.Stderr))
+	cmds.AddCommand(docs.NewDocsCmd(cmds))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
