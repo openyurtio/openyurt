@@ -436,7 +436,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if info.Resource == "pods" {
-				klog.V(2).Infof("pod(%s) is %s", key, string(watchType))
+				klog.V(2).Infof("pod(%s) is %s", key.Key(), string(watchType))
 			}
 
 			if err != nil {
