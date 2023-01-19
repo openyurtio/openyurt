@@ -36,18 +36,22 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
-type CertFileType string
+type CertFileType int
 
-var (
-	RootCA            CertFileType = "CA"
-	YurthubClientCert CertFileType = "YurthubClientCert"
-	YurthubClientKey  CertFileType = "YurthubClientKey"
+const (
+	RootCA CertFileType = iota
+	YurthubClientCert
+	YurthubClientKey
+	NodeLeaseProxyClientCert
+	NodeLeaseProxyClientKey
 )
 
 var certFileNames = map[CertFileType]string{
-	RootCA:            "pool-coordinator-ca.crt",
-	YurthubClientCert: "pool-coordinator-yurthub-client.crt",
-	YurthubClientKey:  "pool-coordinator-yurthub-client.key",
+	RootCA:                   "pool-coordinator-ca.crt",
+	YurthubClientCert:        "pool-coordinator-yurthub-client.crt",
+	YurthubClientKey:         "pool-coordinator-yurthub-client.key",
+	NodeLeaseProxyClientCert: "node-lease-proxy-client.crt",
+	NodeLeaseProxyClientKey:  "node-lease-proxy-client.key",
 }
 
 func NewCertManager(pkiDir string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
@@ -90,9 +94,10 @@ func NewCertManager(pkiDir string, yurtClient kubernetes.Interface, informerFact
 
 type CertManager struct {
 	sync.Mutex
-	pkiDir string
-	cert   *tls.Certificate
-	store  fs.FileSystemOperator
+	pkiDir             string
+	coordinatorCert    *tls.Certificate
+	nodeLeaseProxyCert *tls.Certificate
+	store              fs.FileSystemOperator
 
 	// Used for unit test.
 	secret *corev1.Secret
@@ -101,7 +106,13 @@ type CertManager struct {
 func (c *CertManager) GetAPIServerClientCert() *tls.Certificate {
 	c.Lock()
 	defer c.Unlock()
-	return c.cert
+	return c.coordinatorCert
+}
+
+func (c *CertManager) GetNodeLeaseProxyClientCert() *tls.Certificate {
+	c.Lock()
+	defer c.Unlock()
+	return c.nodeLeaseProxyCert
 }
 
 func (c *CertManager) GetCaFile() string {
@@ -113,39 +124,76 @@ func (c *CertManager) GetFilePath(t CertFileType) string {
 }
 
 func (c *CertManager) updateCerts(secret *corev1.Secret) {
-	ca := secret.Data["ca.crt"]
-	coordinatorClientCrt := secret.Data["pool-coordinator-yurthub-client.crt"]
+	ca, caok := secret.Data["ca.crt"]
+
+	// pool-coordinator-yurthub-client.crt should appear with pool-coordinator-yurthub-client.key. So we
+	// only check the existence once.
+	coordinatorClientCrt, cook := secret.Data["pool-coordinator-yurthub-client.crt"]
 	coordinatorClientKey := secret.Data["pool-coordinator-yurthub-client.key"]
 
-	cert, err := tls.X509KeyPair(coordinatorClientCrt, coordinatorClientKey)
-	if err != nil {
-		klog.Errorf("failed to create tls certificate for coordinator, %v", err)
-		return
+	// node-lease-proxy-client.crt should appear with node-lease-proxy-client.key. So we
+	// only check the existence once.
+	nodeLeaseProxyClientCrt, nook := secret.Data["node-lease-proxy-client.crt"]
+	nodeLeaseProxyClientKey := secret.Data["node-lease-proxy-client.key"]
+
+	var coordinatorCert, nodeLeaseProxyCert *tls.Certificate
+	if cook {
+		if cert, err := tls.X509KeyPair(coordinatorClientCrt, coordinatorClientKey); err != nil {
+			klog.Errorf("failed to create tls certificate for coordinator, %v", err)
+		} else {
+			coordinatorCert = &cert
+		}
 	}
 
-	caPath := c.GetCaFile()
-	certPath := c.GetFilePath(YurthubClientCert)
-	keyPath := c.GetFilePath(YurthubClientKey)
+	if nook {
+		if cert, err := tls.X509KeyPair(nodeLeaseProxyClientCrt, nodeLeaseProxyClientKey); err != nil {
+			klog.Errorf("failed to create tls certificate for node lease proxy, %v", err)
+		} else {
+			nodeLeaseProxyCert = &cert
+		}
+	}
 
 	c.Lock()
 	defer c.Unlock()
 	// TODO: The following updates should rollback on failure,
 	// making the certs in-memory and certs on disk consistent.
-	if err := c.createOrUpdateFile(caPath, ca); err != nil {
-		klog.Errorf("failed to update ca, %v", err)
+	if caok {
+		klog.Infof("updating coordinator ca cert")
+		if err := c.createOrUpdateFile(c.GetFilePath(RootCA), ca); err != nil {
+			klog.Errorf("failed to update ca, %v", err)
+		}
 	}
-	if err := c.createOrUpdateFile(keyPath, coordinatorClientKey); err != nil {
-		klog.Errorf("failed to update client key, %v", err)
+
+	if cook {
+		klog.Infof("updating pool-coordinator-yurthub client cert and key")
+		if err := c.createOrUpdateFile(c.GetFilePath(YurthubClientKey), coordinatorClientKey); err != nil {
+			klog.Errorf("failed to update coordinator client key, %v", err)
+		}
+		if err := c.createOrUpdateFile(c.GetFilePath(YurthubClientCert), coordinatorClientCrt); err != nil {
+			klog.Errorf("failed to update coordinator client cert, %v", err)
+		}
 	}
-	if err := c.createOrUpdateFile(certPath, coordinatorClientCrt); err != nil {
-		klog.Errorf("failed to update client cert, %v", err)
+
+	if nook {
+		klog.Infof("updating node-lease-proxy-client cert and key")
+		if err := c.createOrUpdateFile(c.GetFilePath(NodeLeaseProxyClientKey), nodeLeaseProxyClientKey); err != nil {
+			klog.Errorf("failed to update node lease proxy client key, %v", err)
+		}
+		if err := c.createOrUpdateFile(c.GetFilePath(NodeLeaseProxyClientCert), nodeLeaseProxyClientCrt); err != nil {
+			klog.Errorf("failed to update node lease proxy client cert, %v", err)
+		}
 	}
-	c.cert = &cert
+
+	c.coordinatorCert = coordinatorCert
+	c.nodeLeaseProxyCert = nodeLeaseProxyCert
 	c.secret = secret.DeepCopy()
 }
 
 func (c *CertManager) deleteCerts() {
-	c.cert = nil
+	c.Lock()
+	defer c.Unlock()
+	c.coordinatorCert = nil
+	c.nodeLeaseProxyCert = nil
 }
 
 func (c *CertManager) createOrUpdateFile(path string, data []byte) error {

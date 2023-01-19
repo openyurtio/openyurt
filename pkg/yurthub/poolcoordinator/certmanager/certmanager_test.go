@@ -55,7 +55,7 @@ WOkCYynzE8EVrosIUIko+6IopX5wheTJ0IcU4yCQNo+avzYKMFztVh6eQLoe7afq
 GFQ=
 -----END CERTIFICATE-----
 `
-	certByte = `-----BEGIN CERTIFICATE-----
+	coordinatorCertByte = `-----BEGIN CERTIFICATE-----
 MIIDLjCCAhagAwIBAgIIDOMcH2sIQDowDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
 AxMKa3ViZXJuZXRlczAeFw0yMjEyMjgwMzM4MjNaFw0yMzEyMjgwMzM4MjNaMEEx
 FzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMSYwJAYDVQQDEx1rdWJlLWFwaXNlcnZl
@@ -76,7 +76,7 @@ ip2++hBi1NIyUYAhdktGas6FZPORtn+kvVs5A/V88EacqkWqVWRW0582gcyL8uJD
 QXo=
 -----END CERTIFICATE-----
 `
-	keyByte = `-----BEGIN RSA PRIVATE KEY-----
+	coordinatorKeyByte = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAxS0kRp057jeo9MDOmEn558leaROBux1IcYjsGKCoJc6BDyQR
 5NBIhWpMum+mQnV8Ka/oJs01CqsAFIi8f2g+jUBNjTgSt4BbmSsd1IVo487VP9Ov
 JLIbs1bmKQRmiOIgEURDUHYluklYIewOyloHsEwj/IqCuzZG6dOqAt3xU+gbP5AW
@@ -104,6 +104,31 @@ pe7HLwKBgF9lHHhy76nDW8VMlcEtYIZf329VoqeTMUmvDWFyHAWuY4ZQ4ugAoBUK
 otCqT57JeYWq2hEFromJoSiBgai7weO/E2lAR2Qs99uEPp45q9JQ
 -----END RSA PRIVATE KEY-----
 `
+
+	nodeLeaseProxyCertByte = `-----BEGIN CERTIFICATE-----
+MIICizCCAXOgAwIBAgIRAMh6sQhKTUmBgJ8fAO6pN9swDQYJKoZIhvcNAQELBQAw
+FTETMBEGA1UEAxMKa3ViZXJuZXRlczAeFw0yMzAxMjkxNTM5NDFaFw0yNDAxMjkx
+NTM5NDFaMGAxIjAgBgNVBAoTGW9wZW55dXJ0OnBvb2wtY29vcmRpbmF0b3IxOjA4
+BgNVBAMTMW9wZW55dXJ0OnBvb2wtY29vcmRpbmF0b3I6bm9kZS1sZWFzZS1wcm94
+eS1jbGllbnQwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATVqaIIvc5cuNkWtNTs
+v6ddKSD3uwq2rBPtOwR2htPAoI2YN6PCYC/RMJGJ4U4ZidEqTj1JDeoCIEUv6KOg
+bBzlo1YwVDAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwDAYD
+VR0TAQH/BAIwADAfBgNVHSMEGDAWgBRgN+htjKYJdOgZ8ZREdjf1Vc4G+DANBgkq
+hkiG9w0BAQsFAAOCAQEA0ZUhvSck6pLXfqpyBAPkv3OPd+Rnwc9FZg5//rXNC4Ae
+Hn3TzqGctUu+MRM+SzDucg9qR8pLTMUajz91gkm2+8I7l/2qmDT0Ey3FBd4/2fhk
+NQCAy6JUBwVGw58cnoGDi4fvrekHkNYJFOrJWWU89oYWLwrSylCp+UV8EXd9UbQ7
+txgzlOfCjH/TIUdUrlpr3fQXk9HRYyNAbh9tNLm2UbBQuW3hWnqClT6TuZ3r3YIF
+MCCMCOMTneKvNTSci1fGNyd6C12w4Hj+ox+pURJrZ1SUCsAK1EfSIBr1hLWh/f72
+iBBcMK8JlrYBxggAgvJJawWOqVI32Xq1qTJEs5K50w==
+-----END CERTIFICATE-----
+	`
+
+	nodeLeaseProxyKeyByte = `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIJWSAemqKwLTHpW0fe2J1uJk8eUUE3YrC6oET3rHpiDsoAoGCCqGSM49
+AwEHoUQDQgAE1amiCL3OXLjZFrTU7L+nXSkg97sKtqwT7TsEdobTwKCNmDejwmAv
+0TCRieFOGYnRKk49SQ3qAiBFL+ijoGwc5Q==
+-----END EC PRIVATE KEY-----
+	`
 
 	newCertByte = `-----BEGIN CERTIFICATE-----
 MIIDKDCCAhCgAwIBAgIIYxZk3ye/TxMwDQYJKoZIhvcNAQELBQAwEjEQMA4GA1UE
@@ -154,6 +179,12 @@ KAGM4g6DY68asv37ATNrYjLZ0MGsArWhKXsbxiR9CrzrNFVVtVIc6g==
 -----END RSA PRIVATE KEY-----`
 )
 
+type expectFile struct {
+	FilePath string
+	Data     []byte
+	Exists   bool
+}
+
 var (
 	fileStore             = fs.FileSystemOperator{}
 	secretGVR             = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
@@ -168,8 +199,8 @@ var (
 		},
 		Data: map[string][]byte{
 			"ca.crt":                              []byte(caByte),
-			"pool-coordinator-yurthub-client.crt": []byte(certByte),
-			"pool-coordinator-yurthub-client.key": []byte(keyByte),
+			"pool-coordinator-yurthub-client.crt": []byte(coordinatorCertByte),
+			"pool-coordinator-yurthub-client.key": []byte(coordinatorKeyByte),
 		},
 	}
 
@@ -204,7 +235,7 @@ func TestSecretAdd(t *testing.T) {
 		// Expect to timeout which indicates the CertManager does not save the cert
 		// that is not pool-coordinator-yurthub-certs.
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if certMgr.cert != nil {
+			if certMgr.secret != nil {
 				return false, fmt.Errorf("unexpect cert initialization")
 			}
 
@@ -238,7 +269,32 @@ func TestSecretAdd(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret)
+			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+				{
+					FilePath: certMgr.GetFilePath(RootCA),
+					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(YurthubClientCert),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Exists:   true,
+				},
+				{
+
+					FilePath: certMgr.GetFilePath(YurthubClientKey),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientCert),
+					Exists:   false,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
+					Exists:   false,
+				},
+			})
 		})
 
 		if err != nil {
@@ -264,12 +320,38 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		err = wait.Poll(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret)
+			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+				{
+					FilePath: certMgr.GetFilePath(RootCA),
+					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(YurthubClientCert),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Exists:   true,
+				},
+				{
+
+					FilePath: certMgr.GetFilePath(YurthubClientKey),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientCert),
+					Exists:   false,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
+					Exists:   false,
+				},
+			})
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be initialized, %v", err)
 		}
 
+		// test updating existing cert and key
 		newSecret := poolCoordinatorSecret.DeepCopy()
 		newSecret.Data["pool-coordinator-yurthub-client.key"] = []byte(newKeyByte)
 		newSecret.Data["pool-coordinator-yurthub-client.crt"] = []byte(newCertByte)
@@ -278,7 +360,73 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, newSecret)
+			return checkSecret(certMgr, newSecret, []expectFile{
+				{
+					FilePath: certMgr.GetFilePath(RootCA),
+					Data:     newSecret.Data["ca.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(YurthubClientCert),
+					Data:     newSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Exists:   true,
+				},
+				{
+
+					FilePath: certMgr.GetFilePath(YurthubClientKey),
+					Data:     newSecret.Data["pool-coordinator-yurthub-client.key"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientCert),
+					Exists:   false,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
+					Exists:   false,
+				},
+			})
+		})
+		if err != nil {
+			t.Errorf("failed to wait cert manager to be updated, %v", err)
+		}
+
+		// test adding new cert and key
+		newSecret.Data["node-lease-proxy-client.crt"] = []byte(nodeLeaseProxyCertByte)
+		newSecret.Data["node-lease-proxy-client.key"] = []byte(nodeLeaseProxyKeyByte)
+		if err := fakeClient.Tracker().Update(secretGVR, newSecret, newSecret.Namespace); err != nil {
+			t.Errorf("failed to update secret, %v", err)
+		}
+
+		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+			return checkSecret(certMgr, newSecret, []expectFile{
+				{
+					FilePath: certMgr.GetFilePath(RootCA),
+					Data:     newSecret.Data["ca.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(YurthubClientCert),
+					Data:     newSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Exists:   true,
+				},
+				{
+
+					FilePath: certMgr.GetFilePath(YurthubClientKey),
+					Data:     newSecret.Data["pool-coordinator-yurthub-client.key"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientCert),
+					Data:     newSecret.Data["node-lease-proxy-client.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
+					Data:     newSecret.Data["node-lease-proxy-client.key"],
+					Exists:   true,
+				},
+			})
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be updated, %v", err)
@@ -303,7 +451,32 @@ func TestSecretDelete(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret)
+			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+				{
+					FilePath: certMgr.GetFilePath(RootCA),
+					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(YurthubClientCert),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Exists:   true,
+				},
+				{
+
+					FilePath: certMgr.GetFilePath(YurthubClientKey),
+					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Exists:   true,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientCert),
+					Exists:   false,
+				},
+				{
+					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
+					Exists:   false,
+				},
+			})
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be initialized, %v", err)
@@ -314,7 +487,7 @@ func TestSecretDelete(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if certMgr.cert == nil {
+			if certMgr.coordinatorCert == nil {
 				return true, nil
 			}
 			return false, nil
@@ -342,7 +515,7 @@ func initFakeClientAndCertManager() (*fake.Clientset, *CertManager, func(), erro
 	return fakeClientSet, certMgr, func() { close(stopCh) }, nil
 }
 
-func checkSecret(certMgr *CertManager, secret *corev1.Secret) (bool, error) {
+func checkSecret(certMgr *CertManager, secret *corev1.Secret, expectFiles []expectFile) (bool, error) {
 	if certMgr.secret == nil {
 		return false, nil
 	}
@@ -350,31 +523,19 @@ func checkSecret(certMgr *CertManager, secret *corev1.Secret) (bool, error) {
 		return false, nil
 	}
 
-	files := []struct {
-		path   string
-		expect []byte
-	}{
-		{
-			path:   certMgr.GetFilePath(RootCA),
-			expect: secret.Data["ca.crt"],
-		},
-		{
-			path:   certMgr.GetFilePath(YurthubClientCert),
-			expect: secret.Data["pool-coordinator-yurthub-client.crt"],
-		},
-		{
-			path:   certMgr.GetFilePath(YurthubClientKey),
-			expect: secret.Data["pool-coordinator-yurthub-client.key"],
-		},
-	}
-
-	for _, f := range files {
-		buf, err := fileStore.Read(f.path)
-		if err != nil {
-			return false, fmt.Errorf("failed to read file at %s, %v", f.path, err)
-		}
-		if string(buf) != string(f.expect) {
-			return false, fmt.Errorf("unexpected value of file %s", f.path)
+	for _, f := range expectFiles {
+		buf, err := fileStore.Read(f.FilePath)
+		if f.Exists {
+			if err != nil {
+				return false, fmt.Errorf("failed to read file at %s, %v", f.FilePath, err)
+			}
+			if string(buf) != string(f.Data) {
+				return false, fmt.Errorf("unexpected value of file %s", f.FilePath)
+			}
+		} else {
+			if err != fs.ErrNotExists {
+				return false, fmt.Errorf("file %s should not exist, but got err: %v", f.FilePath, err)
+			}
 		}
 	}
 
