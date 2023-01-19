@@ -194,11 +194,10 @@ spec:
                   medium: Memory
                 name: etcd-data
               - projected:
+                  defaultMode: 420
                   sources:
                     - secret:
                         name: pool-coordinator-dynamic-certs
-                        defaultMode: 420
                     - secret:
                         name: pool-coordinator-static-certs
-                        defaultMode: 420
                 name: pool-coordinator-certs
