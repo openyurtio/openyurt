@@ -401,12 +401,19 @@ func (h *PoolCoordinatorWebhook) NewPodAdmission(r *http.Request) (*PodAdmission
 		return nil, err
 	}
 
-	nodeName := pod.Spec.NodeSelector["kubernetes.io/hostname"]
-	klog.Infof("pod %s is on node: %s\n", pod.Name, nodeName)
+	podName := pod.Name
+	if pod.Name == "" {
+		podName = pod.GenerateName
+	}
+	nodeName := pod.Spec.NodeName
+	klog.Infof("pod %s is on node: %s", podName, nodeName)
 
 	var node *corev1.Node
-	if h.nodeLister != nil {
-		node, _ = h.nodeLister.Get(nodeName)
+	if h.nodeLister != nil && nodeName != "" {
+		node, err = h.nodeLister.Get(nodeName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node %s, %v", nodeName, err)
+		}
 	}
 
 	pa := &PodAdmission{
