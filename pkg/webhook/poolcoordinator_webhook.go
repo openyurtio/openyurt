@@ -586,18 +586,16 @@ func (h *PoolCoordinatorWebhook) ensureValidatingConfiguration(certs *Certs) {
 		if _, err := h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
 			context.TODO(), h.validatingConfigurationName, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
-				klog.Infof("validatewebhookconfiguratiion %s not found, create it.", h.validatingConfigurationName)
+				klog.Infof("validatewebhookconfiguration %s not found, create it.", h.validatingConfigurationName)
 				if _, err = h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(
 					context.TODO(), config, metav1.CreateOptions{}); err != nil {
 					klog.Fatal(err)
 				}
+			} else {
+				klog.Fatalf("failed to get validatewebhookconfiguration %s, %v", h.validatingConfigurationName, err)
 			}
 		} else {
-			klog.Infof("validatingwebhookconfiguratiion %s already exists, update it.", h.validatingConfigurationName)
-			if _, err = h.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(
-				context.TODO(), config, metav1.UpdateOptions{}); err != nil {
-				klog.Fatal(err)
-			}
+			klog.Infof("validatewebhookconfiguration %s has already existed, skip create", h.validatingConfigurationName)
 		}
 	}
 }
@@ -639,18 +637,16 @@ func (h *PoolCoordinatorWebhook) ensureMutatingConfiguration(certs *Certs) {
 		if _, err := h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
 			context.TODO(), h.mutatingConfigurationName, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
-				klog.Infof("validatewebhookconfiguratiion %s not found, create it.", h.mutatingConfigurationName)
+				klog.Infof("mutatingwebhookconfiguration %s not found, create it.", h.mutatingConfigurationName)
 				if _, err = h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(
 					context.TODO(), config, metav1.CreateOptions{}); err != nil {
 					klog.Fatal(err)
 				}
+			} else {
+				klog.Fatalf("failed to get mutatingwebhookconfiguration %s, %v", h.mutatingConfigurationName, err)
 			}
 		} else {
-			klog.Infof("validatingwebhookconfiguratiion %s already exists, update it.", h.mutatingConfigurationName)
-			if _, err = h.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(
-				context.TODO(), config, metav1.UpdateOptions{}); err != nil {
-				klog.Fatal(err)
-			}
+			klog.Infof("mutatingwebhookconfiguration %s has already existed, skip create", h.mutatingConfigurationName)
 		}
 	}
 }
