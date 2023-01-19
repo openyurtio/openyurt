@@ -13,10 +13,6 @@
 # limitations under the License.
 
 KUBERNETESVERSION ?=v1.22
-GOLANGCILINT_VERSION ?= v1.47.3
-GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
-GOBIN := $(shell go env GOPATH)/bin
-GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
 TARGET_PLATFORMS ?= linux/amd64
 IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
@@ -24,7 +20,6 @@ GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 BUILD_KUSTOMIZE ?= _output/manifest
-GOPROXY ?= $(shell go env GOPROXY)
 
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
@@ -39,8 +34,7 @@ endif
 DOCKER_BUILD_ARGS = --build-arg GIT_VERSION=${GIT_VERSION}
 
 ifeq (${REGION}, cn)
-GOPROXY=https://goproxy.cn
-DOCKER_BUILD_ARGS += --build-arg GOPROXY=$(GOPROXY) --build-arg MIRROR_REPO=mirrors.aliyun.com
+DOCKER_BUILD_ARGS += --build-arg GOPROXY=https://goproxy.cn --build-arg MIRROR_REPO=mirrors.aliyun.com
 endif
 
 ifneq (${http_proxy},)
@@ -57,7 +51,7 @@ all: test build
 
 # Build binaries in the host environment
 build:
-	GOPROXY=$(GOPROXY) bash hack/make-rules/build.sh $(WHAT)
+	bash hack/make-rules/build.sh $(WHAT)
 
 # Run test
 test:
@@ -70,7 +64,7 @@ clean:
 # verify will verify the code.
 verify: verify-mod verify-license
 
-# verify-license will check if license has been added to files. 
+# verify-license will check if license has been added to files.
 verify-license:
 	hack/make-rules/check_license.sh
 
@@ -97,25 +91,21 @@ e2e-tests:
 	ENABLE_AUTONOMY_TESTS=${ENABLE_AUTONOMY_TESTS} TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/run-e2e-tests.sh
 
 install-golint: ## check golint if not exist install golint tools
-ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
-GOLINT_BIN=$(GLOBAL_GOLANGCILINT)
-else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
-GOLINT_BIN=$(GOBIN_GOLANGCILINT)
-else
+ifeq (, $(shell which golangci-lint))
 	@{ \
-    set -e ;\
-    echo 'installing golangci-lint-$(GOLANGCILINT_VERSION)' ;\
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
-    echo 'Successfully installed' ;\
-    }
-GOLINT_BIN=$(GOBIN)/golangci-lint
+	set -e ;\
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2 ;\
+	}
+GOLINT_BIN=$(shell go env GOPATH)/bin/golangci-lint
+else
+GOLINT_BIN=$(shell which golangci-lint)
 endif
 
 lint: install-golint ## Run go lint against code.
 	$(GOLINT_BIN) run -v
 
 # Build the docker images only one arch(specify arch by TARGET_PLATFORMS env)
-# otherwise the platform of host will be used. 
+# otherwise the platform of host will be used.
 # e.g.
 #     - build linux/amd64 docker images:
 #       $# make docker-build TARGET_PLATFORMS=linux/amd64
@@ -130,7 +120,7 @@ docker-build:
 
 
 # Build and Push the docker images with multi-arch
-docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-static-pod-upgrade
+docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-node-servant docker-push-yurt-manager docker-push-yurt-static-pod-upgrade
 
 
 docker-buildx-builder:
@@ -145,10 +135,19 @@ docker-buildx-builder:
 docker-push-yurthub: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
 
+docker-push-yurt-controller-manager: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
+
+docker-push-yurt-tunnel-server: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
+
+docker-push-yurt-tunnel-agent: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
+
 docker-push-node-servant: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
 
-docker-push-yurt-manager: manifests docker-buildx-builder
+docker-push-yurt-manager: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
 
 docker-push-yurt-static-pod-upgrade: docker-buildx-builder
@@ -166,10 +165,11 @@ manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomReso
 
 # newcontroller
 # .e.g
-# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced 
+# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced
 # make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Cluster
 newcontroller:
 	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --kind $(KIND) --shortname $(SHORTNAME) --scope $(SCOPE)
+
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
@@ -192,11 +192,3 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
-
-
-fmt:
-	go fmt ./...
-	find . -name '*.go' | grep -Ev 'vendor|thrift_gen' | xargs goimports -w
-
-vet:
-	GO111MODULE=${GO_MODULE} go list ./... | grep -v "vendor" | xargs go vet
