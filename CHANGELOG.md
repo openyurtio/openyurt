@@ -1,5 +1,85 @@
 # CHANGELOG
 
+## v1.2.0
+
+### What's New
+
+**Two modes of edge autonomy have been provided**
+
+The original edge autonomy feature can make the pods on nodes un-evicted even if node crashed by adding annotation to node.
+After improving edge autonomy capability, two modes of edge autonomy are provided by adding annotation to workloads(like Deployment) as following:
+- node edge autonomy: pods with node edge autonomy annotation will not be un-evicted even if node crashed.
+- nodePool edge autonomy: when the reason of node NotReady is cloud-edge network off, pods will not be un-evicted, but pods will be evicted and recreated on other ready node in the nodePool if node crashed.
+
+By the way, The original edge autonomy by annotating node will be kept in the next several versions, but node edge autonomy
+will be recommended to replace the original way.
+
+**Reduce the control-plane traffic between cloud and edge**
+
+Based on the Pool-Coordinator in the nodePool, A leader Yurthub will be elected in the nodePool. Leader Yurthub will
+list/watch pool-scope data(like endpoints/endpointslices) from cloud and write into pool-coordinator. then all components(like kube-proxy/coredns)
+in the nodePool will get pool-scope data from pool-coordinator instead of cloud kube-apiserver, so large volume control-plane traffic
+will be reduced.
+
+**Use raven component to replace yurt-tunnel component**
+
+Raven has released version v0.3, and provide cross-regional network communication ability based on PodIP or NodeIP, but yurt-tunnel
+can only provide cloud-edge requests forwarding for kubectl logs/exec commands. because raven provides much more than the capabilities
+provided by yurt-tunnel, and raven has been proven by a lot of work. so raven component is officially recommended to replace yurt-tunnel.
+
+### Other Notable changes
+
+- proposal of yurtadm join refactoring by @YTGhost in https://github.com/openyurtio/openyurt/pull/1048
+- [Proposal] edgex auto-collector proposal by @LavenderQAQ in https://github.com/openyurtio/openyurt/pull/1051
+- add timeout config in yurthub to handle those watch requests by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1056
+- refactor yurtadm join by @YTGhost in https://github.com/openyurtio/openyurt/pull/1049
+- expose helm values for yurthub cacheagents by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1062
+- refactor yurthub cache to adapt different storages by @Congrool in https://github.com/openyurtio/openyurt/pull/882
+- add proposal of static pod upgrade model by @xavier-hou in https://github.com/openyurtio/openyurt/pull/1065
+- refactor yurtadm reset by @YTGhost in https://github.com/openyurtio/openyurt/pull/1075
+- bugfix: update the dependency yurt-app-manager-api from v0.18.8 to v0.6.0 by @YTGhost in https://github.com/openyurtio/openyurt/pull/1115
+- Feature: yurtadm reset/join modification. Do not remove k8s binaries, add flag for using local cni binaries. by @Windrow14 in https://github.com/openyurtio/openyurt/pull/1124
+- Improve certificate manager by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1133
+- fix: update package dependencies by @fengshunli in https://github.com/openyurtio/openyurt/pull/1149
+- fix: add common builder by @fengshunli in https://github.com/openyurtio/openyurt/pull/1152
+- generate yurtadm docs by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1159
+- add inclusterconfig filter for commenting kube-proxy configmap by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1158
+- delete yurt tunnel helm charts by @River-sh in https://github.com/openyurtio/openyurt/pull/1161
+
+### Fixes
+
+- bugfix: StreamResponseFilter of data filter framework can't work if size of one object is over 32KB by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1066
+- bugfix: add ignore preflight errors to adapt kubeadm before version 1.23.0 by @YTGhost in https://github.com/openyurtio/openyurt/pull/1092
+- bugfix: dynamically switch apiVersion of JoinConfiguration to adapt to different versions of k8s by @YTGhost in https://github.com/openyurtio/openyurt/pull/1112
+- bugfix: yurthub can not exit when SIGINT/SIGTERM happened by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1143
+
+### Contributors
+
+**Thank you to everyone who contributed to this release!** ❤
+
+- [@YTGhost](https://github.com/YTGhost)
+- [@Congrool](https://github.com/Congrool)
+- [@LavenderQAQ](https://github.com/LavenderQAQ)
+- [@AndyEWang](https://github.com/AndyEWang)
+- [@huiwq1990](https://github.com/huiwq1990)
+- [@rudolf-chy](https://github.com/rudolf-chy)
+- [@xavier-hou](https://github.com/xavier-hou)
+- [@gbtyy](https://github.com/gbtyy)
+- [@huweihuang](https://github.com/huweihuang)
+- [@zzguang](https://github.com/zzguang)
+- [@Windrow14](https://github.com/Windrow14)
+- [@fengshunli](https://github.com/fengshunli)
+- [@gnunu](https://github.com/gnunu)
+- [@luc99hen](https://github.com/luc99hen)
+- [@donychen1134](https://github.com/donychen1134)
+- [@LindaYu17](https://github.com/LindaYu17)
+- [@fujitatomoya](https://github.com/fujitatomoya)
+- [@River-sh](https://github.com/River-sh)
+- [@rambohe-ch](https://github.com/rambohe-ch)
+
+And thank you very much to everyone else not listed here who contributed in other ways like filing issues,
+giving feedback, helping users in community group, etc.
+
 ## v1.1.0
 
 ### What's New
