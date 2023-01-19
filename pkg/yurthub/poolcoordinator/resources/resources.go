@@ -135,7 +135,7 @@ func (m *PoolScopeResourcesManger) addConfigmap(obj interface{}) {
 	verifiablePoolScopeResourcesGVRs := make([]*verifiablePoolScopeResource, 0)
 	if err := json.Unmarshal([]byte(poolScopeResources), &poolScopeResourcesGVRs); err != nil {
 		klog.Errorf("PoolScopeResourcesManger unmarshal poolScopeResources %s failed with error = %s",
-			poolScopeResourcesGVRs, err.Error())
+			poolScopeResources, err.Error())
 		return
 	}
 	klog.Infof("PoolScopeResourcesManger add configured pool scope resources %v", poolScopeResourcesGVRs)
