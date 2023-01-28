@@ -17,6 +17,7 @@ limitations under the License.
 package disk
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -77,4 +78,58 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 		path:    path,
 		rootKey: isRoot,
 	}, nil
+}
+
+func ExtractKeyBuildInfo(key storage.Key) (*storage.KeyBuildInfo, error) {
+	storageKey, ok := key.(storageKey)
+	if !ok {
+		return nil, storage.ErrUnrecognizedKey
+	}
+
+	if storageKey.isRootKey() {
+		return nil, fmt.Errorf("cannot extract KeyBuildInfo from disk key %s, root key is unsupported", key.Key())
+	}
+
+	path := strings.TrimPrefix(key.Key(), "/")
+	elems := strings.SplitN(path, "/", 3)
+	if len(elems) < 3 {
+		return nil, fmt.Errorf("cannot parse disk key %s, invalid format", key.Key())
+	}
+
+	comp, gvr, namespaceName := elems[0], elems[1], elems[2]
+	buildInfo := &storage.KeyBuildInfo{
+		Component: comp,
+	}
+
+	// parse GVR
+	gvrElems := strings.SplitN(gvr, ".", 3)
+	switch len(gvrElems) {
+	case 1:
+		// DiskStorage does not run in enhancement mode.
+		// For the purpose of backward compatibility.
+		buildInfo.Resources = gvrElems[0]
+	case 3:
+		buildInfo.Resources, buildInfo.Version, buildInfo.Group = gvrElems[0], gvrElems[1], gvrElems[2]
+	default:
+		return nil, fmt.Errorf("cannot parse gvr of disk key %s, invalid format", key.Key())
+	}
+
+	// parse Namespace and Name
+	nnElems := strings.SplitN(namespaceName, "/", 2)
+	switch len(nnElems) {
+	case 1:
+		// non-namespaced object
+		buildInfo.Name = nnElems[0]
+	case 2:
+		// namespaced object
+		buildInfo.Namespace, buildInfo.Name = nnElems[0], nnElems[1]
+	default:
+		return nil, fmt.Errorf("cannot parse namespace name of disk key %s, invalid format", key.Key())
+	}
+
+	if buildInfo.Group == "core" {
+		buildInfo.Group = ""
+	}
+
+	return buildInfo, nil
 }

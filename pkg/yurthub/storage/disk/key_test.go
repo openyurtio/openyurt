@@ -18,6 +18,7 @@ package disk
 
 import (
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -163,4 +164,103 @@ func TestKeyFunc(t *testing.T) {
 		})
 	}
 	os.RemoveAll(keyFuncTestDir)
+}
+
+type unknownKey struct{}
+
+func (k unknownKey) Key() string { return "" }
+
+func TestExtractKeyBuildInfo(t *testing.T) {
+	cases := []struct {
+		description string
+		key         storage.Key
+		expect      storage.KeyBuildInfo
+		expectErr   bool
+	}{
+		{
+			description: "not disk storage key",
+			key:         unknownKey{},
+			expectErr:   true,
+		},
+		{
+			description: "root key",
+			key: storageKey{
+				rootKey: true,
+				path:    "kubelet/pods",
+			},
+			expectErr: true,
+		},
+		{
+			description: "enhancement mode core group",
+			key: storageKey{
+				rootKey: false,
+				path:    "kubelet/pods.v1.core/default/nginx",
+			},
+			expect: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Version:   "v1",
+				Group:     "",
+				Namespace: "default",
+				Name:      "nginx",
+			},
+		},
+		{
+			description: "enhancement mode not core group",
+			key: storageKey{
+				rootKey: false,
+				path:    "kube-proxy/endpointslices.v1.discovery.k8s.io/default/kubernetes",
+			},
+			expect: storage.KeyBuildInfo{
+				Component: "kube-proxy",
+				Resources: "endpointslices",
+				Version:   "v1",
+				Group:     "discovery.k8s.io",
+				Namespace: "default",
+				Name:      "kubernetes",
+			},
+		},
+		{
+			description: "not enhancement mode",
+			key: storageKey{
+				rootKey: false,
+				path:    "kubelet/pods/default/nginx",
+			},
+			expect: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Name:      "nginx",
+			},
+		},
+		{
+			description: "non-namespaced resource",
+			key: storageKey{
+				rootKey: false,
+				path:    "kubelet/nodes/node1",
+			},
+			expect: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Name:      "node1",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			got, err := ExtractKeyBuildInfo(c.key)
+			if (c.expectErr && err == nil) || (!c.expectErr && err != nil) {
+				t.Errorf("unexpected error, expect error %v, got %v", c.expectErr, err)
+			}
+
+			if err != nil {
+				return
+			}
+
+			if !reflect.DeepEqual(*got, c.expect) {
+				t.Errorf("unexpected info, expect %v, got %v", c.expect, *got)
+			}
+		})
+	}
 }

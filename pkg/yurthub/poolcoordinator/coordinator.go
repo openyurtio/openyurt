@@ -51,6 +51,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
@@ -576,19 +577,30 @@ func (l *localCacheUploader) resourcesToUpload() map[storage.Key][]byte {
 			Version:  info.Version,
 			Resource: info.Resources,
 		}
-		keys, err := l.diskStorage.ListResourceKeysOfComponent(info.Component, gvr)
+		localKeys, err := l.diskStorage.ListResourceKeysOfComponent(info.Component, gvr)
 		if err != nil {
 			klog.Errorf("failed to get object keys from disk for %s, %v", gvr.String(), err)
 			continue
 		}
 
-		for _, k := range keys {
+		for _, k := range localKeys {
 			buf, err := l.diskStorage.Get(k)
 			if err != nil {
 				klog.Errorf("failed to read local cache of key %s, %v", k.Key(), err)
 				continue
 			}
-			objBytes[k] = buf
+			buildInfo, err := disk.ExtractKeyBuildInfo(k)
+			if err != nil {
+				klog.Errorf("failed to extract key build info from local cache of key %s, %v", k.Key(), err)
+				continue
+			}
+
+			poolCacheKey, err := l.etcdStorage.KeyFunc(*buildInfo)
+			if err != nil {
+				klog.Errorf("failed to generate pool cache key from local cache key %s, %v", k.Key(), err)
+				continue
+			}
+			objBytes[poolCacheKey] = buf
 		}
 	}
 	return objBytes
