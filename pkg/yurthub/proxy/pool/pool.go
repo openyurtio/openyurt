@@ -125,8 +125,8 @@ func (pp *PoolCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 			util.Err(errors.NewBadRequest(err.Error()), rw, req)
 		}
 	} else {
-		klog.Errorf("pool-coordinator does not support request(%s) when cluster is unhealthy, requestInfo: %v", hubutil.ReqString(req), reqInfo)
-		util.Err(errors.NewBadRequest(fmt.Sprintf("pool-coordinator does not support request(%s) when cluster is unhealthy", hubutil.ReqString(req))), rw, req)
+		klog.Errorf("pool-coordinator does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
+		util.Err(errors.NewBadRequest(fmt.Sprintf("pool-coordinator does not support request(%s)", hubutil.ReqString(req))), rw, req)
 	}
 }
 
@@ -265,7 +265,7 @@ func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			if err := pp.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-				klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+				klog.Errorf("pool proxy failed to cache req %s in local cache, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, ctx.Done())
 

@@ -388,7 +388,7 @@ func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+			klog.Errorf("lb failed to cache req %s in local cache, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
 	resp.Body = rc
@@ -400,7 +400,7 @@ func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, pool
 	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := poolCacheManager.CacheResponse(req, prc, stopCh); err != nil {
-			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+			klog.Errorf("lb failed to cache req %s in pool cache, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
 	resp.Body = rc
@@ -412,14 +412,14 @@ func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Respon
 	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-			klog.Errorf("failed to cache req %s in local cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+			klog.Errorf("lb failed to cache req %s in local cache, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc1, ctx.Done())
 
 	if poolCacheMgr != nil {
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			if err := poolCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-				klog.Errorf("failed to cache req %s in pool cache when cluster is unhealthy, %v", hubutil.ReqString(req), err)
+				klog.Errorf("lb failed to cache req %s in pool cache, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc2, ctx.Done())
 	}

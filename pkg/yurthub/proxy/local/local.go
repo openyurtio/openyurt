@@ -88,8 +88,8 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			util.Err(err, w, req)
 		}
 	} else {
-		klog.Errorf("request(%s) is not supported when cluster is unhealthy", hubutil.ReqString(req))
-		util.Err(apierrors.NewBadRequest(fmt.Sprintf("request(%s) is not supported when cluster is unhealthy", hubutil.ReqString(req))), w, req)
+		klog.Errorf("local proxy does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
+		util.Err(apierrors.NewBadRequest(fmt.Sprintf("local proxy does not support request(%s)", hubutil.ReqString(req))), w, req)
 	}
 }
 
