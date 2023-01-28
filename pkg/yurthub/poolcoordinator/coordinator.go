@@ -626,6 +626,7 @@ func (p *poolCacheSyncedDetector) EnsureStart() {
 
 		ctx, cancel := context.WithCancel(p.ctx)
 		p.cancelLoop = cancel
+		p.isRunning = true
 		go p.loopForChange(ctx)
 	}
 }
@@ -634,6 +635,7 @@ func (p *poolCacheSyncedDetector) EnsureStop() {
 	if p.isRunning {
 		p.syncLeaseManager.EnsureStop()
 		p.cancelLoop()
+		p.isRunning = false
 	}
 }
 
