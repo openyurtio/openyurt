@@ -314,7 +314,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["yurtcsrapprover"] = startYurtCSRApproverController
 	controllers["daemonpodupdater"] = startDaemonPodUpdaterController
 	controllers["servicetopologycontroller"] = startServiceTopologyController
-	controllers["webhookmanager"] = startWebhookManager
+	controllers["podbinding"] = startPodBindingController
 	return controllers
 }
 

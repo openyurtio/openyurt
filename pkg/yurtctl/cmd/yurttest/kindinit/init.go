@@ -308,7 +308,7 @@ func (ki *Initializer) Run() error {
 		return err
 	}
 
-	klog.Info("Start to configure kube-apiserver and kube-controller-manager")
+	klog.Info("Start to configure kube-apiserver")
 	if err := ki.configureControlPlane(); err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (ki *Initializer) Run() error {
 		return err
 	}
 
-	klog.Infof("Start to configure coredns and kube-proxy to adapt OpenYurt")
+	klog.Infof("Start to configure coredns to adapt OpenYurt")
 	if err := ki.configureAddons(); err != nil {
 		return err
 	}

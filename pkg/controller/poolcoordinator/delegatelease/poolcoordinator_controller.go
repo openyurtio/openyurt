@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinator
+package delegatelease
 
 import (
 	"context"
@@ -63,7 +63,6 @@ func (c *Controller) onLeaseCreate(n interface{}) {
 	if nl.Namespace != corev1.NamespaceNodeLease {
 		return
 	}
-	//klog.Infof("new lease: %v\n", nl)
 
 	key, err := cache.MetaNamespaceKeyFunc(n)
 	if err == nil {
@@ -72,13 +71,10 @@ func (c *Controller) onLeaseCreate(n interface{}) {
 }
 
 func (c *Controller) onLeaseUpdate(o interface{}, n interface{}) {
-	//ol := o.(*coordv1.Lease)
 	nl := n.(*coordv1.Lease)
 	if nl.Namespace != corev1.NamespaceNodeLease {
 		return
 	}
-
-	//klog.Infof("updated lease for: %v\n", nl.Name)
 
 	key, err := cache.MetaNamespaceKeyFunc(n)
 	if err == nil {
