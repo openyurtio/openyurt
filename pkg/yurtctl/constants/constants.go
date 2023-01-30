@@ -73,6 +73,16 @@ rules:
   - watch
 - apiGroups:
   - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+  - update
+  - list
+  - patch
+- apiGroups:
+  - ""
   - events.k8s.io
   resources:
   - events
