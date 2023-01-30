@@ -264,8 +264,8 @@ func (c *Controller) processNextItem() bool {
 	return true
 }
 
-func (c *Controller) Run(stopCH <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCH, c.nodeSynced, c.podSynced) {
+func (c *Controller) Run(stopCh <-chan struct{}) {
+	if !cache.WaitForCacheSync(stopCh, c.nodeSynced, c.podSynced) {
 		klog.Error("sync pod binding controller timeout")
 	}
 
@@ -273,10 +273,10 @@ func (c *Controller) Run(stopCH <-chan struct{}) {
 
 	klog.Info("start pod binding workers")
 	for i := 0; i < numWorkers; i++ {
-		go wait.Until(c.podWorker, time.Second, stopCH)
+		go wait.Until(c.podWorker, time.Second, stopCh)
 	}
 
-	<-stopCH
+	<-stopCh
 }
 
 func isDaemonSetPodOrStaticPod(pod *corev1.Pod) bool {

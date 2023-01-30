@@ -23,7 +23,7 @@ const (
 	// when node cannot reach api-server directly but can be delegated lease, we should taint the node as unschedulable
 	NodeNotSchedulableTaint = "node.openyurt.io/unschedulable"
 
-	// PodBindingAnnotation specify that pod should bind to the node that has been scheduled
+	// PodBindingAnnotation can be added into pod annotation, which indicates that this pod will be bound to the node that it is scheduled to.
 	PodBindingAnnotation = "apps.openyurt.io/binding"
 
 	// number of lease intervals passed before we taint/detaint node as unschedulable
