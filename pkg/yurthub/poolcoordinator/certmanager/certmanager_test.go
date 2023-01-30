@@ -18,6 +18,7 @@ package certmanager
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -269,7 +270,7 @@ func TestSecretAdd(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
 					Data:     poolCoordinatorSecret.Data["ca.crt"],
@@ -294,7 +295,14 @@ func TestSecretAdd(t *testing.T) {
 					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
 					Exists:   false,
 				},
-			})
+			}); !pass || err != nil {
+				return false, err
+			}
+
+			if certMgr.GetAPIServerClientCert() == nil {
+				return false, nil
+			}
+			return true, nil
 		})
 
 		if err != nil {
@@ -320,7 +328,7 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		err = wait.Poll(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
 					Data:     poolCoordinatorSecret.Data["ca.crt"],
@@ -345,7 +353,14 @@ func TestSecretUpdate(t *testing.T) {
 					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
 					Exists:   false,
 				},
-			})
+			}); !pass || err != nil {
+				return pass, err
+			}
+
+			if certMgr.GetAPIServerClientCert() == nil {
+				return false, nil
+			}
+			return true, nil
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be initialized, %v", err)
@@ -360,7 +375,7 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, newSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, newSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
 					Data:     newSecret.Data["ca.crt"],
@@ -385,7 +400,14 @@ func TestSecretUpdate(t *testing.T) {
 					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
 					Exists:   false,
 				},
-			})
+			}); !pass || err != nil {
+				return pass, err
+			}
+
+			if certMgr.GetAPIServerClientCert() == nil {
+				return false, nil
+			}
+			return true, nil
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be updated, %v", err)
@@ -399,7 +421,7 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, newSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, newSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
 					Data:     newSecret.Data["ca.crt"],
@@ -426,7 +448,17 @@ func TestSecretUpdate(t *testing.T) {
 					Data:     newSecret.Data["node-lease-proxy-client.key"],
 					Exists:   true,
 				},
-			})
+			}); !pass || err != nil {
+				return pass, err
+			}
+
+			if certMgr.GetAPIServerClientCert() == nil {
+				return false, nil
+			}
+			if certMgr.GetNodeLeaseProxyClientCert() == nil {
+				return false, nil
+			}
+			return true, nil
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be updated, %v", err)
@@ -451,7 +483,7 @@ func TestSecretDelete(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			return checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
 					Data:     poolCoordinatorSecret.Data["ca.crt"],
@@ -476,7 +508,14 @@ func TestSecretDelete(t *testing.T) {
 					FilePath: certMgr.GetFilePath(NodeLeaseProxyClientKey),
 					Exists:   false,
 				},
-			})
+			}); !pass || err != nil {
+				return pass, err
+			}
+
+			if certMgr.GetAPIServerClientCert() == nil {
+				return false, nil
+			}
+			return true, nil
 		})
 		if err != nil {
 			t.Errorf("failed to wait cert manager to be initialized, %v", err)
@@ -487,10 +526,13 @@ func TestSecretDelete(t *testing.T) {
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if certMgr.coordinatorCert == nil {
-				return true, nil
+			if certMgr.GetAPIServerClientCert() != nil {
+				return false, nil
 			}
-			return false, nil
+			if certMgr.GetNodeLeaseProxyClientCert() != nil {
+				return false, nil
+			}
+			return true, nil
 		})
 		if err != nil {
 			t.Errorf("failed to clean cert, %v", err)
@@ -500,6 +542,82 @@ func TestSecretDelete(t *testing.T) {
 			t.Errorf("failed to clean test dir %s, %v", testPKIDir, err)
 		}
 	})
+}
+
+func TestCreateOrUpdateFile(t *testing.T) {
+	cases := []struct {
+		description string
+		initialType string
+		initialData []byte
+		newData     []byte
+		expectErr   bool
+	}{
+		{
+			description: "should update data when file already exists",
+			initialType: "file",
+			initialData: []byte("old data"),
+			newData:     []byte("new data"),
+			expectErr:   false,
+		},
+		{
+			description: "should create file with new data if file does not exist",
+			newData:     []byte("new data"),
+			expectErr:   false,
+		},
+		{
+			description: "should return error if the path is not a regular file",
+			initialType: "dir",
+			newData:     []byte("new data"),
+			expectErr:   true,
+		},
+	}
+
+	testRoot := "/tmp/testUpdateCerts"
+	fileStore := fs.FileSystemOperator{}
+	certMgr := &CertManager{
+		store: fileStore,
+	}
+	if err := fileStore.CreateDir(testRoot); err != nil {
+		t.Errorf("failed create dir %s, %v", testRoot, err)
+		return
+	}
+	defer fileStore.DeleteDir(testRoot)
+
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			path := filepath.Join(testRoot, "test")
+			switch c.initialType {
+			case "file":
+				if err := fileStore.CreateFile(path, c.initialData); err != nil {
+					t.Errorf("failed to initialize file %s, %v", path, err)
+				}
+				defer fileStore.DeleteFile(path)
+			case "dir":
+				if err := fileStore.CreateDir(path); err != nil {
+					t.Errorf("failed to initialize dir %s, %v", path, err)
+				}
+				defer fileStore.DeleteDir(path)
+			}
+
+			err := certMgr.createOrUpdateFile(path, c.newData)
+			if c.expectErr != (err != nil) {
+				t.Errorf("unexpected error, if want: %v, got: %v", c.expectErr, err)
+			}
+			if err != nil {
+				return
+			}
+
+			defer fileStore.DeleteFile(path)
+			gotBytes, err := fileStore.Read(path)
+			if err != nil {
+				t.Errorf("failed to read %s, %v", path, err)
+			}
+
+			if string(gotBytes) != string(c.newData) {
+				t.Errorf("unexpected bytes, want: %s, got: %s", string(c.newData), string(gotBytes))
+			}
+		})
+	}
 }
 
 func initFakeClientAndCertManager() (*fake.Clientset, *CertManager, func(), error) {
