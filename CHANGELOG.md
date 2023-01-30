@@ -4,15 +4,14 @@
 
 ### What's New
 
-**Two modes of edge autonomy have been provided**
+**Improve edge autonomy capability when cloud-edge network off**
 
 The original edge autonomy feature can make the pods on nodes un-evicted even if node crashed by adding annotation to node.
-After improving edge autonomy capability, two modes of edge autonomy are provided by adding annotation to workloads(like Deployment) as following:
-- node edge autonomy: pods with node edge autonomy annotation will not be un-evicted even if node crashed.
-- nodePool edge autonomy: when the reason of node NotReady is cloud-edge network off, pods will not be un-evicted, but pods will be evicted and recreated on other ready node in the nodePool if node crashed.
+After improving edge autonomy capability, when the reason of node NotReady is cloud-edge network off, pods will not be un-evicted
+because leader yurthub can be delegated to proxy lease via pool-coordinator component, and pods will be evicted and recreated on other ready node if node crashed.
 
-By the way, The original edge autonomy by annotating node will be kept in the next several versions, but node edge autonomy
-will be recommended to replace the original way.
+By the way, The original edge autonomy by annotating node will influence all pods on node, a new annotation(named apps.openyurt.io/binding) can be added to workload
+to trigger this ability for specified pod with this new annotation.
 
 **Reduce the control-plane traffic between cloud and edge**
 
