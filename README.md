@@ -56,7 +56,7 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
   `YurtAppDaemon` enables to deploy workload for every matching NodePool.
   `YurtIngress` orchestrates the deployment of multiple ingress controllers to the respective NodePools.
 - **[Raven/Raven Controller Manager](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt. and provide layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
-- **Pool-Coordinator**: One instance of Pool-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud edge traffic reuse abilities, etc.
+- **Pool-Coordinator**: One instance of Pool-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
 
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
 - **[Node resource manager](https://openyurt.io/docs/next/core-concepts/node-resource-manager)**: It manages additional edge node resources such as LVM, QuotaPath and Persistent Memory.
