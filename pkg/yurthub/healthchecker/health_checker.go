@@ -246,6 +246,9 @@ func (hc *cloudAPIServerHealthChecker) setLastNodeLease(lease *coordinationv1.Le
 }
 
 func (hc *cloudAPIServerHealthChecker) getLastNodeLease() *coordinationv1.Lease {
+	if hc.latestLease != nil {
+		delete(hc.latestLease.Annotations, DelegateHeartBeat)
+	}
 	return hc.latestLease
 }
 

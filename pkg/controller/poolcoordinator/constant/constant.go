@@ -18,14 +18,14 @@ limitations under the License.
 package constant
 
 const (
-	// nodeutil.AnnotationKeyNodeAutonomy
-	AnnotationKeyNodeAutonomy = "node.beta.openyurt.io/autonomy"
-	LabelKeyNodePool          = "apps.openyurt.io/nodepool"
-
 	DelegateHeartBeat = "openyurt.io/delegate-heartbeat"
 
 	// when node cannot reach api-server directly but can be delegated lease, we should taint the node as unschedulable
 	NodeNotSchedulableTaint = "node.openyurt.io/unschedulable"
+
+	// PodBindingAnnotation can be added into pod annotation, which indicates that this pod will be bound to the node that it is scheduled to.
+	PodBindingAnnotation = "apps.openyurt.io/binding"
+
 	// number of lease intervals passed before we taint/detaint node as unschedulable
 	LeaseDelegationThreshold = 4
 )

@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinator
+package delegatelease
 
 import (
 	"context"
@@ -63,7 +63,6 @@ func (c *Controller) onLeaseCreate(n interface{}) {
 	if nl.Namespace != corev1.NamespaceNodeLease {
 		return
 	}
-	//klog.Infof("new lease: %v\n", nl)
 
 	key, err := cache.MetaNamespaceKeyFunc(n)
 	if err == nil {
@@ -72,13 +71,10 @@ func (c *Controller) onLeaseCreate(n interface{}) {
 }
 
 func (c *Controller) onLeaseUpdate(o interface{}, n interface{}) {
-	//ol := o.(*coordv1.Lease)
 	nl := n.(*coordv1.Lease)
 	if nl.Namespace != corev1.NamespaceNodeLease {
 		return
 	}
-
-	//klog.Infof("updated lease for: %v\n", nl.Name)
 
 	key, err := cache.MetaNamespaceKeyFunc(n)
 	if err == nil {
@@ -217,8 +213,8 @@ func (c *Controller) nodeWorker() {
 	}
 }
 
-func (c *Controller) Run(stopCH <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCH, c.nodeSynced, c.leaseSynced) {
+func (c *Controller) Run(stopCh <-chan struct{}) {
+	if !cache.WaitForCacheSync(stopCh, c.nodeSynced, c.leaseSynced) {
 		klog.Error("sync poolcoordinator controller timeout")
 	}
 
@@ -226,8 +222,8 @@ func (c *Controller) Run(stopCH <-chan struct{}) {
 
 	klog.Info("start node taint workers")
 	for i := 0; i < numWorkers; i++ {
-		go wait.Until(c.nodeWorker, time.Second, stopCH)
+		go wait.Until(c.nodeWorker, time.Second, stopCh)
 	}
 
-	<-stopCH
+	<-stopCh
 }

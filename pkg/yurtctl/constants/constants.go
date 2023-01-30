@@ -59,33 +59,28 @@ rules:
   resources:
   - nodes
   verbs:
-  - delete
   - get
+  - update
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods/status
-  verbs:
-  - update
 - apiGroups:
   - ""
   resources:
   - pods
   verbs:
-  - delete
+  - update
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+  - update
+  - list
+  - patch
 - apiGroups:
   - ""
   - events.k8s.io
@@ -224,7 +219,8 @@ spec:
       - name: yurt-controller-manager
         image: {{.image}}
         command:
-        - yurt-controller-manager	
+        - yurt-controller-manager
+        - --controllers=-servicetopologycontroller,-poolcoordinatorcertmanager,*
 `
 	YurthubClusterRole = `
 apiVersion: rbac.authorization.k8s.io/v1

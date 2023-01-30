@@ -30,7 +30,6 @@ import (
 type ControlPlaneConfig struct {
 	RunMode          string
 	KASStaticPodPath string
-	KCMStaticPodPath string
 }
 
 type Runner interface {
@@ -48,23 +47,16 @@ func NewControlPlaneRunner(o *ControlPlaneOptions) (Runner, error) {
 
 type staticPodRunner struct {
 	kasStaticPodPath string
-	kcmStaticPodPath string
 }
 
 func newStaticPodRunner(podManifestsPath string) (Runner, error) {
 	kasStaticPodPath := filepath.Join(podManifestsPath, "kube-apiserver.yaml")
-	kcmStaticPodPath := filepath.Join(podManifestsPath, "kube-controller-manager.yaml")
 	if exist, _ := fileutil.FileExists(kasStaticPodPath); !exist {
 		return nil, fmt.Errorf("%s file is not exist", kasStaticPodPath)
 	}
 
-	if exist, _ := fileutil.FileExists(kcmStaticPodPath); !exist {
-		return nil, fmt.Errorf("%s file is not exist", kcmStaticPodPath)
-	}
-
 	return &staticPodRunner{
 		kasStaticPodPath: kasStaticPodPath,
-		kcmStaticPodPath: kcmStaticPodPath,
 	}, nil
 }
 

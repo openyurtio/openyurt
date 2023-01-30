@@ -18,24 +18,15 @@ rules:
       - nodes
     verbs:
       - get
+      - update
       - list
       - watch
   - apiGroups:
       - ""
     resources:
-      - pods/status
-    verbs:
-      - update
-  - apiGroups:
-      - ""
-    resources:
       - pods
     verbs:
-      - create
-      - delete
-      - get
       - list
-      - patch
       - update
       - watch
   - apiGroups:
@@ -135,24 +126,6 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - admissionregistration.k8s.io
-    resources:
-      - validatingwebhookconfigurations
-      - mutatingwebhookconfigurations
-    verbs:
-      - create
-      - delete
-      - get
-      - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -186,13 +159,11 @@ spec:
     spec:
       serviceAccountName: yurt-controller-manager
       hostNetwork: true
-      imagePullSecrets:
-        - name: regsecret
       tolerations:
         - operator: "Exists"
       affinity:
         nodeAffinity:
-          # we prefer allocating ecm on cloud node
+          # we prefer allocating ycm on cloud node
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 1
             preference:
@@ -207,52 +178,3 @@ spec:
         imagePullPolicy: {{ .Values.yurtControllerManager.image.pullPolicy }}
         command:
           - yurt-controller-manager
-        {{- if .Values.imagePullSecrets }}
-        imagePullSecrets:
-          {{ toYaml .Values.imagePullSecrets | nindent 10 }}
-        {{- end }}
-        ports:
-          - name: webhook-server
-            containerPort: {{ .Values.admissionWebhooks.service.port }}
-            protocol: TCP
-          - name: health
-            containerPort: 8000
-            protocol: TCP
-        env:
-          - name: WEBHOOK_CERT_DIR
-            value: {{ .Values.admissionWebhooks.certificate.mountPath }}
-          - name: WEBHOOK_SERVICE_PORT
-            value: {{ .Values.admissionWebhooks.service.port | quote }}
-          - name: WEBHOOK_SERVICE_NAME
-            value: {{ template "yurt-controller-manager.fullname" . }}-webhook
-          - name: WEBHOOK_NAMESPACE
-            value: {{ .Release.Namespace }}
-          - name: WEBHOOK_POD_VALIDATING_CONFIGURATION_NAME
-            value: {{ template "yurt-controller-manager.fullname" . }}
-          - name: WEBHOOK_POD_MUTATING_CONFIGURATION_NAME
-            value: {{ template "yurt-controller-manager.fullname" . }}
-          - name: WEBHOOK_POD_VALIDATING_NAME
-            value: {{ .Values.admissionWebhooks.names.validatingWebhookName }}
-          - name: WEBHOOK_POD_MUTATING_NAME
-            value: {{ .Values.admissionWebhooks.names.mutatingWebhookName }}
-          - name: WEBHOOK_POD_VALIDATING_PATH
-            value: {{ .Values.admissionWebhooks.names.webhookPodValidatingPath }}
-          - name: WEBHOOK_POD_MUTATING_PATH
-            value: {{ .Values.admissionWebhooks.names.webhookPodMutatingPath }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ template "yurt-controller-manager.name" . }}-webhook
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "yurt-controller-manager.labels" . | nindent 4 }}
-spec:
-  type: {{ .Values.admissionWebhooks.service.type }}
-  ports:
-    - port: 443
-      targetPort: {{ .Values.admissionWebhooks.service.port }}
-      protocol: TCP
-      name: https
-  selector:
-      {{ include "yurt-controller-manager.selectorLabels" . | nindent 6 }}

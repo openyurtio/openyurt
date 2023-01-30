@@ -38,8 +38,6 @@ import (
 	cmconfig "k8s.io/controller-manager/config"
 	cmoptions "k8s.io/controller-manager/options"
 	"k8s.io/klog/v2"
-	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
-	utilpointer "k8s.io/utils/pointer"
 
 	yurtcontrollerconfig "github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -52,11 +50,10 @@ const (
 
 // YurtControllerManagerOptions is the main context object for the kube-controller manager.
 type YurtControllerManagerOptions struct {
-	Generic                 *cmoptions.GenericControllerManagerConfigurationOptions
-	NodeLifecycleController *NodeLifecycleControllerOptions
-	Master                  string
-	Kubeconfig              string
-	Version                 bool
+	Generic    *cmoptions.GenericControllerManagerConfigurationOptions
+	Master     string
+	Kubeconfig string
+	Version    bool
 }
 
 // NewYurtControllerManagerOptions creates a new YurtControllerManagerOptions with a default config.
@@ -83,14 +80,6 @@ func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
 
 	s := YurtControllerManagerOptions{
 		Generic: cmoptions.NewGenericControllerManagerConfigurationOptions(&generic),
-		NodeLifecycleController: &NodeLifecycleControllerOptions{
-			NodeLifecycleControllerConfiguration: &nodelifecycleconfig.NodeLifecycleControllerConfiguration{
-				EnableTaintManager:     utilpointer.BoolPtr(true),
-				PodEvictionTimeout:     metav1.Duration{Duration: 5 * time.Minute},
-				NodeMonitorGracePeriod: metav1.Duration{Duration: 40 * time.Second},
-				NodeStartupGracePeriod: metav1.Duration{Duration: 60 * time.Second},
-			},
-		},
 	}
 
 	return &s, nil
@@ -100,7 +89,6 @@ func NewYurtControllerManagerOptions() (*YurtControllerManagerOptions, error) {
 func (s *YurtControllerManagerOptions) Flags(allControllers []string, disabledByDefaultControllers []string) cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	s.Generic.AddFlags(&fss, allControllers, disabledByDefaultControllers)
-	s.NodeLifecycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
 
 	fs := fss.FlagSet("misc")
 	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig).")
@@ -117,10 +105,6 @@ func (s *YurtControllerManagerOptions) ApplyTo(c *yurtcontrollerconfig.Config) e
 		return err
 	}
 
-	if err := s.NodeLifecycleController.ApplyTo(&c.ComponentConfig.NodeLifecycleController); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -129,7 +113,6 @@ func (s *YurtControllerManagerOptions) Validate(allControllers []string, disable
 	var errs []error
 
 	errs = append(errs, s.Generic.Validate(allControllers, disabledByDefaultControllers)...)
-	errs = append(errs, s.NodeLifecycleController.Validate()...)
 
 	// TODO: validate component config, master and kubeconfig
 
