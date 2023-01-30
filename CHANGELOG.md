@@ -6,12 +6,15 @@
 
 **Improve edge autonomy capability when cloud-edge network off**
 
-The original edge autonomy feature can make the pods on nodes un-evicted even if node crashed by adding annotation to node.
-After improving edge autonomy capability, when the reason of node NotReady is cloud-edge network off, pods will not be un-evicted
-because leader yurthub can be delegated to proxy lease via pool-coordinator component, and pods will be evicted and recreated on other ready node if node crashed.
+The original edge autonomy feature can make the pods on nodes un-evicted even if node crashed by adding annotation to node,
+and this feature is recommended to use for scenarios that pods should bind to node without recreation.
+After improving edge autonomy capability, when the reason of node NotReady is cloud-edge network off, pods will not be evicted
+because leader yurthub will help these offline nodes to proxy their heartbeats to the cloud via pool-coordinator component,
+and pods will be evicted and recreated on other ready node if node crashed.
 
-By the way, The original edge autonomy by annotating node will influence all pods on node, a new annotation(named apps.openyurt.io/binding) can be added to workload
-to trigger this ability for specified pod with this new annotation.
+By the way, The original edge autonomy capability by annotating node (with node.beta.openyurt.io/autonomy) will be kept as it is,
+which will influence all pods on autonomy nodes. And a new annotation (named apps.openyurt.io/binding) can be added to workload to
+enable the original edge autonomy capability for specified pod.
 
 **Reduce the control-plane traffic between cloud and edge**
 
