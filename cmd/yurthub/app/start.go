@@ -270,7 +270,7 @@ func coordinatorRun(ctx context.Context,
 		}
 		go elector.Run(ctx.Done())
 
-		coor, err := poolcoordinator.NewCoordinator(ctx, cfg, restConfigMgr, coorCertManager, coorTransportMgr, elector)
+		coor, err := poolcoordinator.NewCoordinator(ctx, cfg, cloudHealthChecker, restConfigMgr, coorCertManager, coorTransportMgr, elector)
 		if err != nil {
 			klog.Errorf("coordinator failed to create coordinator, %v", err)
 			return
@@ -293,11 +293,14 @@ func coordinatorRun(ctx context.Context,
 
 func poolCoordinatorTransportMgrGetter(heartbeatTimeoutSeconds int, coordinatorServer *url.URL, coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {
 	err := wait.PollImmediate(5*time.Second, 4*time.Minute, func() (done bool, err error) {
-		if coordinatorCertMgr.GetAPIServerClientCert() != nil {
-			return true, nil
+		klog.Infof("waiting for preparing certificates for coordinator client and node lease proxy client")
+		if coordinatorCertMgr.GetAPIServerClientCert() == nil {
+			return false, nil
 		}
-		klog.Infof("waiting for preparing coordinator client certificate")
-		return false, nil
+		if coordinatorCertMgr.GetNodeLeaseProxyClientCert() == nil {
+			return false, nil
+		}
+		return true, nil
 	})
 	if err != nil {
 		klog.Errorf("timeout when waiting for coordinator client certificate")

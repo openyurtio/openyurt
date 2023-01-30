@@ -83,20 +83,25 @@ type Coordinator interface {
 
 type coordinator struct {
 	sync.Mutex
-	ctx                  context.Context
-	cancelEtcdStorage    func()
-	informerFactory      informers.SharedInformerFactory
-	restMapperMgr        *meta.RESTMapperManager
-	serializerMgr        *serializer.SerializerManager
-	restConfigMgr        *yurtrest.RestConfigManager
-	etcdStorageCfg       *etcd.EtcdStorageConfig
-	poolCacheManager     cachemanager.CacheManager
-	diskStorage          storage.Store
-	etcdStorage          storage.Store
-	hubElector           *HubElector
-	electStatus          int32
-	isPoolCacheSynced    bool
-	certMgr              *certmanager.CertManager
+	ctx               context.Context
+	cancelEtcdStorage func()
+	informerFactory   informers.SharedInformerFactory
+	restMapperMgr     *meta.RESTMapperManager
+	serializerMgr     *serializer.SerializerManager
+	restConfigMgr     *yurtrest.RestConfigManager
+	etcdStorageCfg    *etcd.EtcdStorageConfig
+	poolCacheManager  cachemanager.CacheManager
+	diskStorage       storage.Store
+	etcdStorage       storage.Store
+	hubElector        *HubElector
+	electStatus       int32
+	isPoolCacheSynced bool
+	certMgr           *certmanager.CertManager
+	// cloudCAFilePath is the file path of cloud kubernetes cluster CA cert.
+	cloudCAFilePath string
+	// cloudHealthChecker is health checker of cloud APIServers. It is used to
+	// pick a healthy cloud APIServer to proxy heartbeats.
+	cloudHealthChecker   healthchecker.MultipleBackendsHealthChecker
 	needUploadLocalCache bool
 	// poolCacheSyncManager is used to sync pool-scoped resources from cloud to poolcoordinator.
 	poolCacheSyncManager *poolScopedCacheSyncManager
@@ -114,6 +119,7 @@ type coordinator struct {
 func NewCoordinator(
 	ctx context.Context,
 	cfg *config.YurtHubConfiguration,
+	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
 	restMgr *yurtrest.RestConfigManager,
 	certMgr *certmanager.CertManager,
 	coordinatorTransMgr transport.Interface,
@@ -138,15 +144,17 @@ func NewCoordinator(
 	}
 
 	coordinator := &coordinator{
-		ctx:             ctx,
-		etcdStorageCfg:  etcdStorageCfg,
-		restConfigMgr:   restMgr,
-		certMgr:         certMgr,
-		informerFactory: cfg.SharedFactory,
-		diskStorage:     cfg.StorageWrapper.GetStorage(),
-		serializerMgr:   cfg.SerializerManager,
-		restMapperMgr:   cfg.RESTMapperManager,
-		hubElector:      elector,
+		ctx:                ctx,
+		cloudCAFilePath:    cfg.CertManager.GetCaFile(),
+		cloudHealthChecker: cloudHealthChecker,
+		etcdStorageCfg:     etcdStorageCfg,
+		restConfigMgr:      restMgr,
+		certMgr:            certMgr,
+		informerFactory:    cfg.SharedFactory,
+		diskStorage:        cfg.StorageWrapper.GetStorage(),
+		serializerMgr:      cfg.SerializerManager,
+		restMapperMgr:      cfg.RESTMapperManager,
+		hubElector:         elector,
 	}
 
 	poolCacheSyncedDetector := &poolCacheSyncedDetector{
@@ -240,7 +248,7 @@ func (coordinator *coordinator) Run() {
 					continue
 				}
 
-				cloudLeaseClient, err := coordinator.newCloudLeaseClient()
+				nodeLeaseProxyClient, err := coordinator.newNodeLeaseProxyClient()
 				if err != nil {
 					klog.Errorf("cloud not get cloud lease client when becoming leader yurthub, %v", err)
 					continue
@@ -255,10 +263,10 @@ func (coordinator *coordinator) Run() {
 					FilterFunc: ifDelegateHeartBeat,
 					Handler: cache.ResourceEventHandlerFuncs{
 						AddFunc: func(obj interface{}) {
-							coordinator.delegateNodeLease(cloudLeaseClient, obj)
+							coordinator.delegateNodeLease(nodeLeaseProxyClient, obj)
 						},
 						UpdateFunc: func(_, newObj interface{}) {
-							coordinator.delegateNodeLease(cloudLeaseClient, newObj)
+							coordinator.delegateNodeLease(nodeLeaseProxyClient, newObj)
 						},
 					},
 				})
@@ -360,10 +368,21 @@ func (coordinator *coordinator) getEtcdStore() storage.Store {
 	return coordinator.etcdStorage
 }
 
-func (coordinator *coordinator) newCloudLeaseClient() (coordclientset.LeaseInterface, error) {
-	restCfg := coordinator.restConfigMgr.GetRestConfig(true)
-	if restCfg == nil {
-		return nil, fmt.Errorf("no cloud server is healthy")
+func (coordinator *coordinator) newNodeLeaseProxyClient() (coordclientset.LeaseInterface, error) {
+	healthyCloudServer, err := coordinator.cloudHealthChecker.PickHealthyServer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get a healthy cloud APIServer, %v", err)
+	} else if healthyCloudServer == nil {
+		return nil, fmt.Errorf("failed to get a healthy cloud APIServer, all server are unhealthy")
+	}
+	restCfg := &rest.Config{
+		Host: healthyCloudServer.String(),
+		TLSClientConfig: rest.TLSClientConfig{
+			CAFile:   coordinator.cloudCAFilePath,
+			CertFile: coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientCert),
+			KeyFile:  coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientKey),
+		},
+		Timeout: 10 * time.Second,
 	}
 	cloudClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
@@ -397,12 +416,15 @@ func (coordinator *coordinator) delegateNodeLease(cloudLeaseClient coordclientse
 			}
 		}
 
-		lease := newLease.DeepCopy()
-		lease.ResourceVersion = cloudLease.ResourceVersion
-		if _, err := cloudLeaseClient.Update(coordinator.ctx, lease, metav1.UpdateOptions{}); err != nil {
+		cloudLease.Annotations = newLease.Annotations
+		cloudLease.Spec.RenewTime = newLease.Spec.RenewTime
+		if updatedLease, err := cloudLeaseClient.Update(coordinator.ctx, cloudLease, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update lease %s at cloud, %v", newLease.Name, err)
 			continue
+		} else {
+			klog.V(2).Infof("delegate node lease for %s", updatedLease.Name)
 		}
+		break
 	}
 }
 
@@ -696,7 +718,7 @@ func ifDelegateHeartBeat(obj interface{}) bool {
 	if !ok {
 		return false
 	}
-	v, ok := lease.Labels[healthchecker.DelegateHeartBeat]
+	v, ok := lease.Annotations[healthchecker.DelegateHeartBeat]
 	return ok && v == "true"
 }
 

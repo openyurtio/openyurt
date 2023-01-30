@@ -78,11 +78,12 @@ const (
 	PoolcoordinatorOrg      = "openyurt:pool-coordinator"
 	PoolcoordinatorAdminOrg = "system:masters"
 
-	PoolcoordinatorAPIServerCN     = "openyurt:pool-coordinator:apiserver"
-	PoolcoordinatorETCDCN          = "openyurt:pool-coordinator:etcd"
-	PoolcoordinatorYurthubClientCN = "openyurt:pool-coordinator:yurthub"
-	KubeConfigMonitoringClientCN   = "openyurt:pool-coordinator:monitoring"
-	KubeConfigAdminClientCN        = "cluster-admin"
+	PoolcoordinatorAPIServerCN            = "openyurt:pool-coordinator:apiserver"
+	PoolcoordinatorNodeLeaseProxyClientCN = "openyurt:pool-coordinator:node-lease-proxy-client"
+	PoolcoordinatorETCDCN                 = "openyurt:pool-coordinator:etcd"
+	PoolcoordinatorYurthubClientCN        = "openyurt:pool-coordinator:yurthub"
+	KubeConfigMonitoringClientCN          = "openyurt:pool-coordinator:monitoring"
+	KubeConfigAdminClientCN               = "cluster-admin"
 )
 
 type certInitFunc = func(client.Interface, <-chan struct{}) ([]net.IP, []string, error)
@@ -324,22 +325,27 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 		}
 	}
 
-	// 2. prepare not self signed certs ( apiserver-kubelet-client cert)
+	// 2. prepare apiserver-kubelet-client cert
 	if err := initAPIServerClientCert(clientSet, stopCh); err != nil {
 		return err
 	}
 
-	// 3. prepare ca cert in static secret
+	// 3. prepare node-lease-proxy-client cert
+	if err := initNodeLeaseProxyClient(clientSet, stopCh); err != nil {
+		return err
+	}
+
+	// 4. prepare ca cert in static secret
 	if err := WriteCertAndKeyIntoSecret(clientSet, "ca", PoolcoordinatorStaticSecertName, caCert, nil); err != nil {
 		return err
 	}
 
-	// 4. prepare ca cert in yurthub secret
+	// 5. prepare ca cert in yurthub secret
 	if err := WriteCertAndKeyIntoSecret(clientSet, "ca", PoolcoordinatorYurthubClientSecertName, caCert, nil); err != nil {
 		return err
 	}
 
-	// 5. prepare sa key pairs
+	// 6. prepare sa key pairs
 	if err := initSAKeyPair(clientSet, "sa", PoolcoordinatorStaticSecertName); err != nil {
 		return err
 	}
@@ -393,6 +399,21 @@ func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{})
 	}
 
 	return WriteCertIntoSecret(clientSet, "apiserver-kubelet-client", PoolcoordinatorStaticSecertName, certMgr, stopCh)
+}
+
+func initNodeLeaseProxyClient(clientSet client.Interface, stopCh <-chan struct{}) error {
+	certMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
+		CertDir:       certDir,
+		ComponentName: "yurthub",
+		SignerName:    certificatesv1.KubeAPIServerClientSignerName,
+		CommonName:    PoolcoordinatorNodeLeaseProxyClientCN,
+		Organizations: []string{PoolcoordinatorOrg},
+	})
+	if err != nil {
+		return err
+	}
+
+	return WriteCertIntoSecret(clientSet, "node-lease-proxy-client", PoolcoordinatorYurthubClientSecertName, certMgr, stopCh)
 }
 
 // create new public/private key pair for signing service account users
