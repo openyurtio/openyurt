@@ -101,3 +101,14 @@ get_maintained_versions() {
     done
     echo $versions
 }
+
+get_image_tag() {
+    tag=$(git describe --abbrev=0 --tags)
+    commit=$(git rev-parse HEAD) 
+    
+    if $(git tag --points-at ${commit}); then
+        echo ${tag}-$(echo ${commit} | cut -c 1-7)
+    else
+        echo ${tag}
+    fi
+}

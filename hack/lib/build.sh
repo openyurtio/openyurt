@@ -39,7 +39,6 @@ build_binaries() {
     fi
 
     local target_bin_dir=$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
-    rm -rf ${target_bin_dir}
     mkdir -p ${target_bin_dir}
     cd ${target_bin_dir}
     for binary in "${targets[@]}"; do

@@ -103,26 +103,18 @@ lint: install-golint ## Run go lint against code.
 	$(GOLINT_BIN) run -v
 
 # Build the docker images only one arch(specify arch by TARGET_PLATFORMS env)
+# otherwise the platform of host will be used. 
+# e.g.
 #     - build linux/amd64 docker images:
 #       $# make docker-build TARGET_PLATFORMS=linux/amd64
 #     - build linux/arm64 docker images:
 #       $# make docker-build TARGET_PLATFORMS=linux/arm64
-docker-build: docker-build-yurthub docker-build-yurt-controller-manager docker-build-yurt-tunnel-server docker-build-yurt-tunnel-agent docker-build-node-servant
-
-docker-build-yurthub:
-	docker buildx build --no-cache --load ${DOCKER_BUILD_ARGS} --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
-
-docker-build-yurt-controller-manager:
-	docker buildx build --no-cache --load ${DOCKER_BUILD_ARGS} --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
-
-docker-build-yurt-tunnel-server:
-	docker buildx build --no-cache --load ${DOCKER_BUILD_ARGS} --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
-
-docker-build-yurt-tunnel-agent:
-	docker buildx build --no-cache --load ${DOCKER_BUILD_ARGS} --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
-
-docker-build-node-servant:
-	docker buildx build --no-cache --load ${DOCKER_BUILD_ARGS} --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/Dockerfile.yurt-node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
+#     - build a specific image:
+#       $# make docker-build WHAT=yurthub
+#     - build with proxy, maybe useful for Chinese users
+#       $# REGION=cn make docker-build
+docker-build:
+	TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/image_build.sh	$(WHAT)
 
 # Build and Push the docker images with multi-arch
 docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-node-servant
