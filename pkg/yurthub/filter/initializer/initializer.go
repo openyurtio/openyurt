@@ -85,7 +85,7 @@ func New(factory informers.SharedInformerFactory,
 }
 
 // Initialize used for executing filter initialization
-func (fi *genericFilterInitializer) Initialize(ins filter.Runner) error {
+func (fi *genericFilterInitializer) Initialize(ins filter.ObjectFilter) error {
 	if wants, ok := ins.(WantsWorkingMode); ok {
 		if err := wants.SetWorkingMode(fi.workingMode); err != nil {
 			return err

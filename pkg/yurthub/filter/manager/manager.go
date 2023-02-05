@@ -39,7 +39,8 @@ import (
 
 type Manager struct {
 	filter.Approver
-	NameToFilterRunner map[string]filter.Runner
+	nameToObjectFilter map[string]filter.ObjectFilter
+	serializerManager  *serializer.SerializerManager
 }
 
 func NewFilterManager(options *options.YurtHubOptions,
@@ -56,7 +57,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		options.DisabledResourceFilters = append(options.DisabledResourceFilters, filter.DisabledInCloudMode...)
 	}
 	filters := filter.NewFilters(options.DisabledResourceFilters)
-	registerAllFilters(filters, serializerManager)
+	registerAllFilters(filters)
 
 	mutatedMasterServiceHost, mutatedMasterServicePort, _ := net.SplitHostPort(apiserverAddr)
 	if options.AccessServerThroughHub {
@@ -68,58 +69,68 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	runners, err := createFilterRunners(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &Manager{
-		NameToFilterRunner: make(map[string]filter.Runner),
+		nameToObjectFilter: make(map[string]filter.ObjectFilter),
+		serializerManager:  serializerManager,
 	}
 
 	filterSupportedResAndVerbs := make(map[string]map[string]sets.String)
-	for i := range runners {
-		m.NameToFilterRunner[runners[i].Name()] = runners[i]
-		filterSupportedResAndVerbs[runners[i].Name()] = runners[i].SupportedResourceAndVerbs()
+	for i := range objFilters {
+		m.nameToObjectFilter[objFilters[i].Name()] = objFilters[i]
+		filterSupportedResAndVerbs[objFilters[i].Name()] = objFilters[i].SupportedResourceAndVerbs()
 	}
 	m.Approver = filter.NewApprover(sharedFactory, filterSupportedResAndVerbs)
 
 	return m, nil
 }
 
-func (m *Manager) FindRunner(req *http.Request) (bool, filter.Runner) {
-	approved, runnerName := m.Approver.Approve(req)
+func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, bool) {
+	approved, filterNames := m.Approver.Approve(req)
 	if approved {
-		if runner, ok := m.NameToFilterRunner[runnerName]; ok {
-			return true, runner
+		objectFilters := make([]filter.ObjectFilter, 0)
+		for i := range filterNames {
+			if objectFilter, ok := m.nameToObjectFilter[filterNames[i]]; ok {
+				objectFilters = append(objectFilters, objectFilter)
+			}
 		}
+
+		if len(objectFilters) == 0 {
+			return nil, false
+		}
+
+		return filter.CreateResponseFilter(filter.CreateFilterChain(objectFilters), m.serializerManager), true
 	}
 
-	return false, nil
+	return nil, false
 }
 
-// createFilterRunners return a slice of filter runner that initializations completed.
-func createFilterRunners(filters *filter.Filters,
+// createObjectFilters return all object filters that initializations completed.
+func createObjectFilters(filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
 	storageWrapper cachemanager.StorageWrapper,
 	workingMode util.WorkingMode,
-	nodeName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.Runner, error) {
+	nodeName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
 	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
-	initializerChain := filter.FilterInitializers{}
+	initializerChain := filter.Initializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
 }
 
 // registerAllFilters by order, the front registered filter will be
 // called before the latter registered ones.
-func registerAllFilters(filters *filter.Filters, sm *serializer.SerializerManager) {
-	servicetopology.Register(filters, sm)
-	masterservice.Register(filters, sm)
-	discardcloudservice.Register(filters, sm)
-	inclusterconfig.Register(filters, sm)
+func registerAllFilters(filters *filter.Filters) {
+	servicetopology.Register(filters)
+	masterservice.Register(filters)
+	discardcloudservice.Register(filters)
+	inclusterconfig.Register(filters)
 }

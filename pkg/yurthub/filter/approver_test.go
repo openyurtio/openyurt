@@ -60,83 +60,83 @@ func TestApprove(t *testing.T) {
 		verb         string
 		path         string
 		approved     bool
-		resultFilter string
+		resultFilter []string
 	}{
 		"kubelet list services": {
 			userAgent:    "kubelet/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services",
 			approved:     true,
-			resultFilter: MasterServiceFilterName,
+			resultFilter: []string{MasterServiceFilterName},
 		},
 		"kubelet watch services": {
 			userAgent:    "kubelet/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
-			resultFilter: MasterServiceFilterName,
+			resultFilter: []string{MasterServiceFilterName},
 		},
 		"kube-proxy list services": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services",
 			approved:     true,
-			resultFilter: DiscardCloudServiceFilterName,
+			resultFilter: []string{DiscardCloudServiceFilterName},
 		},
 		"kube-proxy watch services": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
-			resultFilter: DiscardCloudServiceFilterName,
+			resultFilter: []string{DiscardCloudServiceFilterName},
 		},
 		"kube-proxy list endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/apis/discovery.k8s.io/v1/endpointslices",
 			approved:     true,
-			resultFilter: ServiceTopologyFilterName,
+			resultFilter: []string{ServiceTopologyFilterName},
 		},
 		"kube-proxy watch endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/apis/discovery.k8s.io/v1/endpointslices?watch=true",
 			approved:     true,
-			resultFilter: ServiceTopologyFilterName,
+			resultFilter: []string{ServiceTopologyFilterName},
 		},
 		"nginx-ingress-controller list endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints",
 			approved:     true,
-			resultFilter: ServiceTopologyFilterName,
+			resultFilter: []string{ServiceTopologyFilterName},
 		},
 		"nginx-ingress-controller watch endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints?watch=true",
 			approved:     true,
-			resultFilter: ServiceTopologyFilterName,
+			resultFilter: []string{ServiceTopologyFilterName},
 		},
 		"list endpoints without user agent": {
 			verb:         "GET",
 			path:         "/api/v1/endpoints",
 			approved:     false,
-			resultFilter: "",
+			resultFilter: []string{},
 		},
 		"list configmaps by hub agent": {
 			userAgent:    projectinfo.GetHubName(),
 			verb:         "GET",
 			path:         "/api/v1/configmaps",
 			approved:     false,
-			resultFilter: "",
+			resultFilter: []string{},
 		},
 		"watch configmaps by hub agent": {
 			userAgent:    projectinfo.GetHubName(),
 			verb:         "GET",
 			path:         "/api/v1/configmaps?watch=true",
 			approved:     false,
-			resultFilter: "",
+			resultFilter: []string{},
 		},
 	}
 
@@ -160,9 +160,9 @@ func TestApprove(t *testing.T) {
 			}
 
 			var approved bool
-			var filterName string
+			var filterNames []string
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				approved, filterName = approver.Approve(req)
+				approved, filterNames = approver.Approve(req)
 			})
 
 			handler = util.WithRequestClientComponent(handler)
@@ -173,8 +173,14 @@ func TestApprove(t *testing.T) {
 				t.Errorf("expect approved %v, but got %v", tt.approved, approved)
 			}
 
-			if filterName != tt.resultFilter {
-				t.Errorf("expect is filter name is %s, but got %v", tt.resultFilter, filterName)
+			if len(filterNames) != len(tt.resultFilter) {
+				t.Errorf("expect is filter names is %v, but got %v", tt.resultFilter, filterNames)
+			}
+
+			for i, name := range filterNames {
+				if tt.resultFilter[i] != name {
+					t.Errorf("expect is filter names is %v, but got %v", tt.resultFilter, filterNames)
+				}
 			}
 		})
 	}
@@ -183,9 +189,9 @@ func TestApprove(t *testing.T) {
 func TestAddConfigMap(t *testing.T) {
 	approver := newApprover(supportedResourceAndVerbsForFilter)
 	testcases := []struct {
-		desc               string
-		cm                 *v1.ConfigMap
-		resultReqKeyToName map[string]string
+		desc                string
+		cm                  *v1.ConfigMap
+		resultReqKeyToNames map[string]sets.String
 	}{
 		{
 			desc: "add a new filter setting",
@@ -199,7 +205,7 @@ func TestAddConfigMap(t *testing.T) {
 					"filter_masterservice": "foo, bar",
 				},
 			},
-			resultReqKeyToName: mergeReqKeyMap(approver.defaultReqKeyToName, map[string]string{
+			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"foo/services/list":  "masterservice",
 				"foo/services/watch": "masterservice",
 				"bar/services/list":  "masterservice",
@@ -217,34 +223,17 @@ func TestAddConfigMap(t *testing.T) {
 					"cache_agents": "nginx-controller",
 				},
 			},
-			resultReqKeyToName: map[string]string{
-				"kubelet/services/list":                         MasterServiceFilterName,
-				"kubelet/services/watch":                        MasterServiceFilterName,
-				"kube-proxy/services/list":                      DiscardCloudServiceFilterName,
-				"kube-proxy/services/watch":                     DiscardCloudServiceFilterName,
-				"kube-proxy/endpoints/list":                     ServiceTopologyFilterName,
-				"kube-proxy/endpoints/watch":                    ServiceTopologyFilterName,
-				"coredns/endpoints/list":                        ServiceTopologyFilterName,
-				"coredns/endpoints/watch":                       ServiceTopologyFilterName,
-				"nginx-ingress-controller/endpoints/list":       ServiceTopologyFilterName,
-				"nginx-ingress-controller/endpoints/watch":      ServiceTopologyFilterName,
-				"kube-proxy/endpointslices/list":                ServiceTopologyFilterName,
-				"kube-proxy/endpointslices/watch":               ServiceTopologyFilterName,
-				"coredns/endpointslices/list":                   ServiceTopologyFilterName,
-				"coredns/endpointslices/watch":                  ServiceTopologyFilterName,
-				"nginx-ingress-controller/endpointslices/list":  ServiceTopologyFilterName,
-				"nginx-ingress-controller/endpointslices/watch": ServiceTopologyFilterName,
-			},
+			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 	}
 
 	for i, tt := range testcases {
 		t.Run(testcases[i].desc, func(t *testing.T) {
 			approver.addConfigMap(tt.cm)
-			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
-				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
+			if !reflect.DeepEqual(approver.reqKeyToNames, tt.resultReqKeyToNames) {
+				t.Errorf("expect reqkeyToNames is %#+v, but got %#+v", tt.resultReqKeyToNames, approver.reqKeyToNames)
 			}
-			approver.merge("cleanup", map[string]string{})
+			approver.merge("cleanup", map[string]sets.String{})
 		})
 	}
 }
@@ -252,10 +241,10 @@ func TestAddConfigMap(t *testing.T) {
 func TestUpdateConfigMap(t *testing.T) {
 	approver := newApprover(supportedResourceAndVerbsForFilter)
 	testcases := []struct {
-		desc               string
-		oldCM              *v1.ConfigMap
-		newCM              *v1.ConfigMap
-		resultReqKeyToName map[string]string
+		desc                string
+		oldCM               *v1.ConfigMap
+		newCM               *v1.ConfigMap
+		resultReqKeyToNames map[string]sets.String
 	}{
 		{
 			desc: "add a new filter setting",
@@ -279,7 +268,7 @@ func TestUpdateConfigMap(t *testing.T) {
 					"filter_discardcloudservice": "foo, bar",
 				},
 			},
-			resultReqKeyToName: mergeReqKeyMap(approver.defaultReqKeyToName, map[string]string{
+			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"foo/services/list":  "discardcloudservice",
 				"foo/services/watch": "discardcloudservice",
 				"bar/services/list":  "discardcloudservice",
@@ -308,17 +297,17 @@ func TestUpdateConfigMap(t *testing.T) {
 					"filter_servicetopology": "foo, bar",
 				},
 			},
-			resultReqKeyToName: approver.defaultReqKeyToName,
+			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 	}
 
 	for i, tt := range testcases {
 		t.Run(testcases[i].desc, func(t *testing.T) {
 			approver.updateConfigMap(tt.oldCM, tt.newCM)
-			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
-				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
+			if !reflect.DeepEqual(approver.reqKeyToNames, tt.resultReqKeyToNames) {
+				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToNames, approver.reqKeyToNames)
 			}
-			approver.merge("cleanup", map[string]string{})
+			approver.merge("cleanup", map[string]sets.String{})
 		})
 	}
 }
@@ -327,22 +316,22 @@ func TestMerge(t *testing.T) {
 	approver := newApprover(supportedResourceAndVerbsForFilter)
 	testcases := map[string]struct {
 		action              string
-		reqKeyToNamesFromCM map[string]string
-		resultReqKeyToName  map[string]string
+		reqKeyToNamesFromCM map[string]sets.String
+		resultReqKeyToNames map[string]sets.String
 	}{
 		"init req key to name": {
 			action:              "init",
-			reqKeyToNamesFromCM: map[string]string{},
-			resultReqKeyToName:  approver.defaultReqKeyToName,
+			reqKeyToNamesFromCM: map[string]sets.String{},
+			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 		"add some items of req key to name": {
 			action: "add",
-			reqKeyToNamesFromCM: map[string]string{
-				"comp1/resources1/list":  "filter1",
-				"comp2/resources2/watch": "filter2",
-				"comp3/resources3/watch": "filter1",
+			reqKeyToNamesFromCM: map[string]sets.String{
+				"comp1/resources1/list":  sets.NewString("filter1"),
+				"comp2/resources2/watch": sets.NewString("filter2"),
+				"comp3/resources3/watch": sets.NewString("filter1"),
 			},
-			resultReqKeyToName: mergeReqKeyMap(approver.defaultReqKeyToName, map[string]string{
+			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp1/resources1/list":  "filter1",
 				"comp2/resources2/watch": "filter2",
 				"comp3/resources3/watch": "filter1",
@@ -350,37 +339,38 @@ func TestMerge(t *testing.T) {
 		},
 		"update and delete item of req key to name": {
 			action: "update",
-			reqKeyToNamesFromCM: map[string]string{
-				"comp1/resources1/list":  "filter1",
-				"comp2/resources2/watch": "filter3",
+			reqKeyToNamesFromCM: map[string]sets.String{
+				"comp1/resources1/list":  sets.NewString("filter1"),
+				"comp2/resources2/watch": sets.NewString("filter3"),
 			},
-			resultReqKeyToName: mergeReqKeyMap(approver.defaultReqKeyToName, map[string]string{
+			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp1/resources1/list":  "filter1",
 				"comp2/resources2/watch": "filter3",
 			}),
 		},
 		"update default setting of req key to name": {
 			action: "update",
-			reqKeyToNamesFromCM: map[string]string{
-				"kubelet/services/list":  "filter1",
-				"comp2/resources2/watch": "filter3",
+			reqKeyToNamesFromCM: map[string]sets.String{
+				"kubelet/services/list":  sets.NewString("filter1"),
+				"comp2/resources2/watch": sets.NewString("filter3"),
 			},
-			resultReqKeyToName: mergeReqKeyMap(approver.defaultReqKeyToName, map[string]string{
+			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp2/resources2/watch": "filter3",
+				"kubelet/services/list":  "filter1",
 			}),
 		},
 		"clear all user setting of req key to name": {
 			action:              "update",
-			reqKeyToNamesFromCM: map[string]string{},
-			resultReqKeyToName:  approver.defaultReqKeyToName,
+			reqKeyToNamesFromCM: map[string]sets.String{},
+			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 	}
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			approver.merge(tt.action, tt.reqKeyToNamesFromCM)
-			if !reflect.DeepEqual(approver.reqKeyToName, tt.resultReqKeyToName) {
-				t.Errorf("expect to get reqKeyToName %#+v, but got %#+v", tt.resultReqKeyToName, approver.reqKeyToName)
+			if !reflect.DeepEqual(approver.reqKeyToNames, tt.resultReqKeyToNames) {
+				t.Errorf("expect to get reqKeyToName %#+v, but got %#+v", tt.resultReqKeyToNames, approver.reqKeyToNames)
 			}
 		})
 	}
@@ -645,37 +635,41 @@ func TestReqKey(t *testing.T) {
 	}
 }
 
-func mergeReqKeyMap(m1, m2 map[string]string) map[string]string {
-	m := make(map[string]string)
-	for k, v := range m1 {
-		m[k] = v
+func mergeReqKeyMap(base map[string]sets.String, m map[string]string) map[string]sets.String {
+	reqKeyToNames := make(map[string]sets.String)
+	for k, v := range base {
+		reqKeyToNames[k] = sets.NewString(v.UnsortedList()...)
 	}
 
-	for k, v := range m2 {
-		m[k] = v
+	for k, v := range m {
+		if _, ok := reqKeyToNames[k]; ok {
+			reqKeyToNames[k].Insert(v)
+		} else {
+			reqKeyToNames[k] = sets.NewString(v)
+		}
 	}
 
-	return m
+	return reqKeyToNames
 }
 
 func newApprover(filterSupportedResAndVerbs map[string]map[string]sets.String) *approver {
-	//client := &fake.Clientset{}
-	//informerFactory := informers.NewSharedInformerFactory(client, 0)
 	na := &approver{
-		reqKeyToName:                       make(map[string]string),
+		reqKeyToNames:                      make(map[string]sets.String),
 		supportedResourceAndVerbsForFilter: filterSupportedResAndVerbs,
-		//configMapSynced:                    informerFactory.Core().V1().ConfigMaps().Informer().HasSynced,
-		stopCh: make(chan struct{}),
+		stopCh:                             make(chan struct{}),
 	}
 
-	defaultReqKeyToFilterName := make(map[string]string)
+	defaultReqKeyToFilterNames := make(map[string]sets.String)
 	for name, setting := range SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
-			defaultReqKeyToFilterName[key] = name
+			if _, ok := defaultReqKeyToFilterNames[key]; !ok {
+				defaultReqKeyToFilterNames[key] = sets.NewString()
+			}
+			defaultReqKeyToFilterNames[key].Insert(name)
 		}
 	}
-	na.defaultReqKeyToName = defaultReqKeyToFilterName
+	na.defaultReqKeyToNames = defaultReqKeyToFilterNames
 
-	na.merge("init", na.defaultReqKeyToName)
+	na.merge("init", na.defaultReqKeyToNames)
 	return na
 }

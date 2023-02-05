@@ -37,37 +37,37 @@ import (
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-type nopRunner struct {
+type nopObjectHandler struct {
 	name string
 }
 
-func (nr *nopRunner) Name() string {
-	return nr.name
+func (noh *nopObjectHandler) Name() string {
+	return noh.name
 }
 
-func (nr *nopRunner) SupportedResourceAndVerbs() map[string]sets.String {
+func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.String {
 	return map[string]sets.String{}
 }
 
-func (nr *nopRunner) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	return 0, rc, nil
+func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+	return obj
 }
 
 func registerAllFilters(filters *Filters) {
-	filters.Register(ServiceTopologyFilterName, func() (Runner, error) {
-		return &nopRunner{name: ServiceTopologyFilterName}, nil
+	filters.Register(ServiceTopologyFilterName, func() (ObjectFilter, error) {
+		return &nopObjectHandler{name: ServiceTopologyFilterName}, nil
 	})
-	filters.Register(DiscardCloudServiceFilterName, func() (Runner, error) {
-		return &nopRunner{name: DiscardCloudServiceFilterName}, nil
+	filters.Register(DiscardCloudServiceFilterName, func() (ObjectFilter, error) {
+		return &nopObjectHandler{name: DiscardCloudServiceFilterName}, nil
 	})
-	filters.Register(MasterServiceFilterName, func() (Runner, error) {
-		return &nopRunner{name: MasterServiceFilterName}, nil
+	filters.Register(MasterServiceFilterName, func() (ObjectFilter, error) {
+		return &nopObjectHandler{name: MasterServiceFilterName}, nil
 	})
 }
 
 type nopInitializer struct{}
 
-func (nopInit *nopInitializer) Initialize(_ Runner) error {
+func (nopInit *nopInitializer) Initialize(_ ObjectFilter) error {
 	return nil
 }
 
@@ -111,12 +111,6 @@ func TestNewFromFilters(t *testing.T) {
 			}
 		})
 	}
-}
-
-type nopObjectHandler struct{}
-
-func (noh *nopObjectHandler) RuntimeObjectFilter(obj runtime.Object) (runtime.Object, bool) {
-	return obj, false
 }
 
 func TestFilterReadCloser_Read_List(t *testing.T) {
@@ -279,7 +273,7 @@ func TestFilterReadCloser_Read_List(t *testing.T) {
 				buf := bytes.NewBuffer(listBytes)
 				rc := io.NopCloser(buf)
 
-				size, newRc, err := NewFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
+				size, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
 				if err != nil {
 					t.Errorf("failed new filter readcloser, %v", err)
 				}
@@ -429,7 +423,7 @@ func TestFilterReadCloser_Read_Watch(t *testing.T) {
 				}
 				rc := io.NopCloser(&buf)
 
-				_, newRc, err := NewFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
+				_, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
 				if err != nil {
 					t.Errorf("failed new filter readcloser, %v", err)
 				}

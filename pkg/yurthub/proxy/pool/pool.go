@@ -229,7 +229,7 @@ func (pp *PoolCoordinatorProxy) modifyResponse(resp *http.Response) error {
 
 		// filter response data
 		if pp.filterMgr != nil {
-			if ok, runner := pp.filterMgr.FindRunner(req); ok {
+			if runner, ok := pp.filterMgr.FindResponseFilter(req); ok {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
 				size, filterRc, err := runner.Filter(req, wrapBody, pp.stopCh)
 				if err != nil {

@@ -17,31 +17,32 @@ limitations under the License.
 package inclusterconfig
 
 import (
-	"io"
-	"net/http"
+	"fmt"
+	"strings"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+)
+
+const (
+	KubeProxyConfigMapNamespace = "kube-system"
+	KubeProxyConfigMapName      = "kube-proxy"
+	KubeProxyDataKey            = "config.conf"
+	KubeProxyKubeConfigStr      = "kubeconfig"
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters, sm *serializer.SerializerManager) {
-	filters.Register(filter.InClusterConfigFilterName, func() (filter.Runner, error) {
-		return NewFilter(sm), nil
+func Register(filters *filter.Filters) {
+	filters.Register(filter.InClusterConfigFilterName, func() (filter.ObjectFilter, error) {
+		return &inClusterConfigFilter{}, nil
 	})
 }
 
-func NewFilter(sm *serializer.SerializerManager) *inClusterConfigFilter {
-	return &inClusterConfigFilter{
-		serializerManager: sm,
-	}
-}
-
-type inClusterConfigFilter struct {
-	serializerManager *serializer.SerializerManager
-}
+type inClusterConfigFilter struct{}
 
 func (iccf *inClusterConfigFilter) Name() string {
 	return filter.InClusterConfigFilterName
@@ -53,7 +54,45 @@ func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.S
 	}
 }
 
-func (iccf *inClusterConfigFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	handler := NewInClusterConfigFilterHandler()
-	return filter.NewFilterReadCloser(req, iccf.serializerManager, rc, handler, iccf.Name(), stopCh)
+func (iccf *inClusterConfigFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+	switch v := obj.(type) {
+	case *v1.ConfigMapList:
+		for i := range v.Items {
+			newCM, mutated := mutateKubeProxyConfigMap(&v.Items[i])
+			if mutated {
+				v.Items[i] = *newCM
+				break
+			}
+		}
+		return v
+	case *v1.ConfigMap:
+		cm, _ := mutateKubeProxyConfigMap(v)
+		return cm
+	default:
+		return v
+	}
+}
+
+func mutateKubeProxyConfigMap(cm *v1.ConfigMap) (*v1.ConfigMap, bool) {
+	mutated := false
+	if cm.Namespace == KubeProxyConfigMapNamespace && cm.Name == KubeProxyConfigMapName {
+		if cm.Data != nil && len(cm.Data[KubeProxyDataKey]) != 0 {
+			parts := make([]string, 0)
+			for _, line := range strings.Split(cm.Data[KubeProxyDataKey], "\n") {
+				items := strings.Split(strings.Trim(line, " "), ":")
+				if len(items) == 2 && items[0] == KubeProxyKubeConfigStr {
+					parts = append(parts, strings.Replace(line, KubeProxyKubeConfigStr, fmt.Sprintf("#%s", KubeProxyKubeConfigStr), 1))
+					mutated = true
+				} else {
+					parts = append(parts, line)
+				}
+			}
+			if mutated {
+				cm.Data[KubeProxyDataKey] = strings.Join(parts, "\n")
+				klog.Infof("kubeconfig in configmap(%s/%s) has been commented, new config.conf: \n%s\n", cm.Namespace, cm.Name, cm.Data[KubeProxyDataKey])
+			}
+		}
+	}
+
+	return cm, mutated
 }

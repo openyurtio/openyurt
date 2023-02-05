@@ -27,15 +27,43 @@ import (
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
-func TestRuntimeObjectFilter(t *testing.T) {
+func TestName(t *testing.T) {
+	stf := &serviceTopologyFilter{}
+	if stf.Name() != filter.ServiceTopologyFilterName {
+		t.Errorf("expect %s, but got %s", filter.ServiceTopologyFilterName, stf.Name())
+	}
+}
+
+func TestSupportedResourceAndVerbs(t *testing.T) {
+	stf := &serviceTopologyFilter{}
+	rvs := stf.SupportedResourceAndVerbs()
+	if len(rvs) != 2 {
+		t.Errorf("supported not two resources, %v", rvs)
+	}
+
+	for resource, verbs := range rvs {
+		if resource != "endpoints" && resource != "endpointslices" {
+			t.Errorf("expect resource is endpoints/endpointslices, but got %s", resource)
+		}
+
+		if !verbs.Equal(sets.NewString("list", "watch")) {
+			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
+		}
+	}
+}
+
+func TestFilter(t *testing.T) {
 	currentNodeName := "node1"
 	nodeName2 := "node2"
 	nodeName3 := "node3"
@@ -3175,6 +3203,7 @@ func TestRuntimeObjectFilter(t *testing.T) {
 			serviceInformer := factory.Core().V1().Services()
 			serviceInformer.Informer()
 			serviceLister := serviceInformer.Lister()
+			serviceSynced := serviceInformer.Informer().HasSynced
 
 			stopper := make(chan struct{})
 			defer close(stopper)
@@ -3184,6 +3213,7 @@ func TestRuntimeObjectFilter(t *testing.T) {
 			yurtFactory := yurtinformers.NewSharedInformerFactory(tt.yurtClient, 24*time.Hour)
 			nodePoolInformer := yurtFactory.Apps().V1alpha1().NodePools()
 			nodePoolLister := nodePoolInformer.Lister()
+			nodePoolSynced := nodePoolInformer.Informer().HasSynced
 
 			stopper2 := make(chan struct{})
 			defer close(stopper2)
@@ -3194,9 +3224,22 @@ func TestRuntimeObjectFilter(t *testing.T) {
 				return tt.kubeClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
 			}
 
-			fh := NewServiceTopologyFilterHandler(currentNodeName, serviceLister, nodePoolLister, nodeGetter)
-			newObj, isNil := fh.RuntimeObjectFilter(tt.responseObject)
-			if isNil {
+			nodeSynced := func() bool {
+				return true
+			}
+
+			stopCh := make(<-chan struct{})
+			stf := &serviceTopologyFilter{
+				nodeName:       currentNodeName,
+				serviceLister:  serviceLister,
+				nodePoolLister: nodePoolLister,
+				nodeGetter:     nodeGetter,
+				serviceSynced:  serviceSynced,
+				nodePoolSynced: nodePoolSynced,
+				nodeSynced:     nodeSynced,
+			}
+			newObj := stf.Filter(tt.responseObject, stopCh)
+			if util.IsNil(newObj) {
 				t.Errorf("empty object is returned")
 			}
 			if !reflect.DeepEqual(newObj, tt.expectObject) {

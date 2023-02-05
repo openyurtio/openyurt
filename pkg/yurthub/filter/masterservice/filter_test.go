@@ -23,10 +23,39 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
-func TestRuntimeObjectFilter(t *testing.T) {
-	fh := &masterServiceFilterHandler{
+func TestName(t *testing.T) {
+	msf := &masterServiceFilter{}
+	if msf.Name() != filter.MasterServiceFilterName {
+		t.Errorf("expect %s, but got %s", filter.MasterServiceFilterName, msf.Name())
+	}
+}
+
+func TestSupportedResourceAndVerbs(t *testing.T) {
+	msf := masterServiceFilter{}
+	rvs := msf.SupportedResourceAndVerbs()
+	if len(rvs) != 1 {
+		t.Errorf("supported more than one resources, %v", rvs)
+	}
+
+	for resource, verbs := range rvs {
+		if resource != "services" {
+			t.Errorf("expect resource is services, but got %s", resource)
+		}
+
+		if !verbs.Equal(sets.NewString("list", "watch")) {
+			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
+		}
+	}
+}
+
+func TestFilter(t *testing.T) {
+	msf := &masterServiceFilter{
 		host: "169.251.2.1",
 		port: 10268,
 	}
@@ -77,10 +106,10 @@ func TestRuntimeObjectFilter(t *testing.T) {
 							Namespace: MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: fh.host,
+							ClusterIP: msf.host,
 							Ports: []corev1.ServicePort{
 								{
-									Port: fh.port,
+									Port: msf.port,
 									Name: MasterServicePortName,
 								},
 							},
@@ -163,10 +192,10 @@ func TestRuntimeObjectFilter(t *testing.T) {
 					Namespace: MasterServiceNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: fh.host,
+					ClusterIP: msf.host,
 					Ports: []corev1.ServicePort{
 						{
-							Port: fh.port,
+							Port: msf.port,
 							Name: MasterServicePortName,
 						},
 					},
@@ -245,15 +274,16 @@ func TestRuntimeObjectFilter(t *testing.T) {
 		},
 	}
 
+	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			newObj, isNil := fh.RuntimeObjectFilter(tt.responseObject)
+			newObj := msf.Filter(tt.responseObject, stopCh)
 			if tt.expectObject == nil {
-				if !isNil {
+				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)
 				}
 			} else if !reflect.DeepEqual(newObj, tt.expectObject) {
-				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n, isNil=%v", tt.expectObject, newObj, isNil)
+				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", tt.expectObject, newObj)
 			}
 		})
 	}
