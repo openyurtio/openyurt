@@ -98,13 +98,8 @@ func NewSignedCert(client client.Interface, cfg *CertConfig, key crypto.Signer, 
 			return nil, errors.Wrapf(err, "init cert %s fail", cfg.CertName)
 		}
 
-		for _, ip := range ips {
-			cfg.IPs = append(cfg.IPs, ip)
-		}
-		for _, dnsName := range dnsNames {
-			cfg.DNSNames = append(cfg.DNSNames, dnsName)
-		}
-
+		cfg.IPs = append(cfg.IPs, ips...)
+		cfg.DNSNames = append(cfg.DNSNames, dnsNames...)
 	}
 
 	// prepare cert serial number
