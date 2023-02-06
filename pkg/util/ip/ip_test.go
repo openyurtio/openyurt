@@ -20,6 +20,8 @@ import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetLoopbackIP(t *testing.T) {
@@ -134,4 +136,48 @@ func TestParseIPList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSearchIPs(t *testing.T) {
+
+	// empty ip list
+	ipList := []net.IP{}
+	assert.False(t, SearchIP(ipList, net.ParseIP("10.0.0.1")))
+
+	// ip list with multiple ips
+	ipList = []net.IP{
+		net.ParseIP("10.0.0.1"),
+		net.ParseIP("10.0.0.2"),
+	}
+	assert.True(t, SearchIP(ipList, net.ParseIP("10.0.0.1")))
+	assert.True(t, SearchIP(ipList, net.ParseIP("10.0.0.2")))
+	assert.False(t, SearchIP(ipList, net.ParseIP("10.0.0.3")))
+
+	// search one exiting ip
+	ips := []net.IP{
+		net.ParseIP("10.0.0.1"),
+	}
+	assert.True(t, SearchAllIP(ipList, ips))
+
+	// search multiple existing ips
+	ips = []net.IP{
+		net.ParseIP("10.0.0.1"),
+		net.ParseIP("10.0.0.2"),
+	}
+	assert.True(t, SearchAllIP(ipList, ips))
+
+	// search multiple existing ips with one missing ip
+	ips = []net.IP{
+		net.ParseIP("10.0.0.3"),
+	}
+	assert.False(t, SearchAllIP(ipList, ips))
+
+	// search multiple existing ips with multiple missing ips
+	ips = []net.IP{
+		net.ParseIP("10.0.0.1"),
+		net.ParseIP("10.0.0.4"),
+		net.ParseIP("10.0.0.3"),
+		net.ParseIP("10.0.0.2"),
+	}
+	assert.False(t, SearchAllIP(ipList, ips))
 }

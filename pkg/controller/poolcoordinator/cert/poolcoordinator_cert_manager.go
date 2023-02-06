@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
+	ip "github.com/openyurtio/openyurt/pkg/util/ip"
 )
 
 const (
@@ -293,7 +294,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 					continue
 				} else {
 					// check if dynamic IP addresses already exist in cert
-					changed := searchAllIP(cert.IPAddresses, ips)
+					changed := ip.SearchAllIP(cert.IPAddresses, ips)
 					if changed {
 						klog.Infof("cert %s IP has changed", certConf.CertName)
 						selfSignedCerts = append(selfSignedCerts, certConf)
