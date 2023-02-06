@@ -292,23 +292,8 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 					klog.Errorf("fail to init cert %s when checking dynamic attrs: %v", certConf.CertName, err)
 					continue
 				} else {
-					// check if dynamic IP addresses arleady exist in cert
-					changed := false
-					for _, fromService := range ips {
-						contains := false
-						for _, fromSecret := range cert.IPAddresses {
-							// use Equal to compare IP address instead of deep equal
-							// deep equal does not work for IP address
-							if fromService.Equal(fromSecret) {
-								contains = true
-								break
-							}
-						}
-						if !contains {
-							changed = true
-							break
-						}
-					}
+					// check if dynamic IP addresses already exist in cert
+					changed := searchAllIP(cert.IPAddresses, ips)
 					if changed {
 						klog.Infof("cert %s IP has changed", certConf.CertName)
 						selfSignedCerts = append(selfSignedCerts, certConf)

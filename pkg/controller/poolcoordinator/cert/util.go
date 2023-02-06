@@ -74,3 +74,23 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 
 	return ips, dnsnames, nil
 }
+
+// searchIP returns true if ip is in ipList
+func searchIP(ipList []net.IP, ip net.IP) bool {
+	for _, ipItem := range ipList {
+		if ipItem.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// searchAllIP returns true if all ips are in ipList
+func searchAllIP(ipList []net.IP, ips []net.IP) bool {
+	for _, ip := range ips {
+		if !searchIP(ipList, ip) {
+			return false
+		}
+	}
+	return true
+}
