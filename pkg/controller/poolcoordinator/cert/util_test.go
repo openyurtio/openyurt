@@ -17,7 +17,6 @@ limitations under the License.
 package cert
 
 import (
-	"net"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -111,48 +110,4 @@ func TestGetAPIServerSVCURL(t *testing.T) {
 	url, err := getAPIServerSVCURL(normalClient)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "https://xxxx:644", url)
-}
-
-func TestSearchIPs(t *testing.T) {
-
-	// empty ip list
-	ipList := []net.IP{}
-	assert.False(t, searchIP(ipList, net.ParseIP("10.0.0.1")))
-
-	// ip list with multiple ips
-	ipList = []net.IP{
-		net.ParseIP("10.0.0.1"),
-		net.ParseIP("10.0.0.2"),
-	}
-	assert.True(t, searchIP(ipList, net.ParseIP("10.0.0.1")))
-	assert.True(t, searchIP(ipList, net.ParseIP("10.0.0.2")))
-	assert.False(t, searchIP(ipList, net.ParseIP("10.0.0.3")))
-
-	// search one exiting ip
-	ips := []net.IP{
-		net.ParseIP("10.0.0.1"),
-	}
-	assert.True(t, searchAllIP(ipList, ips))
-
-	// search multiple existing ips
-	ips = []net.IP{
-		net.ParseIP("10.0.0.1"),
-		net.ParseIP("10.0.0.2"),
-	}
-	assert.True(t, searchAllIP(ipList, ips))
-
-	// search multiple existing ips with one missing ip
-	ips = []net.IP{
-		net.ParseIP("10.0.0.3"),
-	}
-	assert.False(t, searchAllIP(ipList, ips))
-
-	// search multiple existing ips with multiple missing ips
-	ips = []net.IP{
-		net.ParseIP("10.0.0.1"),
-		net.ParseIP("10.0.0.4"),
-		net.ParseIP("10.0.0.3"),
-		net.ParseIP("10.0.0.2"),
-	}
-	assert.False(t, searchAllIP(ipList, ips))
 }

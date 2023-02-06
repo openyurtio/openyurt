@@ -88,3 +88,23 @@ func ParseIPList(ips []string) []net.IP {
 	}
 	return results
 }
+
+// searchIP returns true if ip is in ipList
+func SearchIP(ipList []net.IP, ip net.IP) bool {
+	for _, ipItem := range ipList {
+		if ipItem.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// searchAllIP returns true if all ips are in ipList
+func SearchAllIP(ipList []net.IP, ips []net.IP) bool {
+	for _, ip := range ips {
+		if !SearchIP(ipList, ip) {
+			return false
+		}
+	}
+	return true
+}
