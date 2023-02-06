@@ -40,6 +40,11 @@ type WantsNodeName interface {
 	SetNodeName(nodeName string) error
 }
 
+// WantsNodePoolName is an interface for setting nodePool name
+type WantsNodePoolName interface {
+	SetNodePoolName(nodePoolName string) error
+}
+
 // WantsStorageWrapper is an interface for setting StorageWrapper
 type WantsStorageWrapper interface {
 	SetStorageWrapper(s cachemanager.StorageWrapper) error
@@ -62,6 +67,7 @@ type genericFilterInitializer struct {
 	yurtFactory       yurtinformers.SharedInformerFactory
 	storageWrapper    cachemanager.StorageWrapper
 	nodeName          string
+	nodePoolName      string
 	masterServiceHost string
 	masterServicePort string
 	workingMode       util.WorkingMode
@@ -71,7 +77,7 @@ type genericFilterInitializer struct {
 func New(factory informers.SharedInformerFactory,
 	yurtFactory yurtinformers.SharedInformerFactory,
 	sw cachemanager.StorageWrapper,
-	nodeName, masterServiceHost, masterServicePort string,
+	nodeName, nodePoolName, masterServiceHost, masterServicePort string,
 	workingMode util.WorkingMode) *genericFilterInitializer {
 	return &genericFilterInitializer{
 		factory:           factory,
@@ -94,6 +100,12 @@ func (fi *genericFilterInitializer) Initialize(ins filter.ObjectFilter) error {
 
 	if wants, ok := ins.(WantsNodeName); ok {
 		if err := wants.SetNodeName(fi.nodeName); err != nil {
+			return err
+		}
+	}
+
+	if wants, ok := ins.(WantsNodePoolName); ok {
+		if err := wants.SetNodePoolName(fi.nodePoolName); err != nil {
 			return err
 		}
 	}

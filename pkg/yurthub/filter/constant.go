@@ -33,6 +33,10 @@ const (
 	// in order to make kube-proxy to use InClusterConfig to access kube-apiserver.
 	InClusterConfigFilterName = "inclusterconfig"
 
+	// NodePortIsolationName filter is used to discard or keep NodePort service in specified NodePool
+	// in order to make NodePort will not be listened by kube-proxy component in specified NodePool.
+	NodePortIsolationName = "nodeportisolation"
+
 	// SkipDiscardServiceAnnotation is annotation used by LB service.
 	// If end users want to use specified LB service at the edge side,
 	// End users should add annotation["openyurt.io/skip-discard"]="true" for LB service.
@@ -49,5 +53,6 @@ var (
 		DiscardCloudServiceFilterName: "kube-proxy",
 		ServiceTopologyFilterName:     "kube-proxy, coredns, nginx-ingress-controller",
 		InClusterConfigFilterName:     "kubelet",
+		NodePortIsolationName:         "kube-proxy",
 	}
 )
