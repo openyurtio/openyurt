@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
+	ip "github.com/openyurtio/openyurt/pkg/util/ip"
 )
 
 const (
@@ -105,16 +105,6 @@ type CertConfig struct {
 	// certInit is used for initilize those attrs which has to be determined dynamically
 	// e.g. TLS server cert's IP & DNSNames
 	certInit certInitFunc
-}
-
-func (c *CertConfig) init(clientSet client.Interface, stopCh <-chan struct{}) (err error) {
-	if c.certInit != nil {
-		c.IPs, c.DNSNames, err = c.certInit(clientSet, stopCh)
-		if err != nil {
-			return errors.Wrapf(err, "fail to init cert %s", c.CertName)
-		}
-	}
-	return nil
 }
 
 var allSelfSignedCerts []CertConfig = []CertConfig{
@@ -296,13 +286,16 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 
 			// 1.3 check has dynamic attrs changed
 			if certConf.certInit != nil {
-				if err := certConf.init(clientSet, stopCh); err != nil {
+				// receive dynamic IP addresses
+				ips, _, err := certConf.certInit(clientSet, stopCh)
+				if err != nil {
 					// if cert init failed, skip this cert
-					klog.Errorf("fail to init cert when checking dynamic attrs: %v", err)
+					klog.Errorf("fail to init cert %s when checking dynamic attrs: %v", certConf.CertName, err)
 					continue
 				} else {
-					// check if dynamic IP address has changed
-					if !reflect.DeepEqual(certConf.IPs, cert.IPAddresses) {
+					// check if dynamic IP addresses already exist in cert
+					changed := ip.SearchAllIP(cert.IPAddresses, ips)
+					if changed {
 						klog.Infof("cert %s IP has changed", certConf.CertName)
 						selfSignedCerts = append(selfSignedCerts, certConf)
 						continue
