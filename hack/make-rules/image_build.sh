@@ -92,7 +92,7 @@ for image in ${targets[@]}; do
     --no-cache \
     --load ${DOCKER_BUILD_ARGS} \
     --platform ${TARGET_PLATFORMS} \
-    --file ${YURT_ROOT}/hack/dockerfiles/Dockerfile.${image} \
+    --file ${YURT_ROOT}/hack/dockerfiles/build/Dockerfile.${image} \
     --tag ${IMAGE_REPO}/${image}:${IMAGE_TAG} \
     ${YURT_ROOT}
 done
