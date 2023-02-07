@@ -120,7 +120,7 @@ function local_up_openyurt {
 }
 
 function cleanup {
-    rm -rf ${YURT_ROOT}/_output
+    rm -rf "$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})/yurtctl"
     kind delete clusters ${CLUSTER_NAME}
 }
 

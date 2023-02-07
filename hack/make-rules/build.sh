@@ -30,4 +30,8 @@ readonly YURT_ALL_TARGETS=(
     yurt-tunnel-agent
 )
 
+# clean old binaries at GOOS and GOARCH
+# eg. _output/local/bin/linux/amd64
+rm -rf $(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})
+
 build_binaries "$@"
