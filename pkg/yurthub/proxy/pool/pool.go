@@ -229,9 +229,9 @@ func (pp *PoolCoordinatorProxy) modifyResponse(resp *http.Response) error {
 
 		// filter response data
 		if pp.filterMgr != nil {
-			if runner, ok := pp.filterMgr.FindResponseFilter(req); ok {
+			if responseFilter, ok := pp.filterMgr.FindResponseFilter(req); ok {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := runner.Filter(req, wrapBody, pp.stopCh)
+				size, filterRc, err := responseFilter.Filter(req, wrapBody, pp.stopCh)
 				if err != nil {
 					klog.Errorf("failed to filter response for %s, %v", hubutil.ReqString(req), err)
 					return err
