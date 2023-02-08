@@ -14,7 +14,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/opencontainers/selinux v1.10.0
-	github.com/openyurtio/yurt-app-manager-api v0.6.0
+	github.com/openyurtio/yurt-app-manager-api v0.18.8
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
