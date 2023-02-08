@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Verify Code
         run: make verify
 
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
       - name: Setup Go
@@ -54,7 +54,7 @@ jobs:
     container: pouchcontainer/pouchlinter:v0.1.2
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Run misspell
         run: find  ./* -name  "*"  | xargs misspell -error
       - name: Lint markdown files
@@ -75,7 +75,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: true
       - name: Fetch History
@@ -106,7 +106,7 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0  
       - uses: actions/setup-go@v3
