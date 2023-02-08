@@ -1,0 +1,8 @@
+# multi-arch image building for yurt-controller-manager
+
+FROM --platform=${TARGETPLATFORM} alpine:3.14
+ARG TARGETOS TARGETARCH MIRROR_REPO
+RUN if [ ! -z "${MIRROR_REPO+x}" ]; then sed -i "s/dl-cdn.alpinelinux.org/${MIRROR_REPO}/g" /etc/apk/repositories; fi && \
+    apk add ca-certificates bash libc6-compat && update-ca-certificates && rm /var/cache/apk/*
+COPY ./_output/local/bin/${TARGETOS}/${TARGETARCH}/yurt-manager /usr/local/bin/yurt-manager
+ENTRYPOINT ["/usr/local/bin/yurt-manager"]

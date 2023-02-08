@@ -38,3 +38,37 @@ poolCoordinator:
 
 yurtHub:
   cacheAgents: ""
+
+yurtManager:
+  # settings for log print
+  log:
+    # log level for yurt-manager
+    level: "4"
+  replicas: 2
+  image:
+    registry: docker.io
+    repository: openyurt/yurt-manager
+    tag: v1.2.0
+  webhook:
+    port: 9876
+  metrics:
+    port: 8080
+  healthProbe:
+    port: 8000
+  # resources of yurt-manager container
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  affinity: 
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: openyurt.io/is-edge-worker
+            operator: In
+            values:
+            - "false"

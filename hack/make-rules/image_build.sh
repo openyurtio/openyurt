@@ -27,6 +27,7 @@ readonly IMAGE_TARGETS=(
     yurt-tunnel-server
     yurt-node-servant
     yurthub
+    yurt-manager
 )
 
 http_proxy=${http_proxy:-}

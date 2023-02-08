@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-manager
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-role
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: kube-system
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-manager-webhook-service
+  namespace: kube-system
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: {{ .Values.yurtManager.webhook.port }}
+  selector:
+    {{- include "yurt-manager.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    {{- include "yurt-manager.labels" . | nindent 4 }}
+  name: yurt-manager
+  namespace: "kube-system"
+spec:
+  replicas: {{ .Values.yurtManager.replicas }}
+  selector:
+    matchLabels:
+      {{- include "yurt-manager.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yurt-manager.selectorLabels" . | nindent 8 }}
+    spec:
+      tolerations:
+        - operator: "Exists"
+      containers:
+        - args:
+            - --enable-leader-election
+            - --metrics-addr=:{{ .Values.yurtManager.metrics.port }}
+            - --health-probe-addr=:{{ .Values.yurtManager.healthProbe.port }}
+            - --logtostderr=true
+            - --v={{ .Values.yurtManager.log.level }}
+          command:
+            - /usr/local/bin/yurt-manager
+          image: {{ .Values.yurtManager.image.registry }}/{{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
+          imagePullPolicy: Always
+          name: yurt-manager
+          ports:
+            - containerPort: {{ .Values.yurtManager.webhook.port }}
+              name: webhook-server
+              protocol: TCP
+            - containerPort: {{ .Values.yurtManager.metrics.port }}
+              name: metrics
+              protocol: TCP
+            - containerPort: {{ .Values.yurtManager.healthProbe.port }}
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.yurtManager.healthProbe.port }}
+      serviceAccountName: yurt-manager
+    {{- if .Values.yurtManager.affinity }}
+      affinity: {{ toYaml .Values.yurtManager.affinity | nindent 8 }}
+    {{- end }}
