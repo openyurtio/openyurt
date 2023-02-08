@@ -23,10 +23,39 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
+func TestName(t *testing.T) {
+	iccf := &inClusterConfigFilter{}
+	if iccf.Name() != filter.InClusterConfigFilterName {
+		t.Errorf("expect %s, but got %s", filter.InClusterConfigFilterName, iccf.Name())
+	}
+}
+
+func TestSupportedResourceAndVerbs(t *testing.T) {
+	iccf := inClusterConfigFilter{}
+	rvs := iccf.SupportedResourceAndVerbs()
+	if len(rvs) != 1 {
+		t.Errorf("supported more than one resources, %v", rvs)
+	}
+
+	for resource, verbs := range rvs {
+		if resource != "configmaps" {
+			t.Errorf("expect resource is services, but got %s", resource)
+		}
+
+		if !verbs.Equal(sets.NewString("get", "list", "watch")) {
+			t.Errorf("expect verbs are get/list/watch, but got %v", verbs.UnsortedList())
+		}
+	}
+}
+
 func TestRuntimeObjectFilter(t *testing.T) {
-	fh := NewInClusterConfigFilterHandler()
+	iccf := inClusterConfigFilter{}
 
 	testcases := map[string]struct {
 		responseObject runtime.Object
@@ -158,15 +187,16 @@ func TestRuntimeObjectFilter(t *testing.T) {
 		},
 	}
 
+	stopCh := make(<-chan struct{})
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			newObj, isNil := fh.RuntimeObjectFilter(tc.responseObject)
+			newObj := iccf.Filter(tc.responseObject, stopCh)
 			if tc.expectObject == nil {
-				if !isNil {
+				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)
 				}
 			} else if !reflect.DeepEqual(newObj, tc.expectObject) {
-				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n, isNil=%v", tc.expectObject, newObj, isNil)
+				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", tc.expectObject, newObj)
 			}
 		})
 	}

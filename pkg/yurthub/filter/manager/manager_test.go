@@ -19,6 +19,7 @@ package manager
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ import (
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
-func TestFindRunner(t *testing.T) {
+func TestFindResponseFilter(t *testing.T) {
 	fakeClient := &fake.Clientset{}
 	fakeYurtClient := &yurtfake.Clientset{}
 	sharedFactory, yurtSharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
@@ -66,7 +67,7 @@ func TestFindRunner(t *testing.T) {
 		path                    string
 		mgrIsNil                bool
 		isFound                 bool
-		runner                  map[string]map[string]sets.String
+		names                   []string
 	}{
 		"disable resource filter": {
 			enableResourceFilter: false,
@@ -80,11 +81,7 @@ func TestFindRunner(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/services",
 			isFound:                true,
-			runner: map[string]map[string]sets.String{
-				"masterservice": {
-					"services": sets.NewString("list", "watch"),
-				},
-			},
+			names:                  []string{"masterservice"},
 		},
 		"get discard cloud service filter": {
 			enableResourceFilter:   true,
@@ -94,11 +91,7 @@ func TestFindRunner(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/services",
 			isFound:                true,
-			runner: map[string]map[string]sets.String{
-				"discardcloudservice": {
-					"services": sets.NewString("list", "watch"),
-				},
-			},
+			names:                  []string{"discardcloudservice"},
 		},
 		"get service topology filter": {
 			enableResourceFilter:   true,
@@ -108,12 +101,7 @@ func TestFindRunner(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/endpoints",
 			isFound:                true,
-			runner: map[string]map[string]sets.String{
-				"servicetopology": {
-					"endpoints":      sets.NewString("list", "watch"),
-					"endpointslices": sets.NewString("list", "watch"),
-				},
-			},
+			names:                  []string{"servicetopology"},
 		},
 		"disable service topology filter": {
 			enableResourceFilter:    true,
@@ -171,9 +159,9 @@ func TestFindRunner(t *testing.T) {
 			}
 
 			var isFound bool
-			var runner filter.Runner
+			var responseFilter filter.ResponseFilter
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				isFound, runner = mgr.FindRunner(req)
+				responseFilter, isFound = mgr.FindResponseFilter(req)
 			})
 
 			handler = util.WithRequestClientComponent(handler)
@@ -182,32 +170,17 @@ func TestFindRunner(t *testing.T) {
 
 			if isFound != tt.isFound {
 				t.Errorf("expect isFound %v, but got %v", tt.isFound, isFound)
+				return
 			}
 
-			if len(tt.runner) == 0 && runner != nil {
-				t.Errorf("expect no runner, but got runner %s", runner.Name())
+			names := strings.Split(responseFilter.Name(), ",")
+			if len(tt.names) != len(names) {
+				t.Errorf("expect filter names %v, but got %v", tt.names, names)
 			}
 
-			for name, resourceAndVerbs := range tt.runner {
-				if runner == nil {
-					t.Errorf("expect runner %s, but got nil", name)
-				}
-
-				if name != runner.Name() {
-					t.Errorf("expect runner %s, but got %s", name, runner.Name())
-				}
-
-				supportedResourceAndVerbs := runner.SupportedResourceAndVerbs()
-				if len(resourceAndVerbs) != len(supportedResourceAndVerbs) {
-					t.Errorf("expect resourceAndVerbs %v, but got %v", resourceAndVerbs, supportedResourceAndVerbs)
-				}
-
-				for resource, verbs := range resourceAndVerbs {
-					if supportedVerbs, ok := supportedResourceAndVerbs[resource]; !ok {
-						t.Errorf("expect resourceAndVerbs %v, but got %v", resourceAndVerbs, supportedResourceAndVerbs)
-					} else if !verbs.Equal(supportedVerbs) {
-						t.Errorf("expect resourceAndVerbs %v, but got %v", resourceAndVerbs, supportedResourceAndVerbs)
-					}
+			for i := range tt.names {
+				if tt.names[i] != names[i] {
+					t.Errorf("expect filter names %v, but got %v", tt.names, names)
 				}
 			}
 		})

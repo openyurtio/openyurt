@@ -25,16 +25,18 @@ import (
 	"net/http"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-type Factory func() (Runner, error)
+type Factory func() (ObjectFilter, error)
 
 type Filters struct {
 	sync.Mutex
@@ -51,13 +53,13 @@ func NewFilters(disabledFilters []string) *Filters {
 	}
 }
 
-func (fs *Filters) NewFromFilters(initializer FilterInitializer) ([]Runner, error) {
-	var runners = make([]Runner, 0)
+func (fs *Filters) NewFromFilters(initializer Initializer) ([]ObjectFilter, error) {
+	var filters = make([]ObjectFilter, 0)
 	for _, name := range fs.names {
 		if fs.Enabled(name) {
 			factory, found := fs.registry[name]
 			if !found {
-				return nil, fmt.Errorf("Filter %s has not registered", name)
+				return nil, fmt.Errorf("filter %s has not registered", name)
 			}
 
 			ins, err := factory()
@@ -71,13 +73,13 @@ func (fs *Filters) NewFromFilters(initializer FilterInitializer) ([]Runner, erro
 				return nil, err
 			}
 			klog.V(2).Infof("Filter %s initialize successfully", name)
-			runners = append(runners, ins)
+			filters = append(filters, ins)
 		} else {
 			klog.V(2).Infof("Filter %s is disabled", name)
 		}
 	}
 
-	return runners, nil
+	return filters, nil
 }
 
 func (fs *Filters) Register(name string, fn Factory) {
@@ -103,9 +105,9 @@ func (fs *Filters) Enabled(name string) bool {
 	return !fs.disabledFilters.Has(name)
 }
 
-type FilterInitializers []FilterInitializer
+type Initializers []Initializer
 
-func (fis FilterInitializers) Initialize(ins Runner) error {
+func (fis Initializers) Initialize(ins ObjectFilter) error {
 	for _, fi := range fis {
 		if err := fi.Initialize(ins); err != nil {
 			return err
@@ -116,22 +118,22 @@ func (fis FilterInitializers) Initialize(ins Runner) error {
 }
 
 type filterReadCloser struct {
-	rc          io.ReadCloser
-	filterCache *bytes.Buffer
-	watchDataCh chan *bytes.Buffer
-	serializer  *serializer.Serializer
-	handler     ObjectHandler
-	isWatch     bool
-	ownerName   string
-	stopCh      <-chan struct{}
+	rc           io.ReadCloser
+	filterCache  *bytes.Buffer
+	watchDataCh  chan *bytes.Buffer
+	serializer   *serializer.Serializer
+	objectFilter ObjectFilter
+	isWatch      bool
+	ownerName    string
+	stopCh       <-chan struct{}
 }
 
-// NewFilterReadCloser create an filterReadCloser object
-func NewFilterReadCloser(
+// newFilterReadCloser create an filterReadCloser object
+func newFilterReadCloser(
 	req *http.Request,
 	sm *serializer.SerializerManager,
 	rc io.ReadCloser,
-	handler ObjectHandler,
+	objectFilter ObjectFilter,
 	ownerName string,
 	stopCh <-chan struct{}) (int, io.ReadCloser, error) {
 	ctx := req.Context()
@@ -144,14 +146,14 @@ func NewFilterReadCloser(
 	}
 
 	frc := &filterReadCloser{
-		rc:          rc,
-		watchDataCh: make(chan *bytes.Buffer),
-		filterCache: new(bytes.Buffer),
-		serializer:  s,
-		handler:     handler,
-		isWatch:     info.Verb == "watch",
-		ownerName:   ownerName,
-		stopCh:      stopCh,
+		rc:           rc,
+		watchDataCh:  make(chan *bytes.Buffer),
+		filterCache:  new(bytes.Buffer),
+		serializer:   s,
+		objectFilter: objectFilter,
+		isWatch:      info.Verb == "watch",
+		ownerName:    ownerName,
+		stopCh:       stopCh,
 	}
 
 	if frc.isWatch {
@@ -211,8 +213,8 @@ func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 		return &buf, nil
 	}
 
-	filteredObj, isNil := frc.handler.RuntimeObjectFilter(obj)
-	if isNil {
+	filteredObj := frc.objectFilter.Filter(obj, frc.stopCh)
+	if yurtutil.IsNil(filteredObj) {
 		return &buf, nil
 	}
 
@@ -235,8 +237,8 @@ func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *byt
 			return err
 		}
 
-		newObj, isNil := frc.handler.RuntimeObjectFilter(obj)
-		if isNil {
+		newObj := frc.objectFilter.Filter(obj, frc.stopCh)
+		if yurtutil.IsNil(newObj) {
 			continue
 		}
 
@@ -261,4 +263,57 @@ func CreateSerializer(respContentType string, info *apirequest.RequestInfo, sm *
 		return nil
 	}
 	return sm.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+}
+
+type filterChain []ObjectFilter
+
+func CreateFilterChain(objFilters []ObjectFilter) ObjectFilter {
+	chain := make(filterChain, 0)
+	chain = append(chain, objFilters...)
+	return chain
+}
+
+func (chain filterChain) Name() string {
+	var name string
+	for i := range chain {
+		if len(name) == 0 {
+			name = chain[i].Name()
+		} else {
+			name = "," + chain[i].Name()
+		}
+	}
+	return name
+}
+
+func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.String {
+	// do nothing
+	return map[string]sets.String{}
+}
+
+func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+	for i := range chain {
+		obj = chain[i].Filter(obj, stopCh)
+	}
+
+	return obj
+}
+
+type responseFilter struct {
+	objectFilter      ObjectFilter
+	serializerManager *serializer.SerializerManager
+}
+
+func CreateResponseFilter(objectFilter ObjectFilter, serializerManager *serializer.SerializerManager) ResponseFilter {
+	return &responseFilter{
+		objectFilter:      objectFilter,
+		serializerManager: serializerManager,
+	}
+}
+
+func (rf *responseFilter) Name() string {
+	return rf.objectFilter.Name()
+}
+
+func (rf *responseFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
+	return newFilterReadCloser(req, rf.serializerManager, rc, rf.objectFilter, rf.objectFilter.Name(), stopCh)
 }

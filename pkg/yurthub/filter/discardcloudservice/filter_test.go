@@ -23,11 +23,38 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
-func TestRuntimeObjectFilter(t *testing.T) {
+func TestName(t *testing.T) {
+	dcsf := &discardCloudServiceFilter{}
+	if dcsf.Name() != filter.DiscardCloudServiceFilterName {
+		t.Errorf("expect %s, but got %s", filter.DiscardCloudServiceFilterName, dcsf.Name())
+	}
+}
+
+func TestSupportedResourceAndVerbs(t *testing.T) {
+	dcsf := &discardCloudServiceFilter{}
+	rvs := dcsf.SupportedResourceAndVerbs()
+	if len(rvs) != 1 {
+		t.Errorf("supported more than one resources, %v", rvs)
+	}
+
+	for resource, verbs := range rvs {
+		if resource != "services" {
+			t.Errorf("expect resource is services, but got %s", resource)
+		}
+
+		if !verbs.Equal(sets.NewString("list", "watch")) {
+			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
+		}
+	}
+}
+
+func TestFilter(t *testing.T) {
 	testcases := map[string]struct {
 		responseObj runtime.Object
 		expectObj   runtime.Object
@@ -292,17 +319,18 @@ func TestRuntimeObjectFilter(t *testing.T) {
 		},
 	}
 
+	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			fh := &discardCloudServiceFilterHandler{}
+			dcsf := &discardCloudServiceFilter{}
 
-			newObj, isNil := fh.RuntimeObjectFilter(tt.responseObj)
+			newObj := dcsf.Filter(tt.responseObj, stopCh)
 			if tt.expectObj == nil {
-				if !isNil {
+				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)
 				}
 			} else if !reflect.DeepEqual(newObj, tt.expectObj) {
-				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n, isNil=%v", tt.expectObj, newObj, isNil)
+				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", tt.expectObj, newObj)
 			}
 		})
 	}

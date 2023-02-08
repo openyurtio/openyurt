@@ -36,10 +36,10 @@ import (
 
 type approver struct {
 	sync.Mutex
-	reqKeyToName                       map[string]string
+	reqKeyToNames                      map[string]sets.String
 	configMapSynced                    cache.InformerSynced
 	supportedResourceAndVerbsForFilter map[string]map[string]sets.String
-	defaultReqKeyToName                map[string]string
+	defaultReqKeyToNames               map[string]sets.String
 	stopCh                             chan struct{}
 }
 
@@ -51,20 +51,23 @@ var (
 func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedResAndVerbs map[string]map[string]sets.String) Approver {
 	configMapInformer := sharedFactory.Core().V1().ConfigMaps().Informer()
 	na := &approver{
-		reqKeyToName:                       make(map[string]string),
+		reqKeyToNames:                      make(map[string]sets.String),
 		configMapSynced:                    configMapInformer.HasSynced,
 		supportedResourceAndVerbsForFilter: filterSupportedResAndVerbs,
+		defaultReqKeyToNames:               make(map[string]sets.String),
 		stopCh:                             make(chan struct{}),
 	}
-	defaultReqKeyToFilterName := make(map[string]string)
+
 	for name, setting := range SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
-			defaultReqKeyToFilterName[key] = name
+			if _, ok := na.defaultReqKeyToNames[key]; !ok {
+				na.defaultReqKeyToNames[key] = sets.NewString()
+			}
+			na.defaultReqKeyToNames[key].Insert(name)
 		}
 	}
-	na.defaultReqKeyToName = defaultReqKeyToFilterName
 
-	na.merge("init", na.defaultReqKeyToName)
+	na.merge("init", na.defaultReqKeyToNames)
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    na.addConfigMap,
 		UpdateFunc: na.updateConfigMap,
@@ -73,27 +76,28 @@ func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedR
 	return na
 }
 
-func (a *approver) Approve(req *http.Request) (bool, string) {
+func (a *approver) Approve(req *http.Request) (bool, []string) {
+	filterNames := make([]string, 0)
 	key := getKeyByRequest(req)
 	if len(key) == 0 {
-		return false, ""
+		return false, filterNames
 	}
 
 	if defaultBlackListRequests.Has(key) {
-		return false, ""
+		return false, filterNames
 	}
 
 	if ok := cache.WaitForCacheSync(a.stopCh, a.configMapSynced); !ok {
-		return false, ""
+		return false, filterNames
 	}
 
 	a.Lock()
 	defer a.Unlock()
-	if runnerName, ok := a.reqKeyToName[key]; ok {
-		return true, runnerName
+	if nameSetting, ok := a.reqKeyToNames[key]; ok {
+		return true, nameSetting.UnsortedList()
 	}
 
-	return false, ""
+	return false, filterNames
 }
 
 func (a *approver) addConfigMap(obj interface{}) {
@@ -102,18 +106,21 @@ func (a *approver) addConfigMap(obj interface{}) {
 		return
 	}
 
-	// get reqKeyToName of user request setting from configmap
-	reqKeyToNameFromCM := make(map[string]string)
+	// get reqKeyToNames of user request setting from configmap
+	reqKeyToNamesFromCM := make(map[string]sets.String)
 	for key, setting := range cm.Data {
 		if filterName, ok := a.hasFilterName(key); ok {
 			for _, requestKey := range a.parseRequestSetting(filterName, setting) {
-				reqKeyToNameFromCM[requestKey] = filterName
+				if _, ok := reqKeyToNamesFromCM[requestKey]; !ok {
+					reqKeyToNamesFromCM[requestKey] = sets.NewString()
+				}
+				reqKeyToNamesFromCM[requestKey].Insert(filterName)
 			}
 		}
 	}
 
-	// update reqKeyToName by merging user setting
-	a.merge("add", reqKeyToNameFromCM)
+	// update reqKeyToNames by merging user setting
+	a.merge("add", reqKeyToNamesFromCM)
 }
 
 func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
@@ -133,18 +140,21 @@ func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
 		return
 	}
 
-	// get reqKeyToName of user request setting from new configmap
-	reqKeyToNameFromCM := make(map[string]string)
+	// get reqKeyToNames of user request setting from new configmap
+	reqKeyToNamesFromCM := make(map[string]sets.String)
 	for key, setting := range newCM.Data {
 		if filterName, ok := a.hasFilterName(key); ok {
 			for _, requestKey := range a.parseRequestSetting(filterName, setting) {
-				reqKeyToNameFromCM[requestKey] = filterName
+				if _, ok := reqKeyToNamesFromCM[requestKey]; !ok {
+					reqKeyToNamesFromCM[requestKey] = sets.NewString()
+				}
+				reqKeyToNamesFromCM[requestKey].Insert(filterName)
 			}
 		}
 	}
 
 	// update reqKeyToName by merging user setting
-	a.merge("update", reqKeyToNameFromCM)
+	a.merge("update", reqKeyToNamesFromCM)
 }
 
 func (a *approver) deleteConfigMap(obj interface{}) {
@@ -154,30 +164,31 @@ func (a *approver) deleteConfigMap(obj interface{}) {
 	}
 
 	// update reqKeyToName by merging user setting
-	a.merge("delete", map[string]string{})
+	a.merge("delete", map[string]sets.String{})
 }
 
-// merge is used to add specified setting into reqKeyToName map.
-func (a *approver) merge(action string, keyToNameSetting map[string]string) {
+// merge is used to add specified setting into reqKeyToNames map.
+func (a *approver) merge(action string, keyToNamesSetting map[string]sets.String) {
 	a.Lock()
 	defer a.Unlock()
-	// remove current user setting from reqKeyToName and left default setting only
-	for key := range a.reqKeyToName {
-		if _, ok := a.defaultReqKeyToName[key]; !ok {
-			delete(a.reqKeyToName, key)
+	// remove current user setting from reqKeyToNames and left default setting
+	for key, currentNames := range a.reqKeyToNames {
+		if defaultNames, ok := a.defaultReqKeyToNames[key]; !ok {
+			delete(a.reqKeyToNames, key)
+		} else {
+			notDefaultNames := currentNames.Difference(defaultNames).UnsortedList()
+			a.reqKeyToNames[key].Delete(notDefaultNames...)
 		}
 	}
 
 	// merge new user setting
-	for key, name := range keyToNameSetting {
-		// if filter setting is duplicated, only recognize the first setting.
-		if currentName, ok := a.reqKeyToName[key]; !ok {
-			a.reqKeyToName[key] = name
-		} else {
-			klog.Warningf("request %s has already used filter %s, so skip filter %s setting", key, currentName, name)
+	for key, names := range keyToNamesSetting {
+		if _, ok := a.reqKeyToNames[key]; !ok {
+			a.reqKeyToNames[key] = sets.NewString()
 		}
+		a.reqKeyToNames[key].Insert(names.UnsortedList()...)
 	}
-	klog.Infof("current filter setting: %v after %s", a.reqKeyToName, action)
+	klog.Infof("current filter setting: %v after %s", a.reqKeyToNames, action)
 }
 
 // parseRequestSetting extract comp info from setting, and make up request keys.

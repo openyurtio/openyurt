@@ -288,9 +288,9 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 
 		// filter response data
 		if lb.filterManager != nil {
-			if ok, runner := lb.filterManager.FindRunner(req); ok {
+			if responseFilter, ok := lb.filterManager.FindResponseFilter(req); ok {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := runner.Filter(req, wrapBody, lb.stopCh)
+				size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
 				if err != nil {
 					klog.Errorf("failed to filter response for %s, %v", hubutil.ReqString(req), err)
 					return err
