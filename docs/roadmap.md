@@ -148,7 +148,7 @@ detail info: https://github.com/orgs/openyurtio/projects/9
 
 detail info: https://github.com/orgs/openyurtio/projects/2
 
-## v1.3 Roadmap
+## v1.3 Roadmap (Release Plan: 2023.4)
 
 **ControlPlane SIG**
 
@@ -156,5 +156,11 @@ detail info: https://github.com/orgs/openyurtio/projects/2
 - combine yurtctl tool into yurtadm tool ([#1059](https://github.com/openyurtio/openyurt/issues/1059))
 - support OTA and Auto upgrade model for static pod ([#1079](https://github.com/openyurtio/openyurt/issues/1079))
 - install yurthub component on edge nodes depending on StaticPod cr resource ([#1080](https://github.com/openyurtio/openyurt/issues/1080))
+- support filter chain to mutate response data in YurtHub [#1188](https://github.com/openyurtio/openyurt/issues/1188)
+- support NodePort service isolated for specified nodePool [#1183](https://github.com/openyurtio/openyurt/issues/1183)
 
 detail info: https://github.com/orgs/openyurtio/projects/11
+
+## Roadmap from 2023
+
+Because of three SIGs(controlplane, dataplane, IoT) have been launched in openyurt community, so roadmap from 2023 for all SIGs will be managed in [openyurtio/community repo](https://github.com/openyurtio/community), and the link of roadmap is: https://github.com/openyurtio/community/blob/main/roadmap.md, and this file is only used for managing the stale roadmap.
