@@ -178,10 +178,10 @@ func NewLoadBalancer(
 		algo = &rrLoadBalancerAlgo{backends: backends, checker: healthChecker}
 	}
 
-	return &loadBalancer{
-		backends: backends,
-		algo:     algo,
-	}, nil
+	lb.backends = backends
+	lb.algo = algo
+
+	return lb, nil
 }
 
 func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -211,19 +211,18 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			for {
 				select {
 				case <-t.C:
-					if lb.coordinatorGetter == nil {
-						continue
-					}
 					coordinator := lb.coordinatorGetter()
 					if coordinator == nil {
 						continue
 					}
 					if _, isReady := coordinator.IsReady(); isReady {
 						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
+						util.ReListWatchReq(rw, req)
 						cloudServeCancel()
 						return
 					}
 				case <-clientReqCtx.Done():
+					klog.Infof("watch req %s is canceled by client, when pool coordinator is not ready", hubutil.ReqString(req))
 					return
 				}
 			}

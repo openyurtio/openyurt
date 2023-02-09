@@ -164,6 +164,7 @@ func (pp *PoolCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Requ
 				case <-t.C:
 					if !pp.isCoordinatorReady() {
 						klog.Infof("notified the pool coordinator is not ready for handling request, cancel watch %s", hubutil.ReqString(req))
+						util.ReListWatchReq(rw, req)
 						poolServeCancel()
 						return
 					}
