@@ -72,9 +72,32 @@ function set_up_network() {
     kubectl rollout status daemonset kube-flannel-ds -n kube-flannel --timeout=${POD_CREATE_TIMEOUT}
 }
 
+function cleanup {
+    rm -rf "$YURT_ROOT/test/e2e/e2e.test"
+}
+
 # install gingko
 function get_ginkgo() {
     go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+}
+
+function build_e2e_binary() {
+    echo "Begin to build e2e binary"
+    local goflags goldflags gcflags
+    goldflags="${GOLDFLAGS:--s -w $(project_info)}"
+    gcflags="${GOGCFLAGS:-}"
+    goflags=${GOFLAGS:-}
+
+    local arg
+    for arg; do
+      if [[ "${arg}" == -* ]]; then
+        # Assume arguments starting with a dash are flags to pass to go.
+        goflags+=("${arg}")
+      fi
+    done
+
+    ginkgo build $YURT_ROOT/test/e2e \
+    --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}"
 }
 
 # run e2e tests
@@ -86,7 +109,7 @@ function run_non_edge_autonomy_e2e_tests {
     fi
     # run non-edge-autonomy-e2e-tests
     cd $YURT_ROOT/test/e2e/
-    ginkgo --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}" --label-filter='!edge-autonomy' -r -v
+    $YURT_ROOT/test/e2e/e2e.test e2e --ginkgo.label-filter='!edge-autonomy' --ginkgo.v
 }
 
 function run_e2e_edge_autonomy_tests {
@@ -97,7 +120,7 @@ function run_e2e_edge_autonomy_tests {
     fi
     # run edge-autonomy-e2e-tests
     cd $YURT_ROOT/test/e2e/
-    ginkgo --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}" --label-filter='edge-autonomy' -r -v
+    $YURT_ROOT/test/e2e/e2e.test e2e --ginkgo.label-filter='edge-autonomy' --ginkgo.v
 }
 
 function prepare_autonomy_tests {
@@ -134,7 +157,11 @@ GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} set_flags
 
 set_up_network
 
+cleanup
+
 get_ginkgo
+
+GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} build_e2e_binary
 
 run_non_edge_autonomy_e2e_tests
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kindinit
+package init
 
 import (
 	"context"
@@ -34,9 +34,9 @@ import (
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/lock"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/test/e2e/cmd/init/lock"
+	kubeutil "github.com/openyurtio/openyurt/test/e2e/cmd/init/util/kubernetes"
 )
 
 const (

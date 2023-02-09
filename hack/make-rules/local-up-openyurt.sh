@@ -106,21 +106,40 @@ function preflight {
     done
 }
 
-function build_yurtctl_binary {
-    echo "Begin to build yurtctl binary"
-    GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} build_binaries cmd/yurtctl
+# install gingko
+function get_ginkgo() {
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+}
+
+function build_e2e_binary() {
+    echo "Begin to build e2e binary"
+    local goflags goldflags gcflags
+    goldflags="${GOLDFLAGS:--s -w $(project_info)}"
+    gcflags="${GOGCFLAGS:-}"
+    goflags=${GOFLAGS:-}
+
+    local arg
+    for arg; do
+      if [[ "${arg}" == -* ]]; then
+        # Assume arguments starting with a dash are flags to pass to go.
+        goflags+=("${arg}")
+      fi
+    done
+
+    ginkgo build $YURT_ROOT/test/e2e \
+    --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}"
 }
 
 function local_up_openyurt {
     echo "Begin to setup OpenYurt cluster(version=${YURT_VERSION})"
-    ${YURT_LOCAL_BIN_DIR}/${LOCAL_OS}/${LOCAL_ARCH}/yurtctl test init \
+    $YURT_ROOT/test/e2e/e2e.test init \
       --kubernetes-version=${KUBERNETESVERSION} --kube-config=${KIND_KUBECONFIG} \
       --cluster-name=${CLUSTER_NAME} --openyurt-version=${YURT_VERSION} --use-local-images --ignore-error \
       --node-num=${NODES_NUM} --enable-dummy-if=${ENABLE_DUMMY_IF} --disable-default-cni=${DISABLE_DEFAULT_CNI}
 }
 
 function cleanup {
-    rm -rf "$(get_binary_dir_with_arch ${YURT_LOCAL_BIN_DIR})/yurtctl"
+    rm -rf "$YURT_ROOT/test/e2e/e2e.test"
     kind delete clusters ${CLUSTER_NAME}
 }
 
@@ -135,5 +154,6 @@ trap cleanup_on_err EXIT
 
 preflight
 cleanup
-build_yurtctl_binary
+get_ginkgo
+GOOS=${LOCAL_OS} GOARCH=${LOCAL_ARCH} build_e2e_binary
 local_up_openyurt

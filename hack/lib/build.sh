@@ -47,13 +47,4 @@ build_binaries() {
           -ldflags "${goldflags:-}" \
           -gcflags "${gcflags:-}" ${goflags} $YURT_ROOT/cmd/$(canonicalize_target $binary)
     done
-
-    local yurtctl_binary=$(get_output_name yurtctl)
-    if is_build_on_host; then
-      if [ -f ${target_bin_dir}/${yurtctl_binary} ]; then
-          rm -rf "${YURT_BIN_DIR}"
-          mkdir -p "${YURT_BIN_DIR}"
-          ln -s "${target_bin_dir}/${yurtctl_binary}" "${YURT_BIN_DIR}/${yurtctl_binary}"
-      fi
-    fi
 }

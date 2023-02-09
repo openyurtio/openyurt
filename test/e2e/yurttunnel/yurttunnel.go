@@ -24,8 +24,6 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"testing"
-	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -40,19 +38,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/test/e2e/common/ns"
 	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
-	"github.com/openyurtio/openyurt/test/e2e/util"
-	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
+	"github.com/openyurtio/openyurt/test/e2e/constants"
 	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
-)
-
-const (
-	YurttunnelE2eNamespaceName = "yurttunnel-e2e-test"
-	YurttunnelE2eTestDesc      = "[yurttunnel-e2e-test]"
-	YurttunnelE2eMinNodeNum    = 2
-)
-
-const (
-	PodStartShortTimeout = 1 * time.Minute
 )
 
 var (
@@ -66,7 +53,7 @@ func PreCheckNode(c clientset.Interface) error {
 		klog.Errorf("pre_check_get_nodes failed errmsg:%v", err)
 		return err
 	}
-	if len(nodes.Items) < YurttunnelE2eMinNodeNum {
+	if len(nodes.Items) < constants.YurttunnelE2eMinNodeNum {
 		err = fmt.Errorf("yurttunnel e2e test need 2 nodes at least")
 		return err
 	}
@@ -146,14 +133,38 @@ func execute(method string, url *url.URL, config *restclient.Config, stdin io.Re
 	})
 }
 
-var _ = ginkgo.Describe(YurttunnelE2eNamespaceName, func() {
-	ginkgo.Describe(YurttunnelE2eTestDesc+": pod_operate_test_on_edge", func() {
+var _ = ginkgo.Describe(constants.YurttunnelE2eNamespaceName, ginkgo.Ordered, ginkgo.Label("yurttunnel"), func() {
+
+	ginkgo.BeforeEach(func() {
+		c = yurtconfig.YurtE2eCfg.KubeClient
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
+
+		err = ns.DeleteNameSpace(c, constants.YurttunnelE2eNamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete namespaces")
+
+		_, err = ns.CreateNameSpace(c, constants.YurttunnelE2eNamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
+
+		err = PreCheckNode(c)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_node_not_ok")
+
+		err = PreCheckTunnelPod(c)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_pod_not_ok")
+	})
+
+	ginkgo.AfterEach(func() {
+		ginkgo.By("delete namespace:" + constants.YurttunnelE2eNamespaceName)
+		err = ns.DeleteNameSpace(c, constants.YurttunnelE2eNamespaceName)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
+	})
+
+	ginkgo.Describe(constants.YurttunnelE2eTestDesc+": pod_operate_test_on_edge", func() {
 		ginkgo.It("yurttunnel_e2e_test_pod_run_on_edge", func() {
 			cs := c
 			podName := "test-po-on-edge"
 			objectMeta := metav1.ObjectMeta{}
 			objectMeta.Name = podName
-			objectMeta.Namespace = YurttunnelE2eNamespaceName
+			objectMeta.Namespace = constants.YurttunnelE2eNamespaceName
 			objectMeta.Labels = map[string]string{"name": podName}
 			spec := apiv1.PodSpec{}
 			container := apiv1.Container{}
@@ -165,61 +176,28 @@ var _ = ginkgo.Describe(YurttunnelE2eNamespaceName, func() {
 			spec.Containers = []apiv1.Container{container}
 
 			ginkgo.By("create pod:" + podName)
-			_, err := p.CreatePod(cs, YurttunnelE2eNamespaceName, objectMeta, spec)
+			_, err := p.CreatePod(cs, constants.YurttunnelE2eNamespaceName, objectMeta, spec)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail create pod:"+podName)
 
-			err = p.WaitTimeoutForPodRunning(cs, podName, YurttunnelE2eNamespaceName, PodStartShortTimeout)
+			err = p.WaitTimeoutForPodRunning(cs, podName, constants.YurttunnelE2eNamespaceName, constants.PodStartShortTimeout)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "wait create timeout pod:"+podName)
 
 			ginkgo.By("waiting pod running:" + podName)
-			err = p.VerifyPodsRunning(cs, YurttunnelE2eNamespaceName, podName, false, 1)
+			err = p.VerifyPodsRunning(cs, constants.YurttunnelE2eNamespaceName, podName, false, 1)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "wait running failed pod: "+podName)
 
 			ginkgo.By("get pod info:" + podName)
-			pod, err := p.GetPod(cs, YurttunnelE2eNamespaceName, podName)
+			pod, err := p.GetPod(cs, constants.YurttunnelE2eNamespaceName, podName)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get status pod:"+podName)
 			gomega.Expect(pod.Name).Should(gomega.Equal(podName), podName+" get_pod_name:"+pod.Name+" not equal created pod:"+podName)
 
-			stdOut, _, err := RunExecWithOutPut(c, YurttunnelE2eNamespaceName, pod.Name, container.Name)
+			stdOut, _, err := RunExecWithOutPut(c, constants.YurttunnelE2eNamespaceName, pod.Name, container.Name)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail run exec:"+podName)
 			gomega.Expect(stdOut).ShouldNot(gomega.Equal(""), "exec edge pod return empty")
 
-			err = p.DeletePod(cs, YurttunnelE2eNamespaceName, podName)
+			err = p.DeletePod(cs, constants.YurttunnelE2eNamespaceName, podName)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail remove pod:"+podName)
-			ginkgo.By("delete namespace: " + YurttunnelE2eNamespaceName)
 		})
 	})
 
 })
-
-var _ = ginkgo.BeforeSuite(func() {
-	util.SetYurtE2eCfg()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail set Yurt E2E Config")
-	c = yurtconfig.YurtE2eCfg.KubeClient
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail get client set")
-
-	err = PreCheckNode(c)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_node_not_ok")
-
-	err = PreCheckTunnelPod(c)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "yurttunnel_e2e_pod_not_ok")
-
-	err = ns.DeleteNameSpace(c, YurttunnelE2eNamespaceName)
-	util.ExpectNoError(err)
-
-	klog.Infof(YurttunnelE2eTestDesc + "yurttunnel_test_create namespace")
-	_, err = ns.CreateNameSpace(c, YurttunnelE2eNamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
-
-})
-
-var _ = ginkgo.AfterSuite(func() {
-	ginkgo.By("delete namespace:" + YurttunnelE2eNamespaceName)
-	err = ns.DeleteNameSpace(c, YurttunnelE2eNamespaceName)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to delete created namespaces")
-})
-
-func TestYurtTunnel(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgowrapper.Fail)
-	ginkgo.RunSpecs(t, "yurttunnel-e2e-test")
-}

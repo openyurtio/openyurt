@@ -20,35 +20,31 @@ import (
 	goflag "flag"
 	"fmt"
 	"os"
+	"testing"
 
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/clusterinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/markautonomous"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurttest"
+	"github.com/openyurtio/openyurt/test/e2e/cmd/e2e"
+	yurtinit "github.com/openyurtio/openyurt/test/e2e/cmd/init"
 )
 
-// NewYurtctlCommand creates a new yurtctl command
-func NewYurtctlCommand() *cobra.Command {
+func NewE2eCommand(m *testing.M) *cobra.Command {
 	version := fmt.Sprintf("%#v", projectinfo.Get())
 	cmds := &cobra.Command{
-		Use:     "yurtctl",
-		Short:   "yurtctl controls the yurt cluster",
+		Use:     "e2e.test",
+		Short:   "e2e.test controls the e2e test",
 		Version: version,
 	}
 
 	setVersion(cmds)
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
-	cmds.AddCommand(markautonomous.NewMarkAutonomousCmd())
-	cmds.AddCommand(clusterinfo.NewClusterInfoCmd())
-	cmds.AddCommand(yurttest.NewCmdTest(os.Stdout))
-
+	cmds.AddCommand(e2e.NewE2ECmd(m, os.Stdout))
+	cmds.AddCommand(yurtinit.NewInitCMD(os.Stdout))
 	klog.InitFlags(nil)
-	// goflag.Parse()
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 
 	return cmds

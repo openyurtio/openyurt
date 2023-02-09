@@ -25,7 +25,7 @@ import (
 	kubeclientset "k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
+	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
 )
 
 func DeployYurtControllerManager(client kubeclientset.Interface, yurtControllerManagerImage string) error {
