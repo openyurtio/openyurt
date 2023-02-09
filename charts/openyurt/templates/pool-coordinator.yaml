@@ -186,9 +186,6 @@ spec:
               seccompProfile:
                 type: RuntimeDefault
             terminationGracePeriodSeconds: 30
-            tolerations:
-              - effect: NoExecute
-                operator: Exists
             volumes:
               - emptyDir:
                   medium: Memory
