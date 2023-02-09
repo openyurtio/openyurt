@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"reflect"
 
-	apps "github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +38,7 @@ func Format(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s: %s", webhookName, s)
 }
 
-// SampleCreateUpdateHandler handles NodeImage
+// SampleCreateUpdateHandler handles Sample
 type SampleCreateUpdateHandler struct {
 	// Decoder decodes objects
 	Decoder *admission.Decoder
@@ -53,7 +52,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Handle Sample %s/%s", req.Namespace, req.Name))
+	klog.Infof(Format("Handle Sample %s/%s", req.Namespace, req.Name))
 
 	obj := &appsv1beta1.Sample{}
 	err := h.Decoder.Decode(req, obj)
@@ -62,7 +61,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 	}
 	var copy runtime.Object = obj.DeepCopy()
 	// Set defaults
-	apps.SetDefaultsSample(obj)
+	appsv1beta1.SetDefaultsSample(obj)
 
 	if reflect.DeepEqual(obj, copy) {
 		return admission.Allowed("")
@@ -73,7 +72,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 	}
 	resp := admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, marshalled)
 	if len(resp.Patches) > 0 {
-		klog.V(4).Infof(Format("Admit NodeImage %s patches: %v", obj.Name, util.DumpJSON(resp.Patches)))
+		klog.V(4).Infof(Format("Admit Sample %s patches: %v", obj.Name, util.DumpJSON(resp.Patches)))
 	}
 
 	return resp

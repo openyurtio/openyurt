@@ -16,9 +16,13 @@ metadata:
 spec:
   group: apps.openyurt.io
   names:
+    categories:
+    - all
     kind: Sample
     listKind: SampleList
     plural: samples
+    shortNames:
+    - ss
     singular: sample
   scope: Namespaced
   versions:
@@ -132,9 +136,29 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps.openyurt.io
+  resources:
+  - samples/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
   verbs:
   - create
   - delete
@@ -171,7 +195,7 @@ webhooks:
       namespace: kube-system
       path: /mutate-apps-openyurt-io-v1beta1-sample
   failurePolicy: Fail
-  name: msample.openyurt.io
+  name: mutate.apps.v1beta1.sample.openyurt.io
   rules:
   - apiGroups:
     - apps.openyurt.io
@@ -199,12 +223,12 @@ webhooks:
       namespace: kube-system
       path: /validate-apps-openyurt-io-v1beta1-sample
   failurePolicy: Fail
-  name: vsample.openyurt.io
+  name: validate.apps.v1beta1.sample.openyurt.io
   rules:
   - apiGroups:
     - apps.openyurt.io
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE

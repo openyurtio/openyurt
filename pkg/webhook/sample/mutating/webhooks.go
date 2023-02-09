@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-sample,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=samples,verbs=create;update,versions=v1beta1,name=msample.openyurt.io
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-sample,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=samples,verbs=create;update,versions=v1beta1,name=mutate.apps.v1beta1.sample.openyurt.io
 
 var (
 	// HandlerMap contains admission webhook handlers

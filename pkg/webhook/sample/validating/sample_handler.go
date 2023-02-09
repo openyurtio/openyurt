@@ -29,7 +29,7 @@ var (
 	defaultMaxImagesPerNode = 256
 )
 
-// SampleCreateUpdateHandler handles NodeImage
+// SampleCreateUpdateHandler handles Sample
 type SampleCreateUpdateHandler struct {
 	// Decoder decodes objects
 	Decoder *admission.Decoder
@@ -51,7 +51,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Handle Sample %s/%s", req.Namespace, req.Name))
+	klog.Infof(Format("Handle Sample %s/%s", req.Namespace, req.Name))
 
 	obj := &appsv1beta1.Sample{}
 
@@ -70,7 +70,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 
 func validate(obj *appsv1beta1.Sample) error {
 
-	klog.V(4).Infof(Format("Validate %s sucessfully ...", klog.KObj(obj)))
+	klog.Infof(Format("Validate Sample %s sucessfully ...", klog.KObj(obj)))
 
 	return nil
 }

@@ -159,6 +159,15 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./pkg/..." output:crd:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/crd output:rbac:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/rbac output:webhook:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/webhook
 	hack/make-rules/kustomize_to_chart.sh --crd $(BUILD_KUSTOMIZE)/auto_generate/crd  --webhook $(BUILD_KUSTOMIZE)/auto_generate/webhook --rbac $(BUILD_KUSTOMIZE)/auto_generate/rbac --output $(BUILD_KUSTOMIZE)/kustomize --templateDir charts/openyurt/templates
 
+
+# newcontroller
+# .e.g
+# make newcontroller GROUP=apps VERSION=v1beta1 INSTANCE=example SHORTNAME=examples SCOPE=Namespaced 
+# make newcontroller GROUP=apps VERSION=v1beta1 INSTANCE=example SHORTNAME=examples SCOPE=Cluster
+newcontroller:
+	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --instance $(INSTANCE) --shortname $(SHORTNAME) --scope $(SCOPE)
+
+
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 ifeq ("$(shell $(CONTROLLER_GEN) --version 2> /dev/null)", "Version: v0.7.0")

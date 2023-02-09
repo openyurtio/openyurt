@@ -13,14 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package apps
-
-import (
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-)
+package v1beta1
 
 // SetDefaultsSample set default values for Sample.
-func SetDefaultsSample(obj *appsv1beta1.Sample) {
+func SetDefaultsSample(obj *Sample) {
 	// example for set default value for Sample
 	if len(obj.Spec.Default) == 0 {
 		obj.Spec.Default = "default"

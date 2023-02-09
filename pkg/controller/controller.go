@@ -23,6 +23,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/sample"
 )
 
+// Don`t Change this Name !!!!  @kadisi
 var controllerAddFuncs []func(manager.Manager) error
 
 func init() {

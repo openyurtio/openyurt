@@ -102,6 +102,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=samples,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=samples/status,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a Sample object and makes changes based on the state read
 // and what is in the Sample.Spec
@@ -110,7 +111,7 @@ func (r *ReconcileSample) Reconcile(_ context.Context, request reconcile.Request
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Reconcile Sample %s/%s", request.Namespace, request.Name))
+	klog.Infof(Format("Reconcile Sample %s/%s", request.Namespace, request.Name))
 
 	// Fetch the Sample instance
 	instance := &appsv1beta1.Sample{}
@@ -128,7 +129,12 @@ func (r *ReconcileSample) Reconcile(_ context.Context, request reconcile.Request
 
 	if instance.Spec.Foo != instance.Status.Foo {
 		instance.Status.Foo = instance.Spec.Foo
+		if err = r.Status().Update(context.TODO(), instance); err != nil {
+			klog.Errorf(Format("Update Sample Status %s error %v", klog.KObj(instance), err))
+			return reconcile.Result{Requeue: true}, err
+		}
 	}
+
 	if err = r.Update(context.TODO(), instance); err != nil {
 		klog.Errorf(Format("Update Sample %s error %v", klog.KObj(instance), err))
 		return reconcile.Result{Requeue: true}, err
