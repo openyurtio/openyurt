@@ -27,7 +27,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	google.golang.org/grpc v1.40.0
-	gopkg.in/cheggaaa/pb.v1 v1.0.25
+	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/square/go-jose.v2 v2.2.2
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3
