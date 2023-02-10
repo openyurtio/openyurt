@@ -9,6 +9,12 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    ignore:
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "go.etcd.io/etcd/*"
+      - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
+      - dependency-name: "github.com/openyurtio/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
