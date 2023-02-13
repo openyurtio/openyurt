@@ -15,10 +15,16 @@ limitations under the License.
 */
 package v1beta1
 
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
+
 // SetDefaultsSample set default values for Sample.
 func SetDefaultsSample(obj *Sample) {
 	// example for set default value for Sample
 	if len(obj.Spec.Default) == 0 {
-		obj.Spec.Default = "default"
+		obj.Spec.Default = fmt.Sprintf("default-%s", uuid.New())
 	}
 }

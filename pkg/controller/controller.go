@@ -23,7 +23,13 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/sample"
 )
 
+// Note !!! @kadisi
+// Do not change the name of the file @kadisi
+// Note !!!
+
 // Don`t Change this Name !!!!  @kadisi
+
+// TODO support feature gate @kadisi
 var controllerAddFuncs []func(manager.Manager) error
 
 func init() {

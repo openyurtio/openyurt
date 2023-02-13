@@ -36,7 +36,7 @@ import (
 	extclient "github.com/openyurtio/openyurt/pkg/client"
 	"github.com/openyurtio/openyurt/pkg/webhook"
 
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/controller"
 	// +kubebuilder:scaffold:imports
 )
@@ -51,9 +51,10 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = appsv1beta1.AddToScheme(clientgoscheme.Scheme)
 
-	_ = appsv1beta1.AddToScheme(scheme)
+	_ = apis.AddToScheme(clientgoscheme.Scheme)
+	_ = apis.AddToScheme(scheme)
+
 	// +kubebuilder:scaffold:scheme
 }
 

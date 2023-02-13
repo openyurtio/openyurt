@@ -31,8 +31,8 @@ function usage(){
     echo -e "Options:"
     echo -e "\t-g, --group\t crd group name. such as [apps]"
     echo -e "\t-v, --version\t crd version name. such as[v1beta1]"
-    echo -e "\t-i, --instance\t crd name. It must be singular, such as [Sample]"
-    echo -e "\t-sn, --shortname\t crd instance short name. such as [s]"
+    echo -e "\t-k, --kind\t crd kind name. It must be singular, such as [Sample]"
+    echo -e "\t-sn, --shortname\t crd kind short name. such as [s]"
     echo -e "\t-s, --scope\t crd scoped , support [${SCOPE_NAMESPACE} ${SCOPE_CLUSTER}]."
     exit 1
 }
@@ -52,9 +52,9 @@ while [ $# -gt 0 ];do
       VERSION=$1
       shift
       ;;
-    --instance|-i)
+    --kind|-k)
       shift
-      INSTANCE=$1
+      KIND=$1
       shift
       ;;
     --scope|-s)
@@ -78,7 +78,7 @@ while [ $# -gt 0 ];do
     esac
 done
 
-if [ -z $GROUP ] || [ -z $VERSION ] || [ -z $INSTANCE ] || [ -z $SCOPE ] || [ -z $SHORTNAME ] ; then
+if [ -z $GROUP ] || [ -z $VERSION ] || [ -z $KIND ] || [ -z $SCOPE ] || [ -z $SHORTNAME ] ; then
     usage	
 fi
 
@@ -89,20 +89,19 @@ GROUP=$(echo $GROUP | tr '[A-Z]' '[a-z]')
 VERSION=$(echo $VERSION | tr '[A-Z]' '[a-z]')
 SHORTNAME=$(echo $SHORTNAME | tr '[A-Z]' '[a-z]')
 
-#INSTANCE=$(echo $INSTANCE | tr '[A-Z]' '[a-z]')
-
+#KIND=$(echo $KIND | tr '[A-Z]' '[a-z]')
 
 # suport bash 3 [mac and linux]
 # @kadisi
-INSTANCE_INITIAL_UPPER=$(echo ${INSTANCE: 0:1} | tr '[a-z]' '[A-Z]')
-INSTANCE_INITIAL_LOWER=$(echo ${INSTANCE: 0:1} | tr '[A-Z]' '[a-z]')
+KIND_INITIAL_UPPER=$(echo ${KIND: 0:1} | tr '[a-z]' '[A-Z]')
+KIND_INITIAL_LOWER=$(echo ${KIND: 0:1} | tr '[A-Z]' '[a-z]')
 
-# redefine INSTANCE
-INSTANCE=${INSTANCE_INITIAL_LOWER}${INSTANCE: 1}
-INSTANCE_PLURAL="${INSTANCE}s"
-INSTANCE_FIRST_UPPER=${INSTANCE_INITIAL_UPPER}${INSTANCE: 1}
+# redefine KIND
+KIND=${KIND_INITIAL_LOWER}${KIND: 1}
+KIND_PLURAL="${KIND}s"
+KIND_FIRST_UPPER=${KIND_INITIAL_UPPER}${KIND: 1}
 
-echo "Add controller Group: $GROUP Version: $VERSION Instance: $INSTANCE ShortName: $SHORTNAME"
+echo "Add controller Group: $GROUP Version: $VERSION Instance: $KIND ShortName: $SHORTNAME"
 
 if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
     echo "scope only support [$SCOPE_NAMESPACE $SCOPE_CLUSTER]"
@@ -124,34 +123,34 @@ CRD_GROUP_DIR=${APIS_DIR}/${GROUP}
 CRD_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
 
 
-CRD_INSTANCE_FILE=${CRD_VERSION_DIR}/${INSTANCE}_types.go
+CRD_KIND_FILE=${CRD_VERSION_DIR}/${KIND}_types.go
 CRD_VERSION_DEFAULT_FILE=${CRD_VERSION_DIR}/default.go 
-INSTANCE_CONTROLLER_DIR=${CONTROLLER_DIR}/${INSTANCE}
-INSTANCE_CONTROLLER_FILE=${INSTANCE_CONTROLLER_DIR}/${INSTANCE}_controller.go
+KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND}
+KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND}_controller.go
 
-WEBHOOK_INSTANCE_DIR=${WEBHOOK_DIR}/${INSTANCE}
-ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${INSTANCE}.go
+WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND}
+ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${KIND}.go
     
-WEBHOOK_INSTANCE_MUTATING_DIR=${WEBHOOK_INSTANCE_DIR}/mutating
-INSTANCE_MUTATING_HANDLER_FILE=${WEBHOOK_INSTANCE_MUTATING_DIR}/${INSTANCE}_handler.go
-INSTANCE_MUTATING_WEBHOOKS_FILE=${WEBHOOK_INSTANCE_MUTATING_DIR}/webhooks.go
+WEBHOOK_KIND_MUTATING_DIR=${WEBHOOK_KIND_DIR}/mutating
+KIND_MUTATING_HANDLER_FILE=${WEBHOOK_KIND_MUTATING_DIR}/${KIND}_handler.go
+KIND_MUTATING_WEBHOOKS_FILE=${WEBHOOK_KIND_MUTATING_DIR}/webhooks.go
 
-WEBHOOK_INSTANCE_VALIDATING_DIR=${WEBHOOK_INSTANCE_DIR}/validating
-INSTANCE_VALIDATING_HANDLER_FILE=${WEBHOOK_INSTANCE_VALIDATING_DIR}/${INSTANCE}_handler.go
-INSTANCE_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_INSTANCE_VALIDATING_DIR}/webhooks.go
+WEBHOOK_KIND_VALIDATING_DIR=${WEBHOOK_KIND_DIR}/validating
+KIND_VALIDATING_HANDLER_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/${KIND}_handler.go
+KIND_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/webhooks.go
 
-if [ -f "${CRD_INSTANCE_FILE}" ]; then
-    echo "Instance crd[${GROUP}/${VERSION}/${INSTANCE}] already exist ..." 
+if [ -f "${CRD_KIND_FILE}" ]; then
+    echo "Instance crd[${GROUP}/${VERSION}/${KIND}] already exist ..." 
     exit 1
 fi
 
-if [ -d "${INSTANCE_CONTROLLER_DIR}" ]; then
-    echo "instance controller dir ${INSTANCE_CONTROLLER_DIR} already exist ..."
+if [ -d "${KIND_CONTROLLER_DIR}" ]; then
+    echo "instance controller dir ${KIND_CONTROLLER_DIR} already exist ..."
     exit 1
 fi
 
-if [ -d "${WEBHOOK_INSTANCE_DIR}" ]; then
-    echo "instance webhook dir ${WEBHOOK_INSTANCE_DIR} already exist ..."
+if [ -d "${WEBHOOK_KIND_DIR}" ]; then
+    echo "instance webhook dir ${WEBHOOK_KIND_DIR} already exist ..."
     exit 1
 fi
 
@@ -231,6 +230,7 @@ function create_addtoscheme_group_version_file() {
     fi
     cat > ${addtoscheme_group_version_file} <<EOF
 $(create_header apis)
+
 import (
 	version "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
@@ -275,7 +275,7 @@ function build_apis_frame() {
         create_addtoscheme_group_version_file $addtoscheme_group_version_file
     fi
 
-    cat > ${CRD_INSTANCE_FILE} << EOF
+    cat > ${CRD_KIND_FILE} << EOF
 $(create_header ${VERSION})
 
 import (
@@ -286,27 +286,27 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 
-// ${INSTANCE_FIRST_UPPER}Spec defines the desired state of ${INSTANCE_FIRST_UPPER} 
-type ${INSTANCE_FIRST_UPPER}Spec struct {
+// ${KIND_FIRST_UPPER}Spec defines the desired state of ${KIND_FIRST_UPPER} 
+type ${KIND_FIRST_UPPER}Spec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
+	// Foo is an example field of ${KIND_FIRST_UPPER}. Edit sample_types.go to remove/update
 	Foo string \`json:"foo,omitempty"\`
 
-	// Default is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
+	// Default is an example field of ${KIND_FIRST_UPPER}. Edit sample_types.go to remove/update
 	Default string \`json:"default,omitempty"\`
 }
 
-// ${INSTANCE_FIRST_UPPER}Status defines the observed state of ${INSTANCE_FIRST_UPPER} 
-type ${INSTANCE_FIRST_UPPER}Status struct {
+// ${KIND_FIRST_UPPER}Status defines the observed state of ${KIND_FIRST_UPPER} 
+type ${KIND_FIRST_UPPER}Status struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
+	// Foo is an example field of ${KIND_FIRST_UPPER}. Edit sample_types.go to remove/update
 	Foo string \`json:"foo,omitempty"\`
 
-	// Default is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
+	// Default is an example field of ${KIND_FIRST_UPPER}. Edit sample_types.go to remove/update
 	Default string \`json:"default,omitempty"\`
 }
 
@@ -315,39 +315,43 @@ type ${INSTANCE_FIRST_UPPER}Status struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=${SCOPE},path=${INSTANCE_PLURAL},shortName=${SHORTNAME},categories=all
+// +kubebuilder:resource:scope=${SCOPE},path=${KIND_PLURAL},shortName=${SHORTNAME},categories=all
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 
-// ${INSTANCE_FIRST_UPPER} is the Schema for the samples API
-type ${INSTANCE_FIRST_UPPER} struct {
+// ${KIND_FIRST_UPPER} is the Schema for the samples API
+type ${KIND_FIRST_UPPER} struct {
 	metav1.TypeMeta   \`json:",inline"\`
 	metav1.ObjectMeta \`json:"metadata,omitempty"\`
 
-	Spec   ${INSTANCE_FIRST_UPPER}Spec   \`json:"spec,omitempty"\`
-	Status ${INSTANCE_FIRST_UPPER}Status \`json:"status,omitempty"\`
+	Spec   ${KIND_FIRST_UPPER}Spec   \`json:"spec,omitempty"\`
+	Status ${KIND_FIRST_UPPER}Status \`json:"status,omitempty"\`
 }
 
 
 //+kubebuilder:object:root=true
 
-// ${INSTANCE_FIRST_UPPER}List contains a list of ${INSTANCE_FIRST_UPPER} 
-type ${INSTANCE_FIRST_UPPER}List struct {
+// ${KIND_FIRST_UPPER}List contains a list of ${KIND_FIRST_UPPER} 
+type ${KIND_FIRST_UPPER}List struct {
 	metav1.TypeMeta \`json:",inline"\`
 	metav1.ListMeta \`json:"metadata,omitempty"\`
-	Items           []${INSTANCE_FIRST_UPPER} \`json:"items"\`
+	Items           []${KIND_FIRST_UPPER} \`json:"items"\`
 }
 
 func init() {
-	SchemeBuilder.Register(&${INSTANCE_FIRST_UPPER}{}, &${INSTANCE_FIRST_UPPER}List{})
+	SchemeBuilder.Register(&${KIND_FIRST_UPPER}{}, &${KIND_FIRST_UPPER}List{})
 }
 EOF
 
     # append version_default file
     cat >> $CRD_VERSION_DEFAULT_FILE << EOF
 
-// SetDefaults${INSTANCE_FIRST_UPPER} set default values for ${INSTANCE_FIRST_UPPER}.
-func SetDefaults${INSTANCE_FIRST_UPPER}(obj *${INSTANCE_FIRST_UPPER}) {
-	// example for set default value for ${INSTANCE_FIRST_UPPER} 
+// SetDefaults${KIND_FIRST_UPPER} set default values for ${KIND_FIRST_UPPER}.
+func SetDefaults${KIND_FIRST_UPPER}(obj *${KIND_FIRST_UPPER}) {
+	// example for set default value for ${KIND_FIRST_UPPER} 
+
+	if len(obj.Spec.Default) == 0 {
+		obj.Spec.Default = "set-default-value-0"
+	}
 }
 EOF
 }
@@ -358,11 +362,12 @@ function build_controller_frame() {
     local global_controller_file=${CONTROLLER_DIR}/controller.go
 
     # create instance controller 
-    mkdir -p ${INSTANCE_CONTROLLER_DIR}
+    mkdir -p ${KIND_CONTROLLER_DIR}
 
     # create controller file 
-    cat > $INSTANCE_CONTROLLER_FILE << EOF
-$(create_header ${INSTANCE})
+    cat > $KIND_CONTROLLER_FILE << EOF
+$(create_header ${KIND})
+
 import (
 	"context"
 	"flag"
@@ -385,16 +390,16 @@ import (
 )
 
 func init() {
-	flag.IntVar(&concurrentReconciles, "${INSTANCE}-workers", concurrentReconciles, "Max concurrent workers for $INSTANCE_FIRST_UPPER controller.")
+	flag.IntVar(&concurrentReconciles, "${KIND}-workers", concurrentReconciles, "Max concurrent workers for $KIND_FIRST_UPPER controller.")
 }
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = ${GROUP}${VERSION}.SchemeGroupVersion.WithKind("${INSTANCE_FIRST_UPPER}")
+	controllerKind       = ${GROUP}${VERSION}.SchemeGroupVersion.WithKind("${KIND_FIRST_UPPER}")
 )
 
 const (
-	controllerName = "${INSTANCE_FIRST_UPPER}-controller"
+	controllerName = "${KIND_FIRST_UPPER}-controller"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -402,7 +407,7 @@ func Format(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s: %s", controllerName, s)
 }
 
-// Add creates a new ${INSTANCE_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// Add creates a new ${KIND_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerKind) {
@@ -411,10 +416,10 @@ func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
-var _ reconcile.Reconciler = &Reconcile${INSTANCE_FIRST_UPPER}{}
+var _ reconcile.Reconciler = &Reconcile${KIND_FIRST_UPPER}{}
 
-// Reconcile${INSTANCE_FIRST_UPPER} reconciles a ${INSTANCE_FIRST_UPPER} object
-type Reconcile${INSTANCE_FIRST_UPPER} struct {
+// Reconcile${KIND_FIRST_UPPER} reconciles a ${KIND_FIRST_UPPER} object
+type Reconcile${KIND_FIRST_UPPER} struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
@@ -422,7 +427,7 @@ type Reconcile${INSTANCE_FIRST_UPPER} struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &Reconcile${INSTANCE_FIRST_UPPER}{
+	return &Reconcile${KIND_FIRST_UPPER}{
 		Client:   utilclient.NewClientFromManager(mgr, controllerName),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
@@ -439,8 +444,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to ${INSTANCE_FIRST_UPPER} 
-	err = c.Watch(&source.Kind{Type: &${GROUP}${VERSION}.${INSTANCE_FIRST_UPPER}{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to ${KIND_FIRST_UPPER} 
+	err = c.Watch(&source.Kind{Type: &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -448,20 +453,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// +kubebuilder:rbac:groups=${GROUP}.openyurt.io,resources=${INSTANCE_PLURAL},verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=${GROUP}.openyurt.io,resources=${INSTANCE_PLURAL}/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL}/status,verbs=get;update;patch
 
-// Reconcile reads that state of the cluster for a ${INSTANCE_FIRST_UPPER} object and makes changes based on the state read
-// and what is in the ${INSTANCE_FIRST_UPPER}.Spec
-func (r *Reconcile${INSTANCE_FIRST_UPPER}) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+// Reconcile reads that state of the cluster for a ${KIND_FIRST_UPPER} object and makes changes based on the state read
+// and what is in the ${KIND_FIRST_UPPER}.Spec
+func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile ${INSTANCE_FIRST_UPPER} %s/%s", request.Namespace, request.Name))
+	klog.Infof(Format("Reconcile ${KIND_FIRST_UPPER} %s/%s", request.Namespace, request.Name))
 
-	// Fetch the ${INSTANCE_FIRST_UPPER} instance
-	instance := &${GROUP}${VERSION}.${INSTANCE_FIRST_UPPER}{}
+	// Fetch the ${KIND_FIRST_UPPER} instance
+	instance := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -473,19 +478,22 @@ func (r *Reconcile${INSTANCE_FIRST_UPPER}) Reconcile(_ context.Context, request 
 	if instance.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
 	}
-//
-//	if instance.Spec.Foo != instance.Status.Foo {
-//		instance.Status.Foo = instance.Spec.Foo
-//		if err = r.Status().Update(context.TODO(), instance); err != nil {
-//			klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
-//			return reconcile.Result{Requeue: true}, err
-//		}
-//	}
-//	if err = r.Update(context.TODO(), instance); err != nil {
-//		klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
-//		return reconcile.Result{Requeue: true}, err
-//	}
-//
+
+    // Update Status
+	if instance.Spec.Foo != instance.Status.Foo {
+		instance.Status.Foo = instance.Spec.Foo
+		if err = r.Status().Update(context.TODO(), instance); err != nil {
+			klog.Errorf(Format("Update ${KIND_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
+    // Update Instance
+	//if err = r.Update(context.TODO(), instance); err != nil {
+	//	klog.Errorf(Format("Update ${KIND_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
+	//	return reconcile.Result{Requeue: true}, err
+	//}
+
 
 	return reconcile.Result{}, nil
 }
@@ -496,13 +504,13 @@ EOF
     # update global controller file
     if [ "$(uname)"=="Darwin" ]; then
         # Mac OS X 
-        sed -i '' '/import (/a\'$'\n    "github.com/openyurtio/openyurt/pkg/controller/'"${INSTANCE}"'"'$'\n' ${global_controller_file}
-        sed -i '' '/func init() {/a\'$'\n    controllerAddFuncs = append(controllerAddFuncs, '"${INSTANCE}"'.Add)'$'\n' ${global_controller_file} 
+        sed -i '' '/import (/a\'$'\n    "github.com/openyurtio/openyurt/pkg/controller/'"${KIND}"'"'$'\n' ${global_controller_file}
+        sed -i '' '/func init() {/a\'$'\n    controllerAddFuncs = append(controllerAddFuncs, '"${KIND}"'.Add)'$'\n' ${global_controller_file} 
 
     elif [ "$(expr substr $(uname -s) 1 5)"=="Linux" ]; then   
         # GNU/Linux
-        sed -i '/import (/a"github.com/openyurtio/openyurt/pkg/controller/'"${INSTANCE}"'"' ${global_controller_file}
-        sed -i '/func init() {/a controllerAddFuncs = append(controllerAddFuncs, '"${INSTANCE}"'.Add)' ${global_controller_file}
+        sed -i '/import (/a"github.com/openyurtio/openyurt/pkg/controller/'"${KIND}"'"' ${global_controller_file}
+        sed -i '/func init() {/a controllerAddFuncs = append(controllerAddFuncs, '"${KIND}"'.Add)' ${global_controller_file}
     fi    
     gofmt ${global_controller_file}
     goimports ${global_controller_file}
@@ -520,8 +528,8 @@ function build_webhook_frame() {
 $(create_header webhook)
 
 import (
-	"github.com/openyurtio/openyurt/pkg/webhook/${INSTANCE}/mutating"
-	"github.com/openyurtio/openyurt/pkg/webhook/${INSTANCE}/validating"
+	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/mutating"
+	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/validating"
 )
 
 func init() {
@@ -533,20 +541,20 @@ EOF
 
     fi
 
-    if [ -d ${WEBHOOK_INSTANCE_MUTATING_DIR} ]; then
-        echo "${WEBHOOK_INSTANCE_MUTATING_DIR} dir has exist ..."
+    if [ -d ${WEBHOOK_KIND_MUTATING_DIR} ]; then
+        echo "${WEBHOOK_KIND_MUTATING_DIR} dir has exist ..."
         exit 1
     fi 
 
-    if [ -d ${WEBHOOK_INSTANCE_VALIDATING_DIR} ]; then
-       echo "${WEBHOOK_INSTANCE_VALIDATING_DIR} dir has exist ..."
+    if [ -d ${WEBHOOK_KIND_VALIDATING_DIR} ]; then
+       echo "${WEBHOOK_KIND_VALIDATING_DIR} dir has exist ..."
        exit 1
     fi
     
-    mkdir -p ${WEBHOOK_INSTANCE_MUTATING_DIR}
-    mkdir -p ${WEBHOOK_INSTANCE_VALIDATING_DIR}
+    mkdir -p ${WEBHOOK_KIND_MUTATING_DIR}
+    mkdir -p ${WEBHOOK_KIND_VALIDATING_DIR}
     
-   cat > $INSTANCE_MUTATING_HANDLER_FILE << EOF
+   cat > $KIND_MUTATING_HANDLER_FILE << EOF
 $(create_header mutating)
 
 import (
@@ -556,15 +564,16 @@ import (
 	"net/http"
 	"reflect"
 
-	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
-	"github.com/openyurtio/openyurt/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/openyurtio/openyurt/pkg/util"
+	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
 const (
-	webhookName = "${INSTANCE_FIRST_UPPER}-mutate-webhook"
+	webhookName = "${KIND_FIRST_UPPER}-mutate-webhook"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -572,30 +581,30 @@ func Format(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s: %s", webhookName, s)
 }
 
-// ${INSTANCE_FIRST_UPPER}CreateUpdateHandler handles ${INSTANCE_FIRST_UPPER} 
-type ${INSTANCE_FIRST_UPPER}CreateUpdateHandler struct {
+// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER} 
+type ${KIND_FIRST_UPPER}CreateUpdateHandler struct {
 	// Decoder decodes objects
 	Decoder *admission.Decoder
 }
 
-var _ admission.Handler = &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{}
+var _ admission.Handler = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
 
 // Handle handles admission requests.
-func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Handle ${INSTANCE_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
+	klog.Infof(Format("Handle ${KIND_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
 
-	obj := &${GROUP}${VERSION}.${INSTANCE_FIRST_UPPER}{}
+	obj := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
 	err := h.Decoder.Decode(req, obj)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 	var copy runtime.Object = obj.DeepCopy()
 	// Set defaults
-	${GROUP}${VERSION}.SetDefaults${INSTANCE_FIRST_UPPER}(obj)
+	${GROUP}${VERSION}.SetDefaults${KIND_FIRST_UPPER}(obj)
 
 	if reflect.DeepEqual(obj, copy) {
 		return admission.Allowed("")
@@ -606,43 +615,43 @@ func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context,
 	}
 	resp := admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, marshalled)
 	if len(resp.Patches) > 0 {
-		klog.Infof(Format("Admit ${INSTANCE_FIRST_UPPER} %s patches: %v", obj.Name, util.DumpJSON(resp.Patches)))
+		klog.Infof(Format("Admit ${KIND_FIRST_UPPER} %s patches: %v", obj.Name, util.DumpJSON(resp.Patches)))
 	}
 
 	return resp
 }
 
-var _ admission.DecoderInjector = &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{}
+var _ admission.DecoderInjector = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
 
-// InjectDecoder injects the decoder into the ${INSTANCE_FIRST_UPPER}CreateUpdateHandler
-func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
+// InjectDecoder injects the decoder into the ${KIND_FIRST_UPPER}CreateUpdateHandler
+func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
 	h.Decoder = d
 	return nil
 }
 
 EOF
 
-    gofmt ${INSTANCE_MUTATING_HANDLER_FILE}
-    goimports ${INSTANCE_MUTATING_HANDLER_FILE}
+    gofmt ${KIND_MUTATING_HANDLER_FILE}
+    goimports ${KIND_MUTATING_HANDLER_FILE}
 
-    cat > $INSTANCE_MUTATING_WEBHOOKS_FILE << EOF
+    cat > $KIND_MUTATING_WEBHOOKS_FILE << EOF
 $(create_header mutating)
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${VERSION}-${INSTANCE},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${INSTANCE_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${INSTANCE}.openyurt.io
+// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND}.openyurt.io
 
 var (
 	// HandlerMap contains admission webhook handlers
 	HandlerMap = map[string]admission.Handler{
-		"mutate-${GROUP}-openyurt-io-${VERSION}-${INSTANCE}": &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{},
+		"mutate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
 	}
 )
 EOF
 
-    cat > $INSTANCE_VALIDATING_HANDLER_FILE << EOF
+    cat > $KIND_VALIDATING_HANDLER_FILE << EOF
 $(create_header validating)
 
 import (
@@ -650,23 +659,24 @@ import (
 	"fmt"
 	"net/http"
 
-	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
 var (
 	defaultMaxImagesPerNode = 256
 )
 
-// ${INSTANCE_FIRST_UPPER}CreateUpdateHandler handles ${INSTANCE_FIRST_UPPER} 
-type ${INSTANCE_FIRST_UPPER}CreateUpdateHandler struct {
+// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER} 
+type ${KIND_FIRST_UPPER}CreateUpdateHandler struct {
 	// Decoder decodes objects
 	Decoder *admission.Decoder
 }
 
 const (
-	webhookName = "${INSTANCE_FIRST_UPPER}-validate-webhook"
+	webhookName = "${KIND_FIRST_UPPER}-validate-webhook"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -674,16 +684,16 @@ func Format(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s: %s", webhookName, s)
 }
 
-var _ admission.Handler = &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{}
+var _ admission.Handler = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
 
 // Handle handles admission requests.
-func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Handle ${INSTANCE_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
+	klog.Infof(Format("Handle ${KIND_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
 
-	obj := &${GROUP}${VERSION}.${INSTANCE_FIRST_UPPER}{}
+	obj := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
 
 	err := h.Decoder.Decode(req, obj)
 	if err != nil {
@@ -691,46 +701,46 @@ func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context,
 	}
 
 	if err := validate(obj); err != nil {
-		klog.Warningf("Error validate ${INSTANCE_FIRST_UPPER} %s: %v", obj.Name, err)
+		klog.Warningf("Error validate ${KIND_FIRST_UPPER} %s: %v", obj.Name, err)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	return admission.ValidationResponse(true, "allowed")
 }
 
-func validate(obj *${GROUP}${VERSION}.${INSTANCE_FIRST_UPPER}) error {
+func validate(obj *${GROUP}${VERSION}.${KIND_FIRST_UPPER}) error {
 
-	klog.Infof(Format("Validate ${INSTANCE_FIRST_UPPER} %s sucessfully ...", klog.KObj(obj)))
+	klog.Infof(Format("Validate ${KIND_FIRST_UPPER} %s sucessfully ...", klog.KObj(obj)))
 
 	return nil
 }
 
-var _ admission.DecoderInjector = &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{}
+var _ admission.DecoderInjector = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
 
-// InjectDecoder injects the decoder into the ${INSTANCE_FIRST_UPPER}CreateUpdateHandler
-func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
+// InjectDecoder injects the decoder into the ${KIND_FIRST_UPPER}CreateUpdateHandler
+func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
 	h.Decoder = d
 	return nil
 }
 
 EOF
 
-    gofmt $INSTANCE_VALIDATING_HANDLER_FILE
-    goimports $INSTANCE_VALIDATING_HANDLER_FILE
+    gofmt $KIND_VALIDATING_HANDLER_FILE
+    goimports $KIND_VALIDATING_HANDLER_FILE
 
-    cat > $INSTANCE_VALIDATING_WEBHOOKS_FILE << EOF
+    cat > $KIND_VALIDATING_WEBHOOKS_FILE << EOF
 $(create_header validating)
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${VERSION}-${INSTANCE},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${INSTANCE_PLURA},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${INSTANCE}.openyurt.io
+// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND}.openyurt.io
 
 var (
 	// HandlerMap contains admission webhook handlers
 	HandlerMap = map[string]admission.Handler{
-		"validate-${GROUP}-openyurt-io-${VERSION}-${INSTANCE}": &${INSTANCE_FIRST_UPPER}CreateUpdateHandler{},
+		"validate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
 	}
 )
 

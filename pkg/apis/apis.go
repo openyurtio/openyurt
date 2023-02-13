@@ -19,6 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// Note !!! @kadisi
+// Do not change the name of the file or the contents of the file !!!!!!!!!!
+// Note !!!
+
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
 var AddToSchemes runtime.SchemeBuilder
 

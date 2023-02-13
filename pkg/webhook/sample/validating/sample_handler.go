@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"net/http"
 
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
 var (

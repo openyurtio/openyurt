@@ -162,10 +162,10 @@ manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomReso
 
 # newcontroller
 # .e.g
-# make newcontroller GROUP=apps VERSION=v1beta1 INSTANCE=example SHORTNAME=examples SCOPE=Namespaced 
-# make newcontroller GROUP=apps VERSION=v1beta1 INSTANCE=example SHORTNAME=examples SCOPE=Cluster
+# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced 
+# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Cluster
 newcontroller:
-	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --instance $(INSTANCE) --shortname $(SHORTNAME) --scope $(SCOPE)
+	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --kind $(KIND) --shortname $(SHORTNAME) --scope $(SCOPE)
 
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen

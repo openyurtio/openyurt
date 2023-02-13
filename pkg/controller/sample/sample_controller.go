@@ -21,12 +21,11 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -135,10 +134,10 @@ func (r *ReconcileSample) Reconcile(_ context.Context, request reconcile.Request
 		}
 	}
 
-	if err = r.Update(context.TODO(), instance); err != nil {
-		klog.Errorf(Format("Update Sample %s error %v", klog.KObj(instance), err))
-		return reconcile.Result{Requeue: true}, err
-	}
+	//if err = r.Update(context.TODO(), instance); err != nil {
+	//	klog.Errorf(Format("Update Sample %s error %v", klog.KObj(instance), err))
+	//	return reconcile.Result{Requeue: true}, err
+	//}
 
 	return reconcile.Result{}, nil
 }

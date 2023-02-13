@@ -34,6 +34,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 )
 
+// Note !!! @kadisi
+// Do not change the name of the file or the contents of the file !!!!!!!!!!
+// Note !!!
+
 type GateFunc func() (enabled bool)
 
 var (

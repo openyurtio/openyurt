@@ -22,11 +22,12 @@ import (
 	"net/http"
 	"reflect"
 
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/util"
 )
 
 const (
