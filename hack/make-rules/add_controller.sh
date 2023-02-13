@@ -84,24 +84,29 @@ fi
 
 # suport bash 3 [mac and linux]
 # @kadisi
-
+# Make letters lowercase
 GROUP=$(echo $GROUP | tr '[A-Z]' '[a-z]')
 VERSION=$(echo $VERSION | tr '[A-Z]' '[a-z]')
-INSTANCE=$(echo $INSTANCE | tr '[A-Z]' '[a-z]')
 SHORTNAME=$(echo $SHORTNAME | tr '[A-Z]' '[a-z]')
 
-INSTANCE_PLURAL="${INSTANCE}s"
+#INSTANCE=$(echo $INSTANCE | tr '[A-Z]' '[a-z]')
+
 
 # suport bash 3 [mac and linux]
 # @kadisi
+INSTANCE_INITIAL_UPPER=$(echo ${INSTANCE: 0:1} | tr '[a-z]' '[A-Z]')
+INSTANCE_INITIAL_LOWER=$(echo ${INSTANCE: 0:1} | tr '[A-Z]' '[a-z]')
 
-INSTANCE_INITIAL=$(echo ${INSTANCE: 0:1} | tr '[a-z]' '[A-Z]')
-INSTANCE_FIRST_UPPER=${INSTANCE_INITIAL}${INSTANCE: 1}
+# redefine INSTANCE
+INSTANCE=${INSTANCE_INITIAL_LOWER}${INSTANCE: 1}
+INSTANCE_PLURAL="${INSTANCE}s"
+INSTANCE_FIRST_UPPER=${INSTANCE_INITIAL_UPPER}${INSTANCE: 1}
 
-echo "Add controller Group: $GROUP, Version: $VERSION, Instance: $INSTANCE ,ShortName: $SHORTNAME"
+echo "Add controller Group: $GROUP Version: $VERSION Instance: $INSTANCE ShortName: $SHORTNAME"
 
 if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
     echo "scope only support [$SCOPE_NAMESPACE $SCOPE_CLUSTER]"
+    exit 1
 fi
 
 PKG_DIR=${YURT_ROOT}/pkg
@@ -111,6 +116,42 @@ WEBHOOK_DIR=${PKG_DIR}/webhook
 
 if [ ! -d ${PKG_DIR} ] || [ ! -d ${APIS_DIR} ] || [ ! -d ${CONTROLLER_DIR} ] || [ ! -d ${WEBHOOK_DIR} ] ; then
     echo "Please check pkg、apis、controller、webhook dir ..."
+    exit 1
+fi
+
+
+CRD_GROUP_DIR=${APIS_DIR}/${GROUP}
+CRD_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
+
+
+CRD_INSTANCE_FILE=${CRD_VERSION_DIR}/${INSTANCE}_types.go
+CRD_VERSION_DEFAULT_FILE=${CRD_VERSION_DIR}/default.go 
+INSTANCE_CONTROLLER_DIR=${CONTROLLER_DIR}/${INSTANCE}
+INSTANCE_CONTROLLER_FILE=${INSTANCE_CONTROLLER_DIR}/${INSTANCE}_controller.go
+
+WEBHOOK_INSTANCE_DIR=${WEBHOOK_DIR}/${INSTANCE}
+ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${INSTANCE}.go
+    
+WEBHOOK_INSTANCE_MUTATING_DIR=${WEBHOOK_INSTANCE_DIR}/mutating
+INSTANCE_MUTATING_HANDLER_FILE=${WEBHOOK_INSTANCE_MUTATING_DIR}/${INSTANCE}_handler.go
+INSTANCE_MUTATING_WEBHOOKS_FILE=${WEBHOOK_INSTANCE_MUTATING_DIR}/webhooks.go
+
+WEBHOOK_INSTANCE_VALIDATING_DIR=${WEBHOOK_INSTANCE_DIR}/validating
+INSTANCE_VALIDATING_HANDLER_FILE=${WEBHOOK_INSTANCE_VALIDATING_DIR}/${INSTANCE}_handler.go
+INSTANCE_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_INSTANCE_VALIDATING_DIR}/webhooks.go
+
+if [ -f "${CRD_INSTANCE_FILE}" ]; then
+    echo "Instance crd[${GROUP}/${VERSION}/${INSTANCE}] already exist ..." 
+    exit 1
+fi
+
+if [ -d "${INSTANCE_CONTROLLER_DIR}" ]; then
+    echo "instance controller dir ${INSTANCE_CONTROLLER_DIR} already exist ..."
+    exit 1
+fi
+
+if [ -d "${WEBHOOK_INSTANCE_DIR}" ]; then
+    echo "instance webhook dir ${WEBHOOK_INSTANCE_DIR} already exist ..."
     exit 1
 fi
 
@@ -136,23 +177,21 @@ package ${packageName}
 }
 
 function build_new_version_frame() {
-    local crd_group_dir=$1
-    local crd_version_dir=$2
-    local default_file=$3
-    local group=$4
-    local version=$5
+    local doc_file=$CRD_VERSION_DIR/doc.go 
+    local group_version_info_file=$CRD_VERSION_DIR/groupversion_info.go
 
-    local doc_file=$crd_version_dir/doc.go 
-    local group_version_info_file=$crd_version_dir/groupversion_info.go
+    mkdir -p ${CRD_VERSION_DIR}
 
-    mkdir -p ${crd_version_dir}
-
-    cat > $doc_file << EOF
-$(create_header ${version})
+    cat > $doc_file <<EOF
+$(create_header ${VERSION})
 EOF
 
-    cat > $group_version_info_file << EOF
-$(create_header ${version})
+    cat > $group_version_info_file <<EOF
+$(create_header ${VERSION})
+
+// Package v1beta1 contains API Schema definitions for the apps v1beta1 API group
+// +kubebuilder:object:generate=true
+// +groupName=${GROUP}.openyurt.io
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -161,7 +200,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "${group}.openyurt.io", Version: "${version}"}
+	GroupVersion = schema.GroupVersion{Group: "${GROUP}.openyurt.io", Version: "${VERSION}"}
 
 	SchemeGroupVersion = GroupVersion
 
@@ -179,53 +218,18 @@ func Resource(resource string) schema.GroupResource {
 
 EOF
 
-    cat > $default_file << EOF
-$(create_header ${version})
-
+    cat > $CRD_VERSION_DEFAULT_FILE <<EOF
+$(create_header ${VERSION})
 EOF
    
 }
 
-function build_apis_frame() {
-
-    local crd_group_dir=${APIS_DIR}/${GROUP}
-    local crd_version_dir=${crd_group_dir}/${VERSION}
-    local crd_instance_file=${crd_version_dir}/${INSTANCE}_types.go
-    local default_file=${crd_version_dir}/default.go 
-    local need_create_version_dir="False"
-
-    if [ -f ${crd_instance_file} ]; then
-        echo "Instance crd[${GROUP}/${VERSION}/${INSTANCE}] already exist ..." 
-        exit 1
-    if
-
-    if [ ! -d ${crd_group_dir} ]; then
-        echo "Group ${GROUP} not exist, Do you want to create it?[Y/n]"
-        read create_group 
-        if [ $create_group == "Y" ]; then
-            mkdir -p ${crd_group_dir}
-        else
-            exit 0
-        fi
+function create_addtoscheme_group_version_file() {
+    local addtoscheme_group_version_file=$1
+    if [ -f $addtoscheme_group_version_file ]; then
+        return
     fi
-
-
-    if [ ! -d ${crd_version_dir} ]; then
-        echo "Version ${VERSION} not exist, Do you want to create it?[Y/n]"
-        read create_version
-        if [ $create_version == "Y" ]; then
-            build_new_version_frame ${crd_group_dir} ${crd_version_dir} ${default_file} ${GROUP} ${VERSION}
-            need_create_version_dir="True"
-        else
-            exit 0
-        fi
-    fi
-
-
-    local addtoscheme_group_version_file=${APIS_DIR}/addtoscheme_${GROUP}_${VERSION}.go
-
-    if [ $need_create_version_dir = "True" ]; then
-        cat > $addtoscheme_group_version_file << EOF
+    cat > ${addtoscheme_group_version_file} <<EOF
 $(create_header apis)
 import (
 	version "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
@@ -235,13 +239,43 @@ func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
 }
+EOF
+}
 
-EOF 
 
+function build_apis_frame() {
+
+    local need_create_version_dir="False"
+
+    if [ ! -d ${CRD_GROUP_DIR} ]; then
+        echo "Group ${GROUP} not exist, Do you want to create it?[Y/n]"
+        read create_group 
+        if [ $create_group="Y" ]; then
+            mkdir -p ${CRD_GROUP_DIR}
+        else
+            exit 0
+        fi
     fi
 
-    cat > ${crd_instance_file} << EOF
+    if [ ! -d ${CRD_VERSION_DIR} ]; then
+        echo "Version ${VERSION} not exist, Do you want to create it?[Y/n]"
+        read create_version
+        if [ $create_version="Y" ]; then
+            build_new_version_frame
+            need_create_version_dir="True"
+        else
+            exit 0
+        fi
+    fi
 
+
+    local addtoscheme_group_version_file=${APIS_DIR}/addtoscheme_${GROUP}_${VERSION}.go
+
+    if [ $need_create_version_dir="True" ]; then
+        create_addtoscheme_group_version_file $addtoscheme_group_version_file
+    fi
+
+    cat > ${CRD_INSTANCE_FILE} << EOF
 $(create_header ${VERSION})
 
 import (
@@ -251,16 +285,17 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+
 // ${INSTANCE_FIRST_UPPER}Spec defines the desired state of ${INSTANCE_FIRST_UPPER} 
 type ${INSTANCE_FIRST_UPPER}Spec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Foo string \`json:"foo,omitempty"\`
 
 	// Default is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
-	Default string `json:"default,omitempty"`
+	Default string \`json:"default,omitempty"\`
 }
 
 // ${INSTANCE_FIRST_UPPER}Status defines the observed state of ${INSTANCE_FIRST_UPPER} 
@@ -269,11 +304,12 @@ type ${INSTANCE_FIRST_UPPER}Status struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Foo string \`json:"foo,omitempty"\`
 
 	// Default is an example field of ${INSTANCE_FIRST_UPPER}. Edit sample_types.go to remove/update
-	Default string `json:"default,omitempty"`
+	Default string \`json:"default,omitempty"\`
 }
+
 
 // +genclient
 // +k8s:openapi-gen=true
@@ -284,53 +320,50 @@ type ${INSTANCE_FIRST_UPPER}Status struct {
 
 // ${INSTANCE_FIRST_UPPER} is the Schema for the samples API
 type ${INSTANCE_FIRST_UPPER} struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   \`json:",inline"\`
+	metav1.ObjectMeta \`json:"metadata,omitempty"\`
 
-	Spec   ${INSTANCE_FIRST_UPPER}Spec   `json:"spec,omitempty"`
-	Status ${INSTANCE_FIRST_UPPER}Status `json:"status,omitempty"`
+	Spec   ${INSTANCE_FIRST_UPPER}Spec   \`json:"spec,omitempty"\`
+	Status ${INSTANCE_FIRST_UPPER}Status \`json:"status,omitempty"\`
 }
+
 
 //+kubebuilder:object:root=true
 
 // ${INSTANCE_FIRST_UPPER}List contains a list of ${INSTANCE_FIRST_UPPER} 
 type ${INSTANCE_FIRST_UPPER}List struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []${INSTANCE_FIRST_UPPER} `json:"items"`
+	metav1.TypeMeta \`json:",inline"\`
+	metav1.ListMeta \`json:"metadata,omitempty"\`
+	Items           []${INSTANCE_FIRST_UPPER} \`json:"items"\`
 }
 
 func init() {
 	SchemeBuilder.Register(&${INSTANCE_FIRST_UPPER}{}, &${INSTANCE_FIRST_UPPER}List{})
 }
-
 EOF
 
-    # set version_default file
-    cat >> $default_file << EOF
+    # append version_default file
+    cat >> $CRD_VERSION_DEFAULT_FILE << EOF
+
 // SetDefaults${INSTANCE_FIRST_UPPER} set default values for ${INSTANCE_FIRST_UPPER}.
 func SetDefaults${INSTANCE_FIRST_UPPER}(obj *${INSTANCE_FIRST_UPPER}) {
 	// example for set default value for ${INSTANCE_FIRST_UPPER} 
 }
-
 EOF
-
 }
 
 
 function build_controller_frame() {
+
     local global_controller_file=${CONTROLLER_DIR}/controller.go
-    local instance_controller_dir=${CONTROLLER_DIR}/${INSTANCE}
-    local instance_controller_file=${instance_controller_dir}/${INSTANCE}_controller.go
 
     # create instance controller 
-    mkdir -p ${instance_controller_dir}
+    mkdir -p ${INSTANCE_CONTROLLER_DIR}
 
     # create controller file 
-    cat > <<EOF
+    cat > $INSTANCE_CONTROLLER_FILE << EOF
 $(create_header ${INSTANCE})
-
-
+import (
 	"context"
 	"flag"
 	"fmt"
@@ -389,7 +422,7 @@ type Reconcile${INSTANCE_FIRST_UPPER} struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileSample{
+	return &Reconcile${INSTANCE_FIRST_UPPER}{
 		Client:   utilclient.NewClientFromManager(mgr, controllerName),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
@@ -440,19 +473,19 @@ func (r *Reconcile${INSTANCE_FIRST_UPPER}) Reconcile(_ context.Context, request 
 	if instance.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
 	}
-/*
-	if instance.Spec.Foo != instance.Status.Foo {
-		instance.Status.Foo = instance.Spec.Foo
-		if err = r.Status().Update(context.TODO(), instance); err != nil {
-			klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
-			return reconcile.Result{Requeue: true}, err
-		}
-	}
-	if err = r.Update(context.TODO(), instance); err != nil {
-		klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
-		return reconcile.Result{Requeue: true}, err
-	}
-*/
+//
+//	if instance.Spec.Foo != instance.Status.Foo {
+//		instance.Status.Foo = instance.Spec.Foo
+//		if err = r.Status().Update(context.TODO(), instance); err != nil {
+//			klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
+//			return reconcile.Result{Requeue: true}, err
+//		}
+//	}
+//	if err = r.Update(context.TODO(), instance); err != nil {
+//		klog.Errorf(Format("Update ${INSTANCE_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
+//		return reconcile.Result{Requeue: true}, err
+//	}
+//
 
 	return reconcile.Result{}, nil
 }
@@ -461,53 +494,59 @@ EOF
 
 
     # update global controller file
-    if [ "$(uname)"=="Darwin" ];then
+    if [ "$(uname)"=="Darwin" ]; then
         # Mac OS X 
         sed -i '' '/import (/a\'$'\n    "github.com/openyurtio/openyurt/pkg/controller/'"${INSTANCE}"'"'$'\n' ${global_controller_file}
         sed -i '' '/func init() {/a\'$'\n    controllerAddFuncs = append(controllerAddFuncs, '"${INSTANCE}"'.Add)'$'\n' ${global_controller_file} 
-    elif[ "$(expr substr $(uname -s) 1 5)"=="Linux" ];then   
+
+    elif [ "$(expr substr $(uname -s) 1 5)"=="Linux" ]; then   
         # GNU/Linux
         sed -i '/import (/a"github.com/openyurtio/openyurt/pkg/controller/'"${INSTANCE}"'"' ${global_controller_file}
         sed -i '/func init() {/a controllerAddFuncs = append(controllerAddFuncs, '"${INSTANCE}"'.Add)' ${global_controller_file}
     fi    
-    go fmt ${global_controller_file}
-    go import ${global_controller_file}
+    gofmt ${global_controller_file}
+    goimports ${global_controller_file}
     
-
 }
 
+
 function build_webhook_frame() {
-    local add_webhook_file=${WEBHOOK_DIR}/add_${INSTANCE}.go
 
-    local webhook_instance_dir=${WEBHOOK_DIR}/${INSTANCE}
-    
-    local mutating_dir=${webhook_instance_dir}/mutating
-    local mutating_handler_file=${mutating_dir}/${INSTANCE}_handler.go
-    local mutating_webhooks_file=${mutating_dir}/webhooks.go
-
-    local validating_dir=${webhook_instance_dir}/validating
-    local validating_handler_file=${validating_dir}/${INSTANCE}_handler.go
-    local validating_webhooks_file=${validating_dir}/webhooks.go
-
-    if [ -f ${add_webhook_file} ]; then
-        echo "${add_webhook_file} file has exist ..."
+    if [ -f ${ADD_WEBHOOK_FILE} ]; then
+        echo "${ADD_WEBHOOK_FILE} file has exist ..."
         exit 1
+    else
+        cat > ${ADD_WEBHOOK_FILE} <<EOF
+$(create_header webhook)
+
+import (
+	"github.com/openyurtio/openyurt/pkg/webhook/${INSTANCE}/mutating"
+	"github.com/openyurtio/openyurt/pkg/webhook/${INSTANCE}/validating"
+)
+
+func init() {
+	addHandlers(mutating.HandlerMap)
+	addHandlers(validating.HandlerMap)
+}
+
+EOF
+
     fi
 
-    if [ -d ${mutating_dir} ]; then
-        echo "${mutating_dir} dir has exist ..."
+    if [ -d ${WEBHOOK_INSTANCE_MUTATING_DIR} ]; then
+        echo "${WEBHOOK_INSTANCE_MUTATING_DIR} dir has exist ..."
         exit 1
     fi 
 
-    if [ -d ${validating_dir} ]; then
-       echo "${validating_dir} dir has exist ..."
+    if [ -d ${WEBHOOK_INSTANCE_VALIDATING_DIR} ]; then
+       echo "${WEBHOOK_INSTANCE_VALIDATING_DIR} dir has exist ..."
        exit 1
     fi
     
-    mkdir -p ${mutating_dir}
-    mkdir -p ${validating_dir}
+    mkdir -p ${WEBHOOK_INSTANCE_MUTATING_DIR}
+    mkdir -p ${WEBHOOK_INSTANCE_VALIDATING_DIR}
     
-   cat > $mutating_handler_file << EOF
+   cat > $INSTANCE_MUTATING_HANDLER_FILE << EOF
 $(create_header mutating)
 
 import (
@@ -581,9 +620,12 @@ func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.
 	return nil
 }
 
-EOF 
+EOF
 
-    cat > $mutating_webhooks_file << EOF
+    gofmt ${INSTANCE_MUTATING_HANDLER_FILE}
+    goimports ${INSTANCE_MUTATING_HANDLER_FILE}
+
+    cat > $INSTANCE_MUTATING_WEBHOOKS_FILE << EOF
 $(create_header mutating)
 
 import (
@@ -600,7 +642,7 @@ var (
 )
 EOF
 
-    cat > $validating_handler_file << EOF
+    cat > $INSTANCE_VALIDATING_HANDLER_FILE << EOF
 $(create_header validating)
 
 import (
@@ -673,7 +715,10 @@ func (h *${INSTANCE_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.
 
 EOF
 
-    cat > $validating_webhooks_file << EOF
+    gofmt $INSTANCE_VALIDATING_HANDLER_FILE
+    goimports $INSTANCE_VALIDATING_HANDLER_FILE
+
+    cat > $INSTANCE_VALIDATING_WEBHOOKS_FILE << EOF
 $(create_header validating)
 
 import (
@@ -691,10 +736,9 @@ var (
 
 EOF
 
-
 }
+
 
 build_apis_frame
 build_controller_frame
 build_webhook_frame
-

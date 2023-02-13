@@ -19,7 +19,7 @@ IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
 GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 CRD_OPTIONS ?= "crd:crdVersions=v1"
-BUILD_KUSTOMIZE ?= "_output/manifest/"
+BUILD_KUSTOMIZE ?= _output/manifest
 
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
@@ -154,7 +154,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
 
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	rm -rf $(BUILD_KUSTOMIZE)
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./pkg/..." output:crd:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/crd output:rbac:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/rbac output:webhook:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/webhook
 	hack/make-rules/kustomize_to_chart.sh --crd $(BUILD_KUSTOMIZE)/auto_generate/crd  --webhook $(BUILD_KUSTOMIZE)/auto_generate/webhook --rbac $(BUILD_KUSTOMIZE)/auto_generate/rbac --output $(BUILD_KUSTOMIZE)/kustomize --templateDir charts/openyurt/templates
