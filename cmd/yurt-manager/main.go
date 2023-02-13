@@ -21,7 +21,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"time"
-	_ "time/tzdata" // for AdvancedCronJob Time Zone support
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,12 +32,10 @@ import (
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	extclient "github.com/openyurtio/openyurt/pkg/client"
-	"github.com/openyurtio/openyurt/pkg/webhook"
-
 	"github.com/openyurtio/openyurt/pkg/apis"
+	extclient "github.com/openyurtio/openyurt/pkg/client"
 	"github.com/openyurtio/openyurt/pkg/controller"
-	// +kubebuilder:scaffold:imports
+	"github.com/openyurtio/openyurt/pkg/webhook"
 )
 
 var (

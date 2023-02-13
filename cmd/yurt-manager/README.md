@@ -1,20 +1,20 @@
 # yurt-manager
 
-In order to improve the management of all repos in OpenYurt, and reduce the complexity of deploying OpenYurt. we will create a new component named `yurt-manager` for managing all controllers and webhooks. 
+In order to improve the management of all repos in OpenYurt, and reduce the complexity of deploying OpenYurt. we will create a new component named `yurt-manager` for managing all controllers and webhooks.
 
-`yurt-manager` has built a framework for controllers that supports: 
+`yurt-manager` has built a framework for controllers that supports:
 - crd definition
-- controller logic 
-- webhook logic 
+- controller logic
+- webhook logic
 - auto-issuing of webhook certificates
 - helm chart generation
 - client-api generation
 
-the `yurt-manager` framework lets you easily add new CRD and their controller, webhook logic, avoiding a lot of repetitive development work. 
+the `yurt-manager` framework lets you easily add new CRD and their controller, webhook logic, avoiding a lot of repetitive development work.
 
-# Code architecture
+## Code architecture
 
-`yurt-manager` contains five structures: 
+`yurt-manager` contains five structures:
 
 | structure         | dirs                                | description                                                                                                                                       |
 |:------------------|:------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -25,7 +25,6 @@ the `yurt-manager` framework lets you easily add new CRD and their controller, w
 | webhook           | `pkg/webhook`                       | Handle the logic of crd Webhooks. Do not modify the directory structure!!!                                                                        |
 | charts            | `charts/openyurt`                   | openyurt helm chart, You can run the `make manifests` command to automatically modify the template file. Do not modify the directory structure!!! |
 | manifest          | `_output/manifest`                 | temporary directory for converting helm chart. Do not modify the directory structure!!!                                                           |
-
 
 The directory structure is as follows:
 
@@ -46,11 +45,11 @@ The directory structure is as follows:
 │   │       └── v1beta1
 │   ├── controller
 │   │   ├── controller.go
-│   │   └─ {instance} 
+│   │   └─ {instance}
 │   │       └── {instance}_controller.go
 │   └── webhook
 │      ├── add_{instance}.go
-│      ├── {instance} 
+│      ├── {instance}
 │      │   ├── mutating
 │      │   └── validating
 │      └── server.go
@@ -76,9 +75,8 @@ The directory structure is as follows:
 
 ```
 
-# How do I add a new CRD
-
-## Record local changes to the repository
+## How do I add a new CRD
+### Record local changes to the repository
 
 Before adding new CRDS, please use the git commit command to record local changes to the repository.
 
@@ -88,7 +86,7 @@ Before adding new CRDS, please use the git commit command to record local change
 # git commit -m "prepare to add new crd"
 ```
 
-## Add new crd
+### Add new crd
 
 Assume that the new crd belongs to group `net`, version is `v1beta1`, kind is `Spider`, shortname is `sd`, and scope is `Cluster`
 
@@ -116,14 +114,13 @@ After the preceding command is executed, you can run the `git status` command to
 # git status
 ```
 
-## Update helm chart
+### Update helm chart
 
 ```shell
 # make manifests
 ```
 
 `make manifests` command will automatically update file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` . If you have other special configurations for `yurt-manger`, please update the `charts/openyurt/templates/yurt-manager.yaml` and `charts/openyurt/values.yaml` files.
-
 
 Do not modify file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` directly, because file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` is overwritten every time command `make manifests` is executed
 
@@ -132,7 +129,7 @@ exec `git commit` to record local change
 ```shell
 # git commit -m "add a new crd ${GROUP}/${VERSION}/${KIND} and controller ,webhook "
 ```
-## push yurt-manger image
+### Build and push yurt-manger image
 
 Suppose the name of our image repository `edgetest-registry.cn-zhangjiakou.cr.aliyuncs.com/openyurt`
 
@@ -142,11 +139,11 @@ Suppose the name of our image repository `edgetest-registry.cn-zhangjiakou.cr.al
 
 `make docker-push-yurt-manager` automatically constructs docker images. The full image is named $IMAGE_REPO/yurt-manager:{git commit} and automatically pushed to the image repository.
 
-## helm install
+### helm install
 
 ```shell
 # cd $GOPATH/src/github.com/openyurtio/openyurt
-# helm uninstall openyurt 
+# helm uninstall openyurt
 # helm install openyurt ./openyurt --set yurtManager.image.registry=edgetest-registry.cn-zhangjiakou.cr.aliyuncs.com --set yurtManager.image.tag=v1.2.0-52ef527
 ```
 

@@ -82,7 +82,7 @@ if [ -z $GROUP ] || [ -z $VERSION ] || [ -z $KIND ] || [ -z $SCOPE ] || [ -z $SH
     usage	
 fi
 
-# suport bash 3 [mac and linux]
+# support bash 3 [mac and linux]
 # @kadisi
 # Make letters lowercase
 GROUP=$(echo $GROUP | tr '[A-Z]' '[a-z]')
@@ -91,7 +91,7 @@ SHORTNAME=$(echo $SHORTNAME | tr '[A-Z]' '[a-z]')
 
 #KIND=$(echo $KIND | tr '[A-Z]' '[a-z]')
 
-# suport bash 3 [mac and linux]
+# support bash 3 [mac and linux]
 # @kadisi
 KIND_INITIAL_UPPER=$(echo ${KIND: 0:1} | tr '[a-z]' '[A-Z]')
 KIND_INITIAL_LOWER=$(echo ${KIND: 0:1} | tr '[A-Z]' '[a-z]')
@@ -512,8 +512,8 @@ EOF
         sed -i '/import (/a"github.com/openyurtio/openyurt/pkg/controller/'"${KIND}"'"' ${global_controller_file}
         sed -i '/func init() {/a controllerAddFuncs = append(controllerAddFuncs, '"${KIND}"'.Add)' ${global_controller_file}
     fi    
-    gofmt ${global_controller_file}
-    goimports ${global_controller_file}
+    gofmt -w ${global_controller_file}
+    goimports -w ${global_controller_file}
     
 }
 
@@ -631,8 +631,8 @@ func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Deco
 
 EOF
 
-    gofmt ${KIND_MUTATING_HANDLER_FILE}
-    goimports ${KIND_MUTATING_HANDLER_FILE}
+    gofmt -w ${KIND_MUTATING_HANDLER_FILE}
+    goimports -w ${KIND_MUTATING_HANDLER_FILE}
 
     cat > $KIND_MUTATING_WEBHOOKS_FILE << EOF
 $(create_header mutating)
@@ -665,11 +665,7 @@ import (
 	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
-var (
-	defaultMaxImagesPerNode = 256
-)
-
-// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER} 
+// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER}
 type ${KIND_FIRST_UPPER}CreateUpdateHandler struct {
 	// Decoder decodes objects
 	Decoder *admission.Decoder
@@ -710,7 +706,7 @@ func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req
 
 func validate(obj *${GROUP}${VERSION}.${KIND_FIRST_UPPER}) error {
 
-	klog.Infof(Format("Validate ${KIND_FIRST_UPPER} %s sucessfully ...", klog.KObj(obj)))
+	klog.Infof(Format("Validate ${KIND_FIRST_UPPER} %s successfully ...", klog.KObj(obj)))
 
 	return nil
 }
@@ -725,8 +721,8 @@ func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Deco
 
 EOF
 
-    gofmt $KIND_VALIDATING_HANDLER_FILE
-    goimports $KIND_VALIDATING_HANDLER_FILE
+    gofmt -w $KIND_VALIDATING_HANDLER_FILE
+    goimports -w $KIND_VALIDATING_HANDLER_FILE
 
     cat > $KIND_VALIDATING_WEBHOOKS_FILE << EOF
 $(create_header validating)

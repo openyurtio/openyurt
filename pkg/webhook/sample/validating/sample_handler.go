@@ -26,10 +26,6 @@ import (
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
-var (
-	defaultMaxImagesPerNode = 256
-)
-
 // SampleCreateUpdateHandler handles Sample
 type SampleCreateUpdateHandler struct {
 	// Decoder decodes objects
@@ -71,7 +67,7 @@ func (h *SampleCreateUpdateHandler) Handle(ctx context.Context, req admission.Re
 
 func validate(obj *appsv1beta1.Sample) error {
 
-	klog.Infof(Format("Validate Sample %s sucessfully ...", klog.KObj(obj)))
+	klog.Infof(Format("Validate Sample %s successfully ...", klog.KObj(obj)))
 
 	return nil
 }
