@@ -8,7 +8,7 @@ require (
 	github.com/daviddengcn/go-colortext v1.0.0
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/onsi/ginkgo/v2 v2.1.4
