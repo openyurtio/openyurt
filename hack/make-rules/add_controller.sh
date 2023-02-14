@@ -194,7 +194,7 @@ EOF
     cat > $group_version_info_file <<EOF
 $(create_header ${VERSION})
 
-// Package v1beta1 contains API Schema definitions for the apps v1beta1 API group
+// Package ${VERSION} contains API Schema definitions for the ${GROUP} ${VERSION}API group
 // +kubebuilder:object:generate=true
 // +groupName=${GROUP}.openyurt.io
 
