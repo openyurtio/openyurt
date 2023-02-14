@@ -127,6 +127,7 @@ CRD_KIND_FILE=${CRD_VERSION_DIR}/${KIND}_types.go
 CRD_VERSION_DEFAULT_FILE=${CRD_VERSION_DIR}/default.go 
 KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND}
 KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND}_controller.go
+ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND}.go
 
 WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND}
 ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${KIND}.go
@@ -141,6 +142,11 @@ KIND_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/webhooks.go
 
 if [ -f "${CRD_KIND_FILE}" ]; then
     echo "Instance crd[${GROUP}/${VERSION}/${KIND}] already exist ..." 
+    exit 1
+fi
+
+if [ -f "${ADD_CONTROLLER_FILE}" ]; then
+    echo "Add controller file ${ADD_CONTROLLER_FILE} already exist ..."
     exit 1
 fi
 
@@ -359,7 +365,6 @@ EOF
 
 function build_controller_frame() {
 
-    local global_controller_file=${CONTROLLER_DIR}/controller.go
 
     # create instance controller 
     mkdir -p ${KIND_CONTROLLER_DIR}
@@ -501,19 +506,28 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 EOF
 
 
-    # update global controller file
-    if [ "$(uname)"=="Darwin" ]; then
-        # Mac OS X 
-        sed -i '' '/import (/a\'$'\n    "github.com/openyurtio/openyurt/pkg/controller/'"${KIND}"'"'$'\n' ${global_controller_file}
-        sed -i '' '/func init() {/a\'$'\n    controllerAddFuncs = append(controllerAddFuncs, '"${KIND}"'.Add)'$'\n' ${global_controller_file} 
+    
+    # ADD_CONTROLLER_FILE
+    cat > ${ADD_CONTROLLER_FILE} <<EOF
+$(create_header controller)
 
-    elif [ "$(expr substr $(uname -s) 1 5)"=="Linux" ]; then   
-        # GNU/Linux
-        sed -i '/import (/a"github.com/openyurtio/openyurt/pkg/controller/'"${KIND}"'"' ${global_controller_file}
-        sed -i '/func init() {/a controllerAddFuncs = append(controllerAddFuncs, '"${KIND}"'.Add)' ${global_controller_file}
-    fi    
-    gofmt -w ${global_controller_file}
-    goimports -w ${global_controller_file}
+import (
+    "github.com/openyurtio/openyurt/pkg/controller/${KIND}"
+)
+
+// Note !!! @kadisi
+// Do not change the name of the file @kadisi
+// Auto generate by make addcontroller command !!!
+// Note !!!
+
+func init() {
+    controllerAddFuncs = append(controllerAddFuncs, ${KIND}.Add)
+}
+
+EOF
+
+    gofmt -w ${ADD_CONTROLLER_FILE}
+    goimports -w ${ADD_CONTROLLER_FILE}
     
 }
 

@@ -19,8 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"github.com/openyurtio/openyurt/pkg/controller/sample"
 )
 
 // Note !!! @kadisi
@@ -28,12 +26,10 @@ import (
 // Note !!!
 
 // Don`t Change this Name !!!!  @kadisi
-
 // TODO support feature gate @kadisi
 var controllerAddFuncs []func(manager.Manager) error
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, sample.Add)
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi

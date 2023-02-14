@@ -38,6 +38,13 @@ import (
 // Do not change the name of the file or the contents of the file !!!!!!!!!!
 // Note !!!
 
+func init() {
+	// Just for checking through `make lint`
+	// If you add a new CRD resource, you can delete this row @kadisi
+	tmp := make(map[string]admission.Handler)
+	addHandlers(tmp)
+}
+
 type GateFunc func() (enabled bool)
 
 var (
