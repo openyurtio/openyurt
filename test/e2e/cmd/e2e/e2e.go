@@ -14,32 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package yurttest
+package e2e
 
 import (
-	"errors"
 	"io"
+	"os"
+	"testing"
 
 	"github.com/spf13/cobra"
-
-	"github.com/openyurtio/openyurt/pkg/yurtctl/cmd/yurttest/kindinit"
 )
 
-func NewCmdTest(out io.Writer) *cobra.Command {
+func NewE2ECmd(m *testing.M, out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "test",
+		Use:   "e2e",
 		Short: "Tools for developers to test the OpenYurt Cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := cmd.Help()
-			if err != nil {
-				return err
-			}
-			return errors.New("subcommand is required")
+			os.Exit(m.Run())
+			return nil
 		},
 		Args: cobra.NoArgs,
 	}
 	cmd.SetOut(out)
-	cmd.AddCommand(kindinit.NewKindInitCMD(out))
 
 	return cmd
 }

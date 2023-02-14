@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kindinit
+package init
 
 import (
 	"context"
@@ -39,8 +39,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
-	"github.com/openyurtio/openyurt/pkg/yurtctl/constants"
-	kubeutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
+	kubeutil "github.com/openyurtio/openyurt/test/e2e/cmd/init/util/kubernetes"
 )
 
 var (
@@ -92,7 +92,7 @@ var (
 	}
 )
 
-func NewKindInitCMD(out io.Writer) *cobra.Command {
+func NewInitCMD(out io.Writer) *cobra.Command {
 	o := newKindOptions()
 
 	cmd := &cobra.Command{

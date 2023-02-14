@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kindinit
+package init
 
 import (
 	"io"
@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 
-	yurtutil "github.com/openyurtio/openyurt/pkg/yurtctl/util/kubernetes"
+	yurtutil "github.com/openyurtio/openyurt/test/e2e/cmd/init/util/kubernetes"
 )
 
 func NewClusterConverter(ki *Initializer) *ClusterConverter {

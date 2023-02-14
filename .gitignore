@@ -10,3 +10,4 @@ vendor
 *.out
 logs
 test-prow
+e2e.test

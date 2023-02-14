@@ -21,7 +21,6 @@ source "${YURT_ROOT}/hack/lib/init.sh"
 source "${YURT_ROOT}/hack/lib/build.sh"
 
 readonly YURT_ALL_TARGETS=(
-    yurtctl
     yurtadm
     yurt-node-servant
     yurthub
