@@ -30,6 +30,8 @@ import (
 	"os"
 	"time"
 
+	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
+	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -54,8 +56,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-controller-manager/app/options"
 	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 const (
@@ -315,6 +315,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["daemonpodupdater"] = startDaemonPodUpdaterController
 	controllers["servicetopologycontroller"] = startServiceTopologyController
 	controllers["podbinding"] = startPodBindingController
+	controllers["webhookmanager"] = startWebhookManager
 	return controllers
 }
 

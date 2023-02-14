@@ -25,11 +25,12 @@ import (
 	"net/http"
 
 	"github.com/openyurtio/openyurt/pkg/controller/certificates"
-	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	poolcoordinatorcertmanager "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/webhook"
 )
 
 func startPoolCoordinatorCertManager(ctx ControllerContext) (http.Handler, bool, error) {
@@ -94,5 +95,15 @@ func startPodBindingController(ctx ControllerContext) (http.Handler, bool, error
 		ctx.InformerFactory,
 	)
 	go podBindingController.Run(ctx.Stop)
+	return nil, true, nil
+}
+
+func startWebhookManager(ctx ControllerContext) (http.Handler, bool, error) {
+	webhookManager := webhook.NewWebhookManager(
+		ctx.ClientBuilder.ClientOrDie("webhook manager"),
+		ctx.YurtInformerFactory,
+		ctx.InformerFactory,
+	)
+	go webhookManager.Run(ctx.Stop)
 	return nil, true, nil
 }
