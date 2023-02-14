@@ -26,3 +26,29 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
+
+{{- define "yurt-manager.name" -}}
+yurt-manager
+{{- end -}}
+
+{{/*
+Selector labels
+*/}}
+{{- define "yurt-manager.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "yurt-manager.name" . }}
+app.kubernetes.io/instance: {{ printf "%s" .Release.Name }}
+control-plane: yurt-manager
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "yurt-manager.labels" -}}
+{{ include "yurt-manager.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+

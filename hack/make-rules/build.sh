@@ -28,6 +28,7 @@ readonly YURT_ALL_TARGETS=(
     yurt-controller-manager
     yurt-tunnel-server
     yurt-tunnel-agent
+    yurt-manager
 )
 
 # clean old binaries at GOOS and GOARCH
