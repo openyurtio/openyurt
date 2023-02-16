@@ -253,6 +253,11 @@ func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error {
 	if !IfExists(oldPath) {
 		return ErrNotExists
 	}
+	if IfExists(newPath) {
+		if err := fs.DeleteDir(newPath); err != nil {
+			return err
+		}
+	}
 	if filepath.Dir(oldPath) != filepath.Dir(newPath) {
 		return ErrInvalidPath
 	}
