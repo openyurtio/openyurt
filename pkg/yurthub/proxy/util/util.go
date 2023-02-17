@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
@@ -489,4 +492,37 @@ func IsEventCreateRequest(req *http.Request) bool {
 	return info.IsResourceRequest &&
 		info.Resource == "events" &&
 		info.Verb == "create"
+}
+
+func ReListWatchReq(rw http.ResponseWriter, req *http.Request) {
+	agent, _ := util.ClientComponentFrom(req.Context())
+	klog.Infof("component %s request urL %s with rv = %s is rejected, expect re-list",
+		agent, util.ReqString(req), req.URL.Query().Get("resourceVersion"))
+
+	serializerManager := serializer.NewSerializerManager()
+	mediaType, params, _ := mime.ParseMediaType(runtime.ContentTypeProtobuf)
+
+	_, streamingSerializer, framer, err := serializerManager.WatchEventClientNegotiator.StreamDecoder(mediaType, params)
+	if err != nil {
+		klog.Errorf("ReListWatchReq %s failed with error = %s", util.ReqString(req), err.Error())
+		return
+	}
+
+	streamingEncoder := streaming.NewEncoder(framer.NewFrameWriter(rw), streamingSerializer)
+	if err != nil {
+		klog.Errorf("ReListWatchReq %s failed with error = %s", util.ReqString(req), err.Error())
+		return
+	}
+
+	outEvent := &metav1.WatchEvent{
+		Type: string(watch.Error),
+	}
+
+	if err := streamingEncoder.Encode(outEvent); err != nil {
+		klog.Errorf("ReListWatchReq %s failed with error = %s", util.ReqString(req), err.Error())
+		return
+	}
+
+	klog.Infof("this request write error event back finished.")
+	rw.(http.Flusher).Flush()
 }
