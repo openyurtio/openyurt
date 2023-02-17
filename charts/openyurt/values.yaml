@@ -13,8 +13,8 @@ yurtControllerManager:
 poolCoordinator:
   apiserverSecurePort: 10270
   apiserverImage:
-    registry: docker.io
-    repository: google_containers/kube-apiserver
+    registry: k8s.gcr.io
+    repository: kube-apiserver
     pullPolicy: IfNotPresent
     tag: v1.22.0
   apiserverResources:
@@ -24,8 +24,8 @@ poolCoordinator:
   etcdPort: 12379
   etcdMetricPort: 12381
   etcdImage:
-    registry: docker.io
-    repository: google_containers/etcd
+    registry: k8s.gcr.io
+    repository: etcd
     pullPolicy: IfNotPresent
     tag: 3.5.0-0
   etcdResources:
