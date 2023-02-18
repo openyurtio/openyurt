@@ -118,7 +118,17 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 			kubeletVersion := strings.Split(string(b), " ")[1]
 			kubeletVersion = strings.TrimSpace(kubeletVersion)
 			klog.Infof("kubelet --version: %s", kubeletVersion)
-			if strings.Contains(string(b), clusterVersion) {
+			v1, err := version.NewVersion(kubeletVersion)
+			if err != nil {
+				return err
+			}
+			v2, err := version.NewVersion(clusterVersion)
+			if err != nil {
+				return err
+			}
+			s1 := v1.Segments()
+			s2 := v2.Segments()
+			if s1[0] == s2[0] && s1[1] == s2[1] {
 				klog.Infof("Kubelet %s already exist, skip install.", clusterVersion)
 				kubeletExist = true
 			} else {
@@ -202,7 +212,17 @@ func CheckAndInstallKubeadm(kubernetesResourceServer, clusterVersion string) err
 				return fmt.Errorf("can't get the existing kubeadm version: %w", err)
 			}
 			kubeadmVersion := info.ClientVersion.GitVersion
-			if kubeadmVersion == clusterVersion {
+			v1, err := version.NewVersion(kubeadmVersion)
+			if err != nil {
+				return err
+			}
+			v2, err := version.NewVersion(clusterVersion)
+			if err != nil {
+				return err
+			}
+			s1 := v1.Segments()
+			s2 := v2.Segments()
+			if s1[0] == s2[0] && s1[1] == s2[1] {
 				klog.Infof("Kubeadm %s already exist, skip install.", clusterVersion)
 				kubeadmExist = true
 			} else {
