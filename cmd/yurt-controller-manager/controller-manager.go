@@ -18,6 +18,7 @@ limitations under the License.
 // controllers, and creating corresponding pods to achieve the desired
 // state.  It uses the API to listen for new controllers and to create/delete
 // pods.
+
 package main
 
 import (
@@ -26,13 +27,10 @@ import (
 	"time"
 
 	"k8s.io/component-base/logs"
-
 	// for JSON log format registration
 	_ "k8s.io/component-base/logs/json/register"
-
 	// load all the prometheus client-go plugin
 	_ "k8s.io/component-base/metrics/prometheus/clientgo"
-
 	// for version metric registration
 	_ "k8s.io/component-base/metrics/prometheus/version"
 

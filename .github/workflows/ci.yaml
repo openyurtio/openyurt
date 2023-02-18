@@ -11,7 +11,6 @@ on:
 env:
   # Common versions
   GO_VERSION: '1.17'
-  GOLANGCI_VERSION: 'v1.40'
   DOCKER_BUILDX_VERSION: 'v0.4.2'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
@@ -44,7 +43,7 @@ jobs:
       - name: Lint golang code
         uses: golangci/golangci-lint-action@v3
         with:
-          version: ${{ env.GOLANGCI_VERSION }}
+          version: latest
           args: -v
 
   markdownlint-misspell-shellcheck:

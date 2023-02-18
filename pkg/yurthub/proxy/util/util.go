@@ -316,6 +316,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 // 2. WithRequestTimeout reduce timeout context for get/list request.
 //    timeout is Timeout reduce a margin(2 seconds). When request remote server fail,
 //    can get data from cache before client timeout.
+
 func WithRequestTimeout(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {
@@ -360,7 +361,7 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 
-		if oldToken := util.ParseBearerToken(req.Header.Get("Authorization")); oldToken != "" { //bearer token is not empty&valid
+		if oldToken := util.ParseBearerToken(req.Header.Get("Authorization")); oldToken != "" { // bearer token is not empty&valid
 
 			if jsonWebToken, err := jwt.ParseSigned(oldToken); err != nil {
 

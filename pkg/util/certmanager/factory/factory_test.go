@@ -67,8 +67,7 @@ func TestNew(t *testing.T) {
 				IPs:      []net.IP{},
 				DNSNames: []string{},
 				IPGetter: func() ([]net.IP, error) {
-					dynamicIPs := []net.IP{}
-					return dynamicIPs, nil
+					return []net.IP{}, nil
 				},
 				ComponentName:  projectinfo.GetServerName(),
 				CertDir:        "",
@@ -83,18 +82,14 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				fc := NewCertManagerFactory(&fake.Clientset{})
-				_, get := fc.New(tt.cfg)
+			fc := NewCertManagerFactory(&fake.Clientset{})
+			_, get := fc.New(tt.cfg)
 
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }

@@ -54,13 +54,10 @@ func TestIsInStringLst(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := IsInStringLst(tt.strLst, tt.str)
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Errorf("\texpect %v, but get %v", tt.expect, get)
-				}
+			get := IsInStringLst(tt.strLst, tt.str)
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Errorf("\texpect %v, but get %v", tt.expect, get)
 			}
 		})
 	}

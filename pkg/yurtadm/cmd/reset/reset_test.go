@@ -48,17 +48,13 @@ func TestNewResetOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := newResetOptions()
+			get := newResetOptions()
 
-				if !reflect.DeepEqual(tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, *get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -90,17 +86,13 @@ func TestNewResetData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get, _ := newResetData(&opt)
+			get, _ := newResetData(&opt)
 
-				if !reflect.DeepEqual(tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, *get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -129,17 +121,13 @@ func TestAddResetFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				AddResetFlags(tt.flagSet, tt.resetOptions)
-				get := true
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			AddResetFlags(tt.flagSet, tt.resetOptions)
+			get := true
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -170,20 +158,17 @@ func TestNewReseterWithResetData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := newReseterWithResetData(tt.o, tt.in, tt.out, tt.outErr)
-				if !reflect.DeepEqual(tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+			get := newReseterWithResetData(tt.o, tt.in, tt.out, tt.outErr)
+			if !reflect.DeepEqual(tt.expect, *get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
 
-//func TestRun(t *testing.T) {
+// func TestRun(t *testing.T) {
 //	nr := newReseterWithResetData(
 //		&resetData{},
 //		os.Stdin,
@@ -213,7 +198,7 @@ func TestNewReseterWithResetData(t *testing.T) {
 //			}
 //		})
 //	}
-//}
+// }
 
 var rd *resetData = &resetData{
 	certificatesDir:       "/",
@@ -235,15 +220,12 @@ func TestCertificatesDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := rd.CertificatesDir()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+			get := rd.CertificatesDir()
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -261,15 +243,12 @@ func TestForceReset(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := rd.ForceReset()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+			get := rd.ForceReset()
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -287,15 +266,12 @@ func TestIgnorePreflightErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := rd.IgnorePreflightErrors()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+			get := rd.IgnorePreflightErrors()
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -313,15 +289,12 @@ func TestCRISocketPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := rd.CRISocketPath()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+			get := rd.CRISocketPath()
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }

@@ -73,17 +73,13 @@ func TestInitHandlerWrappers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				_, get := InitHandlerWrappers(tt.mi, tt.isIPv6)
+			_, get := InitHandlerWrappers(tt.mi, tt.isIPv6)
 
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -122,17 +118,13 @@ func TestWrapHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				_, get := WrapHandler(tt.coreHandler, tt.wrappers)
+			_, get := WrapHandler(tt.coreHandler, tt.wrappers)
 
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }

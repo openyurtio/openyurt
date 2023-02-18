@@ -50,17 +50,13 @@ func TestNewMiddlewareInitializer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := NewMiddlewareInitializer(tt.factory)
+			get := NewMiddlewareInitializer(tt.factory)
 
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }
@@ -102,17 +98,13 @@ func TestInitializer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := mi.Initialize(f)
+			get := mi.Initialize(f)
 
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
+			if !reflect.DeepEqual(tt.expect, get) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
 		})
 	}
 }

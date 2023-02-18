@@ -70,7 +70,7 @@ func WaitForNamespacesDeleted(c clientset.Interface, namespaces []string, timeou
 	for _, ns := range namespaces {
 		nsMap[ns] = true
 	}
-	//Now POLL until all namespaces have been eradicated.
+	// Now POLL until all namespaces have been eradicated.
 	return wait.Poll(2*time.Second, timeout,
 		func() (bool, error) {
 			nsList, err := c.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -86,7 +86,7 @@ func WaitForNamespacesDeleted(c clientset.Interface, namespaces []string, timeou
 		})
 }
 
-//Set up yurt-e2e-config for e2e-tests
+// SetYurtE2eCfg for e2e-tests
 func SetYurtE2eCfg() error {
 	config, client, err := LoadRestConfigAndClientset(*Kubeconfig)
 	if err != nil {
