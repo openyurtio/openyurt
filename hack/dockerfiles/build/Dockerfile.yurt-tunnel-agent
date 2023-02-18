@@ -1,6 +1,6 @@
 # multi-arch image building for yurt-tunnel-agent
 
-FROM --platform=${TARGETPLATFORM} alpine:3.14
+FROM --platform=${TARGETPLATFORM} alpine:3.17
 ARG TARGETOS TARGETARCH MIRROR_REPO
 RUN if [ ! -z "${MIRROR_REPO+x}" ]; then sed -i "s/dl-cdn.alpinelinux.org/${MIRROR_REPO}/g" /etc/apk/repositories; fi && \
     apk add ca-certificates bash libc6-compat && update-ca-certificates && rm /var/cache/apk/*
