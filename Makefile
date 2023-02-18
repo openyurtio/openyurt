@@ -133,22 +133,22 @@ docker-buildx-builder:
 	docker run --rm --privileged tonistiigi/binfmt --install all
 
 docker-push-yurthub: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
 
 docker-push-yurt-controller-manager: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
 
 docker-push-yurt-tunnel-server: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
 
 docker-push-yurt-tunnel-agent: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
 
 docker-push-node-servant: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
 
 docker-push-yurt-manager: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform linux/arm64,linux/amd64 -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi
