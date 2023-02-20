@@ -54,7 +54,7 @@ func InitHandlerWrappers(mi initializer.MiddlewareInitializer, isIPv6 bool) (hw.
 	return wrappers, nil
 }
 
-// WrapWrapHandler wraps the coreHandler with all of registered middleware
+// WrapHandler wraps the coreHandler with all of registered middleware
 // and middleware will be initialized before wrap.
 func WrapHandler(coreHandler http.Handler, wrappers hw.HandlerWrappers) (http.Handler, error) {
 	handler := coreHandler

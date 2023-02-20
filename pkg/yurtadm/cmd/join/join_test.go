@@ -62,6 +62,7 @@ func TestNewJoinOptions(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -114,6 +115,7 @@ func TestNewCmdJoin(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -145,6 +147,7 @@ func TestAddJoinConfigFlags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -184,6 +187,7 @@ func TestNewJoinerWithJoinData(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -213,6 +217,7 @@ func TestRun(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -245,6 +250,7 @@ func TestNewJoinData(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -275,6 +281,7 @@ func TestServerAddr(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -305,6 +312,7 @@ func TestJoinToken(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -335,6 +343,7 @@ func TestPauseImage(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -365,6 +374,7 @@ func TestYurtHubImage(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -395,6 +405,7 @@ func TestYurtHubServer(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -425,6 +436,7 @@ func TestKubernetesVersion(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -455,6 +467,7 @@ func TestTLSBootstrapCfg(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -486,6 +499,7 @@ func TestBootstrapClient(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -518,6 +532,7 @@ func TestNodeRegistration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -548,6 +563,7 @@ func TestIgnorePreflightErrors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -578,6 +594,7 @@ func TestCaCertHashes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -608,6 +625,7 @@ func TestNodeLabels(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -638,6 +656,7 @@ func TestKubernetesResourceServer(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)

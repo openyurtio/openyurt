@@ -276,6 +276,7 @@ func (s *etcdStorage) Get(key storage.Key) ([]byte, error) {
 
 // TODO: When using etcd, do we have the case:
 //	"If the rootKey exists in the store but no keys has the prefix of rootKey"?
+
 func (s *etcdStorage) List(key storage.Key) ([][]byte, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return [][]byte{}, err

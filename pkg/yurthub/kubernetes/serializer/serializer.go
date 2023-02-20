@@ -160,13 +160,13 @@ func (s UnstructuredNegotiatedSerializer) SupportedMediaTypes() []runtime.Serial
 	}
 }
 
-//EncoderForVersion do nothing, but returns a encoder,
-//if the object is unstructured, the encoder will encode object without conversion
+// EncoderForVersion do nothing, but returns a encoder,
+// if the object is unstructured, the encoder will encode object without conversion
 func (s UnstructuredNegotiatedSerializer) EncoderForVersion(encoder runtime.Encoder, _ runtime.GroupVersioner) runtime.Encoder {
 	return encoder
 }
 
-//DecoderToVersion do nothing, and returns a decoder that does not do conversion
+// DecoderToVersion do nothing, and returns a decoder that does not do conversion
 func (s UnstructuredNegotiatedSerializer) DecoderToVersion(decoder runtime.Decoder, _ runtime.GroupVersioner) runtime.Decoder {
 	return WithVersionDecoder{
 		Decoder: decoder,

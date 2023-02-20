@@ -44,6 +44,7 @@ const (
 //   * "topology.kubernetes.io/zone"
 // GetZoneKey will first check failure-domain.beta.kubernetes.io/zone and if not exists, will then check
 // topology.kubernetes.io/zone
+
 func GetZoneKey(node *v1.Node) string {
 	labels := node.Labels
 	if labels == nil {

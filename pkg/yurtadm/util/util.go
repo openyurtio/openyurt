@@ -54,7 +54,7 @@ func DownloadFile(URL, savePath string, retry int) error {
 	return nil
 }
 
-//downloadFileOnce download file from URL and save to savePath.
+// downloadFileOnce download file from URL and save to savePath.
 func downloadFileOnce(URL, savePath string) error {
 	client := http.Client{Timeout: time.Minute * 10}
 	resp, err := client.Get(URL)
@@ -87,7 +87,7 @@ func downloadFileOnce(URL, savePath string) error {
 	return nil
 }
 
-//Untar unzip the file to the target directory.
+// Untar unzip the file to the target directory.
 func Untar(tarFile, dest string) error {
 	srcFile, err := os.Open(tarFile)
 	if err != nil {

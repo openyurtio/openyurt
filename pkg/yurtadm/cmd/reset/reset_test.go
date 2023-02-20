@@ -47,6 +47,7 @@ func TestNewResetOptions(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -89,6 +90,7 @@ func TestNewResetData(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -128,6 +130,7 @@ func TestAddResetFlags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -169,6 +172,7 @@ func TestNewReseterWithResetData(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -183,7 +187,7 @@ func TestNewReseterWithResetData(t *testing.T) {
 	}
 }
 
-//func TestRun(t *testing.T) {
+// func TestRun(t *testing.T) {
 //	nr := newReseterWithResetData(
 //		&resetData{},
 //		os.Stdin,
@@ -213,7 +217,7 @@ func TestNewReseterWithResetData(t *testing.T) {
 //			}
 //		})
 //	}
-//}
+// }
 
 var rd *resetData = &resetData{
 	certificatesDir:       "/",
@@ -234,6 +238,7 @@ func TestCertificatesDir(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -260,6 +265,7 @@ func TestForceReset(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -286,6 +292,7 @@ func TestIgnorePreflightErrors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -312,6 +319,7 @@ func TestCRISocketPath(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)

@@ -18,7 +18,7 @@ limitations under the License.
 // Package app implements a server that runs a set of active
 // components.  This includes replication controllers, service endpoints and
 // nodes.
-//
+
 package app
 
 import (
@@ -88,7 +88,7 @@ current state towards the desired state. now only nodelifecycle controller is pr
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			//verflag.PrintAndExitIfRequested()
+			// verflag.PrintAndExitIfRequested()
 			if s.Version {
 				fmt.Printf("%s: %#v\n", projectinfo.GetYurtControllerManagerName(), projectinfo.Get())
 				return
@@ -120,12 +120,12 @@ current state towards the desired state. now only nodelifecycle controller is pr
 
 	fs := cmd.Flags()
 	namedFlagSets := s.Flags(KnownControllers(), ControllersDisabledByDefault.List())
-	//verflag.AddFlags(namedFlagSets.FlagSet("global"))
+	// verflag.AddFlags(namedFlagSets.FlagSet("global"))
 	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global"), cmd.Name())
 	// hoist this flag from the global flagset to preserve the commandline until
 	// the gce cloudprovider is removed.
-	//globalflag.Register(namedFlagSets.FlagSet("generic"), "cloud-provider-gce-lb-src-cidrs")
-	//namedFlagSets.FlagSet("generic").MarkDeprecated("cloud-provider-gce-lb-src-cidrs", "This flag will be removed once the GCE Cloud Provider is removed from kube-controller-manager")
+	// globalflag.Register(namedFlagSets.FlagSet("generic"), "cloud-provider-gce-lb-src-cidrs")
+	// namedFlagSets.FlagSet("generic").MarkDeprecated("cloud-provider-gce-lb-src-cidrs", "This flag will be removed once the GCE Cloud Provider is removed from kube-controller-manager")
 	for _, f := range namedFlagSets.FlagSets {
 		fs.AddFlagSet(f)
 	}
@@ -157,7 +157,7 @@ func ResyncPeriod(c *config.CompletedConfig) func() time.Duration {
 // Run runs the KubeControllerManagerOptions.  This should never exit.
 func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// To help debugging, immediately log version
-	//klog.Infof("Version: %+v", version.Get())
+	// klog.Infof("Version: %+v", version.Get())
 
 	// Setup any healthz checks we will want to use.
 	var checks []healthz.HealthChecker
@@ -301,9 +301,9 @@ func KnownControllers() []string {
 // ControllersDisabledByDefault represents all of default disabled controller
 var ControllersDisabledByDefault = sets.NewString()
 
-//const (
+// const (
 //	saTokenControllerName = "serviceaccount-token"
-//)
+// )
 
 // NewControllerInitializers is a public map of named controller groups (you can start more than one in an init func)
 // paired to their InitFunc.  This allows for structured downstream composition and subdivision.
