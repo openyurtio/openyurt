@@ -31,6 +31,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/nodeportisolation"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -69,7 +70,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +116,12 @@ func createObjectFilters(filters *filter.Filters,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
 	storageWrapper cachemanager.StorageWrapper,
 	workingMode util.WorkingMode,
-	nodeName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
+	nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
+	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
 	initializerChain := filter.Initializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
@@ -133,4 +134,5 @@ func registerAllFilters(filters *filter.Filters) {
 	masterservice.Register(filters)
 	discardcloudservice.Register(filters)
 	inclusterconfig.Register(filters)
+	nodeportisolation.Register(filters)
 }
