@@ -10,8 +10,7 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.17'
-  GOLANGCI_VERSION: 'v1.40'
+  GO_VERSION: 1.18
   DOCKER_BUILDX_VERSION: 'v0.4.2'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
@@ -23,7 +22,7 @@ env:
 jobs:
 
   verify:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -31,7 +30,7 @@ jobs:
         run: make verify
 
   golangci-lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -44,11 +43,11 @@ jobs:
       - name: Lint golang code
         uses: golangci/golangci-lint-action@v3
         with:
-          version: ${{ env.GOLANGCI_VERSION }}
+          version: v1.51.2
           args: -v
 
   markdownlint-misspell-shellcheck:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     # this image is build from Dockerfile
     # https://github.com/pouchcontainer/pouchlinter/blob/master/Dockerfile
     container: pouchcontainer/pouchlinter:v0.1.2
@@ -73,7 +72,7 @@ jobs:
 #          bash -c "exit $code";
 
   unit-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
         with:
@@ -104,7 +103,7 @@ jobs:
           fail_ci_if_error: true
           verbose: true
   e2e-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
         with:

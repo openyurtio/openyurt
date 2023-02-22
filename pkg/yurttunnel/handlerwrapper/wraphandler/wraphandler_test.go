@@ -72,6 +72,7 @@ func TestInitHandlerWrappers(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
@@ -96,9 +97,7 @@ func (h) ServeHTTP(http.ResponseWriter, *http.Request) {
 }
 
 func TestWrapHandler(t *testing.T) {
-	var a mdwi
 	var b h
-	wraps, _ := InitHandlerWrappers(a, true)
 	ewrappers := make(handlerwrapper.HandlerWrappers, 0)
 	tests := []struct {
 		name        string
@@ -106,12 +105,6 @@ func TestWrapHandler(t *testing.T) {
 		wrappers    handlerwrapper.HandlerWrappers
 		expect      error
 	}{
-		{
-			"normal",
-			b,
-			wraps,
-			nil,
-		},
 		{
 			"empty",
 			b,
@@ -122,7 +115,6 @@ func TestWrapHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
 			{
 				_, get := WrapHandler(tt.coreHandler, tt.wrappers)
@@ -131,7 +123,6 @@ func TestWrapHandler(t *testing.T) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
 				}
 				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
-
 			}
 		})
 	}

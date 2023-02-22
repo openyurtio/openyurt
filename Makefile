@@ -94,7 +94,7 @@ install-golint: ## check golint if not exist install golint tools
 ifeq (, $(shell which golangci-lint))
 	@{ \
 	set -e ;\
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.40.0 ;\
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2 ;\
 	}
 GOLINT_BIN=$(shell go env GOPATH)/bin/golangci-lint
 else
