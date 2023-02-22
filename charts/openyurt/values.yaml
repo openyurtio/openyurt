@@ -8,7 +8,7 @@ yurtControllerManager:
     registry: docker.io
     repository: openyurt/yurt-controller-manager
     pullPolicy: IfNotPresent
-    tag: v1.2.0
+    tag: v1.2.1
 
 poolCoordinator:
   apiserverSecurePort: 10270
@@ -43,12 +43,12 @@ yurtManager:
   # settings for log print
   log:
     # log level for yurt-manager
-    level: "4"
+    level: 4
   replicas: 2
   image:
     registry: docker.io
     repository: openyurt/yurt-manager
-    tag: v1.2.0
+    tag: v1.2.1
   webhook:
     port: 9876
   metrics:

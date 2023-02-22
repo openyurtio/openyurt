@@ -13,7 +13,7 @@
 # limitations under the License.
 
 KUBERNETESVERSION ?=v1.22
-TARGET_PLATFORMS ?= linux/arm64,linux/amd64
+TARGET_PLATFORMS ?= linux/amd64
 IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
 GIT_COMMIT = $(shell git rev-parse HEAD)
@@ -45,13 +45,6 @@ ifneq (${https_proxy},)
 DOCKER_BUILD_ARGS += --build-arg https_proxy='${https_proxy}'
 endif
 
-UNAME_M := $(shell uname -m)
-ifeq ($(UNAME_M), arm64)
-ARCH ?= arm64
-else
-ARCH ?= amd64
-endif
-
 .PHONY: clean all build test
 
 all: test build
@@ -71,7 +64,7 @@ clean:
 # verify will verify the code.
 verify: verify-mod verify-license
 
-# verify-license will check if license has been added to files. 
+# verify-license will check if license has been added to files.
 verify-license:
 	hack/make-rules/check_license.sh
 
@@ -112,7 +105,7 @@ lint: install-golint ## Run go lint against code.
 	$(GOLINT_BIN) run -v
 
 # Build the docker images only one arch(specify arch by TARGET_PLATFORMS env)
-# otherwise the platform of host will be used. 
+# otherwise the platform of host will be used.
 # e.g.
 #     - build linux/amd64 docker images:
 #       $# make docker-build TARGET_PLATFORMS=linux/amd64
@@ -132,16 +125,12 @@ docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push
 
 docker-buildx-builder:
 	if ! docker buildx ls | grep -q container-builder; then\
-			   docker buildx create --name container-builder --use;\
+		docker buildx create --name container-builder --use;\
 	fi
-ifeq ("$(ARCH)","arm64")
-		# enable qemu for arm64 build
-		# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-		docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-		docker run --rm --privileged tonistiigi/binfmt --install all
-	fi
-endif
-
+	# enable qemu for arm64 build
+	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
+	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
+	docker run --rm --privileged tonistiigi/binfmt --install all
 
 docker-push-yurthub: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
@@ -173,7 +162,7 @@ manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomReso
 
 # newcontroller
 # .e.g
-# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced 
+# make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced
 # make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Cluster
 newcontroller:
 	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --kind $(KIND) --shortname $(SHORTNAME) --scope $(SCOPE)
@@ -200,3 +189,9 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+Footer
+© 2023 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
