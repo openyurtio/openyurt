@@ -33,7 +33,7 @@ import (
 
 // node-servant
 // running on specific node, do convert/revert job
-// yurtctl convert/revert join/reset, yurtcluster operator shall start a k8s job to run this.
+// node-servant convert/revert join/reset, yurtcluster operator shall start a k8s job to run this.
 func main() {
 	rand.Seed(time.Now().UnixNano())
 

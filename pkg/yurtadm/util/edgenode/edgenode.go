@@ -213,7 +213,7 @@ func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
 	}
 
 	if kbCfgPath == "" {
-		kbCfgPath = constants.KubeCondfigPath
+		kbCfgPath = constants.KubeConfigPath
 	}
 
 	return kbCfgPath, nil
