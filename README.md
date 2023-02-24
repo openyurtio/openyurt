@@ -41,9 +41,8 @@ multiple physical regions, which are referred to as `Pools` in OpenYurt.
   <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
 </div>
 
-\
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
-- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serve as a node sidecar to handle requests that comes from components(like Kubelet, Kubeproxy and so on) on worker nodes to kube-apiserver.
+- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serve as a node sidecar to handle requests that comes from components(like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
 - **[Yurt Controller Manager](https://openyurt.io/docs/next/core-concepts/yurt-controller-manager)**: It includes several controllers for edge control loops.
   `yurtcsrapprover` controller is used for handling CSRs from OpenYurt components.
   `daemonpodupdater` controller is used for providing OTA and Auto upgrade model for DaemonSet workload.
@@ -110,8 +109,8 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1na15xup2-kCl_AzzsU256RlNJroKtMA)
-- DingTalk: Now no slots in Community Group1(GroupID 31993519), please join Community Group2  (Chinese)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1q04kn3nl-9UOKBo__Z~Qhcaj4jnHH~g) (*English*)
+- DingTalk：Search GroupID `12640034121` (*Chinese*)
 
 <div align="left">
   <img src="docs/img/ding.jpg" width=25% title="dingtalk">
