@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to restart kubelet")
 			// check periodically if kubelet restarted
 			gomega.Eventually(func() bool {
-				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl http://127.0.0.1:10248/healthz'").CombinedOutput()
+				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl -m 2 http://127.0.0.1:10248/healthz'").CombinedOutput()
 				if err != nil {
 					return false
 				}
@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "fail to check kubelet health")
 			//check periodically if nginx restarted successfully
 			gomega.Eventually(func() string {
-				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl http://127.0.0.1:80'").CombinedOutput()
+				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl -m 2 http://127.0.0.1:80'").CombinedOutput()
 				if err != nil {
 					return ""
 				}
@@ -91,7 +91,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 
 			// curl pod on another edge node using podIP, periodically
 			gomega.Eventually(func() string {
-				curlCmd := "curl " + Edge2NginxPodIP
+				curlCmd := "curl -m 2 " + Edge2NginxPodIP
 				crictlCmd := "crictl exec -it " + nginxContainerID + " " + curlCmd
 				dockerCmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c ` + "'" + crictlCmd + "'"
 				opBytes, err := exec.Command("/bin/bash", "-c", dockerCmd).CombinedOutput()
@@ -117,7 +117,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 
 			// check yurthub health
 			gomega.Eventually(func() bool {
-				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl http://127.0.0.1:10267/v1/healthz'").CombinedOutput()
+				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl -m 2 http://127.0.0.1:10267/v1/healthz'").CombinedOutput()
 				if err != nil {
 					return false
 				}
@@ -138,17 +138,17 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get kube-proxy container ID")
 			kubeProxyContainerID = strings.TrimSpace(string(opBytes))
 
+			// delete created iptables related to NginxService, to see if kube-proxy will generate new ones and delegate services
+			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c \"iptables-save | sed '/"+constants.NginxServiceName+"/d' | iptables-restore\"").CombinedOutput()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to remove iptables on node openyurt-e2e-test-worker")
+
 			// restart kube-proxy
 			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+kubeProxyContainerID+"'").CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop kube-proxy")
 
-			// delete iptables created, to see if kube-proxy will generate new ones and delegate services
-			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'iptables -F'").CombinedOutput()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to remove iptables on node openyurt-e2e-test-worker")
-
 			// check periodically if kube-proxy guided the service request to actual pod
 			gomega.Eventually(func() string {
-				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl "+NginxServiceIP+"'").CombinedOutput()
+				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl -m 2 "+NginxServiceIP+"'").CombinedOutput()
 				if err != nil {
 					return ""
 				}
