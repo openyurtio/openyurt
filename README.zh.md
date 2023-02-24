@@ -96,8 +96,8 @@ OpenYurt官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - 邮件组: https://groups.google.com/g/openyurt/
-- Slack: [channel](https://join.slack.com/t/openyurt/shared_invite/zt-1na15xup2-kCl_AzzsU256RlNJroKtMA)
-- DingTalk: 社区1群(ID 31993519)已满，请加入2群 (Chinese)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1q04kn3nl-9UOKBo__Z~Qhcaj4jnHH~g) (*English*)
+- DingTalk: 搜索群ID `12640034121` (*Chinese*)
 
 <div align="left">
   <img src="docs/img/ding.jpg" width=25% title="dingtalk">
