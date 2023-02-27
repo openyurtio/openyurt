@@ -29,7 +29,7 @@ const (
 	// ConfigControlPlaneJobNameBase is the prefix of the config control-plane ServantJob name
 	ConfigControlPlaneJobNameBase = "config-control-plane"
 
-	// ConvertServantJobTemplate defines the yurtctl convert servant job in yaml format
+	// ConvertServantJobTemplate defines the node convert servant job in yaml format
 	ConvertServantJobTemplate = `
 apiVersion: batch/v1
 kind: Job
@@ -72,7 +72,7 @@ spec:
           value: {{.kubeadm_conf_path}}
           {{end}}
 `
-	// RevertServantJobTemplate defines the yurtctl revert servant job in yaml format
+	// RevertServantJobTemplate defines the node revert servant job in yaml format
 	RevertServantJobTemplate = `
 apiVersion: batch/v1
 kind: Job
@@ -115,7 +115,7 @@ spec:
           value: {{.kubeadm_conf_path}}
           {{end}}
 `
-	// ConvertPreflightJobTemplate defines the yurtctl convert preflight checks servant job in yaml format
+	// ConvertPreflightJobTemplate defines the node convert preflight checks servant job in yaml format
 	ConvertPreflightJobTemplate = `
 apiVersion: batch/v1
 kind: Job
