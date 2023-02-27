@@ -95,13 +95,12 @@ SHORTNAME=$(echo $SHORTNAME | tr '[A-Z]' '[a-z]')
 # @kadisi
 KIND_INITIAL_UPPER=$(echo ${KIND: 0:1} | tr '[a-z]' '[A-Z]')
 KIND_INITIAL_LOWER=$(echo ${KIND: 0:1} | tr '[A-Z]' '[a-z]')
+KIND_ALL_LOWER=$(echo ${KIND} | tr '[A-Z]' '[a-z]')
 
-# redefine KIND
-KIND=${KIND_INITIAL_LOWER}${KIND: 1}
-KIND_PLURAL="${KIND}s"
+KIND_PLURAL="${KIND_ALL_LOWER}s"
 KIND_FIRST_UPPER=${KIND_INITIAL_UPPER}${KIND: 1}
 
-echo "Add controller Group: $GROUP Version: $VERSION Instance: $KIND ShortName: $SHORTNAME"
+echo "Add controller Group: $GROUP Version: $VERSION Instance Kind: $KIND_FIRST_UPPER ShortName: $SHORTNAME"
 
 if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
     echo "scope only support [$SCOPE_NAMESPACE $SCOPE_CLUSTER]"
@@ -123,25 +122,25 @@ CRD_GROUP_DIR=${APIS_DIR}/${GROUP}
 CRD_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
 
 
-CRD_KIND_FILE=${CRD_VERSION_DIR}/${KIND}_types.go
+CRD_KIND_FILE=${CRD_VERSION_DIR}/${KIND_ALL_LOWER}_types.go
 CRD_VERSION_DEFAULT_FILE=${CRD_VERSION_DIR}/default.go 
-KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND}
-KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND}_controller.go
-ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND}.go
+KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND_ALL_LOWER}
+KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND_ALL_LOWER}_controller.go
+ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND_ALL_LOWER}.go
 
-WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND}
-ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${KIND}.go
+WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND_ALL_LOWER}
+ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${KIND_ALL_LOWER}.go
     
 WEBHOOK_KIND_MUTATING_DIR=${WEBHOOK_KIND_DIR}/mutating
-KIND_MUTATING_HANDLER_FILE=${WEBHOOK_KIND_MUTATING_DIR}/${KIND}_handler.go
+KIND_MUTATING_HANDLER_FILE=${WEBHOOK_KIND_MUTATING_DIR}/${KIND_ALL_LOWER}_handler.go
 KIND_MUTATING_WEBHOOKS_FILE=${WEBHOOK_KIND_MUTATING_DIR}/webhooks.go
 
 WEBHOOK_KIND_VALIDATING_DIR=${WEBHOOK_KIND_DIR}/validating
-KIND_VALIDATING_HANDLER_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/${KIND}_handler.go
+KIND_VALIDATING_HANDLER_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/${KIND_ALL_LOWER}_handler.go
 KIND_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/webhooks.go
 
 if [ -f "${CRD_KIND_FILE}" ]; then
-    echo "Instance crd[${GROUP}/${VERSION}/${KIND}] already exist ..." 
+    echo "Instance crd[${GROUP}/${VERSION}/${KIND_ALL_LOWER}] already exist ..." 
     exit 1
 fi
 
@@ -372,7 +371,7 @@ function build_controller_frame() {
 
     # create controller file 
     cat > $KIND_CONTROLLER_FILE << EOF
-$(create_header ${KIND})
+$(create_header ${KIND_ALL_LOWER})
 
 import (
 	"context"
@@ -396,7 +395,7 @@ import (
 )
 
 func init() {
-	flag.IntVar(&concurrentReconciles, "${KIND}-workers", concurrentReconciles, "Max concurrent workers for $KIND_FIRST_UPPER controller.")
+	flag.IntVar(&concurrentReconciles, "${KIND_ALL_LOWER}-workers", concurrentReconciles, "Max concurrent workers for $KIND_FIRST_UPPER controller.")
 }
 
 var (
@@ -513,7 +512,7 @@ EOF
 $(create_header controller)
 
 import (
-    "github.com/openyurtio/openyurt/pkg/controller/${KIND}"
+    "github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}"
 )
 
 // Note !!! @kadisi
@@ -522,7 +521,7 @@ import (
 // Note !!!
 
 func init() {
-    controllerAddFuncs = append(controllerAddFuncs, ${KIND}.Add)
+    controllerAddFuncs = append(controllerAddFuncs, ${KIND_ALL_LOWER}.Add)
 }
 
 EOF
@@ -543,8 +542,8 @@ function build_webhook_frame() {
 $(create_header webhook)
 
 import (
-	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/mutating"
-	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/validating"
+	"github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/mutating"
+	"github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/validating"
 )
 
 func init() {
@@ -656,12 +655,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND}.openyurt.io
+// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${VERSION}-${KIND_ALL_LOWER},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
 
 var (
 	// HandlerMap contains admission webhook handlers
 	HandlerMap = map[string]admission.Handler{
-		"mutate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
+		"mutate-${GROUP}-openyurt-io-${VERSION}-${KIND_ALL_LOWER}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
 	}
 )
 EOF
@@ -746,12 +745,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND}.openyurt.io
+// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${VERSION}-${KIND_ALL_LOWER},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
 
 var (
 	// HandlerMap contains admission webhook handlers
 	HandlerMap = map[string]admission.Handler{
-		"validate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
+		"validate-${GROUP}-openyurt-io-${VERSION}-${KIND_ALL_LOWER}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
 	}
 )
 
