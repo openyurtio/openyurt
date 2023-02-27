@@ -45,6 +45,13 @@ ifneq (${https_proxy},)
 DOCKER_BUILD_ARGS += --build-arg https_proxy='${https_proxy}'
 endif
 
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_M), arm64)
+ARCH ?= arm64
+else
+ARCH ?= amd64
+endif
+
 .PHONY: clean all build test
 
 all: test build
@@ -125,12 +132,16 @@ docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push
 
 docker-buildx-builder:
 	if ! docker buildx ls | grep -q container-builder; then\
-		docker buildx create --name container-builder --use;\
+			   docker buildx create --name container-builder --use;\
 	fi
-	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
+ifeq ("$(ARCH)","arm64")
+		# enable qemu for arm64 build
+		# https://github.com/docker/buildx/issues/464#issuecomment-741507760
+		docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
+		docker run --rm --privileged tonistiigi/binfmt --install all
+	fi
+endif
+
 
 docker-push-yurthub: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}

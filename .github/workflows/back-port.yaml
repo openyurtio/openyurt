@@ -11,7 +11,7 @@ jobs:
   # align with kubevela's choice https://github.com/oam-dev/kubevela/blob/master/.github/workflows/back-port.yaml
   build:
     name: Create backport PRs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     permissions:
       contents: write # so it can comment
       pull-requests: write # so it can create pull requests
