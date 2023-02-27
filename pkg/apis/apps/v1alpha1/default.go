@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1 
+package v1alpha1
 
 // SetDefaultsNodePool set default values for NodePool.
 func SetDefaultsNodePool(obj *NodePool) {
-	// example for set default value for NodePool 
-
-	if len(obj.Spec.Default) == 0 {
-		obj.Spec.Default = "set-default-value-0"
+	// example for set default value for NodePool
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
 	}
+
+	obj.Annotations["test"] = "test"
+
 }
