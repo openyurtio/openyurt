@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -32,22 +31,23 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
+const (
+	TestPodName   = "nginx"
+	TestHashValue = "789c7f9f47"
+	TestManifest  = "manifest"
+)
+
 func Test(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
 	DefaultManifestPath = t.TempDir()
 	DefaultConfigmapPath = t.TempDir()
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, WithYamlSuffix("nginxManifest")))
-	_, _ = os.Create(filepath.Join(DefaultConfigmapPath, "nginxManifest"))
-
-	viper.Set("name", "nginx-node")
-	viper.Set("namespace", "default")
-	viper.Set("manifest", "nginxManifest")
-	viper.Set("hash", "789c7f9f47")
+	_, _ = os.Create(filepath.Join(DefaultManifestPath, WithYamlSuffix(TestManifest)))
+	_, _ = os.Create(filepath.Join(DefaultConfigmapPath, TestManifest))
 
 	runningStaticPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "nginx-node",
-			Namespace: "default",
+			Name:      TestPodName,
+			Namespace: metav1.NamespaceDefault,
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -62,7 +62,7 @@ func Test(t *testing.T) {
 		*/
 		if mode == "auto" {
 			runningStaticPod.Annotations = map[string]string{
-				StaticPodHashAnnotation: "789c7f9f47",
+				StaticPodHashAnnotation: TestHashValue,
 			}
 		}
 		c := fake.NewSimpleClientset(runningStaticPod)
@@ -73,12 +73,10 @@ func Test(t *testing.T) {
 			watcher.Add(runningStaticPod)
 		}()
 
-		viper.Set("mode", mode)
-
 		/*
 			2. Test
 		*/
-		ctrl, err := New(c)
+		ctrl, err := New(c, TestPodName, metav1.NamespaceDefault, TestManifest, TestHashValue, mode)
 		if err != nil {
 			t.Errorf("Fail to get upgrade controller, %v", err)
 		}
@@ -105,7 +103,7 @@ func Test(t *testing.T) {
 				t.Errorf("Fail to get the running static pod, %v", err)
 			}
 
-			if pod.Annotations[OTALatestManifestAnnotation] != "789c7f9f47" {
+			if pod.Annotations[OTALatestManifestAnnotation] != TestHashValue {
 				t.Errorf("Fail to verify hash annotation for ota upgrade, %v", err)
 			}
 		}

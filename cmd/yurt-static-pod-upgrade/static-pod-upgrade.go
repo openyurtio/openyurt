@@ -20,18 +20,27 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	upgrade "github.com/openyurtio/openyurt/pkg/static-pod-upgrade"
 )
 
+type Config struct {
+	Name      string
+	Namespace string
+	Manifest  string
+	Hash      string
+	Mode      string
+}
+
 func main() {
+	cfg := &Config{}
 	rand.Seed(time.Now().UnixNano())
 	version := fmt.Sprintf("%#v", projectinfo.Get())
 	cmd := &cobra.Command{
@@ -43,7 +52,7 @@ func main() {
 				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
 
-			if err := upgrade.Validate(); err != nil {
+			if err := cfg.validate(); err != nil {
 				klog.Fatalf("Fail to validate yurt static pod upgrade args, %v", err)
 			}
 
@@ -52,12 +61,12 @@ func main() {
 				klog.Fatalf("Fail to get kubernetes client, %v", err)
 			}
 
-			ctrl, err := upgrade.New(c)
+			ctrl, err := upgrade.New(c, cfg.Name, cfg.Namespace, cfg.Manifest, cfg.Hash, cfg.Mode)
 			if err != nil {
-				klog.Fatal("Fail to create static-pod-upgrade controller, %v", err)
+				klog.Fatalf("Fail to create static-pod-upgrade controller, %v", err)
 			}
 
-			if err := ctrl.Upgrade(); err != nil {
+			if err = ctrl.Upgrade(); err != nil {
 				klog.Fatalf("Fail to upgrade static pod, %v", err)
 			}
 			klog.Info("Static pod upgrade Success")
@@ -65,22 +74,36 @@ func main() {
 		Version: version,
 	}
 
-	addFlags(cmd)
-
-	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		os.Exit(1)
-	}
+	cfg.addFlags(cmd)
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func addFlags(cmd *cobra.Command) {
-	cmd.Flags().String("kubeconfig", "", "The path to the kubeconfig file")
-	cmd.Flags().String("name", "", "The name of static pod which needs be upgraded")
-	cmd.Flags().String("namespace", "", "The namespace of static pod which needs be upgraded")
-	cmd.Flags().String("manifest", "", "The manifest file name of static pod which needs be upgraded")
-	cmd.Flags().String("hash", "", "The hash value of new static pod specification")
-	cmd.Flags().String("mode", "", "The upgrade mode which is used")
+func (c *Config) addFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&c.Name, "name", "", "The name of static pod which needs be upgraded")
+	cmd.Flags().StringVar(&c.Namespace, "namespace", "", "The namespace of static pod which needs be upgraded")
+	cmd.Flags().StringVar(&c.Manifest, "manifest", "", "The manifest file name of static pod which needs be upgraded")
+	cmd.Flags().StringVar(&c.Hash, "hash", "", "The hash value of new static pod specification")
+	cmd.Flags().StringVar(&c.Mode, "mode", "", "The upgrade mode which is used")
+}
+
+// Validate check if all the required arguments are valid
+func (c *Config) validate() error {
+	v := reflect.ValueOf(*c)
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		if field.Len() == 0 {
+			return fmt.Errorf("arg %s is empty", v.Type().Field(i).Name)
+		}
+	}
+
+	// TODO: use constant value of static-pod controller
+	if c.Mode != "auto" && c.Mode != "ota" {
+		return fmt.Errorf("only support auto or ota upgrade mode")
+	}
+
+	return nil
 }
