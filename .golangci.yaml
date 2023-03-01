@@ -3,7 +3,6 @@
 
 # options for analysis running
 run:
-  go: '1.16'
   # default concurrency is a available CPU number
   concurrency: 4
 
@@ -39,10 +38,11 @@ linters-settings:
 linters:
   disable-all: true
   enable:
-    - deadcode 
+    - gci
     - gofmt
     - goimports
-    - gci
     - ineffassign
     - misspell
+    - unused
     - vet
+    - staticcheck

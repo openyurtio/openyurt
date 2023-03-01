@@ -231,25 +231,18 @@ func TestAddOrUpdateRecord(t *testing.T) {
 		record  string
 		expect  []string
 	}{
-		//{
-		//	desc: "test add record",
-		//	records: []string{"10.1.218.68\tk8s-xing-61"},
-		//	record: "10.1.10.62\tk8s-xing-62",
-		//	expect: []string{"10.1.218.68\tk8s-xing-61","10.1.10.62\tk8s-xing-62"},
-		//},
-		//
-		//{
-		//	desc: "test update record",
-		//	records: []string{"10.1.218.68\tk8s-xing-61"},
-		//	record: "10.1.10.62\tk8s-xing-61",
-		//	expect: []string{"10.1.10.62\tk8s-xing-61"},
-		//},
+		{
+			desc:    "test add record",
+			records: []string{"10.1.218.68\tk8s-xing-61"},
+			record:  "10.1.10.62\tk8s-xing-62",
+			expect:  []string{"10.1.218.68\tk8s-xing-61", "10.1.10.62\tk8s-xing-62"},
+		},
 
 		{
-			desc:    "test idempotence",
+			desc:    "test update record",
 			records: []string{"10.1.218.68\tk8s-xing-61"},
 			record:  "10.1.10.62\tk8s-xing-61",
-			expect:  []string{"10.1.218.68\tk8s-xing-61"},
+			expect:  []string{"10.1.10.62\tk8s-xing-61"},
 		},
 	}
 
@@ -259,7 +252,7 @@ func TestAddOrUpdateRecord(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			if stringSliceEqual(act, tt.expect) {
+			if !stringSliceEqual(act, tt.expect) {
 				t.Errorf("the result we want is: %v, but the actual result is: %v\n", tt.expect, act)
 			}
 		})

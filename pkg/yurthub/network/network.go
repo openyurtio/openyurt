@@ -75,6 +75,7 @@ func (m *NetworkManager) Run(stopCh <-chan struct{}) {
 			case <-ticker.C:
 				if err := m.configureNetwork(); err != nil {
 					// do nothing here
+					klog.Warningf("failed to configure network, %v", err)
 				}
 			}
 		}

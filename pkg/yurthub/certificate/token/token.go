@@ -350,7 +350,7 @@ func (ycm *yurtHubCertManager) generateCertClientFn(current *tls.Certificate) (c
 
 	// avoid tcp conn leak: certificate rotated, so close old tcp conn that used to rotate certificate
 	klog.V(2).Infof("avoid tcp conn leak, close old tcp conn that used to rotate certificate")
-	ycm.dialer.Close(strings.Trim(kubeconfig.Host, "https://"))
+	ycm.dialer.Close(strings.TrimPrefix(kubeconfig.Host, "https://"))
 
 	return clientset.NewForConfig(kubeconfig)
 }

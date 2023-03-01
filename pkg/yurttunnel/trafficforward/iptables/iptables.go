@@ -101,7 +101,7 @@ func NewIptablesManagerWithIPFamily(client clientset.Interface,
 	listenAddr string,
 	listenInsecureAddr string,
 	syncPeriod int,
-	ipFamily iptables.Protocol) IptablesManager {
+	ipFamily iptables.Protocol) (IptablesManager, error) {
 
 	execer := exec.New()
 	iptInterface := iptables.New(execer, ipFamily)
@@ -128,6 +128,7 @@ func NewIptablesManagerWithIPFamily(client clientset.Interface,
 	conntrackPath, err := im.execer.LookPath("conntrack")
 	if err != nil {
 		klog.Errorf("error looking for path of conntrack: %v", err)
+		return nil, err
 	} else {
 		im.conntrackPath = conntrackPath
 	}
@@ -135,7 +136,7 @@ func NewIptablesManagerWithIPFamily(client clientset.Interface,
 	// 1. if there exist any old jump chain, delete them
 	_ = im.deleteJumpChains(iptablesJumpChains)
 
-	return im
+	return im, err
 }
 
 // NewIptablesManager creates an IptablesManager with ipv4 protocol
@@ -144,7 +145,8 @@ func NewIptablesManager(client clientset.Interface,
 	listenAddr string,
 	listenInsecureAddr string,
 	syncPeriod int) IptablesManager {
-	return NewIptablesManagerWithIPFamily(client, nodeInformer, listenAddr, listenInsecureAddr, syncPeriod, iptables.ProtocolIpv4)
+	im, _ := NewIptablesManagerWithIPFamily(client, nodeInformer, listenAddr, listenInsecureAddr, syncPeriod, iptables.ProtocolIpv4)
+	return im
 }
 
 // Run starts the iptablesManager that will updates dnat rules periodically

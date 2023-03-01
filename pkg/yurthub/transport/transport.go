@@ -136,6 +136,7 @@ func (tm *transportManager) start() {
 		} else if lastCert != nil && curr != nil {
 			if lastCert == curr {
 				// cert is not rotate, just wait
+				klog.V(5).Infof("cert is not rotate, just wait")
 			} else {
 				// cert rotated
 				klog.Infof("cert rotated, so close all client connections for loading new cert")
@@ -145,6 +146,7 @@ func (tm *transportManager) start() {
 		} else {
 			// lastCet != nil && curr == nil
 			// certificate expired or deleted unintentionally, just wait for cert updated by bootstrap config, do nothing
+			klog.Warningf("certificate expired or deleted unintentionally")
 		}
 	}, 10*time.Second, tm.stopCh)
 }
