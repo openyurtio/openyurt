@@ -59,7 +59,7 @@ spec:
             - --v={{ .Values.yurtManager.log.level }}
           command:
             - /usr/local/bin/yurt-manager
-          image: {{ .Values.yurtManager.image.registry }}/{{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
+          image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
           imagePullPolicy: Always
           name: yurt-manager
           ports:

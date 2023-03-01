@@ -146,8 +146,8 @@ spec:
                   - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
                   - --snapshot-count=10000
                   - --trusted-ca-file=/etc/kubernetes/pki/ca.crt
-                image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
-                imagePullPolicy: {{ .Values.poolCoordinator.etcdImage.pullPolicy }}
+                image: "{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
+                imagePullPolicy: {{ .Values.imagePullPolicy }}
                 name: etcd
                 {{- if .Values.poolCoordinator.etcdResources}}
                 resources:
