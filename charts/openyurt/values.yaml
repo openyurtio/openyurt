@@ -1,21 +1,18 @@
 
 imagePullSecrets: []
+imagePullPolicy: IfNotPresent
 
 yurtControllerManager:
   replicaCount: 1
   tolerations: []
   image:
-    registry: docker.io
     repository: openyurt/yurt-controller-manager
-    pullPolicy: IfNotPresent
-    tag: v1.2.0
+    tag: v1.2.1
 
 poolCoordinator:
   apiserverSecurePort: 10270
   apiserverImage:
-    registry: registry.k8s.io
-    repository: kube-apiserver
-    pullPolicy: IfNotPresent
+    repository: registry.k8s.io/kube-apiserver
     tag: v1.22.0
   apiserverResources:
     requests:
@@ -24,9 +21,7 @@ poolCoordinator:
   etcdPort: 12379
   etcdMetricPort: 12381
   etcdImage:
-    registry: registry.k8s.io
-    repository: etcd
-    pullPolicy: IfNotPresent
+    repository: registry.k8s.io/etcd
     tag: 3.5.0-0
   etcdResources:
     limits:
@@ -43,10 +38,9 @@ yurtManager:
   # settings for log print
   log:
     # log level for yurt-manager
-    level: "4"
+    level: 4
   replicas: 2
   image:
-    registry: docker.io
     repository: openyurt/yurt-manager
     tag: v1.2.0
   webhook:

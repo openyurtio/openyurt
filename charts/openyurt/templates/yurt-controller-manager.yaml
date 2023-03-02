@@ -174,7 +174,7 @@ spec:
                 - "false"
       containers:
       - name: yurt-controller-manager
-        image: "{{ .Values.yurtControllerManager.image.registry }}/{{ .Values.yurtControllerManager.image.repository }}:{{ .Values.yurtControllerManager.image.tag }}"
-        imagePullPolicy: {{ .Values.yurtControllerManager.image.pullPolicy }}
+        image: "{{ .Values.yurtControllerManager.image.repository }}:{{ .Values.yurtControllerManager.image.tag }}"
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         command:
           - yurt-controller-manager
