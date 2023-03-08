@@ -1,0 +1,44 @@
+name: "Trivy Scan"
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPO: openyurt
+
+jobs:
+  images:
+    name: Image Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [ yurthub, yurt-controller-manager, yurt-tunnel-server, yurt-tunnel-agent,  node-servant, yurt-manager ]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build image
+        run: |
+          echo "git_tag=`echo $(git describe --abbrev=0 --tags)-$(git rev-parse HEAD|cut -c 1-7)`" >> $GITHUB_ENV
+          make docker-build
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_REPO }}/${{ matrix.target }}:${{ env.git_tag }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
