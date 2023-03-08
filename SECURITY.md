@@ -15,7 +15,7 @@ Here's an overview:
 
 ## Prevention
 
-Container images are scanned in every pull request (PR) with [Snyk](https://snyk.io/) to detect new vulnerabilities.
+Container images are scanned in every pull request (PR) with [Trivy](https://github.com/aquasecurity/trivy) to detect new vulnerabilities.
 
 OpenYurt maintainers are working to improve our prevention by adding additional measures:
 
