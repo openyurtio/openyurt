@@ -58,16 +58,14 @@ func TestGetResponse(t *testing.T) {
 
 	wbytes := []byte(test.Raw)
 
-	//The content of wbytes and rbytes is same but when I compare the use following method diffBytes,
-	//it failed. The same situation appear at pkg/yurtunnel/dns/util_test.go
 	fmt.Printf("wbytes:%v\nrbytes:%v", wbytes, rbytes)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("get response failed")
 	}
 
-	if diffBytes(rbytes, wbytes) {
-		//t.Errorf("raw bytes is not equal\n")
+	if !diffBytes(rbytes, wbytes) {
+		t.Errorf("raw bytes is not equal\n")
 	}
 
 	diff(t, resp, &test.Resp)
@@ -75,7 +73,7 @@ func TestGetResponse(t *testing.T) {
 	//rbody := resp.Body
 	//var bout bytes.Buffer
 	//if rbody != nil {
-	//	_,err = io.Copy(&bout,rbody)
+	//	_, err = io.Copy(&bout, rbody)
 	//	if err != nil {
 	//		t.Errorf("%v", err)
 	//	}
@@ -161,6 +159,7 @@ func diff(t *testing.T, have, want interface{}) {
 	}
 }
 
+// diffBytes returns true if a and b are the same length and contain the same bytes.
 func diffBytes(a, b []byte) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {

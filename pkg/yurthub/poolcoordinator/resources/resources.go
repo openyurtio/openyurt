@@ -35,7 +35,6 @@ import (
 )
 
 type PoolScopeResourcesManger struct {
-	factory                      informers.SharedInformerFactory
 	validPoolScopedResources     map[string]*verifiablePoolScopeResource
 	validPoolScopedResourcesLock sync.RWMutex
 	k8sClient                    kubernetes.Interface

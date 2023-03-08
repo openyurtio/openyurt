@@ -198,17 +198,11 @@ func WithIfPoolScopedResource(handler http.Handler) http.Handler {
 type wrapperResponseWriter struct {
 	http.ResponseWriter
 	http.Flusher
-	http.CloseNotifier
 	http.Hijacker
 	statusCode int
 }
 
 func newWrapperResponseWriter(w http.ResponseWriter) *wrapperResponseWriter {
-	cn, ok := w.(http.CloseNotifier)
-	if !ok {
-		klog.Error("can not get http.CloseNotifier")
-	}
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		klog.Error("can not get http.Flusher")
@@ -222,7 +216,6 @@ func newWrapperResponseWriter(w http.ResponseWriter) *wrapperResponseWriter {
 	return &wrapperResponseWriter{
 		ResponseWriter: w,
 		Flusher:        flusher,
-		CloseNotifier:  cn,
 		Hijacker:       hijacker,
 	}
 }

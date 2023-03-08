@@ -103,14 +103,14 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}
 	// 1. start the IP table manager
 	if cfg.EnableIptables {
-		iptablesMgr := iptables.NewIptablesManagerWithIPFamily(cfg.Client,
+		iptablesMgr, err := iptables.NewIptablesManagerWithIPFamily(cfg.Client,
 			cfg.SharedInformerFactory.Core().V1().Nodes(),
 			cfg.ListenAddrForMaster,
 			cfg.ListenInsecureAddrForMaster,
 			cfg.IptablesSyncPeriod,
 			cfg.IPFamily)
-		if iptablesMgr == nil {
-			return fmt.Errorf("fail to create a new IptableManager")
+		if err != nil {
+			return fmt.Errorf("fail to create a new IptableManager, %w", err)
 		}
 		wg.Add(1)
 		go iptablesMgr.Run(stopCh, &wg)
