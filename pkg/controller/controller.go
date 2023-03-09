@@ -20,6 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 )
 
 // Note !!! @kadisi
@@ -28,7 +30,7 @@ import (
 
 // Don`t Change this Name !!!!  @kadisi
 // TODO support feature gate @kadisi
-var controllerAddFuncs []func(manager.Manager) error
+var controllerAddFuncs []func(*config.CompletedConfig, manager.Manager) error
 
 func init() {
 }
@@ -38,9 +40,9 @@ func init() {
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
-func SetupWithManager(m manager.Manager) error {
+func SetupWithManager(c *config.CompletedConfig, m manager.Manager) error {
 	for _, f := range controllerAddFuncs {
-		if err := f(m); err != nil {
+		if err := f(c, m); err != nil {
 			if kindMatchErr, ok := err.(*meta.NoKindMatchError); ok {
 				klog.Infof("CRD %v is not installed, its controller will perform noops!", kindMatchErr.GroupKind)
 				continue

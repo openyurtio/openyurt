@@ -14,18 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validating 
+package webhook
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 )
 
-// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-nodepool,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=nodepools,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.nodepool.openyurt.io
-
-var (
-	// HandlerMap contains admission webhook handlers
-	HandlerMap = map[string]admission.Handler{
-		"validate-apps-openyurt-io-v1alpha1-nodepool": &NodePoolCreateUpdateHandler{},
-	}
-)
-
+func init() {
+	addWebhook(&v1alpha1.NodePoolHandler{})
+}

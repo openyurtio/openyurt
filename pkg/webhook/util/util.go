@@ -19,7 +19,9 @@ package util
 import (
 	"os"
 	"strconv"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 )
 
@@ -50,7 +52,7 @@ func GetServiceName() string {
 	return "yurt-manager-webhook-service"
 }
 
-func GetPort() int {
+func GetWebHookPort() int {
 	port := 9876
 	if p := os.Getenv("WEBHOOK_PORT"); len(p) > 0 {
 		if p, err := strconv.ParseInt(p, 10, 32); err == nil {
@@ -71,4 +73,14 @@ func GetCertDir() string {
 
 func GetCertWriter() string {
 	return os.Getenv("WEBHOOK_CERT_WRITER")
+}
+
+func GenerateMutatePath(gvk schema.GroupVersionKind) string {
+	return "/mutate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+		gvk.Version + "-" + strings.ToLower(gvk.Kind)
+}
+
+func GenerateValidatePath(gvk schema.GroupVersionKind) string {
+	return "/validate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }

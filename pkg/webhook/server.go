@@ -22,97 +22,60 @@ import (
 	"net/http"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 
-	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 )
+
+type SetupWebhookWithManager interface {
+	admission.CustomDefaulter
+	admission.CustomValidator
+	// mutate path, validatepath, error
+	SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error)
+}
+
+var WebhookLists []SetupWebhookWithManager = make([]SetupWebhookWithManager, 0, 5)
+var WebhookHandlerPath = make(map[string]struct{})
 
 // Note !!! @kadisi
 // Do not change the name of the file or the contents of the file !!!!!!!!!!
 // Note !!!
 
-func init() {
-	// Just for checking through `make lint`
-	// If you add a new CRD resource, you can delete this row @kadisi
-	tmp := make(map[string]admission.Handler)
-	addHandlers(tmp)
+func addWebhook(w SetupWebhookWithManager) {
+	WebhookLists = append(WebhookLists, w)
+}
+
+func SetupWithManager(mgr manager.Manager) error {
+	for _, s := range WebhookLists {
+		m, v, err := s.SetupWebhookWithManager(mgr)
+		if err != nil {
+			return fmt.Errorf("unable to create webhook %v", err)
+		}
+		if _, ok := WebhookHandlerPath[m]; ok {
+			panic(fmt.Errorf("webhook handler path %s duplicated", m))
+		}
+		WebhookHandlerPath[m] = struct{}{}
+		klog.Infof("Add webhook mutate path %s", m)
+		if _, ok := WebhookHandlerPath[v]; ok {
+			panic(fmt.Errorf("webhook handler path %s duplicated", v))
+		}
+		WebhookHandlerPath[v] = struct{}{}
+		klog.Infof("Add webhook validate path %s", v)
+	}
+	return nil
 }
 
 type GateFunc func() (enabled bool)
 
 var (
 	// HandlerMap contains all admission webhook handlers.
-	HandlerMap   = map[string]admission.Handler{}
 	handlerGates = map[string]GateFunc{}
 )
-
-func addHandlers(m map[string]admission.Handler) {
-	addHandlersWithGate(m, nil)
-}
-
-func addHandlersWithGate(m map[string]admission.Handler, fn GateFunc) {
-	for path, handler := range m {
-		if len(path) == 0 {
-			klog.Warningf("Skip handler with empty path.")
-			continue
-		}
-		if path[0] != '/' {
-			path = "/" + path
-		}
-		_, found := HandlerMap[path]
-		if found {
-			klog.V(1).Infof("conflicting webhook builder path %v in handler map", path)
-		}
-		HandlerMap[path] = handler
-		if fn != nil {
-			handlerGates[path] = fn
-		}
-	}
-}
-
-func filterActiveHandlers() {
-	disablePaths := sets.NewString()
-	for path := range HandlerMap {
-		if fn, ok := handlerGates[path]; ok {
-			if !fn() {
-				disablePaths.Insert(path)
-			}
-		}
-	}
-	for _, path := range disablePaths.List() {
-		delete(HandlerMap, path)
-	}
-}
-
-func SetupWithManager(mgr manager.Manager) error {
-	server := mgr.GetWebhookServer()
-	server.Host = "0.0.0.0"
-	server.Port = webhookutil.GetPort()
-	server.CertDir = webhookutil.GetCertDir()
-
-	// register admission handlers
-	filterActiveHandlers()
-	for path, handler := range HandlerMap {
-		server.Register(path, &webhook.Admission{Handler: handler})
-		klog.V(3).Infof("Registered webhook handler %s", path)
-	}
-
-	// register conversion webhook
-	server.Register("/convert", &conversion.Webhook{})
-
-	// register health handler
-	server.Register("/healthz", &health.Handler{})
-
-	return nil
-}
 
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
@@ -120,7 +83,7 @@ func SetupWithManager(mgr manager.Manager) error {
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
 
 func Initialize(ctx context.Context, cfg *rest.Config) error {
-	c, err := webhookcontroller.New(cfg, HandlerMap)
+	c, err := webhookcontroller.New(cfg, WebhookHandlerPath)
 	if err != nil {
 		return err
 	}

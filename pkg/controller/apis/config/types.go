@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cmconfig "k8s.io/controller-manager/config"
 	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
+
+	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 )
 
 // YurtControllerManagerConfiguration contains elements describing yurt-controller manager.
@@ -32,4 +34,22 @@ type YurtControllerManagerConfiguration struct {
 	// NodeLifecycleControllerConfiguration holds configuration for
 	// NodeLifecycleController related features.
 	NodeLifecycleController nodelifecycleconfig.NodeLifecycleControllerConfiguration
+}
+
+// YurtManagerConfiguration contains elements describing yurt-manager.
+type YurtManagerConfiguration struct {
+	metav1.TypeMeta
+	Generic GenericConfiguration
+	// NodePoolControllerConfiguration holds configuration for  NodePoolController related features.
+	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
+}
+
+type GenericConfiguration struct {
+	Version                 bool
+	MetricsAddr             string
+	HealthProbeAddr         string
+	EnableLeaderElection    bool
+	LeaderElectionNamespace string
+	RestConfigQPS           int
+	RestConfigBurst         int
 }

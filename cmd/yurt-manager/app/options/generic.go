@@ -1,0 +1,84 @@
+/*
+Copyright 2023 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package options
+
+import (
+	"github.com/spf13/pflag"
+
+	"github.com/openyurtio/openyurt/pkg/controller/apis/config"
+)
+
+type GenericOptions struct {
+	*config.GenericConfiguration
+}
+
+func NewGenericOptions() *GenericOptions {
+	return &GenericOptions{
+		&config.GenericConfiguration{
+			Version:                 false,
+			MetricsAddr:             ":10250",
+			HealthProbeAddr:         ":8000",
+			EnableLeaderElection:    true,
+			LeaderElectionNamespace: "kube-system",
+			RestConfigQPS:           30,
+			RestConfigBurst:         50,
+		},
+	}
+}
+
+// Validate checks validation of GenericOptions.
+func (o *GenericOptions) Validate() []error {
+	if o == nil {
+		return nil
+	}
+
+	errs := []error{}
+	return errs
+}
+
+// ApplyTo fills up generic config with options.
+func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
+	if o == nil {
+		return nil
+	}
+
+	cfg.Version = o.Version
+	cfg.MetricsAddr = o.MetricsAddr
+
+	cfg.HealthProbeAddr = o.HealthProbeAddr
+	cfg.EnableLeaderElection = o.EnableLeaderElection
+	cfg.LeaderElectionNamespace = o.LeaderElectionNamespace
+	cfg.RestConfigQPS = o.RestConfigQPS
+	cfg.RestConfigBurst = o.RestConfigBurst
+
+	return nil
+}
+
+// AddFlags adds flags related to generic for yurt-manager to the specified FlagSet.
+func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
+		return
+	}
+
+	fs.BoolVar(&o.Version, "version", o.Version, "Print the version information, and then exit")
+	fs.StringVar(&o.MetricsAddr, "metrics-addr", o.MetricsAddr, "The address the metric endpoint binds to.")
+	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr, "The address the healthz/readyz endpoint binds to.")
+	fs.BoolVar(&o.EnableLeaderElection, "enable-leader-election", o.EnableLeaderElection, "Whether you need to enable leader election.")
+	fs.StringVar(&o.LeaderElectionNamespace, "leader-election-namespace", o.LeaderElectionNamespace, "This determines the namespace in which the leader election configmap/leases will be created, it will use in-cluster namespace if empty.")
+
+	fs.IntVar(&o.RestConfigQPS, "rest-config-qps", o.RestConfigQPS, "rest-config-qps.")
+	fs.IntVar(&o.RestConfigBurst, "rest-config-burst", o.RestConfigBurst, "rest-config-burst.")
+}
