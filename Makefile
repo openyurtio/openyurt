@@ -13,6 +13,10 @@
 # limitations under the License.
 
 KUBERNETESVERSION ?=v1.22
+GOLANGCILINT_VERSION ?= v1.47.3
+GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
+GOBIN := $(shell go env GOPATH)/bin
+GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
 TARGET_PLATFORMS ?= linux/amd64
 IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
@@ -91,14 +95,18 @@ e2e-tests:
 	ENABLE_AUTONOMY_TESTS=${ENABLE_AUTONOMY_TESTS} TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/run-e2e-tests.sh
 
 install-golint: ## check golint if not exist install golint tools
-ifeq (, $(shell which golangci-lint))
-	@{ \
-	set -e ;\
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2 ;\
-	}
-GOLINT_BIN=$(shell go env GOPATH)/bin/golangci-lint
+ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+GOLINT_BIN=$(GLOBAL_GOLANGCILINT)
+else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+GOLINT_BIN=$(GOBIN_GOLANGCILINT)
 else
-GOLINT_BIN=$(shell which golangci-lint)
+	@{ \
+    set -e ;\
+    echo 'installing golangci-lint-$(GOLANGCILINT_VERSION)' ;\
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
+    echo 'Successfully installed' ;\
+    }
+GOLINT_BIN=$(GOBIN)/golangci-lint
 endif
 
 lint: install-golint ## Run go lint against code.
