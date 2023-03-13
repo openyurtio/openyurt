@@ -137,14 +137,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 // Reconcile reads that state of the cluster for a NodePool object and makes changes based on the state read
 // and what is in the NodePool.Spec
-func (r *ReconcileNodePool) Reconcile(_ context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
 	klog.Infof(Format("Reconcile NodePool %s/%s", req.Namespace, req.Name))
 
-	ctx := context.Background()
 	var nodePool appsv1beta1.NodePool
 	// try to reconcile the NodePool object
 	if err := r.Get(ctx, req.NamespacedName, &nodePool); err != nil {
