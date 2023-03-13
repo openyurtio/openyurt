@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ yurthub, yurt-controller-manager, yurt-tunnel-server, yurt-tunnel-agent,  node-servant, yurt-manager ]
+        target: [ yurthub,  node-servant, yurt-manager ]
     steps:
       - uses: actions/checkout@v3
         with:
