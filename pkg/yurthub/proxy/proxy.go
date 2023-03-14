@@ -19,7 +19,7 @@ package proxy
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -277,7 +277,7 @@ func isSubjectAccessReviewFromPoolCoordinator(req *http.Request) bool {
 		klog.Errorf("failed to read SubjectAccessReview from request %s, read %d bytes, %v", hubutil.ReqString(req), n, err)
 		return false
 	}
-	req.Body = ioutil.NopCloser(&buf)
+	req.Body = io.NopCloser(&buf)
 
 	subjectAccessReviewGVK := schema.GroupVersionKind{
 		Group:   v1.SchemeGroupVersion.Group,

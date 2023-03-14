@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"io/ioutil"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -53,7 +53,7 @@ func TestNewDialer(t *testing.T) {
 			}
 			defer conn.Close()
 
-			_, err = ioutil.ReadAll(conn)
+			_, err = io.ReadAll(conn)
 			if err != nil {
 				t.Error(err)
 				return
