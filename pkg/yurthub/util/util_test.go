@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -290,7 +289,7 @@ func TestIsSupportedWorkingMode(t *testing.T) {
 }
 
 func TestFileExists(t *testing.T) {
-	dir, err := ioutil.TempDir("", "yurthub-util-file-exist")
+	dir, err := os.MkdirTemp("", "yurthub-util-file-exist")
 	if err != nil {
 		t.Fatalf("Unable to create the test directory %q: %v", dir, err)
 	}
@@ -300,7 +299,7 @@ func TestFileExists(t *testing.T) {
 		}
 	}()
 	testExistFile := dir + "test.txt"
-	if err = ioutil.WriteFile(testExistFile, nil, 0600); err != nil {
+	if err = os.WriteFile(testExistFile, nil, 0600); err != nil {
 		t.Fatalf("Unable to create the test file %q: %v", testExistFile, err)
 	}
 	testNotExistFile := dir + "not-exist-test.txt"

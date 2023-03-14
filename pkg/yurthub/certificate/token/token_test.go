@@ -18,7 +18,6 @@ package token
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -33,7 +32,7 @@ import (
 )
 
 func Test_removeDirContents(t *testing.T) {
-	dir, err := ioutil.TempDir("", "yurthub-test-removeDirContents")
+	dir, err := os.MkdirTemp("", "yurthub-test-removeDirContents")
 	if err != nil {
 		t.Fatalf("Unable to create the test directory %q: %v", dir, err)
 	}
@@ -44,7 +43,7 @@ func Test_removeDirContents(t *testing.T) {
 	}()
 
 	tempFile := dir + "/tmp.txt"
-	if err = ioutil.WriteFile(tempFile, nil, 0600); err != nil {
+	if err = os.WriteFile(tempFile, nil, 0600); err != nil {
 		t.Fatalf("Unable to create the test file %q: %v", tempFile, err)
 	}
 
