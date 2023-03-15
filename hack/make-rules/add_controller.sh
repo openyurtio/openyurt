@@ -25,6 +25,8 @@
 
 SCOPE_NAMESPACE="Namespaced"
 SCOPE_CLUSTER="Cluster"
+TRUE_FLAG="true"
+FALSE_FLAG="false"
 
 function usage(){
     echo "$0 [Options]"
@@ -95,19 +97,19 @@ SHORTNAME=$(echo $SHORTNAME | tr '[A-Z]' '[a-z]')
 # @kadisi
 KIND_INITIAL_UPPER=$(echo ${KIND: 0:1} | tr '[a-z]' '[A-Z]')
 KIND_INITIAL_LOWER=$(echo ${KIND: 0:1} | tr '[A-Z]' '[a-z]')
+KIND_ALL_LOWER=$(echo ${KIND} | tr '[A-Z]' '[a-z]')
 
-# redefine KIND
-KIND=${KIND_INITIAL_LOWER}${KIND: 1}
-KIND_PLURAL="${KIND}s"
+KIND_PLURAL="${KIND_ALL_LOWER}s"
 KIND_FIRST_UPPER=${KIND_INITIAL_UPPER}${KIND: 1}
 
-echo "Add controller Group: $GROUP Version: $VERSION Instance: $KIND ShortName: $SHORTNAME"
+echo "Add controller Group: $GROUP Version: $VERSION Instance Kind: $KIND_FIRST_UPPER ShortName: $SHORTNAME"
 
 if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
     echo "scope only support [$SCOPE_NAMESPACE $SCOPE_CLUSTER]"
     exit 1
 fi
 
+CMD_YURT_MANGER_DIR=${YURT_ROOT}/cmd/yurt-manager
 PKG_DIR=${YURT_ROOT}/pkg
 APIS_DIR=${PKG_DIR}/apis
 CONTROLLER_DIR=${PKG_DIR}/controller
@@ -118,30 +120,38 @@ if [ ! -d ${PKG_DIR} ] || [ ! -d ${APIS_DIR} ] || [ ! -d ${CONTROLLER_DIR} ] || 
     exit 1
 fi
 
+APP_OPTION_KIND_CONTROLLER_FILE=${CMD_YURT_MANGER_DIR}/app/options/${KIND_ALL_LOWER}controller.go
 
 CRD_GROUP_DIR=${APIS_DIR}/${GROUP}
-CRD_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
+CRD_GROUP_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
 
+CRD_GROUP_VERSION_KIND_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_types.go
+CRD_GROUP_VERSION_KIND_CONVERSION_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_conversion.go
+CRD_GROUP_VERSION_DEFAULT_FILE=${CRD_GROUP_VERSION_DIR}/default.go 
 
-CRD_KIND_FILE=${CRD_VERSION_DIR}/${KIND}_types.go
-CRD_VERSION_DEFAULT_FILE=${CRD_VERSION_DIR}/default.go 
-KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND}
-KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND}_controller.go
-ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND}.go
+KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND_ALL_LOWER}
+KIND_CONTROLLER_CONFIG_DIR=${KIND_CONTROLLER_DIR}/config
 
-WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND}
-ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${KIND}.go
+KIND_CONTROLLER_CONFIG_TYPE_FILE=${KIND_CONTROLLER_CONFIG_DIR}/types.go
+KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND_ALL_LOWER}_controller.go
+ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND_ALL_LOWER}.go
+
+WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND_ALL_LOWER}
+ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${VERSION}_${KIND_ALL_LOWER}.go
     
-WEBHOOK_KIND_MUTATING_DIR=${WEBHOOK_KIND_DIR}/mutating
-KIND_MUTATING_HANDLER_FILE=${WEBHOOK_KIND_MUTATING_DIR}/${KIND}_handler.go
-KIND_MUTATING_WEBHOOKS_FILE=${WEBHOOK_KIND_MUTATING_DIR}/webhooks.go
+WEBHOOK_KIND_VERSION_DIR=${WEBHOOK_KIND_DIR}/${VERSION}
 
-WEBHOOK_KIND_VALIDATING_DIR=${WEBHOOK_KIND_DIR}/validating
-KIND_VALIDATING_HANDLER_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/${KIND}_handler.go
-KIND_VALIDATING_WEBHOOKS_FILE=${WEBHOOK_KIND_VALIDATING_DIR}/webhooks.go
+WEBHOOK_KIND_VERSION_DEFAULT_FILE=${WEBHOOK_KIND_VERSION_DIR}/${KIND_ALL_LOWER}_default.go
+WEBHOOK_KIND_VERSION_HANDLE_FILE=${WEBHOOK_KIND_VERSION_DIR}/${KIND_ALL_LOWER}_handler.go
+WEBHOOK_KIND_VERSION_VALIDATION_FILE=${WEBHOOK_KIND_VERSION_DIR}/${KIND_ALL_LOWER}_validation.go
 
-if [ -f "${CRD_KIND_FILE}" ]; then
-    echo "Instance crd[${GROUP}/${VERSION}/${KIND}] already exist ..." 
+if [ -f "${APP_OPTION_KIND_CONTROLLER_FILE}" ]; then
+    echo "options controller file [${APP_OPTION_KIND_CONTROLLER_FILE}] already exist ..."
+    exit 1
+fi 
+
+if [ -f "${CRD_GROUP_VERSION_KIND_FILE}" ]; then
+    echo "Instance crd[${GROUP}/${VERSION}/${KIND_ALL_LOWER}] already exist ..." 
     exit 1
 fi
 
@@ -157,6 +167,11 @@ fi
 
 if [ -d "${WEBHOOK_KIND_DIR}" ]; then
     echo "instance webhook dir ${WEBHOOK_KIND_DIR} already exist ..."
+    exit 1
+fi
+
+if [ -f ${ADD_WEBHOOK_FILE} ]; then
+    echo "${ADD_WEBHOOK_FILE} file has exist ..."
     exit 1
 fi
 
@@ -183,10 +198,10 @@ package ${packageName}
 }
 
 function build_new_version_frame() {
-    local doc_file=$CRD_VERSION_DIR/doc.go 
-    local group_version_info_file=$CRD_VERSION_DIR/groupversion_info.go
+    local doc_file=$CRD_GROUP_VERSION_DIR/doc.go 
+    local group_version_info_file=$CRD_GROUP_VERSION_DIR/groupversion_info.go
 
-    mkdir -p ${CRD_VERSION_DIR}
+    mkdir -p ${CRD_GROUP_VERSION_DIR}
 
     cat > $doc_file <<EOF
 $(create_header ${VERSION})
@@ -224,7 +239,7 @@ func Resource(resource string) schema.GroupResource {
 
 EOF
 
-    cat > $CRD_VERSION_DEFAULT_FILE <<EOF
+    cat > $CRD_GROUP_VERSION_DEFAULT_FILE <<EOF
 $(create_header ${VERSION})
 EOF
    
@@ -264,7 +279,7 @@ function build_apis_frame() {
         fi
     fi
 
-    if [ ! -d ${CRD_VERSION_DIR} ]; then
+    if [ ! -d ${CRD_GROUP_VERSION_DIR} ]; then
         echo "Version ${VERSION} not exist, Do you want to create it?[Y/n]"
         read create_version
         if [ $create_version="Y" ]; then
@@ -282,7 +297,7 @@ function build_apis_frame() {
         create_addtoscheme_group_version_file $addtoscheme_group_version_file
     fi
 
-    cat > ${CRD_KIND_FILE} << EOF
+    cat > ${CRD_GROUP_VERSION_KIND_FILE} << EOF
 $(create_header ${VERSION})
 
 import (
@@ -349,8 +364,47 @@ func init() {
 }
 EOF
 
+    cat >> ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE} << EOF
+$(create_header ${VERSION})
+
+/*
+Implementing the hub method is pretty easy -- we just have to add an empty
+method called Hub() to serve as a
+[marker](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/conversion?tab=doc#Hub).
+*/
+
+// NOTE !!!!!! @kadisi
+// If this version is storageversion, you only need to uncommand this method
+
+// Hub marks this type as a conversion hub.
+//func (*${KIND_FIRST_UPPER}) Hub() {}
+
+
+// NOTE !!!!!!! @kadisi
+// If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
+
+// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
+//func (src *${KIND_FIRST_UPPER}) ConvertTo(dstRaw conversion.Hub) error {
+//	return nil
+//}
+
+
+// NOTE !!!!!!! @kadisi
+// If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
+
+// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
+//func (dst *${KIND_FIRST_UPPER}) ConvertFrom(srcRaw conversion.Hub) error {
+//	return nil
+//}
+
+
+EOF
+
+    gofmt -w ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE}
+    goimports -w ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE}
+
     # append version_default file
-    cat >> $CRD_VERSION_DEFAULT_FILE << EOF
+    cat >> $CRD_GROUP_VERSION_DEFAULT_FILE << EOF
 
 // SetDefaults${KIND_FIRST_UPPER} set default values for ${KIND_FIRST_UPPER}.
 func SetDefaults${KIND_FIRST_UPPER}(obj *${KIND_FIRST_UPPER}) {
@@ -366,13 +420,22 @@ EOF
 
 function build_controller_frame() {
 
-
     # create instance controller 
     mkdir -p ${KIND_CONTROLLER_DIR}
+    mkdir -p ${KIND_CONTROLLER_CONFIG_DIR}
+
+    cat > ${KIND_CONTROLLER_CONFIG_TYPE_FILE} << EOF
+$(create_header config)
+
+// ${KIND_FIRST_UPPER}ControllerConfiguration contains elements describing ${KIND_FIRST_UPPER}Controller.
+type ${KIND_FIRST_UPPER}ControllerConfiguration struct {
+}
+
+EOF
 
     # create controller file 
-    cat > $KIND_CONTROLLER_FILE << EOF
-$(create_header ${KIND})
+    cat > ${KIND_CONTROLLER_FILE} <<EOF
+$(create_header ${KIND_ALL_LOWER})
 
 import (
 	"context"
@@ -390,13 +453,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+    appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+	"github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}/config"
 )
 
 func init() {
-	flag.IntVar(&concurrentReconciles, "${KIND}-workers", concurrentReconciles, "Max concurrent workers for $KIND_FIRST_UPPER controller.")
+	flag.IntVar(&concurrentReconciles, "${KIND_ALL_LOWER}-workers", concurrentReconciles, "Max concurrent workers for ${KIND_FIRST_UPPER} controller.")
 }
 
 var (
@@ -415,11 +480,11 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new ${KIND_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
+func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		return nil
 	}
-	return add(mgr, newReconciler(mgr))
+	return add(mgr, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &Reconcile${KIND_FIRST_UPPER}{}
@@ -429,14 +494,16 @@ type Reconcile${KIND_FIRST_UPPER} struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
+    Configration config.${KIND_FIRST_UPPER}ControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &Reconcile${KIND_FIRST_UPPER}{
 		Client:   utilclient.NewClientFromManager(mgr, controllerName),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
+        Configration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller, 
 	}
 }
 
@@ -503,17 +570,14 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 
 	return reconcile.Result{}, nil
 }
-
 EOF
 
-
-    
     # ADD_CONTROLLER_FILE
     cat > ${ADD_CONTROLLER_FILE} <<EOF
 $(create_header controller)
 
 import (
-    "github.com/openyurtio/openyurt/pkg/controller/${KIND}"
+    "github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}"
 )
 
 // Note !!! @kadisi
@@ -522,7 +586,7 @@ import (
 // Note !!!
 
 func init() {
-    controllerAddFuncs = append(controllerAddFuncs, ${KIND}.Add)
+    controllerAddFuncs = append(controllerAddFuncs, ${KIND_ALL_LOWER}.Add)
 }
 
 EOF
@@ -535,231 +599,220 @@ EOF
 
 function build_webhook_frame() {
 
-    if [ -f ${ADD_WEBHOOK_FILE} ]; then
-        echo "${ADD_WEBHOOK_FILE} file has exist ..."
-        exit 1
-    else
-        cat > ${ADD_WEBHOOK_FILE} <<EOF
+    cat > ${ADD_WEBHOOK_FILE} <<EOF
 $(create_header webhook)
 
 import (
-	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/mutating"
-	"github.com/openyurtio/openyurt/pkg/webhook/${KIND}/validating"
+    "github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/${VERSION}"
 )
 
 func init() {
-	addHandlers(mutating.HandlerMap)
-	addHandlers(validating.HandlerMap)
+    addWebhook(&${VERSION}.${KIND_FIRST_UPPER}Handler{})
 }
 
 EOF
 
-    fi
-
-    if [ -d ${WEBHOOK_KIND_MUTATING_DIR} ]; then
-        echo "${WEBHOOK_KIND_MUTATING_DIR} dir has exist ..."
+    if [ -d ${WEBHOOK_KIND_VERSION_DIR} ]; then
+        echo "${WEBHOOK_KIND_VERSION_DIR} dir has exist ..."
         exit 1
     fi 
 
-    if [ -d ${WEBHOOK_KIND_VALIDATING_DIR} ]; then
-       echo "${WEBHOOK_KIND_VALIDATING_DIR} dir has exist ..."
-       exit 1
-    fi
     
-    mkdir -p ${WEBHOOK_KIND_MUTATING_DIR}
-    mkdir -p ${WEBHOOK_KIND_VALIDATING_DIR}
-    
-   cat > $KIND_MUTATING_HANDLER_FILE << EOF
-$(create_header mutating)
+    mkdir -p ${WEBHOOK_KIND_VERSION_DIR}
+
+   cat > $WEBHOOK_KIND_VERSION_DEFAULT_FILE << EOF
+$(create_header ${VERSION})
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"reflect"
+	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/openyurtio/openyurt/pkg/util"
-	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
-const (
-	webhookName = "${KIND_FIRST_UPPER}-mutate-webhook"
-)
 
-func Format(format string, args ...interface{}) string {
-	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", webhookName, s)
-}
-
-// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER} 
-type ${KIND_FIRST_UPPER}CreateUpdateHandler struct {
-	// Decoder decodes objects
-	Decoder *admission.Decoder
-}
-
-var _ admission.Handler = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
-
-// Handle handles admission requests.
-func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-
-	// Note !!!!!!!!!!
-	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
-	// @kadisi
-	klog.Infof(Format("Handle ${KIND_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
-
-	obj := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
-	err := h.Decoder.Decode(req, obj)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
-	}
-	var copy runtime.Object = obj.DeepCopy()
-	// Set defaults
-	${GROUP}${VERSION}.SetDefaults${KIND_FIRST_UPPER}(obj)
-
-	if reflect.DeepEqual(obj, copy) {
-		return admission.Allowed("")
-	}
-	marshalled, err := json.Marshal(obj)
-	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
-	resp := admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, marshalled)
-	if len(resp.Patches) > 0 {
-		klog.Infof(Format("Admit ${KIND_FIRST_UPPER} %s patches: %v", obj.Name, util.DumpJSON(resp.Patches)))
+// Default satisfies the defaulting webhook interface.
+func (webhook *${KIND_FIRST_UPPER}Handler) Default(ctx context.Context, obj runtime.Object) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-	return resp
-}
+    ${VERSION}.SetDefaults${KIND_FIRST_UPPER}(np)
 
-var _ admission.DecoderInjector = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
-
-// InjectDecoder injects the decoder into the ${KIND_FIRST_UPPER}CreateUpdateHandler
-func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
-	h.Decoder = d
 	return nil
 }
 
 EOF
 
-    gofmt -w ${KIND_MUTATING_HANDLER_FILE}
-    goimports -w ${KIND_MUTATING_HANDLER_FILE}
+    gofmt -w ${WEBHOOK_KIND_VERSION_DEFAULT_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_DEFAULT_FILE}
 
-    cat > $KIND_MUTATING_WEBHOOKS_FILE << EOF
-$(create_header mutating)
+    cat > ${WEBHOOK_KIND_VERSION_HANDLE_FILE} << EOF
+$(create_header ${VERSION})
+
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
-// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND}.openyurt.io
 
-var (
-	// HandlerMap contains admission webhook handlers
-	HandlerMap = map[string]admission.Handler{
-		"mutate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
+// SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
+func (webhook *${KIND_FIRST_UPPER}Handler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
+	// init
+	webhook.Client = mgr.GetClient()
+
+	gvk, err := apiutil.GVKForObject(&${VERSION}.${KIND_FIRST_UPPER}{}, mgr.GetScheme())
+	if err != nil {
+		return "", "", err
 	}
-)
-EOF
+	return util.GenerateMutatePath(gvk),
+		util.GenerateValidatePath(gvk),
+		ctrl.NewWebhookManagedBy(mgr).
+			For(&${VERSION}.${KIND_FIRST_UPPER}{}).
+			WithDefaulter(webhook).
+			WithValidator(webhook).
+			Complete()
+}
 
-    cat > $KIND_VALIDATING_HANDLER_FILE << EOF
-$(create_header validating)
+
+// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${KIND_ALL_LOWER},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
+// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${KIND_ALL_LOWER},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
+
+
+// Cluster implements a validating and defaulting webhook for Cluster.
+type ${KIND_FIRST_UPPER}Handler struct {
+	Client client.Client
+}
+
+var _ webhook.CustomDefaulter = &${KIND_FIRST_UPPER}Handler{}
+var _ webhook.CustomValidator = &${KIND_FIRST_UPPER}Handler{}
+
+EOF
+    gofmt -w ${WEBHOOK_KIND_VERSION_HANDLE_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_HANDLE_FILE}
+
+    cat > ${WEBHOOK_KIND_VERSION_VALIDATION_FILE} <<EOF
+$(create_header ${VERSION})
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
-// ${KIND_FIRST_UPPER}CreateUpdateHandler handles ${KIND_FIRST_UPPER}
-type ${KIND_FIRST_UPPER}CreateUpdateHandler struct {
-	// Decoder decodes objects
-	Decoder *admission.Decoder
-}
-
-const (
-	webhookName = "${KIND_FIRST_UPPER}-validate-webhook"
-)
-
-func Format(format string, args ...interface{}) string {
-	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", webhookName, s)
-}
-
-var _ admission.Handler = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
-
-// Handle handles admission requests.
-func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	// Note !!!!!!!!!!
-	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
-	// @kadisi
-	klog.Infof(Format("Handle ${KIND_FIRST_UPPER} %s/%s", req.Namespace, req.Name))
-
-	obj := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
-
-	err := h.Decoder.Decode(req, obj)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-	if err := validate(obj); err != nil {
-		klog.Warningf("Error validate ${KIND_FIRST_UPPER} %s: %v", obj.Name, err)
-		return admission.Errored(http.StatusBadRequest, err)
-	}
-
-	return admission.ValidationResponse(true, "allowed")
-}
-
-func validate(obj *${GROUP}${VERSION}.${KIND_FIRST_UPPER}) error {
-
-	klog.Infof(Format("Validate ${KIND_FIRST_UPPER} %s successfully ...", klog.KObj(obj)))
+   //validate
 
 	return nil
 }
 
-var _ admission.DecoderInjector = &${KIND_FIRST_UPPER}CreateUpdateHandler{}
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	newNp, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", newObj))
+	}
+	oldNp, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER}} but got a %T", oldObj))
+	}
 
-// InjectDecoder injects the decoder into the ${KIND_FIRST_UPPER}CreateUpdateHandler
-func (h *${KIND_FIRST_UPPER}CreateUpdateHandler) InjectDecoder(d *admission.Decoder) error {
-	h.Decoder = d
+    // validate
 	return nil
 }
 
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
+	}
+    // validate
+	return nil
+}
 EOF
 
-    gofmt -w $KIND_VALIDATING_HANDLER_FILE
-    goimports -w $KIND_VALIDATING_HANDLER_FILE
+    gofmt -w ${WEBHOOK_KIND_VERSION_VALIDATION_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_VALIDATION_FILE}
 
-    cat > $KIND_VALIDATING_WEBHOOKS_FILE << EOF
-$(create_header validating)
+}
+
+function build_options() {
+    cat > ${APP_OPTION_KIND_CONTROLLER_FILE} << EOF
+$(create_header options)
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}/config"
+	"github.com/spf13/pflag"
 )
 
-// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${VERSION}-${KIND},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND}.openyurt.io
-
-var (
-	// HandlerMap contains admission webhook handlers
-	HandlerMap = map[string]admission.Handler{
-		"validate-${GROUP}-openyurt-io-${VERSION}-${KIND}": &${KIND_FIRST_UPPER}CreateUpdateHandler{},
-	}
-)
-
-EOF
-
+type ${KIND_FIRST_UPPER}ControllerOptions struct {
+	*config.${KIND_FIRST_UPPER}ControllerConfiguration
 }
 
+func New${KIND_FIRST_UPPER}ControllerOptions() *${KIND_FIRST_UPPER}ControllerOptions {
+	return &${KIND_FIRST_UPPER}ControllerOptions{
+		&config.${KIND_FIRST_UPPER}ControllerConfiguration{
+		},
+	}
+}
 
+// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+func (n *${KIND_FIRST_UPPER}ControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if n == nil {
+		return
+	}
+
+	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
+}
+
+// ApplyTo fills up nodepool config with options.
+func (o *${KIND_FIRST_UPPER}ControllerOptions) ApplyTo(cfg *config.${KIND_FIRST_UPPER}ControllerConfiguration) error {
+	if o == nil {
+		return nil
+	}
+
+	return nil
+}
+
+// Validate checks validation of ${KIND_FIRST_UPPER}ControllerOptions.
+func (o *${KIND_FIRST_UPPER}ControllerOptions) Validate() []error {
+	if o == nil {
+		return nil
+	}
+	errs := []error{}
+	return errs
+}
+EOF
+}
+
+build_options
 build_apis_frame
 build_controller_frame
 build_webhook_frame

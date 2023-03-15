@@ -155,7 +155,7 @@ docker-push-yurt-tunnel-agent: docker-buildx-builder
 docker-push-node-servant: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
 
-docker-push-yurt-manager: docker-buildx-builder
+docker-push-yurt-manager: manifests docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -174,7 +174,6 @@ manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomReso
 # make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Cluster
 newcontroller:
 	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --kind $(KIND) --shortname $(SHORTNAME) --scope $(SCOPE)
-
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.

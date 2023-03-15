@@ -46,7 +46,7 @@ yurtManager:
   webhook:
     port: 9876
   metrics:
-    port: 8080
+    port: 10250 
   healthProbe:
     port: 8000
   # resources of yurt-manager container

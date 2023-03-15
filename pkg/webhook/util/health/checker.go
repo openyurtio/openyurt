@@ -122,7 +122,7 @@ func Checker(_ *http.Request) error {
 		go watchCACert(watcher)
 	})
 
-	url := fmt.Sprintf("https://localhost:%d/healthz", webhookutil.GetPort())
+	url := fmt.Sprintf("https://localhost:%d/healthz", webhookutil.GetWebHookPort())
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err

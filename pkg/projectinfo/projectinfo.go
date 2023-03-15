@@ -95,6 +95,11 @@ func GetYurtControllerManagerName() string {
 	return projectPrefix + "controller-manager"
 }
 
+// GetYurtManagerName returns name of openyurt-manager: yurt-manager
+func GetYurtManagerName() string {
+	return "yurt-manager"
+}
+
 // GetYurtAppManagerName returns name of tunnel: yurtapp-manager
 func GetYurtAppManagerName() string {
 	return projectPrefix + "app-manager"

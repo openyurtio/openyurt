@@ -27,12 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
-func Ensure(kubeClient clientset.Interface, handlers map[string]admission.Handler, caBundle []byte) error {
+func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte) error {
 	mutatingConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), webhookutil.MutatingWebhookConfigurationName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("not found MutatingWebhookConfiguration %s", webhookutil.MutatingWebhookConfigurationName)
@@ -70,7 +69,7 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]admission.Handle
 			wh.ClientConfig.Service.Name = webhookutil.GetServiceName()
 
 			if host := webhookutil.GetHost(); len(host) > 0 {
-				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetPort())
+				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetWebHookPort())
 			}
 		}
 
@@ -95,7 +94,7 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]admission.Handle
 			wh.ClientConfig.Service.Name = webhookutil.GetServiceName()
 
 			if host := webhookutil.GetHost(); len(host) > 0 {
-				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetPort())
+				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetWebHookPort())
 			}
 		}
 
