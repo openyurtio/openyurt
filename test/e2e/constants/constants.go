@@ -19,15 +19,12 @@ package constants
 import "time"
 
 const (
-	YurttunnelE2eNamespaceName = "yurttunnel-e2e-test"
-	YurttunnelE2eTestDesc      = "[yurttunnel-e2e-test]"
-	YurttunnelE2eMinNodeNum    = 2
-	YurtE2ENamespaceName       = "yurt-e2e-test"
-	YurtE2ETestDesc            = "[yurt-e2e-test]"
-	YurtDefaultNamespaceName   = "default"
-	YurtSystemNamespaceName    = "kube-system"
-	YurtCloudNodeName          = "openyurt-e2e-test-control-plane"
-	NginxServiceName           = "yurt-e2e-test-nginx"
-	CoreDNSServiceName         = "kube-dns"
-	PodStartShortTimeout       = 1 * time.Minute
+	YurtE2ENamespaceName     = "yurt-e2e-test"
+	YurtE2ETestDesc          = "[yurt-e2e-test]"
+	YurtDefaultNamespaceName = "default"
+	YurtSystemNamespaceName  = "kube-system"
+	YurtCloudNodeName        = "openyurt-e2e-test-control-plane"
+	NginxServiceName         = "yurt-e2e-test-nginx"
+	CoreDNSServiceName       = "kube-dns"
+	PodStartShortTimeout     = 1 * time.Minute
 )

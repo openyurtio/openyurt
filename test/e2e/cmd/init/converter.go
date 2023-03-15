@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -58,8 +57,6 @@ type ClusterConverter struct {
 	WaitServantJobTimeout     time.Duration
 	YurthubHealthCheckTimeout time.Duration
 	KubeConfigPath            string
-	YurtTunnelAgentImage      string
-	YurtTunnelServerImage     string
 	YurtManagerImage          string
 	NodeServantImage          string
 	YurthubImage              string
@@ -88,12 +85,6 @@ func (c *ClusterConverter) Run() error {
 		return err
 	}
 
-	klog.Info("Deploying yurt-tunnel")
-	if err := c.deployYurtTunnel(); err != nil {
-		klog.Errorf("failed to deploy yurt tunnel, %v", err)
-		return err
-	}
-
 	klog.Info("Running jobs for convert. Job running may take a long time, and job failure will not affect the execution of the next stage")
 
 	klog.Info("Running node-servant-convert jobs to deploy the yurt-hub and reset the kubelet service on edge and cloud nodes")
@@ -105,7 +96,7 @@ func (c *ClusterConverter) Run() error {
 }
 
 func (c *ClusterConverter) labelEdgeNodes() error {
-	nodeLst, err := c.ClientSet.CoreV1().Nodes().List(context.Background(), v1.ListOptions{})
+	nodeLst, err := c.ClientSet.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list nodes, %w", err)
 	}
@@ -115,21 +106,6 @@ func (c *ClusterConverter) labelEdgeNodes() error {
 			c.ClientSet, &node, strconv.FormatBool(isEdge), "false"); err != nil {
 			return fmt.Errorf("failed to add label to edge node %s, %w", node.Name, err)
 		}
-	}
-	return nil
-}
-
-func (c *ClusterConverter) deployYurtTunnel() error {
-	if err := kubeutil.DeployYurttunnelServer(c.ClientSet,
-		"", c.YurtTunnelServerImage, "amd64"); err != nil {
-		klog.Errorf("failed to deploy yurt-tunnel-server, %s", err)
-		return err
-	}
-
-	if err := kubeutil.DeployYurttunnelAgent(c.ClientSet,
-		"", c.YurtTunnelAgentImage); err != nil {
-		klog.Errorf("failed to deploy yurt-tunnel-agent, %s", err)
-		return err
 	}
 	return nil
 }
@@ -167,6 +143,33 @@ func (c *ClusterConverter) deployYurthub() error {
 		if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 			return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 		}, c.EdgeNodes, os.Stderr, false); err != nil {
+			// print logs of yurthub
+			for i := range c.EdgeNodes {
+				hubPodName := fmt.Sprintf("yurt-hub-%s", c.EdgeNodes[i])
+				pod, logErr := c.ClientSet.CoreV1().Pods("kube-system").Get(context.TODO(), hubPodName, metav1.GetOptions{})
+				if logErr == nil {
+					kubeutil.PrintPodLog(c.ClientSet, pod, os.Stderr)
+				}
+			}
+
+			// print logs of yurt-manager
+			labelSelector, logErr := metav1.ParseToLabelSelector("app.kubernetes.io/name=yurt-manager")
+			if logErr != nil {
+				return err
+			}
+			podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
+				LabelSelector: labelSelector.String(),
+			})
+			if logErr != nil {
+				return err
+			}
+
+			if len(podList.Items) == 0 {
+				return err
+			}
+			if logErr = kubeutil.PrintPodLog(c.ClientSet, &podList.Items[0], os.Stderr); logErr != nil {
+				return err
+			}
 			return err
 		}
 	}
@@ -207,7 +210,7 @@ func prepareYurthubStart(cliSet kubeclientset.Interface, kcfg string) (string, e
 
 // prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist
 func prepareClusterInfoConfigMap(client kubeclientset.Interface, file string) error {
-	info, err := client.CoreV1().ConfigMaps(v1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, v1.GetOptions{})
+	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
 		if err := kubeadmapi.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {

@@ -54,9 +54,7 @@ readonly REQUIRED_CMD=(
 
 readonly REQUIRED_IMAGES=(
     openyurt/node-servant
-    openyurt/yurt-tunnel-agent
-    openyurt/yurt-tunnel-server
-    openyurt/yurt-controller-manager
+    openyurt/yurt-manager
     openyurt/yurthub
 )
 

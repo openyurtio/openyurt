@@ -125,7 +125,7 @@ func TestCreateClusterRoleFromYaml(t *testing.T) {
 		clusterrole string
 		want        error
 	}{
-		clusterrole: constants.YurtControllerManagerClusterRole,
+		clusterrole: constants.YurthubClusterRole,
 		want:        nil,
 	}
 	fakeKubeClient := clientsetfake.NewSimpleClientset()
@@ -143,12 +143,7 @@ func TestClusterRoleBindingCreateFromYaml(t *testing.T) {
 	}{
 		{
 			namespace:          "kube-system",
-			clusterrolebinding: constants.YurtControllerManagerClusterRoleBinding,
-			want:               nil,
-		},
-		{
-			namespace:          "default",
-			clusterrolebinding: constants.YurttunnelProxyClientClusterRolebinding,
+			clusterrolebinding: constants.YurtManagerClusterRoleBinding,
 			want:               nil,
 		},
 	}
@@ -168,36 +163,15 @@ func TestCreateDeployFromYaml(t *testing.T) {
 		want       error
 	}{
 		namespace:  "kube-system",
-		deployment: constants.YurtControllerManagerDeployment,
+		deployment: constants.YurtManagerDeployment,
 		want:       nil,
 	}
 	fakeKubeClient := clientsetfake.NewSimpleClientset()
 	err := CreateDeployFromYaml(fakeKubeClient, cases.namespace, cases.deployment, map[string]string{
-		"image":           "openyurt/yurt-controller-manager:latest",
-		"arch":            "darwin64",
+		"image":           "openyurt/yurt-manager:latest",
 		"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()})
 	if err != cases.want {
 		t.Logf("falied to create deployment from yaml")
-	}
-}
-
-func TestCreateDaemonSetFromYaml(t *testing.T) {
-	cases := struct {
-		namespace string
-		daemonset string
-		want      error
-	}{
-		namespace: "kube-system",
-		daemonset: constants.YurttunnelAgentDaemonSet,
-		want:      nil,
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	err := CreateDaemonSetFromYaml(fakeKubeClient, cases.namespace, cases.daemonset, map[string]string{
-		"image":               "openyurt/yurt-tunnel-agent:latest",
-		"edgeWorkerLabel":     projectinfo.GetEdgeWorkerLabelKey(),
-		"tunnelServerAddress": " "})
-	if err != cases.want {
-		t.Logf("falied to create daemonset from yaml")
 	}
 }
 
@@ -209,12 +183,7 @@ func TestCreateServiceFromYaml(t *testing.T) {
 	}{
 		{
 			namespace: "kube-system",
-			service:   constants.YurttunnelServerService,
-			want:      nil,
-		},
-		{
-			namespace: "kube-system",
-			service:   constants.YurttunnelServerInternalService,
+			service:   constants.YurtManagerService,
 			want:      nil,
 		},
 	}

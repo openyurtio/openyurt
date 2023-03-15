@@ -22,9 +22,6 @@ source "${YURT_ROOT}/hack/lib/init.sh"
 source "${YURT_ROOT}/hack/lib/build.sh"
 
 readonly IMAGE_TARGETS=(
-    yurt-controller-manager
-    yurt-tunnel-agent 
-    yurt-tunnel-server
     yurt-node-servant
     yurthub
     yurt-manager
