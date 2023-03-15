@@ -43,6 +43,7 @@ type YurtManagerConfiguration struct {
 	Generic GenericConfiguration
 	// NodePoolControllerConfiguration holds configuration for  NodePoolController related features.
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
+
 	// GatewayControllerConfiguration holds configuration for  GatewayController related features.
 	GatewayController gatewayconfig.GatewayControllerConfiguration
 }

@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package options 
+package options
 
 import (
-	"github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	"github.com/spf13/pflag"
+
+	"github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 )
 
 type GatewayControllerOptions struct {
@@ -27,23 +28,21 @@ type GatewayControllerOptions struct {
 
 func NewGatewayControllerOptions() *GatewayControllerOptions {
 	return &GatewayControllerOptions{
-		&config.GatewayControllerConfiguration{
-		},
+		&config.GatewayControllerConfiguration{},
 	}
 }
 
 // AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
-func (n *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if g == nil {
 		return
 	}
 
-	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
 }
 
 // ApplyTo fills up nodepool config with options.
-func (o *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfiguration) error {
-	if o == nil {
+func (g *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfiguration) error {
+	if g == nil {
 		return nil
 	}
 
@@ -51,10 +50,10 @@ func (o *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfigur
 }
 
 // Validate checks validation of GatewayControllerOptions.
-func (o *GatewayControllerOptions) Validate() []error {
-	if o == nil {
+func (g *GatewayControllerOptions) Validate() []error {
+	if g == nil {
 		return nil
 	}
-	errs := []error{}
+	var errs []error
 	return errs
 }

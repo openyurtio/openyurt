@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook 
+package webhook
 
 import (
-    "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 )
 
 func init() {
-    addWebhook(&v1alpha1.GatewayHandler{})
+	addWebhook(&v1alpha1.GatewayHandler{})
 }
-

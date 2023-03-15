@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import (
 type YurtManagerOptions struct {
 	Generic            *GenericOptions
 	NodePoolController *NodePoolControllerOptions
+	GatewayController  *GatewayControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -34,6 +35,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 	s := YurtManagerOptions{
 		Generic:            NewGenericOptions(),
 		NodePoolController: NewNodePoolControllerOptions(),
+		GatewayController:  NewGatewayControllerOptions(),
 	}
 
 	return &s, nil
@@ -43,6 +45,7 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	y.Generic.AddFlags(fss.FlagSet("generic"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
+	y.GatewayController.AddFlags(fss.FlagSet("gateway controller"))
 
 	// Please Add Other controller flags @kadisi
 
@@ -50,32 +53,33 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 }
 
 // Validate is used to validate the options and config before launching the yurt-manager
-func (s *YurtManagerOptions) Validate() error {
+func (y *YurtManagerOptions) Validate() error {
 	var errs []error
-	errs = append(errs, s.Generic.Validate()...)
-	errs = append(errs, s.NodePoolController.Validate()...)
+	errs = append(errs, y.Generic.Validate()...)
+	errs = append(errs, y.NodePoolController.Validate()...)
+	errs = append(errs, y.GatewayController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
 // ApplyTo fills up yurt manager config with options.
-func (s *YurtManagerOptions) ApplyTo(c *config.Config) error {
-	if err := s.Generic.ApplyTo(&c.ComponentConfig.Generic); err != nil {
+func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
+	if err := y.Generic.ApplyTo(&c.ComponentConfig.Generic); err != nil {
 		return err
 	}
-	if err := s.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
+	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Config return a yurt-manager config objective
-func (s YurtManagerOptions) Config() (*config.Config, error) {
-	if err := s.Validate(); err != nil {
+func (y *YurtManagerOptions) Config() (*config.Config, error) {
+	if err := y.Validate(); err != nil {
 		return nil, err
 	}
 
 	c := &config.Config{}
-	if err := s.ApplyTo(c); err != nil {
+	if err := y.ApplyTo(c); err != nil {
 		return nil, err
 	}
 

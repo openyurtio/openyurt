@@ -39,7 +39,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/gateway"
+	common "github.com/openyurtio/openyurt/pkg/controller/gateway"
 	"github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	"github.com/openyurtio/openyurt/pkg/controller/gateway/utils"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
