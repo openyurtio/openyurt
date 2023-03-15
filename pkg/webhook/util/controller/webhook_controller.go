@@ -22,11 +22,6 @@ import (
 	"sync"
 	"time"
 
-	extclient "github.com/openyurtio/openyurt/pkg/client"
-	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
-	"github.com/openyurtio/openyurt/pkg/webhook/util/configuration"
-	"github.com/openyurtio/openyurt/pkg/webhook/util/generator"
-	"github.com/openyurtio/openyurt/pkg/webhook/util/writer"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +35,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	extclient "github.com/openyurtio/openyurt/pkg/client"
+	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/webhook/util/configuration"
+	"github.com/openyurtio/openyurt/pkg/webhook/util/generator"
+	"github.com/openyurtio/openyurt/pkg/webhook/util/writer"
 )
 
 const (

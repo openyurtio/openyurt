@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	schemeappsv1beta1 "k8s.io/client-go/scale/scheme/appsv1beta1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +40,6 @@ import (
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
-	schemeappsv1beta1 "k8s.io/client-go/scale/scheme/appsv1beta1"
 )
 
 var (

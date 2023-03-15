@@ -17,7 +17,6 @@ package app
 
 import (
 	"fmt"
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
@@ -42,6 +40,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/webhook"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
 var (
@@ -81,7 +80,7 @@ current state towards the desired state.`,
 			// silence client-go warnings.
 			// yurt-manager generically watches APIs (including deprecated ones),
 			// and CI ensures it works properly against matching kube-apiserver versions.
-			restclient.SetDefaultWarningHandler(restclient.NoWarnings{})
+			rest.SetDefaultWarningHandler(rest.NoWarnings{})
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {

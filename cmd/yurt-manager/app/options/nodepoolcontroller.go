@@ -16,8 +16,9 @@ limitations under the License.
 package options
 
 import (
-	"github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	"github.com/spf13/pflag"
+
+	"github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 )
 
 type NodePoolControllerOptions struct {

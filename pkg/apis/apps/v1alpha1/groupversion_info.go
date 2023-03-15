@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1 
+package v1alpha1
 
 // Package v1alpha1 contains API Schema definitions for the apps v1alpha1API group
 // +kubebuilder:object:generate=true
@@ -42,4 +42,3 @@ var (
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
-

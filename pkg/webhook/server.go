@@ -72,11 +72,6 @@ func SetupWithManager(mgr manager.Manager) error {
 
 type GateFunc func() (enabled bool)
 
-var (
-	// HandlerMap contains all admission webhook handlers.
-	handlerGates = map[string]GateFunc{}
-)
-
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch

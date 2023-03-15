@@ -23,11 +23,12 @@ import (
 	"net/url"
 	"reflect"
 
-	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
 func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte) error {

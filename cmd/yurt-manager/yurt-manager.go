@@ -22,10 +22,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-manager/app"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/app"
 )
 
 func main() {
