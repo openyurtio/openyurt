@@ -21,6 +21,7 @@ import (
 	cmconfig "k8s.io/controller-manager/config"
 	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 
+	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 )
 
@@ -42,6 +43,8 @@ type YurtManagerConfiguration struct {
 	Generic GenericConfiguration
 	// NodePoolControllerConfiguration holds configuration for  NodePoolController related features.
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
+	// GatewayControllerConfiguration holds configuration for  GatewayController related features.
+	GatewayController gatewayconfig.GatewayControllerConfiguration
 }
 
 type GenericConfiguration struct {

@@ -52,7 +52,7 @@ spec:
         - operator: "Exists"
       containers:
         - args:
-            - --enable-leader-election
+            - --enable-leader-election=true
             - --metrics-addr=:{{ .Values.yurtManager.metrics.port }}
             - --health-probe-addr=:{{ .Values.yurtManager.healthProbe.port }}
             - --logtostderr=true
