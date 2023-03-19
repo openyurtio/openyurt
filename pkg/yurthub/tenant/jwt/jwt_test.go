@@ -32,7 +32,7 @@ func TestJwt(t *testing.T) {
 		if err := token.UnsafeClaimsWithoutVerification(&bearerClaims); err == nil {
 
 			if tenantNs, username, err := serviceaccount.SplitUsername(bearerClaims.Subject); err == nil {
-				t.Logf("succeed to parse toke, ns: %s, username: %s", tenantNs, username)
+				t.Logf("succeed to parse token, ns: %s, username: %s", tenantNs, username)
 			} else {
 				t.Errorf("failed to parse jwt token, %v", err)
 			}
