@@ -27,7 +27,13 @@ jobs:
 
       - name: Build image
         run: |
-          echo "git_tag=`echo $(git describe --abbrev=0 --tags)-$(git rev-parse HEAD|cut -c 1-7)`" >> $GITHUB_ENV
+          tag=$(git describe --abbrev=0 --tags)
+          commit=$(git rev-parse HEAD)
+          if $(git tag --points-at ${commit}); then
+            echo "git_tag=`echo ${tag}-$(echo ${commit} | cut -c 1-7)`" >> $GITHUB_ENV
+          else
+            echo "git_tag=`echo ${tag}`" >> $GITHUB_ENV
+          fi
           make docker-build
 
       - name: Run Trivy vulnerability scanner
