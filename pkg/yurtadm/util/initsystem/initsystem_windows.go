@@ -22,6 +22,7 @@ package initsystem
 
 import (
 	"fmt"
+
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
