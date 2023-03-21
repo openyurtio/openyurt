@@ -196,3 +196,11 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+
+fmt:
+	go fmt ./...
+	find . -name '*.go' | grep -Ev 'vendor|thrift_gen' | xargs goimports -w
+
+vet:
+	GO111MODULE=${GO_MODULE} go list ./... | grep -v "vendor" | xargs go vet
