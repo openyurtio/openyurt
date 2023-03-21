@@ -106,6 +106,9 @@ spec:
           image: {{.image}}
           imagePullPolicy: IfNotPresent
           name: yurt-manager
+          env:
+            - name: WEBHOOK_PORT
+              value: "10270"
           ports:
             - containerPort: 10270
               name: webhook-server
