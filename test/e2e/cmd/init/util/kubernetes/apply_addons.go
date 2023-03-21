@@ -22,7 +22,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/resource"
 	kubeclientset "k8s.io/client-go/kubernetes"
+	kubectlutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
@@ -187,6 +190,96 @@ func DeleteYurthubSetting(client kubeclientset.Interface) error {
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the configmap/%s: %w",
 			constants.YurthubCmName, err)
+	}
+
+	return nil
+}
+
+func CreateYurtManager(client kubeclientset.Interface, yurtManagerImage string) error {
+	if err := CreateServiceAccountFromYaml(client,
+		SystemNamespace, constants.YurtManagerServiceAccount); err != nil {
+		return err
+	}
+
+	// bind the clusterrole
+	if err := CreateClusterRoleBindingFromYaml(client,
+		constants.YurtManagerClusterRoleBinding); err != nil {
+		return err
+	}
+
+	// create the Service
+	if err := CreateServiceFromYaml(client,
+		SystemNamespace,
+		constants.YurtManagerService); err != nil {
+		return err
+	}
+
+	// create the yurt-manager deployment
+	if err := CreateDeployFromYaml(client,
+		SystemNamespace,
+		constants.YurtManagerDeployment,
+		map[string]string{
+			"image":         yurtManagerImage,
+			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+		return err
+	}
+	return nil
+}
+
+type Builder struct {
+	kubectlutil.Factory
+}
+
+func NewBuilder(kubeconfig string) *Builder {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags.KubeConfig = &kubeconfig
+	f := kubectlutil.NewFactory(kubeConfigFlags)
+	return &Builder{f}
+}
+
+func (b Builder) InstallComponents(path string) error {
+	fo := resource.FilenameOptions{
+		Filenames: []string{path},
+	}
+	cmdNs, enforceNs, err := b.ToRawKubeConfigLoader().Namespace()
+	if err != nil {
+		return err
+	}
+
+	r := b.NewBuilder().
+		Unstructured().
+		ContinueOnError().
+		NamespaceParam(cmdNs).DefaultNamespace().
+		FilenameParam(enforceNs, &fo).
+		Flatten().
+		Do()
+	err = r.Err()
+	if err != nil {
+		return err
+	}
+
+	cnt := 0
+	err = r.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+
+		obj, err := resource.NewHelper(info.Client, info.Mapping).
+			Create(info.Namespace, true, info.Object)
+		if err != nil {
+			return kubectlutil.AddSourceToErr("creating", info.Source, err)
+		}
+		info.Refresh(obj, true)
+		cnt++
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if cnt == 0 {
+		return fmt.Errorf("no objects passed to create")
 	}
 
 	return nil

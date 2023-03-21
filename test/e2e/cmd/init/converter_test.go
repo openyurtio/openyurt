@@ -29,18 +29,18 @@ import (
 
 func NewClusterConverter(ki *Initializer) *ClusterConverter {
 	converter := &ClusterConverter{
-		ClientSet:                  ki.kubeClient,
-		CloudNodes:                 ki.CloudNodes,
-		EdgeNodes:                  ki.EdgeNodes,
-		WaitServantJobTimeout:      yurtutil.DefaultWaitServantJobTimeout,
-		YurthubHealthCheckTimeout:  defaultYurthubHealthCheckTimeout,
-		KubeConfigPath:             ki.KubeConfig,
-		YurtTunnelAgentImage:       ki.YurtTunnelAgentImage,
-		YurtTunnelServerImage:      ki.YurtTunnelServerImage,
-		YurtControllerManagerImage: ki.YurtControllerManagerImage,
-		NodeServantImage:           ki.NodeServantImage,
-		YurthubImage:               ki.YurtHubImage,
-		EnableDummyIf:              ki.EnableDummyIf,
+		ClientSet:                 ki.kubeClient,
+		CloudNodes:                ki.CloudNodes,
+		EdgeNodes:                 ki.EdgeNodes,
+		WaitServantJobTimeout:     yurtutil.DefaultWaitServantJobTimeout,
+		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
+		KubeConfigPath:            ki.KubeConfig,
+		YurtTunnelAgentImage:      ki.YurtTunnelAgentImage,
+		YurtTunnelServerImage:     ki.YurtTunnelServerImage,
+		YurtManagerImage:          ki.YurtManagerImage,
+		NodeServantImage:          ki.NodeServantImage,
+		YurthubImage:              ki.YurtHubImage,
+		EnableDummyIf:             ki.EnableDummyIf,
 	}
 	return converter
 }

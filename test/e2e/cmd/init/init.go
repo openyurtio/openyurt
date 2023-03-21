@@ -78,11 +78,11 @@ var (
 		},
 	}
 
-	yurtHubImageFormat               = "openyurt/yurthub:%s"
-	yurtControllerManagerImageFormat = "openyurt/yurt-controller-manager:%s"
-	nodeServantImageFormat           = "openyurt/node-servant:%s"
-	yurtTunnelServerImageFormat      = "openyurt/yurt-tunnel-server:%s"
-	yurtTunnelAgentImageFormat       = "openyurt/yurt-tunnel-agent:%s"
+	yurtHubImageFormat          = "openyurt/yurthub:%s"
+	yurtManagerImageFormat      = "openyurt/yurt-manager:%s"
+	nodeServantImageFormat      = "openyurt/node-servant:%s"
+	yurtTunnelServerImageFormat = "openyurt/yurt-tunnel-server:%s"
+	yurtTunnelAgentImageFormat  = "openyurt/yurt-tunnel-agent:%s"
 
 	hostsSettingForCoreFile = []string{
 		"    hosts /etc/edge/tunnel-nodes {",
@@ -193,21 +193,21 @@ func (o *kindOptions) Config() *initializerConfig {
 	}
 
 	return &initializerConfig{
-		CloudNodes:                 cloudNodes.List(),
-		EdgeNodes:                  edgeNodes.List(),
-		KindConfigPath:             o.KindConfigPath,
-		KubeConfig:                 kubeConfigPath,
-		NodesNum:                   o.NodeNum,
-		ClusterName:                o.ClusterName,
-		KubernetesVersion:          o.KubernetesVersion,
-		UseLocalImage:              o.UseLocalImages,
-		YurtHubImage:               fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
-		YurtControllerManagerImage: fmt.Sprintf(yurtControllerManagerImageFormat, o.OpenYurtVersion),
-		NodeServantImage:           fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
-		YurtTunnelServerImage:      fmt.Sprintf(yurtTunnelServerImageFormat, o.OpenYurtVersion),
-		YurtTunnelAgentImage:       fmt.Sprintf(yurtTunnelAgentImageFormat, o.OpenYurtVersion),
-		EnableDummyIf:              o.EnableDummyIf,
-		DisableDefaultCNI:          o.DisableDefaultCNI,
+		CloudNodes:            cloudNodes.List(),
+		EdgeNodes:             edgeNodes.List(),
+		KindConfigPath:        o.KindConfigPath,
+		KubeConfig:            kubeConfigPath,
+		NodesNum:              o.NodeNum,
+		ClusterName:           o.ClusterName,
+		KubernetesVersion:     o.KubernetesVersion,
+		UseLocalImage:         o.UseLocalImages,
+		YurtHubImage:          fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
+		YurtManagerImage:      fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
+		NodeServantImage:      fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
+		YurtTunnelServerImage: fmt.Sprintf(yurtTunnelServerImageFormat, o.OpenYurtVersion),
+		YurtTunnelAgentImage:  fmt.Sprintf(yurtTunnelAgentImageFormat, o.OpenYurtVersion),
+		EnableDummyIf:         o.EnableDummyIf,
+		DisableDefaultCNI:     o.DisableDefaultCNI,
 	}
 }
 
@@ -239,22 +239,22 @@ func addFlags(flagset *pflag.FlagSet, o *kindOptions) {
 }
 
 type initializerConfig struct {
-	CloudNodes                 []string
-	EdgeNodes                  []string
-	KindConfigPath             string
-	KubeConfig                 string
-	NodesNum                   int
-	ClusterName                string
-	KubernetesVersion          string
-	NodeImage                  string
-	UseLocalImage              bool
-	YurtHubImage               string
-	YurtControllerManagerImage string
-	NodeServantImage           string
-	YurtTunnelServerImage      string
-	YurtTunnelAgentImage       string
-	EnableDummyIf              bool
-	DisableDefaultCNI          bool
+	CloudNodes            []string
+	EdgeNodes             []string
+	KindConfigPath        string
+	KubeConfig            string
+	NodesNum              int
+	ClusterName           string
+	KubernetesVersion     string
+	NodeImage             string
+	UseLocalImage         bool
+	YurtHubImage          string
+	YurtManagerImage      string
+	NodeServantImage      string
+	YurtTunnelServerImage string
+	YurtTunnelAgentImage  string
+	EnableDummyIf         bool
+	DisableDefaultCNI     bool
 }
 
 type Initializer struct {
@@ -332,7 +332,7 @@ func (ki *Initializer) prepareImages() error {
 	// load images of cloud components to cloud nodes
 	if err := ki.loadImagesToKindNodes([]string{
 		ki.YurtHubImage,
-		ki.YurtControllerManagerImage,
+		ki.YurtManagerImage,
 		ki.NodeServantImage,
 		ki.YurtTunnelServerImage,
 	}, ki.CloudNodes); err != nil {
@@ -590,19 +590,25 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 }
 
 func (ki *Initializer) deployOpenYurt() error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 	converter := &ClusterConverter{
-		ClientSet:                  ki.kubeClient,
-		CloudNodes:                 ki.CloudNodes,
-		EdgeNodes:                  ki.EdgeNodes,
-		WaitServantJobTimeout:      kubeutil.DefaultWaitServantJobTimeout,
-		YurthubHealthCheckTimeout:  defaultYurthubHealthCheckTimeout,
-		KubeConfigPath:             ki.KubeConfig,
-		YurtTunnelAgentImage:       ki.YurtTunnelAgentImage,
-		YurtTunnelServerImage:      ki.YurtTunnelServerImage,
-		YurtControllerManagerImage: ki.YurtControllerManagerImage,
-		NodeServantImage:           ki.NodeServantImage,
-		YurthubImage:               ki.YurtHubImage,
-		EnableDummyIf:              ki.EnableDummyIf,
+		RootDir:                   dir,
+		ComponentsBuilder:         kubeutil.NewBuilder(ki.KubeConfig),
+		ClientSet:                 ki.kubeClient,
+		CloudNodes:                ki.CloudNodes,
+		EdgeNodes:                 ki.EdgeNodes,
+		WaitServantJobTimeout:     kubeutil.DefaultWaitServantJobTimeout,
+		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
+		KubeConfigPath:            ki.KubeConfig,
+		YurtTunnelAgentImage:      ki.YurtTunnelAgentImage,
+		YurtTunnelServerImage:     ki.YurtTunnelServerImage,
+		YurtManagerImage:          ki.YurtManagerImage,
+		NodeServantImage:          ki.NodeServantImage,
+		YurthubImage:              ki.YurtHubImage,
+		EnableDummyIf:             ki.EnableDummyIf,
 	}
 	if err := converter.Run(); err != nil {
 		klog.Errorf("errors occurred when deploying openyurt components")

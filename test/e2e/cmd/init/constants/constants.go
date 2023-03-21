@@ -33,9 +33,108 @@ const (
 	DirMode  = 0755
 	FileMode = 0666
 
-	YurthubComponentName                = "yurt-hub"
-	YurthubNamespace                    = "kube-system"
-	YurthubCmName                       = "yurt-hub-cfg"
+	YurthubComponentName = "yurt-hub"
+	YurthubNamespace     = "kube-system"
+	YurthubCmName        = "yurt-hub-cfg"
+
+	YurtManagerServiceAccount = `
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-manager
+  namespace: kube-system
+`
+
+	YurtManagerClusterRoleBinding = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-role
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: kube-system
+`
+
+	YurtManagerService = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-manager-webhook-service
+  namespace: kube-system
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 10270
+  selector:
+    app.kubernetes.io/name: yurt-manager
+`
+	// YurtManagerDeployment defines the yurt manager deployment in yaml format
+	YurtManagerDeployment = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: yurt-manager
+    app.kubernetes.io/version: v1.3.0
+  name: yurt-manager
+  namespace: "kube-system"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: yurt-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: yurt-manager
+    spec:
+      tolerations:
+        - operator: "Exists"
+      hostNetwork: true
+      containers:
+        - args:
+            - --enable-leader-election
+            - --metrics-addr=:10271
+            - --health-probe-addr=:10272
+            - --logtostderr=true
+            - --v=4
+          command:
+            - /usr/local/bin/yurt-manager
+          image: {{.image}}
+          imagePullPolicy: IfNotPresent
+          name: yurt-manager
+          ports:
+            - containerPort: 10270
+              name: webhook-server
+              protocol: TCP
+            - containerPort: 10271
+              name: metrics
+              protocol: TCP
+            - containerPort: 10272
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 10272
+      serviceAccountName: yurt-manager
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.edgeNodeLabel}}
+                operator: In
+                values:
+                - "false"
+`
+
 	YurtControllerManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount
@@ -43,6 +142,7 @@ metadata:
   name: yurt-controller-manager
   namespace: kube-system
 `
+
 	// YurtControllerManagerClusterRole has the same privilege as the
 	// system:controller:node-controller and has the right to manipulate
 	// the leases resource
