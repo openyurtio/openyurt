@@ -35,8 +35,6 @@ func NewClusterConverter(ki *Initializer) *ClusterConverter {
 		WaitServantJobTimeout:     yurtutil.DefaultWaitServantJobTimeout,
 		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
 		KubeConfigPath:            ki.KubeConfig,
-		YurtTunnelAgentImage:      ki.YurtTunnelAgentImage,
-		YurtTunnelServerImage:     ki.YurtTunnelServerImage,
 		YurtManagerImage:          ki.YurtManagerImage,
 		NodeServantImage:          ki.NodeServantImage,
 		YurthubImage:              ki.YurtHubImage,
@@ -66,40 +64,6 @@ func TestClusterConverter_LabelEdgeNodes(t *testing.T) {
 	converter := NewClusterConverter(initializer)
 	if converter.labelEdgeNodes() != case1.want {
 		t.Errorf("failed to label edge nodes")
-	}
-}
-
-func TestClusterConverter_DeployYurtTunnel(t *testing.T) {
-
-	cases := []struct {
-		YurtTunnelServerImage string
-		YurtTunnelAgentImage  string
-		want                  error
-	}{
-		{
-			YurtTunnelServerImage: "openyurt/yurt-tunnel-server:v0.6.0",
-			YurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:v0.6.0",
-			want:                  nil,
-		},
-		{
-
-			YurtTunnelServerImage: "openyurt/yurt-tunnel-server:v0.12.0",
-			YurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:v0.12.0",
-			want:                  nil,
-		},
-	}
-
-	var fakeOut io.Writer
-	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	initializer.kubeClient = clientsetfake.NewSimpleClientset()
-	converter := NewClusterConverter(initializer)
-	for _, v := range cases {
-		converter.YurtTunnelServerImage = v.YurtTunnelServerImage
-		converter.YurtTunnelAgentImage = v.YurtTunnelAgentImage
-		err := converter.deployYurtTunnel()
-		if err != v.want {
-			t.Errorf("failed to deploy yurt tunnel")
-		}
 	}
 }
 

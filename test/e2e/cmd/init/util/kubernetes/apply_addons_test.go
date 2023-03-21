@@ -25,29 +25,6 @@ import (
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 )
 
-func TestDeployYurtControllerManager(t *testing.T) {
-	cases := []struct {
-		image string
-		want  error
-	}{
-		{
-			image: "yurtControllerManagerImage:latest",
-			want:  nil,
-		},
-		{
-			image: "yurtControllerManagerImage:v1.22",
-			want:  nil,
-		},
-	}
-	fakeKubeClient := clientsetfake.NewSimpleClientset()
-	for _, v := range cases {
-		err := DeployYurtControllerManager(fakeKubeClient, v.image)
-		if err != v.want {
-			t.Logf("falied deploy yurt controller manager")
-		}
-	}
-}
-
 func TestDeployYurthubSetting(t *testing.T) {
 	fakeKubeClient := clientsetfake.NewSimpleClientset()
 	err := DeployYurthubSetting(fakeKubeClient)
