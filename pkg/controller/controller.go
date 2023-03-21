@@ -27,6 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
 	"github.com/openyurtio/openyurt/pkg/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/dns"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/service"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
@@ -57,6 +58,7 @@ func init() {
 	controllerAddFuncs[delegatelease.ControllerName] = []AddControllerFn{delegatelease.Add}
 	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
 	controllerAddFuncs[raven.GatewayController] = []AddControllerFn{gatewaypickup.Add}
+	controllerAddFuncs[raven.DnsController] = []AddControllerFn{dns.Add}
 	controllerAddFuncs[raven.ServiceController] = []AddControllerFn{service.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
 	controllerAddFuncs[yurtcoordinatorcert.ControllerName] = []AddControllerFn{yurtcoordinatorcert.Add}

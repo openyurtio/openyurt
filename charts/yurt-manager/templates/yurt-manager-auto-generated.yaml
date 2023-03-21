@@ -144,6 +144,26 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
+  - ravendnss
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - ravendnss/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
   - yurtappdaemons
   verbs:
   - create

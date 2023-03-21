@@ -28,14 +28,18 @@ import (
 )
 
 const (
-	WorkingNamespace  = "kube-system"
-	RavenGlobalConfig = "raven-cfg"
+	WorkingNamespace               = "kube-system"
+	RavenGlobalConfig              = "raven-cfg"
+	GatewayProxyInternalService    = "x-raven-proxy-internal-svc"
+	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc-"
+	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc-"
+	RavenProxyNodesConfig          = "edge-tunnel-nodes"
+	ProxyNodesKey                  = "tunnel-nodes"
 
 	RavenEnableProxy  = "EnableL7Proxy"
 	RavenEnableTunnel = "EnableL3Tunnel"
-
-	ProxyServerPort = "ProxyServerPort"
-	VPNServerPort   = "VPNServerPort"
+	ProxyServerPort   = "ProxyServerPort"
+	VPNServerPort     = "VPNServerPort"
 )
 
 // GetNodeInternalIP returns internal ip of the given `node`.
@@ -62,4 +66,10 @@ func AddGatewayToWorkQueue(gwName string,
 			NamespacedName: types.NamespacedName{Name: gwName},
 		})
 	}
+}
+
+func AddDNSConfigmapToWorkQueue(q workqueue.RateLimitingInterface) {
+	q.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: RavenProxyNodesConfig},
+	})
 }

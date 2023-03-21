@@ -32,6 +32,7 @@ type YurtManagerOptions struct {
 	YurtAppSetController    *YurtAppSetControllerOptions
 	YurtAppDaemonController *YurtAppDaemonControllerOptions
 	PlatformAdminController *PlatformAdminControllerOptions
+	RavenDNSController      *RavenDNSControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -45,6 +46,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		YurtAppSetController:    NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
 		PlatformAdminController: NewPlatformAdminControllerOptions(),
+		RavenDNSController:      NewRavenDNSControllerOptions(),
 	}
 
 	return &s, nil
@@ -58,6 +60,7 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
+	y.RavenDNSController.AddFlags(fss.FlagSet("raven dns controller"))
 	// Please Add Other controller flags @kadisi
 
 	return fss
@@ -72,6 +75,7 @@ func (y *YurtManagerOptions) Validate() error {
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
+	errs = append(errs, y.RavenDNSController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -93,7 +97,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 		return err
 	}
 	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayController); err != nil {
-
+		return err
+	}
+	if err := y.RavenDNSController.ApplyTo(&c.ComponentConfig.RavenDNSController); err != nil {
 		return err
 	}
 	return nil
