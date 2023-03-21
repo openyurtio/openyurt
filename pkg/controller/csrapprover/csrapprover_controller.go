@@ -1,51 +1,63 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2023 The OpenYurt Authors.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
+distributed under the License is distributed on an AS IS BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package certificates
+package csrapprover
 
 import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"strings"
-	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	registryClient "github.com/openyurtio/openyurt/pkg/client"
 	poolcoordinatorCert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
+	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
+func init() {
+	flag.IntVar(&concurrentReconciles, "csrapprover-workers", concurrentReconciles, "Max concurrent workers for CsrApprover controller.")
+}
+
 var (
+	concurrentReconciles = 3
+	csrV1Kind            = certificatesv1.SchemeGroupVersion.WithKind("CertificateSigningRequest")
+
 	yurtCsr                  = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 	yurtHubNodeCertOrgPrefix = "openyurt:tenant:"
 	clientRequiredUsages     = sets.NewString(
@@ -69,11 +81,11 @@ var (
 		},
 		{
 			recognize:  isYurtTunnelProxyClientCert,
-			successMsg: "Auto approving yurt-tunnel-server proxy client certificate",
+			successMsg: "Auto approving tunnel-server proxy client certificate",
 		},
 		{
 			recognize:  isYurtTunnelAgentCert,
-			successMsg: "Auto approving yurt-tunnel-agent client certificate",
+			successMsg: "Auto approving tunnel-agent client certificate",
 		},
 		{
 			recognize:  isPoolCoordinatorClientCert,
@@ -82,191 +94,105 @@ var (
 	}
 )
 
+const (
+	controllerName = "CsrApprover-controller"
+)
+
 type csrRecognizer struct {
 	recognize  func(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool
 	successMsg string
 }
 
-// YurtCSRApprover is the controller that auto approve all openyurt related CSR
-type YurtCSRApprover struct {
-	client    kubernetes.Interface
-	workqueue workqueue.RateLimitingInterface
-	getCsr    func(string) (*certificatesv1.CertificateSigningRequest, error)
-	hasSynced func() bool
+// Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
+	return add(mgr, newReconciler(c, mgr))
 }
 
-// NewCSRApprover creates a new YurtCSRApprover
-func NewCSRApprover(client kubernetes.Interface, sharedInformers informers.SharedInformerFactory) (*YurtCSRApprover, error) {
-	var hasSynced func() bool
-	var getCsr func(string) (*certificatesv1.CertificateSigningRequest, error)
+var _ reconcile.Reconciler = &ReconcileCsrApprover{}
 
-	// init workqueue and event handler
-	wq := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	yca := &YurtCSRApprover{
-		client:    client,
-		workqueue: wq,
-	}
-
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			yca.enqueueObj(obj)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			yca.enqueueObj(new)
-		},
-	}
-
-	// init csr synced and get handler
-	_, err := client.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
-	} else if err == nil {
-		// v1.CertificateSigningRequest api is supported
-		klog.Infof("v1.CertificateSigningRequest is supported.")
-		sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().AddEventHandler(handler)
-		hasSynced = sharedInformers.Certificates().V1().CertificateSigningRequests().Informer().HasSynced
-		getCsr = sharedInformers.Certificates().V1().CertificateSigningRequests().Lister().Get
-	} else {
-		// apierrors.IsNotFound(err), try to use v1beta1.CertificateSigningRequest api
-		klog.Infof("fall back to v1beta1.CertificateSigningRequest.")
-		sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().AddEventHandler(handler)
-		hasSynced = sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Informer().HasSynced
-		getCsr = func(name string) (*certificatesv1.CertificateSigningRequest, error) {
-			v1beta1Csr, err := sharedInformers.Certificates().V1beta1().CertificateSigningRequests().Lister().Get(name)
-			if err != nil {
-				return nil, err
-			}
-			return v1beta1Csr2v1Csr(v1beta1Csr), nil
-		}
-	}
-	yca.hasSynced = hasSynced
-	yca.getCsr = getCsr
-
-	return yca, nil
+// ReconcileCsrApprover reconciles a CsrApprover object
+type ReconcileCsrApprover struct {
+	client.Client
+	csrV1Supported    bool
+	csrApproverClient kubernetes.Interface
 }
 
-func (yca *YurtCSRApprover) enqueueObj(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
+	genericClient := registryClient.GetGenericClientWithName(controllerName)
 
-	var v1Csr *certificatesv1.CertificateSigningRequest
-	switch csr := obj.(type) {
-	case *certificatesv1.CertificateSigningRequest:
-		v1Csr = csr
-	case *certificatesv1beta1.CertificateSigningRequest:
-		v1Csr = v1beta1Csr2v1Csr(csr)
-	default:
-		klog.Errorf("%s is not a csr", key)
-		return
-	}
-
-	approved, denied := checkCertApprovalCondition(&v1Csr.Status)
-	if !approved && !denied {
-		klog.Infof("non-approved and non-denied csr, enqueue: %s", key)
-		yca.workqueue.AddRateLimited(key)
-		return
-	}
-
-	if ok, _ := isYurtCSR(v1Csr); !ok {
-		klog.Infof("csr(%s) is not %s", v1Csr.GetName(), yurtCsr)
-		return
-	}
-
-	klog.V(4).Infof("approved or denied csr, ignore it: %s", key)
-}
-
-// Run starts the YurtCSRApprover
-func (yca *YurtCSRApprover) Run(threadiness int, stopCh <-chan struct{}) {
-	defer runtime.HandleCrash()
-	defer yca.workqueue.ShutDown()
-	klog.Info("starting the crsapprover")
-	if !cache.WaitForCacheSync(stopCh, yca.hasSynced) {
-		klog.Error("sync csr timeout")
-		return
-	}
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(yca.runWorker, time.Second, stopCh)
-	}
-	<-stopCh
-	klog.Info("stopping the csrapprover")
-}
-
-func (yca *YurtCSRApprover) runWorker() {
-	for yca.processNextItem() {
+	return &ReconcileCsrApprover{
+		Client:            utilclient.NewClientFromManager(mgr, controllerName),
+		csrV1Supported:    utildiscovery.DiscoverGVK(csrV1Kind),
+		csrApproverClient: genericClient.KubeClient,
 	}
 }
 
-func (yca *YurtCSRApprover) processNextItem() bool {
-	key, quit := yca.workqueue.Get()
-	if quit {
-		return false
-	}
-	defer yca.workqueue.Done(key)
-
-	if err := yca.syncFunc(key.(string)); err != nil {
-		yca.workqueue.AddRateLimited(key)
-		runtime.HandleError(fmt.Errorf("sync csr %v failed with : %v", key, err))
-		return true
-	}
-
-	yca.workqueue.Forget(key)
-	return true
-}
-
-func (yca *YurtCSRApprover) syncFunc(key string) error {
-	startTime := time.Now()
-	defer func() {
-		klog.V(4).Infof("Finished syncing certificate request %q (%v)", key, time.Since(startTime))
-	}()
-
-	csr, err := yca.getCsr(key)
-	if apierrors.IsNotFound(err) {
-		klog.V(3).Infof("csr has been deleted: %v", key)
-		return nil
-	}
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(csr.Status.Certificate) > 0 {
-		// no need to do anything because it already has a cert
-		return nil
+	// Watch for changes to CsrApprover
+	if utildiscovery.DiscoverGVK(csrV1Kind) {
+		return c.Watch(&source.Kind{Type: &certificatesv1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+	} else {
+		return c.Watch(&source.Kind{Type: &certificatesv1beta1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
 	}
-
-	// need to operate on a copy so we don't mutate the csr in the shared cache
-	csr = csr.DeepCopy()
-	return yca.approveCSR(csr)
 }
 
-// approveCSR checks the csr status, if it is neither approved nor
-// denied, it will try to approve the csr.
-func (yca *YurtCSRApprover) approveCSR(csr *certificatesv1.CertificateSigningRequest) error {
-	if len(csr.Status.Certificate) != 0 {
-		return nil
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/approval,verbs=update
+// +kubebuilder:rbac:groups=certificates.k8s.io,resourceNames=kubernetes.io/kube-apiserver-client;kubernetes.io/kubelet-serving,resources=signers,verbs=approve
+
+// Reconcile reads that state of the cluster for a CertificateSigningRequest object and makes changes based on the state read
+// and what is in the CertificateSigningRequest.Spec
+func (r *ReconcileCsrApprover) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	// Fetch the CertificateSigningRequest instance
+	var err error
+	v1Instance := &certificatesv1.CertificateSigningRequest{}
+	if r.csrV1Supported {
+		err = r.Get(ctx, request.NamespacedName, v1Instance)
+	} else {
+		v1beta1Instance := &certificatesv1beta1.CertificateSigningRequest{}
+		err = r.Get(ctx, request.NamespacedName, v1beta1Instance)
+		if err == nil {
+			v1Instance = v1beta1Csr2v1Csr(v1beta1Instance)
+		}
 	}
 
-	approved, denied := checkCertApprovalCondition(&csr.Status)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+
+	approved, denied := checkCertApprovalCondition(&v1Instance.Status)
 	if approved {
-		klog.V(4).Infof("csr(%s) is approved", csr.GetName())
-		return nil
+		klog.V(4).Infof("csr(%s) is approved", v1Instance.GetName())
+		return reconcile.Result{}, nil
 	}
 
 	if denied {
-		klog.V(4).Infof("csr(%s) is denied", csr.GetName())
-		return nil
+		klog.V(4).Infof("csr(%s) is denied", v1Instance.GetName())
+		return reconcile.Result{}, nil
 	}
 
-	ok, successMsg := isYurtCSR(csr)
+	ok, successMsg := isYurtCSR(v1Instance)
 	if !ok {
-		klog.Infof("csr(%s) is not %s", csr.GetName(), yurtCsr)
-		return nil
+		klog.Infof("csr(%s) is not %s", v1Instance.GetName(), yurtCsr)
+		return reconcile.Result{}, nil
 	}
 
 	// approve the openyurt related csr
-	csr.Status.Conditions = append(csr.Status.Conditions,
+	v1Instance.Status.Conditions = append(v1Instance.Status.Conditions,
 		certificatesv1.CertificateSigningRequestCondition{
 			Type:    certificatesv1.CertificateApproved,
 			Status:  corev1.ConditionTrue,
@@ -274,24 +200,25 @@ func (yca *YurtCSRApprover) approveCSR(csr *certificatesv1.CertificateSigningReq
 			Message: successMsg,
 		})
 
-	err := yca.updateApproval(context.Background(), csr)
+	// Update CertificateSigningRequests
+	err = r.updateApproval(ctx, v1Instance)
 	if err != nil {
-		klog.Errorf("failed to approve %s(%s), %v", yurtCsr, csr.GetName(), err)
-		return err
+		klog.Errorf("failed to approve %s(%s), %v", yurtCsr, v1Instance.GetName(), err)
+		return reconcile.Result{}, err
 	}
-	klog.Infof("successfully approve %s(%s)", yurtCsr, csr.GetName())
-	return nil
+	klog.Infof("successfully approve %s(%s)", yurtCsr, v1Instance.GetName())
+	return reconcile.Result{}, nil
 }
 
-func (yca *YurtCSRApprover) updateApproval(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) error {
-	_, v1err := yca.client.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
-	if v1err == nil || !apierrors.IsNotFound(v1err) {
-		return v1err
+// updateApproval is used for adding approval info into csr resource
+func (r *ReconcileCsrApprover) updateApproval(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (err error) {
+	if r.csrV1Supported {
+		_, err = r.csrApproverClient.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
+	} else {
+		v1beta1Csr := v1Csr2v1beta1Csr(csr)
+		_, err = r.csrApproverClient.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
 	}
-
-	v1beta1Csr := v1Csr2v1beta1Csr(csr)
-	_, v1beta1err := yca.client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
-	return v1beta1err
+	return
 }
 
 // isYurtCSR checks if given csr is an openyurt related csr and

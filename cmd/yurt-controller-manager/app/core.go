@@ -24,7 +24,6 @@ package app
 import (
 	"net/http"
 
-	"github.com/openyurtio/openyurt/pkg/controller/certificates"
 	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	poolcoordinatorcertmanager "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
@@ -47,17 +46,6 @@ func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, 
 		ctx.InformerFactory,
 	)
 	go poolcoordinatorController.Run(ctx.Stop)
-	return nil, true, nil
-}
-
-func startYurtCSRApproverController(ctx ControllerContext) (http.Handler, bool, error) {
-	clientSet := ctx.ClientBuilder.ClientOrDie("yurt-csr-controller")
-	csrApprover, err := certificates.NewCSRApprover(clientSet, ctx.InformerFactory)
-	if err != nil {
-		return nil, false, err
-	}
-	go csrApprover.Run(2, ctx.Stop)
-
 	return nil, true, nil
 }
 

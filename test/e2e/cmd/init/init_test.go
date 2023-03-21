@@ -412,7 +412,7 @@ func IsConsistent(initPoint1, initPoint2 *initializerConfig) bool {
 	if initPoint1.YurtHubImage != initPoint2.YurtHubImage {
 		return false
 	}
-	if initPoint1.YurtControllerManagerImage != initPoint2.YurtControllerManagerImage {
+	if initPoint1.YurtManagerImage != initPoint2.YurtManagerImage {
 		return false
 	}
 	if initPoint1.NodeServantImage != initPoint2.NodeServantImage {
@@ -434,21 +434,21 @@ func TestKindOptions_Config(t *testing.T) {
 	case1 := newKindOptions()
 	home := os.Getenv("HOME")
 	wants := initializerConfig{
-		CloudNodes:                 []string{"openyurt-control-plane"},
-		EdgeNodes:                  []string{"openyurt-worker"},
-		KindConfigPath:             "/tmp/kindconfig.yaml",
-		KubeConfig:                 home + "/.kube/config",
-		NodesNum:                   2,
-		ClusterName:                "openyurt",
-		KubernetesVersion:          "v1.22",
-		NodeImage:                  "",
-		UseLocalImage:              false,
-		YurtHubImage:               "openyurt/yurthub:latest",
-		YurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
-		NodeServantImage:           "openyurt/node-servant:latest",
-		YurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
-		YurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
-		EnableDummyIf:              true,
+		CloudNodes:            []string{"openyurt-control-plane"},
+		EdgeNodes:             []string{"openyurt-worker"},
+		KindConfigPath:        "/tmp/kindconfig.yaml",
+		KubeConfig:            home + "/.kube/config",
+		NodesNum:              2,
+		ClusterName:           "openyurt",
+		KubernetesVersion:     "v1.22",
+		NodeImage:             "",
+		UseLocalImage:         false,
+		YurtHubImage:          "openyurt/yurthub:latest",
+		YurtManagerImage:      "openyurt/yurt-manager:latest",
+		NodeServantImage:      "openyurt/node-servant:latest",
+		YurtTunnelServerImage: "openyurt/yurt-tunnel-server:latest",
+		YurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:latest",
+		EnableDummyIf:         true,
 	}
 	if !IsConsistent(&wants, case1.Config()) {
 		t.Errorf("Failed to configure initializer")
@@ -494,52 +494,52 @@ func TestInitializer_PrepareImage(t *testing.T) {
 	initializer.operator.execCommand = fakeExeCommand
 
 	cases := []struct {
-		cloudNodes                 []string
-		edgeNodes                  []string
-		yurtHubImage               string
-		yurtControllerManagerImage string
-		yurtTunnelServerImage      string
-		yurtTunnelAgentImage       string
-		nodeServantImage           string
-		useLocalImage              bool
-		nodesNum                   int
-		want                       interface{}
+		cloudNodes            []string
+		edgeNodes             []string
+		yurtHubImage          string
+		yurtManagerImage      string
+		yurtTunnelServerImage string
+		yurtTunnelAgentImage  string
+		nodeServantImage      string
+		useLocalImage         bool
+		nodesNum              int
+		want                  interface{}
 	}{
 		{
-			cloudNodes:                 []string{"openyurt-control-plane"},
-			edgeNodes:                  []string{"openyurt-worker"},
-			yurtHubImage:               "openyurt/yurthub:latest",
-			yurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
-			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
-			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
-			nodeServantImage:           "openyurt/node-servant:latest",
-			useLocalImage:              true,
-			nodesNum:                   2,
-			want:                       nil,
+			cloudNodes:            []string{"openyurt-control-plane"},
+			edgeNodes:             []string{"openyurt-worker"},
+			yurtHubImage:          "openyurt/yurthub:latest",
+			yurtManagerImage:      "openyurt/yurt-manager:latest",
+			yurtTunnelServerImage: "openyurt/yurt-tunnel-server:latest",
+			yurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:latest",
+			nodeServantImage:      "openyurt/node-servant:latest",
+			useLocalImage:         true,
+			nodesNum:              2,
+			want:                  nil,
 		},
 		{
-			cloudNodes:                 []string{"openyurt-control-plane"},
-			edgeNodes:                  []string{"openyurt-worker"},
-			yurtHubImage:               "openyurt/yurthub:latest",
-			yurtControllerManagerImage: "openyurt/yurt-controller-manager:latest",
-			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:latest",
-			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:latest",
-			nodeServantImage:           "openyurt/node-servant:latest",
-			useLocalImage:              false,
-			nodesNum:                   2,
-			want:                       nil,
+			cloudNodes:            []string{"openyurt-control-plane"},
+			edgeNodes:             []string{"openyurt-worker"},
+			yurtHubImage:          "openyurt/yurthub:latest",
+			yurtManagerImage:      "openyurt/yurt-manager:latest",
+			yurtTunnelServerImage: "openyurt/yurt-tunnel-server:latest",
+			yurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:latest",
+			nodeServantImage:      "openyurt/node-servant:latest",
+			useLocalImage:         false,
+			nodesNum:              2,
+			want:                  nil,
 		},
 		{
-			cloudNodes:                 []string{"openyurt-control-plane"},
-			edgeNodes:                  []string{"openyurt-worker", "openyurt-worker2", "openyurt-worker3"},
-			yurtHubImage:               "openyurt/yurthub:v0.1.0",
-			yurtControllerManagerImage: "openyurt/yurt-controller-manager:v0.1.0",
-			yurtTunnelServerImage:      "openyurt/yurt-tunnel-server:v0.6.0",
-			yurtTunnelAgentImage:       "openyurt/yurt-tunnel-agent:v0.6.0",
-			nodeServantImage:           "openyurt/node-servant:v0.6.0",
-			useLocalImage:              false,
-			nodesNum:                   4,
-			want:                       nil,
+			cloudNodes:            []string{"openyurt-control-plane"},
+			edgeNodes:             []string{"openyurt-worker", "openyurt-worker2", "openyurt-worker3"},
+			yurtHubImage:          "openyurt/yurthub:v0.1.0",
+			yurtManagerImage:      "openyurt/yurt-manager:v0.1.0",
+			yurtTunnelServerImage: "openyurt/yurt-tunnel-server:v0.6.0",
+			yurtTunnelAgentImage:  "openyurt/yurt-tunnel-agent:v0.6.0",
+			nodeServantImage:      "openyurt/node-servant:v0.6.0",
+			useLocalImage:         false,
+			nodesNum:              4,
+			want:                  nil,
 		},
 	}
 
@@ -547,7 +547,7 @@ func TestInitializer_PrepareImage(t *testing.T) {
 		initializer.CloudNodes = v.cloudNodes
 		initializer.EdgeNodes = v.edgeNodes
 		initializer.YurtHubImage = v.yurtHubImage
-		initializer.YurtControllerManagerImage = v.yurtControllerManagerImage
+		initializer.YurtManagerImage = v.yurtManagerImage
 		initializer.YurtTunnelServerImage = v.yurtTunnelServerImage
 		initializer.YurtTunnelAgentImage = v.yurtTunnelAgentImage
 		initializer.NodeServantImage = v.nodeServantImage
