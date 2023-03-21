@@ -25,6 +25,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/openyurtio/openyurt/pkg/util/ip"
 )
 
 const (
@@ -110,4 +112,28 @@ func TestGetAPIServerSVCURL(t *testing.T) {
 	url, err := getAPIServerSVCURL(normalClient)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "https://xxxx:644", url)
+}
+
+func TestWaitUntilSVCReady(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	normalClient := fake.NewSimpleClientset(&corev1.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: PoolcoordinatorNS,
+			Name:      PoolcoordinatorAPIServerSVC,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "xxxx",
+			Ports: []corev1.ServicePort{
+				{
+					Port: 644,
+				},
+			},
+		},
+	})
+	ips, _, err := waitUntilSVCReady(normalClient, PoolcoordinatorAPIServerSVC, stop)
+	assert.Equal(t, nil, err)
+	expectIPS := ip.ParseIPList([]string{"xxxx"})
+	assert.Equal(t, expectIPS, ips)
 }
