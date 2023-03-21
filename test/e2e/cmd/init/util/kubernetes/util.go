@@ -256,7 +256,12 @@ func RunJobAndCleanup(cliSet kubeclientset.Interface, job *batchv1.Job, timeout,
 func PrintPodLog(client kubeclientset.Interface, pod *corev1.Pod, w io.Writer) error {
 	klog.Infof("start to print logs for pod(%s/%s):", pod.Namespace, pod.Name)
 	req := client.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.Name, &corev1.PodLogOptions{})
-	return kubectllogs.DefaultConsumeRequest(req, w)
+	if err := kubectllogs.DefaultConsumeRequest(req, w); err != nil {
+		klog.Errorf("failed to print logs for pod(%s/%s), %v", pod.Namespace, pod.Name, err)
+		return err
+	}
+
+	return nil
 }
 
 // RunServantJobs launch servant jobs on specified nodes and wait all jobs to finish.
