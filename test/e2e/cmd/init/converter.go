@@ -153,18 +153,16 @@ func (c *ClusterConverter) deployYurthub() error {
 			}
 
 			// print logs of yurt-manager
-			labelSelector, logErr := metav1.ParseToLabelSelector("app.kubernetes.io/name=yurt-manager")
-			if logErr != nil {
-				return err
-			}
 			podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-				LabelSelector: labelSelector.String(),
+				LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
 			})
 			if logErr != nil {
+				klog.Errorf("failed to get yurt-manager pod, %v", logErr)
 				return err
 			}
 
 			if len(podList.Items) == 0 {
+				klog.Errorf("yurt-manager pod doesn't exist")
 				return err
 			}
 			if logErr = kubeutil.PrintPodLog(c.ClientSet, &podList.Items[0], os.Stderr); logErr != nil {
