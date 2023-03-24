@@ -40,7 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
 	"github.com/openyurtio/openyurt/pkg/controller/staticpod/upgradeinfo"
 	"github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
@@ -129,11 +131,11 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new StaticPod Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
+func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		return nil
 	}
-	return add(mgr, newReconciler(mgr))
+	return add(mgr, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileStaticPod{}
@@ -141,16 +143,18 @@ var _ reconcile.Reconciler = &ReconcileStaticPod{}
 // ReconcileStaticPod reconciles a StaticPod object
 type ReconcileStaticPod struct {
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme       *runtime.Scheme
+	recorder     record.EventRecorder
+	Configration config.StaticPodControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileStaticPod{
-		Client:   utilclient.NewClientFromManager(mgr, controllerName),
-		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(controllerName),
+		Client:       utilclient.NewClientFromManager(mgr, controllerName),
+		scheme:       mgr.GetScheme(),
+		recorder:     mgr.GetEventRecorderFor(controllerName),
+		Configration: c.ComponentConfig.StaticPodController,
 	}
 }
 

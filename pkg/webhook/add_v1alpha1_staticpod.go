@@ -17,11 +17,9 @@ limitations under the License.
 package webhook
 
 import (
-	"github.com/openyurtio/openyurt/pkg/webhook/staticpod/mutating"
-	"github.com/openyurtio/openyurt/pkg/webhook/staticpod/validating"
+	"github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
 )
 
 func init() {
-	addHandlers(mutating.HandlerMap)
-	addHandlers(validating.HandlerMap)
+	addWebhook(&v1alpha1.StaticPodHandler{})
 }

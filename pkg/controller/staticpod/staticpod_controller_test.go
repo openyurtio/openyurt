@@ -94,13 +94,12 @@ func TestReconcile(t *testing.T) {
 	nodes := prepareNodes()
 	instance := &appsv1alpha1.StaticPod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "foo",
+			Name:      TestStaticPodName,
+			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: appsv1alpha1.StaticPodSpec{
-			StaticPodNamespace: metav1.NamespaceDefault,
-			StaticPodName:      "nginx",
-			StaticPodManifest:  "nginx",
-			Template:           corev1.PodTemplateSpec{},
+			StaticPodManifest: "nginx",
+			Template:          corev1.PodTemplateSpec{},
 		},
 	}
 
@@ -116,7 +115,7 @@ func TestReconcile(t *testing.T) {
 		instance.Spec.UpgradeStrategy = s
 		c := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
 
-		var req = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo"}}
+		var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestStaticPodName}}
 		rsp := ReconcileStaticPod{
 			Client: c,
 			scheme: scheme,

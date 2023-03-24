@@ -14,17 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mutating
+package v1alpha1
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-staticpod,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=mutate.apps.v1alpha1.staticpod.openyurt.io
-
-var (
-	// HandlerMap contains admission webhook handlers
-	HandlerMap = map[string]admission.Handler{
-		"mutate-apps-openyurt-io-v1alpha1-staticpod": &StaticPodCreateUpdateHandler{},
+// Default satisfies the defaulting webhook interface.
+func (webhook *StaticPodHandler) Default(ctx context.Context, obj runtime.Object) error {
+	sp, ok := obj.(*v1alpha1.StaticPod)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a StaticPod but got a %T", obj))
 	}
-)
+
+	v1alpha1.SetDefaultsStaticPod(sp)
+
+	return nil
+}

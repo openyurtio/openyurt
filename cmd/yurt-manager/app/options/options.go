@@ -24,18 +24,20 @@ import (
 
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
-	Generic            *GenericOptions
-	NodePoolController *NodePoolControllerOptions
-	GatewayController  *GatewayControllerOptions
+	Generic             *GenericOptions
+	NodePoolController  *NodePoolControllerOptions
+	GatewayController   *GatewayControllerOptions
+	StaticPodController *StaticPodControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
 func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 
 	s := YurtManagerOptions{
-		Generic:            NewGenericOptions(),
-		NodePoolController: NewNodePoolControllerOptions(),
-		GatewayController:  NewGatewayControllerOptions(),
+		Generic:             NewGenericOptions(),
+		NodePoolController:  NewNodePoolControllerOptions(),
+		GatewayController:   NewGatewayControllerOptions(),
+		StaticPodController: NewStaticPodControllerOptions(),
 	}
 
 	return &s, nil
@@ -46,7 +48,7 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 	y.Generic.AddFlags(fss.FlagSet("generic"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.GatewayController.AddFlags(fss.FlagSet("gateway controller"))
-
+	y.StaticPodController.AddFlags(fss.FlagSet("staticpod controller"))
 	// Please Add Other controller flags @kadisi
 
 	return fss
@@ -58,6 +60,7 @@ func (y *YurtManagerOptions) Validate() error {
 	errs = append(errs, y.Generic.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.GatewayController.Validate()...)
+	errs = append(errs, y.StaticPodController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 

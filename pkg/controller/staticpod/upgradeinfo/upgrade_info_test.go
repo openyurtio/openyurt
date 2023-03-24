@@ -66,18 +66,18 @@ func newPods(nodes []string, namespace string, isStaticPod bool) []client.Object
 
 func newStaticPod() *appsv1alpha1.StaticPod {
 	return &appsv1alpha1.StaticPod{
-		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: appsv1alpha1.StaticPodSpec{
-			StaticPodName: fakeStaticPodName,
-		},
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fakeStaticPodName,
+			Namespace: metav1.NamespaceDefault},
+		Spec:   appsv1alpha1.StaticPodSpec{},
 		Status: appsv1alpha1.StaticPodStatus{},
 	}
 }
 
 func Test_ConstructStaticPodsUpgradeInfoList(t *testing.T) {
 	staticPods := newPods(fakeStaticPodNodes, metav1.NamespaceDefault, true)
-	workerPods := newPods(fakeWorkerPodNodes, metav1.NamespaceSystem, false)
+	workerPods := newPods(fakeWorkerPodNodes, metav1.NamespaceDefault, false)
 	expect := map[string]*UpgradeInfo{
 		"node1": {
 			StaticPod: staticPods[0].(*corev1.Pod),
@@ -85,7 +85,6 @@ func Test_ConstructStaticPodsUpgradeInfoList(t *testing.T) {
 		},
 		"node2": {
 			StaticPod: staticPods[1].(*corev1.Pod),
-
 			WorkerPod: workerPods[1].(*corev1.Pod),
 		},
 		"node3": {
