@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -31,16 +30,12 @@ import (
 	upgrade "github.com/openyurtio/openyurt/pkg/static-pod-upgrade"
 )
 
-type Config struct {
-	Name      string
-	Namespace string
-	Manifest  string
-	Hash      string
-	Mode      string
-}
+var (
+	manifest string
+	mode     string
+)
 
 func main() {
-	cfg := &Config{}
 	rand.Seed(time.Now().UnixNano())
 	version := fmt.Sprintf("%#v", projectinfo.Get())
 	cmd := &cobra.Command{
@@ -52,16 +47,11 @@ func main() {
 				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
 
-			if err := cfg.validate(); err != nil {
+			if err := validate(); err != nil {
 				klog.Fatalf("Fail to validate yurt static pod upgrade args, %v", err)
 			}
 
-			c, err := upgrade.GetClient()
-			if err != nil {
-				klog.Fatalf("Fail to get kubernetes client, %v", err)
-			}
-
-			ctrl, err := upgrade.New(c, cfg.Name, cfg.Namespace, cfg.Manifest, cfg.Hash, cfg.Mode)
+			ctrl, err := upgrade.New(manifest, mode)
 			if err != nil {
 				klog.Fatalf("Fail to create static-pod-upgrade controller, %v", err)
 			}
@@ -74,34 +64,26 @@ func main() {
 		Version: version,
 	}
 
-	cfg.addFlags(cmd)
+	addFlags(cmd)
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func (c *Config) addFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&c.Name, "name", "", "The name of static pod which needs be upgraded")
-	cmd.Flags().StringVar(&c.Namespace, "namespace", "", "The namespace of static pod which needs be upgraded")
-	cmd.Flags().StringVar(&c.Manifest, "manifest", "", "The manifest file name of static pod which needs be upgraded")
-	cmd.Flags().StringVar(&c.Hash, "hash", "", "The hash value of new static pod specification")
-	cmd.Flags().StringVar(&c.Mode, "mode", "", "The upgrade mode which is used")
+func addFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&manifest, "manifest", "", "The manifest file name of static pod which needs be upgraded")
+	cmd.Flags().StringVar(&mode, "mode", "", "The upgrade mode which is used")
 }
 
 // Validate check if all the required arguments are valid
-func (c *Config) validate() error {
-	v := reflect.ValueOf(*c)
-
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		if field.Len() == 0 {
-			return fmt.Errorf("arg %s is empty", v.Type().Field(i).Name)
-		}
+func validate() error {
+	if manifest == "" || mode == "" {
+		return fmt.Errorf("args can not be empty, manifest is %s, mode is %s", manifest, mode)
 	}
 
 	// TODO: use constant value of static-pod controller
-	if c.Mode != "auto" && c.Mode != "ota" {
+	if mode != "auto" && mode != "ota" {
 		return fmt.Errorf("only support auto or ota upgrade mode")
 	}
 

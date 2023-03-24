@@ -17,7 +17,6 @@ limitations under the License.
 package upgrade
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,7 +75,7 @@ func Test(t *testing.T) {
 		/*
 			2. Test
 		*/
-		ctrl, err := New(c, TestPodName, metav1.NamespaceDefault, TestManifest, TestHashValue, mode)
+		ctrl, err := New(TestManifest, mode)
 		if err != nil {
 			t.Errorf("Fail to get upgrade controller, %v", err)
 		}
@@ -95,16 +94,6 @@ func Test(t *testing.T) {
 			}
 			if !ok {
 				t.Errorf("Manifest for ota upgrade does not exist")
-			}
-
-			pod, err := ctrl.client.CoreV1().Pods(runningStaticPod.Namespace).
-				Get(context.TODO(), runningStaticPod.Name, metav1.GetOptions{})
-			if err != nil {
-				t.Errorf("Fail to get the running static pod, %v", err)
-			}
-
-			if pod.Annotations[OTALatestManifestAnnotation] != TestHashValue {
-				t.Errorf("Fail to verify hash annotation for ota upgrade, %v", err)
 			}
 		}
 		/*

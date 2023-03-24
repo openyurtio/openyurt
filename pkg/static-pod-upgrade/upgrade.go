@@ -17,22 +17,15 @@ limitations under the License.
 package upgrade
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
 const (
-	DefaultUpgradeDir                   = "openyurtio-upgrade"
-	defaultStaticPodRunningCheckTimeout = 2 * time.Minute
+	DefaultUpgradeDir = "openyurtio-upgrade"
 
 	// TODO: use constant value of static-pod controller
 	OTA  = "ota"
@@ -45,16 +38,8 @@ var (
 )
 
 type Controller struct {
-	client kubernetes.Interface
-
-	// Name of static pod
-	name string
-	// Namespace of static pod
-	namespace string
 	// Manifest file name of static pod
 	manifest string
-	// The latest static pod hash
-	hash string
 	// Only support `OTA` and `Auto`
 	upgradeMode string
 
@@ -68,13 +53,9 @@ type Controller struct {
 	upgradeManifestPath string
 }
 
-func New(client kubernetes.Interface, name, namespace, manifest, hash, mode string) (*Controller, error) {
+func New(manifest, mode string) (*Controller, error) {
 	ctrl := &Controller{
-		client:      client,
-		name:        name,
-		namespace:   namespace,
 		manifest:    manifest,
-		hash:        hash,
 		upgradeMode: mode,
 	}
 
@@ -87,31 +68,22 @@ func New(client kubernetes.Interface, name, namespace, manifest, hash, mode stri
 }
 
 func (ctrl *Controller) Upgrade() error {
-	// 1. Check the target static pod exist
-	if err := ctrl.checkStaticPodExist(); err != nil {
-		return err
-	}
-	klog.Info("Check static pod existence success")
-
-	// 2. Check old manifest and the latest manifest exist
+	// 1. Check old manifest and the latest manifest exist
 	if err := ctrl.checkManifestFileExist(); err != nil {
 		return err
 	}
 	klog.Info("Check old manifest and new manifest files existence success")
 
-	// 3. prepare the latest manifest
+	// 2. prepare the latest manifest
 	if err := ctrl.prepareManifest(); err != nil {
 		return err
 	}
 	klog.Info("Prepare upgrade manifest success")
 
-	// 4. execute upgrade operations
+	// 3. execute upgrade operations
 	switch ctrl.upgradeMode {
 	case Auto:
 		return ctrl.AutoUpgrade()
-
-	case OTA:
-		return ctrl.OTAUpgrade()
 	}
 
 	return nil
@@ -130,37 +102,6 @@ func (ctrl *Controller) AutoUpgrade() error {
 	}
 	klog.Info("Auto upgrade replaceManifest success")
 
-	// (3) Verify the new static pod is running
-	ok, err := ctrl.verify()
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("the latest static pod is not running")
-	}
-	klog.Info("Auto upgrade verify success")
-
-	return nil
-}
-
-// In ota mode, just need to set the latest upgrade manifest version
-func (ctrl *Controller) OTAUpgrade() error {
-	if err := ctrl.setLatestManifestHash(); err != nil {
-		return err
-	}
-	klog.Info("OTA upgrade set latest manifest hash success")
-	return nil
-}
-
-// checkStaticPodExist check if the target static pod exist in cluster
-func (ctrl *Controller) checkStaticPodExist() error {
-	if errs := validation.IsDNS1123Subdomain(ctrl.name); len(errs) > 0 {
-		return fmt.Errorf("pod name %s is invalid: %v", ctrl.name, errs)
-	}
-	_, err := ctrl.client.CoreV1().Pods(ctrl.namespace).Get(context.TODO(), ctrl.name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -199,37 +140,4 @@ func (ctrl *Controller) backupManifest() error {
 // replaceManifest replace old manifest with the latest one, it achieves static pod upgrade
 func (ctrl *Controller) replaceManifest() error {
 	return CopyFile(ctrl.upgradeManifestPath, ctrl.manifestPath)
-}
-
-// verify make sure the latest static pod is running
-// return false when the latest static pod failed or check status time out
-func (ctrl *Controller) verify() (bool, error) {
-	return WaitForPodRunning(ctrl.client, ctrl.name, ctrl.namespace, ctrl.hash, defaultStaticPodRunningCheckTimeout)
-}
-
-// setLatestManifestHash set the latest manifest hash value to target static pod annotation
-// TODO: In ota mode, it's hard for controller to check whether the latest manifest file has been issued to nodes
-// TODO: Use annotation `openyurt.io/ota-manifest-version` to indicate the version of manifest issued to nodes
-func (ctrl *Controller) setLatestManifestHash() error {
-	pod, err := ctrl.client.CoreV1().Pods(ctrl.namespace).Get(context.TODO(), ctrl.name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	metav1.SetMetaDataAnnotation(&pod.ObjectMeta, OTALatestManifestAnnotation, ctrl.hash)
-	_, err = ctrl.client.CoreV1().Pods(ctrl.namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
-	return err
-}
-
-func GetClient() (kubernetes.Interface, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
 }
