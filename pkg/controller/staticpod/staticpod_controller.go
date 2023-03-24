@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
@@ -61,7 +62,8 @@ var (
 const (
 	controllerName = "StaticPod-controller"
 
-	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
+	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
+	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
 
 	hostPathVolumeName       = "hostpath"
 	hostPathVolumeMountPath  = "/etc/kubernetes/manifests/"
@@ -73,9 +75,8 @@ const (
 	UpgradeWorkerPodPrefix     = "yurt-static-pod-upgrade-worker-"
 	UpgradeWorkerContainerName = "upgrade-worker"
 	UpgradeWorkerImage         = "openyurt/yurt-static-pod-upgrade:latest"
-	UpgradeServiceAccount      = "yurt-manager"
 
-	ArgTmpl = "/usr/local/bin/yurt-static-pod-upgrade --name=%s --manifest=%s --hash=%s --namespace=%s --mode=%s"
+	ArgTmpl = "/usr/local/bin/yurt-static-pod-upgrade --manifest=%s --mode=%s"
 )
 
 // upgradeWorker is the pod template used for static pod upgrade
@@ -86,12 +87,10 @@ const (
 // 4. the corresponding configmap
 var (
 	upgradeWorker = &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Namespace: metav1.NamespaceSystem},
 		Spec: corev1.PodSpec{
-			HostPID:            true,
-			HostNetwork:        true,
-			RestartPolicy:      corev1.RestartPolicyNever,
-			ServiceAccountName: UpgradeServiceAccount,
+			HostPID:       true,
+			HostNetwork:   true,
+			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{{
 				Name:    UpgradeWorkerContainerName,
 				Command: []string{"/bin/sh", "-c"},
@@ -185,7 +184,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		var requests []reconcile.Request
 		for _, staticPod := range staticPodList.Items {
 			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-				Name: staticPod.Name,
+				Namespace: staticPod.Namespace,
+				Name:      staticPod.Name,
 			}})
 		}
 		return requests
@@ -300,31 +300,60 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 		return ctrl.Result{}, err
 	}
 
-	// Count the number of upgraded nodes
-	upgradedNumber = setUpgradeNeededInfos(upgradeInfos, latestHash)
+	// Complete upgrade info
+	{
+		// Count the number of upgraded nodes
+		upgradedNumber = setUpgradeNeededInfos(upgradeInfos, latestHash)
 
-	// Check node ready info
-	if err := checkReadyNodes(r.Client, upgradeInfos); err != nil {
-		klog.Errorf(Format("Fail to check node ready status of StaticPod %v,%v", request.NamespacedName.Name, err))
-		return ctrl.Result{}, err
+		// Set node ready info
+		if err := checkReadyNodes(r.Client, upgradeInfos); err != nil {
+			klog.Errorf(Format("Fail to check node ready status of StaticPod %v,%v", request.NamespacedName.Name, err))
+			return ctrl.Result{}, err
+		}
 	}
 
-	// allSucceeded flag is used to indicate whether the worker pods in last round have been all succeeded.
-	// In auto upgrade mode, if the value is false, it will wait util all the worker pods succeed.
-	failedNode, allSucceeded, deletePods := checkWorkerPodInfos(upgradeInfos, latestHash)
-	// If node is not empty, it means the worker pod failed in this node.
-	if failedNode != "" {
-		klog.Errorf(Format("Fail to continue upgrade, cause worker pod of StaticPod %v in node %s failed", request.NamespacedName.Name, failedNode))
-		return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber, util.UpgradeFailedConditionWithNode(failedNode))
+	// Sync worker pods
+	var allSucceeded bool
+	deletePods := make([]*corev1.Pod, 0)
+	succeededNodes := make([]string, 0)
+	{
+		// Deal with worker pods
+		allSucceeded, err = r.checkWorkerPods(upgradeInfos, latestHash, &deletePods, &succeededNodes)
+		if err != nil {
+			klog.Errorf(Format("Fail to continue upgrade, cause worker pod of StaticPod %v in node %v failed",
+				request.NamespacedName.Name, err.Error()))
+			return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber,
+				util.UpgradeFailedConditionWithNode(err.Error()))
+		}
+
+		// Verify succeededNodes
+		if instance.Spec.UpgradeStrategy.Type == appsv1alpha1.AutoStaticPodUpgradeStrategyType {
+			ok, err := r.verifySucceededNodes(instance, succeededNodes, latestHash)
+			if util.IsFailedError(err) {
+				klog.Errorf(Format("Fail to verify succeededNodes of StaticPod %v, %v", request.NamespacedName.Name, err))
+				return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber,
+					util.UpgradeFailedConditionWithNode(err.Error()))
+			}
+
+			if err != nil {
+				klog.Errorf(Format("Fail to verify succeededNodes of StaticPod %v, %v", request.NamespacedName.Name, err))
+				return reconcile.Result{}, err
+			}
+
+			if !ok {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+		}
 	}
 
-	// Clean up the unused worker pods
+	// Clean up unused pods
 	if err := r.removeUnusedPods(deletePods); err != nil {
-		klog.Errorf("Fail to delete out-of-date worker pods of StaticPod %v, %v", request.NamespacedName.Name, err)
-		return ctrl.Result{}, nil
+		klog.Errorf(Format("Fail to remove unused pods of StaticPod %v, %v", request.NamespacedName.Name, err))
+		return reconcile.Result{}, err
 	}
 
 	// If all nodes have been upgraded, just return
+	// Put this here because we need to clean up the worker pods first
 	if totalNumber == upgradedNumber {
 		klog.Infof(Format("All static pods have been upgraded of StaticPod %v", request.NamespacedName.Name))
 		return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber, upgradeSuccessCondition)
@@ -367,15 +396,15 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 
 // syncConfigMap moves the target static pod's corresponding configmap to the latest state
 func (r *ReconcileStaticPod) syncConfigMap(instance *appsv1alpha1.StaticPod, hash, data string) error {
-	cmName := util.WithConfigMapPrefix(util.Hyphen(instance.Spec.StaticPodNamespace, instance.Spec.StaticPodName))
+	cmName := util.WithConfigMapPrefix(util.Hyphen(instance.Namespace, instance.Name))
 	cm := &corev1.ConfigMap{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: metav1.NamespaceSystem}, cm); err != nil {
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: instance.Namespace}, cm); err != nil {
 		// if the configmap does not exist, then create a new one
 		if kerr.IsNotFound(err) {
 			cm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cmName,
-					Namespace: metav1.NamespaceSystem,
+					Namespace: instance.Namespace,
 					Annotations: map[string]string{
 						StaticPodHashAnnotation: hash,
 					},
@@ -404,6 +433,62 @@ func (r *ReconcileStaticPod) syncConfigMap(instance *appsv1alpha1.StaticPod, has
 	}
 
 	return nil
+}
+
+// syncWorkerPod synchronizes the worker pods for each node which has
+func (r *ReconcileStaticPod) checkWorkerPods(infos map[string]*upgradeinfo.UpgradeInfo, latestHash string,
+	deletePods *[]*corev1.Pod, succeededNodes *[]string) (bool, error) {
+	allSucceeded := true
+
+	for node, info := range infos {
+		if info.WorkerPod == nil {
+			continue
+		}
+
+		hash := info.WorkerPod.Annotations[StaticPodHashAnnotation]
+		// If the worker pod is not up-to-date, then it can be recreated directly
+		if hash != latestHash {
+			*deletePods = append(*deletePods, info.WorkerPod)
+			continue
+		}
+		// If the worker pod is up-to-date, there are three possible situations
+		// 1. The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
+		// 2. The worker pod is succeeded, then this node must be up-to-date. Just delete this worker pod
+		// 3. The worker pod is running, pending or unknown, then just wait
+		switch info.WorkerPod.Status.Phase {
+		case corev1.PodFailed:
+			return false, util.NewFailedError(node)
+		case corev1.PodSucceeded:
+			*succeededNodes = append(*succeededNodes, node)
+			*deletePods = append(*deletePods, info.WorkerPod)
+		default:
+			// In this node, the latest worker pod is still running, and we don't need to create new worker for it.
+			info.WorkerPodRunning = true
+			allSucceeded = false
+		}
+	}
+
+	return allSucceeded, nil
+}
+
+// verifyUpgrade verify that whether the new static pods on the given nodes are ready
+func (r *ReconcileStaticPod) verifySucceededNodes(instance *appsv1alpha1.StaticPod, nodes []string, hash string) (bool, error) {
+	pod := &corev1.Pod{}
+	for _, node := range nodes {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: util.Hyphen(instance.Name, node)}, pod); err != nil {
+			return false, err
+		}
+
+		if pod.Status.Phase == corev1.PodFailed {
+			return false, util.NewFailedError(node)
+		}
+
+		if pod.Status.Phase != corev1.PodRunning || pod.Annotations[StaticPodHashAnnotation] != hash {
+			klog.V(5).Infof("Fail to verify new static pod on %v", node)
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // autoUpgrade automatically rolling upgrade the target static pods in cluster
@@ -458,6 +543,29 @@ func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos 
 		return err
 	}
 
+	if err := r.setLatestManifestHash(instance, readyUpgradeWaitingNodes, hash); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setLatestManifestHash set the latest manifest hash value to target static pod annotation
+// TODO: In ota mode, it's hard for controller to check whether the latest manifest file has been issued to nodes
+// TODO: Use annotation `openyurt.io/ota-manifest-version` to indicate the version of manifest issued to nodes
+func (r *ReconcileStaticPod) setLatestManifestHash(instance *appsv1alpha1.StaticPod, nodes []string, hash string) error {
+	pod := &corev1.Pod{}
+	for _, node := range nodes {
+		if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace,
+			Name: util.Hyphen(instance.Name, node)}, pod); err != nil {
+			return err
+		}
+
+		metav1.SetMetaDataAnnotation(&pod.ObjectMeta, OTALatestManifestAnnotation, hash)
+		if err := r.Client.Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -476,7 +584,8 @@ func (r *ReconcileStaticPod) removeUnusedPods(pods []*corev1.Pod) error {
 func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, nodes []string, hash, mode string) error {
 	for _, node := range nodes {
 		pod := upgradeWorker.DeepCopy()
-		pod.Name = UpgradeWorkerPodPrefix + node + "-" + hash
+		pod.Name = UpgradeWorkerPodPrefix + util.Hyphen(node, hash)
+		pod.Namespace = instance.Namespace
 		pod.Spec.NodeName = node
 		metav1.SetMetaDataAnnotation(&pod.ObjectMeta, StaticPodHashAnnotation, hash)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
@@ -484,12 +593,12 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, node
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: util.WithConfigMapPrefix(util.Hyphen(instance.Spec.StaticPodNamespace, instance.Spec.StaticPodName)),
+						Name: util.WithConfigMapPrefix(util.Hyphen(instance.Namespace, instance.Name)),
 					},
 				},
 			},
 		})
-		pod.Spec.Containers[0].Args = []string{fmt.Sprintf(ArgTmpl, util.Hyphen(instance.Spec.StaticPodName, node), instance.Spec.StaticPodManifest, hash, instance.Spec.StaticPodNamespace, mode)}
+		pod.Spec.Containers[0].Args = []string{fmt.Sprintf(ArgTmpl, instance.Spec.StaticPodManifest, mode)}
 
 		if err := controllerutil.SetControllerReference(instance, pod, c.Scheme()); err != nil {
 			return err
@@ -532,42 +641,6 @@ func checkReadyNodes(client client.Client, infos map[string]*upgradeinfo.Upgrade
 		info.Ready = ready
 	}
 	return nil
-}
-
-// checkWorkerPodInfos removes worker pods which are not in use and checks whether the last round is complete
-func checkWorkerPodInfos(infos map[string]*upgradeinfo.UpgradeInfo, latestHash string) (string, bool, []*corev1.Pod) {
-	allSucceeded := true
-	deletePods := make([]*corev1.Pod, 0)
-
-	for node, info := range infos {
-		if info.WorkerPod != nil {
-			hash := info.WorkerPod.Annotations[StaticPodHashAnnotation]
-			// If the worker pod is not up-to-date, then it can be recreated directly
-			if hash != latestHash {
-				deletePods = append(deletePods, info.WorkerPod)
-				continue
-			}
-
-			// If the worker pod is up-to-date, there are three possible situations
-			// 1. The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
-			// 2. The worker pod is succeeded, then this node must be up-to-date. Just delete this worker pod
-			// 3. The worker pod is running, pending or unknown, then just wait
-			switch info.WorkerPod.Status.Phase {
-			case corev1.PodFailed:
-				return node, false, deletePods
-
-			case corev1.PodSucceeded:
-				deletePods = append(deletePods, info.WorkerPod)
-
-			default:
-				// In this node, the latest worker pod is still running, and we don't need to create new worker for it.
-				info.WorkerPodRunning = true
-				allSucceeded = false
-			}
-		}
-	}
-
-	return "", allSucceeded, deletePods
 }
 
 // updateStatus set the status of instance to the given values

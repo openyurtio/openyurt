@@ -42,20 +42,17 @@ const (
 
 // StaticPodSpec defines the desired state of StaticPod
 type StaticPodSpec struct {
-	// StaticPodName indicates the static pod desired to be upgraded.
-	StaticPodName string `json:"staticPodName"`
-
 	// StaticPodManifest indicates the Static Pod desired to be upgraded. The corresponding
 	// manifest file name is `StaticPodManifest.yaml`.
-	// +optional
 	StaticPodManifest string `json:"staticPodManifest,omitempty"`
-
-	// Namespace indicates the namespace of target static pod
-	// +optional
-	StaticPodNamespace string `json:"staticPodNamespace,omitempty"`
 
 	// An upgrade strategy to replace existing static pods with new ones.
 	UpgradeStrategy StaticPodUpgradeStrategy `json:"upgradeStrategy,omitempty"`
+
+	// The number of old history to retain to allow rollback.
+	// Defaults to 10.
+	// +optional
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 
 	// An object that describes the desired upgrade static pod.
 	// +optional
@@ -97,14 +94,18 @@ type StaticPodCondition struct {
 
 // StaticPodStatus defines the observed state of StaticPod
 type StaticPodStatus struct {
-	// The total number of static pods
+	// The total number of nodes that are running the static pod.
 	TotalNumber int32 `json:"totalNumber"`
 
-	// The number of static pods that should be upgraded.
+	// The number of nodes that are running static pods which need to be upgraded.
 	DesiredNumber int32 `json:"desiredNumber"`
 
-	// The number of static pods that have been upgraded.
+	// The number of nodes that are running updated static pod.
 	UpgradedNumber int32 `json:"upgradedNumber"`
+
+	// The most recent generation observed by the static pod controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration"`
 
 	// Represents the latest available observations of StaticPod's current state.
 	// +optional
@@ -115,7 +116,7 @@ type StaticPodStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,path=staticpods,shortName=sp,categories=all
+// +kubebuilder:resource:shortName=sp
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 //+kubebuilder:printcolumn:name="TotalNumber",type="integer",JSONPath=".status.totalNumber",description="The total number of static pods"
 //+kubebuilder:printcolumn:name="DesiredNumber",type="integer",JSONPath=".status.desiredNumber",description="The number of static pods that desired to be upgraded"

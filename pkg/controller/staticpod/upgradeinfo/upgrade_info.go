@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -59,11 +58,11 @@ func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string
 
 	// upgrade worker pod is default in "kube-system" namespace which may be different with target static pod's namespace
 	var podList, systemPodList corev1.PodList
-	if err := c.List(context.TODO(), &podList, &client.ListOptions{Namespace: instance.Spec.StaticPodNamespace}); err != nil {
+	if err := c.List(context.TODO(), &podList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
 		return nil, err
 	}
 
-	if err := c.List(context.TODO(), &systemPodList, &client.ListOptions{Namespace: metav1.NamespaceSystem}); err != nil {
+	if err := c.List(context.TODO(), &systemPodList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
 		return nil, err
 	}
 
@@ -74,7 +73,7 @@ func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string
 		}
 
 		// The name format of mirror static pod is `StaticPodName-NodeName`
-		if util.Hyphen(instance.Spec.StaticPodName, nodeName) == pod.Name && isStaticPod(&pod) {
+		if util.Hyphen(instance.Name, nodeName) == pod.Name && isStaticPod(&pod) {
 			if info := infos[nodeName]; info == nil {
 				infos[nodeName] = &UpgradeInfo{}
 			}
