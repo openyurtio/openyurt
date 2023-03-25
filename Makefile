@@ -24,6 +24,7 @@ GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 BUILD_KUSTOMIZE ?= _output/manifest
+GOPROXY ?= $(shell go env GOPROXY)
 
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
@@ -38,7 +39,8 @@ endif
 DOCKER_BUILD_ARGS = --build-arg GIT_VERSION=${GIT_VERSION}
 
 ifeq (${REGION}, cn)
-DOCKER_BUILD_ARGS += --build-arg GOPROXY=https://goproxy.cn --build-arg MIRROR_REPO=mirrors.aliyun.com
+GOPROXY=https://goproxy.cn
+DOCKER_BUILD_ARGS += --build-arg GOPROXY=$(GOPROXY) --build-arg MIRROR_REPO=mirrors.aliyun.com
 endif
 
 ifneq (${http_proxy},)
@@ -55,7 +57,7 @@ all: test build
 
 # Build binaries in the host environment
 build:
-	bash hack/make-rules/build.sh $(WHAT)
+	GOPROXY=$(GOPROXY) bash hack/make-rules/build.sh $(WHAT)
 
 # Run test
 test:
