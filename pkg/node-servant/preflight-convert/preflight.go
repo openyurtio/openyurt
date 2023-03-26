@@ -17,11 +17,9 @@ limitations under the License.
 package preflight_convert
 
 import (
-	"fmt"
-
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/preflight"
+	"github.com/openyurtio/openyurt/pkg/node-servant/preflight"
 )
 
 // ConvertPreflighter do the preflight-convert-convert job
@@ -42,8 +40,8 @@ func (n *ConvertPreflighter) Do() error {
 		return err
 	}
 
-	fmt.Println("[preflight-convert] Pulling images required for converting a Kubernetes cluster to an OpenYurt cluster")
-	fmt.Println("[preflight-convert] This might take a minute or two, depending on the speed of your internet connection")
+	klog.Infof("[preflight-convert] Pulling images required for converting a Kubernetes cluster to an OpenYurt cluster")
+	klog.Infof("[preflight-convert] This might take a minute or two, depending on the speed of your internet connection")
 	if err := preflight.RunPullImagesCheck(n, n.IgnorePreflightErrors); err != nil {
 		return err
 	}
