@@ -14,22 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhook 
 
-// SetDefaultsNodePool set default values for NodePool.
-func SetDefaultsNodePool(obj *NodePool) {
-	// example for set default value for NodePool
-	if obj.Annotations == nil {
-		obj.Annotations = make(map[string]string)
-	}
+import (
+    "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
+)
 
+func init() {
+    addWebhook(&v1alpha1.YurtAppDaemonHandler{})
 }
 
-// SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
-func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
-	// example for set default value for YurtAppDaemon 
-
-	if len(obj.Spec.Default) == 0 {
-		obj.Spec.Default = "set-default-value-0"
-	}
-}

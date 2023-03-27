@@ -16,20 +16,24 @@ limitations under the License.
 
 package v1alpha1
 
-// SetDefaultsNodePool set default values for NodePool.
-func SetDefaultsNodePool(obj *NodePool) {
-	// example for set default value for NodePool
-	if obj.Annotations == nil {
-		obj.Annotations = make(map[string]string)
+import (
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+)
+
+// Default satisfies the defaulting webhook interface.
+func (webhook *YurtAppDaemonHandler) Default(ctx context.Context, obj runtime.Object) error {
+	np, ok := obj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
 	}
 
-}
+	v1alpha1.SetDefaultsYurtAppDaemon(np)
 
-// SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
-func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
-	// example for set default value for YurtAppDaemon 
-
-	if len(obj.Spec.Default) == 0 {
-		obj.Spec.Default = "set-default-value-0"
-	}
+	return nil
 }
