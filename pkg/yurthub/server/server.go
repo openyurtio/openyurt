@@ -25,6 +25,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -77,6 +78,7 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 
 	// register handler for health check
 	c.HandleFunc("/v1/healthz", healthz).Methods("GET")
+	c.Handle("/v1/readyz", readyz(cfg.CertManager)).Methods("GET")
 
 	// register handler for profile
 	if cfg.EnableProfiling {
@@ -96,4 +98,17 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "OK")
+}
+
+// readyz is used for checking certificates are ready or not
+func readyz(certificateMgr certificate.YurtCertificateManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ready := certificateMgr.Ready()
+		if ready {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "OK")
+		} else {
+			http.Error(w, "certificates are not ready", http.StatusInternalServerError)
+		}
+	})
 }
