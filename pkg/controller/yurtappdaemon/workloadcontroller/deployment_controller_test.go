@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/openyurtio/yurt-app-manager/pkg/yurtappmanager/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
 func TestGetTemplateType(t *testing.T) {

@@ -27,9 +27,9 @@ func SetDefaultsNodePool(obj *NodePool) {
 
 // SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
 func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
-	// example for set default value for YurtAppDaemon 
+	// example for set default value for YurtAppDaemon
 
-	if len(obj.Spec.Default) == 0 {
-		obj.Spec.Default = "set-default-value-0"
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
 	}
 }

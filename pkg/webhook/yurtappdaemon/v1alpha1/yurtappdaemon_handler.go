@@ -17,21 +17,26 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
-// SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
+// SetupWebhookWithManager sets up Cluster webhooks.
 func (webhook *YurtAppDaemonHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	// init
-	webhook.Client = mgr.GetClient()
 
-	gvk, err := apiutil.GVKForObject(&v1alpha1.YurtAppDaemon{}, mgr.GetScheme())
+	gvk, err := apiutil.GVKForObject(&appsv1alpha1.YurtAppDaemon{}, mgr.GetScheme())
 	if err != nil {
 		return "", "", err
 	}
@@ -54,3 +59,41 @@ type YurtAppDaemonHandler struct {
 
 var _ webhook.CustomDefaulter = &YurtAppDaemonHandler{}
 var _ webhook.CustomValidator = &YurtAppDaemonHandler{}
+
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
+	}
+
+	if allErrs := validateYurtAppDaemon(webhook.Client, daemon); len(allErrs) > 0 {
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), daemon.Name, allErrs)
+	}
+
+	return nil
+}
+
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	newDaemon, ok := newObj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", newObj))
+	}
+	oldDaemon, ok := oldObj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", oldObj))
+	}
+
+	validationErrorList := validateYurtAppDaemon(webhook.Client, newDaemon)
+	updateErrorList := ValidateYurtAppDaemonUpdate(newDaemon, oldDaemon)
+	if allErrs := append(validationErrorList, updateErrorList...); len(allErrs) > 0 {
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), newDaemon.Name, allErrs)
+	}
+	return nil
+}
+
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+	return nil
+}

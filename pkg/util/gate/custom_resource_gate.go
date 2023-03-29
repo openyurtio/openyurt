@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/openyurtio/yurt-app-manager/pkg/yurtappmanager/apis"
+	"github.com/openyurtio/openyurt/pkg/apis"
 )
 
 const (

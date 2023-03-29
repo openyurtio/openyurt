@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package options 
+package options
 
 import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
@@ -27,8 +27,7 @@ type YurtAppDaemonControllerOptions struct {
 
 func NewYurtAppDaemonControllerOptions() *YurtAppDaemonControllerOptions {
 	return &YurtAppDaemonControllerOptions{
-		&config.YurtAppDaemonControllerConfiguration{
-		},
+		&config.YurtAppDaemonControllerConfiguration{},
 	}
 }
 
