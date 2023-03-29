@@ -28,10 +28,12 @@ import (
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,11 +43,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	registryClient "github.com/openyurtio/openyurt/pkg/client"
 	poolcoordinatorCert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
@@ -56,7 +55,7 @@ func init() {
 
 var (
 	concurrentReconciles = 3
-	csrV1Kind            = certificatesv1.SchemeGroupVersion.WithKind("CertificateSigningRequest")
+	csrV1Resource        = certificatesv1.SchemeGroupVersion.WithResource("certificatesigningrequests")
 
 	yurtCsr                  = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 	yurtHubNodeCertOrgPrefix = "openyurt:tenant:"
@@ -105,8 +104,22 @@ type csrRecognizer struct {
 
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	return add(mgr, newReconciler(c, mgr))
+func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
+	r := &ReconcileCsrApprover{}
+	// Create a new controller
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for csr changes
+	if r.csrV1Supported {
+		return c.Watch(&source.Kind{Type: &certificatesv1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+	} else {
+		return c.Watch(&source.Kind{Type: &certificatesv1beta1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+	}
 }
 
 var _ reconcile.Reconciler = &ReconcileCsrApprover{}
@@ -118,33 +131,31 @@ type ReconcileCsrApprover struct {
 	csrApproverClient kubernetes.Interface
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	genericClient := registryClient.GetGenericClientWithName(controllerName)
-
-	return &ReconcileCsrApprover{
-		Client:            utilclient.NewClientFromManager(mgr, controllerName),
-		csrV1Supported:    utildiscovery.DiscoverGVK(csrV1Kind),
-		csrApproverClient: genericClient.KubeClient,
-	}
+func (r *ReconcileCsrApprover) InjectClient(c client.Client) error {
+	r.Client = c
+	return nil
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
-	})
-	if err != nil {
-		return err
+func (r *ReconcileCsrApprover) InjectMapper(mapper meta.RESTMapper) error {
+	if gvk, err := mapper.KindFor(csrV1Resource); err != nil {
+		klog.Errorf("v1.CertificateSigningRequest is not supported, %v", err)
+		r.csrV1Supported = false
+	} else {
+		klog.Infof("%s is supported", gvk.String())
+		r.csrV1Supported = true
 	}
 
-	// Watch for changes to CsrApprover
-	if utildiscovery.DiscoverGVK(csrV1Kind) {
-		return c.Watch(&source.Kind{Type: &certificatesv1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
-	} else {
-		return c.Watch(&source.Kind{Type: &certificatesv1beta1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+	return nil
+}
+
+func (r *ReconcileCsrApprover) InjectConfig(cfg *rest.Config) error {
+	client, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		klog.Errorf("failed to create kube client, %v", err)
+		return err
 	}
+	r.csrApproverClient = client
+	return nil
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
