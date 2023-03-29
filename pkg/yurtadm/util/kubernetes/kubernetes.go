@@ -47,6 +47,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/initsystem"
 )
 
 const (
@@ -474,4 +475,16 @@ func RetrieveBootstrapConfig(data joindata.YurtJoinData) (*clientcmdapi.Config, 
 		clusterinfo.CertificateAuthorityData,
 		data.JoinToken(),
 	), nil
+}
+
+// CheckKubeletStatus check if kubelet is healthy.
+func CheckKubeletStatus() error {
+	initSystem, err := initsystem.GetInitSystem()
+	if err != nil {
+		return err
+	}
+	if ok := initSystem.ServiceIsActive("kubelet"); !ok {
+		return fmt.Errorf("kubelet is not active. ")
+	}
+	return nil
 }

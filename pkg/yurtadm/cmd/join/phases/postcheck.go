@@ -17,64 +17,31 @@ limitations under the License.
 package phases
 
 import (
-	"fmt"
-	"io"
-	"net/http"
-	"time"
-
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/initsystem"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
-// RunPostCheck executes the node health check process.
+// RunPostCheck executes the node health check and clean process.
 func RunPostCheck(data joindata.YurtJoinData) error {
 	klog.V(1).Infof("check kubelet status.")
-	if err := checkKubeletStatus(); err != nil {
+	if err := kubernetes.CheckKubeletStatus(); err != nil {
 		return err
 	}
 	klog.V(1).Infof("kubelet service is active")
 
 	klog.V(1).Infof("waiting hub agent ready.")
-	if err := checkYurthubHealthz(data); err != nil {
+	if err := yurthub.CheckYurthubHealthz(data.YurtHubServer()); err != nil {
 		return err
 	}
 	klog.V(1).Infof("hub agent is ready")
 
-	return nil
-}
-
-// checkKubeletStatus check if kubelet is healthy.
-func checkKubeletStatus() error {
-	initSystem, err := initsystem.GetInitSystem()
-	if err != nil {
+	if err := yurthub.CleanHubBootstrapConfig(); err != nil {
 		return err
 	}
-	if ok := initSystem.ServiceIsActive("kubelet"); !ok {
-		return fmt.Errorf("kubelet is not active. ")
-	}
-	return nil
-}
+	klog.V(1).Infof("clean yurthub bootstrap config file success")
 
-// checkYurthubHealthz check if YurtHub is healthy.
-func checkYurthubHealthz(joinData joindata.YurtJoinData) error {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", joinData.YurtHubServer()), constants.ServerHealthzURLPath), nil)
-	if err != nil {
-		return err
-	}
-	client := &http.Client{}
-	return wait.PollImmediate(time.Second*5, 300*time.Second, func() (bool, error) {
-		resp, err := client.Do(req)
-		if err != nil {
-			return false, nil
-		}
-		ok, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return false, nil
-		}
-		return string(ok) == "OK", nil
-	})
+	return nil
 }
