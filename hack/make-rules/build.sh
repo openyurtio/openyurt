@@ -25,7 +25,6 @@ readonly YURT_ALL_TARGETS=(
     yurt-node-servant
     yurthub
     yurt-manager
-    yurt-static-pod-upgrade
 )
 
 # clean old binaries at GOOS and GOARCH

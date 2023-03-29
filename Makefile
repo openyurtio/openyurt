@@ -130,7 +130,7 @@ docker-build:
 
 
 # Build and Push the docker images with multi-arch
-docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-static-pod-upgrade
+docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager
 
 
 docker-buildx-builder:
@@ -150,9 +150,6 @@ docker-push-node-servant: docker-buildx-builder
 
 docker-push-yurt-manager: manifests docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
-
-docker-push-yurt-static-pod-upgrade: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-static-pod-upgrade . -t ${IMAGE_REPO}/yurt-static-pod-upgrade:${GIT_VERSION}
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi

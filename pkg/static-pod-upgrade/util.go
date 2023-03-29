@@ -17,16 +17,8 @@ limitations under the License.
 package upgrade
 
 import (
-	"context"
-	"fmt"
 	"io"
 	"os"
-	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -34,8 +26,7 @@ const (
 	BackupSuffix         = ".bak"
 	UpgradeSuffix string = ".upgrade"
 
-	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
-	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
+	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
 )
 
 func WithYamlSuffix(path string) string {
@@ -69,55 +60,4 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	return nil
-}
-
-// WaitForPodRunning waits static pod to run
-// Success: Static pod annotation `StaticPodHashAnnotation` value equals to function argument hash
-// Failed: Receive PodFailed event
-func WaitForPodRunning(c kubernetes.Interface, name, namespace, hash string, timeout time.Duration) (bool, error) {
-	klog.Infof("WaitForPodRuning name is %s, namespace is %s", name, namespace)
-	// Create a watcher to watch the pod's status
-	watcher, err := c.CoreV1().Pods(namespace).Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + name})
-	if err != nil {
-		return false, err
-	}
-	defer watcher.Stop()
-
-	// Create a channel to receive updates from the watcher
-	ch := watcher.ResultChan()
-
-	// Start a goroutine to monitor the pod's status
-	running := make(chan struct{})
-	failed := make(chan struct{})
-
-	go func() {
-		for event := range ch {
-			obj, ok := event.Object.(*corev1.Pod)
-			if !ok {
-				continue
-			}
-
-			h := obj.Annotations[StaticPodHashAnnotation]
-
-			if obj.Status.Phase == corev1.PodRunning && h == hash {
-				close(running)
-				return
-			}
-
-			if obj.Status.Phase == corev1.PodFailed {
-				close(failed)
-				return
-			}
-		}
-	}()
-
-	// Wait for watch event to finish or the timeout to expire
-	select {
-	case <-running:
-		return true, nil
-	case <-failed:
-		return false, nil
-	case <-time.After(timeout):
-		return false, fmt.Errorf("timeout waiting for static pod %s/%s to be running", namespace, name)
-	}
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/convert"
 	preflightconvert "github.com/openyurtio/openyurt/cmd/yurt-node-servant/preflight-convert"
 	"github.com/openyurtio/openyurt/cmd/yurt-node-servant/revert"
+	upgrade "github.com/openyurtio/openyurt/cmd/yurt-node-servant/static-pod-upgrade"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -49,6 +50,7 @@ func main() {
 	rootCmd.AddCommand(revert.NewRevertCmd())
 	rootCmd.AddCommand(preflightconvert.NewxPreflightConvertCmd())
 	rootCmd.AddCommand(config.NewConfigCmd())
+	rootCmd.AddCommand(upgrade.NewUpgradeCmd())
 
 	if err := rootCmd.Execute(); err != nil { // run command
 		os.Exit(1)

@@ -14,19 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package upgrade
 
 import (
 	"fmt"
-	"math/rand"
-	"os"
-	"time"
+	"github.com/spf13/pflag"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	upgrade "github.com/openyurtio/openyurt/pkg/static-pod-upgrade"
 )
 
@@ -35,20 +31,18 @@ var (
 	mode     string
 )
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
-	version := fmt.Sprintf("%#v", projectinfo.Get())
+// NewUpgradeCmd generates a new upgrade command
+func NewUpgradeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "yurt-static-pod-upgrade",
+		Use:   "static-pod-upgrade",
+		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("yurt-static-pod-upgrade version: %#v\n", version)
-
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
 
 			if err := validate(); err != nil {
-				klog.Fatalf("Fail to validate yurt static pod upgrade args, %v", err)
+				klog.Fatalf("Fail to validate static pod upgrade args, %v", err)
 			}
 
 			ctrl, err := upgrade.New(manifest, mode)
@@ -59,16 +53,14 @@ func main() {
 			if err = ctrl.Upgrade(); err != nil {
 				klog.Fatalf("Fail to upgrade static pod, %v", err)
 			}
+
 			klog.Info("Static pod upgrade Success")
 		},
-		Version: version,
+		Args: cobra.NoArgs,
 	}
-
 	addFlags(cmd)
 
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return cmd
 }
 
 func addFlags(cmd *cobra.Command) {

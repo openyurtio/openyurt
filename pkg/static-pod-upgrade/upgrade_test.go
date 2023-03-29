@@ -59,11 +59,6 @@ func Test(t *testing.T) {
 		/*
 			1. Prepare the test environment
 		*/
-		if mode == "auto" {
-			runningStaticPod.Annotations = map[string]string{
-				StaticPodHashAnnotation: TestHashValue,
-			}
-		}
 		c := fake.NewSimpleClientset(runningStaticPod)
 		// Add watch event for verify
 		watcher := watch.NewFake()
