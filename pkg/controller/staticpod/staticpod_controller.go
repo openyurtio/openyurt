@@ -175,8 +175,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// When node turn ready, reconcile all StaticPod instances
 	// nodeReadyPredicate filter events which are node turn ready
 	nodeReadyPredicate := predicate.Funcs{
+		CreateFunc: func(evt event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(evt event.DeleteEvent) bool {
+			return false
+		},
 		UpdateFunc: func(evt event.UpdateEvent) bool {
 			return nodeTurnReady(evt)
+		},
+		GenericFunc: func(evt event.GenericEvent) bool {
+			return false
 		},
 	}
 

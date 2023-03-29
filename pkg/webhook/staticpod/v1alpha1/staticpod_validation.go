@@ -85,10 +85,6 @@ func validateStaticPodSpec(spec *v1alpha1.StaticPodSpec) field.ErrorList {
 	}
 
 	strategy := &spec.UpgradeStrategy
-	if strategy == nil {
-		allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("upgradeStrategy"),
-			"upgrade strategy is required"))
-	}
 
 	if strategy.Type != v1alpha1.AutoStaticPodUpgradeStrategyType && strategy.Type != v1alpha1.OTAStaticPodUpgradeStrategyType {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("spec").Child("upgradeStrategy"),

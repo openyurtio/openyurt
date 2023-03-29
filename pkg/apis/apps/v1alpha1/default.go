@@ -29,11 +29,14 @@ func SetDefaultsNodePool(obj *NodePool) {
 
 // SetDefaultsStaticPod set default values for StaticPod.
 func SetDefaultsStaticPod(obj *StaticPod) {
-	// Set default max-unavailable to "10%" in auto mode if it's not set
-	strategy := obj.Spec.UpgradeStrategy.DeepCopy()
-	if strategy != nil && strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
+	// Set default upgrade strategy to "auto" with max-unavailable to "10%"
+	strategy := &obj.Spec.UpgradeStrategy
+	if strategy.Type == "" {
+		strategy.Type = AutoStaticPodUpgradeStrategyType
+	}
+	if strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
 		v := intstr.FromString("10%")
-		obj.Spec.UpgradeStrategy.MaxUnavailable = &v
+		strategy.MaxUnavailable = &v
 	}
 
 	// Set default RevisionHistoryLimit to 10
