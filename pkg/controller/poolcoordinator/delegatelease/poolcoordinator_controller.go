@@ -55,7 +55,8 @@ type Controller struct {
 	leaseLister     leaselisterv1.LeaseNamespaceLister
 	nodeUpdateQueue workqueue.Interface
 
-	ldc *utils.LeaseDelegatedCounter
+	ldc    *utils.LeaseDelegatedCounter
+	delLdc *utils.LeaseDelegatedCounter
 }
 
 func (c *Controller) onLeaseCreate(n interface{}) {
@@ -87,6 +88,7 @@ func NewController(kc client.Interface, informerFactory informers.SharedInformer
 		client:          kc,
 		nodeUpdateQueue: workqueue.NewNamed("poolcoordinator_node"),
 		ldc:             utils.NewLeaseDelegatedCounter(),
+		delLdc:          utils.NewLeaseDelegatedCounter(),
 	}
 
 	if informerFactory != nil {
@@ -152,6 +154,7 @@ func (c *Controller) doDeTaintNodeNotSchedulable(node *corev1.Node) *corev1.Node
 	taints := node.Spec.Taints
 	taints, deleted := utils.DeleteTaintsByKey(taints, constant.NodeNotSchedulableTaint)
 	if !deleted {
+		c.delLdc.Inc(node.Name)
 		klog.Infof("detaint %s: no key %s exists, nothing to do\n", node.Name, constant.NodeNotSchedulableTaint)
 		return node
 	}
@@ -162,6 +165,8 @@ func (c *Controller) doDeTaintNodeNotSchedulable(node *corev1.Node) *corev1.Node
 		nn, err = c.client.CoreV1().Nodes().Update(context.TODO(), nn, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Error(err)
+		} else {
+			c.delLdc.Inc(node.Name)
 		}
 	}
 	return nn
@@ -186,9 +191,10 @@ func (c *Controller) syncHandler(key string) error {
 		c.ldc.Inc(nl.Name)
 		if c.ldc.Counter(nl.Name) >= constant.LeaseDelegationThreshold {
 			c.taintNodeNotSchedulable(nl.Name)
+			c.delLdc.Reset(nl.Name)
 		}
 	} else {
-		if c.ldc.Counter(nl.Name) >= constant.LeaseDelegationThreshold {
+		if c.delLdc.Counter(nl.Name) == 0 {
 			c.deTaintNodeNotSchedulable(nl.Name)
 		}
 		c.ldc.Reset(nl.Name)

@@ -73,7 +73,7 @@ func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) bool {
 	klog.V(5).Infof("daemonset %v revision hash is %v", ds.Name, hash)
 	klog.V(5).Infof("daemonset %v generation is %v", ds.Name, generation)
 
-	templateMatches := generation != nil && pod.Labels[extensions.DaemonSetTemplateGenerationKey] == fmt.Sprint(generation)
+	templateMatches := generation != nil && pod.Labels[extensions.DaemonSetTemplateGenerationKey] == fmt.Sprint(*generation)
 	hashMatches := len(hash) > 0 && pod.Labels[extensions.DefaultDaemonSetUniqueLabelKey] == hash
 	return hashMatches || templateMatches
 }

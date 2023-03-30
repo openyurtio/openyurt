@@ -343,6 +343,7 @@ func createCertManager(options *options.YurtHubOptions, remoteServers []*url.URL
 		RootDir:                  options.RootDir,
 		NodeName:                 options.NodeName,
 		JoinToken:                options.JoinToken,
+		BootstrapFile:            options.BootstrapFile,
 		CaCertHashes:             options.CACertHashes,
 		YurtHubCertOrganizations: options.YurtHubCertOrganizations,
 		CertIPs:                  certIPs,
