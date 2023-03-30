@@ -369,8 +369,7 @@ func (r *ReconcileYurtAppDaemon) manageWorkloadsProvision(instance *unitv1alpha1
 }
 
 func (r *ReconcileYurtAppDaemon) classifyWorkloads(instance *unitv1alpha1.YurtAppDaemon, currentNodepoolToWorkload map[string]*workloadcontroller.Workload,
-	allNameToNodePools map[string]unitv1alpha1.NodePool, expectedRevision string) (needDeleted, needUpdate []*workloadcontroller.Workload,
-	needCreate []string) {
+	allNameToNodePools map[string]unitv1alpha1.NodePool, expectedRevision string) (needDeleted, needUpdate []*workloadcontroller.Workload, needCreate []string) {
 
 	for npName, load := range currentNodepoolToWorkload {
 		if np, ok := allNameToNodePools[npName]; ok {

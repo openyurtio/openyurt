@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/klog/v2"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -28,6 +30,7 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *YurtAppDaemonHandler) Default(ctx context.Context, obj runtime.Object) error {
+	klog.Info("default object %v", obj)
 	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))

@@ -35,10 +35,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/refmanager"
 )
 
-func (r *ReconcileYurtAppDaemon) controlledHistories(ud *appsalphav1.YurtAppDaemon) ([]*apps.ControllerRevision, error) {
+func (r *ReconcileYurtAppDaemon) controlledHistories(yad *appsalphav1.YurtAppDaemon) ([]*apps.ControllerRevision, error) {
 	// List all histories to include those that don't match the selector anymore
 	// but have a ControllerRef pointing to the controller.
-	selector, err := metav1.LabelSelectorAsSelector(ud.Spec.Selector)
+	selector, err := metav1.LabelSelectorAsSelector(yad.Spec.Selector)
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +47,10 @@ func (r *ReconcileYurtAppDaemon) controlledHistories(ud *appsalphav1.YurtAppDaem
 	if err != nil {
 		return nil, err
 	}
-	klog.V(1).Infof("List controller revision of YurtAppDaemon %s/%s: count %d\n", ud.Namespace, ud.Name, len(histories.Items))
+	klog.V(1).Infof("List controller revision of YurtAppDaemon %s/%s: count %d\n", yad.Namespace, yad.Name, len(histories.Items))
 
 	// Use ControllerRefManager to adopt/orphan as needed.
-	cm, err := refmanager.New(r.Client, ud.Spec.Selector, ud, r.scheme)
+	cm, err := refmanager.New(r.Client, yad.Spec.Selector, yad, r.scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -72,36 +72,36 @@ func (r *ReconcileYurtAppDaemon) controlledHistories(ud *appsalphav1.YurtAppDaem
 	return claimHistories, nil
 }
 
-func (r *ReconcileYurtAppDaemon) constructYurtAppDaemonRevisions(ud *appsalphav1.YurtAppDaemon) (*apps.ControllerRevision, *apps.ControllerRevision, int32, error) {
+func (r *ReconcileYurtAppDaemon) constructYurtAppDaemonRevisions(yad *appsalphav1.YurtAppDaemon) (*apps.ControllerRevision, *apps.ControllerRevision, int32, error) {
 	var currentRevision, updateRevision *apps.ControllerRevision
 
-	revisions, err := r.controlledHistories(ud)
+	revisions, err := r.controlledHistories(yad)
 	if err != nil {
-		if ud.Status.CollisionCount == nil {
+		if yad.Status.CollisionCount == nil {
 			return currentRevision, updateRevision, 0, err
 		}
-		return currentRevision, updateRevision, *ud.Status.CollisionCount, err
+		return currentRevision, updateRevision, *yad.Status.CollisionCount, err
 	}
 
 	history.SortControllerRevisions(revisions)
-	cleanedRevision, err := r.cleanExpiredRevision(ud, &revisions)
+	cleanedRevision, err := r.cleanExpiredRevision(yad, &revisions)
 	if err != nil {
-		if ud.Status.CollisionCount == nil {
+		if yad.Status.CollisionCount == nil {
 			return currentRevision, updateRevision, 0, err
 		}
-		return currentRevision, updateRevision, *ud.Status.CollisionCount, err
+		return currentRevision, updateRevision, *yad.Status.CollisionCount, err
 	}
 	revisions = *cleanedRevision
 
 	// Use a local copy of set.Status.CollisionCount to avoid modifying set.Status directly.
 	// This copy is returned so the value gets carried over to set.Status in updateStatefulSet.
 	var collisionCount int32
-	if ud.Status.CollisionCount != nil {
-		collisionCount = *ud.Status.CollisionCount
+	if yad.Status.CollisionCount != nil {
+		collisionCount = *yad.Status.CollisionCount
 	}
 
 	// create a new revision from the current set
-	updateRevision, err = r.newRevision(ud, nextRevision(revisions), &collisionCount)
+	updateRevision, err = r.newRevision(yad, nextRevision(revisions), &collisionCount)
 	if err != nil {
 		return nil, nil, collisionCount, err
 	}
@@ -125,7 +125,7 @@ func (r *ReconcileYurtAppDaemon) constructYurtAppDaemonRevisions(ud *appsalphav1
 		updateRevision = equalRevisions[equalCount-1]
 	} else {
 		//if there is no equivalent revision we create a new one
-		updateRevision, err = r.createControllerRevision(ud, updateRevision, &collisionCount)
+		updateRevision, err = r.createControllerRevision(yad, updateRevision, &collisionCount)
 		if err != nil {
 			return nil, nil, collisionCount, err
 		}
@@ -133,7 +133,7 @@ func (r *ReconcileYurtAppDaemon) constructYurtAppDaemonRevisions(ud *appsalphav1
 
 	// attempt to find the revision that corresponds to the current revision
 	for i := range revisions {
-		if revisions[i].Name == ud.Status.CurrentRevision {
+		if revisions[i].Name == yad.Status.CurrentRevision {
 			currentRevision = revisions[i]
 		}
 	}
@@ -146,16 +146,16 @@ func (r *ReconcileYurtAppDaemon) constructYurtAppDaemonRevisions(ud *appsalphav1
 	return currentRevision, updateRevision, collisionCount, nil
 }
 
-func (r *ReconcileYurtAppDaemon) cleanExpiredRevision(ud *appsalphav1.YurtAppDaemon,
+func (r *ReconcileYurtAppDaemon) cleanExpiredRevision(yad *appsalphav1.YurtAppDaemon,
 	sortedRevisions *[]*apps.ControllerRevision) (*[]*apps.ControllerRevision, error) {
 
-	exceedNum := len(*sortedRevisions) - int(*ud.Spec.RevisionHistoryLimit)
+	exceedNum := len(*sortedRevisions) - int(*yad.Spec.RevisionHistoryLimit)
 	if exceedNum <= 0 {
 		return sortedRevisions, nil
 	}
 
 	live := map[string]bool{}
-	live[ud.Status.CurrentRevision] = true
+	live[yad.Status.CurrentRevision] = true
 
 	for i, revision := range *sortedRevisions {
 		if _, exist := live[revision.Name]; exist {

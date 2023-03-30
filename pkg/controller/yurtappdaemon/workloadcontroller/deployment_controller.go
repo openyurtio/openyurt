@@ -56,7 +56,7 @@ func (d *DeploymentControllor) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load 
 }
 
 // ApplyTemplate updates the object to the latest revision, depending on the YurtAppDaemon.
-func (a *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
+func (d *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
 
 	if set.Labels == nil {
 		set.Labels = map[string]string{}
@@ -151,10 +151,10 @@ func (d *DeploymentControllor) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodep
 	return d.Client.Create(context.TODO(), &deploy)
 }
 
-func (d *DeploymentControllor) GetAllWorkloads(set *v1alpha1.YurtAppDaemon) ([]*Workload, error) {
+func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*Workload, error) {
 	allDeployments := appsv1.DeploymentList{}
 	// 获得 YurtAppDaemon 对应的 所有Deployment, 根据OwnerRef
-	selector, err := metav1.LabelSelectorAsSelector(set.Spec.Selector)
+	selector, err := metav1.LabelSelectorAsSelector(yad.Spec.Selector)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (d *DeploymentControllor) GetAllWorkloads(set *v1alpha1.YurtAppDaemon) ([]*
 		return nil, err
 	}
 
-	manager, err := refmanager.New(d.Client, set.Spec.Selector, set, d.Scheme)
+	manager, err := refmanager.New(d.Client, yad.Spec.Selector, yad, d.Scheme)
 	if err != nil {
 		return nil, err
 	}

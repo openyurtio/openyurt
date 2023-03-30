@@ -17,7 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -33,18 +37,56 @@ import (
 	apivalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
+	}
+
+	if allErrs := validateYurtAppDaemon(webhook.Client, daemon); len(allErrs) > 0 {
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), daemon.Name, allErrs)
+	}
+
+	return nil
+}
+
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	newDaemon, ok := newObj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", newObj))
+	}
+	oldDaemon, ok := oldObj.(*v1alpha1.YurtAppDaemon)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", oldObj))
+	}
+
+	validationErrorList := validateYurtAppDaemon(webhook.Client, newDaemon)
+	updateErrorList := ValidateYurtAppDaemonUpdate(newDaemon, oldDaemon)
+	if allErrs := append(validationErrorList, updateErrorList...); len(allErrs) > 0 {
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), newDaemon.Name, allErrs)
+	}
+	return nil
+}
+
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *YurtAppDaemonHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+	return nil
+}
+
 // validateYurtAppDaemon validates a YurtAppDaemon.
-func validateYurtAppDaemon(c client.Client, yad *unitv1alpha1.YurtAppDaemon) field.ErrorList {
+func validateYurtAppDaemon(c client.Client, yad *v1alpha1.YurtAppDaemon) field.ErrorList {
 	allErrs := apivalidation.ValidateObjectMeta(&yad.ObjectMeta, true, apimachineryvalidation.NameIsDNSSubdomain, field.NewPath("metadata"))
 	allErrs = append(allErrs, validateYurtAppDaemonSpec(c, &yad.Spec, field.NewPath("spec"))...)
 	return allErrs
 }
 
 // validateYurtAppDaemonSpec tests if required fields in the YurtAppDaemon spec are set.
-func validateYurtAppDaemonSpec(c client.Client, spec *unitv1alpha1.YurtAppDaemonSpec, fldPath *field.Path) field.ErrorList {
+func validateYurtAppDaemonSpec(c client.Client, spec *v1alpha1.YurtAppDaemonSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if spec.Selector == nil {
@@ -66,7 +108,7 @@ func validateYurtAppDaemonSpec(c client.Client, spec *unitv1alpha1.YurtAppDaemon
 	return allErrs
 }
 
-func validateWorkLoadTemplate(template *unitv1alpha1.WorkloadTemplate, selector labels.Selector, fldPath *field.Path) field.ErrorList {
+func validateWorkLoadTemplate(template *v1alpha1.WorkloadTemplate, selector labels.Selector, fldPath *field.Path) field.ErrorList {
 
 	allErrs := field.ErrorList{}
 
@@ -121,7 +163,7 @@ func validateWorkLoadTemplate(template *unitv1alpha1.WorkloadTemplate, selector 
 }
 
 // ValidateYurtAppDaemonUpdate tests if required fields in the YurtAppDaemon are set.
-func ValidateYurtAppDaemonUpdate(yad, oldYad *unitv1alpha1.YurtAppDaemon) field.ErrorList {
+func ValidateYurtAppDaemonUpdate(yad, oldYad *v1alpha1.YurtAppDaemon) field.ErrorList {
 	allErrs := apivalidation.ValidateObjectMetaUpdate(&yad.ObjectMeta, &oldYad.ObjectMeta, field.NewPath("metadata"))
 	allErrs = append(allErrs, validateYurtAppDaemonSpecUpdate(&yad.Spec, &oldYad.Spec, field.NewPath("spec"))...)
 	return allErrs
@@ -135,13 +177,13 @@ func convertPodTemplateSpec(template *v1.PodTemplateSpec) (*core.PodTemplateSpec
 	return coreTemplate, nil
 }
 
-func validateYurtAppDaemonSpecUpdate(spec, oldSpec *unitv1alpha1.YurtAppDaemonSpec, fldPath *field.Path) field.ErrorList {
+func validateYurtAppDaemonSpecUpdate(spec, oldSpec *v1alpha1.YurtAppDaemonSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, validateWorkloadTemplateUpdate(&spec.WorkloadTemplate, &oldSpec.WorkloadTemplate, fldPath.Child("template"))...)
 	return allErrs
 }
 
-func validateWorkloadTemplateUpdate(template, oldTemplate *unitv1alpha1.WorkloadTemplate, fldPath *field.Path) field.ErrorList {
+func validateWorkloadTemplateUpdate(template, oldTemplate *v1alpha1.WorkloadTemplate, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if template.StatefulSetTemplate != nil && oldTemplate.StatefulSetTemplate != nil {
 		allErrs = append(allErrs, validateStatefulSetUpdate(template.StatefulSetTemplate, oldTemplate.StatefulSetTemplate,
@@ -170,7 +212,7 @@ func validatePodTemplateSpec(template *core.PodTemplateSpec, selector labels.Sel
 	return allErrs
 }
 
-func validateStatefulSet(statefulSet *unitv1alpha1.StatefulSetTemplateSpec, fldPath *field.Path) field.ErrorList {
+func validateStatefulSet(statefulSet *v1alpha1.StatefulSetTemplateSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	/*
 		if statefulSet.Spec.Replicas != nil {
@@ -186,7 +228,7 @@ func validateStatefulSet(statefulSet *unitv1alpha1.StatefulSetTemplateSpec, fldP
 	return allErrs
 }
 
-func validateDeployment(deployment *unitv1alpha1.DeploymentTemplateSpec, fldPath *field.Path) field.ErrorList {
+func validateDeployment(deployment *v1alpha1.DeploymentTemplateSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	/*
 		if deployment.Spec.Replicas != nil {
@@ -196,7 +238,7 @@ func validateDeployment(deployment *unitv1alpha1.DeploymentTemplateSpec, fldPath
 	return allErrs
 }
 
-func validateDeploymentUpdate(deployment, oldDeployment *unitv1alpha1.DeploymentTemplateSpec,
+func validateDeploymentUpdate(deployment, oldDeployment *v1alpha1.DeploymentTemplateSpec,
 	fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	restoreReplicas := deployment.Spec.Replicas
@@ -224,7 +266,7 @@ func validateDeploymentUpdate(deployment, oldDeployment *unitv1alpha1.Deployment
 
 }
 
-func validateStatefulSetUpdate(statefulSet, oldStatefulSet *unitv1alpha1.StatefulSetTemplateSpec, fldPath *field.Path) field.ErrorList {
+func validateStatefulSetUpdate(statefulSet, oldStatefulSet *v1alpha1.StatefulSetTemplateSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	restoreReplicas := statefulSet.Spec.Replicas
 	statefulSet.Spec.Replicas = oldStatefulSet.Spec.Replicas
