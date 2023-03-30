@@ -41,6 +41,7 @@ func init() {
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 func SetupWithManager(c *config.CompletedConfig, m manager.Manager) error {
+	klog.InfoS("SetupWithManager", "len", len(controllerAddFuncs))
 	for _, f := range controllerAddFuncs {
 		if err := f(c, m); err != nil {
 			if kindMatchErr, ok := err.(*meta.NoKindMatchError); ok {
