@@ -23,6 +23,7 @@ import (
 
 	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
+	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 )
 
 // YurtControllerManagerConfiguration contains elements describing yurt-controller manager.
@@ -41,11 +42,14 @@ type YurtControllerManagerConfiguration struct {
 type YurtManagerConfiguration struct {
 	metav1.TypeMeta
 	Generic GenericConfiguration
-	// NodePoolControllerConfiguration holds configuration for  NodePoolController related features.
+	// NodePoolControllerConfiguration holds configuration for NodePoolController related features.
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
 
-	// GatewayControllerConfiguration holds configuration for  GatewayController related features.
+	// GatewayControllerConfiguration holds configuration for GatewayController related features.
 	GatewayController gatewayconfig.GatewayControllerConfiguration
+
+	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
+	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
 }
 
 type GenericConfiguration struct {

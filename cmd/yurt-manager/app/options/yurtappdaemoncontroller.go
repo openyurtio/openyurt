@@ -31,16 +31,16 @@ func NewYurtAppDaemonControllerOptions() *YurtAppDaemonControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
-func (n *YurtAppDaemonControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+// AddFlags adds flags related to yurtappdaemon for yurt-manager to the specified FlagSet.
+func (o *YurtAppDaemonControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
 	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up yurtappdaemon config with options.
 func (o *YurtAppDaemonControllerOptions) ApplyTo(cfg *config.YurtAppDaemonControllerConfiguration) error {
 	if o == nil {
 		return nil
@@ -54,6 +54,6 @@ func (o *YurtAppDaemonControllerOptions) Validate() []error {
 	if o == nil {
 		return nil
 	}
-	errs := []error{}
+	var errs []error
 	return errs
 }
