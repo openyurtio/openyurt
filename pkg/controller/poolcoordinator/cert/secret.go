@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cert
+package poolcoordinatorcert
 
 import (
 	"context"
@@ -54,12 +54,12 @@ func NewSecretClient(clientSet client.Interface, ns, name string) (*SecretClient
 		// if this secret already exist, reuse it
 		if kerrors.IsAlreadyExists(err) {
 			secret, _ = clientSet.CoreV1().Secrets(ns).Get(context.TODO(), name, metav1.GetOptions{})
-			klog.V(4).Infof("secret %s already exisit: %v", name, secret)
+			klog.V(4).Infof(Format("secret %s already exisit", secret.Name))
 		} else {
 			return nil, fmt.Errorf("create secret client %s fail: %v", name, err)
 		}
 	} else {
-		klog.V(4).Infof("secret %s not exisit, create one: %v", name, secret)
+		klog.V(4).Infof(Format("secret %s not exisit, create one", secret.Name))
 	}
 
 	return &SecretClient{

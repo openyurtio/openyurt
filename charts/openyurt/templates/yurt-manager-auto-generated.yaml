@@ -504,6 +504,24 @@ metadata:
   name: yurt-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -558,6 +576,7 @@ rules:
   resources:
   - certificatesigningrequests
   verbs:
+  - create
   - get
   - list
   - watch

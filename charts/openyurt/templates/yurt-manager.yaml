@@ -60,11 +60,11 @@ spec:
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: yurt-manager
           env:
             - name: WEBHOOK_PORT
-              value: {{ .Values.yurtManager.webhook.port }}
+              value: {{ .Values.yurtManager.webhook.port | quote }}
           ports:
             - containerPort: {{ .Values.yurtManager.webhook.port }}
               name: webhook-server

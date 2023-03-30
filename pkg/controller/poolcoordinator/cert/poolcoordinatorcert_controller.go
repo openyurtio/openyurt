@@ -1,44 +1,54 @@
 /*
-Copyright 2022 The OpenYurt Authors.
+Copyright 2023 The OpenYurt Authors.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
+distributed under the License is distributed on an AS IS BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cert
+package poolcoordinatorcert
 
 import (
+	"context"
 	"crypto"
 	"crypto/x509"
+	"flag"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/pkg/errors"
 	certificatesv1 "k8s.io/api/certificates/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	client "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
-	ip "github.com/openyurtio/openyurt/pkg/util/ip"
+	"github.com/openyurtio/openyurt/pkg/util/ip"
+)
+
+func init() {
+	flag.IntVar(&concurrentReconciles, "poolcoordinatorcert-workers", concurrentReconciles, "Max concurrent workers for Poolcoordinatorcert controller.")
+}
+
+var (
+	concurrentReconciles = 3
 )
 
 const (
+	controllerName = "Poolcoordinatorcert-controller"
+
 	// tmp file directory for certmanager to write cert files
 	certDir = "/tmp"
 
@@ -175,83 +185,70 @@ var allSelfSignedCerts []CertConfig = []CertConfig{
 	},
 }
 
-// PoolCoordinatorCertManager manages certificates releted with poolcoordinator pod
-type PoolCoordinatorCertManager struct {
-	kubeclientset client.Interface
-	podLister     corelisters.PodLister
-	podSynced     cache.InformerSynced
-	podWorkQueue  workqueue.RateLimitingInterface
+func Format(format string, args ...interface{}) string {
+	s := fmt.Sprintf(format, args...)
+	return fmt.Sprintf("%s: %s", controllerName, s)
 }
 
-func NewPoolCoordinatorCertManager(kc client.Interface, podInformer coreinformers.PodInformer) *PoolCoordinatorCertManager {
+// Add creates a new Poolcoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
+	r := &ReconcilePoolcoordinatorcert{}
 
-	certManager := PoolCoordinatorCertManager{
-		kubeclientset: kc,
-
-		podLister: podInformer.Lister(),
-		podSynced: podInformer.Informer().HasSynced,
-
-		podWorkQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-	}
-
-	// Watch for poolcoordinator pod changes to manage related certs (including kubeconfig)
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) {},
-		UpdateFunc: func(oldObj, newObj interface{}) {},
-		DeleteFunc: func(obj interface{}) {},
+	// Create a new controller
+	_, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
-
-	return &certManager
-}
-
-func (c *PoolCoordinatorCertManager) Run(threadiness int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-
-	klog.Info("Starting poolcoordinatorCertManager controller")
-	defer klog.Info("Shutting down poolcoordinatorCertManager controller")
-	defer c.podWorkQueue.ShutDown()
-
-	// prepare some necessary assets (CA, certs, kubeconfigs) for pool-coordinator
-	err := initPoolCoordinator(c.kubeclientset, stopCh)
 	if err != nil {
-		klog.Errorf("fail to init poolcoordinator %v", err)
+		return err
 	}
 
-	// Synchronize the cache before starting to process events
-	if !cache.WaitForCacheSync(stopCh, c.podSynced) {
-		klog.Error("sync poolcoordinatorCertManager controller timeout")
+	// init PoolCoordinator
+	// prepare some necessary assets (CA, certs, kubeconfigs) for pool-coordinator
+	err = initPoolCoordinator(r.Client, nil)
+	if err != nil {
+		return err
 	}
 
-	// The main Controller loop
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	<-stopCh
-}
-
-func (c *PoolCoordinatorCertManager) runWorker() {
-	for {
-		obj, shutdown := c.podWorkQueue.Get()
-		if shutdown {
-			return
-		}
-
-		if err := c.syncHandler(obj.(string)); err != nil {
-			utilruntime.HandleError(err)
-		}
-
-		c.podWorkQueue.Forget(obj)
-		c.podWorkQueue.Done(obj)
-	}
-}
-
-func (c *PoolCoordinatorCertManager) syncHandler(key string) error {
-	// todo: make customized certificate for each poolcoordinator pod
 	return nil
 }
 
+var _ reconcile.Reconciler = &ReconcilePoolcoordinatorcert{}
+
+// ReconcilePoolcoordinatorcert reconciles a Poolcoordinatorcert object
+type ReconcilePoolcoordinatorcert struct {
+	Client client.Interface
+}
+
+// InjectConfig
+func (r *ReconcilePoolcoordinatorcert) InjectConfig(cfg *rest.Config) error {
+	client, err := client.NewForConfig(cfg)
+	if err != nil {
+		klog.Errorf("failed to create kube client, %v", err)
+		return err
+	}
+	r.Client = client
+	return nil
+}
+
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;update;patch;create;list
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list
+
+// todo: make customized certificate for each poolcoordinator pod
+func (r *ReconcilePoolcoordinatorcert) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+
+	// Note !!!!!!!!!!
+	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
+	// @kadisi
+	klog.Infof(Format("Reconcile Poolcoordinatorcert %s/%s", request.Namespace, request.Name))
+
+	return reconcile.Result{}, nil
+}
+
 func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) error {
+
+	klog.Infof(Format("init poolcoordinator started"))
 
 	// Prepare CA certs
 	caCert, caKey, reuseCA, err := initCA(clientSet)
@@ -272,14 +269,14 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 			// 1.1 check if cert exist
 			cert, _, err := loadCertAndKeyFromSecret(clientSet, certConf)
 			if err != nil {
-				klog.Infof("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName)
+				klog.Infof(Format("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName))
 				selfSignedCerts = append(selfSignedCerts, certConf)
 				continue
 			}
 
 			// 1.2 check if cert is autorized by current CA
 			if !IsCertFromCA(cert, caCert) {
-				klog.Infof("existing cert %s is not authorized by current CA", certConf.CertName)
+				klog.Infof(Format("existing cert %s is not authorized by current CA", certConf.CertName))
 				selfSignedCerts = append(selfSignedCerts, certConf)
 				continue
 			}
@@ -290,20 +287,20 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 				ips, _, err := certConf.certInit(clientSet, stopCh)
 				if err != nil {
 					// if cert init failed, skip this cert
-					klog.Errorf("fail to init cert %s when checking dynamic attrs: %v", certConf.CertName, err)
+					klog.Errorf(Format("fail to init cert %s when checking dynamic attrs: %v", certConf.CertName, err))
 					continue
 				} else {
 					// check if dynamic IP addresses already exist in cert
 					changed := ip.SearchAllIP(cert.IPAddresses, ips)
 					if changed {
-						klog.Infof("cert %s IP has changed", certConf.CertName)
+						klog.Infof(Format("cert %s IP has changed", certConf.CertName))
 						selfSignedCerts = append(selfSignedCerts, certConf)
 						continue
 					}
 				}
 			}
 
-			klog.Infof("cert %s not change, reuse it", certConf.CertName)
+			klog.Infof(Format("cert %s not change, reuse it", certConf.CertName))
 		}
 	} else {
 		// create all certs with new CA
@@ -313,7 +310,7 @@ func initPoolCoordinator(clientSet client.Interface, stopCh <-chan struct{}) err
 	// create self signed certs
 	for _, certConf := range selfSignedCerts {
 		if err := initPoolCoordinatorCert(clientSet, certConf, caCert, caKey, stopCh); err != nil {
-			klog.Errorf("create cert %s fail: %v", certConf.CertName, err)
+			klog.Errorf(Format("create cert %s fail: %v", certConf.CertName, err))
 			return err
 		}
 	}
@@ -358,12 +355,12 @@ func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.
 
 	if err == nil {
 		// if CA already exist
-		klog.Info("CA already exist in secret, reuse it")
+		klog.Info(Format("CA already exist in secret, reuse it"))
 		return caCert, caKey, true, nil
 	} else {
 		// if not exist
 		// create new CA certs
-		klog.Infof("fail to get CA from secret: %v, create new CA", err)
+		klog.Infof(Format("fail to get CA from secret: %v, create new CA", err))
 		// write it into the secret
 		caCert, caKey, err = NewSelfSignedCA()
 		if err != nil {
