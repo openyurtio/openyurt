@@ -35,8 +35,9 @@ import (
 
 // SetupWebhookWithManager sets up Cluster webhooks.
 func (webhook *YurtAppDaemonHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-
+	// init
 	gvk, err := apiutil.GVKForObject(&appsv1alpha1.YurtAppDaemon{}, mgr.GetScheme())
+
 	if err != nil {
 		return "", "", err
 	}
