@@ -74,7 +74,6 @@ const (
 	// UpgradeWorkerPodPrefix is the name prefix of worker pod which used for static pod upgrade
 	UpgradeWorkerPodPrefix     = "yurt-static-pod-upgrade-worker-"
 	UpgradeWorkerContainerName = "upgrade-worker"
-	UpgradeWorkerImage         = "openyurt/yurt-static-pod-upgrade:latest"
 
 	ArgTmpl = "/usr/local/bin/yurt-static-pod-upgrade --manifest=%s --mode=%s"
 )
@@ -83,8 +82,9 @@ const (
 // Fields need be set
 // 1. name of worker pod: `yurt-static-pod-upgrade-worker-node-hash`
 // 2. node of worker pod
-// 3. annotation `openyurt.io/static-pod-hash`
-// 4. the corresponding configmap
+// 3. image of worker pod, default is "openyurt/node-servant:latest"
+// 4. annotation `openyurt.io/static-pod-hash`
+// 5. the corresponding configmap
 var (
 	upgradeWorker = &corev1.Pod{
 		Spec: corev1.PodSpec{
@@ -108,7 +108,6 @@ var (
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: &True,
 				},
-				Image: UpgradeWorkerImage,
 			}},
 			Volumes: []corev1.Volume{{
 				Name: hostPathVolumeName,
@@ -521,7 +520,7 @@ func (r *ReconcileStaticPod) autoUpgrade(instance *appsv1alpha1.StaticPod, infos
 	}
 
 	readyUpgradeWaitingNodes = readyUpgradeWaitingNodes[:max]
-	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash, string(appsv1alpha1.AutoStaticPodUpgradeStrategyType)); err != nil {
+	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash, string(appsv1alpha1.AutoStaticPodUpgradeStrategyType), r.Configration.UpgradeWorkerImage); err != nil {
 		return err
 	}
 	return nil
@@ -548,7 +547,7 @@ func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos 
 
 	// Create worker pod to issue the latest manifest to ready node
 	readyUpgradeWaitingNodes := upgradeinfo.OTAReadyUpgradeWaitingNodes(infos, hash)
-	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash, string(appsv1alpha1.OTAStaticPodUpgradeStrategyType)); err != nil {
+	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash, string(appsv1alpha1.OTAStaticPodUpgradeStrategyType), r.Configration.UpgradeWorkerImage); err != nil {
 		return err
 	}
 
@@ -590,7 +589,7 @@ func (r *ReconcileStaticPod) removeUnusedPods(pods []*corev1.Pod) error {
 }
 
 // createUpgradeWorker creates static pod upgrade worker to the given nodes
-func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, nodes []string, hash, mode string) error {
+func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, nodes []string, hash, mode, img string) error {
 	for _, node := range nodes {
 		pod := upgradeWorker.DeepCopy()
 		pod.Name = UpgradeWorkerPodPrefix + util.Hyphen(node, hash)
@@ -608,7 +607,7 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, node
 			},
 		})
 		pod.Spec.Containers[0].Args = []string{fmt.Sprintf(ArgTmpl, instance.Spec.StaticPodManifest, mode)}
-
+		pod.Spec.Containers[0].Image = img
 		if err := controllerutil.SetControllerReference(instance, pod, c.Scheme()); err != nil {
 			return err
 		}

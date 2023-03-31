@@ -72,6 +72,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
 		return err
 	}
+	if err := y.StaticPodController.ApplyTo(&c.ComponentConfig.StaticPodController); err != nil {
+		return err
+	}
 	return nil
 }
 

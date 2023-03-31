@@ -18,4 +18,6 @@ package config
 
 // StaticPodControllerConfiguration contains elements describing GatewayController.
 type StaticPodControllerConfiguration struct {
+	// UpgradeWorkerImage specify the image used to execute the upgrade task
+	UpgradeWorkerImage string
 }

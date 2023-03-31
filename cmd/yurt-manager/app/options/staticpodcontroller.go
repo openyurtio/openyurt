@@ -22,31 +22,35 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
 )
 
+const DefaultUpgradeWorkerImage = "openyurt/node-servant:latest"
+
 type StaticPodControllerOptions struct {
 	*config.StaticPodControllerConfiguration
 }
 
 func NewStaticPodControllerOptions() *StaticPodControllerOptions {
 	return &StaticPodControllerOptions{
-		&config.StaticPodControllerConfiguration{},
+		&config.StaticPodControllerConfiguration{
+			UpgradeWorkerImage: DefaultUpgradeWorkerImage,
+		},
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
-func (n *StaticPodControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+// AddFlags adds flags related to staticpod for yurt-manager to the specified FlagSet.
+func (o *StaticPodControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
+	fs.StringVar(&o.UpgradeWorkerImage, "upgrade-worker-image", o.UpgradeWorkerImage, "Specify the worker pod image used for static pod upgrade.")
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up staticpod config with options.
 func (o *StaticPodControllerOptions) ApplyTo(cfg *config.StaticPodControllerConfiguration) error {
 	if o == nil {
 		return nil
 	}
-
+	cfg.UpgradeWorkerImage = o.UpgradeWorkerImage
 	return nil
 }
 

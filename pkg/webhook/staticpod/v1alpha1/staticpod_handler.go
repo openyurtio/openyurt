@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -28,9 +27,6 @@ import (
 
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *StaticPodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	// init
-	webhook.Client = mgr.GetClient()
-
 	gvk, err := apiutil.GVKForObject(&v1alpha1.StaticPod{}, mgr.GetScheme())
 	if err != nil {
 		return "", "", err
@@ -49,7 +45,6 @@ func (webhook *StaticPodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (stri
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type StaticPodHandler struct {
-	Client client.Client
 }
 
 var _ webhook.CustomDefaulter = &StaticPodHandler{}
