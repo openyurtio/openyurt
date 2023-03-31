@@ -42,6 +42,7 @@ import (
 	common "github.com/openyurtio/openyurt/pkg/controller/gateway"
 	"github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	"github.com/openyurtio/openyurt/pkg/controller/gateway/utils"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
@@ -264,23 +265,9 @@ func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *rav
 
 // isNodeReady checks if the `node` is `corev1.NodeReady`
 func isNodeReady(node corev1.Node) bool {
-	_, nc := getNodeCondition(&node.Status, corev1.NodeReady)
+	_, nc := nodeutil.GetNodeCondition(&node.Status, corev1.NodeReady)
 	// GetNodeCondition will return nil and -1 if the condition is not present
 	return nc != nil && nc.Status == corev1.ConditionTrue
-}
-
-// getNodeCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-func getNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeConditionType) (int, *corev1.NodeCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	for i := range status.Conditions {
-		if status.Conditions[i].Type == conditionType {
-			return i, &status.Conditions[i]
-		}
-	}
-	return -1, nil
 }
 
 // getPodCIDRs returns the pod IP ranges assigned to the node.

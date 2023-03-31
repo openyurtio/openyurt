@@ -39,6 +39,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/utils"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 const (
@@ -191,6 +192,7 @@ func (c *Controller) syncHandler(key string) error {
 		c.ldc.Inc(nl.Name)
 		if c.ldc.Counter(nl.Name) >= constant.LeaseDelegationThreshold {
 			c.taintNodeNotSchedulable(nl.Name)
+			c.checkNodeReadyConditionAndSetIt(nl.Name)
 			c.delLdc.Reset(nl.Name)
 		}
 	} else {
@@ -232,4 +234,39 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
+}
+
+// If node lease was delegate, check node ready condition.
+// If ready condition is unknown, update to true.
+// Because when node ready condition is unknown, the native kubernetes will set node.kubernetes.io/unreachable taints in node,
+// and the pod will be evict after 300s, that's not what we're trying to do in delegate lease.
+// Up to now, it's only happen when leader in nodePool is disconnected with cloud, and this node will be not-ready,
+// because in an election cycle, the node lease will not delegate to cloud, after 40s, the kubernetes will set unknown.
+func (c *Controller) checkNodeReadyConditionAndSetIt(name string) {
+	node, err := c.nodeLister.Get(name)
+	if err != nil {
+		klog.Error(err)
+		return
+	}
+
+	// check node ready condition
+	newNode := node.DeepCopy()
+	_, currentCondition := nodeutil.GetNodeCondition(&newNode.Status, corev1.NodeReady)
+	if currentCondition.Status != corev1.ConditionUnknown {
+		// don't need to reset node ready condition
+		return
+	}
+
+	// reset node ready condition as true
+	currentCondition.Status = corev1.ConditionTrue
+	currentCondition.Reason = "NodeDelegateLease"
+	currentCondition.Message = "Node disconnect with ApiServer and lease delegate."
+	currentCondition.LastTransitionTime = metav1.NewTime(time.Now())
+
+	// update
+	if _, err := c.client.CoreV1().Nodes().UpdateStatus(context.TODO(), newNode, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("Error updating node %s: %v", newNode.Name, err)
+		return
+	}
+	klog.Infof("successful set node %s ready condition with true", newNode.Name)
 }

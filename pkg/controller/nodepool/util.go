@@ -34,6 +34,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 var timeSleep = time.Sleep
@@ -272,23 +273,9 @@ func containTaint(taint corev1.Taint, taints []corev1.Taint) (int, bool) {
 	return 0, false
 }
 
-// GetNodeCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-func GetNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeConditionType) (int, *corev1.NodeCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	for i := range status.Conditions {
-		if status.Conditions[i].Type == conditionType {
-			return i, &status.Conditions[i]
-		}
-	}
-	return -1, nil
-}
-
 // isNodeReady checks if the `node` is `corev1.NodeReady`
 func isNodeReady(node corev1.Node) bool {
-	_, nc := GetNodeCondition(&node.Status, corev1.NodeReady)
+	_, nc := nodeutil.GetNodeCondition(&node.Status, corev1.NodeReady)
 	// GetNodeCondition will return nil and -1 if the condition is not present
 	return nc != nil && nc.Status == corev1.ConditionTrue
 }
