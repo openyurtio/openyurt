@@ -1,4 +1,3 @@
-
 imagePullSecrets: []
 imagePullPolicy: IfNotPresent
 
@@ -57,12 +56,12 @@ yurtManager:
     requests:
       cpu: 100m
       memory: 256Mi
-  affinity: 
+  affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-        - matchExpressions:
-          - key: openyurt.io/is-edge-worker
-            operator: In
-            values:
-            - "false"
+          - matchExpressions:
+              - key: openyurt.io/is-edge-worker
+                operator: In
+                values:
+                  - "false"
