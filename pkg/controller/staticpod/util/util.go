@@ -132,22 +132,6 @@ func GetNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeCondit
 	return -1, nil
 }
 
-// NewStaticPodCondition creates a new StaticPod condition.
-func NewStaticPodCondition(condType appsv1alpha1.StaticPodConditionType, status corev1.ConditionStatus, reason, message string) *appsv1alpha1.StaticPodCondition {
-	return &appsv1alpha1.StaticPodCondition{
-		Type:               condType,
-		Status:             status,
-		LastTransitionTime: metav1.Now(),
-		Reason:             reason,
-		Message:            message,
-	}
-}
-
-// UpgradeFailedConditionWithNode return StaticPodUpgradeFailed Condition with reason specifies the upgraded error node
-func UpgradeFailedConditionWithNode(node string) *appsv1alpha1.StaticPodCondition {
-	return NewStaticPodCondition(appsv1alpha1.StaticPodUpgradeFailed, corev1.ConditionTrue, fmt.Sprintf("StaticPod upgrade node %s failed", node), "")
-}
-
 // SetPodUpgradeCondition set pod condition `PodNeedUpgrade` to the specified value
 func SetPodUpgradeCondition(c client.Client, status corev1.ConditionStatus, pod *corev1.Pod) error {
 	cond := &corev1.PodCondition{

@@ -54,11 +54,9 @@ func init() {
 }
 
 var (
-	concurrentReconciles      = 3
-	controllerKind            = appsv1alpha1.SchemeGroupVersion.WithKind("StaticPod")
-	True                      = true
-	upgradeSuccessCondition   = util.NewStaticPodCondition(appsv1alpha1.StaticPodUpgradeSuccess, corev1.ConditionTrue, "", "")
-	upgradeExecutingCondition = util.NewStaticPodCondition(appsv1alpha1.StaticPodUpgradeExecuting, corev1.ConditionTrue, "", "")
+	concurrentReconciles = 3
+	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind("StaticPod")
+	True                 = true
 )
 
 const (
@@ -289,7 +287,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// There are no nodes running target static pods in the cluster
 	if totalNumber == 0 {
 		klog.Infof(Format("No static pods need to be upgraded of StaticPod %v", request.NamespacedName.Name))
-		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber, upgradeSuccessCondition)
+		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
 	// The latest hash value for static pod spec
@@ -335,8 +333,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 		if err != nil {
 			klog.Errorf(Format("Fail to continue upgrade, cause worker pod of StaticPod %v in node %v failed",
 				request.NamespacedName.Name, err.Error()))
-			return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber,
-				util.UpgradeFailedConditionWithNode(err.Error()))
+			return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber)
 		}
 
 		// Verify succeededNodes
@@ -344,8 +341,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 			ok, err := r.verifySucceededNodes(instance, succeededNodes, latestHash)
 			if util.IsFailedError(err) {
 				klog.Errorf(Format("Fail to verify succeededNodes of StaticPod %v, %v", request.NamespacedName.Name, err))
-				return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber,
-					util.UpgradeFailedConditionWithNode(err.Error()))
+				return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber)
 			}
 
 			if err != nil {
@@ -369,7 +365,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// Put this here because we need to clean up the worker pods first
 	if totalNumber == upgradedNumber {
 		klog.Infof(Format("All static pods have been upgraded of StaticPod %v", request.NamespacedName.Name))
-		return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber, upgradeSuccessCondition)
+		return r.updateStaticPodStatus(instance, totalNumber, instance.Status.DesiredNumber, upgradedNumber)
 	}
 
 	switch instance.Spec.UpgradeStrategy.Type {
@@ -380,19 +376,19 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 		desiredNumber = int32(len(upgradeinfo.ReadyNodes(upgradeInfos)))
 		// This means that all the desired nodes are upgraded. It's considered successful.
 		if desiredNumber == upgradedNumber {
-			return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber, upgradeSuccessCondition)
+			return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber)
 		}
 
 		if !allSucceeded {
 			klog.V(5).Infof(Format("Wait last round auto upgrade to finish of StaticPod %v", request.NamespacedName.Name))
-			return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber, upgradeExecutingCondition)
+			return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber)
 		}
 
 		if err := r.autoUpgrade(instance, upgradeInfos, latestHash); err != nil {
 			klog.Errorf(Format("Fail to auto upgrade of StaticPod %v, %v", request.NamespacedName.Name, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber, upgradeExecutingCondition)
+		return r.updateStaticPodStatus(instance, totalNumber, desiredNumber, upgradedNumber)
 
 	// OTA Upgrade can help users control the timing of static pods upgrade
 	// It will set PodNeedUpgrade condition and work with YurtHub component
@@ -401,7 +397,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 			klog.Errorf(Format("Fail to ota upgrade of StaticPod %v, %v", request.NamespacedName.Name, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, upgradedNumber, upgradeExecutingCondition)
+		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, upgradedNumber)
 	}
 
 	return ctrl.Result{}, nil
@@ -657,8 +653,7 @@ func checkReadyNodes(client client.Client, infos map[string]*upgradeinfo.Upgrade
 }
 
 // updateStatus set the status of instance to the given values
-func (r *ReconcileStaticPod) updateStaticPodStatus(instance *appsv1alpha1.StaticPod, totalNum, desiredNum, upgradedNum int32, cond *appsv1alpha1.StaticPodCondition) (reconcile.Result, error) {
-	instance.Status.Conditions = []appsv1alpha1.StaticPodCondition{*cond}
+func (r *ReconcileStaticPod) updateStaticPodStatus(instance *appsv1alpha1.StaticPod, totalNum, desiredNum, upgradedNum int32) (reconcile.Result, error) {
 	instance.Status.TotalNumber = totalNum
 	instance.Status.DesiredNumber = desiredNum
 	instance.Status.UpgradedNumber = upgradedNum

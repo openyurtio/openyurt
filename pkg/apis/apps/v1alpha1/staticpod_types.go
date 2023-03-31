@@ -61,37 +61,6 @@ type StaticPodSpec struct {
 	Template corev1.PodTemplateSpec `json:"template,omitempty"`
 }
 
-type StaticPodConditionType string
-
-const (
-	// StaticPodUpgradeSuccess means static pods on all nodes have been upgraded to the latest version
-	StaticPodUpgradeSuccess StaticPodConditionType = "UpgradeSuccess"
-
-	// StaticPodUpgradeExecuting means static pods upgrade task is in progress
-	StaticPodUpgradeExecuting StaticPodConditionType = "Upgrading"
-
-	// StaticPodUpgradeFailed means that exist pods failed to upgrade during the upgrade process
-	StaticPodUpgradeFailed StaticPodConditionType = "UpgradeFailed"
-)
-
-// StaticPodCondition describes the state of a StaticPodCondition at a certain point.
-type StaticPodCondition struct {
-	// Type of StaticPod condition.
-	Type StaticPodConditionType `json:"type,omitempty"`
-
-	// Status of the condition, one of True, False, Unknown.
-	Status corev1.ConditionStatus `json:"status,omitempty"`
-
-	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// The reason for the condition's last transition.
-	Reason string `json:"reason,omitempty"`
-
-	// A human-readable message indicating details about the transition.
-	Message string `json:"message,omitempty"`
-}
-
 // StaticPodStatus defines the observed state of StaticPod
 type StaticPodStatus struct {
 	// The total number of nodes that are running the static pod.
@@ -106,10 +75,6 @@ type StaticPodStatus struct {
 	// The most recent generation observed by the static pod controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration"`
-
-	// Represents the latest available observations of StaticPod's current state.
-	// +optional
-	Conditions []StaticPodCondition `json:"conditions"`
 }
 
 // +genclient
@@ -121,7 +86,6 @@ type StaticPodStatus struct {
 //+kubebuilder:printcolumn:name="TotalNumber",type="integer",JSONPath=".status.totalNumber",description="The total number of static pods"
 //+kubebuilder:printcolumn:name="DesiredNumber",type="integer",JSONPath=".status.desiredNumber",description="The number of static pods that desired to be upgraded"
 //+kubebuilder:printcolumn:name="UpgradedNumber",type="integer",JSONPath=".status.upgradedNumber",description="The number of static pods that have been upgraded"
-//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].type"
 
 // StaticPod is the Schema for the staticpods API
 type StaticPod struct {
