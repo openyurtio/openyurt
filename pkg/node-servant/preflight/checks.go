@@ -34,6 +34,7 @@ import (
 	"k8s.io/klog/v2"
 	utilsexec "k8s.io/utils/exec"
 
+	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
@@ -430,20 +431,6 @@ func setHasItemOrAll(s sets.String, item string) bool {
 }
 
 func isNodeReady(status *v1.NodeStatus) bool {
-	_, condition := getNodeCondition(status, v1.NodeReady)
+	_, condition := nodeutil.GetNodeCondition(status, v1.NodeReady)
 	return condition != nil && condition.Status == v1.ConditionTrue
-}
-
-// getNodeCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-func getNodeCondition(status *v1.NodeStatus, conditionType v1.NodeConditionType) (int, *v1.NodeCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	for i := range status.Conditions {
-		if status.Conditions[i].Type == conditionType {
-			return i, &status.Conditions[i]
-		}
-	}
-	return -1, nil
 }
