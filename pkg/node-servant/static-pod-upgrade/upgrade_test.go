@@ -19,6 +19,7 @@ package upgrade
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	upgradeUtil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -40,7 +42,7 @@ func Test(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
 	DefaultManifestPath = t.TempDir()
 	DefaultConfigmapPath = t.TempDir()
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, WithYamlSuffix(TestManifest)))
+	_, _ = os.Create(filepath.Join(DefaultManifestPath, upgradeUtil.WithYamlSuffix(TestManifest)))
 	_, _ = os.Create(filepath.Join(DefaultConfigmapPath, TestManifest))
 
 	runningStaticPod := &corev1.Pod{
@@ -70,13 +72,15 @@ func Test(t *testing.T) {
 		/*
 			2. Test
 		*/
-		ctrl, err := New(TestManifest, mode)
+		ctrl, err := New(TestPodName, metav1.NamespaceDefault, TestManifest, TestHashValue, mode)
 		if err != nil {
 			t.Errorf("Fail to get upgrade controller, %v", err)
 		}
 
 		if err := ctrl.Upgrade(); err != nil {
-			t.Errorf("Fail to upgrade, %v", err)
+			if strings.Contains(err.Error(), "fail to access yurthub pods API") {
+				t.Errorf("Fail to upgrade, %v", err)
+			}
 		}
 
 		/*

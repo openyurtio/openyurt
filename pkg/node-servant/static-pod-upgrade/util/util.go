@@ -14,11 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package upgrade
+package util
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"os"
+	"strings"
+	"time"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
+
+	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 )
 
 const (
@@ -60,4 +69,48 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	return nil
+}
+
+// WaitForPodRunning waits static pod to run
+// Success: Static pod annotation `StaticPodHashAnnotation` value equals to function argument hash
+// Failed: Receive PodFailed event
+func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (bool, error) {
+	klog.Infof("WaitForPodRuning name is %s, namespace is %s", namespace, name)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	checkPod := func(pod *v1.Pod) (hasResult, result bool) {
+		h := pod.Annotations[StaticPodHashAnnotation]
+		if k8sutil.IsPodReady(pod) && pod.Status.Phase == v1.PodRunning && h == hash {
+			return true, true
+		}
+
+		if pod.Status.Phase == v1.PodFailed {
+			return true, false
+		}
+
+		return false, false
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false, fmt.Errorf("timeout waiting for static pod %s/%s to be running", namespace, name)
+		default:
+			pod, err := GetPodFromYurtHub(namespace, name)
+			if err != nil {
+				if !strings.Contains(err.Error(), "fail to find pod") {
+					return false, err
+				}
+			}
+			if pod != nil {
+				hasResult, result := checkPod(pod)
+				if hasResult {
+					return result, nil
+				}
+			}
+
+			time.Sleep(10 * time.Second)
+		}
+	}
 }

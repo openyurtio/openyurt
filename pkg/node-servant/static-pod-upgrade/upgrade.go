@@ -20,12 +20,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 )
 
 const (
-	DefaultUpgradeDir = "openyurtio-upgrade"
+	DefaultUpgradeDir                   = "openyurtio-upgrade"
+	DefaultStaticPodRunningCheckTimeout = 2 * time.Minute
 
 	// TODO: use constant value of static-pod controller
 	OTA  = "ota"
@@ -38,8 +42,14 @@ var (
 )
 
 type Controller struct {
+	// Name of static pod
+	name string
+	// Namespace of static pod
+	namespace string
 	// Manifest file name of static pod
 	manifest string
+	// The latest static pod hash
+	hash string
 	// Only support `OTA` and `Auto`
 	upgradeMode string
 
@@ -53,16 +63,19 @@ type Controller struct {
 	upgradeManifestPath string
 }
 
-func New(manifest, mode string) (*Controller, error) {
+func New(name, namespace, manifest, hash, mode string) (*Controller, error) {
 	ctrl := &Controller{
+		name:        name,
+		namespace:   namespace,
 		manifest:    manifest,
+		hash:        hash,
 		upgradeMode: mode,
 	}
 
-	ctrl.manifestPath = filepath.Join(DefaultManifestPath, WithYamlSuffix(ctrl.manifest))
-	ctrl.bakManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, WithBackupSuffix(ctrl.manifest))
+	ctrl.manifestPath = filepath.Join(DefaultManifestPath, util.WithYamlSuffix(ctrl.manifest))
+	ctrl.bakManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, util.WithBackupSuffix(ctrl.manifest))
 	ctrl.configMapDataPath = filepath.Join(DefaultConfigmapPath, ctrl.manifest)
-	ctrl.upgradeManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, WithUpgradeSuffix(ctrl.manifest))
+	ctrl.upgradeManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, util.WithUpgradeSuffix(ctrl.manifest))
 
 	return ctrl, nil
 }
@@ -102,6 +115,16 @@ func (ctrl *Controller) AutoUpgrade() error {
 	}
 	klog.Info("Auto upgrade replaceManifest success")
 
+	// (3) Verify the new static pod is running
+	ok, err := ctrl.verify()
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("the latest static pod is not running")
+	}
+	klog.Info("Auto upgrade verify success")
+
 	return nil
 }
 
@@ -129,15 +152,21 @@ func (ctrl *Controller) prepareManifest() error {
 		}
 	}
 
-	return CopyFile(ctrl.configMapDataPath, ctrl.upgradeManifestPath)
+	return util.CopyFile(ctrl.configMapDataPath, ctrl.upgradeManifestPath)
 }
 
 // backUpManifest backup the old manifest in order to roll back when errors occur
 func (ctrl *Controller) backupManifest() error {
-	return CopyFile(ctrl.manifestPath, ctrl.bakManifestPath)
+	return util.CopyFile(ctrl.manifestPath, ctrl.bakManifestPath)
 }
 
 // replaceManifest replace old manifest with the latest one, it achieves static pod upgrade
 func (ctrl *Controller) replaceManifest() error {
-	return CopyFile(ctrl.upgradeManifestPath, ctrl.manifestPath)
+	return util.CopyFile(ctrl.upgradeManifestPath, ctrl.manifestPath)
+}
+
+// verify make sure the latest static pod is running
+// return false when the latest static pod failed or check status time out
+func (ctrl *Controller) verify() (bool, error) {
+	return util.WaitForPodRunning(ctrl.namespace, ctrl.name, ctrl.hash, DefaultStaticPodRunningCheckTimeout)
 }
