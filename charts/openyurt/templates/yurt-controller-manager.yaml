@@ -131,6 +131,7 @@ rules:
       - ""
     resources:
       - nodes/status
+      - pods/status
     verbs:
       - update
 ---
