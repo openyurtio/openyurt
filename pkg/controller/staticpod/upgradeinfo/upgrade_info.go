@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
 	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
 )
 
@@ -170,4 +171,22 @@ func UpgradedNodes(infos map[string]*UpgradeInfo) []string {
 		}
 	}
 	return nodes
+}
+
+// SetUpgradeNeededInfo sets `UpgradeNeeded` flag and counts the number of upgraded nodes
+func SetUpgradeNeededInfos(infos map[string]*UpgradeInfo, latestHash string) int32 {
+	var upgradedNumber int32
+
+	for _, info := range infos {
+		if info.StaticPod != nil {
+			if info.StaticPod.Annotations[StaticPodHashAnnotation] != latestHash {
+				// Indicate the static pod in this node needs to be upgraded
+				info.UpgradeNeeded = true
+				continue
+			}
+			upgradedNumber++
+		}
+	}
+
+	return upgradedNumber
 }

@@ -198,23 +198,3 @@ func GetPodConditionFromList(conditions []corev1.PodCondition, conditionType cor
 	}
 	return -1, nil
 }
-
-// FailedError represents irreparable failure
-// 1. Worker pod failed
-// 2. New Static Pod failed
-type FailedError struct {
-	s string
-}
-
-// NewFailedError create a FailedError with node that failed to upgrade
-func NewFailedError(str string) error {
-	return &FailedError{str}
-}
-
-func (e *FailedError) Error() string { return e.s }
-
-// IsFailedError returns a boolean indicating whether the error is `FailedError`
-func IsFailedError(err error) bool {
-	_, ok := err.(*FailedError)
-	return ok
-}
