@@ -56,4 +56,5 @@ type GenericConfiguration struct {
 	LeaderElectionNamespace string
 	RestConfigQPS           int
 	RestConfigBurst         int
+	WorkingNamespace        string
 }
