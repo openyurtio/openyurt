@@ -40,6 +40,7 @@ func TestNewYurtHubOptions(t *testing.T) {
 		YurtHubProxyPort:          util.YurtHubProxyPort,
 		YurtHubPort:               util.YurtHubPort,
 		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
+		YurtHubNamespace:          util.YurtHubNamespace,
 		GCFrequency:               120,
 		YurtHubCertOrganizations:  make([]string, 0),
 		LBMode:                    "rr",

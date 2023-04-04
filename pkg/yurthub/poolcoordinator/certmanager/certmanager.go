@@ -54,7 +54,7 @@ var certFileNames = map[CertFileType]string{
 	NodeLeaseProxyClientKey:  "node-lease-proxy-client.key",
 }
 
-func NewCertManager(pkiDir string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
+func NewCertManager(pkiDir, yurtHubNs string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
 	store := fs.FileSystemOperator{}
 	if err := store.CreateDir(pkiDir); err != nil && err != fs.ErrExists {
 		return nil, fmt.Errorf("failed to create dir %s, %v", pkiDir, err)
@@ -69,7 +69,7 @@ func NewCertManager(pkiDir string, yurtClient kubernetes.Interface, informerFact
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": constants.PoolCoordinatorClientSecretName}.String()
 		}
-		return coreinformers.NewFilteredSecretInformer(yurtClient, constants.PoolCoordinatorClientSecretNamespace, 0, nil, tweakListOptions)
+		return coreinformers.NewFilteredSecretInformer(yurtClient, yurtHubNs, 0, nil, tweakListOptions)
 	}
 	secretInformer := informerFactory.InformerFor(&corev1.Secret{}, secretInformerFunc)
 	secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
