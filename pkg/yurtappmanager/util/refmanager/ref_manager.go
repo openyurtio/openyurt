@@ -201,7 +201,7 @@ func (mgr *RefManager) release(obj metav1.Object) error {
 
 		obj.SetOwnerReferences(append(obj.GetOwnerReferences()[:idx], obj.GetOwnerReferences()[idx+1:]...))
 		if err := mgr.updateOwnee(runtimeObj); err != nil {
-			return fmt.Errorf("can't remove Pod %v/%v (%v) owner reference %v/%v (%v): %v",
+			return fmt.Errorf("can't remove runtimeObj %v/%v (%v) owner reference %v/%v (%v): %v",
 				obj.GetNamespace(), obj.GetName(), obj.GetUID(), obj.GetNamespace(), obj.GetName(), mgr.owner.GetUID(), err)
 		}
 	}

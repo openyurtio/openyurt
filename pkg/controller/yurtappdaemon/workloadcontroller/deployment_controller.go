@@ -191,7 +191,7 @@ func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*
 			Spec: WorkloadSpec{
 				Ref:          objs[i],
 				NodeSelector: spec.Template.Spec.NodeSelector,
-				Toleration:   spec.Template.Spec.Tolerations,
+				Tolerations:  spec.Template.Spec.Tolerations,
 			},
 		}
 		workloads = append(workloads, w)
@@ -199,4 +199,4 @@ func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*
 	return workloads, nil
 }
 
-var _ WorkloadControllor = &DeploymentControllor{}
+var _ WorkloadController = &DeploymentControllor{}

@@ -34,7 +34,7 @@ type Workload struct {
 // WorkloadSpec stores the spec details of the workload
 type WorkloadSpec struct {
 	Ref          metav1.Object
-	Toleration   []corev1.Toleration
+	Tolerations  []corev1.Toleration
 	NodeSelector map[string]string
 }
 
@@ -51,7 +51,7 @@ func (w *Workload) GetNodePoolName() string {
 }
 
 func (w *Workload) GetToleration() []corev1.Toleration {
-	return w.Spec.Toleration
+	return w.Spec.Tolerations
 }
 
 func (w *Workload) GetNodeSelector() map[string]string {

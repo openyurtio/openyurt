@@ -27,4 +27,4 @@ type StatefulSetControllor struct {
 	scheme *runtime.Scheme
 }
 
-// var _ WorkloadControllor = &StatefulSetControllor{}
+// var _ WorkloadController = &StatefulSetControllor{}

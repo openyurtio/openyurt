@@ -22,11 +22,11 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
-type WorkloadControllor interface {
+type WorkloadController interface {
 	ObjectKey(load *Workload) client.ObjectKey
-	GetAllWorkloads(set *v1alpha1.YurtAppDaemon) ([]*Workload, error)
-	CreateWorkload(set *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error
-	UpdateWorkload(load *Workload, set *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error
-	DeleteWorkload(set *v1alpha1.YurtAppDaemon, load *Workload) error
+	GetAllWorkloads(daemon *v1alpha1.YurtAppDaemon) ([]*Workload, error)
+	CreateWorkload(daemon *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error
+	UpdateWorkload(load *Workload, daemon *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error
+	DeleteWorkload(daemon *v1alpha1.YurtAppDaemon, load *Workload) error
 	GetTemplateType() v1alpha1.TemplateType
 }

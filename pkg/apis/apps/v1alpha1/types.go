@@ -15,15 +15,6 @@ const (
 // YurtAppSetConditionType indicates valid conditions type of a YurtAppSet.
 type YurtAppSetConditionType string
 
-const (
-	// PoolProvisioned means all the expected pools are provisioned and unexpected pools are deleted.
-	PoolProvisioned YurtAppSetConditionType = "PoolProvisioned"
-	// PoolUpdated means all the pools are updated.
-	PoolUpdated YurtAppSetConditionType = "PoolUpdated"
-	// PoolFailure is added to a YurtAppSet when one of its pools has failure during its own reconciling.
-	PoolFailure YurtAppSetConditionType = "PoolFailure"
-)
-
 // WorkloadTemplate defines the pool template under the YurtAppSet.
 // YurtAppSet will provision every pool based on one workload templates in WorkloadTemplate.
 // WorkloadTemplate now support statefulset and deployment

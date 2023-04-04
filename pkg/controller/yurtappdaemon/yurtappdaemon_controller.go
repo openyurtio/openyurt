@@ -113,7 +113,7 @@ type ReconcileYurtAppDaemon struct {
 	scheme *runtime.Scheme
 
 	recorder record.EventRecorder
-	controls map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadControllor
+	controls map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -123,7 +123,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		scheme: mgr.GetScheme(),
 
 		recorder: mgr.GetEventRecorderFor(controllerName),
-		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadControllor{
+		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
 			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
 		},
@@ -438,7 +438,7 @@ func (r *ReconcileYurtAppDaemon) getNameToNodePools(instance *unitv1alpha1.YurtA
 	return indexs, nil
 }
 
-func (r *ReconcileYurtAppDaemon) getTemplateControls(instance *unitv1alpha1.YurtAppDaemon) (workloadcontroller.WorkloadControllor,
+func (r *ReconcileYurtAppDaemon) getTemplateControls(instance *unitv1alpha1.YurtAppDaemon) (workloadcontroller.WorkloadController,
 	unitv1alpha1.TemplateType, error) {
 	switch {
 	case instance.Spec.WorkloadTemplate.StatefulSetTemplate != nil:
@@ -452,7 +452,7 @@ func (r *ReconcileYurtAppDaemon) getTemplateControls(instance *unitv1alpha1.Yurt
 	}
 }
 
-func (r *ReconcileYurtAppDaemon) getNodePoolToWorkLoad(instance *unitv1alpha1.YurtAppDaemon, c workloadcontroller.WorkloadControllor) (map[string]*workloadcontroller.Workload, error) {
+func (r *ReconcileYurtAppDaemon) getNodePoolToWorkLoad(instance *unitv1alpha1.YurtAppDaemon, c workloadcontroller.WorkloadController) (map[string]*workloadcontroller.Workload, error) {
 	klog.V(4).Infof("YurtAppDaemon [%s/%s/%s] prepare to get all workload", c.GetTemplateType(), instance.Namespace, instance.Name)
 
 	nodePoolsToWorkloads := make(map[string]*workloadcontroller.Workload)

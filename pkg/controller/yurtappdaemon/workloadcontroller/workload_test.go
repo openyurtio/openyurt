@@ -126,7 +126,7 @@ func TestGetToleration(t *testing.T) {
 				},
 				Spec: v1.PodSpec{},
 			},
-			Toleration: []v1.Toleration{
+			Tolerations: []v1.Toleration{
 				{
 					Key: "a",
 				},
