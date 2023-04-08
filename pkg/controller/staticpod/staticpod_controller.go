@@ -139,18 +139,18 @@ var _ reconcile.Reconciler = &ReconcileStaticPod{}
 // ReconcileStaticPod reconciles a StaticPod object
 type ReconcileStaticPod struct {
 	client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	Configration config.StaticPodControllerConfiguration
+	scheme        *runtime.Scheme
+	recorder      record.EventRecorder
+	Configuration config.StaticPodControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileStaticPod{
-		Client:       utilclient.NewClientFromManager(mgr, controllerName),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(controllerName),
-		Configration: c.ComponentConfig.StaticPodController,
+		Client:        utilclient.NewClientFromManager(mgr, controllerName),
+		scheme:        mgr.GetScheme(),
+		recorder:      mgr.GetEventRecorderFor(controllerName),
+		Configuration: c.ComponentConfig.StaticPodController,
 	}
 }
 
@@ -264,6 +264,10 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	var (
 		// totalNumber represents the total number of nodes running the target static pod
 		totalNumber int32
+
+		// readyNumber represents the number of ready static pods
+		readyNumber int32
+
 		// upgradedNumber represents the number of nodes that have been upgraded
 		upgradedNumber int32
 	)
@@ -279,7 +283,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// There are no nodes running target static pods in the cluster
 	if totalNumber == 0 {
 		klog.Infof(Format("No static pods need to be upgraded of StaticPod %v", request.NamespacedName))
-		return r.updateStaticPodStatus(instance, totalNumber, totalNumber)
+		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
 	// The latest hash value for static pod spec
@@ -307,6 +311,8 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	{
 		// Count the number of upgraded nodes
 		upgradedNumber = upgradeinfo.SetUpgradeNeededInfos(upgradeInfos, latestHash)
+
+		readyNumber = upgradeinfo.ReadyStaticPodsNumber(upgradeInfos)
 
 		// Set node ready info
 		if err := checkReadyNodes(r.Client, upgradeInfos); err != nil {
@@ -361,7 +367,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// Put this here because we need to clean up the worker pods first
 	if totalNumber == upgradedNumber {
 		klog.Infof(Format("All static pods have been upgraded of StaticPod %v", request.NamespacedName))
-		return r.updateStaticPodStatus(instance, totalNumber, upgradedNumber)
+		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
 	switch instance.Spec.UpgradeStrategy.Type {
@@ -370,14 +376,14 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	case appsv1alpha1.AutoStaticPodUpgradeStrategyType:
 		if !allSucceeded {
 			klog.V(5).Infof(Format("Wait last round auto upgrade to finish of StaticPod %v", request.NamespacedName))
-			return r.updateStaticPodStatus(instance, totalNumber, upgradedNumber)
+			return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
 		}
 
 		if err := r.autoUpgrade(instance, upgradeInfos, latestHash); err != nil {
 			klog.Errorf(Format("Fail to auto upgrade of StaticPod %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, upgradedNumber)
+		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
 
 	// OTA Upgrade can help users control the timing of static pods upgrade
 	// It will set PodNeedUpgrade condition and work with YurtHub component
@@ -386,7 +392,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 			klog.Errorf(Format("Fail to ota upgrade of StaticPod %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, upgradedNumber)
+		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
 	return ctrl.Result{}, nil
@@ -455,7 +461,7 @@ func (r *ReconcileStaticPod) autoUpgrade(instance *appsv1alpha1.StaticPod, infos
 
 	readyUpgradeWaitingNodes = readyUpgradeWaitingNodes[:max]
 	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash,
-		string(appsv1alpha1.AutoStaticPodUpgradeStrategyType), r.Configration.UpgradeWorkerImage); err != nil {
+		string(appsv1alpha1.AutoStaticPodUpgradeStrategyType), r.Configuration.UpgradeWorkerImage); err != nil {
 		return err
 	}
 	return nil
@@ -483,7 +489,7 @@ func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos 
 	// Create worker pod to issue the latest manifest to ready node
 	readyUpgradeWaitingNodes := upgradeinfo.OTAReadyUpgradeWaitingNodes(infos, hash)
 	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash,
-		string(appsv1alpha1.OTAStaticPodUpgradeStrategyType), r.Configration.UpgradeWorkerImage); err != nil {
+		string(appsv1alpha1.OTAStaticPodUpgradeStrategyType), r.Configuration.UpgradeWorkerImage); err != nil {
 		return err
 	}
 
@@ -571,9 +577,9 @@ func checkReadyNodes(client client.Client, infos map[string]*upgradeinfo.Upgrade
 }
 
 // updateStatus set the status of instance to the given values
-func (r *ReconcileStaticPod) updateStaticPodStatus(instance *appsv1alpha1.StaticPod, totalNum, upgradedNum int32) (reconcile.Result, error) {
+func (r *ReconcileStaticPod) updateStaticPodStatus(instance *appsv1alpha1.StaticPod, totalNum, readyNum, upgradedNum int32) (reconcile.Result, error) {
 	instance.Status.TotalNumber = totalNum
-	instance.Status.ReadyNumber = upgradedNum
+	instance.Status.ReadyNumber = readyNum
 	instance.Status.UpgradedNumber = upgradedNum
 
 	if err := r.Client.Status().Update(context.TODO(), instance); err != nil {

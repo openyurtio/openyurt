@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/kubectl/pkg/util/podutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -173,7 +174,7 @@ func UpgradedNodes(infos map[string]*UpgradeInfo) []string {
 	return nodes
 }
 
-// SetUpgradeNeededInfo sets `UpgradeNeeded` flag and counts the number of upgraded nodes
+// SetUpgradeNeededInfos sets `UpgradeNeeded` flag and counts the number of upgraded nodes
 func SetUpgradeNeededInfos(infos map[string]*UpgradeInfo, latestHash string) int32 {
 	var upgradedNumber int32
 
@@ -189,4 +190,19 @@ func SetUpgradeNeededInfos(infos map[string]*UpgradeInfo, latestHash string) int
 	}
 
 	return upgradedNumber
+}
+
+// ReadyStaticPodsNumber counts the number of ready static pods
+func ReadyStaticPodsNumber(infos map[string]*UpgradeInfo) int32 {
+	var readyNumber int32
+
+	for _, info := range infos {
+		if info.StaticPod != nil {
+			if podutils.IsPodReady(info.StaticPod) {
+				readyNumber++
+			}
+		}
+	}
+
+	return readyNumber
 }
