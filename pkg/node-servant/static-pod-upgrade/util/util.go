@@ -26,8 +26,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
-
-	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 )
 
 const (
@@ -81,7 +79,7 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 
 	checkPod := func(pod *v1.Pod) (hasResult, result bool) {
 		h := pod.Annotations[StaticPodHashAnnotation]
-		if k8sutil.IsPodReady(pod) && pod.Status.Phase == v1.PodRunning && h == hash {
+		if pod.Status.Phase == v1.PodRunning && h == hash {
 			return true, true
 		}
 
@@ -109,8 +107,6 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 					return result, nil
 				}
 			}
-
-			time.Sleep(10 * time.Second)
 		}
 	}
 }
