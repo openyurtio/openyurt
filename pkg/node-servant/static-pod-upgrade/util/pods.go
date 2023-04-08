@@ -19,7 +19,9 @@ package util
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,6 +64,10 @@ func GetPodsFromYurtHub(url string) (*v1.PodList, error) {
 }
 
 func getPodsDataFromYurtHub(url string) ([]byte, error) {
+	// avoid accessing conflict
+	rand.Seed(time.Now().UnixNano())
+	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
