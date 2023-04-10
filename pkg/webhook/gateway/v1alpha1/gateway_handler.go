@@ -44,8 +44,8 @@ func (webhook *GatewayHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-raven-openyurt-io-gateway,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1alpha1,name=validate.raven.v1alpha1.gateway.openyurt.io
-// +kubebuilder:webhook:path=/mutate-raven-openyurt-io-gateway,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1alpha1,name=mutate.raven.v1alpha1.gateway.openyurt.io
+// +kubebuilder:webhook:path=/validate-raven-openyurt-io-v1alpha1-gateway,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1alpha1,name=validate.raven.v1alpha1.gateway.openyurt.io
+// +kubebuilder:webhook:path=/mutate-raven-openyurt-io-v1alpha1-gateway,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1alpha1,name=mutate.raven.v1alpha1.gateway.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type GatewayHandler struct {
