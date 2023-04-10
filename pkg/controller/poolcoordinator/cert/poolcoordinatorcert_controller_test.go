@@ -62,6 +62,11 @@ func TestInitCA(t *testing.T) {
 			}),
 			false,
 		},
+		{
+			"secret does not exist",
+			fake.NewSimpleClientset(),
+			false,
+		},
 	}
 
 	for _, tt := range tests {

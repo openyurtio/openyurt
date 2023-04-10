@@ -151,8 +151,10 @@ func loadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "couldn't parse the kubeconfig file in the %s secret", secretName)
 		}
-		authInfo := kubeConfig.AuthInfos[certConf.CommonName]
-
+		authInfo := kubeconfig.GetAuthInfoFromKubeConfig(kubeConfig)
+		if authInfo == nil {
+			return nil, nil, errors.Errorf("auth info is not found in secret(%s)", secretName)
+		}
 		certBytes = authInfo.ClientCertificateData
 		keyBytes = authInfo.ClientKeyData
 	} else {
@@ -293,7 +295,7 @@ func GetPrivateKeyFromTLSCert(cert *tls.Certificate) (keyPEM []byte, err error) 
 	return keyutil.MarshalPrivateKeyToPEM(cert.PrivateKey)
 }
 
-// get certificate & private key (in PEM format) from certmanager
+// GetCertAndKeyFromCertMgr will get certificate & private key (in PEM format) from certmanager
 func GetCertAndKeyFromCertMgr(certManager certificate.Manager, stopCh <-chan struct{}) (key []byte, cert []byte, err error) {
 	// waiting for the certificate is generated
 	certManager.Start()
@@ -327,7 +329,7 @@ func GetCertAndKeyFromCertMgr(certManager certificate.Manager, stopCh <-chan str
 	return
 }
 
-// write cert&key pair generated from certManager into a secret
+// WriteCertIntoSecret will write cert&key pair generated from certManager into a secret
 func WriteCertIntoSecret(clientSet client.Interface, certName, secretName string, certManager certificate.Manager, stopCh <-chan struct{}) error {
 
 	keyPEM, certPEM, err := GetCertAndKeyFromCertMgr(certManager, stopCh)
@@ -354,7 +356,7 @@ func WriteCertIntoSecret(clientSet client.Interface, certName, secretName string
 	return nil
 }
 
-// write cert&key into secret
+// WriteCertAndKeyIntoSecret is used for writing cert&key into secret
 // Notice: if cert OR key is nil, it will be ignored
 func WriteCertAndKeyIntoSecret(clientSet client.Interface, certName, secretName string, cert *x509.Certificate, key crypto.Signer) error {
 	// write certificate data into secret
