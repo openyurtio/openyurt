@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
 
+const (
+	emptyGroupName = "core.openyurt.io"
+)
+
 // WebhookBuilder builds a Webhook.
 type WebhookBuilder struct {
 	apiType       runtime.Object
@@ -198,11 +202,19 @@ func (blder *WebhookBuilder) registerConversionWebhook() error {
 }
 
 func generateMutatePath(gvk schema.GroupVersionKind) string {
-	return "/mutate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+	return "/mutate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
 func generateValidatePath(gvk schema.GroupVersionKind) string {
-	return "/validate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+	return "/validate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }

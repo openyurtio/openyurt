@@ -804,3 +804,22 @@ webhooks:
     resources:
     - nodepools
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-core-openyurt-io-v1-pod
+  failurePolicy: Fail
+  name: validate.core.v1.pod.openyurt.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - DELETE
+    resources:
+    - pods
+  sideEffects: None

@@ -21,8 +21,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/openyurtio/openyurt/pkg/webhook/builder"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
@@ -37,18 +37,17 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
+		builder.WebhookManagedBy(mgr).
 			For(&v1.Pod{}).
 			WithValidator(webhook).
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-core-openyurt-io-pod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=core.openyurt.io,resources=pods,verbs=create;update,versions=v1,name=validate.core.v1.pod.openyurt.io
+// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-pod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=core.openyurt.io,resources=pods,verbs=delete,versions=v1,name=validate.core.v1.pod.openyurt.io
 
-// Cluster implements a validating and defaulting webhook for Cluster.
+// Cluster implements a validating and defaulting webhook for PodHandler.
 type PodHandler struct {
 	Client client.Client
 }
 
-var _ webhook.CustomDefaulter = &PodHandler{}
-var _ webhook.CustomValidator = &PodHandler{}
+var _ builder.CustomValidator = &PodHandler{}

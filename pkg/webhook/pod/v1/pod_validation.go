@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	leasev1 "k8s.io/api/coordination/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
@@ -34,35 +36,40 @@ import (
 
 const (
 	LabelCurrentNodePool = "apps.openyurt.io/nodepool"
+	UserNodeController   = "system:serviceaccount:kube-system:node-controller"
 
 	NodeLeaseDurationSeconds                 = 40
 	DefaultPoolReadyNodeNumberRatioThreshold = 0.35
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PodHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *PodHandler) ValidateCreate(ctx context.Context, obj runtime.Object, req admission.Request) error {
 	return nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PodHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *PodHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object, req admission.Request) error {
 	return nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PodHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+func (webhook *PodHandler) ValidateDelete(_ context.Context, obj runtime.Object, req admission.Request) error {
 	po, ok := obj.(*v1.Pod)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Pod but got a %T", obj))
 	}
 
-	if allErrs := validatePodDeletion(webhook.Client, po); len(allErrs) > 0 {
+	if allErrs := validatePodDeletion(webhook.Client, po, req); len(allErrs) > 0 {
 		return apierrors.NewInvalid(v1.SchemeGroupVersion.WithKind("Pod").GroupKind(), po.Name, allErrs)
 	}
 	return nil
 }
 
-func validatePodDeletion(cli client.Client, pod *v1.Pod) field.ErrorList {
+func validatePodDeletion(cli client.Client, pod *v1.Pod, req admission.Request) field.ErrorList {
+	if !userIsNodeController(req) {
+		return nil
+	}
+
 	nodeName := pod.Spec.NodeName
 	if nodeName == "" {
 		return nil
@@ -103,6 +110,11 @@ func validatePodDeletion(cli client.Client, pod *v1.Pod) field.ErrorList {
 			field.Invalid(field.NewPath("metadata").Child("name"), pod.Name, "nodePool has too few ready nodes")})
 	}
 	return nil
+}
+
+func userIsNodeController(req admission.Request) bool {
+	// only user is node-controller can validate pod delete/evict
+	return strings.Contains(req.UserInfo.Username, UserNodeController)
 }
 
 // countAliveNode return number of node alive
