@@ -12,6 +12,177 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
+  name: gateways.raven.openyurt.io
+spec:
+  group: raven.openyurt.io
+  names:
+    categories:
+    - all
+    kind: Gateway
+    listKind: GatewayList
+    plural: gateways
+    shortNames:
+    - gw
+    singular: gateway
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.activeEndpoint.nodeName
+      name: ActiveEndpoint
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Gateway is the Schema for the gateways API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: GatewaySpec defines the desired state of Gateway
+            properties:
+              endpoints:
+                description: TODO add a field to configure using vxlan or host-gw
+                  for inner gateway communication? Endpoints is a list of available
+                  Endpoint.
+                items:
+                  description: Endpoint stores all essential data for establishing
+                    the VPN tunnel. TODO add priority field?
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    nodeName:
+                      description: NodeName is the Node hosting this endpoint.
+                      type: string
+                    publicIP:
+                      type: string
+                    underNAT:
+                      type: boolean
+                  required:
+                  - nodeName
+                  type: object
+                type: array
+              exposeType:
+                description: ExposeType determines how the Gateway is exposed.
+                type: string
+              nodeSelector:
+                description: NodeSelector is a label query over nodes that managed
+                  by the gateway. The nodes in the same gateway should share same
+                  layer 3 network.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+            required:
+            - endpoints
+            type: object
+          status:
+            description: GatewayStatus defines the observed state of Gateway
+            properties:
+              activeEndpoint:
+                description: ActiveEndpoint is the reference of the active endpoint.
+                properties:
+                  config:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  nodeName:
+                    description: NodeName is the Node hosting this endpoint.
+                    type: string
+                  publicIP:
+                    type: string
+                  underNAT:
+                    type: boolean
+                required:
+                - nodeName
+                type: object
+              nodes:
+                description: Nodes contains all information of nodes managed by Gateway.
+                items:
+                  description: NodeInfo stores information of node managed by Gateway.
+                  properties:
+                    nodeName:
+                      type: string
+                    privateIP:
+                      type: string
+                    subnets:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - nodeName
+                  - privateIP
+                  - subnets
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
   name: nodepools.apps.openyurt.io
 spec:
   group: apps.openyurt.io
@@ -333,6 +504,24 @@ metadata:
   name: yurt-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -383,9 +572,45 @@ rules:
   - patch
   - update
 - apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/approval
+  verbs:
+  - update
+- apiGroups:
+  - certificates.k8s.io
+  resourceNames:
+  - kubernetes.io/kube-apiserver-client
+  - kubernetes.io/kubelet-serving
+  resources:
+  - signers
+  verbs:
+  - approve
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
   verbs:
   - create
   - delete
@@ -440,6 +665,48 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.projectcalico.org
+  resources:
+  - blockaffinities
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - raven.openyurt.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - raven.openyurt.io
+  resources:
+  - gateways/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - raven.openyurt.io
+  resources:
+  - gateways/status
+  verbs:
+  - get
+  - patch
+  - update
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -447,6 +714,27 @@ metadata:
   creationTimestamp: null
   name: yurt-manager-mutating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-raven-openyurt-io-gateway
+  failurePolicy: Fail
+  name: mutate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
@@ -474,6 +762,27 @@ metadata:
   creationTimestamp: null
   name: yurt-manager-validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-raven-openyurt-io-gateway
+  failurePolicy: Fail
+  name: validate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:

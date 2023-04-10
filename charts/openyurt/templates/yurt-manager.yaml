@@ -7,7 +7,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: manager-rolebinding
+  name: yurt-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -52,16 +52,20 @@ spec:
         - operator: "Exists"
       containers:
         - args:
-            - --enable-leader-election
+            - --enable-leader-election=true
             - --metrics-addr=:{{ .Values.yurtManager.metrics.port }}
             - --health-probe-addr=:{{ .Values.yurtManager.healthProbe.port }}
             - --logtostderr=true
             - --v={{ .Values.yurtManager.log.level }}
+            - --working-namespace={{ .Release.Namespace | quote }}
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: yurt-manager
+          env:
+            - name: WEBHOOK_PORT
+              value: {{ .Values.yurtManager.webhook.port | quote }}
           ports:
             - containerPort: {{ .Values.yurtManager.webhook.port }}
               name: webhook-server

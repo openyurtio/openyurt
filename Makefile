@@ -24,6 +24,7 @@ GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 BUILD_KUSTOMIZE ?= _output/manifest
+GOPROXY ?= $(shell go env GOPROXY)
 
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
@@ -38,7 +39,8 @@ endif
 DOCKER_BUILD_ARGS = --build-arg GIT_VERSION=${GIT_VERSION}
 
 ifeq (${REGION}, cn)
-DOCKER_BUILD_ARGS += --build-arg GOPROXY=https://goproxy.cn --build-arg MIRROR_REPO=mirrors.aliyun.com
+GOPROXY=https://goproxy.cn
+DOCKER_BUILD_ARGS += --build-arg GOPROXY=$(GOPROXY) --build-arg MIRROR_REPO=mirrors.aliyun.com
 endif
 
 ifneq (${http_proxy},)
@@ -55,7 +57,7 @@ all: test build
 
 # Build binaries in the host environment
 build:
-	bash hack/make-rules/build.sh $(WHAT)
+	GOPROXY=$(GOPROXY) bash hack/make-rules/build.sh $(WHAT)
 
 # Run test
 test:
@@ -128,7 +130,7 @@ docker-build:
 
 
 # Build and Push the docker images with multi-arch
-docker-push: docker-push-yurthub docker-push-yurt-controller-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-node-servant docker-push-yurt-manager
+docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager
 
 
 docker-buildx-builder:
@@ -142,15 +144,6 @@ docker-buildx-builder:
 
 docker-push-yurthub: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
-
-docker-push-yurt-controller-manager: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-controller-manager . -t ${IMAGE_REPO}/yurt-controller-manager:${GIT_VERSION}
-
-docker-push-yurt-tunnel-server: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
-
-docker-push-yurt-tunnel-agent: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
 
 docker-push-node-servant: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
@@ -196,3 +189,11 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+
+fmt:
+	go fmt ./...
+	find . -name '*.go' | grep -Ev 'vendor|thrift_gen' | xargs goimports -w
+
+vet:
+	GO111MODULE=${GO_MODULE} go list ./... | grep -v "vendor" | xargs go vet

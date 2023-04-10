@@ -24,9 +24,6 @@ readonly YURT_ALL_TARGETS=(
     yurtadm
     yurt-node-servant
     yurthub
-    yurt-controller-manager
-    yurt-tunnel-server
-    yurt-tunnel-agent
     yurt-manager
 )
 

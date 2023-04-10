@@ -38,7 +38,8 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	newRand.Seed(time.Now().UnixNano())
 
 	command := app.NewControllerManagerCommand()
 

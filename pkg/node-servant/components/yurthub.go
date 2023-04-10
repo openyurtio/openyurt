@@ -27,14 +27,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -42,6 +44,8 @@ import (
 const (
 	hubHealthzCheckFrequency = 10 * time.Second
 	fileMode                 = 0666
+	DefaultRootDir           = "/var/lib"
+	DefaultCaPath            = "/etc/kubernetes/pki/ca.crt"
 )
 
 type yurtHubOperator struct {
@@ -79,7 +83,7 @@ func (op *yurtHubOperator) Install() error {
 		"yurthubServerAddr":    constants.DefaultYurtHubServerAddr,
 		"kubernetesServerAddr": op.apiServerAddr,
 		"image":                op.yurthubImage,
-		"joinToken":            op.joinToken,
+		"bootstrapFile":        constants.YurtHubBootstrapConfig,
 		"workingMode":          string(op.workingMode),
 		"enableDummyIf":        strconv.FormatBool(op.enableDummyIf),
 		"enableNodePool":       strconv.FormatBool(op.enableNodePool),
@@ -88,7 +92,16 @@ func (op *yurtHubOperator) Install() error {
 		return err
 	}
 
-	// 1-2. create yurthub.yaml
+	// 1-2. create /var/lib/yurthub/bootstrap-hub.conf
+	if err := enutil.EnsureDir(constants.YurtHubWorkdir); err != nil {
+		return err
+	}
+	if err := setHubBootstrapConfig(op.apiServerAddr, op.joinToken); err != nil {
+		return err
+	}
+	klog.Infof("create the %s", constants.YurtHubBootstrapConfig)
+
+	// 1-3. create yurthub.yaml
 	podManifestPath := enutil.GetPodManifestPath()
 	if err := enutil.EnsureDir(podManifestPath); err != nil {
 		return err
@@ -151,7 +164,7 @@ func getYurthubYaml(podManifestPath string) string {
 }
 
 func getYurthubConf() string {
-	return filepath.Join(token.DefaultRootDir, projectinfo.GetHubName())
+	return filepath.Join(DefaultRootDir, projectinfo.GetHubName())
 }
 
 func getYurthubCacheDir() string {
@@ -220,4 +233,27 @@ func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func setHubBootstrapConfig(serverAddr string, joinToken string) error {
+	caData, err := os.ReadFile(DefaultCaPath)
+	if err != nil {
+		return err
+	}
+	tlsBootstrapCfg := kubeconfigutil.CreateWithToken(
+		serverAddr,
+		"openyurt-e2e-test",
+		"token-bootstrap-client",
+		caData,
+		joinToken,
+	)
+	content, err := clientcmd.Write(*tlsBootstrapCfg)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(constants.YurtHubBootstrapConfig, content, fileMode); err != nil {
+		return errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
+	}
+
+	return nil
 }

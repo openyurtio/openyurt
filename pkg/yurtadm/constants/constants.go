@@ -23,10 +23,10 @@ const (
 	KubeletConfigureDir      = "/etc/kubernetes"
 	KubeletWorkdir           = "/var/lib/kubelet"
 	YurtHubWorkdir           = "/var/lib/yurthub"
+	YurtHubBootstrapConfig   = "/var/lib/yurthub/bootstrap-hub.conf"
 	OpenyurtDir              = "/var/lib/openyurt"
 	YurttunnelAgentWorkdir   = "/var/lib/yurttunnel-agent"
 	YurttunnelServerWorkdir  = "/var/lib/yurttunnel-server"
-	KubeConfigPath           = "/etc/kubernetes/kubelet.conf"
 	KubeCniDir               = "/opt/cni/bin"
 	KubeCniVersion           = "v0.8.0"
 	KubeletServiceFilepath   = "/etc/systemd/system/kubelet.service"
@@ -97,11 +97,14 @@ const (
 	YurtHubImage = "yurthub-image"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
+	// ServerAddr flag set the address of kubernetes kube-apiserver
+	ServerAddr = "server-addr"
 	// ReuseCNIBin flag sets whether to reuse local CNI binaries or not.
 	ReuseCNIBin = "reuse-cni-bin"
 
 	ServerHealthzServer          = "127.0.0.1:10267"
 	ServerHealthzURLPath         = "/v1/healthz"
+	ServerReadyzURLPath          = "/v1/readyz"
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
 	DefaultOpenYurtVersion       = "latest"
 	Yurthub                      = "yurthub"
@@ -219,7 +222,7 @@ spec:
     - --bind-address={{.yurthubServerAddr}}
     - --server-addr={{.kubernetesServerAddr}}
     - --node-name=$(NODE_NAME)
-    - --join-token={{.joinToken}}
+    - --bootstrap-file={{.bootstrapFile}}
     - --working-mode={{.workingMode}}
       {{if .enableDummyIf }}
     - --enable-dummy-if={{.enableDummyIf}}

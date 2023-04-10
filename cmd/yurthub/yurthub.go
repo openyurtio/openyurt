@@ -27,7 +27,9 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	newRand.Seed(time.Now().UnixNano())
+
 	cmd := app.NewCmdStartYurtHub(server.SetupSignalContext())
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {

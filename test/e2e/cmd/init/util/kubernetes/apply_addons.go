@@ -22,123 +22,14 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/resource"
 	kubeclientset "k8s.io/client-go/kubernetes"
+	kubectlutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
 )
-
-func DeployYurtControllerManager(client kubeclientset.Interface, yurtControllerManagerImage string) error {
-	if err := CreateServiceAccountFromYaml(client,
-		SystemNamespace, constants.YurtControllerManagerServiceAccount); err != nil {
-		return err
-	}
-	// create the clusterrole
-	if err := CreateClusterRoleFromYaml(client,
-		constants.YurtControllerManagerClusterRole); err != nil {
-		return err
-	}
-	// bind the clusterrole
-	if err := CreateClusterRoleBindingFromYaml(client,
-		constants.YurtControllerManagerClusterRoleBinding); err != nil {
-		return err
-	}
-	// create the yurt-controller-manager deployment
-	if err := CreateDeployFromYaml(client,
-		SystemNamespace,
-		constants.YurtControllerManagerDeployment,
-		map[string]string{
-			"image":         yurtControllerManagerImage,
-			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DeployYurttunnelServer(
-	client kubeclientset.Interface,
-	certIP string,
-	yurttunnelServerImage string,
-	systemArchitecture string) error {
-	// 1. create the ClusterRole
-	if err := CreateClusterRoleFromYaml(client,
-		constants.YurttunnelServerClusterRole); err != nil {
-		return err
-	}
-	if err := CreateClusterRoleFromYaml(client,
-		constants.YurttunnelProxyClientClusterRole); err != nil {
-		return err
-	}
-
-	// 2. create the ServiceAccount
-	if err := CreateServiceAccountFromYaml(client, SystemNamespace,
-		constants.YurttunnelServerServiceAccount); err != nil {
-		return err
-	}
-
-	// 3. create the ClusterRoleBinding
-	if err := CreateClusterRoleBindingFromYaml(client,
-		constants.YurttunnelServerClusterRolebinding); err != nil {
-		return err
-	}
-
-	if err := CreateClusterRoleBindingFromYaml(client,
-		constants.YurttunnelProxyClientClusterRolebinding); err != nil {
-		return err
-	}
-
-	// 4. create the Service
-	if err := CreateServiceFromYaml(client,
-		SystemNamespace,
-		constants.YurttunnelServerService); err != nil {
-		return err
-	}
-
-	// 5. create the internal Service(type=ClusterIP)
-	if err := CreateServiceFromYaml(client,
-		SystemNamespace,
-		constants.YurttunnelServerInternalService); err != nil {
-		return err
-	}
-
-	// 6. create the Configmap
-	if err := CreateConfigMapFromYaml(client,
-		SystemNamespace,
-		constants.YurttunnelServerConfigMap); err != nil {
-		return err
-	}
-
-	// 7. create the Deployment
-	if err := CreateDeployFromYaml(client,
-		SystemNamespace,
-		constants.YurttunnelServerDeployment,
-		map[string]string{
-			"image":           yurttunnelServerImage,
-			"arch":            systemArchitecture,
-			"certIP":          certIP,
-			"edgeWorkerLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func DeployYurttunnelAgent(
-	client kubeclientset.Interface,
-	tunnelServerAddress string,
-	yurttunnelAgentImage string) error {
-	// 1. Deploy the yurt-tunnel-agent DaemonSet
-	if err := CreateDaemonSetFromYaml(client,
-		SystemNamespace,
-		constants.YurttunnelAgentDaemonSet,
-		map[string]string{
-			"image":               yurttunnelAgentImage,
-			"edgeWorkerLabel":     projectinfo.GetEdgeWorkerLabelKey(),
-			"tunnelServerAddress": tunnelServerAddress}); err != nil {
-		return err
-	}
-	return nil
-}
 
 // DeployYurthubSetting deploy clusterrole, clusterrolebinding for yurthub static pod.
 func DeployYurthubSetting(client kubeclientset.Interface) error {
@@ -187,6 +78,96 @@ func DeleteYurthubSetting(client kubeclientset.Interface) error {
 			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("fail to delete the configmap/%s: %w",
 			constants.YurthubCmName, err)
+	}
+
+	return nil
+}
+
+func CreateYurtManager(client kubeclientset.Interface, yurtManagerImage string) error {
+	if err := CreateServiceAccountFromYaml(client,
+		SystemNamespace, constants.YurtManagerServiceAccount); err != nil {
+		return err
+	}
+
+	// bind the clusterrole
+	if err := CreateClusterRoleBindingFromYaml(client,
+		constants.YurtManagerClusterRoleBinding); err != nil {
+		return err
+	}
+
+	// create the Service
+	if err := CreateServiceFromYaml(client,
+		SystemNamespace,
+		constants.YurtManagerService); err != nil {
+		return err
+	}
+
+	// create the yurt-manager deployment
+	if err := CreateDeployFromYaml(client,
+		SystemNamespace,
+		constants.YurtManagerDeployment,
+		map[string]string{
+			"image":         yurtManagerImage,
+			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
+		return err
+	}
+	return nil
+}
+
+type Builder struct {
+	kubectlutil.Factory
+}
+
+func NewBuilder(kubeconfig string) *Builder {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags.KubeConfig = &kubeconfig
+	f := kubectlutil.NewFactory(kubeConfigFlags)
+	return &Builder{f}
+}
+
+func (b Builder) InstallComponents(path string) error {
+	fo := resource.FilenameOptions{
+		Filenames: []string{path},
+	}
+	cmdNs, enforceNs, err := b.ToRawKubeConfigLoader().Namespace()
+	if err != nil {
+		return err
+	}
+
+	r := b.NewBuilder().
+		Unstructured().
+		ContinueOnError().
+		NamespaceParam(cmdNs).DefaultNamespace().
+		FilenameParam(enforceNs, &fo).
+		Flatten().
+		Do()
+	err = r.Err()
+	if err != nil {
+		return err
+	}
+
+	cnt := 0
+	err = r.Visit(func(info *resource.Info, err error) error {
+		if err != nil {
+			return err
+		}
+
+		obj, err := resource.NewHelper(info.Client, info.Mapping).
+			Create(info.Namespace, true, info.Object)
+		if err != nil {
+			return kubectlutil.AddSourceToErr("creating", info.Source, err)
+		}
+		info.Refresh(obj, true)
+		cnt++
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if cnt == 0 {
+		return fmt.Errorf("no objects passed to create")
 	}
 
 	return nil

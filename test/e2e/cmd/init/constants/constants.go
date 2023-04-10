@@ -25,203 +25,116 @@ var (
 
 const (
 	YurtctlLockConfigMapName = "yurtctl-lock"
+	DefaultOpenYurtVersion   = "latest"
+	TmpDownloadDir           = "/tmp"
+	DirMode                  = 0755
+	FileMode                 = 0666
 
-	DefaultOpenYurtVersion = "latest"
+	YurthubComponentName = "yurt-hub"
+	YurthubNamespace     = "kube-system"
+	YurthubCmName        = "yurt-hub-cfg"
 
-	TmpDownloadDir = "/tmp"
-
-	DirMode  = 0755
-	FileMode = 0666
-
-	YurthubComponentName                = "yurt-hub"
-	YurthubNamespace                    = "kube-system"
-	YurthubCmName                       = "yurt-hub-cfg"
-	YurtControllerManagerServiceAccount = `
+	YurtManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: yurt-controller-manager
+  name: yurt-manager
   namespace: kube-system
 `
-	// YurtControllerManagerClusterRole has the same privilege as the
-	// system:controller:node-controller and has the right to manipulate
-	// the leases resource
-	YurtControllerManagerClusterRole = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: yurt-controller-manager 
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - update
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - update
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - create
-  - update
-  - list
-  - patch
-- apiGroups:
-  - ""
-  - events.k8s.io
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
-  - update
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-  - list
-  - watch
-- apiGroups:
-  - ""
-  - apps
-  resources:
-  - daemonsets
-  verbs:
-  - list
-  - watch
-- apiGroups:
-    - certificates.k8s.io
-  resources:
-    - certificatesigningrequests
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - certificates.k8s.io
-  resources:
-    - certificatesigningrequests/approval
-  verbs:
-    - update
-- apiGroups:
-    - certificates.k8s.io
-  resourceNames:
-    - kubernetes.io/kube-apiserver-client
-    - kubernetes.io/kubelet-serving
-  resources:
-    - signers
-  verbs:
-    - approve
-- apiGroups:
-    - discovery.k8s.io
-  resources:
-    - endpointslices
-  verbs:
-    - get
-    - list
-    - watch
-    - patch
-- apiGroups:
-    - ""
-  resources:
-    - endpoints
-  verbs:
-    - get
-    - list
-    - watch
-    - patch
-- apiGroups:
-    - "apps.openyurt.io"
-  resources:
-    - nodepools
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - ""
-  resources:
-    - services
-  verbs:
-    - get
-    - list
-    - watch
-`
-	YurtControllerManagerClusterRoleBinding = `
+
+	YurtManagerClusterRoleBinding = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: yurt-controller-manager 
-subjects:
-  - kind: ServiceAccount
-    name: yurt-controller-manager
-    namespace: kube-system
+  name: yurt-manager-rolebinding
 roleRef:
-  kind: ClusterRole
-  name: yurt-controller-manager 
   apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-role
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: kube-system
 `
-	// YurtControllerManagerDeployment defines the yurt controller manager
-	// deployment in yaml format
-	YurtControllerManagerDeployment = `
+
+	YurtManagerService = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-manager-webhook-service
+  namespace: kube-system
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 10270
+  selector:
+    app.kubernetes.io/name: yurt-manager
+`
+	// YurtManagerDeployment defines the yurt manager deployment in yaml format
+	YurtManagerDeployment = `
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: yurt-controller-manager
-  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: yurt-manager
+    app.kubernetes.io/version: v1.3.0
+  name: yurt-manager
+  namespace: "kube-system"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: yurt-controller-manager
+      app.kubernetes.io/name: yurt-manager
   template:
     metadata:
       labels:
-        app: yurt-controller-manager
+        app.kubernetes.io/name: yurt-manager
     spec:
-      serviceAccountName: yurt-controller-manager
-      hostNetwork: true
       tolerations:
-      - operator: "Exists"
+        - operator: "Exists"
+      hostNetwork: true
+      containers:
+        - args:
+            - --enable-leader-election
+            - --metrics-addr=:10271
+            - --health-probe-addr=:10272
+            - --logtostderr=true
+            - --v=4
+          command:
+            - /usr/local/bin/yurt-manager
+          image: {{.image}}
+          imagePullPolicy: IfNotPresent
+          name: yurt-manager
+          env:
+            - name: WEBHOOK_PORT
+              value: "10270"
+          ports:
+            - containerPort: 10270
+              name: webhook-server
+              protocol: TCP
+            - containerPort: 10271
+              name: metrics
+              protocol: TCP
+            - containerPort: 10272
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 10272
+      serviceAccountName: yurt-manager
       affinity:
         nodeAffinity:
-          # we prefer allocating ecm on cloud node
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 1
-            preference:
-              matchExpressions:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
               - key: {{.edgeNodeLabel}}
                 operator: In
                 values:
                 - "false"
-      containers:
-      - name: yurt-controller-manager
-        image: {{.image}}
-        command:
-        - yurt-controller-manager
-        - --controllers=-servicetopologycontroller,-poolcoordinatorcertmanager,*
 `
+
 	YurthubClusterRole = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

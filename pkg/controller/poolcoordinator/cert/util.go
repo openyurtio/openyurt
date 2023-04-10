@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cert
+package poolcoordinatorcert
 
 import (
 	"context"
@@ -59,10 +59,9 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 	if err = wait.PollUntil(1*time.Second, func() (bool, error) {
 		serverSVC, err = clientSet.CoreV1().Services(PoolcoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err == nil {
-			klog.Infof("%s service is ready for poolcoordinator_cert_manager", serviceName)
+			klog.Infof(Format("%s service is ready for poolcoordinator_cert_manager", serviceName))
 			return true, nil
 		}
-		klog.Infof("waiting for the poolcoordinator %s service", serviceName)
 		return false, nil
 	}, stopCh); err != nil {
 		return nil, nil, err

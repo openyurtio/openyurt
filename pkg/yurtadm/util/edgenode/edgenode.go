@@ -20,14 +20,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/spf13/pflag"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
@@ -35,7 +30,6 @@ import (
 
 const (
 	NODE_NAME     = "NODE_NAME"
-	KUBECONFIG    = "KUBECONFIG"
 	NodeNameSplit = "="
 )
 
@@ -98,15 +92,6 @@ func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error
 		return fmt.Errorf("failed to write destination file %s: %w", destinationFile, err)
 	}
 	return nil
-}
-
-// ReplaceRegularExpression matchs the regular expression and replace it with the corresponding string
-func ReplaceRegularExpression(content string, replace map[string]string) string {
-	for old, new := range replace {
-		reg := regexp.MustCompile(old)
-		content = reg.ReplaceAllString(content, new)
-	}
-	return content
 }
 
 // GetNodeName gets the node name based on environment variable, parameters --hostname-override
@@ -174,49 +159,6 @@ func GetHostname(hostnameOverride string) (string, error) {
 		return "", fmt.Errorf("empty hostname is invalid")
 	}
 	return strings.ToLower(hostName), nil
-}
-
-// GenClientSet generates the clientset based on command option, environment variable,
-// file in $HOME/.kube or the default kubeconfig file
-func GenClientSet(flags *pflag.FlagSet) (*kubernetes.Clientset, error) {
-	kubeconfigPath, err := PrepareKubeConfigPath(flags)
-	if err != nil {
-		return nil, err
-	}
-
-	restCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(restCfg)
-}
-
-// PrepareKubeConfigPath returns the path of cluster kubeconfig file
-func PrepareKubeConfigPath(flags *pflag.FlagSet) (string, error) {
-	kbCfgPath, err := flags.GetString("kubeconfig")
-	if err != nil {
-		return "", err
-	}
-
-	if kbCfgPath == "" {
-		kbCfgPath = os.Getenv(KUBECONFIG)
-	}
-
-	if kbCfgPath == "" {
-		if home := homedir.HomeDir(); home != "" {
-			homeKbCfg := filepath.Join(home, ".kube", "config")
-			if ok, _ := FileExists(homeKbCfg); ok {
-				kbCfgPath = homeKbCfg
-			}
-		}
-	}
-
-	if kbCfgPath == "" {
-		kbCfgPath = constants.KubeConfigPath
-	}
-
-	return kbCfgPath, nil
 }
 
 // Exec execs the command

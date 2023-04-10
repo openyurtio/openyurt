@@ -22,9 +22,6 @@ source "${YURT_ROOT}/hack/lib/init.sh"
 source "${YURT_ROOT}/hack/lib/build.sh"
 
 readonly IMAGE_TARGETS=(
-    yurt-controller-manager
-    yurt-tunnel-agent 
-    yurt-tunnel-server
     yurt-node-servant
     yurthub
     yurt-manager
@@ -37,6 +34,7 @@ REGION=${REGION:-}
 IMAGE_REPO=${IMAGE_REPO:-"openyurt"}
 IMAGE_TAG=${IMAGE_TAG:-$(get_image_tag)}
 DOCKER_BUILD_ARGS=""
+DOCKER_EXTRA_ENVS=""
 BUILD_BASE_IMAGE="golang:1.18"
 BUILD_GOPROXY=$(go env GOPROXY)
 GOPROXY_CN="https://goproxy.cn"
@@ -49,10 +47,12 @@ fi
 
 if [[ ! -z ${http_proxy} ]]; then 
     DOCKER_BUILD_ARGS="${DOCKER_BUILD_ARGS} --build-arg http_proxy=${http_proxy}"
+    DOCKER_EXTRA_ENVS="--env http_proxy=${http_proxy}"
 fi
 
 if [[ ! -z ${https_proxy} ]]; then
     DOCKER_BUILD_ARGS="${DOCKER_BUILD_ARGS} --build-arg https_proxy=${https_proxy}"
+    DOCKER_EXTRA_ENVS="${DOCKER_EXTRA_ENVS=} --env https_proxy=${https_proxy}"
 fi
 
 if [[ ! -z ${TARGET_PLATFORMS} ]]; then
@@ -77,6 +77,7 @@ docker run \
     --env GOOS=${TARGETOS} \
     --env GOARCH=${TARGETARCH} \
     --env GOCACHE=/tmp/ \
+    ${DOCKER_EXTRA_ENVS} \
     --user $(id -u ${USER}):$(id -g ${USER}) \
     ${BUILD_BASE_IMAGE} \
     ./hack/make-rules/build.sh ${targets[@]}

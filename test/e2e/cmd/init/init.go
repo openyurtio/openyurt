@@ -27,15 +27,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
@@ -78,18 +75,9 @@ var (
 		},
 	}
 
-	yurtHubImageFormat               = "openyurt/yurthub:%s"
-	yurtControllerManagerImageFormat = "openyurt/yurt-controller-manager:%s"
-	nodeServantImageFormat           = "openyurt/node-servant:%s"
-	yurtTunnelServerImageFormat      = "openyurt/yurt-tunnel-server:%s"
-	yurtTunnelAgentImageFormat       = "openyurt/yurt-tunnel-agent:%s"
-
-	hostsSettingForCoreFile = []string{
-		"    hosts /etc/edge/tunnel-nodes {",
-		"       reload 300ms",
-		"       fallthrough",
-		"    }",
-	}
+	yurtHubImageFormat     = "openyurt/yurthub:%s"
+	yurtManagerImageFormat = "openyurt/yurt-manager:%s"
+	nodeServantImageFormat = "openyurt/node-servant:%s"
 )
 
 func NewInitCMD(out io.Writer) *cobra.Command {
@@ -193,21 +181,19 @@ func (o *kindOptions) Config() *initializerConfig {
 	}
 
 	return &initializerConfig{
-		CloudNodes:                 cloudNodes.List(),
-		EdgeNodes:                  edgeNodes.List(),
-		KindConfigPath:             o.KindConfigPath,
-		KubeConfig:                 kubeConfigPath,
-		NodesNum:                   o.NodeNum,
-		ClusterName:                o.ClusterName,
-		KubernetesVersion:          o.KubernetesVersion,
-		UseLocalImage:              o.UseLocalImages,
-		YurtHubImage:               fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
-		YurtControllerManagerImage: fmt.Sprintf(yurtControllerManagerImageFormat, o.OpenYurtVersion),
-		NodeServantImage:           fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
-		YurtTunnelServerImage:      fmt.Sprintf(yurtTunnelServerImageFormat, o.OpenYurtVersion),
-		YurtTunnelAgentImage:       fmt.Sprintf(yurtTunnelAgentImageFormat, o.OpenYurtVersion),
-		EnableDummyIf:              o.EnableDummyIf,
-		DisableDefaultCNI:          o.DisableDefaultCNI,
+		CloudNodes:        cloudNodes.List(),
+		EdgeNodes:         edgeNodes.List(),
+		KindConfigPath:    o.KindConfigPath,
+		KubeConfig:        kubeConfigPath,
+		NodesNum:          o.NodeNum,
+		ClusterName:       o.ClusterName,
+		KubernetesVersion: o.KubernetesVersion,
+		UseLocalImage:     o.UseLocalImages,
+		YurtHubImage:      fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
+		YurtManagerImage:  fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
+		NodeServantImage:  fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
+		EnableDummyIf:     o.EnableDummyIf,
+		DisableDefaultCNI: o.DisableDefaultCNI,
 	}
 }
 
@@ -239,22 +225,20 @@ func addFlags(flagset *pflag.FlagSet, o *kindOptions) {
 }
 
 type initializerConfig struct {
-	CloudNodes                 []string
-	EdgeNodes                  []string
-	KindConfigPath             string
-	KubeConfig                 string
-	NodesNum                   int
-	ClusterName                string
-	KubernetesVersion          string
-	NodeImage                  string
-	UseLocalImage              bool
-	YurtHubImage               string
-	YurtControllerManagerImage string
-	NodeServantImage           string
-	YurtTunnelServerImage      string
-	YurtTunnelAgentImage       string
-	EnableDummyIf              bool
-	DisableDefaultCNI          bool
+	CloudNodes        []string
+	EdgeNodes         []string
+	KindConfigPath    string
+	KubeConfig        string
+	NodesNum          int
+	ClusterName       string
+	KubernetesVersion string
+	NodeImage         string
+	UseLocalImage     bool
+	YurtHubImage      string
+	YurtManagerImage  string
+	NodeServantImage  string
+	EnableDummyIf     bool
+	DisableDefaultCNI bool
 }
 
 type Initializer struct {
@@ -308,11 +292,6 @@ func (ki *Initializer) Run() error {
 		return err
 	}
 
-	klog.Info("Start to configure kube-apiserver")
-	if err := ki.configureControlPlane(); err != nil {
-		return err
-	}
-
 	klog.Info("Start to deploy OpenYurt components")
 	if err := ki.deployOpenYurt(); err != nil {
 		return err
@@ -332,9 +311,8 @@ func (ki *Initializer) prepareImages() error {
 	// load images of cloud components to cloud nodes
 	if err := ki.loadImagesToKindNodes([]string{
 		ki.YurtHubImage,
-		ki.YurtControllerManagerImage,
+		ki.YurtManagerImage,
 		ki.NodeServantImage,
-		ki.YurtTunnelServerImage,
 	}, ki.CloudNodes); err != nil {
 		return err
 	}
@@ -343,7 +321,6 @@ func (ki *Initializer) prepareImages() error {
 	if err := ki.loadImagesToKindNodes([]string{
 		ki.YurtHubImage,
 		ki.NodeServantImage,
-		ki.YurtTunnelAgentImage,
 	}, ki.EdgeNodes); err != nil {
 		return err
 	}
@@ -394,16 +371,6 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 	}
 	klog.V(1).Infof("generated new kind config file at %s", kindConfigPath)
 	return nil
-}
-
-func (ki *Initializer) configureControlPlane() error {
-	convertCtx := map[string]string{
-		"node_servant_image": ki.NodeServantImage,
-	}
-
-	return kubeutil.RunServantJobs(ki.kubeClient, kubeutil.DefaultWaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
-		return nodeservant.RenderNodeServantJob("config-control-plane", convertCtx, nodeName)
-	}, ki.CloudNodes, os.Stderr, true)
 }
 
 func (ki *Initializer) configureAddons() error {
@@ -461,37 +428,12 @@ func (ki *Initializer) configureAddons() error {
 }
 
 func (ki *Initializer) configureCoreDnsAddon() error {
-	// config configmap kube-system/coredns in order to add hosts setting for resolving hostname to x-tunnel-server-internal-svc service
-	cm, err := ki.kubeClient.CoreV1().ConfigMaps("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if cm != nil && !strings.Contains(cm.Data["Corefile"], "hosts /etc/edge/tunnel-nodes") {
-		lines := strings.Split(cm.Data["Corefile"], "\n")
-		for i := range lines {
-			if strings.Contains(lines[i], "kubernetes cluster.local") && strings.Contains(lines[i], "{") {
-				lines = append(lines[:i], append(hostsSettingForCoreFile, lines[i:]...)...)
-				break
-			}
-		}
-		cm.Data["Corefile"] = strings.Join(lines, "\n")
-
-		// update coredns configmap
-		_, err = ki.kubeClient.CoreV1().ConfigMaps("kube-system").Update(context.TODO(), cm, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to configure coredns configmap, %w", err)
-		}
-	}
-
-	// kubectl patch deployment coredns -n kube-system  -p '{"spec": {"template": {"spec": {"volumes": [{"configMap":{"name":"yurt-tunnel-nodes"},"name": "edge"}]}}}}'
-	// kubectl patch deployment coredns -n kube-system   -p '{"spec": { "template": { "spec": { "containers": [{"name":"coredns","volumeMounts": [{"mountPath": "/etc/edge", "name": "edge", "readOnly": true }]}]}}}}'
 	dp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	if dp != nil {
-		replicasChanged := false
 		nodeList, err := ki.kubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -502,60 +444,13 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 		if dp.Spec.Replicas == nil || len(nodeList.Items) != int(*dp.Spec.Replicas) {
 			replicas := int32(len(nodeList.Items))
 			dp.Spec.Replicas = &replicas
-			replicasChanged = true
 		}
 
 		dp.Spec.Template.Spec.HostNetwork = true
-		hasEdgeVolume := false
-		for i := range dp.Spec.Template.Spec.Volumes {
-			if dp.Spec.Template.Spec.Volumes[i].Name == "edge" {
-				hasEdgeVolume = true
-				break
-			}
-		}
-		if !hasEdgeVolume {
-			dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes, v1.Volume{
-				Name: "edge",
-				VolumeSource: v1.VolumeSource{
-					ConfigMap: &v1.ConfigMapVolumeSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: "yurt-tunnel-nodes",
-						},
-					},
-				},
-			})
-		}
-		hasEdgeVolumeMount := false
-		containerIndex := 0
-		for i := range dp.Spec.Template.Spec.Containers {
-			if dp.Spec.Template.Spec.Containers[i].Name == "coredns" {
-				for j := range dp.Spec.Template.Spec.Containers[i].VolumeMounts {
-					if dp.Spec.Template.Spec.Containers[i].VolumeMounts[j].Name == "edge" {
-						hasEdgeVolumeMount = true
-						containerIndex = i
-						break
-					}
-				}
-			}
-			if hasEdgeVolumeMount {
-				break
-			}
-		}
 
-		if !hasEdgeVolumeMount {
-			dp.Spec.Template.Spec.Containers[containerIndex].VolumeMounts = append(dp.Spec.Template.Spec.Containers[containerIndex].VolumeMounts,
-				v1.VolumeMount{
-					Name:      "edge",
-					MountPath: "/etc/edge",
-					ReadOnly:  true,
-				})
-		}
-
-		if replicasChanged || !hasEdgeVolume || !hasEdgeVolumeMount {
-			_, err = ki.kubeClient.AppsV1().Deployments("kube-system").Update(context.TODO(), dp, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
+		_, err = ki.kubeClient.AppsV1().Deployments("kube-system").Update(context.TODO(), dp, metav1.UpdateOptions{})
+		if err != nil {
+			return err
 		}
 	}
 
@@ -590,19 +485,23 @@ func (ki *Initializer) configureCoreDnsAddon() error {
 }
 
 func (ki *Initializer) deployOpenYurt() error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
 	converter := &ClusterConverter{
-		ClientSet:                  ki.kubeClient,
-		CloudNodes:                 ki.CloudNodes,
-		EdgeNodes:                  ki.EdgeNodes,
-		WaitServantJobTimeout:      kubeutil.DefaultWaitServantJobTimeout,
-		YurthubHealthCheckTimeout:  defaultYurthubHealthCheckTimeout,
-		KubeConfigPath:             ki.KubeConfig,
-		YurtTunnelAgentImage:       ki.YurtTunnelAgentImage,
-		YurtTunnelServerImage:      ki.YurtTunnelServerImage,
-		YurtControllerManagerImage: ki.YurtControllerManagerImage,
-		NodeServantImage:           ki.NodeServantImage,
-		YurthubImage:               ki.YurtHubImage,
-		EnableDummyIf:              ki.EnableDummyIf,
+		RootDir:                   dir,
+		ComponentsBuilder:         kubeutil.NewBuilder(ki.KubeConfig),
+		ClientSet:                 ki.kubeClient,
+		CloudNodes:                ki.CloudNodes,
+		EdgeNodes:                 ki.EdgeNodes,
+		WaitServantJobTimeout:     kubeutil.DefaultWaitServantJobTimeout,
+		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
+		KubeConfigPath:            ki.KubeConfig,
+		YurtManagerImage:          ki.YurtManagerImage,
+		NodeServantImage:          ki.NodeServantImage,
+		YurthubImage:              ki.YurtHubImage,
+		EnableDummyIf:             ki.EnableDummyIf,
 	}
 	if err := converter.Run(); err != nil {
 		klog.Errorf("errors occurred when deploying openyurt components")

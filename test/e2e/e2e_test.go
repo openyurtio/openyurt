@@ -39,7 +39,6 @@ import (
 	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
 	_ "github.com/openyurtio/openyurt/test/e2e/yurt"
 	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
-	_ "github.com/openyurtio/openyurt/test/e2e/yurttunnel"
 )
 
 var (

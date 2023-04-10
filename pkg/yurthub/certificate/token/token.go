@@ -68,6 +68,7 @@ type CertificateManagerConfiguration struct {
 	RootDir                  string
 	NodeName                 string
 	JoinToken                string
+	BootstrapFile            string
 	CaCertHashes             []string
 	YurtHubCertOrganizations []string
 	CertIPs                  []net.IP
@@ -86,6 +87,7 @@ type yurtHubCertManager struct {
 	hubRunDir                  string
 	hubName                    string
 	joinToken                  string
+	bootstrapFile              string
 	dialer                     *util.Dialer
 }
 
@@ -104,6 +106,7 @@ func NewYurtHubCertManager(cfg *CertificateManagerConfiguration) (hubCert.YurtCe
 		hubRunDir:     hubRunDir,
 		hubName:       projectinfo.GetHubName(),
 		joinToken:     cfg.JoinToken,
+		bootstrapFile: cfg.BootstrapFile,
 		caCertHashes:  cfg.CaCertHashes,
 		dialer:        util.NewDialer("hub certificate manager"),
 	}
@@ -150,10 +153,10 @@ func removeDirContents(dir string) error {
 }
 
 func (ycm *yurtHubCertManager) verifyServerAddrOrCleanup(servers []*url.URL) {
-	if cfg, err := clientcmd.LoadFromFile(ycm.getBootstrapConfFile()); err == nil {
+	if cfg, err := clientcmd.LoadFromFile(ycm.GetHubConfFile()); err == nil {
 		cluster := kubeconfigutil.GetClusterFromKubeConfig(cfg)
 		if serverURL, err := url.Parse(cluster.Server); err != nil {
-			klog.Errorf("couldn't get server info from %s, %v", ycm.getBootstrapConfFile(), err)
+			klog.Errorf("couldn't get server info from %s, %v", ycm.GetHubConfFile(), err)
 		} else {
 			for i := range servers {
 				if servers[i].Host == serverURL.Host {
@@ -187,7 +190,58 @@ func (ycm *yurtHubCertManager) Start() {
 // if these files already exist, just reuse them.
 func (ycm *yurtHubCertManager) prepareConfigAndCaFile() error {
 	var tlsBootstrapCfg *clientcmdapi.Config
+	var hubKubeConfig *clientcmdapi.Config
+	var err error
 
+	// A bootstrap-file is prepared by yurtadm join command and configured as parameter for yurthub,
+	// yurthub only need to use it.
+	if len(ycm.bootstrapFile) != 0 {
+		// 1. load bootstrap config
+		if tlsBootstrapCfg, err = clientcmd.LoadFromFile(ycm.getBootstrapConfFile()); err != nil {
+			klog.Errorf("maybe hub agent restarted, failed to load bootstrap config file(%s), %v.", ycm.getBootstrapConfFile())
+		} else {
+			klog.V(2).Infof("%s file is configured, just use it", ycm.getBootstrapConfFile())
+		}
+
+		// 2. prepare kubeconfig file(/var/lib/yurthub/yurthub.conf) for yurthub
+		if exist, err := util.FileExists(ycm.GetHubConfFile()); err != nil {
+			return errors.Wrap(err, "couldn't stat hub kubeconfig file")
+		} else if exist {
+			klog.V(2).Infof("%s file already exists, so reuse it", ycm.GetHubConfFile())
+			if hubKubeConfig, err = clientcmd.LoadFromFile(ycm.GetHubConfFile()); err != nil {
+				return errors.Wrapf(err, "couldn't load hub kubeconfig file(%s)", ycm.GetHubConfFile())
+			}
+		} else if tlsBootstrapCfg == nil {
+			return errors.Errorf("neither boostrap file(%s) nor kubeconfig file(%s) exist when hub agent started", ycm.bootstrapFile, ycm.GetHubConfFile())
+		} else {
+			// hub kubeconfig file doesn't exist, but bootstrap file is ready, so create hub.conf by bootstrap config
+			hubKubeConfig = createHubConfig(tlsBootstrapCfg, ycm.apiServerClientCertStore.CurrentPath())
+			if err = kubeconfigutil.WriteToDisk(ycm.GetHubConfFile(), hubKubeConfig); err != nil {
+				return errors.Wrapf(err, "couldn't save %s to disk", hubConfigFileName)
+			}
+		}
+
+		// 3. prepare ca.crt file(/var/lib/yurthub/pki/ca.crt) for yurthub
+		if exist, err := util.FileExists(ycm.GetCaFile()); err != nil {
+			return errors.Wrap(err, "couldn't stat ca.crt file")
+		} else if !exist {
+			cluster := kubeconfigutil.GetClusterFromKubeConfig(hubKubeConfig)
+			if cluster != nil {
+				if err := certutil.WriteCert(ycm.GetCaFile(), cluster.CertificateAuthorityData); err != nil {
+					return errors.Wrap(err, "couldn't save the CA certificate to disk")
+				}
+			} else {
+				return errors.Errorf("couldn't prepare ca.crt(%s) file", ycm.GetCaFile())
+			}
+		} else {
+			klog.V(2).Infof("%s file already exists, so reuse it", ycm.GetCaFile())
+		}
+		return nil
+	}
+
+	// in order to keep consistency with old version(with join token),
+	// if join token instead of bootstrap-file is set, we will use join token to create boostrap-hub.conf
+	// use join token to create bootstrap-hub.conf and will be removed in the future version
 	// 1. prepare bootstrap config file(/var/lib/yurthub/bootstrap-hub.conf) for yurthub
 	if exist, err := util.FileExists(ycm.getBootstrapConfFile()); err != nil {
 		return errors.Wrap(err, "couldn't stat bootstrap config file")
@@ -274,6 +328,9 @@ func (ycm *yurtHubCertManager) getPkiDir() string {
 
 // getBootstrapConfFile returns the path of yurthub bootstrap conf file
 func (ycm *yurtHubCertManager) getBootstrapConfFile() string {
+	if len(ycm.bootstrapFile) != 0 {
+		return ycm.bootstrapFile
+	}
 	return filepath.Join(ycm.hubRunDir, bootstrapConfigFileName)
 }
 
