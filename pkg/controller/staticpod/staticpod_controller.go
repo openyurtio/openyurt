@@ -342,6 +342,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 			// 3. The worker pod is running, pending or unknown, then just wait
 			switch info.WorkerPod.Status.Phase {
 			case corev1.PodFailed:
+				r.recorder.Eventf(instance, corev1.EventTypeWarning, "StaticPod Upgrade Failed", "Fail to upgrade node: %v", node)
 				klog.Errorf("Fail to continue upgrade, cause worker pod %s of StaticPod %v in node %s failed",
 					info.WorkerPod.Name, request.NamespacedName, node)
 				return reconcile.Result{},
