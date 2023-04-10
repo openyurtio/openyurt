@@ -62,7 +62,6 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 			klog.Infof(Format("%s service is ready for poolcoordinator_cert_manager", serviceName))
 			return true, nil
 		}
-		klog.Infof(Format("waiting for the poolcoordinator %s service", serviceName))
 		return false, nil
 	}, stopCh); err != nil {
 		return nil, nil, err
