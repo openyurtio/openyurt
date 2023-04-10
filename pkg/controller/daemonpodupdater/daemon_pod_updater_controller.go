@@ -120,9 +120,8 @@ type ReconcileDaemonpodupdater struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	c := utilclient.NewClientFromManager(mgr, controllerName)
 	return &ReconcileDaemonpodupdater{
-		Client:       c,
+		Client:       utilclient.NewClientFromManager(mgr, controllerName),
 		expectations: k8sutil.NewControllerExpectations(),
 		recorder:     mgr.GetEventRecorderFor(controllerName),
 	}
@@ -215,7 +214,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	// @kadisi
 	klog.V(4).Infof(Format("Reconcile DaemonpodUpdater %s", request.Name))
 
-	// Fetch the StaticPod instance
+	// Fetch the DaemonSet instance
 	instance := &appsv1.DaemonSet{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		klog.Errorf("Fail to get DaemonSet %v, %v", request.NamespacedName, err)
