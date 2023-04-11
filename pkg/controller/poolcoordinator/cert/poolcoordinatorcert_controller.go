@@ -44,6 +44,7 @@ func init() {
 
 var (
 	concurrentReconciles = 3
+	PoolcoordinatorNS    = "kube-system"
 )
 
 const (
@@ -53,7 +54,6 @@ const (
 	certDir = "/tmp"
 
 	ComponentName               = "yurt-controller-manager_poolcoordinator"
-	PoolcoordinatorNS           = "kube-system"
 	PoolcoordinatorAPIServerSVC = "pool-coordinator-apiserver"
 	PoolcoordinatorETCDSVC      = "pool-coordinator-etcd"
 
@@ -202,6 +202,10 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if err != nil {
 		return err
 	}
+
+	// init global variables
+	cfg := c.ComponentConfig.Generic
+	PoolcoordinatorNS = cfg.WorkingNamespace
 
 	// init PoolCoordinator
 	// prepare some necessary assets (CA, certs, kubeconfigs) for pool-coordinator
