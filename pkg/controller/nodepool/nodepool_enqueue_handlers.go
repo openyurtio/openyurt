@@ -66,6 +66,11 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 	newNp := newNode.Labels[apps.LabelDesiredNodePool]
 	oldNp := oldNode.Labels[apps.LabelCurrentNodePool]
 
+	if len(oldNp) == 0 && len(newNp) == 0 {
+		klog.V(4).Infof(Format("node(%s) does not belong to any nodepool", newNode.GetName()))
+		return
+	}
+
 	if newNp != oldNp {
 		if newNp == "" {
 			// remove node from old pool

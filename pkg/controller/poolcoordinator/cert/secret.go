@@ -59,7 +59,7 @@ func NewSecretClient(clientSet client.Interface, ns, name string) (*SecretClient
 			return nil, fmt.Errorf("create secret client %s fail: %v", name, err)
 		}
 	} else {
-		klog.V(4).Infof(Format("secret %s not exisit, create one", secret.Name))
+		klog.V(4).Infof(Format("secret %s does not exist, create one", secret.Name))
 	}
 
 	return &SecretClient{

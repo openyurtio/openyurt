@@ -184,9 +184,9 @@ func (c *Controller) processNextWorkItem() bool {
 }
 
 func (c *Controller) sync() error {
-	klog.Infof("Starting to sync webhook certs and configurations")
+	klog.V(5).Infof("Starting to sync webhook certs and configurations")
 	defer func() {
-		klog.Infof("Finished to sync webhook certs and configurations")
+		klog.V(5).Infof("Finished to sync webhook certs and configurations")
 	}()
 
 	dnsName := webhookutil.GetHost()
