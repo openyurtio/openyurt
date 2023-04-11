@@ -20,12 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/klog/v2"
-
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"k8s.io/klog/v2"
 )
 
 // Default satisfies the defaulting webhook interface.

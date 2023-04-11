@@ -23,7 +23,6 @@ import (
 	"reflect"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
 	"github.com/openyurtio/openyurt/pkg/util/gate"
@@ -35,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -46,7 +45,6 @@ import (
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind("YurtAppDaemon")
 )
 
 const (
