@@ -21,6 +21,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	v1 "k8s.io/api/authorization/v1"
@@ -72,6 +73,7 @@ func NewYurtReverseProxyHandler(
 	coordinatorGetter func() poolcoordinator.Coordinator,
 	coordinatorTransportMgrGetter func() transport.Interface,
 	coordinatorHealthCheckerGetter func() healthchecker.HealthChecker,
+	coordinatorServerURLGetter func() *url.URL,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -122,9 +124,9 @@ func NewYurtReverseProxyHandler(
 
 		if yurtHubCfg.EnableCoordinator {
 			poolProxy, err = pool.NewPoolCoordinatorProxy(
-				yurtHubCfg.CoordinatorServerURL,
 				localCacheMgr,
 				coordinatorTransportMgrGetter,
+				coordinatorServerURLGetter,
 				yurtHubCfg.FilterManager,
 				isCoordinatorReady,
 				stopCh)

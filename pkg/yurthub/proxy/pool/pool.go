@@ -49,15 +49,12 @@ type PoolCoordinatorProxy struct {
 }
 
 func NewPoolCoordinatorProxy(
-	poolCoordinatorAddr *url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgrGetter func() transport.Interface,
+	coordinatorServerURLGetter func() *url.URL,
 	filterMgr *manager.Manager,
 	isCoordinatorReady func() bool,
 	stopCh <-chan struct{}) (*PoolCoordinatorProxy, error) {
-	if poolCoordinatorAddr == nil {
-		return nil, fmt.Errorf("pool-coordinator addr cannot be nil")
-	}
 
 	pp := &PoolCoordinatorProxy{
 		localCacheMgr:      localCacheMgr,
@@ -71,12 +68,18 @@ func NewPoolCoordinatorProxy(
 		for {
 			select {
 			case <-ticker.C:
+				// waiting for coordinator init finish
 				transportMgr := transportMgrGetter()
 				if transportMgr == nil {
 					break
 				}
+				coordinatorServerURL := coordinatorServerURLGetter()
+				if coordinatorServerURL == nil {
+					break
+				}
+
 				proxy, err := util.NewRemoteProxy(
-					poolCoordinatorAddr,
+					coordinatorServerURL,
 					pp.modifyResponse,
 					pp.errorHandler,
 					transportMgr,
@@ -87,7 +90,7 @@ func NewPoolCoordinatorProxy(
 				}
 
 				pp.poolCoordinatorProxy = proxy
-				klog.Infof("create remote proxy for pool-coordinator success")
+				klog.Infof("create remote proxy for pool-coordinator success, coordinatorServerURL: %s", coordinatorServerURL.String())
 				return
 			}
 		}
@@ -199,7 +202,7 @@ func (pp *PoolCoordinatorProxy) errorHandler(rw http.ResponseWriter, req *http.R
 
 func (pp *PoolCoordinatorProxy) modifyResponse(resp *http.Response) error {
 	if resp == nil || resp.Request == nil {
-		klog.Infof("no request info in response, skip cache response")
+		klog.Info("no request info in response, skip cache response")
 		return nil
 	}
 
