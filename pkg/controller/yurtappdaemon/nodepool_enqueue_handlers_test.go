@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	appsv1alpha1 "github.com/openyurtio/yurt-app-manager/pkg/yurtappmanager/apis/apps/v1alpha1"
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
 func createQueue() workqueue.RateLimitingInterface {
