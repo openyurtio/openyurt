@@ -25,31 +25,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	client "k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 	util "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
 // GetDaemonsetPods get all pods belong to the given daemonset
-func GetDaemonsetPods(podLister corelisters.PodLister, ds *appsv1.DaemonSet) ([]*corev1.Pod, error) {
+func GetDaemonsetPods(c client.Client, ds *appsv1.DaemonSet) ([]*corev1.Pod, error) {
 	dsPods := make([]*corev1.Pod, 0)
 	dsPodsNames := make([]string, 0)
-	pods, err := podLister.Pods(ds.Namespace).List(labels.Everything())
-	if err != nil {
+	podlist := &corev1.PodList{}
+	if err := c.List(context.TODO(), podlist, &client.ListOptions{Namespace: ds.Namespace}); err != nil {
 		return nil, err
 	}
 
-	for i, pod := range pods {
-		owner := metav1.GetControllerOf(pod)
+	for i, pod := range podlist.Items {
+		owner := metav1.GetControllerOf(&pod)
 		if owner == nil {
 			continue
 		}
 		if owner.UID == ds.UID {
-			dsPods = append(dsPods, pods[i])
+			dsPods = append(dsPods, &podlist.Items[i])
 			dsPodsNames = append(dsPodsNames, pod.Name)
 		}
 	}
@@ -92,9 +91,9 @@ func GetTemplateGeneration(ds *appsv1.DaemonSet) (*int64, error) {
 }
 
 // NodeReadyByName check if the given node is ready
-func NodeReadyByName(nodeList corelisters.NodeLister, nodeName string) (bool, error) {
-	node, err := nodeList.Get(nodeName)
-	if err != nil {
+func NodeReadyByName(c client.Client, nodeName string) (bool, error) {
+	node := &corev1.Node{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: nodeName}, node); err != nil {
 		return false, err
 	}
 
@@ -112,7 +111,7 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 }
 
 // SetPodUpgradeCondition calculate and set pod condition "PodNeedUpgrade"
-func SetPodUpgradeCondition(clientset client.Interface, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
+func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
 	isUpdatable := IsDaemonsetPodLatest(ds, pod)
 
 	// Comply with K8s, use constant ConditionTrue and ConditionFalse
@@ -129,7 +128,8 @@ func SetPodUpgradeCondition(clientset client.Interface, ds *appsv1.DaemonSet, po
 		Status: status,
 	}
 	if change := util.UpdatePodCondition(&pod.Status, cond); change {
-		if _, err := clientset.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
+
+		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
 			return err
 		}
 		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)

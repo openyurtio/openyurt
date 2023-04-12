@@ -24,7 +24,6 @@ package app
 import (
 	"net/http"
 
-	daemonpodupdater "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
@@ -36,18 +35,6 @@ func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, 
 		ctx.InformerFactory,
 	)
 	go poolcoordinatorController.Run(ctx.Stop)
-	return nil, true, nil
-}
-
-func startDaemonPodUpdaterController(ctx ControllerContext) (http.Handler, bool, error) {
-	daemonPodUpdaterCtrl := daemonpodupdater.NewController(
-		ctx.ClientBuilder.ClientOrDie("daemonPodUpdater-controller"),
-		ctx.InformerFactory.Apps().V1().DaemonSets(),
-		ctx.InformerFactory.Core().V1().Nodes(),
-		ctx.InformerFactory.Core().V1().Pods(),
-	)
-
-	go daemonPodUpdaterCtrl.Run(2, ctx.Stop)
 	return nil, true, nil
 }
 

@@ -812,6 +812,15 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - deployments
   verbs:
   - create
@@ -1051,7 +1060,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: kube-system
-      path: /mutate-raven-openyurt-io-gateway
+      path: /mutate-raven-openyurt-io-v1alpha1-gateway
   failurePolicy: Fail
   name: mutate.raven.v1alpha1.gateway.openyurt.io
   rules:
@@ -1120,7 +1129,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: kube-system
-      path: /validate-raven-openyurt-io-gateway
+      path: /validate-raven-openyurt-io-v1alpha1-gateway
   failurePolicy: Fail
   name: validate.raven.v1alpha1.gateway.openyurt.io
   rules:

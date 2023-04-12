@@ -68,7 +68,7 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 	}
 
 	// prepare certmanager
-	ips = ip.ParseIPList(serverSVC.Spec.ClusterIPs)
+	ips = ip.ParseIPList([]string{serverSVC.Spec.ClusterIP})
 	dnsnames = serveraddr.GetDefaultDomainsForSvc(PoolcoordinatorNS, serviceName)
 
 	return ips, dnsnames, nil
