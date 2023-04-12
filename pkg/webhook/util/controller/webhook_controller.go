@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	extclient "github.com/openyurtio/openyurt/pkg/client"
 	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/configuration"
@@ -48,7 +49,6 @@ const (
 )
 
 var (
-	namespace  = webhookutil.GetNamespace()
 	secretName = webhookutil.GetSecretName()
 
 	uninit   = make(chan struct{})
@@ -69,7 +69,9 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func New(cfg *rest.Config, handlers map[string]struct{}) (*Controller, error) {
+func New(cfg *rest.Config, handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller, error) {
+	webhookutil.SetNamespace(cc.ComponentConfig.Generic.WorkingNamespace)
+
 	c := &Controller{
 		kubeClient: extclient.GetGenericClientWithName("webhook-controller").KubeClient,
 		handlers:   handlers,
@@ -78,7 +80,7 @@ func New(cfg *rest.Config, handlers map[string]struct{}) (*Controller, error) {
 
 	c.informerFactory = informers.NewSharedInformerFactory(c.kubeClient, 0)
 
-	secretInformer := coreinformers.New(c.informerFactory, namespace, nil).Secrets()
+	secretInformer := coreinformers.New(c.informerFactory, webhookutil.GetNamespace(), nil).Secrets()
 	admissionRegistrationInformer := admissionregistrationinformers.New(c.informerFactory, v1.NamespaceAll, nil)
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

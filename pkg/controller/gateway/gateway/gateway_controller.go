@@ -66,6 +66,10 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		return nil
 	}
+	// init global variables
+	cfg := c.ComponentConfig.Generic
+	ravenv1alpha1.ServiceNamespacedName.Namespace = cfg.WorkingNamespace
+
 	return add(mgr, newReconciler(c, mgr))
 }
 

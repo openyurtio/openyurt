@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: yurt-manager
-  namespace: kube-system
+  namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -15,14 +15,14 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager
-  namespace: kube-system
+  namespace: {{ .Release.Namespace | quote }}
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
   name: yurt-manager-webhook-service
-  namespace: kube-system
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   ports:
     - port: 443
@@ -37,7 +37,7 @@ metadata:
   labels:
     {{- include "yurt-manager.labels" . | nindent 4 }}
   name: yurt-manager
-  namespace: "kube-system"
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   replicas: {{ .Values.yurtManager.replicas }}
   selector:
