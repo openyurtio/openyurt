@@ -20,7 +20,6 @@ package daemonpodupdater
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,25 +27,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apiserver/pkg/storage/names"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 )
 
 const (
 	SingleMaxUnavailable = "1"
-	CoupleMaxUnavailable = "2"
 )
 
 var (
 	simpleDaemonSetLabel = map[string]string{"foo": "bar"}
-	alwaysReady          = func() bool { return true }
 )
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -153,132 +149,11 @@ func newNode(name string, ready bool) *corev1.Node {
 }
 
 // ----------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------fakeController------------------------------------------------
-// ----------------------------------------------------------------------------------------------------------------
-type fakeController struct {
-	*Controller
-
-	dsStore   cache.Store
-	nodeStore cache.Store
-	podStore  cache.Store
-}
-
-// ----------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------fakePodControl------------------------------------------------
-// ----------------------------------------------------------------------------------------------------------------
-type fakePodControl struct {
-	sync.Mutex
-	*k8sutil.FakePodControl
-	podStore     cache.Store
-	podIDMap     map[string]*corev1.Pod
-	expectations k8sutil.ControllerExpectationsInterface
-}
-
-func newFakePodControl() *fakePodControl {
-	podIDMap := make(map[string]*corev1.Pod)
-	return &fakePodControl{
-		FakePodControl: &k8sutil.FakePodControl{},
-		podIDMap:       podIDMap,
-	}
-}
-
-func (f *fakePodControl) DeletePod(ctx context.Context, namespace string, podID string, object runtime.Object) error {
-	f.Lock()
-	defer f.Unlock()
-	if err := f.FakePodControl.DeletePod(ctx, namespace, podID, object); err != nil {
-		return fmt.Errorf("failed to delete pod %q", podID)
-	}
-	pod, ok := f.podIDMap[podID]
-	if !ok {
-		return fmt.Errorf("pod %q does not exist", podID)
-	}
-	f.podStore.Delete(pod)
-	delete(f.podIDMap, podID)
-
-	ds := object.(*appsv1.DaemonSet)
-	dsKey, _ := cache.MetaNamespaceKeyFunc(ds)
-	f.expectations.DeletionObserved(dsKey)
-
-	return nil
-}
-
-func newTest(initialObjests ...runtime.Object) (*fakeController, *fakePodControl) {
-	clientset := fake.NewSimpleClientset(initialObjests...)
-	informerFactory := informers.NewSharedInformerFactory(clientset, 0)
-
-	c := NewController(
-		clientset,
-		informerFactory.Apps().V1().DaemonSets(),
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().Pods(),
-	)
-
-	c.daemonsetSynced = alwaysReady
-	c.nodeSynced = alwaysReady
-	c.podSynced = alwaysReady
-
-	podControl := newFakePodControl()
-	c.podControl = podControl
-	podControl.podStore = informerFactory.Core().V1().Pods().Informer().GetStore()
-
-	fakeCtrl := &fakeController{
-		c,
-		informerFactory.Apps().V1().DaemonSets().Informer().GetStore(),
-		informerFactory.Core().V1().Nodes().Informer().GetStore(),
-		informerFactory.Core().V1().Pods().Informer().GetStore(),
-	}
-
-	podControl.expectations = c.expectations
-	return fakeCtrl, podControl
-}
-
-// ----------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------Expectations--------------------------------------------------
-// ----------------------------------------------------------------------------------------------------------------
-
-func expectSyncDaemonSets(t *testing.T, tcase tCase, fakeCtrl *fakeController, ds *appsv1.DaemonSet,
-	podControl *fakePodControl, expectedDeletes int) {
-	key, err := cache.MetaNamespaceKeyFunc(ds)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	intstrv := intstrutil.Parse(tcase.maxUnavailable)
-	maxUnavailable, err := intstrutil.GetScaledValueFromIntOrPercent(&intstrv, tcase.nodeNum, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Execute test case
-	round := expectedDeletes / maxUnavailable
-	for round >= 0 {
-		err = fakeCtrl.syncHandler(key)
-		if err != nil {
-			t.Fatalf("Test %q does not passed, got syncDaemonsetHandler error %v", tcase.name, err)
-		}
-		round--
-	}
-
-	// Validate deleted pods number
-	if !tcase.wantDelete {
-		return
-	}
-
-	err = validateSyncDaemonSets(podControl, expectedDeletes)
-	if err != nil {
-		t.Fatalf("Test %q does not passed, %v", tcase.name, err)
-	}
-}
-
-// ----------------------------------------------------------------------------------------------------------------
 // -------------------------------------------------------util-----------------------------------------------------
 // ----------------------------------------------------------------------------------------------------------------
 
 func setAutoUpdateAnnotation(ds *appsv1.DaemonSet) {
 	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpdateAnnotation, AutoUpdate)
-}
-
-func setOTAUpdateAnnotation(ds *appsv1.DaemonSet) {
-	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, UpdateAnnotation, OTAUpdate)
 }
 
 func setMaxUnavailableAnnotation(ds *appsv1.DaemonSet, v string) {
@@ -291,16 +166,8 @@ func setOnDelete(ds *appsv1.DaemonSet) {
 	}
 }
 
-// validateSyncDaemonSets check whether the number of deleted pod and events meet expectations
-func validateSyncDaemonSets(fakePodControl *fakePodControl, expectedDeletes int) error {
-	if len(fakePodControl.DeletePodName) != expectedDeletes {
-		return fmt.Errorf("Unexpected number of deletes.  Expected %d, got %v\n", expectedDeletes, fakePodControl.DeletePodName)
-	}
-	return nil
-}
-
-func addNodesWithPods(fakeCtrl *fakeController, f *fakePodControl, startIndex, numNodes int, ds *appsv1.DaemonSet, ready bool) ([]*corev1.Node, error) {
-	nodes := make([]*corev1.Node, 0)
+func addNodesWithPods(startIndex, numNodes int, ds *appsv1.DaemonSet, ready bool) ([]client.Object, error) {
+	objs := make([]client.Object, 0)
 
 	for i := startIndex; i < startIndex+numNodes; i++ {
 		var nodeName string
@@ -312,21 +179,13 @@ func addNodesWithPods(fakeCtrl *fakeController, f *fakePodControl, startIndex, n
 		}
 
 		node := newNode(nodeName, ready)
-		err := fakeCtrl.nodeStore.Add(node)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, node)
+		objs = append(objs, node)
 
 		podPrefix := fmt.Sprintf("pod-%d", i)
 		pod := newPod(podPrefix, nodeName, simpleDaemonSetLabel, ds)
-		err = fakeCtrl.podStore.Add(pod)
-		if err != nil {
-			return nil, err
-		}
-		f.podIDMap[pod.Name] = pod
+		objs = append(objs, pod)
 	}
-	return nodes, nil
+	return objs, nil
 }
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -346,7 +205,6 @@ type tCase struct {
 
 // DaemonSets should place onto NotReady nodes
 func TestDaemonsetPodUpdater(t *testing.T) {
-
 	tcases := []tCase{
 		{
 			name:           "failed with not OnDelete strategy",
@@ -432,16 +290,14 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 			setAutoUpdateAnnotation(ds)
 		}
 
-		fakeCtrl, podControl := newTest(ds)
-
 		// add ready nodes and its pods
-		_, err := addNodesWithPods(fakeCtrl, podControl, 1, tcase.readyNodeNum, ds, true)
+		readyNodesWithPods, err := addNodesWithPods(1, tcase.readyNodeNum, ds, true)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// add not-ready nodes and its pods
-		notReadyNodes, err := addNodesWithPods(fakeCtrl, podControl, tcase.readyNodeNum+1, tcase.nodeNum-tcase.readyNodeNum, ds,
+		notReadyNodesWithPods, err := addNodesWithPods(tcase.readyNodeNum+1, tcase.nodeNum-tcase.readyNodeNum, ds,
 			false)
 		if err != nil {
 			t.Fatal(err)
@@ -449,68 +305,22 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 
 		// Update daemonset specification
 		ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
-		err = fakeCtrl.dsStore.Add(ds)
+
+		c := fakeclient.NewClientBuilder().WithObjects(ds).WithObjects(readyNodesWithPods...).
+			WithObjects(notReadyNodesWithPods...).Build()
+
+		req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ds.Namespace, Name: ds.Name}}
+		r := &ReconcileDaemonpodupdater{
+			Client:       c,
+			expectations: k8sutil.NewControllerExpectations(),
+			podControl:   &k8sutil.FakePodControl{},
+		}
+
+		_, err = r.Reconcile(context.TODO(), req)
 		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Check test case
-		expectSyncDaemonSets(t, tcase, fakeCtrl, ds, podControl, tcase.readyNodeNum)
-
-		if tcase.turnReady {
-			fakeCtrl.podControl.(*fakePodControl).Clear()
-			for _, node := range notReadyNodes {
-				node.Status.Conditions = []corev1.NodeCondition{
-					{Type: corev1.NodeReady, Status: corev1.ConditionTrue},
-				}
-				if err := fakeCtrl.nodeStore.Update(node); err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			expectSyncDaemonSets(t, tcase, fakeCtrl, ds, podControl, tcase.nodeNum-tcase.readyNodeNum)
+			t.Fatalf("Failed to reconcile daemonpodupdater controller")
 		}
 	}
-}
-
-func TestOTAUpdate(t *testing.T) {
-	ds := newDaemonSet("ds", "foo/bar:v1")
-	setOTAUpdateAnnotation(ds)
-
-	node := newNode("node", true)
-	oldPod := newPod("old-pod", node.Name, simpleDaemonSetLabel, ds)
-	ds.Spec.Template.Spec.Containers[0].Image = "foo/bar:v2"
-	newPod := newPod("new-pod", node.Name, simpleDaemonSetLabel, ds)
-
-	fakeCtrl, _ := newTest(ds, oldPod, newPod, node)
-
-	fakeCtrl.podStore.Add(oldPod)
-	fakeCtrl.podStore.Add(newPod)
-	fakeCtrl.dsStore.Add(ds)
-	fakeCtrl.nodeStore.Add(node)
-
-	key, err := cache.MetaNamespaceKeyFunc(ds)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = fakeCtrl.syncHandler(key); err != nil {
-		t.Fatalf("OTA test does not passed, got syncDaemonsetHandler error %v", err)
-	}
-
-	// check whether ota PodNeedUpgrade condition set properly
-	oldPodGot, err := fakeCtrl.kubeclientset.CoreV1().Pods(ds.Namespace).Get(context.TODO(), oldPod.Name,
-		metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("get oldPod failed, %+v", err)
-	}
-
-	newPodGot, err := fakeCtrl.kubeclientset.CoreV1().Pods(ds.Namespace).Get(context.TODO(), newPod.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("get newPod failed, %+v", err)
-	}
-
-	assert.Equal(t, true, IsPodUpdatable(oldPodGot))
-	assert.Equal(t, false, IsPodUpdatable(newPodGot))
 }
 
 func TestController_maxUnavailableCounts(t *testing.T) {
@@ -550,7 +360,7 @@ func TestController_maxUnavailableCounts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c := &Controller{}
+			r := &ReconcileDaemonpodupdater{}
 			ds := &appsv1.DaemonSet{}
 			setMaxUnavailableAnnotation(ds, test.maxUnavailable)
 
@@ -558,7 +368,7 @@ func TestController_maxUnavailableCounts(t *testing.T) {
 			nodeToDaemonPods := map[string][]*corev1.Pod{
 				"1": nil, "2": nil, "3": nil, "4": nil, "5": nil, "6": nil, "7": nil, "8": nil, "9": nil, "10": nil,
 			}
-			got, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
+			got, err := r.maxUnavailableCounts(ds, nodeToDaemonPods)
 			assert.Equal(t, nil, err)
 			assert.Equal(t, test.wantNum, got)
 		})

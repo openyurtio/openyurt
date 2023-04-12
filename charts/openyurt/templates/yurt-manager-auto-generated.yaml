@@ -552,6 +552,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - apps.openyurt.io
   resources:
   - nodepools

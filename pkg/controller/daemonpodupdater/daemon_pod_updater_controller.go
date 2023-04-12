@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The OpenYurt Authors.
+Copyright 2023 The OpenYurt Authors.
 Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +19,7 @@ package daemonpodupdater
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"sync"
 	"time"
@@ -27,26 +28,46 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	appsinformers "k8s.io/client-go/informers/apps/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	appslisters "k8s.io/client-go/listers/apps/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
+	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
+	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
+)
+
+func init() {
+	flag.IntVar(&concurrentReconciles, "daemonpodupdater-workers", concurrentReconciles, "Max concurrent workers for Daemonpodupdater controller.")
+}
+
+var (
+	concurrentReconciles = 3
+
+	// controllerKind contains the schema.GroupVersionKind for this controller type.
+	controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 )
 
 const (
+	controllerName = "Daemonpodupdater-controller"
+
 	// UpdateAnnotation is the annotation key used in daemonset spec to indicate
 	// which update strategy is selected. Currently, "ota" and "auto" are supported.
 	UpdateAnnotation = "apps.openyurt.io/update-strategy"
@@ -71,117 +92,181 @@ const (
 	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
 	// The value of 250 is chosen b/c values that are too high can cause registry DoS issues.
 	BurstReplicas = 250
-
-	maxRetries = 30
 )
 
-// controllerKind contains the schema.GroupVersionKind for this controller type.
-var controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
-
-type Controller struct {
-	kubeclientset client.Interface
-	podControl    k8sutil.PodControlInterface
-	// daemonPodUpdater watches daemonset, node and pod resource
-	daemonsetLister    appslisters.DaemonSetLister
-	daemonsetSynced    cache.InformerSynced
-	nodeLister         corelisters.NodeLister
-	nodeSynced         cache.InformerSynced
-	podLister          corelisters.PodLister
-	podSynced          cache.InformerSynced
-	daemonsetWorkqueue workqueue.RateLimitingInterface
-	expectations       k8sutil.ControllerExpectationsInterface
+func Format(format string, args ...interface{}) string {
+	s := fmt.Sprintf(format, args...)
+	return fmt.Sprintf("%s: %s", controllerName, s)
 }
 
-func NewController(kc client.Interface, daemonsetInformer appsinformers.DaemonSetInformer,
-	nodeInformer coreinformers.NodeInformer, podInformer coreinformers.PodInformer) *Controller {
-
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartStructuredLogging(0)
-	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kc.CoreV1().Events("")})
-
-	ctrl := Controller{
-		kubeclientset: kc,
-		// Use PodControlInterface to delete pods, which is convenient for testing
-		podControl: k8sutil.RealPodControl{
-			KubeClient: kc,
-			Recorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "daemonPodUpdater"}),
-		},
-
-		daemonsetLister: daemonsetInformer.Lister(),
-		daemonsetSynced: daemonsetInformer.Informer().HasSynced,
-
-		nodeLister: nodeInformer.Lister(),
-		nodeSynced: nodeInformer.Informer().HasSynced,
-
-		podLister: podInformer.Lister(),
-		podSynced: podInformer.Informer().HasSynced,
-
-		daemonsetWorkqueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		expectations:       k8sutil.NewControllerExpectations(),
+// Add creates a new Daemonpodupdater Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
+	if !utildiscovery.DiscoverGVK(controllerKind) {
+		return nil
 	}
-
-	// In this controller, we focus three cases
-	// 1. daemonset specification changes
-	// 2. node turns from not-ready to ready
-	// 3. pods were deleted successfully
-	// In case 2, daemonset.Status.DesiredNumberScheduled will change and, in case 3, daemonset.Status.NumberReady
-	// will change. Therefore, we focus only on the daemonset Update event, which can cover the above situations.
-	daemonsetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(old, new interface{}) {
-			newDS := new.(*appsv1.DaemonSet)
-			oldDS := old.(*appsv1.DaemonSet)
-
-			// Only handle daemonset meets prerequisites
-			if !checkPrerequisites(newDS) {
-				return
-			}
-
-			if newDS.ResourceVersion == oldDS.ResourceVersion {
-				return
-			}
-
-			klog.V(5).Infof("Got daemonset udpate event: %v", newDS.Name)
-			ctrl.enqueueDaemonSet(newDS)
-		},
-	})
-
-	// Watch for deletion of pods. The reason we watch is that we don't want a daemon set to delete
-	// more pods until all the effects (expectations) of a daemon set's delete have been observed.
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: ctrl.deletePod,
-	})
-	return &ctrl
+	return add(mgr, newReconciler(c, mgr))
 }
 
-func (c *Controller) enqueueDaemonSet(ds *appsv1.DaemonSet) {
-	key, err := cache.MetaNamespaceKeyFunc(ds)
+var _ reconcile.Reconciler = &ReconcileDaemonpodupdater{}
+
+// ReconcileDaemonpodupdater reconciles a DaemonSet object
+type ReconcileDaemonpodupdater struct {
+	client.Client
+	recorder     record.EventRecorder
+	expectations k8sutil.ControllerExpectationsInterface
+	podControl   k8sutil.PodControlInterface
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcileDaemonpodupdater{
+		Client:       utilclient.NewClientFromManager(mgr, controllerName),
+		expectations: k8sutil.NewControllerExpectations(),
+		recorder:     mgr.GetEventRecorderFor(controllerName),
+	}
+}
+
+func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
+	c, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %#v: %v", ds, err))
-		return
+		klog.Errorf("failed to create kube client, %v", err)
+		return err
 	}
-
-	klog.V(5).Infof("Daemonset %v queued", key)
-	c.daemonsetWorkqueue.Add(key)
+	// Use PodControlInterface to delete pods, which is convenient for testing
+	r.podControl = k8sutil.RealPodControl{
+		KubeClient: c,
+		Recorder:   r.recorder,
+	}
+	return nil
 }
 
-func (c *Controller) deletePod(obj interface{}) {
-	pod, ok := obj.(*corev1.Pod)
-	// When a deletion is dropped, the relist will notice a pod in the store not
-	// in the list, leading to the insertion of a tombstone object which contains
-	// the deleted key/value. Note that this value might be stale. If the pod
-	// changed labels the new daemonset will not be woken up till the periodic
-	// resync.
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	if err != nil {
+		return err
+	}
+
+	// 1. Watch for changes to DaemonSet
+	daemonsetUpdatePredicate := predicate.Funcs{
+		CreateFunc: func(evt event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(evt event.DeleteEvent) bool {
+			return false
+		},
+		UpdateFunc: func(evt event.UpdateEvent) bool {
+			return daemonsetUpdate(evt)
+		},
+		GenericFunc: func(evt event.GenericEvent) bool {
+			return false
+		},
+	}
+
+	if err := c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForObject{}, daemonsetUpdatePredicate); err != nil {
+		return err
+	}
+
+	// 2. Watch for deletion of pods. The reason we watch is that we don't want a daemon set to delete
+	// more pods until all the effects (expectations) of a daemon set's delete have been observed.
+	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.Funcs{
+		DeleteFunc: r.(*ReconcileDaemonpodupdater).deletePod,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// daemonsetUpdate filter events: daemonset update with customized annotation
+func daemonsetUpdate(evt event.UpdateEvent) bool {
+	if _, ok := evt.ObjectOld.(*appsv1.DaemonSet); !ok {
+		return false
+	}
+
+	oldDS := evt.ObjectOld.(*appsv1.DaemonSet)
+	newDS := evt.ObjectNew.(*appsv1.DaemonSet)
+
+	// Only handle daemonset meets prerequisites
+	if !checkPrerequisites(newDS) {
+		return false
+	}
+
+	if newDS.ResourceVersion == oldDS.ResourceVersion {
+		return false
+	}
+
+	klog.V(5).Infof("Got daemonset udpate event: %v", newDS.Name)
+	return true
+}
+
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
+
+// Reconcile reads that state of the cluster for a DaemonSet object and makes changes based on the state read
+// and what is in the DaemonSet.Spec
+func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+
+	// Note !!!!!!!!!!
+	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
+	// @kadisi
+	klog.V(4).Infof(Format("Reconcile DaemonpodUpdater %s", request.Name))
+
+	// Fetch the DaemonSet instance
+	instance := &appsv1.DaemonSet{}
+	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+		klog.Errorf("Fail to get DaemonSet %v, %v", request.NamespacedName, err)
+		if apierrors.IsNotFound(err) {
+			r.expectations.DeleteExpectations(request.NamespacedName.String())
+		}
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if instance.DeletionTimestamp != nil {
+		return reconcile.Result{}, nil
+	}
+
+	// Only process daemonset that meets expectations
+	// Otherwise, wait native daemonset controller reconciling
+	if !r.expectations.SatisfiedExpectations(request.NamespacedName.String()) {
+		return reconcile.Result{}, nil
+	}
+
+	// Recheck required annotation
+	v, ok := instance.Annotations[UpdateAnnotation]
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
-			return
+		klog.V(4).Infof("won't sync daemonset %q without annotation 'apps.openyurt.io/update-strategy'",
+			request.NamespacedName)
+		return reconcile.Result{}, nil
+	}
+
+	switch v {
+	case OTAUpdate:
+		if err := r.otaUpdate(instance); err != nil {
+			klog.Errorf(Format("Fail to ota update DaemonSet %v pod: %v", request.NamespacedName, err))
+			return reconcile.Result{}, err
 		}
-		pod, ok = tombstone.Obj.(*corev1.Pod)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a pod %#v", obj))
-			return
+
+	case AutoUpdate:
+		if err := r.autoUpdate(instance); err != nil {
+			klog.Errorf(Format("Fail to auto update DaemonSet %v pod: %v", request.NamespacedName, err))
+			return reconcile.Result{}, err
 		}
+	default:
+		klog.Errorf(Format("Unknown update type for DaemonSet %v pod: %v", request.NamespacedName, v))
+		return reconcile.Result{}, fmt.Errorf("unknown update type %v", v)
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileDaemonpodupdater) deletePod(evt event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	pod, ok := evt.Object.(*corev1.Pod)
+	if !ok {
+		utilruntime.HandleError(fmt.Errorf("deletepod fail to deal with object that is not a pod %#v", evt.Object))
+		return
 	}
 
 	klog.V(5).Infof("Daemonset pod %s deleted.", pod.Name)
@@ -191,7 +276,7 @@ func (c *Controller) deletePod(obj interface{}) {
 		// No controller should care about orphans being deleted.
 		return
 	}
-	ds := c.resolveControllerRef(pod.Namespace, controllerRef)
+	ds := r.resolveControllerRef(pod.Namespace, controllerRef)
 	if ds == nil {
 		return
 	}
@@ -206,116 +291,20 @@ func (c *Controller) deletePod(obj interface{}) {
 		return
 	}
 
-	c.expectations.DeletionObserved(dsKey)
-}
-
-func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-
-	klog.Info("Starting daemonPodUpdater controller")
-	defer klog.Info("Shutting down daemonPodUpdater controller")
-	defer c.daemonsetWorkqueue.ShutDown()
-
-	// Synchronize the cache before starting to process events
-	if !cache.WaitForCacheSync(stopCh, c.daemonsetSynced, c.nodeSynced, c.podSynced) {
-		klog.Error("sync daemonPodUpdater controller timeout")
-	}
-
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	<-stopCh
-}
-
-func (c *Controller) runWorker() {
-	for {
-		obj, shutdown := c.daemonsetWorkqueue.Get()
-		if shutdown {
-			return
-		}
-
-		if err := c.syncHandler(obj.(string)); err != nil {
-			if c.daemonsetWorkqueue.NumRequeues(obj) < maxRetries {
-				klog.Infof("error syncing event %v: %v", obj, err)
-				c.daemonsetWorkqueue.AddRateLimited(obj)
-				c.daemonsetWorkqueue.Done(obj)
-				continue
-			}
-			utilruntime.HandleError(err)
-		}
-
-		c.daemonsetWorkqueue.Forget(obj)
-		c.daemonsetWorkqueue.Done(obj)
-	}
-}
-
-func (c *Controller) syncHandler(key string) error {
-	defer func() {
-		klog.V(4).Infof("Finish syncing daemonPodUpdater request %q", key)
-	}()
-
-	klog.V(4).Infof("Start handling daemonPodUpdater request %q", key)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return fmt.Errorf("invalid resource key: %s", key)
-	}
-
-	// Daemonset that need to be synced
-	ds, err := c.daemonsetLister.DaemonSets(namespace).Get(name)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			c.expectations.DeleteExpectations(key)
-			return nil
-		}
-		return err
-	}
-
-	if ds.DeletionTimestamp != nil {
-		return nil
-	}
-
-	// Only process daemonset that meets expectations
-	// Otherwise, wait native daemonset controller reconciling
-	if !c.expectations.SatisfiedExpectations(key) {
-		return nil
-	}
-
-	// Recheck required annotation
-	v, ok := ds.Annotations[UpdateAnnotation]
-	if !ok {
-		return fmt.Errorf("won't sync daemonset %q without annotation 'apps.openyurt.io/update-strategy'", ds.Name)
-	}
-
-	switch v {
-	case OTAUpdate:
-		if err := c.otaUpdate(ds); err != nil {
-			return err
-		}
-
-	case AutoUpdate:
-		if err := c.autoUpdate(ds); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown annotation type %v", v)
-	}
-
-	return nil
+	r.expectations.DeletionObserved(dsKey)
 }
 
 // otaUpdate compare every pod to its owner daemonset to check if pod is updatable
 // If pod is in line with the latest daemonset spec, set pod condition "PodNeedUpgrade" to "false"
 // while not, set pod condition "PodNeedUpgrade" to "true"
-func (c *Controller) otaUpdate(ds *appsv1.DaemonSet) error {
-	pods, err := GetDaemonsetPods(c.podLister, ds)
+func (r *ReconcileDaemonpodupdater) otaUpdate(ds *appsv1.DaemonSet) error {
+	pods, err := GetDaemonsetPods(r.Client, ds)
 	if err != nil {
 		return err
 	}
 
 	for _, pod := range pods {
-		if err := SetPodUpgradeCondition(c.kubeclientset, ds, pod); err != nil {
+		if err := SetPodUpgradeCondition(r.Client, ds, pod); err != nil {
 			return err
 		}
 	}
@@ -324,14 +313,14 @@ func (c *Controller) otaUpdate(ds *appsv1.DaemonSet) error {
 
 // autoUpdate identifies the set of old pods to delete within the constraints imposed by the max-unavailable number.
 // Just ignore and do not calculate not-ready nodes.
-func (c *Controller) autoUpdate(ds *appsv1.DaemonSet) error {
-	nodeToDaemonPods, err := c.getNodesToDaemonPods(ds)
+func (r *ReconcileDaemonpodupdater) autoUpdate(ds *appsv1.DaemonSet) error {
+	nodeToDaemonPods, err := r.getNodesToDaemonPods(ds)
 	if err != nil {
 		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
 	}
 
 	// Calculate maxUnavailable specified by user, default is 1
-	maxUnavailable, err := c.maxUnavailableCounts(ds, nodeToDaemonPods)
+	maxUnavailable, err := r.maxUnavailableCounts(ds, nodeToDaemonPods)
 	if err != nil {
 		return fmt.Errorf("couldn't get maxUnavailable number for daemon set %q: %v", ds.Name, err)
 	}
@@ -343,7 +332,7 @@ func (c *Controller) autoUpdate(ds *appsv1.DaemonSet) error {
 	for nodeName, pods := range nodeToDaemonPods {
 		// Check if node is ready, ignore not-ready node
 		// this is a significant difference from the native daemonset controller
-		ready, err := NodeReadyByName(c.nodeLister, nodeName)
+		ready, err := NodeReadyByName(r.Client, nodeName)
 		if err != nil {
 			return fmt.Errorf("couldn't check node %q ready status, %v", nodeName, err)
 		}
@@ -403,13 +392,13 @@ func (c *Controller) autoUpdate(ds *appsv1.DaemonSet) error {
 	}
 	oldPodsToDelete := append(allowedReplacementPods, candidatePodsToDelete[:remainingUnavailable]...)
 
-	return c.syncPodsOnNodes(ds, oldPodsToDelete)
+	return r.syncPodsOnNodes(ds, oldPodsToDelete)
 }
 
 // getNodesToDaemonPods returns a map from nodes to daemon pods (corresponding to ds) created for the nodes.
-func (c *Controller) getNodesToDaemonPods(ds *appsv1.DaemonSet) (map[string][]*corev1.Pod, error) {
+func (r *ReconcileDaemonpodupdater) getNodesToDaemonPods(ds *appsv1.DaemonSet) (map[string][]*corev1.Pod, error) {
 	// Ignore adopt/orphan pod, just deal with pods in podLister
-	pods, err := GetDaemonsetPods(c.podLister, ds)
+	pods, err := GetDaemonsetPods(r.Client, ds)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +421,7 @@ func (c *Controller) getNodesToDaemonPods(ds *appsv1.DaemonSet) (map[string][]*c
 
 // syncPodsOnNodes deletes pods on the given nodes.
 // returns slice with errors if any.
-func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string) error {
+func (r *ReconcileDaemonpodupdater) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string) error {
 	// We need to set expectations before deleting pods to avoid race conditions.
 	dsKey, err := cache.MetaNamespaceKeyFunc(ds)
 	if err != nil {
@@ -445,7 +434,7 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 		deleteDiff = BurstReplicas
 	}
 
-	c.expectations.SetExpectations(dsKey, 0, deleteDiff)
+	r.expectations.SetExpectations(dsKey, 0, deleteDiff)
 
 	// Error channel to communicate back failures, make the buffer big enough to avoid any blocking
 	errCh := make(chan error, deleteDiff)
@@ -457,8 +446,8 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 	for i := 0; i < deleteDiff; i++ {
 		go func(ix int) {
 			defer deleteWait.Done()
-			if err := c.podControl.DeletePod(context.TODO(), ds.Namespace, podsToDelete[ix], ds); err != nil {
-				c.expectations.DeletionObserved(dsKey)
+			if err := r.podControl.DeletePod(context.TODO(), ds.Namespace, podsToDelete[ix], ds); err != nil {
+				r.expectations.DeletionObserved(dsKey)
 				if !apierrors.IsNotFound(err) {
 					klog.V(2).Infof("Failed deletion, decremented expectations for set %q/%q", ds.Namespace, ds.Name)
 					errCh <- err
@@ -480,7 +469,7 @@ func (c *Controller) syncPodsOnNodes(ds *appsv1.DaemonSet, podsToDelete []string
 }
 
 // maxUnavailableCounts calculates the true number of allowed unavailable
-func (c *Controller) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) (int, error) {
+func (r *ReconcileDaemonpodupdater) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) (int, error) {
 	// If annotation is not set, use default value one
 	v, ok := ds.Annotations[MaxUnavailableAnnotation]
 	if !ok || v == "0" || v == "0%" {
@@ -500,14 +489,14 @@ func (c *Controller) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *appsv1.DaemonSet {
+func (r *ReconcileDaemonpodupdater) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *appsv1.DaemonSet {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != controllerKind.Kind {
 		return nil
 	}
-	ds, err := c.daemonsetLister.DaemonSets(namespace).Get(controllerRef.Name)
-	if err != nil {
+	ds := &appsv1.DaemonSet{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: controllerRef.Name, Namespace: namespace}, ds); err != nil {
 		return nil
 	}
 	if ds.UID != controllerRef.UID {

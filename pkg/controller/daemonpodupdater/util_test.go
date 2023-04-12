@@ -23,8 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestGetDaemonsetPods(t *testing.T) {
@@ -34,13 +33,9 @@ func TestGetDaemonsetPods(t *testing.T) {
 	pod2 := newPod("pod2", "", simpleDaemonSetLabel, nil)
 
 	expectPods := []*corev1.Pod{pod1}
-	clientset := fake.NewSimpleClientset(ds1, pod1, pod2)
-	podInformer := informers.NewSharedInformerFactory(clientset, 0)
+	client := fakeclient.NewClientBuilder().WithObjects(ds1, pod1, pod2).Build()
 
-	podInformer.Core().V1().Pods().Informer().GetIndexer().Add(pod1)
-	podInformer.Core().V1().Pods().Informer().GetIndexer().Add(pod2)
-
-	gotPods, err := GetDaemonsetPods(podInformer.Core().V1().Pods().Lister(), ds1)
+	gotPods, err := GetDaemonsetPods(client, ds1)
 
 	assert.Equal(t, nil, err)
 	assert.Equal(t, expectPods, gotPods)
