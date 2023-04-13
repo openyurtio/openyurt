@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -77,6 +76,9 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
 	checkPod := func(pod *v1.Pod) (hasResult, result bool) {
 		h := pod.Annotations[StaticPodHashAnnotation]
 		if pod.Status.Phase == v1.PodRunning && h == hash {
@@ -97,9 +99,7 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 		default:
 			pod, err := GetPodFromYurtHub(namespace, name)
 			if err != nil {
-				if !strings.Contains(err.Error(), "fail to find pod") {
-					return false, err
-				}
+				klog.V(4).Infof("Temporarily fail to get pod from YurtHub, %v", err)
 			}
 			if pod != nil {
 				hasResult, result := checkPod(pod)
@@ -108,5 +108,6 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 				}
 			}
 		}
+		<-ticker.C
 	}
 }
