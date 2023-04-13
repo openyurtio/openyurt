@@ -1029,7 +1029,7 @@ webhooks:
   name: validate.core.v1.pod.openyurt.io
   rules:
   - apiGroups:
-    - core.openyurt.io
+    - ""
     apiVersions:
     - v1
     operations:
