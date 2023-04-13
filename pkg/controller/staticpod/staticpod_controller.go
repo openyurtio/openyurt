@@ -487,36 +487,6 @@ func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos 
 		}
 	}
 
-	// Create worker pod to issue the latest manifest to ready node
-	readyUpgradeWaitingNodes := upgradeinfo.OTAReadyUpgradeWaitingNodes(infos, hash)
-	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash,
-		string(appsv1alpha1.OTAStaticPodUpgradeStrategyType), r.Configuration.UpgradeWorkerImage); err != nil {
-		return err
-	}
-
-	if err := r.setLatestManifestHash(instance, readyUpgradeWaitingNodes, hash); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setLatestManifestHash set the latest manifest hash value to target static pod annotation
-// TODO: In ota mode, it's hard for controller to check whether the latest manifest file has been issued to nodes
-// TODO: Use annotation `openyurt.io/ota-latest-version` to indicate the version of manifest issued to nodes
-func (r *ReconcileStaticPod) setLatestManifestHash(instance *appsv1alpha1.StaticPod, nodes []string, hash string) error {
-	pod := &corev1.Pod{}
-	for _, node := range nodes {
-		if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace,
-			Name: util.Hyphen(instance.Name, node)}, pod); err != nil {
-			return err
-		}
-
-		metav1.SetMetaDataAnnotation(&pod.ObjectMeta, OTALatestManifestAnnotation, hash)
-		if err := r.Client.Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

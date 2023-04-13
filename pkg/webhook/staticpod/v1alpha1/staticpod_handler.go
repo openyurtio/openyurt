@@ -40,8 +40,8 @@ func (webhook *StaticPodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (stri
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-apps-openyurt-io-staticpod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.staticpod.openyurt.io
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-staticpod,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=mutate.apps.v1alpha1.staticpod.openyurt.io
+// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-staticpod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.staticpod.openyurt.io
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-staticpod,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=mutate.apps.v1alpha1.staticpod.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type StaticPodHandler struct {

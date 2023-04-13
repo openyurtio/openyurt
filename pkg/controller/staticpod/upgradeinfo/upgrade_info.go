@@ -58,13 +58,12 @@ type UpgradeInfo struct {
 func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string) (map[string]*UpgradeInfo, error) {
 	infos := make(map[string]*UpgradeInfo)
 
-	// upgrade worker pod is default in "kube-system" namespace which may be different with target static pod's namespace
-	var podList, systemPodList corev1.PodList
+	var podList, upgradeWorkerPodList corev1.PodList
 	if err := c.List(context.TODO(), &podList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
 		return nil, err
 	}
 
-	if err := c.List(context.TODO(), &systemPodList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
+	if err := c.List(context.TODO(), &upgradeWorkerPodList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
 		return nil, err
 	}
 
@@ -83,7 +82,7 @@ func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string
 		}
 	}
 
-	for i, pod := range systemPodList.Items {
+	for i, pod := range upgradeWorkerPodList.Items {
 		nodeName := pod.Spec.NodeName
 		if nodeName == "" || pod.DeletionTimestamp != nil {
 			continue
@@ -93,7 +92,7 @@ func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string
 			if info := infos[nodeName]; info == nil {
 				infos[nodeName] = &UpgradeInfo{}
 			}
-			infos[nodeName].WorkerPod = &systemPodList.Items[i]
+			infos[nodeName].WorkerPod = &upgradeWorkerPodList.Items[i]
 		}
 	}
 
@@ -118,22 +117,6 @@ func isStaticPod(pod *corev1.Pod) bool {
 func ReadyUpgradeWaitingNodes(infos map[string]*UpgradeInfo) []string {
 	var nodes []string
 	for node, info := range infos {
-		if info.UpgradeNeeded && !info.WorkerPodRunning && info.Ready {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-// OTAReadyUpgradeWaitingNodes bases on ReadyUpgradeWaitingNodes() and checks whether annotation
-// `openyurt.io/ota-latest-version` is up-to-date
-func OTAReadyUpgradeWaitingNodes(infos map[string]*UpgradeInfo, hash string) []string {
-	var nodes []string
-	for node, info := range infos {
-		if info.StaticPod != nil && info.StaticPod.Annotations[OTALatestManifestAnnotation] == hash {
-			continue
-		}
-
 		if info.UpgradeNeeded && !info.WorkerPodRunning && info.Ready {
 			nodes = append(nodes, node)
 		}

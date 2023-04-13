@@ -145,7 +145,6 @@ func TestNodes(t *testing.T) {
 	}
 
 	expectReadyUpgradeWaitingNodes := map[string]struct{}{"node2": {}, "node3": {}}
-	expectOTAReadyUpgradeWaitingNodes := map[string]struct{}{"node3": {}}
 	expectReadyNodes := map[string]struct{}{"node1": {}, "node2": {}, "node3": {}, "node4": {}}
 	expectUpgradeNeededNodes := map[string]struct{}{"node1": {}, "node2": {}, "node3": {}}
 	expectUpgradedNodes := map[string]struct{}{"node4": {}, "node5": {}}
@@ -153,12 +152,6 @@ func TestNodes(t *testing.T) {
 	t.Run("TestReadyUpgradeWaitingNodes", func(t *testing.T) {
 		if got := ReadyUpgradeWaitingNodes(spi); !hasCommonElement(got, expectReadyUpgradeWaitingNodes) {
 			t.Fatalf("ReadyUpgradeWaitingNodes = %v, want %v", got, expectReadyUpgradeWaitingNodes)
-		}
-	})
-
-	t.Run("OTAReadyUpgradeWaitingNodes", func(t *testing.T) {
-		if got := OTAReadyUpgradeWaitingNodes(spi, tHash); !hasCommonElement(got, expectOTAReadyUpgradeWaitingNodes) {
-			t.Fatalf("OTAReadyUpgradeWaitingNodes got %v, want %v", got, expectOTAReadyUpgradeWaitingNodes)
 		}
 	})
 
