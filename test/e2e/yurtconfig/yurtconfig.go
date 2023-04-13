@@ -19,11 +19,13 @@ package yurtconfig
 import (
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type YurtE2eConfig struct {
-	KubeClient *clientset.Clientset
-	RestConfig *restclient.Config
+	KubeClient    *clientset.Clientset
+	RuntimeClient client.Client
+	RestConfig    *restclient.Config
 }
 
 var YurtE2eCfg YurtE2eConfig
