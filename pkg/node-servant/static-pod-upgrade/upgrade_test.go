@@ -73,7 +73,15 @@ func Test(t *testing.T) {
 		/*
 			2. Test
 		*/
-		ctrl, err := New(TestPodName, metav1.NamespaceDefault, TestManifest, TestHashValue, mode)
+		o := &Options{
+			name:      TestPodName,
+			namespace: metav1.NamespaceDefault,
+			manifest:  TestManifest,
+			hash:      TestHashValue,
+			mode:      mode,
+			timeout:   DefaultStaticPodRunningCheckTimeout,
+		}
+		ctrl, err := NewWithOptions(o)
 		if err != nil {
 			t.Errorf("Fail to get upgrade controller, %v", err)
 		}

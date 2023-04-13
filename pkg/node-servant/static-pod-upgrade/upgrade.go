@@ -28,8 +28,6 @@ import (
 )
 
 const (
-	DefaultStaticPodRunningCheckTimeout = 2 * time.Minute
-
 	// TODO: use constant value of static-pod controller
 	OTA  = "ota"
 	Auto = "auto"
@@ -52,6 +50,8 @@ type Controller struct {
 	hash string
 	// Only support `OTA` and `Auto`
 	upgradeMode string
+	// Timeout for upgrade success check
+	timeout time.Duration
 
 	// Manifest path of static pod, default `/etc/kubernetes/manifests/manifestName.yaml`
 	manifestPath string
@@ -63,13 +63,14 @@ type Controller struct {
 	upgradeManifestPath string
 }
 
-func New(name, namespace, manifest, hash, mode string) (*Controller, error) {
+func NewWithOptions(o *Options) (*Controller, error) {
 	ctrl := &Controller{
-		name:        name,
-		namespace:   namespace,
-		manifest:    manifest,
-		hash:        hash,
-		upgradeMode: mode,
+		name:        o.name,
+		namespace:   o.namespace,
+		manifest:    o.manifest,
+		hash:        o.hash,
+		upgradeMode: o.mode,
+		timeout:     o.timeout,
 	}
 
 	ctrl.manifestPath = filepath.Join(DefaultManifestPath, util.WithYamlSuffix(ctrl.manifest))
@@ -176,5 +177,5 @@ func (ctrl *Controller) rollbackManifest() error {
 // verify make sure the latest static pod is running
 // return false when the latest static pod failed or check status time out
 func (ctrl *Controller) verify() (bool, error) {
-	return util.WaitForPodRunning(ctrl.namespace, ctrl.name, ctrl.hash, DefaultStaticPodRunningCheckTimeout)
+	return util.WaitForPodRunning(ctrl.namespace, ctrl.name, ctrl.hash, ctrl.timeout)
 }
