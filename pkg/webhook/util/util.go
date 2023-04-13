@@ -30,12 +30,18 @@ const (
 	ValidatingWebhookConfigurationName = "yurt-manager-validating-webhook-configuration"
 )
 
+var namespace = "kube-system"
+
 func GetHost() string {
 	return os.Getenv("WEBHOOK_HOST")
 }
 
 func GetNamespace() string {
-	return "kube-system"
+	return namespace
+}
+
+func SetNamespace(ns string) {
+	namespace = ns
 }
 
 func GetSecretName() string {

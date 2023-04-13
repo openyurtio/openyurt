@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 )
@@ -77,8 +78,8 @@ type GateFunc func() (enabled bool)
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
 
-func Initialize(ctx context.Context, cfg *rest.Config) error {
-	c, err := webhookcontroller.New(cfg, WebhookHandlerPath)
+func Initialize(ctx context.Context, cfg *rest.Config, cc *config.CompletedConfig) error {
+	c, err := webhookcontroller.New(cfg, WebhookHandlerPath, cc)
 	if err != nil {
 		return err
 	}
