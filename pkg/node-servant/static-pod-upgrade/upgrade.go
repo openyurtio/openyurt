@@ -121,6 +121,9 @@ func (ctrl *Controller) AutoUpgrade() error {
 		return err
 	}
 	if !ok {
+		if err := ctrl.rollbackManifest(); err != nil {
+			klog.Errorf("Fail to rollback manifest when upgrade failed, %v", err)
+		}
 		return fmt.Errorf("the latest static pod is not running")
 	}
 	klog.Info("Auto upgrade verify success")
@@ -163,6 +166,11 @@ func (ctrl *Controller) backupManifest() error {
 // replaceManifest replace old manifest with the latest one, it achieves static pod upgrade
 func (ctrl *Controller) replaceManifest() error {
 	return util.CopyFile(ctrl.upgradeManifestPath, ctrl.manifestPath)
+}
+
+// rollbackManifest replace new manifest with the backup
+func (ctrl *Controller) rollbackManifest() error {
+	return util.CopyFile(ctrl.bakManifestPath, ctrl.manifestPath)
 }
 
 // verify make sure the latest static pod is running
