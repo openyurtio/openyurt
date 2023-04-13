@@ -497,6 +497,130 @@ status:
   conditions: []
   storedVersions: []
 ---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: staticpods.apps.openyurt.io
+spec:
+  group: apps.openyurt.io
+  names:
+    kind: StaticPod
+    listKind: StaticPodList
+    plural: staticpods
+    shortNames:
+    - sp
+    singular: staticpod
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC.
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    - description: The total number of static pods
+      jsonPath: .status.totalNumber
+      name: TotalNumber
+      type: integer
+    - description: The number of ready static pods
+      jsonPath: .status.readyNumber
+      name: ReadyNumber
+      type: integer
+    - description: The number of static pods that have been upgraded
+      jsonPath: .status.upgradedNumber
+      name: UpgradedNumber
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: StaticPod is the Schema for the staticpods API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: StaticPodSpec defines the desired state of StaticPod
+            properties:
+              revisionHistoryLimit:
+                description: The number of old history to retain to allow rollback.
+                  Defaults to 10.
+                format: int32
+                type: integer
+              staticPodManifest:
+                description: StaticPodManifest indicates the Static Pod desired to
+                  be upgraded. The corresponding manifest file name is `StaticPodManifest.yaml`.
+                type: string
+              template:
+                description: An object that describes the desired upgrade static pod.
+                x-kubernetes-preserve-unknown-fields: true
+              upgradeStrategy:
+                description: An upgrade strategy to replace existing static pods with
+                  new ones.
+                properties:
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Auto upgrade config params. Present only if type
+                      = "auto".
+                    x-kubernetes-int-or-string: true
+                  type:
+                    description: Type of Static Pod upgrade. Can be "auto" or "ota".
+                    type: string
+                type: object
+            type: object
+          status:
+            description: StaticPodStatus defines the observed state of StaticPod
+            properties:
+              observedGeneration:
+                description: The most recent generation observed by the static pod
+                  controller.
+                format: int64
+                type: integer
+              readyNumber:
+                description: The number of ready static pods.
+                format: int32
+                type: integer
+              totalNumber:
+                description: The total number of nodes that are running the static
+                  pod.
+                format: int32
+                type: integer
+              upgradedNumber:
+                description: The number of nodes that are running updated static pod.
+                format: int32
+                type: integer
+            required:
+            - readyNumber
+            - totalNumber
+            - upgradedNumber
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -581,6 +705,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - apps.openyurt.io
+  resources:
+  - staticpods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - staticpods/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - staticpods/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - certificates.k8s.io
   resources:
   - certificatesigningrequests
@@ -608,6 +758,18 @@ rules:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
   verbs:
   - create
   - delete
@@ -764,6 +926,27 @@ webhooks:
     resources:
     - nodepools
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1alpha1-staticpod
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.staticpod.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - staticpods
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -815,6 +998,28 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-staticpod
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.staticpod.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - staticpods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service

@@ -43,7 +43,7 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-pod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=core.openyurt.io,resources=pods,verbs=delete,versions=v1,name=validate.core.v1.pod.openyurt.io
+// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-pod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=pods,verbs=delete,versions=v1,name=validate.core.v1.pod.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for PodHandler.
 type PodHandler struct {
