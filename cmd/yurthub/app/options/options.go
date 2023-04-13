@@ -50,6 +50,7 @@ type YurtHubOptions struct {
 	YurtHubPort               int
 	YurtHubProxyPort          int
 	YurtHubProxySecurePort    int
+	YurtHubNamespace          string
 	GCFrequency               int
 	YurtHubCertOrganizations  []string
 	NodeName                  string
@@ -95,6 +96,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		YurtHubProxyPort:          util.YurtHubProxyPort,
 		YurtHubPort:               util.YurtHubPort,
 		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
+		YurtHubNamespace:          util.YurtHubNamespace,
 		GCFrequency:               120,
 		YurtHubCertOrganizations:  make([]string, 0),
 		LBMode:                    "rr",
@@ -174,6 +176,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubProxyHost, "bind-proxy-address", o.YurtHubProxyHost, "the IP address of YurtHub Proxy Server")
 	fs.IntVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
 	fs.IntVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
+	fs.StringVar(&o.YurtHubNamespace, "namespace", o.YurtHubNamespace, "the namespace of YurtHub Server")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
 	fs.StringSliceVar(&o.YurtHubCertOrganizations, "hub-cert-organizations", o.YurtHubCertOrganizations, "Organizations that will be added into hub's apiserver client certificate, the format is: certOrg1,certOrg2,...")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")

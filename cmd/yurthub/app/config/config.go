@@ -92,6 +92,7 @@ type YurtHubConfiguration struct {
 	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
 	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
 	YurtHubProxyServerAddr          string
+	YurtHubNamespace                string
 	ProxiedClient                   kubernetes.Interface
 	DiskCachePath                   string
 	CoordinatorPKIDir               string
@@ -137,7 +138,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		return nil, err
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
-	registerInformers(sharedFactory, yurtSharedFactory, workingMode, serviceTopologyFilterEnabled(options), options.NodePoolName, options.NodeName, tenantNs)
+	registerInformers(options, sharedFactory, yurtSharedFactory, workingMode, tenantNs)
 	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
@@ -166,6 +167,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MinRequestTimeout:         options.MinRequestTimeout,
 		TenantNs:                  tenantNs,
 		YurtHubProxyServerAddr:    fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+		YurtHubNamespace:          options.YurtHubNamespace,
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
 		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
@@ -260,28 +262,28 @@ func createClientAndSharedInformers(proxyAddr string, enableNodePool bool) (kube
 }
 
 // registerInformers reconstruct node/nodePool/configmap informers
-func registerInformers(informerFactory informers.SharedInformerFactory,
+func registerInformers(options *options.YurtHubOptions,
+	informerFactory informers.SharedInformerFactory,
 	yurtInformerFactory yurtinformers.SharedInformerFactory,
 	workingMode util.WorkingMode,
-	serviceTopologyFilterEnabled bool,
-	nodePoolName, nodeName string,
 	tenantNs string) {
 	// skip construct node/nodePool informers if service topology filter disabled
+	serviceTopologyFilterEnabled := isServiceTopologyFilterEnabled(options)
 	if serviceTopologyFilterEnabled {
 		if workingMode == util.WorkingModeCloud {
 			newNodeInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-				tweakListOptions := func(options *metav1.ListOptions) {
-					options.FieldSelector = fields.Set{"metadata.name": nodeName}.String()
+				tweakListOptions := func(ops *metav1.ListOptions) {
+					ops.FieldSelector = fields.Set{"metadata.name": options.NodeName}.String()
 				}
 				return coreinformers.NewFilteredNodeInformer(client, resyncPeriod, nil, tweakListOptions)
 			}
 			informerFactory.InformerFor(&corev1.Node{}, newNodeInformer)
 		}
 
-		if len(nodePoolName) != 0 {
+		if len(options.NodePoolName) != 0 {
 			newNodePoolInformer := func(client yurtclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-				tweakListOptions := func(options *metav1.ListOptions) {
-					options.FieldSelector = fields.Set{"metadata.name": nodePoolName}.String()
+				tweakListOptions := func(ops *metav1.ListOptions) {
+					ops.FieldSelector = fields.Set{"metadata.name": options.NodePoolName}.String()
 				}
 				return yurtv1alpha1.NewFilteredNodePoolInformer(client, resyncPeriod, nil, tweakListOptions)
 			}
@@ -294,7 +296,7 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
 		}
-		return coreinformers.NewFilteredConfigMapInformer(client, util.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+		return coreinformers.NewFilteredConfigMapInformer(client, options.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
 	}
 	informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
 
@@ -308,8 +310,8 @@ func registerInformers(informerFactory informers.SharedInformerFactory,
 
 }
 
-// serviceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.
-func serviceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
+// isServiceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.
+func isServiceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
 	if !options.EnableResourceFilter {
 		return false
 	}

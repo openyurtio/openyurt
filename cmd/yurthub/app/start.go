@@ -243,7 +243,7 @@ func coordinatorRun(ctx context.Context,
 	var coordinatorServiceUrl *url.URL
 
 	go func() {
-		coorCertManager, err := coordinatorcertmgr.NewCertManager(cfg.CoordinatorPKIDir, cfg.ProxiedClient, cfg.SharedFactory)
+		coorCertManager, err := coordinatorcertmgr.NewCertManager(cfg.CoordinatorPKIDir, cfg.YurtHubNamespace, cfg.ProxiedClient, cfg.SharedFactory)
 		close(coordinatorInformerRegistryChan) // notify the coordinator secret informer registry event
 		if err != nil {
 			klog.Errorf("coordinator failed to create coordinator cert manager, %v", err)
