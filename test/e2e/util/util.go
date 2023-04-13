@@ -23,14 +23,30 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
+
+var (
+	scheme = runtime.NewScheme()
+)
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(appsv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(appsv1beta1.AddToScheme(scheme))
+}
 
 const (
 	// DefaultNamespaceDeletionTimeout is timeout duration for waiting for a namespace deletion.
@@ -88,12 +104,18 @@ func WaitForNamespacesDeleted(c clientset.Interface, namespaces []string, timeou
 
 // SetYurtE2eCfg for e2e-tests
 func SetYurtE2eCfg() error {
-	config, client, err := LoadRestConfigAndClientset(*Kubeconfig)
+	config, kubeClient, err := LoadRestConfigAndClientset(*Kubeconfig)
 	if err != nil {
 		klog.Errorf("pre_check_load_client_set failed errmsg:%v", err)
 		return err
 	}
-	yurtconfig.YurtE2eCfg.KubeClient = client
+	yurtconfig.YurtE2eCfg.KubeClient = kubeClient
+
+	runtimeClient, err := client.New(config, client.Options{Scheme: scheme})
+	if err != nil {
+		return err
+	}
+	yurtconfig.YurtE2eCfg.RuntimeClient = runtimeClient
 	yurtconfig.YurtE2eCfg.RestConfig = config
 	return nil
 }

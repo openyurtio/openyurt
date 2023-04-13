@@ -113,3 +113,15 @@ func GetClusterFromKubeConfig(config *clientcmdapi.Config) *clientcmdapi.Cluster
 	}
 	return nil
 }
+
+// GetAuthInfoFromKubeConfig returns the default AuthInfo of the specified KubeConfig
+func GetAuthInfoFromKubeConfig(config *clientcmdapi.Config) *clientcmdapi.AuthInfo {
+	// If there is an unnamed cluster object, use it
+	if config.AuthInfos[""] != nil {
+		return config.AuthInfos[""]
+	}
+	if config.Contexts[config.CurrentContext] != nil {
+		return config.AuthInfos[config.Contexts[config.CurrentContext].AuthInfo]
+	}
+	return nil
+}

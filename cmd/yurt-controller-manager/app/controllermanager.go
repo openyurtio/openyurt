@@ -310,7 +310,6 @@ var ControllersDisabledByDefault = sets.NewString()
 func NewControllerInitializers() map[string]InitFunc {
 	controllers := map[string]InitFunc{}
 	controllers["poolcoordinator"] = startPoolCoordinatorController
-	controllers["daemonpodupdater"] = startDaemonPodUpdaterController
 	controllers["servicetopologycontroller"] = startServiceTopologyController
 	controllers["podbinding"] = startPodBindingController
 	return controllers

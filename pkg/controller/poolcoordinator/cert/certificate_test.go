@@ -229,7 +229,7 @@ contexts:
 - context:
     cluster: cluster
     user: openyurt:pool-coordinator:monitoring
-    name: openyurt:pool-coordinator:monitoring@cluster
+  name: openyurt:pool-coordinator:monitoring@cluster
 current-context: openyurt:pool-coordinator:monitoring@cluster
 kind: Config
 users:

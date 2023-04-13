@@ -179,6 +179,12 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		os.Exit(1)
 	}
 
+	setupLog.Info("setup controllers")
+	if err = controller.SetupWithManager(c, mgr); err != nil {
+		setupLog.Error(err, "unable to setup controllers")
+		os.Exit(1)
+	}
+
 	setupLog.Info("setup webhook")
 	if err = webhook.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to setup webhook")
@@ -187,7 +193,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("initialize webhook")
-	if err := webhook.Initialize(ctx, cfg); err != nil {
+	if err := webhook.Initialize(ctx, cfg, c); err != nil {
 		setupLog.Error(err, "unable to initialize webhook")
 		os.Exit(1)
 	}
@@ -203,12 +209,6 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 			setupLog.Error(err, "unable to wait webhook ready")
 			os.Exit(1)
 		}
-
-		setupLog.Info("setup controllers")
-		if err = controller.SetupWithManager(c, mgr); err != nil {
-			setupLog.Error(err, "unable to setup controllers")
-			os.Exit(1)
-		}
 	}()
 
 	setupLog.Info("starting manager")
@@ -216,7 +216,8 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-	select {}
+
+	return nil
 }
 
 func setRestConfig(c *rest.Config, config *config.CompletedConfig) {

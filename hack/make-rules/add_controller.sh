@@ -36,6 +36,7 @@ function usage(){
     echo -e "\t-k, --kind\t crd kind name. It must be singular, such as [Sample]"
     echo -e "\t-sn, --shortname\t crd kind short name. such as [s]"
     echo -e "\t-s, --scope\t crd scoped , support [${SCOPE_NAMESPACE} ${SCOPE_CLUSTER}]."
+    echo -e "\t-sp, --special\t support webhook to handle AdmissionRequest."
     exit 1
 }
 
@@ -69,6 +70,11 @@ while [ $# -gt 0 ];do
       SHORTNAME=$1
       shift
       ;;
+    --special|-sp)
+      shift
+      SPECIAL=true
+      shift
+      ;;
 
     --help|-h)
       shift
@@ -81,7 +87,7 @@ while [ $# -gt 0 ];do
 done
 
 if [ -z $GROUP ] || [ -z $VERSION ] || [ -z $KIND ] || [ -z $SCOPE ] || [ -z $SHORTNAME ] ; then
-    usage	
+    usage
 fi
 
 # support bash 3 [mac and linux]
@@ -127,7 +133,7 @@ CRD_GROUP_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
 
 CRD_GROUP_VERSION_KIND_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_types.go
 CRD_GROUP_VERSION_KIND_CONVERSION_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_conversion.go
-CRD_GROUP_VERSION_DEFAULT_FILE=${CRD_GROUP_VERSION_DIR}/default.go 
+CRD_GROUP_VERSION_DEFAULT_FILE=${CRD_GROUP_VERSION_DIR}/default.go
 
 KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND_ALL_LOWER}
 KIND_CONTROLLER_CONFIG_DIR=${KIND_CONTROLLER_DIR}/config
@@ -138,7 +144,7 @@ ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND_ALL_LOWER}.go
 
 WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND_ALL_LOWER}
 ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${VERSION}_${KIND_ALL_LOWER}.go
-    
+
 WEBHOOK_KIND_VERSION_DIR=${WEBHOOK_KIND_DIR}/${VERSION}
 
 WEBHOOK_KIND_VERSION_DEFAULT_FILE=${WEBHOOK_KIND_VERSION_DIR}/${KIND_ALL_LOWER}_default.go
@@ -148,10 +154,10 @@ WEBHOOK_KIND_VERSION_VALIDATION_FILE=${WEBHOOK_KIND_VERSION_DIR}/${KIND_ALL_LOWE
 if [ -f "${APP_OPTION_KIND_CONTROLLER_FILE}" ]; then
     echo "options controller file [${APP_OPTION_KIND_CONTROLLER_FILE}] already exist ..."
     exit 1
-fi 
+fi
 
 if [ -f "${CRD_GROUP_VERSION_KIND_FILE}" ]; then
-    echo "Instance crd[${GROUP}/${VERSION}/${KIND_ALL_LOWER}] already exist ..." 
+    echo "Instance crd[${GROUP}/${VERSION}/${KIND_ALL_LOWER}] already exist ..."
     exit 1
 fi
 
@@ -193,12 +199,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ${packageName} 
+package ${packageName}
 "
 }
 
 function build_new_version_frame() {
-    local doc_file=$CRD_GROUP_VERSION_DIR/doc.go 
+    local doc_file=$CRD_GROUP_VERSION_DIR/doc.go
     local group_version_info_file=$CRD_GROUP_VERSION_DIR/groupversion_info.go
 
     mkdir -p ${CRD_GROUP_VERSION_DIR}
@@ -242,7 +248,7 @@ EOF
     cat > $CRD_GROUP_VERSION_DEFAULT_FILE <<EOF
 $(create_header ${VERSION})
 EOF
-   
+
 }
 
 function create_addtoscheme_group_version_file() {
@@ -271,7 +277,7 @@ function build_apis_frame() {
 
     if [ ! -d ${CRD_GROUP_DIR} ]; then
         echo "Group ${GROUP} not exist, Do you want to create it?[Y/n]"
-        read create_group 
+        read create_group
         if [ $create_group="Y" ]; then
             mkdir -p ${CRD_GROUP_DIR}
         else
@@ -308,7 +314,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 
-// ${KIND_FIRST_UPPER}Spec defines the desired state of ${KIND_FIRST_UPPER} 
+// ${KIND_FIRST_UPPER}Spec defines the desired state of ${KIND_FIRST_UPPER}
 type ${KIND_FIRST_UPPER}Spec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -320,7 +326,7 @@ type ${KIND_FIRST_UPPER}Spec struct {
 	Default string \`json:"default,omitempty"\`
 }
 
-// ${KIND_FIRST_UPPER}Status defines the observed state of ${KIND_FIRST_UPPER} 
+// ${KIND_FIRST_UPPER}Status defines the observed state of ${KIND_FIRST_UPPER}
 type ${KIND_FIRST_UPPER}Status struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -352,7 +358,7 @@ type ${KIND_FIRST_UPPER} struct {
 
 //+kubebuilder:object:root=true
 
-// ${KIND_FIRST_UPPER}List contains a list of ${KIND_FIRST_UPPER} 
+// ${KIND_FIRST_UPPER}List contains a list of ${KIND_FIRST_UPPER}
 type ${KIND_FIRST_UPPER}List struct {
 	metav1.TypeMeta \`json:",inline"\`
 	metav1.ListMeta \`json:"metadata,omitempty"\`
@@ -408,7 +414,7 @@ EOF
 
 // SetDefaults${KIND_FIRST_UPPER} set default values for ${KIND_FIRST_UPPER}.
 func SetDefaults${KIND_FIRST_UPPER}(obj *${KIND_FIRST_UPPER}) {
-	// example for set default value for ${KIND_FIRST_UPPER} 
+	// example for set default value for ${KIND_FIRST_UPPER}
 
 	if len(obj.Spec.Default) == 0 {
 		obj.Spec.Default = "set-default-value-0"
@@ -420,7 +426,7 @@ EOF
 
 function build_controller_frame() {
 
-    # create instance controller 
+    # create instance controller
     mkdir -p ${KIND_CONTROLLER_DIR}
     mkdir -p ${KIND_CONTROLLER_CONFIG_DIR}
 
@@ -433,7 +439,7 @@ type ${KIND_FIRST_UPPER}ControllerConfiguration struct {
 
 EOF
 
-    # create controller file 
+    # create controller file
     cat > ${KIND_CONTROLLER_FILE} <<EOF
 $(create_header ${KIND_ALL_LOWER})
 
@@ -503,7 +509,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		Client:   utilclient.NewClientFromManager(mgr, controllerName),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
-        Configration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller, 
+        Configration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller,
 	}
 }
 
@@ -517,7 +523,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to ${KIND_FIRST_UPPER} 
+	// Watch for changes to ${KIND_FIRST_UPPER}
 	err = c.Watch(&source.Kind{Type: &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
@@ -593,7 +599,7 @@ EOF
 
     gofmt -w ${ADD_CONTROLLER_FILE}
     goimports -w ${ADD_CONTROLLER_FILE}
-    
+
 }
 
 
@@ -615,9 +621,9 @@ EOF
     if [ -d ${WEBHOOK_KIND_VERSION_DIR} ]; then
         echo "${WEBHOOK_KIND_VERSION_DIR} dir has exist ..."
         exit 1
-    fi 
+    fi
 
-    
+
     mkdir -p ${WEBHOOK_KIND_VERSION_DIR}
 
    cat > $WEBHOOK_KIND_VERSION_DEFAULT_FILE << EOF
@@ -812,7 +818,178 @@ func (o *${KIND_FIRST_UPPER}ControllerOptions) Validate() []error {
 EOF
 }
 
+function build_webhook_special_frame() {
+
+    cat > ${ADD_WEBHOOK_FILE} <<EOF
+$(create_header webhook)
+
+import (
+    "github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/${VERSION}"
+)
+
+func init() {
+    addWebhook(&${VERSION}.${KIND_FIRST_UPPER}Handler{})
+}
+
+EOF
+
+    if [ -d ${WEBHOOK_KIND_VERSION_DIR} ]; then
+        echo "${WEBHOOK_KIND_VERSION_DIR} dir has exist ..."
+        exit 1
+    fi
+
+
+    mkdir -p ${WEBHOOK_KIND_VERSION_DIR}
+
+   cat > $WEBHOOK_KIND_VERSION_DEFAULT_FILE << EOF
+$(create_header ${VERSION})
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+)
+
+
+// Default satisfies the defaulting webhook interface.
+func (webhook *${KIND_FIRST_UPPER}Handler) Default(ctx context.Context, obj runtime.Object, req admission.Request) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
+	}
+
+    ${VERSION}.SetDefaults${KIND_FIRST_UPPER}(np)
+
+	return nil
+}
+
+EOF
+
+    gofmt -w ${WEBHOOK_KIND_VERSION_DEFAULT_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_DEFAULT_FILE}
+
+    cat > ${WEBHOOK_KIND_VERSION_HANDLE_FILE} << EOF
+$(create_header ${VERSION})
+
+
+import (
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+
+	"github.com/openyurtio/openyurt/pkg/webhook/builder"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+)
+
+
+// SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
+func (webhook *${KIND_FIRST_UPPER}Handler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
+	// init
+	webhook.Client = mgr.GetClient()
+
+	gvk, err := apiutil.GVKForObject(&${VERSION}.${KIND_FIRST_UPPER}{}, mgr.GetScheme())
+	if err != nil {
+		return "", "", err
+	}
+	return util.GenerateMutatePath(gvk),
+		util.GenerateValidatePath(gvk),
+		builder.WebhookManagedBy(mgr).
+			For(&${VERSION}.${KIND_FIRST_UPPER}{}).
+			WithDefaulter(webhook).
+			WithValidator(webhook).
+			Complete()
+}
+
+
+// +kubebuilder:webhook:path=/validate-${GROUP}-openyurt-io-${KIND_ALL_LOWER},mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=validate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
+// +kubebuilder:webhook:path=/mutate-${GROUP}-openyurt-io-${KIND_ALL_LOWER},mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=${GROUP}.openyurt.io,resources=${KIND_PLURAL},verbs=create;update,versions=${VERSION},name=mutate.${GROUP}.${VERSION}.${KIND_ALL_LOWER}.openyurt.io
+
+
+// Cluster implements a validating and defaulting webhook for Cluster.
+type ${KIND_FIRST_UPPER}Handler struct {
+	Client client.Client
+}
+
+var _ builder.CustomDefaulter = &${KIND_FIRST_UPPER}Handler{}
+var _ builder.CustomValidator = &${KIND_FIRST_UPPER}Handler{}
+
+EOF
+    gofmt -w ${WEBHOOK_KIND_VERSION_HANDLE_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_HANDLE_FILE}
+
+    cat > ${WEBHOOK_KIND_VERSION_VALIDATION_FILE} <<EOF
+$(create_header ${VERSION})
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
+)
+
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateCreate(ctx context.Context, obj runtime.Object, req admission.Request) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
+	}
+
+   //validate
+	return nil
+}
+
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object, req admission.Request) error {
+	newNp, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", newObj))
+	}
+	oldNp, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER}} but got a %T", oldObj))
+	}
+
+    // validate
+	return nil
+}
+
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (webhook *${KIND_FIRST_UPPER}Handler) ValidateDelete(_ context.Context, obj runtime.Object, req admission.Request) error {
+	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
+	}
+    // validate
+	return nil
+}
+EOF
+
+    gofmt -w ${WEBHOOK_KIND_VERSION_VALIDATION_FILE}
+    goimports -w ${WEBHOOK_KIND_VERSION_VALIDATION_FILE}
+
+}
+
 build_options
 build_apis_frame
 build_controller_frame
-build_webhook_frame
+if [ $SPECIAL ]; then
+  build_webhook_special_frame
+else
+  build_webhook_frame
+fi
