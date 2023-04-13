@@ -27,39 +27,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 
+	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
-
-func TestStaticPodUpgrader_ApplyManifestExist(t *testing.T) {
-	// Temporarily modify the manifest path in order to test
-	DefaultManifestPath = t.TempDir()
-	_ = os.Mkdir(filepath.Join(DefaultManifestPath, DefaultUpgradeDir), 0755)
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, DefaultUpgradeDir, WithUpgradeSuffix("nginx")))
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, WithYamlSuffix("nginx")))
-
-	clientset := fake.NewSimpleClientset(util.NewPodWithCondition("nginx", "Node", corev1.ConditionTrue))
-	upgrader := StaticPodUpgrader{
-		Interface:      clientset,
-		NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: "nginx"},
-	}
-
-	t.Run("TestStaticPodUpgrader_ApplyManifestExist", func(t *testing.T) {
-		if err := upgrader.Apply(); err != nil {
-			t.Fatalf("Fail to ota upgrade static pod, %v", err)
-		}
-	})
-}
 
 func TestStaticPodUpgrader_ApplyManifestNotExist(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
 	DefaultManifestPath = t.TempDir()
-	_ = os.Mkdir(filepath.Join(DefaultManifestPath, DefaultUpgradeDir), 0755)
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, WithYamlSuffix("nginx")))
+	_, _ = os.Create(filepath.Join(DefaultManifestPath, upgradeutil.WithYamlSuffix("nginx")))
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: metav1.NamespaceSystem,
-			Name:      WithConfigMapPrefix(metav1.NamespaceDefault + "-" + "nginx"),
+			Namespace: metav1.NamespaceDefault,
+			Name:      spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(metav1.NamespaceDefault, "nginx")),
 		},
 		Data: map[string]string{
 			"nginx": `

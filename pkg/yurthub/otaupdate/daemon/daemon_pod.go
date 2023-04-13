@@ -30,7 +30,7 @@ type DaemonPodUpgrader struct {
 	types.NamespacedName
 }
 
-// applyUpdate execute pod update process by deleting pod under OnDelete update strategy
+// Apply execute pod update process by deleting pod under OnDelete update strategy
 func (s *DaemonPodUpgrader) Apply() error {
 	err := s.CoreV1().Pods(s.Namespace).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 	if err != nil {
