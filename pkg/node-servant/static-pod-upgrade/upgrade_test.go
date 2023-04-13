@@ -42,6 +42,7 @@ func Test(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
 	DefaultManifestPath = t.TempDir()
 	DefaultConfigmapPath = t.TempDir()
+	DefaultUpgradePath = t.TempDir()
 	_, _ = os.Create(filepath.Join(DefaultManifestPath, upgradeUtil.WithYamlSuffix(TestManifest)))
 	_, _ = os.Create(filepath.Join(DefaultConfigmapPath, TestManifest))
 

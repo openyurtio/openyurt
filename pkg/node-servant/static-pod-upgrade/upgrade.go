@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	DefaultUpgradeDir                   = "openyurtio-upgrade"
 	DefaultStaticPodRunningCheckTimeout = 2 * time.Minute
 
 	// TODO: use constant value of static-pod controller
@@ -39,6 +38,7 @@ const (
 var (
 	DefaultConfigmapPath = "/data"
 	DefaultManifestPath  = "/etc/kubernetes/manifests"
+	DefaultUpgradePath   = "/tmp/manifests"
 )
 
 type Controller struct {
@@ -73,9 +73,9 @@ func New(name, namespace, manifest, hash, mode string) (*Controller, error) {
 	}
 
 	ctrl.manifestPath = filepath.Join(DefaultManifestPath, util.WithYamlSuffix(ctrl.manifest))
-	ctrl.bakManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, util.WithBackupSuffix(ctrl.manifest))
+	ctrl.bakManifestPath = filepath.Join(DefaultUpgradePath, util.WithBackupSuffix(ctrl.manifest))
 	ctrl.configMapDataPath = filepath.Join(DefaultConfigmapPath, ctrl.manifest)
-	ctrl.upgradeManifestPath = filepath.Join(DefaultManifestPath, DefaultUpgradeDir, util.WithUpgradeSuffix(ctrl.manifest))
+	ctrl.upgradeManifestPath = filepath.Join(DefaultUpgradePath, util.WithUpgradeSuffix(ctrl.manifest))
 
 	return ctrl, nil
 }
@@ -141,13 +141,13 @@ func (ctrl *Controller) checkManifestFileExist() error {
 	return nil
 }
 
-// prepareManifest move the latest manifest to DefaultUpgradeDir and set `.upgrade` suffix
+// prepareManifest move the latest manifest to DefaultUpgradePath and set `.upgrade` suffix
 // TODO: In kubernetes when mount configmap file to the sub path of hostpath mount, it will not be persistent
-// TODO: Init configmap(latest manifest) to a default place and move it to `DefaultUpgradeDir` to save it persistent
+// TODO: Init configmap(latest manifest) to a default place and move it to `DefaultUpgradePath` to save it persistent
 func (ctrl *Controller) prepareManifest() error {
 	// Make sure upgrade dir exist
-	if _, err := os.Stat(filepath.Join(DefaultManifestPath, DefaultUpgradeDir)); os.IsNotExist(err) {
-		if err = os.Mkdir(filepath.Join(DefaultManifestPath, DefaultUpgradeDir), 0755); err != nil {
+	if _, err := os.Stat(DefaultUpgradePath); os.IsNotExist(err) {
+		if err = os.Mkdir(DefaultUpgradePath, 0755); err != nil {
 			return err
 		}
 	}
