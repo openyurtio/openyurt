@@ -96,7 +96,7 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 		select {
 		case <-ctx.Done():
 			return false, fmt.Errorf("timeout waiting for static pod %s/%s to be running", namespace, name)
-		default:
+		case <-ticker.C:
 			pod, err := GetPodFromYurtHub(namespace, name)
 			if err != nil {
 				klog.V(4).Infof("Temporarily fail to get pod from YurtHub, %v", err)
@@ -108,6 +108,5 @@ func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (boo
 				}
 			}
 		}
-		<-ticker.C
 	}
 }
