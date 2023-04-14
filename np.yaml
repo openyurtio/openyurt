@@ -1,0 +1,16 @@
+apiVersion: apps.openyurt.io/v1beta1
+kind: NodePool
+metadata:
+  labels:
+    apps.openyurt.io/nodepool: shanghai
+    openyurt.io/node-pool-type: edge
+  name: shanghai
+spec:
+  selector:
+    matchLabels:
+      apps.openyurt.io/nodepool: shanghai
+  taints:
+  - effect: NoSchedule
+    key: alibabacloud.com/nodepool
+    value: shanghai
+  type: Edge

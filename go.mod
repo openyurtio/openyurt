@@ -38,7 +38,6 @@ require (
 	k8s.io/component-base v0.22.3
 	k8s.io/component-helpers v0.22.3
 	k8s.io/controller-manager v0.22.3
-	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-controller-manager v0.22.3
 	k8s.io/kubectl v0.22.3
