@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package static
+package upgrader
 
 import (
 	"os"
@@ -28,14 +28,17 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
 func TestStaticPodUpgrader_ApplyManifestNotExist(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
-	DefaultManifestPath = t.TempDir()
-	_, _ = os.Create(filepath.Join(DefaultManifestPath, upgradeutil.WithYamlSuffix("nginx")))
+	upgrade.DefaultUpgradePath = t.TempDir()
+	upgrade.DefaultManifestPath = t.TempDir()
+	DefaultUpgradePath = upgrade.DefaultUpgradePath
+	_, _ = os.Create(filepath.Join(upgrade.DefaultManifestPath, upgradeutil.WithYamlSuffix("nginx")))
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

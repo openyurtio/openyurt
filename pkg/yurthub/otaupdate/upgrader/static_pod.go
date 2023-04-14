@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package static
+package upgrader
 
 import (
 	"context"
@@ -23,18 +23,21 @@ import (
 	"os"
 	"path/filepath"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 )
 
+const OTA = "ota"
+
 var (
-	DefaultManifestPath = "/etc/kubernetes/manifests"
-	DefaultUpgradePath  = "/tmp/manifests"
+	DefaultUpgradePath = "/tmp/manifests"
 )
 
 type StaticPodUpgrader struct {
@@ -43,19 +46,7 @@ type StaticPodUpgrader struct {
 }
 
 func (s *StaticPodUpgrader) Apply() error {
-	manifestPath := filepath.Join(DefaultManifestPath, upgradeutil.WithYamlSuffix(s.Name))
 	upgradeManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithUpgradeSuffix(s.Name))
-	backupManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithBackupSuffix(s.Name))
-
-	// 1. Make sure upgrade dir exist
-	if _, err := os.Stat(DefaultUpgradePath); os.IsNotExist(err) {
-		if err = os.Mkdir(DefaultUpgradePath, 0755); err != nil {
-			return err
-		}
-		klog.V(5).Infof("Create upgrade dir %v", DefaultUpgradePath)
-	}
-
-	// 2. Get upgrade manifest from api-serv
 	cm, err := s.CoreV1().ConfigMaps(s.Namespace).Get(context.TODO(),
 		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(s.Namespace, s.Name)), metav1.GetOptions{})
 	if err != nil {
@@ -71,19 +62,20 @@ func (s *StaticPodUpgrader) Apply() error {
 	}
 	klog.V(5).Info("Generate upgrade manifest")
 
-	// 3. Backup manifest
-	if err := upgradeutil.CopyFile(manifestPath, backupManifestPath); err != nil {
-		return err
-	}
-	klog.V(5).Info("Backup upgrade manifest success")
+	ctrl := upgrade.New(s.Name, s.Namespace, s.Name, OTA)
+	return ctrl.Upgrade()
+}
 
-	// 4. Execute upgrade
-	if err := upgradeutil.CopyFile(upgradeManifestPath, manifestPath); err != nil {
-		return err
+func PreCheck(name, namespace string, c kubernetes.Interface) (bool, error) {
+	_, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(),
+		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(namespace, name)), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
 	}
-	klog.V(5).Info("Replace upgrade manifest success")
-
-	return nil
+	return true, nil
 }
 
 func genUpgradeManifest(path, data string) error {

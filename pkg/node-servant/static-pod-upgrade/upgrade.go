@@ -24,13 +24,8 @@ import (
 
 	"k8s.io/klog/v2"
 
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
-)
-
-const (
-	// TODO: use constant value of static-pod controller
-	OTA  = "ota"
-	Auto = "auto"
 )
 
 var (
@@ -64,59 +59,64 @@ type Controller struct {
 }
 
 func NewWithOptions(o *Options) (*Controller, error) {
-	ctrl := &Controller{
-		name:        o.name,
-		namespace:   o.namespace,
-		manifest:    o.manifest,
-		hash:        o.hash,
-		upgradeMode: o.mode,
-		timeout:     o.timeout,
-	}
+	ctrl := New(o.name, o.namespace, o.manifest, o.mode)
+	ctrl.hash = o.hash
+	ctrl.timeout = o.timeout
+	return ctrl, nil
+}
 
+func New(name, namespace, manifest, mode string) *Controller {
+	ctrl := &Controller{
+		name:        name,
+		namespace:   namespace,
+		manifest:    manifest,
+		upgradeMode: mode,
+	}
 	ctrl.manifestPath = filepath.Join(DefaultManifestPath, util.WithYamlSuffix(ctrl.manifest))
 	ctrl.bakManifestPath = filepath.Join(DefaultUpgradePath, util.WithBackupSuffix(ctrl.manifest))
 	ctrl.configMapDataPath = filepath.Join(DefaultConfigmapPath, ctrl.manifest)
 	ctrl.upgradeManifestPath = filepath.Join(DefaultUpgradePath, util.WithUpgradeSuffix(ctrl.manifest))
 
-	return ctrl, nil
+	return ctrl
 }
 
 func (ctrl *Controller) Upgrade() error {
-	// 1. Check old manifest and the latest manifest exist
-	if err := ctrl.checkManifestFileExist(); err != nil {
+	if err := ctrl.createUpgradeSpace(); err != nil {
 		return err
 	}
-	klog.Info("Check old manifest and new manifest files existence success")
+	klog.Info("Create upgrade space success")
 
-	// 2. prepare the latest manifest
-	if err := ctrl.prepareManifest(); err != nil {
-		return err
-	}
-	klog.Info("Prepare upgrade manifest success")
-
-	// 3. execute upgrade operations
+	// execute upgrade operations
 	switch ctrl.upgradeMode {
-	case Auto:
+	case string(appsv1alpha1.AutoStaticPodUpgradeStrategyType):
 		return ctrl.AutoUpgrade()
+	case string(appsv1alpha1.OTAStaticPodUpgradeStrategyType):
+		return ctrl.OTAUpgrade()
 	}
 
 	return nil
 }
 
 func (ctrl *Controller) AutoUpgrade() error {
-	// (1) Back up the old manifest in case of upgrade failure
+	// (1) Prepare the latest manifest
+	if err := ctrl.prepareManifest(); err != nil {
+		return err
+	}
+	klog.Info("Auto prepare upgrade manifest success")
+
+	// (2) Back up the old manifest in case of upgrade failure
 	if err := ctrl.backupManifest(); err != nil {
 		return err
 	}
 	klog.Info("Auto upgrade backupManifest success")
 
-	// (2) Replace manifest and kubelet will upgrade the static pod automatically
+	// (3) Replace manifest and kubelet will upgrade the static pod automatically
 	if err := ctrl.replaceManifest(); err != nil {
 		return err
 	}
 	klog.Info("Auto upgrade replaceManifest success")
 
-	// (3) Verify the new static pod is running
+	// (4) Verify the new static pod is running
 	ok, err := ctrl.verify()
 	if err != nil {
 		if err := ctrl.rollbackManifest(); err != nil {
@@ -135,30 +135,35 @@ func (ctrl *Controller) AutoUpgrade() error {
 	return nil
 }
 
-// checkManifestFileExist check if the specified files exist
-func (ctrl *Controller) checkManifestFileExist() error {
-	check := []string{ctrl.manifestPath, ctrl.configMapDataPath}
-	for _, c := range check {
-		_, err := os.Stat(c)
-		if os.IsNotExist(err) {
-			return fmt.Errorf("manifest %s does not exist", c)
-		}
+func (ctrl *Controller) OTAUpgrade() error {
+	// (1) Back up the old manifest in case of upgrade failure
+	if err := ctrl.backupManifest(); err != nil {
+		return err
 	}
+	klog.Info("OTA upgrade backupManifest success")
+
+	// (2) Replace manifest and kubelet will upgrade the static pod automatically
+	if err := ctrl.replaceManifest(); err != nil {
+		return err
+	}
+	klog.Info("OTA upgrade replaceManifest success")
 
 	return nil
 }
 
-// prepareManifest move the latest manifest to DefaultUpgradePath and set `.upgrade` suffix
-// TODO: In kubernetes when mount configmap file to the sub path of hostpath mount, it will not be persistent
-// TODO: Init configmap(latest manifest) to a default place and move it to `DefaultUpgradePath` to save it persistent
-func (ctrl *Controller) prepareManifest() error {
+// createUpgradeSpace creates DefaultUpgradePath if it doesn't exist
+func (ctrl *Controller) createUpgradeSpace() error {
 	// Make sure upgrade dir exist
 	if _, err := os.Stat(DefaultUpgradePath); os.IsNotExist(err) {
 		if err = os.Mkdir(DefaultUpgradePath, 0755); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
+// prepareManifest move the latest manifest to DefaultUpgradePath and set `.upgrade` suffix
+func (ctrl *Controller) prepareManifest() error {
 	return util.CopyFile(ctrl.configMapDataPath, ctrl.upgradeManifestPath)
 }
 

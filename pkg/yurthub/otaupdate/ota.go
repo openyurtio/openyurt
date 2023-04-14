@@ -31,8 +31,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
-	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/daemon"
-	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/static"
+	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
@@ -108,10 +107,20 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		kind := pod.GetOwnerReferences()[0].Kind
 		switch kind {
 		case StaticPod:
-			upgrader = &static.StaticPodUpgrader{Interface: clientset,
+			ok, err := upgrade.PreCheck(podName, namespace, clientset)
+			if err != nil {
+				util.WriteErr(w, "Static pod pre-check failed", http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				util.WriteErr(w, "Configmap for static pod does not exist", http.StatusForbidden)
+				return
+			}
+			upgrader = &upgrade.StaticPodUpgrader{Interface: clientset,
 				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}}
+
 		case DaemonPod:
-			upgrader = &daemon.DaemonPodUpgrader{Interface: clientset,
+			upgrader = &upgrade.DaemonPodUpgrader{Interface: clientset,
 				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}}
 		default:
 			util.WriteErr(w, fmt.Sprintf("Not support ota upgrade pod type %v", kind), http.StatusBadRequest)
