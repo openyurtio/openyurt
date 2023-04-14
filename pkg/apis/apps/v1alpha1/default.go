@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	v1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	utilpointer "k8s.io/utils/pointer"
 )
@@ -29,6 +30,25 @@ func SetDefaultsNodePool(obj *NodePool) {
 		obj.Annotations = make(map[string]string)
 	}
 
+}
+
+// SetDefaultsStaticPod set default values for StaticPod.
+func SetDefaultsStaticPod(obj *StaticPod) {
+	// Set default upgrade strategy to "auto" with max-unavailable to "10%"
+	strategy := &obj.Spec.UpgradeStrategy
+	if strategy.Type == "" {
+		strategy.Type = AutoStaticPodUpgradeStrategyType
+	}
+	if strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
+		v := intstr.FromString("10%")
+		strategy.MaxUnavailable = &v
+	}
+
+	// Set default RevisionHistoryLimit to 10
+	if obj.Spec.RevisionHistoryLimit == nil {
+		obj.Spec.RevisionHistoryLimit = new(int32)
+		*obj.Spec.RevisionHistoryLimit = 10
+	}
 }
 
 // SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.

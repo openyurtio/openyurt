@@ -882,9 +882,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/builder"
+	"github.com/openyurtio/openyurt/pkg/webhook/builder"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
@@ -918,8 +917,8 @@ type ${KIND_FIRST_UPPER}Handler struct {
 	Client client.Client
 }
 
-var _ webhook.CustomDefaulter = &${KIND_FIRST_UPPER}Handler{}
-var _ webhook.CustomValidator = &${KIND_FIRST_UPPER}Handler{}
+var _ builder.CustomDefaulter = &${KIND_FIRST_UPPER}Handler{}
+var _ builder.CustomValidator = &${KIND_FIRST_UPPER}Handler{}
 
 EOF
     gofmt -w ${WEBHOOK_KIND_VERSION_HANDLE_FILE}
@@ -952,7 +951,6 @@ func (webhook *${KIND_FIRST_UPPER}Handler) ValidateCreate(ctx context.Context, o
 	}
 
    //validate
-
 	return nil
 }
 

@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
@@ -192,7 +193,7 @@ var (
 	poolCoordinatorSecret = &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      constants.PoolCoordinatorClientSecretName,
-			Namespace: constants.PoolCoordinatorClientSecretNamespace,
+			Namespace: util.YurtHubNamespace,
 		},
 		TypeMeta: v1.TypeMeta{
 			Kind:       "Secret",
@@ -623,7 +624,7 @@ func TestCreateOrUpdateFile(t *testing.T) {
 func initFakeClientAndCertManager() (*fake.Clientset, *CertManager, func(), error) {
 	fakeClientSet := fake.NewSimpleClientset()
 	fakeInformerFactory := informers.NewSharedInformerFactory(fakeClientSet, 0)
-	certMgr, err := NewCertManager(testPKIDir, fakeClientSet, fakeInformerFactory)
+	certMgr, err := NewCertManager(testPKIDir, util.YurtHubNamespace, fakeClientSet, fakeInformerFactory)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create cert manager, %v", err)
 	}
