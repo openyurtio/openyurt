@@ -19,10 +19,12 @@ package yurt
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -82,8 +84,8 @@ var _ = Describe("nodepool test", func() {
 	It("Test NodePool create", func() {
 		By("Run nodepool create")
 
-		bjNpName := "beijing"
-		poolToNodesMap[bjNpName] = sets.NewString("openyurt-e2e-test-worker", "openyurt-e2e-test-worker2")
+		npName := fmt.Sprintf("test-%s", rand.String(4))
+		poolToNodesMap[npName] = sets.NewString("openyurt-e2e-test-worker", "openyurt-e2e-test-worker2")
 		Eventually(
 			func() error {
 				return util.InitNodeAndNodePool(ctx, k8sClient, poolToNodesMap)
