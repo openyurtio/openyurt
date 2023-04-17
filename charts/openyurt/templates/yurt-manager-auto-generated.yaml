@@ -986,207 +986,6 @@ status:
   conditions: []
   storedVersions: []
 ---
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: yurt-manager-mutating-webhook-configuration
-  namespace: kube-system
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /mutate-raven-openyurt-io-v1alpha1-gateway
-  failurePolicy: Fail
-  name: mutate.raven.v1alpha1.gateway.openyurt.io
-  rules:
-  - apiGroups:
-    - raven.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - gateways
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /mutate-apps-openyurt-io-v1beta1-nodepool
-  failurePolicy: Fail
-  name: m.v1beta1.nodepool.kb.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - nodepools
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /mutate-apps-openyurt-io-v1alpha1-staticpod
-  failurePolicy: Fail
-  name: mutate.apps.v1alpha1.staticpod.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - staticpods
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /mutate-apps-openyurt-io-v1alpha1-yurtappset
-  failurePolicy: Fail
-  name: myurtappset.kb.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - yurtappsets
-  sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: yurt-manager-validating-webhook-configuration
-  namespace: kube-system
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /validate-raven-openyurt-io-v1alpha1-gateway
-  failurePolicy: Fail
-  name: validate.raven.v1alpha1.gateway.openyurt.io
-  rules:
-  - apiGroups:
-    - raven.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - gateways
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /validate-apps-openyurt-io-v1beta1-nodepool
-  failurePolicy: Fail
-  name: v.v1beta1.nodepool.kb.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - nodepools
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /validate-apps-openyurt-io-v1alpha1-staticpod
-  failurePolicy: Fail
-  name: validate.apps.v1alpha1.staticpod.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - staticpods
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /validate-apps-openyurt-io-v1alpha1-yurtappset
-  failurePolicy: Fail
-  name: vyurtappset.kb.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - yurtappsets
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: kube-system
-      path: /validate-core-openyurt-io-v1-pod
-  failurePolicy: Fail
-  name: validate.core.v1.pod.openyurt.io
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - DELETE
-    resources:
-    - pods
-  sideEffects: None
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -1507,6 +1306,15 @@ rules:
   - list
   - watch
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
   - raven.openyurt.io
   resources:
   - gateways
@@ -1528,3 +1336,202 @@ rules:
   - get
   - patch
   - update
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: yurt-manager-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-raven-openyurt-io-v1alpha1-gateway
+  failurePolicy: Fail
+  name: mutate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1beta1-nodepool
+  failurePolicy: Fail
+  name: m.v1beta1.nodepool.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - nodepools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1alpha1-staticpod
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.staticpod.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - staticpods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtappset
+  failurePolicy: Fail
+  name: myurtappset.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappsets
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: yurt-manager-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-raven-openyurt-io-v1alpha1-gateway
+  failurePolicy: Fail
+  name: validate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1beta1-nodepool
+  failurePolicy: Fail
+  name: v.v1beta1.nodepool.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - nodepools
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-staticpod
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.staticpod.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - staticpods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-yurtappset
+  failurePolicy: Fail
+  name: vyurtappset.kb.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-core-openyurt-io-v1-pod
+  failurePolicy: Fail
+  name: validate.core.v1.pod.openyurt.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - DELETE
+    resources:
+    - pods
+  sideEffects: None

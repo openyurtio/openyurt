@@ -20,18 +20,16 @@ package adapter
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"testing"
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	discorveryV1listers "k8s.io/client-go/listers/discovery/v1"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"testing"
 )
 
 func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
@@ -42,6 +40,7 @@ func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 	nodeName2 := "node2"
 	tcases := map[string]struct {
 		kubeClient       kubernetes.Interface
+		client           client.Client
 		nodepoolNodes    sets.String
 		svcTopologyTypes map[string]string
 		expectResult     []string
@@ -50,6 +49,7 @@ func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpointSlice(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/hostname",
@@ -60,6 +60,7 @@ func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpointSlice(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName2),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/zone",
@@ -70,6 +71,7 @@ func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpointSlice(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/zone",
@@ -86,8 +88,7 @@ func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 		stopper := make(chan struct{})
 		defer close(stopper)
 
-		epSliceLister := getV1EndpointSliceLister(tt.kubeClient, stopper)
-		adapter := NewEndpointsV1Adapter(tt.kubeClient, epSliceLister)
+		adapter := NewEndpointsV1Adapter(tt.kubeClient, tt.client)
 		keys := adapter.GetEnqueueKeysByNodePool(tt.svcTopologyTypes, tt.nodepoolNodes)
 		if !reflect.DeepEqual(keys, tt.expectResult) {
 			t.Errorf("expect enqueue keys %v, but got %v", tt.expectResult, keys)
@@ -102,10 +103,10 @@ func TestEndpointSliceV1AdapterUpdateTriggerAnnotations(t *testing.T) {
 	epSlice := getEndpointSlice(svcNamespace, svcName, "node1")
 
 	kubeClient := fake.NewSimpleClientset(epSlice)
+	c := fakeclient.NewClientBuilder().WithObjects(epSlice).Build()
 	stopper := make(chan struct{})
 	defer close(stopper)
-	epSliceLister := getV1EndpointSliceLister(kubeClient, stopper)
-	adapter := NewEndpointsV1Adapter(kubeClient, epSliceLister)
+	adapter := NewEndpointsV1Adapter(kubeClient, c)
 	err := adapter.UpdateTriggerAnnotations(epSlice.Namespace, epSlice.Name)
 	if err != nil {
 		t.Errorf("update endpointsSlice trigger annotations failed")
@@ -132,8 +133,8 @@ func TestEndpointSliceV1AdapterGetEnqueueKeysBySvc(t *testing.T) {
 	stopper := make(chan struct{})
 	defer close(stopper)
 	kubeClient := fake.NewSimpleClientset(epSlice)
-	epSliceLister := getV1EndpointSliceLister(kubeClient, stopper)
-	adapter := NewEndpointsV1Adapter(kubeClient, epSliceLister)
+	c := fakeclient.NewClientBuilder().WithObjects(epSlice).Build()
+	adapter := NewEndpointsV1Adapter(kubeClient, c)
 
 	keys := adapter.GetEnqueueKeysBySvc(svc)
 	if !reflect.DeepEqual(keys, expectResult) {
@@ -156,13 +157,4 @@ func getEndpointSlice(svcNamespace, svcName string, nodes ...string) *discoveryv
 		},
 		Endpoints: endpoints,
 	}
-}
-
-func getV1EndpointSliceLister(client kubernetes.Interface, stopCh <-chan struct{}) discorveryV1listers.EndpointSliceLister {
-	factory := informers.NewSharedInformerFactory(client, 24*time.Hour)
-	endpointSliceLister := factory.Discovery().V1().EndpointSlices().Lister()
-
-	factory.Start(stopCh)
-	factory.WaitForCacheSync(stopCh)
-	return endpointSliceLister
 }

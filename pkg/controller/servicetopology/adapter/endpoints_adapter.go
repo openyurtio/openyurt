@@ -19,6 +19,7 @@ package adapter
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,20 +27,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
-func NewEndpointsAdapter(client kubernetes.Interface, epLister corelisters.EndpointsLister) Adapter {
+func NewEndpointsAdapter(kubeClient kubernetes.Interface, client client.Client) Adapter {
 	return &endpoints{
-		client:   client,
-		epLister: epLister,
+		kubeClient: kubeClient,
+		client:     client,
 	}
 }
 
 type endpoints struct {
-	client   kubernetes.Interface
-	epLister corelisters.EndpointsLister
+	kubeClient kubernetes.Interface
+	client     client.Client
 }
 
 func (s *endpoints) GetEnqueueKeysBySvc(svc *corev1.Service) []string {
@@ -49,21 +49,21 @@ func (s *endpoints) GetEnqueueKeysBySvc(svc *corev1.Service) []string {
 
 func (s *endpoints) GetEnqueueKeysByNodePool(svcTopologyTypes map[string]string, allNpNodes sets.String) []string {
 	var keys []string
-	endpointsList, err := s.epLister.List(labels.Everything())
-	if err != nil {
+	endpointsList := &corev1.EndpointsList{}
+	if err := s.client.List(context.TODO(), endpointsList, &client.ListOptions{LabelSelector: labels.Everything()}); err != nil {
 		klog.V(4).Infof("Error listing endpoints sets: %v", err)
 		return keys
 	}
 
-	for _, ep := range endpointsList {
+	for _, ep := range endpointsList.Items {
 		if !isNodePoolTypeSvc(ep.Namespace, ep.Name, svcTopologyTypes) {
 			continue
 		}
 
-		if s.getNodesInEp(ep).Intersection(allNpNodes).Len() == 0 {
+		if s.getNodesInEp(&ep).Intersection(allNpNodes).Len() == 0 {
 			continue
 		}
-		keys = appendKeys(keys, ep)
+		keys = appendKeys(keys, &ep)
 	}
 	return keys
 }
@@ -82,6 +82,6 @@ func (s *endpoints) getNodesInEp(ep *corev1.Endpoints) sets.String {
 
 func (s *endpoints) UpdateTriggerAnnotations(namespace, name string) error {
 	patch := getUpdateTriggerPatch()
-	_, err := s.client.CoreV1().Endpoints(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	_, err := s.kubeClient.CoreV1().Endpoints(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	return err
 }
