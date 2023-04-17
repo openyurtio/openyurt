@@ -20,7 +20,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
+	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
+	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -33,11 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {

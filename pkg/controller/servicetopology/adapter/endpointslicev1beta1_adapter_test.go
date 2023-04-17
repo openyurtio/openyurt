@@ -21,8 +21,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 	"time"
 
@@ -33,6 +31,8 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestEndpointSliceV1Beta1AdapterGetEnqueueKeysByNodePool(t *testing.T) {
@@ -52,7 +52,7 @@ func TestEndpointSliceV1Beta1AdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1),
 			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
+			client:        fakeclient.NewClientBuilder().WithObjects(getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/hostname",
@@ -63,7 +63,7 @@ func TestEndpointSliceV1Beta1AdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1),
 			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
+			client:        fakeclient.NewClientBuilder().WithObjects(getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName2),
 			svcTopologyTypes: map[string]string{
 				svcKey: "openyurt.io/nodepool",
@@ -74,7 +74,7 @@ func TestEndpointSliceV1Beta1AdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1),
 			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
+			client:        fakeclient.NewClientBuilder().WithObjects(getV1Beta1EndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/zone",
