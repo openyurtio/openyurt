@@ -24,19 +24,8 @@ package app
 import (
 	"net/http"
 
-	poolcoordinator "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 )
-
-func startPoolCoordinatorController(ctx ControllerContext) (http.Handler, bool, error) {
-	poolcoordinatorController := poolcoordinator.NewController(
-		ctx.ClientBuilder.ClientOrDie("poolcoordinator-delegate-lease"),
-		ctx.InformerFactory,
-	)
-	go poolcoordinatorController.Run(ctx.Stop)
-	return nil, true, nil
-}
 
 func startServiceTopologyController(ctx ControllerContext) (http.Handler, bool, error) {
 	clientSet := ctx.ClientBuilder.ClientOrDie("yurt-servicetopology-controller")
@@ -50,14 +39,5 @@ func startServiceTopologyController(ctx ControllerContext) (http.Handler, bool, 
 		return nil, false, err
 	}
 	go svcTopologyController.Run(ctx.Stop)
-	return nil, true, nil
-}
-
-func startPodBindingController(ctx ControllerContext) (http.Handler, bool, error) {
-	podBindingController := podbinding.NewController(
-		ctx.ClientBuilder.ClientOrDie("poolcoordinator-pod-binding"),
-		ctx.InformerFactory,
-	)
-	go podBindingController.Run(ctx.Stop)
 	return nil, true, nil
 }
