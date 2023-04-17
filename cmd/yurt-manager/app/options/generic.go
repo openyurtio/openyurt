@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	"github.com/openyurtio/openyurt/pkg/features"
 )
 
 type GenericOptions struct {
@@ -84,4 +85,6 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.RestConfigQPS, "rest-config-qps", o.RestConfigQPS, "rest-config-qps.")
 	fs.IntVar(&o.RestConfigBurst, "rest-config-burst", o.RestConfigBurst, "rest-config-burst.")
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")
+
+	features.DefaultMutableFeatureGate.AddFlag(fs)
 }
