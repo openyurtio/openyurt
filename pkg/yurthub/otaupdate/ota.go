@@ -24,19 +24,28 @@ import (
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	runtimescheme "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
+	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
+const (
+	StaticPod = "Node"
+	DaemonPod = "DaemonSet"
+)
+
 type OTAHandler func(kubernetes.Interface, string) http.Handler
+
+type OTAUpgrader interface {
+	Apply() error
+}
 
 // GetPods return pod list
 func GetPods(store cachemanager.StorageWrapper) http.Handler {
@@ -49,13 +58,13 @@ func GetPods(store cachemanager.StorageWrapper) http.Handler {
 		})
 		if err != nil {
 			klog.Errorf("get pods key failed, %v", err)
-			WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
+			util.WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
 			return
 		}
 		objs, err := store.List(podsKey)
 		if err != nil {
 			klog.Errorf("Get pod list failed, %v", err)
-			WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
+			util.WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
 			return
 		}
 
@@ -64,19 +73,19 @@ func GetPods(store cachemanager.StorageWrapper) http.Handler {
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
 				klog.Errorf("Get pod list failed, %v", err)
-				WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
+				util.WriteErr(w, "Get pod list failed", http.StatusInternalServerError)
 				return
 			}
 			podList.Items = append(podList.Items, *pod)
 		}
 
 		// Successfully get pod list, response 200
-		data, err := encodePods(podList)
+		data, err := util.EncodePods(podList)
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
-			WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+			util.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
 		}
-		WriteJSONResponse(w, data)
+		util.WriteJSONResponse(w, data)
 	})
 }
 
@@ -87,29 +96,58 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		namespace := params["ns"]
 		podName := params["podname"]
 
-		err, ok := applyUpdate(clientset, namespace, podName, nodeName)
-		// Pod update failed with error
-		if err != nil {
-			WriteErr(w, "Apply update failed", http.StatusInternalServerError)
-			return
-		}
+		pod, ok := preCheck(clientset, namespace, podName, nodeName)
 		// Pod update is not allowed
 		if !ok {
-			WriteErr(w, "Pod is not-updatable", http.StatusForbidden)
+			util.WriteErr(w, "Pod is not-updatable", http.StatusForbidden)
+			return
+		}
+
+		var upgrader OTAUpgrader
+		kind := pod.GetOwnerReferences()[0].Kind
+		switch kind {
+		case StaticPod:
+			ok, err := upgrade.PreCheck(podName, namespace, clientset)
+			if err != nil {
+				util.WriteErr(w, "Static pod pre-check failed", http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				util.WriteErr(w, "Configmap for static pod does not exist", http.StatusForbidden)
+				return
+			}
+			upgrader = &upgrade.StaticPodUpgrader{Interface: clientset,
+				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}}
+
+		case DaemonPod:
+			upgrader = &upgrade.DaemonPodUpgrader{Interface: clientset,
+				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}}
+		default:
+			util.WriteErr(w, fmt.Sprintf("Not support ota upgrade pod type %v", kind), http.StatusBadRequest)
+			return
+		}
+
+		if err := upgrader.Apply(); err != nil {
+			// Pod update failed with error
+			util.WriteErr(w, "Apply update failed", http.StatusInternalServerError)
 			return
 		}
 
 		// Successfully apply update, response 200
-		WriteJSONResponse(w, []byte(fmt.Sprintf("Start updating pod %v/%v", namespace, podName)))
+		util.WriteJSONResponse(w, []byte(fmt.Sprintf("Start updating pod %v/%v", namespace, podName)))
 	})
 }
 
-// applyUpdate execute pod update process by deleting pod under OnDelete update strategy
-func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName string) (error, bool) {
+// preCheck will check the necessary requirements before apply upgrade
+// 1. target pod has not been deleted yet
+// 2. target pod belongs to current node
+// 3. check whether target pod is updatable
+// At last, return the target pod to do further operation
+func preCheck(clientset kubernetes.Interface, namespace, podName, nodeName string) (*corev1.Pod, bool) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Get pod %v/%v failed, %v", namespace, podName, err)
-		return err, false
+		return nil, false
 	}
 
 	// Pod will not be updated when it's being deleted
@@ -131,44 +169,7 @@ func applyUpdate(clientset kubernetes.Interface, namespace, podName, nodeName st
 	}
 
 	klog.V(5).Infof("Pod: %v/%v is updatable", namespace, podName)
-	err = clientset.CoreV1().Pods(namespace).Delete(context.TODO(), podName, metav1.DeleteOptions{})
-	if err != nil {
-		klog.Errorf("Update pod %v/%v failed when delete, %v", namespace, podName, err)
-		return err, false
-	}
-
-	klog.Infof("Start updating pod: %v/%v", namespace, podName)
-	return nil, true
-}
-
-// Derived from kubelet encodePods
-func encodePods(podList *corev1.PodList) (data []byte, err error) {
-	codec := scheme.Codecs.LegacyCodec(runtimescheme.GroupVersion{Group: corev1.GroupName, Version: "v1"})
-	return runtime.Encode(codec, podList)
-}
-
-// WriteErr writes the http status and the error string on the response
-func WriteErr(w http.ResponseWriter, errReason string, httpStatus int) {
-	w.WriteHeader(httpStatus)
-	n := len([]byte(errReason))
-	nw, e := w.Write([]byte(errReason))
-	if e != nil || nw != n {
-		klog.Errorf("Write resp for request, expect %d bytes but write %d bytes with error, %v", n, nw, e)
-	}
-}
-
-// Derived from kubelet writeJSONResponse
-func WriteJSONResponse(w http.ResponseWriter, data []byte) {
-	if data == nil {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	n, err := w.Write(data)
-	if err != nil || n != len(data) {
-		klog.Errorf("Write resp for request, expect %d bytes but write %d bytes with error, %v", len(data), n, err)
-	}
+	return pod, true
 }
 
 // HealthyCheck checks if cloud-edge is disconnected before ota update handle, ota update is not allowed when disconnected
@@ -177,14 +178,14 @@ func HealthyCheck(rest *rest.RestConfigManager, nodeName string, handler OTAHand
 		restCfg := rest.GetRestConfig(true)
 		if restCfg == nil {
 			klog.Infof("Get pod list is not allowed when edge is disconnected to cloud")
-			WriteErr(w, "OTA update is not allowed when edge is disconnected to cloud", http.StatusForbidden)
+			util.WriteErr(w, "OTA update is not allowed when edge is disconnected to cloud", http.StatusForbidden)
 			return
 		}
 
 		clientSet, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
 			klog.Errorf("Get client set failed: %v", err)
-			WriteErr(w, "Get client set failed", http.StatusInternalServerError)
+			util.WriteErr(w, "Get client set failed", http.StatusInternalServerError)
 			return
 		}
 

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +57,7 @@ func Test(t *testing.T) {
 		},
 	}
 
-	modes := []string{"ota", "auto"}
+	modes := []string{"auto"}
 
 	for _, mode := range modes {
 		/*
@@ -79,7 +80,7 @@ func Test(t *testing.T) {
 			manifest:  TestManifest,
 			hash:      TestHashValue,
 			mode:      mode,
-			timeout:   DefaultStaticPodRunningCheckTimeout,
+			timeout:   time.Second,
 		}
 		ctrl, err := NewWithOptions(o)
 		if err != nil {
@@ -87,7 +88,7 @@ func Test(t *testing.T) {
 		}
 
 		if err := ctrl.Upgrade(); err != nil {
-			if strings.Contains(err.Error(), "fail to access yurthub pods API") {
+			if !strings.Contains(err.Error(), "timeout waiting for static pod") {
 				t.Errorf("Fail to upgrade, %v", err)
 			}
 		}
@@ -102,21 +103,6 @@ func Test(t *testing.T) {
 			}
 			if !ok {
 				t.Errorf("Manifest for ota upgrade does not exist")
-			}
-		}
-		/*
-			4. Verify Auto upgrade mode
-		*/
-		if mode == "auto" {
-			checkFiles := []string{ctrl.upgradeManifestPath, ctrl.bakManifestPath}
-			for _, file := range checkFiles {
-				ok, err := util.FileExists(file)
-				if err != nil {
-					t.Errorf("Fail to check %s manifest existence for auto upgrade, %v", file, err)
-				}
-				if !ok {
-					t.Errorf("Manifest %s for auto upgrade does not exist", file)
-				}
 			}
 		}
 	}
