@@ -19,42 +19,28 @@ package delegatelease
 import (
 	"testing"
 
-	coordv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/utils"
 )
 
 func TestTaintNode(t *testing.T) {
-	c := NewController(nil, nil)
+	r := &ReconcileDelegateLease{
+		ldc:    utils.NewLeaseDelegatedCounter(),
+		delLdc: utils.NewLeaseDelegatedCounter(),
+	}
 	node := &corev1.Node{}
-	node = c.doDeTaintNodeNotSchedulable(node)
+	node = r.doDeTaintNodeNotSchedulable(node)
 	if len(node.Spec.Taints) != 0 {
 		t.Fail()
 	}
-	node = c.doTaintNodeNotSchedulable(node)
-	node = c.doTaintNodeNotSchedulable(node)
+	node = r.doTaintNodeNotSchedulable(node)
+	node = r.doTaintNodeNotSchedulable(node)
 	if len(node.Spec.Taints) == 0 {
 		t.Fail()
 	}
-	node = c.doDeTaintNodeNotSchedulable(node)
+	node = r.doDeTaintNodeNotSchedulable(node)
 	if len(node.Spec.Taints) != 0 {
 		t.Fail()
 	}
-}
-
-func TestOnLeaseCreate(t *testing.T) {
-	c := NewController(nil, nil)
-	l := &coordv1.Lease{}
-	c.onLeaseCreate(l)
-	l.Namespace = corev1.NamespaceNodeLease
-	l.Name = "ai-ice-vm05"
-	c.onLeaseCreate(l)
-}
-
-func TestOnLeaseUpdate(t *testing.T) {
-	c := NewController(nil, nil)
-	l := &coordv1.Lease{}
-	c.onLeaseUpdate(l, l)
-	l.Namespace = corev1.NamespaceNodeLease
-	l.Name = "ai-ice-vm05"
-	c.onLeaseUpdate(l, l)
 }
