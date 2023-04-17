@@ -24,20 +24,22 @@ import (
 
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
-	Generic             *GenericOptions
-	NodePoolController  *NodePoolControllerOptions
-	GatewayController   *GatewayControllerOptions
-	StaticPodController *StaticPodControllerOptions
+	Generic              *GenericOptions
+	NodePoolController   *NodePoolControllerOptions
+	GatewayController    *GatewayControllerOptions
+	YurtAppSetController *YurtAppSetControllerOptions
+	StaticPodController  *StaticPodControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
 func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 
 	s := YurtManagerOptions{
-		Generic:             NewGenericOptions(),
-		NodePoolController:  NewNodePoolControllerOptions(),
-		GatewayController:   NewGatewayControllerOptions(),
-		StaticPodController: NewStaticPodControllerOptions(),
+		Generic:              NewGenericOptions(),
+		NodePoolController:   NewNodePoolControllerOptions(),
+		GatewayController:    NewGatewayControllerOptions(),
+		YurtAppSetController: NewYurtAppSetControllerOptions(),
+		StaticPodController:  NewStaticPodControllerOptions(),
 	}
 
 	return &s, nil
