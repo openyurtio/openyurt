@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: yurt-controller-manager
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "openyurt.namespace" . }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -141,7 +141,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: yurt-controller-manager
-    namespace: {{ .Release.Namespace | quote }}
+    namespace: {{ include "openyurt.namespace" . }}
 roleRef:
   kind: ClusterRole
   name: yurt-controller-manager
