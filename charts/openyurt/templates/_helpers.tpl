@@ -52,3 +52,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 
+{{- define "openyurt.namespace" -}}
+{{- if .Values.namespace -}}
+    {{ .Values.namespace }}
+{{- else -}}
+    {{ .Release.Namespace }}
+{{- end -}}
+{{- end -}}
