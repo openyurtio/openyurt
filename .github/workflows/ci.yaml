@@ -43,6 +43,7 @@ jobs:
         with:
           version: v1.47.3
           args: -v
+          skip-cache: true
 
   markdownlint-misspell-shellcheck:
     runs-on: ubuntu-22.04

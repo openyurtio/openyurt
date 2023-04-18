@@ -1572,6 +1572,15 @@ rules:
   - list
   - watch
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
   - raven.openyurt.io
   resources:
   - gateways
