@@ -19,9 +19,6 @@ package endpoints
 import (
 	"context"
 
-	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
-	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -31,6 +28,10 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+
+	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
+	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 type EnqueueEndpointsForService struct {
