@@ -123,7 +123,7 @@ func (e *EnqueueEndpointsliceForNodePool) Update(evt event.UpdateEvent,
 	klog.Infof(Format("the nodes record of nodepool %s is changed from %v to %v.", newNp.Name, oldNp.Status.Nodes, newNp.Status.Nodes))
 	allNpNodes := newNpNodes.Union(oldNpNodes)
 	svcTopologyTypes := e.getSvcTopologyTypes()
-	e.enqueueEndpointsliceForNodePool(svcTopologyTypes, allNpNodes, newNp, q)
+	e.enqueueEndpointSliceForNodePool(svcTopologyTypes, allNpNodes, newNp, q)
 }
 
 // Delete implements EventHandler
@@ -138,7 +138,7 @@ func (e *EnqueueEndpointsliceForNodePool) Delete(evt event.DeleteEvent,
 	klog.Infof(Format("nodepool %s is deleted", nodePool.Name))
 	allNpNodes := sets.NewString(nodePool.Status.Nodes...)
 	svcTopologyTypes := e.getSvcTopologyTypes()
-	e.enqueueEndpointsliceForNodePool(svcTopologyTypes, allNpNodes, nodePool, q)
+	e.enqueueEndpointSliceForNodePool(svcTopologyTypes, allNpNodes, nodePool, q)
 }
 
 // Generic implements EventHandler
@@ -146,7 +146,7 @@ func (e *EnqueueEndpointsliceForNodePool) Generic(evt event.GenericEvent,
 	q workqueue.RateLimitingInterface) {
 }
 
-func (e *EnqueueEndpointsliceForNodePool) enqueueEndpointsliceForNodePool(svcTopologyTypes map[string]string, allNpNodes sets.String, np *nodepoolv1alpha1.NodePool, q workqueue.RateLimitingInterface) {
+func (e *EnqueueEndpointsliceForNodePool) enqueueEndpointSliceForNodePool(svcTopologyTypes map[string]string, allNpNodes sets.String, np *nodepoolv1alpha1.NodePool, q workqueue.RateLimitingInterface) {
 	keys := e.endpointsliceAdapter.GetEnqueueKeysByNodePool(svcTopologyTypes, allNpNodes)
 	klog.Infof(Format("according to the change of the nodepool %s, enqueue endpointslice: %v", np.Name, keys))
 	for _, key := range keys {
