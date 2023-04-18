@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, poolcoordinatorcert.Add)
+	addController("poolcoordinatorcert", poolcoordinatorcert.Add)
 }

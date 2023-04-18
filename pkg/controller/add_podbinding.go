@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, podbinding.Add)
+	addController("podbinding", podbinding.Add)
 }

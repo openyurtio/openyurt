@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, nodepool.Add)
+	addController("nodepool", nodepool.Add)
 }

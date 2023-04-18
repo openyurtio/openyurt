@@ -65,4 +65,10 @@ type GenericConfiguration struct {
 	RestConfigQPS           int
 	RestConfigBurst         int
 	WorkingNamespace        string
+	// Controllers is the list of controllers to enable or disable
+	// '*' means "all enabled by default controllers"
+	// 'foo' means "enable 'foo'"
+	// '-foo' means "disable 'foo'"
+	// first item for a particular name wins
+	Controllers []string
 }

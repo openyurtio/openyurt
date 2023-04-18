@@ -23,6 +23,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/features"
 )
 
+const enableAllController = "*"
+
 type GenericOptions struct {
 	*config.GenericConfiguration
 }
@@ -38,6 +40,7 @@ func NewGenericOptions() *GenericOptions {
 			RestConfigQPS:           30,
 			RestConfigBurst:         50,
 			WorkingNamespace:        "kube-system",
+			Controllers:             []string{enableAllController},
 		},
 	}
 }
@@ -67,6 +70,7 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
 	cfg.RestConfigQPS = o.RestConfigQPS
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
+	cfg.Controllers = o.Controllers
 
 	return nil
 }
@@ -85,6 +89,8 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.RestConfigQPS, "rest-config-qps", o.RestConfigQPS, "rest-config-qps.")
 	fs.IntVar(&o.RestConfigBurst, "rest-config-burst", o.RestConfigBurst, "rest-config-burst.")
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")
+	fs.StringSliceVar(&o.Controllers, "controllers", o.Controllers, "A list of controllers to enable. "+
+		"'*' enables all on-by-default controllers, 'foo' enables the controller named 'foo', '-foo' disables the controller named 'foo'.")
 
 	features.DefaultMutableFeatureGate.AddFlag(fs)
 }

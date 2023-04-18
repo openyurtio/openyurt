@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, delegatelease.Add)
+	addController("delegatelease", delegatelease.Add)
 }

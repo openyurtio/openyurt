@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	addWebhook(&v1beta1.NodePoolHandler{})
+	addWebhook("nodepool", &v1beta1.NodePoolHandler{})
 }

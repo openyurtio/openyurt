@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, csrapprover.Add)
+	addController("csrapprover", csrapprover.Add)
 }

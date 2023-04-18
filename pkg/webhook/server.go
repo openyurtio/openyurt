@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/controller/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 )
@@ -40,33 +41,47 @@ type SetupWebhookWithManager interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error)
 }
 
-var WebhookLists []SetupWebhookWithManager = make([]SetupWebhookWithManager, 0, 5)
+var controllerWebhook map[string][]SetupWebhookWithManager
 var WebhookHandlerPath = make(map[string]struct{})
+
+func addWebhook(name string, handler SetupWebhookWithManager) {
+	if controllerWebhook == nil {
+		controllerWebhook = make(map[string][]SetupWebhookWithManager)
+	}
+
+	if controllerWebhook[name] == nil {
+		controllerWebhook[name] = make([]SetupWebhookWithManager, 1)
+	}
+
+	controllerWebhook[name] = append(controllerWebhook[name], handler)
+}
 
 // Note !!! @kadisi
 // Do not change the name of the file or the contents of the file !!!!!!!!!!
 // Note !!!
 
-func addWebhook(w SetupWebhookWithManager) {
-	WebhookLists = append(WebhookLists, w)
-}
-
-func SetupWithManager(mgr manager.Manager) error {
-	for _, s := range WebhookLists {
-		m, v, err := s.SetupWebhookWithManager(mgr)
-		if err != nil {
-			return fmt.Errorf("unable to create webhook %v", err)
+func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
+	for controllerName, list := range controllerWebhook {
+		if !util.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+			klog.Warningf("Webhook for %v is disabled", controllerName)
+			continue
 		}
-		if _, ok := WebhookHandlerPath[m]; ok {
-			panic(fmt.Errorf("webhook handler path %s duplicated", m))
+		for _, s := range list {
+			m, v, err := s.SetupWebhookWithManager(mgr)
+			if err != nil {
+				return fmt.Errorf("unable to create webhook %v", err)
+			}
+			if _, ok := WebhookHandlerPath[m]; ok {
+				panic(fmt.Errorf("webhook handler path %s duplicated", m))
+			}
+			WebhookHandlerPath[m] = struct{}{}
+			klog.Infof("Add webhook mutate path %s", m)
+			if _, ok := WebhookHandlerPath[v]; ok {
+				panic(fmt.Errorf("webhook handler path %s duplicated", v))
+			}
+			WebhookHandlerPath[v] = struct{}{}
+			klog.Infof("Add webhook validate path %s", v)
 		}
-		WebhookHandlerPath[m] = struct{}{}
-		klog.Infof("Add webhook mutate path %s", m)
-		if _, ok := WebhookHandlerPath[v]; ok {
-			panic(fmt.Errorf("webhook handler path %s duplicated", v))
-		}
-		WebhookHandlerPath[v] = struct{}{}
-		klog.Infof("Add webhook validate path %s", v)
 	}
 	return nil
 }

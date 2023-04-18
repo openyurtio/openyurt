@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, staticpod.Add)
+	addController("staticpod", staticpod.Add)
 }
