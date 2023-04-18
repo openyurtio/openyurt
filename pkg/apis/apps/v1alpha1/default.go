@@ -32,27 +32,8 @@ func SetDefaultsNodePool(obj *NodePool) {
 
 }
 
-// SetDefaultsStaticPod set default values for StaticPod.
-func SetDefaultsStaticPod(obj *StaticPod) {
-	// Set default upgrade strategy to "auto" with max-unavailable to "10%"
-	strategy := &obj.Spec.UpgradeStrategy
-	if strategy.Type == "" {
-		strategy.Type = AutoStaticPodUpgradeStrategyType
-	}
-	if strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
-		v := intstr.FromString("10%")
-		strategy.MaxUnavailable = &v
-	}
-
-	// Set default RevisionHistoryLimit to 10
-	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = new(int32)
-		*obj.Spec.RevisionHistoryLimit = 10
-	}
-}
-
-// SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
-func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
+// SetDefaultsYurtAppSet set default values for YurtAppSet.
+func SetDefaultsYurtAppSet(obj *YurtAppSet) {
 
 	if obj.Spec.RevisionHistoryLimit == nil {
 		obj.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
@@ -221,5 +202,46 @@ func SetDefaultPodSpec(in *corev1.PodSpec) {
 func SetDefaults_ContainerPort(obj *corev1.ContainerPort) {
 	if obj.Protocol == "" {
 		obj.Protocol = corev1.ProtocolTCP
+	}
+}
+
+// SetDefaultsStaticPod set default values for StaticPod.
+func SetDefaultsStaticPod(obj *StaticPod) {
+	// Set default upgrade strategy to "auto" with max-unavailable to "10%"
+	strategy := &obj.Spec.UpgradeStrategy
+	if strategy.Type == "" {
+		strategy.Type = AutoStaticPodUpgradeStrategyType
+	}
+	if strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
+		v := intstr.FromString("10%")
+		strategy.MaxUnavailable = &v
+	}
+
+	// Set default RevisionHistoryLimit to 10
+	if obj.Spec.RevisionHistoryLimit == nil {
+		obj.Spec.RevisionHistoryLimit = new(int32)
+		*obj.Spec.RevisionHistoryLimit = 10
+	}
+}
+
+// SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
+func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
+
+	if obj.Spec.RevisionHistoryLimit == nil {
+		obj.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
+	}
+
+	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
+		SetDefaultPodSpec(&obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Template.Spec)
+		for i := range obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.VolumeClaimTemplates {
+			a := &obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.VolumeClaimTemplates[i]
+			v1.SetDefaults_PersistentVolumeClaim(a)
+			v1.SetDefaults_ResourceList(&a.Spec.Resources.Limits)
+			v1.SetDefaults_ResourceList(&a.Spec.Resources.Requests)
+			v1.SetDefaults_ResourceList(&a.Status.Capacity)
+		}
+	}
+	if obj.Spec.WorkloadTemplate.DeploymentTemplate != nil {
+		SetDefaultPodSpec(&obj.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Template.Spec)
 	}
 }

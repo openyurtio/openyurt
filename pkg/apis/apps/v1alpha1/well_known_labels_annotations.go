@@ -20,7 +20,7 @@ change some const value
 
 package v1alpha1
 
-// YurtAppDaemon related labels and annotations
+// YurtAppSet & YurtAppDaemon related labels and annotations
 const (
 	// ControllerRevisionHashLabelKey is used to record the controller revision of current resource.
 	ControllerRevisionHashLabelKey = "apps.openyurt.io/controller-revision-hash"

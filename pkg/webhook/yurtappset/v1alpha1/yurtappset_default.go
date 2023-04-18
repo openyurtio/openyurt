@@ -22,30 +22,28 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
 // Default satisfies the defaulting webhook interface.
-func (webhook *YurtAppDaemonHandler) Default(ctx context.Context, obj runtime.Object) error {
-	klog.Info("default object %v", obj)
-	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
+func (webhook *YurtAppSetHandler) Default(ctx context.Context, obj runtime.Object) error {
+	appset, ok := obj.(*v1alpha1.YurtAppSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppSet but got a %T", obj))
 	}
 
-	v1alpha1.SetDefaultsYurtAppDaemon(daemon)
-	daemon.Status = v1alpha1.YurtAppDaemonStatus{}
+	v1alpha1.SetDefaultsYurtAppSet(appset)
+	appset.Status = v1alpha1.YurtAppSetStatus{}
 
-	statefulSetTemp := daemon.Spec.WorkloadTemplate.StatefulSetTemplate
-	deployTem := daemon.Spec.WorkloadTemplate.DeploymentTemplate
+	statefulSetTemp := appset.Spec.WorkloadTemplate.StatefulSetTemplate
+	deployTem := appset.Spec.WorkloadTemplate.DeploymentTemplate
 
 	if statefulSetTemp != nil {
-		statefulSetTemp.Spec.Selector = daemon.Spec.Selector
+		statefulSetTemp.Spec.Selector = appset.Spec.Selector
 	}
 	if deployTem != nil {
-		deployTem.Spec.Selector = daemon.Spec.Selector
+		deployTem.Spec.Selector = appset.Spec.Selector
 	}
 
 	return nil

@@ -29,6 +29,7 @@ type YurtManagerOptions struct {
 	NodePoolController      *NodePoolControllerOptions
 	GatewayController       *GatewayControllerOptions
 	StaticPodController     *StaticPodControllerOptions
+	YurtAppSetController    *YurtAppSetControllerOptions
 	YurtAppDaemonController *YurtAppDaemonControllerOptions
 }
 
@@ -40,6 +41,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		NodePoolController:      NewNodePoolControllerOptions(),
 		GatewayController:       NewGatewayControllerOptions(),
 		StaticPodController:     NewStaticPodControllerOptions(),
+		YurtAppSetController:    NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
 	}
 

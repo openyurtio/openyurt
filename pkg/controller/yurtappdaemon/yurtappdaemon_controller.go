@@ -22,11 +22,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
-	"github.com/openyurtio/openyurt/pkg/util/gate"
-	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +36,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
+	"github.com/openyurtio/openyurt/pkg/util/gate"
+	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util"
 )
 
 var (

@@ -19,30 +19,30 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
 )
 
-type YurtAppDaemonControllerOptions struct {
-	*config.YurtAppDaemonControllerConfiguration
+type YurtAppSetControllerOptions struct {
+	*config.YurtAppSetControllerConfiguration
 }
 
-func NewYurtAppDaemonControllerOptions() *YurtAppDaemonControllerOptions {
-	return &YurtAppDaemonControllerOptions{
-		&config.YurtAppDaemonControllerConfiguration{},
+func NewYurtAppSetControllerOptions() *YurtAppSetControllerOptions {
+	return &YurtAppSetControllerOptions{
+		&config.YurtAppSetControllerConfiguration{},
 	}
 }
 
-// AddFlags adds flags related to yurtappdaemon for yurt-manager to the specified FlagSet.
-func (o *YurtAppDaemonControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if o == nil {
+// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+func (n *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if n == nil {
 		return
 	}
 
 	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
 }
 
-// ApplyTo fills up yurtappdaemon config with options.
-func (o *YurtAppDaemonControllerOptions) ApplyTo(cfg *config.YurtAppDaemonControllerConfiguration) error {
+// ApplyTo fills up nodepool config with options.
+func (o *YurtAppSetControllerOptions) ApplyTo(cfg *config.YurtAppSetControllerConfiguration) error {
 	if o == nil {
 		return nil
 	}
@@ -50,11 +50,11 @@ func (o *YurtAppDaemonControllerOptions) ApplyTo(cfg *config.YurtAppDaemonContro
 	return nil
 }
 
-// Validate checks validation of YurtAppDaemonControllerOptions.
-func (o *YurtAppDaemonControllerOptions) Validate() []error {
+// Validate checks validation of YurtAppSetControllerOptions.
+func (o *YurtAppSetControllerOptions) Validate() []error {
 	if o == nil {
 		return nil
 	}
-	var errs []error
+	errs := []error{}
 	return errs
 }

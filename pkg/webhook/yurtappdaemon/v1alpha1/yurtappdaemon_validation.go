@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -36,6 +35,8 @@ import (
 	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	apivalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.

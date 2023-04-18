@@ -68,12 +68,10 @@ var _ reconcile.Reconciler = &ReconcileNodePool{}
 // Add creates a new NodePool Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		klog.Errorf(Format("DiscoverGVK error"))
 		return nil
 	}
-
 	return add(mgr, newReconciler(c, mgr))
 }
 
