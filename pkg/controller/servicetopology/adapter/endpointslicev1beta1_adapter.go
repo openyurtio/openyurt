@@ -27,55 +27,55 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	discorveryV1beta1listers "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewEndpointsV1Beta1Adapter(client kubernetes.Interface, epSliceLister discorveryV1beta1listers.EndpointSliceLister) Adapter {
+func NewEndpointsV1Beta1Adapter(kubeClient kubernetes.Interface, client client.Client) Adapter {
 	return &endpointslicev1beta1{
-		client:        client,
-		epSliceLister: epSliceLister,
+		kubeClient: kubeClient,
+		client:     client,
 	}
 }
 
 type endpointslicev1beta1 struct {
-	client        kubernetes.Interface
-	epSliceLister discorveryV1beta1listers.EndpointSliceLister
+	kubeClient kubernetes.Interface
+	client     client.Client
 }
 
 func (s *endpointslicev1beta1) GetEnqueueKeysBySvc(svc *corev1.Service) []string {
 	var keys []string
 	selector := getSvcSelector(discoveryv1beta1.LabelServiceName, svc.Name)
-	epSliceList, err := s.epSliceLister.EndpointSlices(svc.Namespace).List(selector)
-	if err != nil {
+	epSliceList := &discoveryv1beta1.EndpointSliceList{}
+	if err := s.client.List(context.TODO(), epSliceList, &client.ListOptions{Namespace: svc.Namespace, LabelSelector: selector}); err != nil {
 		klog.V(4).Infof("Error listing endpointslices sets: %v", err)
 		return keys
 	}
 
-	for _, epSlice := range epSliceList {
-		keys = appendKeys(keys, epSlice)
+	for _, epSlice := range epSliceList.Items {
+		keys = appendKeys(keys, &epSlice)
 	}
 	return keys
 }
 
 func (s *endpointslicev1beta1) GetEnqueueKeysByNodePool(svcTopologyTypes map[string]string, allNpNodes sets.String) []string {
 	var keys []string
-	epSliceList, err := s.epSliceLister.List(labels.Everything())
-	if err != nil {
+	epSliceList := &discoveryv1beta1.EndpointSliceList{}
+	if err := s.client.List(context.TODO(), epSliceList, &client.ListOptions{LabelSelector: labels.Everything()}); err != nil {
 		klog.V(4).Infof("Error listing endpointslices sets: %v", err)
 		return keys
 	}
 
-	for _, epSlice := range epSliceList {
+	for _, epSlice := range epSliceList.Items {
 		svcNamespace := epSlice.Namespace
 		svcName := epSlice.Labels[discoveryv1beta1.LabelServiceName]
 		if !isNodePoolTypeSvc(svcNamespace, svcName, svcTopologyTypes) {
 			continue
 		}
-		if s.getNodesInEpSlice(epSlice).Intersection(allNpNodes).Len() == 0 {
+		if s.getNodesInEpSlice(&epSlice).Intersection(allNpNodes).Len() == 0 {
 			continue
 		}
-		keys = appendKeys(keys, epSlice)
+		keys = appendKeys(keys, &epSlice)
 	}
 
 	return keys
@@ -94,6 +94,6 @@ func (s *endpointslicev1beta1) getNodesInEpSlice(epSlice *discoveryv1beta1.Endpo
 
 func (s *endpointslicev1beta1) UpdateTriggerAnnotations(namespace, name string) error {
 	patch := getUpdateTriggerPatch()
-	_, err := s.client.DiscoveryV1beta1().EndpointSlices(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	_, err := s.kubeClient.DiscoveryV1beta1().EndpointSlices(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	return err
 }

@@ -22,16 +22,15 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
@@ -42,6 +41,7 @@ func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 	nodeName2 := "node2"
 	tcases := map[string]struct {
 		kubeClient       kubernetes.Interface
+		client           client.Client
 		nodepoolNodes    sets.String
 		svcTopologyTypes map[string]string
 		expectResult     []string
@@ -50,6 +50,7 @@ func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpoints(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpoints(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/hostname",
@@ -60,6 +61,7 @@ func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpoints(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpoints(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName2),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/zone",
@@ -70,6 +72,7 @@ func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 			kubeClient: fake.NewSimpleClientset(
 				getEndpoints(svcNamespace, svcName, nodeName1),
 			),
+			client:        fakeclient.NewClientBuilder().WithObjects(getEndpoints(svcNamespace, svcName, nodeName1)).Build(),
 			nodepoolNodes: sets.NewString(nodeName1),
 			svcTopologyTypes: map[string]string{
 				svcKey: "kubernetes.io/zone",
@@ -85,8 +88,7 @@ func TestEndpointAdapterGetEnqueueKeysByNodePool(t *testing.T) {
 		stopper := make(chan struct{})
 		defer close(stopper)
 
-		endpointsLister := getEndpointLister(tt.kubeClient, stopper)
-		adapter := NewEndpointsAdapter(tt.kubeClient, endpointsLister)
+		adapter := NewEndpointsAdapter(tt.kubeClient, tt.client)
 		keys := adapter.GetEnqueueKeysByNodePool(tt.svcTopologyTypes, tt.nodepoolNodes)
 		if !reflect.DeepEqual(keys, tt.expectResult) {
 			t.Errorf("expect enqueue keys %v, but got %v", tt.expectResult, keys)
@@ -101,9 +103,9 @@ func TestEndpointAdapterUpdateTriggerAnnotations(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(ep)
 	stopper := make(chan struct{})
 	defer close(stopper)
-	endpointsLister := getEndpointLister(kubeClient, stopper)
+	c := fakeclient.NewClientBuilder().WithObjects(ep).Build()
 
-	adapter := NewEndpointsAdapter(kubeClient, endpointsLister)
+	adapter := NewEndpointsAdapter(kubeClient, c)
 	err := adapter.UpdateTriggerAnnotations(ep.Namespace, ep.Name)
 	if err != nil {
 		t.Errorf("update endpoints trigger annotations failed")
@@ -129,8 +131,8 @@ func TestEndpointAdapterGetEnqueueKeysBySvc(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(ep)
 	stopper := make(chan struct{})
 	defer close(stopper)
-	endpointsLister := getEndpointLister(kubeClient, stopper)
-	adapter := NewEndpointsAdapter(kubeClient, endpointsLister)
+	c := fakeclient.NewClientBuilder().WithObjects(ep).Build()
+	adapter := NewEndpointsAdapter(kubeClient, c)
 
 	keys := adapter.GetEnqueueKeysBySvc(svc)
 	if !reflect.DeepEqual(keys, expectResult) {
@@ -154,14 +156,6 @@ func getEndpoints(ns, name string, nodes ...string) *corev1.Endpoints {
 			},
 		},
 	}
-}
-
-func getEndpointLister(client kubernetes.Interface, stopCh <-chan struct{}) corelisters.EndpointsLister {
-	factory := informers.NewSharedInformerFactory(client, 24*time.Hour)
-	endpointsLister := factory.Core().V1().Endpoints().Lister()
-	factory.Start(stopCh)
-	factory.WaitForCacheSync(stopCh)
-	return endpointsLister
 }
 
 func getCacheKey(obj interface{}) string {
