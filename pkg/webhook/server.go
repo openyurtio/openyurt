@@ -50,7 +50,7 @@ func addWebhook(name string, handler SetupWebhookWithManager) {
 	}
 
 	if controllerWebhook[name] == nil {
-		controllerWebhook[name] = make([]SetupWebhookWithManager, 1)
+		controllerWebhook[name] = make([]SetupWebhookWithManager, 0)
 	}
 
 	controllerWebhook[name] = append(controllerWebhook[name], handler)
