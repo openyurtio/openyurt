@@ -53,7 +53,6 @@ func validateYurtAppSetSpec(c client.Client, spec *unitv1alpha1.YurtAppSetSpec, 
 		}
 	}
 
-	klog.Infof("sel:%v, label: %v\n", spec.Selector, spec.WorkloadTemplate.DeploymentTemplate.Labels)
 	klog.Infof("templatePath:%s", fldPath.Child("workloadTemplate").String())
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
@@ -209,9 +208,10 @@ func validatePoolTemplate(template *unitv1alpha1.WorkloadTemplate, spec *unitv1a
 
 	klog.Infoln("call webhook validatePoolTemplate")
 	if template.DeploymentTemplate != nil {
+		klog.Infof("sel:%v, label: %v\n", spec.Selector, spec.WorkloadTemplate.DeploymentTemplate.Labels)
+
 		labels := labels.Set(template.DeploymentTemplate.Labels)
 		if !selector.Matches(labels) {
-
 			klog.Errorf("labels: %v, selector: %v", labels, selector)
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("deploymentTemplate", "metadata", "labels"),
 				template.DeploymentTemplate.Labels, "`selector` does not match template `labels`"))
