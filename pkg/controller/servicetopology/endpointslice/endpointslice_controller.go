@@ -73,10 +73,10 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	return add(mgr, newReconciler(c, mgr))
 }
 
-var _ reconcile.Reconciler = &ReconcileServicetopologyEndpointslice{}
+var _ reconcile.Reconciler = &ReconcileServiceTopologyEndpointSlice{}
 
-// ReconcileServicetopologyEndpointslice reconciles a Example object
-type ReconcileServicetopologyEndpointslice struct {
+// ReconcileServiceTopologyEndpointSlice reconciles a Example object
+type ReconcileServiceTopologyEndpointSlice struct {
 	client.Client
 	scheme                   *runtime.Scheme
 	recorder                 record.EventRecorder
@@ -86,24 +86,24 @@ type ReconcileServicetopologyEndpointslice struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileServicetopologyEndpointslice{
+	return &ReconcileServiceTopologyEndpointSlice{
 		Client:   utilclient.NewClientFromManager(mgr, controllerName),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
 	}
 }
 
-func (r *ReconcileServicetopologyEndpointslice) InjectConfig(cfg *rest.Config) error {
+func (r *ReconcileServiceTopologyEndpointSlice) InjectConfig(cfg *rest.Config) error {
 	c, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf(Format("failed to create kube client, %v", err))
 		return err
 	}
-	endpointsliceAdapter, isSupportEndpointslicev1, err := getEndpointSliceAdapter(c, r.Client)
+	endpointSliceAdapter, isSupportEndpointslicev1, err := getEndpointSliceAdapter(c, r.Client)
 	if err != nil {
 		return err
 	}
-	r.endpointsliceAdapter = endpointsliceAdapter
+	r.endpointsliceAdapter = endpointSliceAdapter
 	r.isSupportEndpointslicev1 = isSupportEndpointslicev1
 	return nil
 }
@@ -118,15 +118,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to Service
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsliceForService{
-		endpointsliceAdapter: r.(*ReconcileServicetopologyEndpointslice).endpointsliceAdapter,
+		endpointsliceAdapter: r.(*ReconcileServiceTopologyEndpointSlice).endpointsliceAdapter,
 	}); err != nil {
 		return err
 	}
 
 	// Watch for changes to NodePool
 	if err := c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &EnqueueEndpointsliceForNodePool{
-		endpointsliceAdapter: r.(*ReconcileServicetopologyEndpointslice).endpointsliceAdapter,
-		client:               r.(*ReconcileServicetopologyEndpointslice).Client,
+		endpointsliceAdapter: r.(*ReconcileServiceTopologyEndpointSlice).endpointsliceAdapter,
+		client:               r.(*ReconcileServiceTopologyEndpointSlice).Client,
 	}); err != nil {
 		return err
 	}
@@ -139,14 +139,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch;patch
 
 // Reconcile reads that state of the cluster for endpointslice object and makes changes based on the state read
-func (r *ReconcileServicetopologyEndpointslice) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileServiceTopologyEndpointSlice) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
 	klog.Infof(Format("Reconcile Endpointslice %s/%s", request.Namespace, request.Name))
 
-	//// Fetch the Endpointslice instance
+	// Fetch the Endpointslice instance
 	if r.isSupportEndpointslicev1 {
 		instance := &discoveryv1.EndpointSlice{}
 		if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
@@ -173,7 +173,7 @@ func (r *ReconcileServicetopologyEndpointslice) Reconcile(_ context.Context, req
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileServicetopologyEndpointslice) syncEndpointslice(namespace, name string) error {
+func (r *ReconcileServiceTopologyEndpointSlice) syncEndpointslice(namespace, name string) error {
 	return r.endpointsliceAdapter.UpdateTriggerAnnotations(namespace, name)
 }
 

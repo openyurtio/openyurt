@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	appsalphav1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/refmanager"
+	"github.com/openyurtio/openyurt/pkg/controller/util/refmanager"
 )
 
 func (r *ReconcileYurtAppDaemon) controlledHistories(yad *appsalphav1.YurtAppDaemon) ([]*apps.ControllerRevision, error) {

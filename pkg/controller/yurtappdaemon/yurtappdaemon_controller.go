@@ -39,9 +39,9 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/util"
+	"github.com/openyurtio/openyurt/pkg/controller/util/gate"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
-	"github.com/openyurtio/openyurt/pkg/util/gate"
-	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util"
 )
 
 var (

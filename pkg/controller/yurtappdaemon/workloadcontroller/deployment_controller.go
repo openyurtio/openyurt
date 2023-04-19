@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtappmanager/util/refmanager"
+	"github.com/openyurtio/openyurt/pkg/controller/util/refmanager"
 )
 
 const updateRetries = 5

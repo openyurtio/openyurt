@@ -1,6 +1,9 @@
 imagePullSecrets: []
 imagePullPolicy: IfNotPresent
 
+##  if unspecified, will use built-in variable `.Release.Namespace`.
+namespace: kube-system
+
 yurtControllerManager:
   replicaCount: 1
   tolerations: []

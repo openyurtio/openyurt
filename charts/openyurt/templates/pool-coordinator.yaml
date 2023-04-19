@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pool-coordinator-apiserver
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "openyurt.namespace" . }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pool-coordinator-etcd
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "openyurt.namespace" . }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
@@ -40,7 +40,7 @@ apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppDaemon
 metadata:
   name: pool-coordinator
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ include "openyurt.namespace" . }}
 spec:
   selector:
     matchLabels:
