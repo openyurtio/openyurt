@@ -24,6 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/apis/core"
+	k8s_api_v1 "k8s.io/kubernetes/pkg/apis/core/v1"
+	k8s_validation "k8s.io/kubernetes/pkg/apis/core/validation"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
@@ -66,7 +69,24 @@ func (webhook *StaticPodHandler) ValidateDelete(_ context.Context, obj runtime.O
 }
 
 func validate(obj *v1alpha1.StaticPod) error {
-	if allErrs := validateStaticPodSpec(&obj.Spec); len(allErrs) > 0 {
+	var allErrs field.ErrorList
+	outPodTemplateSpec := &core.PodTemplateSpec{}
+	if err := k8s_api_v1.Convert_v1_PodTemplateSpec_To_core_PodTemplateSpec(&obj.Spec.Template, outPodTemplateSpec, nil); err != nil {
+		allErrs = append(allErrs, field.Required(field.NewPath("template"),
+			"template filed should be corev1.PodTemplateSpec type"))
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("StaticPod").GroupKind(), obj.Name, allErrs)
+	}
+
+	if e := k8s_validation.ValidatePodTemplateSpec(outPodTemplateSpec, field.NewPath("template"),
+		k8s_validation.PodValidationOptions{}); len(e) > 0 {
+		allErrs = append(allErrs, e...)
+	}
+
+	if e := validateStaticPodSpec(&obj.Spec); len(e) > 0 {
+		allErrs = append(allErrs, e...)
+	}
+
+	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("StaticPod").GroupKind(), obj.Name, allErrs)
 	}
 
