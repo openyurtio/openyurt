@@ -58,8 +58,8 @@ spec:
             - --logtostderr=true
             - --v={{ .Values.yurtManager.log.level }}
             - --working-namespace={{ include "openyurt.namespace" . }}
-            {{- if .Values.yurtManager.enabledControllers }}
-            - --controllers={{ .Values.yurtManager.enabledControllers }}
+            {{- if .Values.yurtManager.controllers }}
+            - --controllers={{ .Values.yurtManager.controllers }}
             {{- end }}
           command:
             - /usr/local/bin/yurt-manager
