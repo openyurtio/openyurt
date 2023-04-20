@@ -100,21 +100,26 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 
 	// set up independent webhooks
 	for name, s := range webhooks {
-		if !util.IsWebhookEnabled(name, c.ComponentConfig.Generic.Webhooks) {
+		if util.IsWebhookDisabled(name, c.ComponentConfig.Generic.DisabledWebhooks) {
 			klog.Warningf("Webhook %v is disabled", name)
 			continue
 		}
-		return setup(s)
+		if err := setup(s); err != nil {
+			return err
+		}
 	}
 
 	// set up controller webhooks
 	for controllerName, list := range controllerWebhooks {
-		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) ||
+			util.IsWebhookDisabled(controllerName, c.ComponentConfig.Generic.DisabledWebhooks) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}
 		for _, s := range list {
-			return setup(s)
+			if err := setup(s); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

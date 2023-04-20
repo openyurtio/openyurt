@@ -91,19 +91,16 @@ func GenerateValidatePath(gvk schema.GroupVersionKind) string {
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
-// IsWebhookEnabled check if a specified webhook enabled or not.
-func IsWebhookEnabled(name string, webhooks []string) bool {
+// IsWebhookDisabled check if a specified webhook disabled or not.
+func IsWebhookDisabled(name string, webhooks []string) bool {
+	hasStar := false
 	for _, ctrl := range webhooks {
 		if ctrl == name {
 			return true
 		}
-		if ctrl == "-"+name {
-			return false
-		}
 		if ctrl == "*" {
-			return true
+			hasStar = true
 		}
 	}
-
-	return false
+	return hasStar
 }

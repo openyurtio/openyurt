@@ -41,7 +41,7 @@ func NewGenericOptions() *GenericOptions {
 			RestConfigBurst:         50,
 			WorkingNamespace:        "kube-system",
 			Controllers:             []string{enableAll},
-			Webhooks:                []string{enableAll},
+			DisabledWebhooks:        []string{},
 		},
 	}
 }
@@ -72,7 +72,7 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
 	cfg.Controllers = o.Controllers
-	cfg.Webhooks = o.Webhooks
+	cfg.DisabledWebhooks = o.DisabledWebhooks
 
 	return nil
 }
@@ -93,8 +93,8 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")
 	fs.StringSliceVar(&o.Controllers, "controllers", o.Controllers, "A list of controllers to enable. "+
 		"'*' enables all on-by-default controllers, 'foo' enables the controller named 'foo', '-foo' disables the controller named 'foo'.")
-	fs.StringSliceVar(&o.Webhooks, "webhooks", o.Webhooks, "A list of webhooks to enable. "+
-		"'*' enables all on-by-default webhooks, 'foo' enables the webhook named 'foo', '-foo' disables the webhook named 'foo'.")
+	fs.StringSliceVar(&o.DisabledWebhooks, "disable-independent-webhooks", o.DisabledWebhooks, "A list of webhooks to disable. "+
+		"'*' disables all webhooks, 'foo' disables the webhook named 'foo'.")
 
 	features.DefaultMutableFeatureGate.AddFlag(fs)
 }
