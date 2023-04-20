@@ -2,7 +2,7 @@ apiVersion: apps.openyurt.io/v1alpha1
 kind: StaticPod
 metadata:
   name: yurt-hub
-  namespace: kube-system
+  namespace: {{ include "openyurt.namespace" . }}
 spec:
   staticPodManifest: yurt-hub
   template:
@@ -84,7 +84,7 @@ rules:
     resources:
     - configmaps
     resourceNames:
-    - static-pod-cm-kube-system-yurt-hub
+    - static-pod-cm-{{ include "openyurt.namespace" . }}-yurt-hub
     verbs:
     - get
 ---

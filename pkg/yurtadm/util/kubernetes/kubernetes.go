@@ -491,11 +491,11 @@ func CheckKubeletStatus() error {
 }
 
 // GetYurthubTemplateFromStaticPod get yurthub template from static pod
-func GetYurthubTemplateFromStaticPod(client kubernetes.Interface) (string, error) {
+func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace string) (string, error) {
 	configMap, err := apiclient.GetConfigMapWithRetry(
 		client,
-		metav1.NamespaceSystem,
-		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(metav1.NamespaceSystem, constants.YurthubStaticPodManifest)))
+		namespace,
+		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(namespace, constants.YurthubStaticPodManifest)))
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to get yurt-hub static-pod configmap")
 	}
