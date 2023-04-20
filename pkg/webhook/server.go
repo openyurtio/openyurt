@@ -46,8 +46,11 @@ type SetupWebhookWithManager interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error)
 }
 
+// controllerWebhooks is used to control whether enable or disable controller-webhooks
 var controllerWebhooks map[string][]SetupWebhookWithManager
-var webhooks = make(map[string]SetupWebhookWithManager)
+
+// independentWebhooks is used to control whether disable independent-webhooks
+var independentWebhooks = make(map[string]SetupWebhookWithManager)
 
 var WebhookHandlerPath = make(map[string]struct{})
 
@@ -71,7 +74,7 @@ func init() {
 	addControllerWebhook("yurtappset", &v1alpha1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook("yurtappdaemon", &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 
-	webhooks["pod"] = &v1pod.PodHandler{}
+	independentWebhooks["pod"] = &v1pod.PodHandler{}
 }
 
 // Note !!! @kadisi
@@ -99,7 +102,7 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 	}
 
 	// set up independent webhooks
-	for name, s := range webhooks {
+	for name, s := range independentWebhooks {
 		if util.IsWebhookDisabled(name, c.ComponentConfig.Generic.DisabledWebhooks) {
 			klog.Warningf("Webhook %v is disabled", name)
 			continue
@@ -111,8 +114,7 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 
 	// set up controller webhooks
 	for controllerName, list := range controllerWebhooks {
-		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) ||
-			util.IsWebhookDisabled(controllerName, c.ComponentConfig.Generic.DisabledWebhooks) {
+		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}
