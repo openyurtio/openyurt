@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	addWebhook(&v1alpha1.YurtAppDaemonHandler{})
+	addWebhook("yurtappdaemon", &v1alpha1.YurtAppDaemonHandler{})
 }
