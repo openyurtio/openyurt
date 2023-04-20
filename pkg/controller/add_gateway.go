@@ -27,5 +27,6 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, gateway.Add, service.Add)
+	addController("gateway", gateway.Add)
+	addController("service", service.Add)
 }

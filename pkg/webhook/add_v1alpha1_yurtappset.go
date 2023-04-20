@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	addWebhook(&v1alpha1.YurtAppSetHandler{})
+	addWebhook("yurtappset", &v1alpha1.YurtAppSetHandler{})
 }

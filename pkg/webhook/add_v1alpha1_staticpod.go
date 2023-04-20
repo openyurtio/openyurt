@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	addWebhook(&v1alpha1.StaticPodHandler{})
+	addWebhook("staticpod", &v1alpha1.StaticPodHandler{})
 }

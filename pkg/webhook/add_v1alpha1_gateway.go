@@ -21,5 +21,5 @@ import (
 )
 
 func init() {
-	addWebhook(&v1alpha1.GatewayHandler{})
+	addWebhook("gateway", &v1alpha1.GatewayHandler{})
 }

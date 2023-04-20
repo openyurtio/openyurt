@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/controller/util"
 )
 
 // Note !!! @kadisi
@@ -30,9 +31,13 @@ import (
 
 // Don`t Change this Name !!!!  @kadisi
 // TODO support feature gate @kadisi
-var controllerAddFuncs []func(*config.CompletedConfig, manager.Manager) error
+var controllerAddFuncs map[string]func(*config.CompletedConfig, manager.Manager) error
 
-func init() {
+func addController(name string, fn func(*config.CompletedConfig, manager.Manager) error) {
+	if controllerAddFuncs == nil {
+		controllerAddFuncs = make(map[string]func(*config.CompletedConfig, manager.Manager) error)
+	}
+	controllerAddFuncs[name] = fn
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi
@@ -42,7 +47,12 @@ func init() {
 
 func SetupWithManager(c *config.CompletedConfig, m manager.Manager) error {
 	klog.InfoS("SetupWithManager", "len", len(controllerAddFuncs))
-	for _, f := range controllerAddFuncs {
+	for controllerName, f := range controllerAddFuncs {
+		if !util.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+			klog.Warningf("Controller %v is disabled", controllerName)
+			continue
+		}
+
 		if err := f(c, m); err != nil {
 			if kindMatchErr, ok := err.(*meta.NoKindMatchError); ok {
 				klog.Infof("CRD %v is not installed, its controller will perform noops!", kindMatchErr.GroupKind)

@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, yurtappset.Add)
+	addController("yurtappset", yurtappset.Add)
 }

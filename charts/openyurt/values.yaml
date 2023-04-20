@@ -51,6 +51,8 @@ yurtManager:
     port: 10270
   metrics:
     port: 10271
+  # format should be "foo,-bar,*"
+  controllers: ""
   healthProbe:
     port: 10272
   # resources of yurt-manager container

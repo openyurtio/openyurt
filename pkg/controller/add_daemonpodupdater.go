@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, daemonpodupdater.Add)
+	addController("daemonpodupdater", daemonpodupdater.Add)
 }

@@ -186,7 +186,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}
 
 	setupLog.Info("setup webhook")
-	if err = webhook.SetupWithManager(mgr); err != nil {
+	if err = webhook.SetupWithManager(c, mgr); err != nil {
 		setupLog.Error(err, "unable to setup webhook")
 		os.Exit(1)
 	}

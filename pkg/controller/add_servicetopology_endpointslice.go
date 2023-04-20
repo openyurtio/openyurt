@@ -26,5 +26,5 @@ import (
 // Note !!!
 
 func init() {
-	controllerAddFuncs = append(controllerAddFuncs, servicetopologyEndpointslice.Add)
+	addController("servicetopologyEndpointslice", servicetopologyEndpointslice.Add)
 }
