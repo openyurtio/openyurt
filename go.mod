@@ -36,6 +36,7 @@ require (
 	k8s.io/client-go v0.22.3
 	k8s.io/cluster-bootstrap v0.22.3
 	k8s.io/component-base v0.22.3
+	k8s.io/component-helpers v0.22.3
 	k8s.io/controller-manager v0.22.3
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-controller-manager v0.22.3
@@ -157,7 +158,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.22.2 // indirect
 	k8s.io/cloud-provider v0.22.3 // indirect
-	k8s.io/component-helpers v0.22.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.22 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
@@ -185,7 +185,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.3
 	k8s.io/kubectl => k8s.io/kubectl v0.22.3
 	k8s.io/kubelet => k8s.io/kubelet v0.22.3
-	k8s.io/kubernetes => k8s.io/kubernetes v1.22.3
+	k8s.io/kubernetes => github.com/kubernetes/kubernetes v1.22.3
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.3
 	k8s.io/metrics => k8s.io/metrics v0.22.3
 	k8s.io/mount-utils => k8s.io/mount-utils v0.22.3

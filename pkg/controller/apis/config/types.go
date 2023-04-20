@@ -24,6 +24,7 @@ import (
 	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	staticpodconfig "github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
+	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
 )
 
@@ -43,10 +44,10 @@ type YurtControllerManagerConfiguration struct {
 type YurtManagerConfiguration struct {
 	metav1.TypeMeta
 	Generic GenericConfiguration
-	// NodePoolControllerConfiguration holds configuration for  NodePoolController related features.
+	// NodePoolControllerConfiguration holds configuration for NodePoolController related features.
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
 
-	// GatewayControllerConfiguration holds configuration for  GatewayController related features.
+	// GatewayControllerConfiguration holds configuration for GatewayController related features.
 	GatewayController gatewayconfig.GatewayControllerConfiguration
 
 	// YurtAppSetControllerConfiguration holds configuration for YurtAppSetController related features.
@@ -54,6 +55,9 @@ type YurtManagerConfiguration struct {
 
 	// StaticPodControllerConfiguration holds configuration for  StaticPodController related features.
 	StaticPodController staticpodconfig.StaticPodControllerConfiguration
+
+	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
+	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
 }
 
 type GenericConfiguration struct {

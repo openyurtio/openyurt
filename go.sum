@@ -420,6 +420,8 @@ github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
+github.com/kubernetes/kubernetes v1.22.3 h1:0gYnqsr5nZiAO+iDkEU7RJ6Ne2CMyoinJXVm5qVSTiE=
+github.com/kubernetes/kubernetes v1.22.3/go.mod h1:Snea7fgIObGgHmLbUJ3OgjGEr5bjj16iEdp5oHS6eS8=
 github.com/libopenstorage/openstorage v1.0.0/go.mod h1:Sp1sIObHjat1BeXhfMqLZ14wnOzEhNx2YQedreMcUyc=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
@@ -1157,8 +1159,6 @@ k8s.io/kube-scheduler v0.22.3/go.mod h1:jVLHSttd8cSejBLOeiWE+g8etA6XdOBGiR8tI577
 k8s.io/kubectl v0.22.3 h1:xziSHHyFHg2nt9vE6A0XqW5dOePNSlzxG8z3z+IY63E=
 k8s.io/kubectl v0.22.3/go.mod h1:gcpQHPOx+Jke9Og6Li7YxR/ZuaOtFUeJw7xHH617tHs=
 k8s.io/kubelet v0.22.3/go.mod h1:9nUZNGUigU2uAIm7kgf8BsvYDI9KjIE5nt9+yI1+p7w=
-k8s.io/kubernetes v1.22.3 h1:/eFfR5S2Vxn0t9kcLVAZXQFloKMkklWQIf5e0hFbzlA=
-k8s.io/kubernetes v1.22.3/go.mod h1:Snea7fgIObGgHmLbUJ3OgjGEr5bjj16iEdp5oHS6eS8=
 k8s.io/legacy-cloud-providers v0.22.3/go.mod h1:eEOOaRtP2PuCVkjZvuTPa6ZgyPpzJkCVqpE3YtuArLQ=
 k8s.io/metrics v0.22.3/go.mod h1:HbLFLRKtXzoC/6tHLQAlO9AeOBXZp2eB6SsgkbujoNI=
 k8s.io/mount-utils v0.22.3/go.mod h1:dHl6c2P60T5LHUnZxVslyly9EDCMzvhtISO5aY+Z4sk=

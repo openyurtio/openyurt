@@ -627,6 +627,252 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
+  name: yurtappdaemons.apps.openyurt.io
+spec:
+  group: apps.openyurt.io
+  names:
+    categories:
+    - all
+    kind: YurtAppDaemon
+    listKind: YurtAppDaemonList
+    plural: yurtappdaemons
+    shortNames:
+    - yad
+    singular: yurtappdaemon
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The WorkloadTemplate Type.
+      jsonPath: .status.templateType
+      name: WorkloadTemplate
+      type: string
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC.
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: YurtAppDaemon is the Schema for the samples API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: YurtAppDaemonSpec defines the desired state of YurtAppDaemon
+            properties:
+              nodepoolSelector:
+                description: NodePoolSelector is a label query over nodepool that
+                  should match the replica count. It must match the nodepool's labels.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              revisionHistoryLimit:
+                description: Indicates the number of histories to be conserved. If
+                  unspecified, defaults to 10.
+                format: int32
+                type: integer
+              selector:
+                description: Selector is a label query over pods that should match
+                  the replica count. It must match the pod template's labels.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              workloadTemplate:
+                description: WorkloadTemplate describes the pool that will be created.
+                properties:
+                  deploymentTemplate:
+                    description: Deployment template
+                    properties:
+                      metadata:
+                        x-kubernetes-preserve-unknown-fields: true
+                      spec:
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - spec
+                    type: object
+                  statefulSetTemplate:
+                    description: StatefulSet template
+                    properties:
+                      metadata:
+                        x-kubernetes-preserve-unknown-fields: true
+                      spec:
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - spec
+                    type: object
+                type: object
+            required:
+            - nodepoolSelector
+            - selector
+            type: object
+          status:
+            description: YurtAppDaemonStatus defines the observed state of YurtAppDaemon
+            properties:
+              collisionCount:
+                description: Count of hash collisions for the YurtAppDaemon. The YurtAppDaemon
+                  controller uses this field as a collision avoidance mechanism when
+                  it needs to create the name for the newest ControllerRevision.
+                format: int32
+                type: integer
+              conditions:
+                description: Represents the latest available observations of a YurtAppDaemon's
+                  current state.
+                items:
+                  description: YurtAppDaemonCondition describes current state of a
+                    YurtAppDaemon.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of in place set condition.
+                      type: string
+                  type: object
+                type: array
+              currentRevision:
+                description: CurrentRevision, if not empty, indicates the current
+                  version of the YurtAppDaemon.
+                type: string
+              nodepools:
+                description: NodePools indicates the list of node pools selected by
+                  YurtAppDaemon
+                items:
+                  type: string
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  for this YurtAppDaemon. It corresponds to the YurtAppDaemon's generation,
+                  which is updated on mutation by the API Server.
+                format: int64
+                type: integer
+              templateType:
+                description: TemplateType indicates the type of PoolTemplate
+                type: string
+            required:
+            - currentRevision
+            - templateType
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
   name: yurtappsets.apps.openyurt.io
 spec:
   group: apps.openyurt.io
@@ -1150,6 +1396,26 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
+  - yurtappdaemons
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtappdaemons/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
   - yurtappsets
   verbs:
   - create
@@ -1407,6 +1673,27 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtappdaemon
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.yurtappdaemon.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappdaemons
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   clientConfig:
     service:
       name: webhook-service
@@ -1494,6 +1781,27 @@ webhooks:
     - UPDATE
     resources:
     - staticpods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: kube-system
+      path: /validate-apps-openyurt-io-v1alpha1-yurtappdaemon
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.yurtappdaemon.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappdaemons
   sideEffects: None
 - admissionReviewVersions:
   - v1
