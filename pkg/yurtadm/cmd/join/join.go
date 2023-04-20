@@ -46,6 +46,7 @@ type joinOptions struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	namespace                string
 	caCertHashes             []string
 	unsafeSkipCAVerification bool
 	ignorePreflightErrors    []string
@@ -62,6 +63,7 @@ func newJoinOptions() *joinOptions {
 		criSocket:                yurtconstants.DefaultDockerCRISocket,
 		pauseImage:               yurtconstants.PauseImagePath,
 		yurthubImage:             fmt.Sprintf("%s/%s:%s", yurtconstants.DefaultOpenYurtImageRegistry, yurtconstants.Yurthub, yurtconstants.DefaultOpenYurtVersion),
+		namespace:                yurtconstants.YurthubNamespace,
 		caCertHashes:             make([]string, 0),
 		unsafeSkipCAVerification: false,
 		ignorePreflightErrors:    make([]string, 0),
@@ -117,6 +119,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.nodeName, yurtconstants.NodeName, joinOptions.nodeName,
 		`Specify the node name. if not specified, hostname will be used.`,
+	)
+	flagSet.StringVar(
+		&joinOptions.namespace, yurtconstants.Namespace, joinOptions.namespace,
+		`Specify the namespace of the yurthub staticpod configmap, if not specified, the namespace will be default.`,
 	)
 	flagSet.StringVar(
 		&joinOptions.criSocket, yurtconstants.NodeCRISocket, joinOptions.criSocket,
@@ -202,6 +208,7 @@ type joinData struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubTemplate          string
 	kubernetesVersion        string
 	caCertHashes             []string
 	nodeLabels               map[string]string
@@ -311,6 +318,15 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	data.kubernetesVersion = k8sVersion
 	klog.Infof("node join data info: %#+v", *data)
 
+	// get the yurthub template from the staticpod cr
+	yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
+	if err != nil {
+		klog.Errorf("failed to get yurthub template, %v", err)
+		return nil, err
+	}
+	data.yurthubTemplate = yurthubTemplate
+	klog.Infof("yurthub template: %s", yurthubTemplate)
+
 	return data, nil
 }
 
@@ -337,6 +353,11 @@ func (j *joinData) YurtHubImage() string {
 // YurtHubServer returns the YurtHub server addr.
 func (j *joinData) YurtHubServer() string {
 	return j.yurthubServer
+}
+
+// YurtHubTemplate returns the YurtHub template.
+func (j *joinData) YurtHubTemplate() string {
+	return j.yurthubTemplate
 }
 
 // KubernetesVersion returns the kubernetes version.

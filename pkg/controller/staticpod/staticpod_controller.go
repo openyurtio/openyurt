@@ -272,20 +272,6 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 		upgradedNumber int32
 	)
 
-	// The later upgrade operation is conducted based on upgradeInfos
-	upgradeInfos, err := upgradeinfo.New(r.Client, instance, UpgradeWorkerPodPrefix)
-	if err != nil {
-		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of StaticPod %v, %v",
-			request.NamespacedName, err))
-		return ctrl.Result{}, err
-	}
-	totalNumber = int32(len(upgradeInfos))
-	// There are no nodes running target static pods in the cluster
-	if totalNumber == 0 {
-		klog.Infof(Format("No static pods need to be upgraded of StaticPod %v", request.NamespacedName))
-		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
-	}
-
 	// The latest hash value for static pod spec
 	// This hash value is used in three places
 	// 1. Automatically added to the annotation of static pods to facilitate checking if the running static pods are up-to-date
@@ -305,6 +291,20 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	if err := r.syncConfigMap(instance, latestHash, latestManifest); err != nil {
 		klog.Errorf(Format("Fail to sync the corresponding configmap of StaticPod %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
+	}
+
+	// The later upgrade operation is conducted based on upgradeInfos
+	upgradeInfos, err := upgradeinfo.New(r.Client, instance, UpgradeWorkerPodPrefix)
+	if err != nil {
+		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of StaticPod %v, %v",
+			request.NamespacedName, err))
+		return ctrl.Result{}, err
+	}
+	totalNumber = int32(len(upgradeInfos))
+	// There are no nodes running target static pods in the cluster
+	if totalNumber == 0 {
+		klog.Infof(Format("No static pods need to be upgraded of StaticPod %v", request.NamespacedName))
+		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
 	// Complete upgrade info

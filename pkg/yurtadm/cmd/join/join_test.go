@@ -51,6 +51,7 @@ func TestNewJoinOptions(t *testing.T) {
 				criSocket:                yurtconstants.DefaultDockerCRISocket,
 				pauseImage:               yurtconstants.PauseImagePath,
 				yurthubImage:             fmt.Sprintf("%s/%s:%s", yurtconstants.DefaultOpenYurtImageRegistry, yurtconstants.Yurthub, yurtconstants.DefaultOpenYurtVersion),
+				namespace:                yurtconstants.YurthubNamespace,
 				caCertHashes:             make([]string, 0),
 				unsafeSkipCAVerification: false,
 				ignorePreflightErrors:    make([]string, 0),

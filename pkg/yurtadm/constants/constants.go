@@ -37,6 +37,8 @@ const (
 	DefaultCertificatesDir   = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket   = "/var/run/dockershim.sock"
 	YurthubYamlName          = "yurt-hub.yaml"
+	YurthubStaticPodManifest = "yurt-hub"
+	YurthubNamespace         = "kube-system"
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking
@@ -93,6 +95,8 @@ const (
 	TokenDiscoveryCAHash = "discovery-token-ca-cert-hash"
 	// TokenDiscoverySkipCAHash flag instruct kubeadm to skip CA hash verification (for token-based discovery)
 	TokenDiscoverySkipCAHash = "discovery-token-unsafe-skip-ca-verification"
+	// Namespace flag sets the namespace of yurthub staticpod manifest.
+	Namespace = "namespace"
 	// YurtHubImage flag sets the yurthub image for worker node.
 	YurtHubImage = "yurthub-image"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
