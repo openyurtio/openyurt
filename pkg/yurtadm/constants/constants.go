@@ -37,6 +37,7 @@ const (
 	DefaultCertificatesDir   = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket   = "/var/run/dockershim.sock"
 	YurthubYamlName          = "yurt-hub.yaml"
+	YurthubStaticPodManifest = "yurt-hub"
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking

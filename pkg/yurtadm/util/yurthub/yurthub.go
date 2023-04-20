@@ -61,14 +61,11 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 
 	ctx := map[string]string{
 		"kubernetesServerAddr": kubernetesServerAddrs,
-		"image":                data.YurtHubImage(),
-		"bootstrapFile":        constants.YurtHubBootstrapConfig,
 		"workingMode":          data.NodeRegistration().WorkingMode,
 		"organizations":        data.NodeRegistration().Organizations,
-		"yurthubServerAddr":    data.YurtHubServer(),
 	}
 
-	yurthubTemplate, err := templates.SubsituteTemplate(constants.YurthubTemplate, ctx)
+	yurthubTemplate, err := templates.SubsituteTemplate(data.YurtHubTemplate(), ctx)
 	if err != nil {
 		return err
 	}

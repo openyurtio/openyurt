@@ -202,6 +202,7 @@ type joinData struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubTemplate          string
 	kubernetesVersion        string
 	caCertHashes             []string
 	nodeLabels               map[string]string
@@ -311,6 +312,15 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	data.kubernetesVersion = k8sVersion
 	klog.Infof("node join data info: %#+v", *data)
 
+	// get the yurthub template from the staticpod cr
+	yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client)
+	if err != nil {
+		klog.Errorf("failed to get yurthub template, %v", err)
+		return nil, err
+	}
+	data.yurthubTemplate = yurthubTemplate
+	klog.Infof("yurthub template: %s", yurthubTemplate)
+
 	return data, nil
 }
 
@@ -337,6 +347,11 @@ func (j *joinData) YurtHubImage() string {
 // YurtHubServer returns the YurtHub server addr.
 func (j *joinData) YurtHubServer() string {
 	return j.yurthubServer
+}
+
+// YurtHubTemplate returns the YurtHub template.
+func (j *joinData) YurtHubTemplate() string {
+	return j.yurthubTemplate
 }
 
 // KubernetesVersion returns the kubernetes version.

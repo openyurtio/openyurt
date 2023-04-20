@@ -37,7 +37,12 @@ poolCoordinator:
 
 yurtHub:
   cacheAgents: ""
-
+  bootstrapFile: "/var/lib/yurthub/bootstrap-hub.conf"
+  yurthubServerAddr: "127.0.0.1"
+  Image:
+    registry: registry.cn-hangzhou.aliyuncs.com/openyurt
+    repository: yurthub
+    tag: latest
 yurtManager:
   # settings for log print
   log:
