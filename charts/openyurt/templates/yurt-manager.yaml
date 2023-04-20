@@ -61,6 +61,9 @@ spec:
             {{- if .Values.yurtManager.controllers }}
             - --controllers={{ .Values.yurtManager.controllers }}
             {{- end }}
+            - {{- if .Values.yurtManager.webhooks }}
+            - --controllers={{ .Values.yurtManager.webhooks }}
+            {{- end }}
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}

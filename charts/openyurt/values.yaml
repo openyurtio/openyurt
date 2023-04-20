@@ -58,6 +58,7 @@ yurtManager:
     port: 10271
   # format should be "foo,-bar,*"
   controllers: ""
+  webhooks: ""
   healthProbe:
     port: 10272
   # resources of yurt-manager container

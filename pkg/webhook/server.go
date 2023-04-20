@@ -22,21 +22,23 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	"github.com/openyurtio/openyurt/pkg/controller/util"
+	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
 	v1alpha1staticpod "github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
-	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type SetupWebhookWithManager interface {
@@ -97,13 +99,17 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 	}
 
 	// set up independent webhooks
-	for _, s := range webhooks {
+	for name, s := range webhooks {
+		if !util.IsWebhookEnabled(name, c.ComponentConfig.Generic.Webhooks) {
+			klog.Warningf("Webhook %v is disabled", name)
+			continue
+		}
 		return setup(s)
 	}
 
 	// set up controller webhooks
 	for controllerName, list := range controllerWebhooks {
-		if !util.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}

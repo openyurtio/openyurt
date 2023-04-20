@@ -23,7 +23,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/features"
 )
 
-const enableAllController = "*"
+const enableAll = "*"
 
 type GenericOptions struct {
 	*config.GenericConfiguration
@@ -40,7 +40,8 @@ func NewGenericOptions() *GenericOptions {
 			RestConfigQPS:           30,
 			RestConfigBurst:         50,
 			WorkingNamespace:        "kube-system",
-			Controllers:             []string{enableAllController},
+			Controllers:             []string{enableAll},
+			Webhooks:                []string{enableAll},
 		},
 	}
 }
@@ -71,6 +72,7 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
 	cfg.Controllers = o.Controllers
+	cfg.Webhooks = o.Webhooks
 
 	return nil
 }
@@ -91,6 +93,8 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")
 	fs.StringSliceVar(&o.Controllers, "controllers", o.Controllers, "A list of controllers to enable. "+
 		"'*' enables all on-by-default controllers, 'foo' enables the controller named 'foo', '-foo' disables the controller named 'foo'.")
+	fs.StringSliceVar(&o.Webhooks, "webhooks", o.Webhooks, "A list of webhooks to enable. "+
+		"'*' enables all on-by-default webhooks, 'foo' enables the webhook named 'foo', '-foo' disables the webhook named 'foo'.")
 
 	features.DefaultMutableFeatureGate.AddFlag(fs)
 }
