@@ -22,7 +22,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/controller/csrapprover"
+	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/controller/gateway/gateway"
+	"github.com/openyurtio/openyurt/pkg/controller/gateway/service"
+	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	poolcoordinatorcert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
+	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
+	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
+	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/controller/servicetopology/endpoints"
+	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/controller/servicetopology/endpointslice"
+	"github.com/openyurtio/openyurt/pkg/controller/staticpod"
 	"github.com/openyurtio/openyurt/pkg/controller/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 )
 
 // Note !!! @kadisi
@@ -31,13 +44,22 @@ import (
 
 // Don`t Change this Name !!!!  @kadisi
 // TODO support feature gate @kadisi
-var controllerAddFuncs map[string]func(*config.CompletedConfig, manager.Manager) error
+var controllerAddFuncs = make(map[string]func(*config.CompletedConfig, manager.Manager) error)
 
-func addController(name string, fn func(*config.CompletedConfig, manager.Manager) error) {
-	if controllerAddFuncs == nil {
-		controllerAddFuncs = make(map[string]func(*config.CompletedConfig, manager.Manager) error)
-	}
-	controllerAddFuncs[name] = fn
+func init() {
+	controllerAddFuncs["crsapprover"] = csrapprover.Add
+	controllerAddFuncs["daemonpodupdater"] = daemonpodupdater.Add
+	controllerAddFuncs["delegatelease"] = delegatelease.Add
+	controllerAddFuncs["gateway"] = gateway.Add
+	controllerAddFuncs["service"] = service.Add
+	controllerAddFuncs["nodepool"] = nodepool.Add
+	controllerAddFuncs["podbinding"] = podbinding.Add
+	controllerAddFuncs["poolcoordinatorcert"] = poolcoordinatorcert.Add
+	controllerAddFuncs["servicetopologyendpoints"] = servicetopologyendpoints.Add
+	controllerAddFuncs["servicetopologyendpointslice"] = servicetopologyendpointslice.Add
+	controllerAddFuncs["staticpod"] = staticpod.Add
+	controllerAddFuncs["yurtappset"] = yurtappset.Add
+	controllerAddFuncs["yurtappdaemon"] = yurtappdaemon.Add
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi
