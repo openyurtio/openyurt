@@ -222,6 +222,11 @@ func SetDefaultsStaticPod(obj *StaticPod) {
 		obj.Spec.RevisionHistoryLimit = new(int32)
 		*obj.Spec.RevisionHistoryLimit = 10
 	}
+
+	podSpec := &obj.Spec.Template.Spec
+	if podSpec != nil {
+		SetDefaultPodSpec(podSpec)
+	}
 }
 
 // SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
