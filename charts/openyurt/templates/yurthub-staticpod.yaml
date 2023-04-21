@@ -48,6 +48,9 @@ spec:
               {{`{{if .organizations }}`}}
             - --hub-cert-organizations={{`{{.organizations}}`}}
               {{`{{end}}`}}
+              {{`{{if .nodePoolName }}`}}
+            - --nodepool-name={{`{{.nodePoolName}}`}}
+              {{`{{end}}`}}
           livenessProbe:
             httpGet:
               host: {{ .Values.yurtHub.yurthubServerAddr | quote }}

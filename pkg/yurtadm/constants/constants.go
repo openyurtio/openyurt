@@ -83,6 +83,8 @@ const (
 	NodeLabels = "node-labels"
 	// NodeName flag sets the node name.
 	NodeName = "node-name"
+	// NodePoolName flag sets the nodePool name.
+	NodePoolName = "nodepool-name"
 	// NodeType flag sets the type of worker node to edge or cloud.
 	NodeType = "node-type"
 	// Organizations flag sets the extra organizations of hub agent client certificate.
@@ -236,6 +238,9 @@ spec:
       {{end}}
       {{if .organizations }}
     - --hub-cert-organizations={{.organizations}}
+      {{end}}
+      {{if .nodePoolName }}
+    - --nodepool-name={{.nodePoolName}}
       {{end}}
     livenessProbe:
       httpGet:

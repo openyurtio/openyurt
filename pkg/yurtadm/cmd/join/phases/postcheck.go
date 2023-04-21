@@ -19,12 +19,14 @@ package phases
 import (
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
-// RunPostCheck executes the node health check and clean process.
+// RunPostCheck executes the node health check and clean process,
+// if specified nodePool, it will join node in specified nodePool.
 func RunPostCheck(data joindata.YurtJoinData) error {
 	klog.V(1).Infof("check kubelet status.")
 	if err := kubernetes.CheckKubeletStatus(); err != nil {
@@ -37,6 +39,15 @@ func RunPostCheck(data joindata.YurtJoinData) error {
 		return err
 	}
 	klog.V(1).Infof("hub agent is ready")
+
+	if len(data.NodeRegistration().NodePoolName) != 0 {
+		klog.V(1).Infof("starting join node in specified nodePool.")
+		if err := apiclient.JoinNodeInSpecifiedNodePool(data.BootstrapClient(),
+			data.NodeRegistration().Name, data.NodeRegistration().NodePoolName); err != nil {
+			return err
+		}
+		klog.V(1).Infof("join node in specified nodePool successful.")
+	}
 
 	if err := yurthub.CleanHubBootstrapConfig(); err != nil {
 		return err

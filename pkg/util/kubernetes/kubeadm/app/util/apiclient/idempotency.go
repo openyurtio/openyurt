@@ -29,6 +29,8 @@ import (
 	clientsetretry "k8s.io/client-go/util/retry"
 
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
+	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
+	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 )
 
 // ConfigMapMutator is a function that mutates the given ConfigMap and optionally returns an error
@@ -130,4 +132,50 @@ func GetConfigMapWithRetry(client clientset.Interface, namespace, name string) (
 		return cm, nil
 	}
 	return nil, lastError
+}
+
+func GetNodePoolInfoWithRetry(client yurtclientset.Interface, name string) (*nodepoolv1alpha1.NodePool, error) {
+	var np *nodepoolv1alpha1.NodePool
+	var lastError error
+	err := wait.ExponentialBackoff(clientsetretry.DefaultBackoff, func() (bool, error) {
+		var err error
+		np, err = client.AppsV1alpha1().NodePools().Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
+			return true, nil
+		}
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		lastError = err
+		return false, nil
+	})
+	if err == nil {
+		return np, nil
+	}
+	return nil, lastError
+}
+
+func JoinNodeInSpecifiedNodePool(client clientset.Interface, nodeName, nodePoolName string) error {
+	var node *v1.Node
+	var lastError error
+	err := wait.ExponentialBackoff(clientsetretry.DefaultBackoff, func() (bool, error) {
+		var err error
+		node, err = client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			lastError = err
+			return false, nil
+		}
+
+		node.Labels[nodepoolv1alpha1.LabelDesiredNodePool] = nodePoolName
+		_, err = client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+		if err != nil {
+			lastError = err
+			return false, nil
+		}
+		return true, nil
+	})
+	if err == nil {
+		return nil
+	}
+	return lastError
 }
