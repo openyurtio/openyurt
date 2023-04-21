@@ -26,34 +26,55 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	"github.com/openyurtio/openyurt/pkg/controller/util"
+	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
+	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
+	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
+	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
+	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
+	v1alpha1staticpod "github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
+	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
+	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
 )
 
 type SetupWebhookWithManager interface {
-	admission.CustomDefaulter
-	admission.CustomValidator
 	// mutate path, validatepath, error
 	SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error)
 }
 
-var controllerWebhook map[string][]SetupWebhookWithManager
+// controllerWebhooks is used to control whether enable or disable controller-webhooks
+var controllerWebhooks map[string][]SetupWebhookWithManager
+
+// independentWebhooks is used to control whether disable independent-webhooks
+var independentWebhooks = make(map[string]SetupWebhookWithManager)
+
 var WebhookHandlerPath = make(map[string]struct{})
 
-func addWebhook(name string, handler SetupWebhookWithManager) {
-	if controllerWebhook == nil {
-		controllerWebhook = make(map[string][]SetupWebhookWithManager)
+func addControllerWebhook(name string, handler SetupWebhookWithManager) {
+	if controllerWebhooks == nil {
+		controllerWebhooks = make(map[string][]SetupWebhookWithManager)
 	}
 
-	if controllerWebhook[name] == nil {
-		controllerWebhook[name] = make([]SetupWebhookWithManager, 0)
+	if controllerWebhooks[name] == nil {
+		controllerWebhooks[name] = make([]SetupWebhookWithManager, 0)
 	}
 
-	controllerWebhook[name] = append(controllerWebhook[name], handler)
+	controllerWebhooks[name] = append(controllerWebhooks[name], handler)
+}
+
+func init() {
+	addControllerWebhook("gateway", &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook("nodepool", &v1alpha1nodepool.NodePoolHandler{})
+	addControllerWebhook("nodepool", &v1beta1nodepool.NodePoolHandler{})
+	addControllerWebhook("staticpod", &v1alpha1staticpod.StaticPodHandler{})
+	addControllerWebhook("yurtappset", &v1alpha1yurtappset.YurtAppSetHandler{})
+	addControllerWebhook("yurtappdaemon", &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
+
+	independentWebhooks["pod"] = &v1pod.PodHandler{}
 }
 
 // Note !!! @kadisi
@@ -61,26 +82,46 @@ func addWebhook(name string, handler SetupWebhookWithManager) {
 // Note !!!
 
 func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
-	for controllerName, list := range controllerWebhook {
-		if !util.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+	setup := func(s SetupWebhookWithManager) error {
+		m, v, err := s.SetupWebhookWithManager(mgr)
+		if err != nil {
+			return fmt.Errorf("unable to create webhook %v", err)
+		}
+		if _, ok := WebhookHandlerPath[m]; ok {
+			panic(fmt.Errorf("webhook handler path %s duplicated", m))
+		}
+		WebhookHandlerPath[m] = struct{}{}
+		klog.Infof("Add webhook mutate path %s", m)
+		if _, ok := WebhookHandlerPath[v]; ok {
+			panic(fmt.Errorf("webhook handler path %s duplicated", v))
+		}
+		WebhookHandlerPath[v] = struct{}{}
+		klog.Infof("Add webhook validate path %s", v)
+
+		return nil
+	}
+
+	// set up independent webhooks
+	for name, s := range independentWebhooks {
+		if util.IsWebhookDisabled(name, c.ComponentConfig.Generic.DisabledWebhooks) {
+			klog.Warningf("Webhook %v is disabled", name)
+			continue
+		}
+		if err := setup(s); err != nil {
+			return err
+		}
+	}
+
+	// set up controller webhooks
+	for controllerName, list := range controllerWebhooks {
+		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}
 		for _, s := range list {
-			m, v, err := s.SetupWebhookWithManager(mgr)
-			if err != nil {
-				return fmt.Errorf("unable to create webhook %v", err)
+			if err := setup(s); err != nil {
+				return err
 			}
-			if _, ok := WebhookHandlerPath[m]; ok {
-				panic(fmt.Errorf("webhook handler path %s duplicated", m))
-			}
-			WebhookHandlerPath[m] = struct{}{}
-			klog.Infof("Add webhook mutate path %s", m)
-			if _, ok := WebhookHandlerPath[v]; ok {
-				panic(fmt.Errorf("webhook handler path %s duplicated", v))
-			}
-			WebhookHandlerPath[v] = struct{}{}
-			klog.Infof("Add webhook validate path %s", v)
 		}
 	}
 	return nil
