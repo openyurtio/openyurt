@@ -72,7 +72,7 @@ func CopyFile(src, dst string) error {
 // Success: Static pod annotation `StaticPodHashAnnotation` value equals to function argument hash
 // Failed: Receive PodFailed event
 func WaitForPodRunning(namespace, name, hash string, timeout time.Duration) (bool, error) {
-	klog.Infof("WaitForPodRuning namespace is %s, name is %s", namespace, name)
+	klog.Infof("WaitForPodRunning namespace is %s, name is %s", namespace, name)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
