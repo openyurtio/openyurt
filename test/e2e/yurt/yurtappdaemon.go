@@ -152,6 +152,9 @@ var _ = Describe("YurtAppDaemon Test", func() {
 		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
 
 		Eventually(func() error {
+			if err := util.CleanupNodePoolLabel(ctx, k8sClient); err != nil {
+				return err
+			}
 			return util.CleanupNodePool(ctx, k8sClient)
 		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
 
