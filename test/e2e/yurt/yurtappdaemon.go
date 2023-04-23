@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -82,13 +84,14 @@ var _ = Describe("YurtAppDaemon Test", func() {
 
 		testLabel := map[string]string{"app": appName}
 
-		testNp := &v1alpha1.YurtAppDaemon{
+		testYad := &v1alpha1.YurtAppDaemon{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaceName,
 				Name:      appName,
 			},
 			Spec: v1alpha1.YurtAppDaemonSpec{
-				Selector: &metav1.LabelSelector{MatchLabels: testLabel},
+				Selector:         &metav1.LabelSelector{MatchLabels: testLabel},
+				NodePoolSelector: &metav1.LabelSelector{MatchLabels: map[string]string{apps.NodePoolTypeLabelKey: string(v1beta1.Edge)}},
 				WorkloadTemplate: v1alpha1.WorkloadTemplate{
 					DeploymentTemplate: &v1alpha1.DeploymentTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{Labels: testLabel},
@@ -114,7 +117,7 @@ var _ = Describe("YurtAppDaemon Test", func() {
 		}
 
 		Eventually(func() error {
-			return k8sClient.Create(ctx, testNp)
+			return k8sClient.Create(ctx, testYad)
 		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
 
 		Eventually(func() error {
