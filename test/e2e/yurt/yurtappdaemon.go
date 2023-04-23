@@ -150,6 +150,31 @@ var _ = Describe("YurtAppDaemon Test", func() {
 			}
 			return nil
 		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
+
+		Eventually(func() error {
+			return util.CleanupNodePool(ctx, k8sClient)
+		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
+
+		Eventually(func() error {
+			testPods := &corev1.PodList{}
+			if err := k8sClient.List(ctx, testPods, client.InNamespace(namespaceName), client.MatchingLabels{"apps.openyurt.io/pool-name": bjNpName}); err != nil {
+				return err
+			}
+			if len(testPods.Items) != 0 {
+				return fmt.Errorf("yurtappdaemon pods not reconcile after nodepool removed")
+			}
+			return nil
+		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
+		Eventually(func() error {
+			testPods := &corev1.PodList{}
+			if err := k8sClient.List(ctx, testPods, client.InNamespace(namespaceName), client.MatchingLabels{"apps.openyurt.io/pool-name": hzNpName}); err != nil {
+				return err
+			}
+			if len(testPods.Items) != 0 {
+				return fmt.Errorf("not reconcile after nodepool removed")
+			}
+			return nil
+		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil()))
 	}
 
 	BeforeEach(func() {
