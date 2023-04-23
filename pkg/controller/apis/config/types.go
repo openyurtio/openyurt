@@ -75,4 +75,7 @@ type GenericConfiguration struct {
 	// '-foo' means "disable 'foo'"
 	// first item for a particular name wins
 	Controllers []string
+	// DisabledWebhooks is used to specify the disabled webhooks
+	// Only care about controller-independent webhooks
+	DisabledWebhooks []string
 }

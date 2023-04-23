@@ -61,6 +61,9 @@ spec:
             {{- if .Values.yurtManager.controllers }}
             - --controllers={{ .Values.yurtManager.controllers }}
             {{- end }}
+            - {{- if .Values.yurtManager.disableIndependentWebhooks }}
+            - --disable-independent-webhooks={{ .Values.yurtManager.disableIndependentWebhooks }}
+            {{- end }}
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
