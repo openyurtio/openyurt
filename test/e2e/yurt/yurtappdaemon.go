@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,7 +90,7 @@ var _ = Describe("YurtAppDaemon Test", func() {
 			},
 			Spec: v1alpha1.YurtAppDaemonSpec{
 				Selector:         &metav1.LabelSelector{MatchLabels: testLabel},
-				NodePoolSelector: &metav1.LabelSelector{MatchLabels: map[string]string{apps.NodePoolTypeLabelKey: string(v1beta1.Edge)}},
+				NodePoolSelector: &metav1.LabelSelector{MatchLabels: map[string]string{apps.NodePoolTypeLabelKey: "edge"}},
 				WorkloadTemplate: v1alpha1.WorkloadTemplate{
 					DeploymentTemplate: &v1alpha1.DeploymentTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{Labels: testLabel},
