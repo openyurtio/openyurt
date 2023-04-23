@@ -20,20 +20,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/test/e2e/util"
-	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/test/e2e/util"
+	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
 
 var _ = Describe("YurtAppDaemon Test", func() {
