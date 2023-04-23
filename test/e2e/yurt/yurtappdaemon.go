@@ -139,7 +139,7 @@ var _ = Describe("YurtAppDaemon Test", func() {
 			if err := k8sClient.List(ctx, testPods, client.InNamespace(namespaceName), client.MatchingLabels{"apps.openyurt.io/pool-name": hzNpName}); err != nil {
 				return err
 			}
-			if len(testPods.Items) != 2 {
+			if len(testPods.Items) != 1 {
 				return fmt.Errorf("not reconcile")
 			}
 			for _, tmp := range testPods.Items {
