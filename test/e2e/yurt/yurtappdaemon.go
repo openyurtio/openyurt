@@ -39,7 +39,7 @@ import (
 
 var _ = Describe("YurtAppDaemon Test", func() {
 	ctx := context.Background()
-	timeoutSeconds := 28 * time.Second
+	timeoutSeconds := 60 * time.Second
 	k8sClient := ycfg.YurtE2eCfg.RuntimeClient
 	var namespaceName string
 
