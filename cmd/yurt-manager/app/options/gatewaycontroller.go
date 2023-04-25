@@ -19,7 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/gateway/config"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/config"
 )
 
 type GatewayControllerOptions struct {

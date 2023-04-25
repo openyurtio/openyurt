@@ -42,7 +42,7 @@ func init() {
 }
 
 const (
-	controllerName = "podbinding-controller"
+	ControllerName = "podbinding"
 )
 
 var (
@@ -71,7 +71,7 @@ type ReconcilePodBinding struct {
 // and Start it when the Manager is Started.
 func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcilePodBinding{}
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

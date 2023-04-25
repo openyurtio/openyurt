@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
-	"github.com/openyurtio/openyurt/pkg/controller/gateway/utils"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/utils"
 )
 
 type EnqueueGatewayForNode struct{}

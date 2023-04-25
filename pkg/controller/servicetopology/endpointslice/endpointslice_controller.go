@@ -40,6 +40,7 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	common "github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
@@ -55,13 +56,9 @@ var (
 	controllerV1beta1Kind = discoveryv1beta1.SchemeGroupVersion.WithKind("Endpointslice")
 )
 
-const (
-	controllerName = "Servicetopology-endpointslice-controller"
-)
-
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", common.ControllerName, s)
 }
 
 // Add creates a new Servicetopology endpointslice Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -87,9 +84,9 @@ type ReconcileServiceTopologyEndpointSlice struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileServiceTopologyEndpointSlice{
-		Client:   utilclient.NewClientFromManager(mgr, controllerName),
+		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(controllerName),
+		recorder: mgr.GetEventRecorderFor(common.ControllerName),
 	}
 }
 
@@ -111,7 +108,7 @@ func (r *ReconcileServiceTopologyEndpointSlice) InjectConfig(cfg *rest.Config) e
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(fmt.Sprintf("%s-endpointslice", common.ControllerName), mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

@@ -47,12 +47,12 @@ var (
 )
 
 const (
-	controllerName = "NodePool-controller"
+	ControllerName = "nodepool"
 )
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // ReconcileNodePool reconciles a NodePool object
@@ -84,9 +84,9 @@ type NodePoolRelatedAttributes struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileNodePool{
-		Client:       utilclient.NewClientFromManager(mgr, controllerName),
+		Client:       utilclient.NewClientFromManager(mgr, ControllerName),
 		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(controllerName),
+		recorder:     mgr.GetEventRecorderFor(ControllerName),
 		Configration: c.ComponentConfig.NodePoolController,
 	}
 }
@@ -94,7 +94,7 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {
