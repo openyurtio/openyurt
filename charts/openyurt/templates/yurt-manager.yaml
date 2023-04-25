@@ -54,7 +54,10 @@ spec:
         {{- include "yurt-manager.selectorLabels" . | nindent 8 }}
     spec:
       tolerations:
-        - operator: "Exists"
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
       containers:
         - args:
             - --enable-leader-election=true
@@ -66,7 +69,7 @@ spec:
             {{- if .Values.yurtManager.controllers }}
             - --controllers={{ .Values.yurtManager.controllers }}
             {{- end }}
-            - {{- if .Values.yurtManager.disableIndependentWebhooks }}
+            {{- if .Values.yurtManager.disableIndependentWebhooks }}
             - --disable-independent-webhooks={{ .Values.yurtManager.disableIndependentWebhooks }}
             {{- end }}
           command:
