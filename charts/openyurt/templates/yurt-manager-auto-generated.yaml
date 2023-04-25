@@ -388,8 +388,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /mutate-raven-openyurt-io-v1alpha1-gateway
   failurePolicy: Fail
   name: mutate.raven.v1alpha1.gateway.openyurt.io
@@ -408,8 +408,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /mutate-apps-openyurt-io-v1beta1-nodepool
   failurePolicy: Fail
   name: m.v1beta1.nodepool.kb.io
@@ -429,8 +429,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /mutate-apps-openyurt-io-v1alpha1-staticpod
   failurePolicy: Fail
   name: mutate.apps.v1alpha1.staticpod.openyurt.io
@@ -450,8 +450,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /mutate-apps-openyurt-io-v1alpha1-yurtappdaemon
   failurePolicy: Fail
   name: mutate.apps.v1alpha1.yurtappdaemon.openyurt.io
@@ -470,8 +470,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /mutate-apps-openyurt-io-v1alpha1-yurtappset
   failurePolicy: Fail
   name: myurtappset.kb.io
@@ -498,8 +498,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-raven-openyurt-io-v1alpha1-gateway
   failurePolicy: Fail
   name: validate.raven.v1alpha1.gateway.openyurt.io
@@ -518,8 +518,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-apps-openyurt-io-v1beta1-nodepool
   failurePolicy: Fail
   name: v.v1beta1.nodepool.kb.io
@@ -540,8 +540,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-core-openyurt-io-v1-pod
   failurePolicy: Fail
   name: validate.core.v1.pod.openyurt.io
@@ -560,8 +560,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-apps-openyurt-io-v1alpha1-staticpod
   failurePolicy: Fail
   name: validate.apps.v1alpha1.staticpod.openyurt.io
@@ -581,8 +581,8 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-apps-openyurt-io-v1alpha1-yurtappdaemon
   failurePolicy: Fail
   name: validate.apps.v1alpha1.yurtappdaemon.openyurt.io
@@ -601,8 +601,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: kube-system
+      name: yurt-manager-webhook-service
+      namespace: {{ include "openyurt.namespace" . }}
       path: /validate-apps-openyurt-io-v1alpha1-yurtappset
   failurePolicy: Fail
   name: vyurtappset.kb.io
