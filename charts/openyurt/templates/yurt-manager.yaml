@@ -13,9 +13,9 @@ roleRef:
   kind: ClusterRole
   name: yurt-manager-role
 subjects:
-- kind: ServiceAccount
-  name: yurt-manager
-  namespace: {{ include "openyurt.namespace" . }}
+  - kind: ServiceAccount
+    name: yurt-manager
+    namespace: {{ include "openyurt.namespace" . }}
 ---
 
 apiVersion: v1
@@ -28,6 +28,11 @@ spec:
     - port: 443
       protocol: TCP
       targetPort: {{ .Values.yurtManager.webhook.port }}
+      name: https
+    - port: {{ .Values.yurtManager.metrics.port }}
+      protocol: TCP
+      targetPort: {{ .Values.yurtManager.metrics.port }}
+      name: metrics
   selector:
     {{- include "yurt-manager.selectorLabels" . | nindent 4 }}
 ---
@@ -50,6 +55,7 @@ spec:
     spec:
       tolerations:
         - operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - args:
             - --enable-leader-election=true
@@ -58,12 +64,8 @@ spec:
             - --logtostderr=true
             - --v={{ .Values.yurtManager.log.level }}
             - --working-namespace={{ include "openyurt.namespace" . }}
-            {{- if .Values.yurtManager.controllers }}
-            - --controllers={{ .Values.yurtManager.controllers }}
-            {{- end }}
-            - {{- if .Values.yurtManager.disableIndependentWebhooks }}
-            - --disable-independent-webhooks={{ .Values.yurtManager.disableIndependentWebhooks }}
-            {{- end }}
+            - --controllers={{ .Values.yurtManager.controllers | default "" | quote }}
+            - --disable-independent-webhooks={{ .Values.yurtManager.disableIndependentWebhooks | default "" | quote}}
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
