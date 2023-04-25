@@ -40,12 +40,13 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/controller/util"
-	"github.com/openyurtio/openyurt/pkg/controller/util/gate"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
+	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 var (
 	concurrentReconciles = 3
+	controllerKind       = unitv1alpha1.SchemeGroupVersion.WithKind("YurtAppDaemon")
 )
 
 const (
@@ -73,9 +74,11 @@ func Format(format string, args ...interface{}) string {
 // The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-	if !gate.ResourceEnabled(&unitv1alpha1.YurtAppDaemon{}) {
+	if !utildiscovery.DiscoverGVK(controllerKind) {
+		klog.Errorf(Format("DiscoverGVK error"))
 		return nil
 	}
+
 	return add(mgr, newReconciler(mgr))
 }
 
