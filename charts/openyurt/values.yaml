@@ -2,14 +2,7 @@ imagePullSecrets: []
 imagePullPolicy: IfNotPresent
 
 ##  if unspecified, will use built-in variable `.Release.Namespace`.
-namespace: kube-system
-
-yurtControllerManager:
-  replicaCount: 1
-  tolerations: []
-  image:
-    repository: openyurt/yurt-controller-manager
-    tag: v1.2.1
+namespace: ""
 
 poolCoordinator:
   apiserverSecurePort: 10270
@@ -43,15 +36,16 @@ yurtHub:
     registry: registry.cn-hangzhou.aliyuncs.com/openyurt
     repository: yurthub
     tag: latest
+
 yurtManager:
   # settings for log print
   log:
     # log level for yurt-manager
     level: 4
-  replicas: 2
+  replicas: 1
   image:
     repository: openyurt/yurt-manager
-    tag: v1.2.0
+    tag: latest
   webhook:
     port: 10270
   metrics:
