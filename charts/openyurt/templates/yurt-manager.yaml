@@ -28,6 +28,11 @@ spec:
     - port: 443
       protocol: TCP
       targetPort: {{ .Values.yurtManager.webhook.port }}
+      name: https
+    - port: {{ .Values.yurtManager.metrics.port }}
+      protocol: TCP
+      targetPort: {{ .Values.yurtManager.metrics.port }}
+      name: metrics
   selector:
     {{- include "yurt-manager.selectorLabels" . | nindent 4 }}
 ---
