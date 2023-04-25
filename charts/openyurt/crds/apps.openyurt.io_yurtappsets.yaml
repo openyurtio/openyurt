@@ -202,6 +202,7 @@ spec:
                             also modifies the Replicas, use the Replicas value in
                             the Patch
                           type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         replicas:
                           description: Indicates the number of the pod to be created
                             under this pool.

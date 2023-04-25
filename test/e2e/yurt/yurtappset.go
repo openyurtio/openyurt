@@ -84,21 +84,22 @@ var _ = Describe("YurtAppSet Test", func() {
 			},
 			timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 
+		bizContainerName := "biz"
 		testLabel := map[string]string{"app": appName}
-		var bjPatchTemplate = func() *runtime.RawExtension {
-			yamlStr := `
-		     spec:
-		       template:
-		         spec:
-		           containers:
-		             - name: nginx
-		               image: nginx:1.19.0
-		`
-			b, _ := yaml.YAMLToJSON([]byte(yamlStr))
-			return &runtime.RawExtension{Raw: b}
-		}
 
-		testNp := &v1alpha1.YurtAppSet{
+		hzBizImg := "busybox:1.36.0"
+		hzPatchStr := fmt.Sprintf(`
+spec:
+  template:
+    spec:
+      containers:
+      - name: %s
+        image: %s
+`, bizContainerName, hzBizImg)
+		hzPatchJson, _ := yaml.YAMLToJSON([]byte(hzPatchStr))
+		hzPatch := &runtime.RawExtension{Raw: hzPatchJson}
+
+		testYas := &v1alpha1.YurtAppSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaceName,
 				Name:      appName,
@@ -115,7 +116,7 @@ var _ = Describe("YurtAppSet Test", func() {
 								},
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Name:    "bb",
+										Name:    bizContainerName,
 										Image:   "busybox",
 										Command: []string{"/bin/sh"},
 										Args:    []string{"-c", "while true; do echo hello; sleep 10;done"},
@@ -139,7 +140,6 @@ var _ = Describe("YurtAppSet Test", func() {
 								},
 							},
 							Replicas: pointer.Int32Ptr(1),
-							Patch:    bjPatchTemplate(),
 						},
 						{Name: hzNpName, NodeSelectorTerm: corev1.NodeSelectorTerm{
 							MatchExpressions: []corev1.NodeSelectorRequirement{
@@ -151,6 +151,7 @@ var _ = Describe("YurtAppSet Test", func() {
 							},
 						},
 							Replicas: pointer.Int32Ptr(2),
+							Patch:    hzPatch,
 						},
 					},
 				},
@@ -158,7 +159,7 @@ var _ = Describe("YurtAppSet Test", func() {
 		}
 
 		Eventually(func() error {
-			return k8sClient.Create(ctx, testNp)
+			return k8sClient.Create(ctx, testYas)
 		}, timeoutSeconds, time.Millisecond*300).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
 
 		Eventually(func() error {
@@ -185,6 +186,13 @@ var _ = Describe("YurtAppSet Test", func() {
 				return fmt.Errorf("not reconcile")
 			}
 			for _, tmp := range testPods.Items {
+				for _, tmpContainer := range tmp.Spec.Containers {
+					if tmpContainer.Name == bizContainerName {
+						if tmpContainer.Image != hzBizImg {
+							return errors.New("yurtappset topology patch not work")
+						}
+					}
+				}
 				if tmp.Status.Phase != corev1.PodRunning {
 					return errors.New("pod not running")
 				}
