@@ -51,7 +51,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s-service: %s", common.ControllerName, s)
 }
 
 // Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
