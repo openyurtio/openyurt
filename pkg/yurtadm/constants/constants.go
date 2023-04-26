@@ -97,8 +97,6 @@ const (
 	TokenDiscoverySkipCAHash = "discovery-token-unsafe-skip-ca-verification"
 	// Namespace flag sets the namespace of yurthub staticpod manifest.
 	Namespace = "namespace"
-	// YurtHubImage flag sets the yurthub image for worker node.
-	YurtHubImage = "yurthub-image"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
 	// ServerAddr flag set the address of kubernetes kube-apiserver
@@ -111,7 +109,6 @@ const (
 	ServerReadyzURLPath          = "/v1/readyz"
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
 	DefaultOpenYurtVersion       = "latest"
-	Yurthub                      = "yurthub"
 	DefaultYurtHubServerAddr     = "127.0.0.1"
 	DirMode                      = 0755
 	KubeletServiceContent        = `
