@@ -198,7 +198,7 @@ func (ycm *yurtHubCertManager) prepareConfigAndCaFile() error {
 	if len(ycm.bootstrapFile) != 0 {
 		// 1. load bootstrap config
 		if tlsBootstrapCfg, err = clientcmd.LoadFromFile(ycm.getBootstrapConfFile()); err != nil {
-			klog.Errorf("maybe hub agent restarted, failed to load bootstrap config file(%s), %v.", ycm.getBootstrapConfFile())
+			klog.Errorf("maybe hub agent restarted, failed to load bootstrap config file(%s), %v.", ycm.getBootstrapConfFile(), err)
 		} else {
 			klog.V(2).Infof("%s file is configured, just use it", ycm.getBootstrapConfFile())
 		}

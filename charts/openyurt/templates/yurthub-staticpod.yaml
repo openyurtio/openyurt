@@ -39,10 +39,10 @@ spec:
           command:
             - yurthub
             - --v=2
-            - --bind-address={{ .Values.yurtHub.yurthubServerAddr | quote }}
+            - --bind-address={{ .Values.yurtHub.yurthubServerAddr }}
             - --server-addr={{`{{.kubernetesServerAddr}}`}}
             - --node-name=$(NODE_NAME)
-            - --bootstrap-file={{ .Values.yurtHub.bootstrapFile | quote }}
+            - --bootstrap-file={{ .Values.yurtHub.bootstrapFile }}
             - --working-mode={{`{{.workingMode}}`}}
             - --namespace={{ include "openyurt.namespace" . }}
               {{`{{if .organizations }}`}}

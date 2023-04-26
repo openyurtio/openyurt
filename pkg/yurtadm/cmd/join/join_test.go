@@ -50,7 +50,6 @@ func TestNewJoinOptions(t *testing.T) {
 				nodeType:                 yurtconstants.EdgeNode,
 				criSocket:                yurtconstants.DefaultDockerCRISocket,
 				pauseImage:               yurtconstants.PauseImagePath,
-				yurthubImage:             fmt.Sprintf("%s/%s:%s", yurtconstants.DefaultOpenYurtImageRegistry, yurtconstants.Yurthub, yurtconstants.DefaultOpenYurtVersion),
 				namespace:                yurtconstants.YurthubNamespace,
 				caCertHashes:             make([]string, 0),
 				unsafeSkipCAVerification: false,
@@ -350,37 +349,6 @@ func TestPauseImage(t *testing.T) {
 			t.Logf("\tTestCase: %s", tt.name)
 			{
 				get := jd.PauseImage()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-			}
-		})
-	}
-}
-
-func TestYurtHubImage(t *testing.T) {
-	jd := joinData{
-		yurthubImage: "192.168.1.1",
-	}
-
-	tests := []struct {
-		name   string
-		expect string
-	}{
-		{
-			"normal",
-			"192.168.1.1",
-		},
-	}
-
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := jd.YurtHubImage()
 				if !reflect.DeepEqual(tt.expect, get) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 				}
