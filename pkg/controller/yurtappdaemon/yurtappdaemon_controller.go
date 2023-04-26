@@ -50,7 +50,7 @@ var (
 )
 
 const (
-	controllerName            = "yurtappdaemon-controller"
+	ControllerName            = "yurtappdaemon"
 	slowStartInitialBatchSize = 1
 
 	eventTypeRevisionProvision  = "RevisionProvision"
@@ -67,7 +67,7 @@ func init() {
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // Add creates a new YurtAppDaemon Controller and adds it to the Manager with default RBAC.
@@ -85,7 +85,7 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		Client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
 
-		recorder: mgr.GetEventRecorderFor(controllerName),
+		recorder: mgr.GetEventRecorderFor(ControllerName),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
 			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},

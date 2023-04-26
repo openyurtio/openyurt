@@ -28,7 +28,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/controller/raven"
+	"github.com/openyurtio/openyurt/pkg/controller/staticpod"
 	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
@@ -67,12 +72,12 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook("gateway", &v1alpha1gateway.GatewayHandler{})
-	addControllerWebhook("nodepool", &v1alpha1nodepool.NodePoolHandler{})
-	addControllerWebhook("nodepool", &v1beta1nodepool.NodePoolHandler{})
-	addControllerWebhook("staticpod", &v1alpha1staticpod.StaticPodHandler{})
-	addControllerWebhook("yurtappset", &v1alpha1yurtappset.YurtAppSetHandler{})
-	addControllerWebhook("yurtappdaemon", &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
+	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
+	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
+	addControllerWebhook(staticpod.ControllerName, &v1alpha1staticpod.StaticPodHandler{})
+	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
+	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 
 	independentWebhooks["pod"] = &v1pod.PodHandler{}
 }

@@ -59,7 +59,7 @@ var (
 )
 
 const (
-	controllerName = "StaticPod-controller"
+	ControllerName = "staticpod"
 
 	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
 	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
@@ -122,7 +122,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // Add creates a new StaticPod Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -147,9 +147,9 @@ type ReconcileStaticPod struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileStaticPod{
-		Client:        utilclient.NewClientFromManager(mgr, controllerName),
+		Client:        utilclient.NewClientFromManager(mgr, ControllerName),
 		scheme:        mgr.GetScheme(),
-		recorder:      mgr.GetEventRecorderFor(controllerName),
+		recorder:      mgr.GetEventRecorderFor(ControllerName),
 		Configuration: c.ComponentConfig.StaticPodController,
 	}
 }
@@ -157,7 +157,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

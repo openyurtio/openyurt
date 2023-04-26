@@ -66,7 +66,7 @@ var (
 )
 
 const (
-	controllerName = "Daemonpodupdater-controller"
+	ControllerName = "daemonpodupdater"
 
 	// UpdateAnnotation is the annotation key used in daemonset spec to indicate
 	// which update strategy is selected. Currently, "ota" and "auto" are supported.
@@ -96,7 +96,7 @@ const (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // Add creates a new Daemonpodupdater Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -121,9 +121,9 @@ type ReconcileDaemonpodupdater struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDaemonpodupdater{
-		Client:       utilclient.NewClientFromManager(mgr, controllerName),
+		Client:       utilclient.NewClientFromManager(mgr, ControllerName),
 		expectations: k8sutil.NewControllerExpectations(),
-		recorder:     mgr.GetEventRecorderFor(controllerName),
+		recorder:     mgr.GetEventRecorderFor(ControllerName),
 	}
 }
 
@@ -144,7 +144,7 @@ func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

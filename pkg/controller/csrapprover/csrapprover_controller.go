@@ -94,7 +94,7 @@ var (
 )
 
 const (
-	controllerName = "CsrApprover-controller"
+	ControllerName = "csrapprover"
 )
 
 type csrRecognizer struct {
@@ -107,7 +107,7 @@ type csrRecognizer struct {
 func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileCsrApprover{}
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

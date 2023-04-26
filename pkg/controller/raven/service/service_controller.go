@@ -39,8 +39,8 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	ravenv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
-	common "github.com/openyurtio/openyurt/pkg/controller/gateway"
-	"github.com/openyurtio/openyurt/pkg/controller/gateway/utils"
+	common "github.com/openyurtio/openyurt/pkg/controller/raven"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/utils"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
@@ -49,13 +49,9 @@ var (
 	controllerKind = corev1.SchemeGroupVersion.WithKind("Service")
 )
 
-const (
-	controllerName = "Service-controller"
-)
-
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s-service: %s", common.ControllerName, s)
 }
 
 // Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -79,16 +75,16 @@ type ReconcileService struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileService{
-		Client:   utilclient.NewClientFromManager(mgr, controllerName),
+		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(controllerName),
+		recorder: mgr.GetEventRecorderFor(common.ControllerName),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(fmt.Sprintf("%s-service", common.ControllerName), mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {

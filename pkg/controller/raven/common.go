@@ -14,8 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package raven
 
 var (
 	ConcurrentReconciles = 3
+
+	ControllerName = "ravenl3"
 )

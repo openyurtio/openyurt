@@ -53,7 +53,7 @@ var (
 )
 
 const (
-	controllerName = "PoolCoordinatorCert-controller"
+	ControllerName = "poolcoordinatorcert"
 
 	// tmp file directory for certmanager to write cert files
 	certDir = "/tmp"
@@ -199,7 +199,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // Add creates a new Poolcoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -208,7 +208,7 @@ func Add(cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcilePoolCoordinatorCert{}
 
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

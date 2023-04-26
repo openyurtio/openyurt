@@ -124,7 +124,7 @@ func TestUpdateStatus(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    controllerName,
+				CurrentRevision:    ControllerName,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -138,7 +138,7 @@ func TestUpdateStatus(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    controllerName,
+				CurrentRevision:    ControllerName,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -195,7 +195,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    controllerName,
+				CurrentRevision:    ControllerName,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -209,7 +209,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    controllerName,
+				CurrentRevision:    ControllerName,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,

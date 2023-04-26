@@ -21,8 +21,8 @@ import (
 	cmconfig "k8s.io/controller-manager/config"
 	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 
-	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
+	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
 	staticpodconfig "github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
