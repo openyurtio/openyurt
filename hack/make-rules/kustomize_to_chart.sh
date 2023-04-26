@@ -272,8 +272,16 @@ EOF
 
     # replace webhook-service to yurt-manager-webhook-service because webhooks can not installed when service doesn't exist
     # replace kube-system in webhook to {{ include "openyurt.namespace" . }} in webhooks
-    sed -i 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
-    sed -i 's/kube-system/\{\{ include \"openyurt\.namespace\" \. \}\}/g' $yurt_manager_templatefile
+    case `$echo uname` in
+    "Darwin")
+             sed -i '' 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i '' 's/kube-system/\{\{ include \"openyurt\.namespace\" \. \}\}/g' $yurt_manager_templatefile
+             ;;
+    "Linux")
+             sed -i 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i 's/kube-system/\{\{ include \"openyurt\.namespace\" \. \}\}/g' $yurt_manager_templatefile
+             ;;
+    esac
 }
 
 
