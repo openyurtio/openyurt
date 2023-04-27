@@ -33,8 +33,8 @@ func NewGenericOptions() *GenericOptions {
 	return &GenericOptions{
 		&config.GenericConfiguration{
 			Version:                 false,
-			MetricsAddr:             ":10250",
-			HealthProbeAddr:         ":8000",
+			MetricsAddr:             ":10271",
+			HealthProbeAddr:         ":10272",
 			EnableLeaderElection:    true,
 			LeaderElectionNamespace: "kube-system",
 			RestConfigQPS:           30,

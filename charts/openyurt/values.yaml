@@ -46,16 +46,16 @@ yurtManager:
   image:
     repository: openyurt/yurt-manager
     tag: latest
-  webhook:
-    port: 10270
   metrics:
     port: 10271
+  healthProbe:
+    port: 10272
+  webhook:
+    port: 10273
   # format should be "foo,-bar,*"
   controllers: ""
   # format should be "foo,*"
   disableIndependentWebhooks: ""
-  healthProbe:
-    port: 10272
   # resources of yurt-manager container
   resources:
     limits:
@@ -69,7 +69,5 @@ yurtManager:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: openyurt.io/is-edge-worker
-                operator: In
-                values:
-                  - "false"
+              - key: node-role.kubernetes.io/master
+                operator: Exists

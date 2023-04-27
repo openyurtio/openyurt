@@ -59,7 +59,7 @@ func GetServiceName() string {
 }
 
 func GetWebHookPort() int {
-	port := 9876
+	port := 10273
 	if p := os.Getenv("WEBHOOK_PORT"); len(p) > 0 {
 		if p, err := strconv.ParseInt(p, 10, 32); err == nil {
 			port = int(p)
