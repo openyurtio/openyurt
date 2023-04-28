@@ -67,7 +67,7 @@ spec:
   ports:
     - port: 443
       protocol: TCP
-      targetPort: 10270
+      targetPort: 10273
   selector:
     app.kubernetes.io/name: yurt-manager
 `
@@ -108,9 +108,9 @@ spec:
           name: yurt-manager
           env:
             - name: WEBHOOK_PORT
-              value: "10270"
+              value: "10273"
           ports:
-            - containerPort: 10270
+            - containerPort: 10273
               name: webhook-server
               protocol: TCP
             - containerPort: 10271
