@@ -18,6 +18,7 @@ package upgradeinfo
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,9 @@ type UpgradeInfo struct {
 	// Upgrade worker pod running on the node
 	WorkerPod *corev1.Pod
 
+	// Indicate whether the static pod is ready
+	StaticPodReady bool
+
 	// Indicate whether the static pod on the node needs to be upgraded.
 	// If true, the static pod is not up-to-date and needs to be upgraded.
 	UpgradeNeeded bool
@@ -50,20 +54,22 @@ type UpgradeInfo struct {
 	// need to create a new worker pod.
 	WorkerPodRunning bool
 
+	// Indicate the worker pod status
+	WorkerPodStatusPhase corev1.PodPhase
+
+	// Indicate whether the worker pod need to be delete
+	WorkerPodDeleteNeeded bool
+
 	// Indicate whether the node is ready. It's used in Auto mode.
-	Ready bool
+	NodeReady bool
 }
 
 // New constructs the upgrade information for nodes which have the target static pod
-func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string) (map[string]*UpgradeInfo, error) {
+func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName, hash string) (map[string]*UpgradeInfo, error) {
 	infos := make(map[string]*UpgradeInfo)
 
-	var podList, upgradeWorkerPodList corev1.PodList
+	var podList corev1.PodList
 	if err := c.List(context.TODO(), &podList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
-		return nil, err
-	}
-
-	if err := c.List(context.TODO(), &upgradeWorkerPodList, &client.ListOptions{Namespace: instance.Namespace}); err != nil {
 		return nil, err
 	}
 
@@ -75,28 +81,73 @@ func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName string
 
 		// The name format of mirror static pod is `StaticPodName-NodeName`
 		if util.Hyphen(instance.Name, nodeName) == pod.Name && isStaticPod(&pod) {
-			if info := infos[nodeName]; info == nil {
-				infos[nodeName] = &UpgradeInfo{}
+			// initialize static pod info
+			if err := initStaticPodInfo(c, nodeName, hash, &podList.Items[i], infos); err != nil {
+				return nil, err
 			}
-			infos[nodeName].StaticPod = &podList.Items[i]
 		}
-	}
 
-	for i, pod := range upgradeWorkerPodList.Items {
-		nodeName := pod.Spec.NodeName
-		if nodeName == "" || pod.DeletionTimestamp != nil {
-			continue
-		}
 		// The name format of worker pods are `WorkerPodName-NodeName-Hash` Todo: may lead to mismatch
 		if strings.Contains(pod.Name, workerPodName) {
-			if info := infos[nodeName]; info == nil {
-				infos[nodeName] = &UpgradeInfo{}
+			// initialize worker pod info
+			if err := initWorkerPodInfo(nodeName, hash, &podList.Items[i], infos); err != nil {
+				return nil, err
 			}
-			infos[nodeName].WorkerPod = &upgradeWorkerPodList.Items[i]
 		}
 	}
 
 	return infos, nil
+}
+
+func initStaticPodInfo(c client.Client, nodeName, hash string, pod *corev1.Pod, infos map[string]*UpgradeInfo) error {
+	if info := infos[nodeName]; info == nil {
+		infos[nodeName] = &UpgradeInfo{}
+	}
+	infos[nodeName].StaticPod = pod
+
+	if pod.Annotations[StaticPodHashAnnotation] != hash {
+		// Indicate the static pod in this node needs to be upgraded
+		infos[nodeName].UpgradeNeeded = true
+	}
+
+	// Sets the ready status static pod
+	if podutils.IsPodReady(pod) {
+		infos[nodeName].StaticPodReady = true
+	}
+
+	// Sets the ready status for every node which has the target static pod
+	ready, err := util.NodeReadyByName(c, nodeName)
+	if err != nil {
+		return err
+	}
+	infos[nodeName].NodeReady = ready
+	return nil
+}
+
+func initWorkerPodInfo(nodeName, hash string, pod *corev1.Pod, infos map[string]*UpgradeInfo) error {
+	if info := infos[nodeName]; info == nil {
+		infos[nodeName] = &UpgradeInfo{}
+	}
+	infos[nodeName].WorkerPod = pod
+
+	infos[nodeName].WorkerPodStatusPhase = pod.Status.Phase
+	switch pod.Status.Phase {
+	case corev1.PodFailed:
+		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
+		return fmt.Errorf("fail to init worker pod info, cause worker pod %s failed", pod.Name)
+	case corev1.PodSucceeded:
+		// The worker pod is succeeded, then this node must be up-to-date. Just delete this worker pod
+		infos[nodeName].WorkerPodDeleteNeeded = true
+	default:
+		// In this node, the latest worker pod is still running, and we don't need to create new worker for it
+		infos[nodeName].WorkerPodRunning = true
+	}
+
+	if pod.Annotations[StaticPodHashAnnotation] != hash {
+		// If the worker pod is not up-to-date, then it can be recreated directly
+		infos[nodeName].WorkerPodDeleteNeeded = true
+	}
+	return nil
 }
 
 // isStaticPod judges whether a pod is static by its OwnerReference
@@ -117,75 +168,56 @@ func isStaticPod(pod *corev1.Pod) bool {
 func ReadyUpgradeWaitingNodes(infos map[string]*UpgradeInfo) []string {
 	var nodes []string
 	for node, info := range infos {
-		if info.UpgradeNeeded && !info.WorkerPodRunning && info.Ready {
+		if info.UpgradeNeeded && !info.WorkerPodRunning && info.NodeReady {
 			nodes = append(nodes, node)
 		}
 	}
 	return nodes
 }
 
-// ReadyNodes gets nodes that are ready
-func ReadyNodes(infos map[string]*UpgradeInfo) []string {
-	var nodes []string
-	for node, info := range infos {
-		if info.Ready {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-// UpgradeNeededNodes gets nodes that are not running the latest static pods
-func UpgradeNeededNodes(infos map[string]*UpgradeInfo) []string {
-	var nodes []string
+// ListOutUpgradeNeededNodesAndUpgradedNodes gets nodes that are not running the latest static pods and running the latest static pods
+func ListOutUpgradeNeededNodesAndUpgradedNodes(infos map[string]*UpgradeInfo) ([]string, []string) {
+	var upgradeNeededNodes, upgradeNodes []string
 	for node, info := range infos {
 		if info.UpgradeNeeded {
-			nodes = append(nodes, node)
+			upgradeNeededNodes = append(upgradeNeededNodes, node)
+		} else {
+			upgradeNodes = append(upgradeNodes, node)
 		}
 	}
-	return nodes
+	return upgradeNeededNodes, upgradeNodes
 }
 
-// UpgradedNodes gets nodes that are running the latest static pods
-func UpgradedNodes(infos map[string]*UpgradeInfo) []string {
-	var nodes []string
-	for node, info := range infos {
-		if !info.UpgradeNeeded {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-// SetUpgradeNeededInfos sets `UpgradeNeeded` flag and counts the number of upgraded nodes
-func SetUpgradeNeededInfos(infos map[string]*UpgradeInfo, latestHash string) int32 {
-	var upgradedNumber int32
+// CalculateOperateInfoFromUpgradeInfoMap calculate the number of ready static pods, upgraded nodes,
+// the delete pods and whether all worker is finished.
+func CalculateOperateInfoFromUpgradeInfoMap(infos map[string]*UpgradeInfo) (int32, int32, bool, []*corev1.Pod) {
+	var (
+		upgradedNumber int32
+		readyNumber    int32
+		allSucceeded   = true
+		deletePods     = make([]*corev1.Pod, 0)
+	)
 
 	for _, info := range infos {
 		if info.StaticPod != nil {
-			if info.StaticPod.Annotations[StaticPodHashAnnotation] != latestHash {
-				// Indicate the static pod in this node needs to be upgraded
-				info.UpgradeNeeded = true
-				continue
-			}
-			upgradedNumber++
-		}
-	}
-
-	return upgradedNumber
-}
-
-// ReadyStaticPodsNumber counts the number of ready static pods
-func ReadyStaticPodsNumber(infos map[string]*UpgradeInfo) int32 {
-	var readyNumber int32
-
-	for _, info := range infos {
-		if info.StaticPod != nil {
-			if podutils.IsPodReady(info.StaticPod) {
+			// counts the number of ready static pods and upgraded nodes
+			if info.StaticPodReady {
 				readyNumber++
 			}
+			if !info.UpgradeNeeded {
+				upgradedNumber++
+			}
+		}
+
+		if info.WorkerPod != nil {
+			// sync worker pods info
+			if info.WorkerPodDeleteNeeded {
+				deletePods = append(deletePods, info.WorkerPod)
+			}
+			if info.WorkerPodStatusPhase != corev1.PodFailed && info.WorkerPodStatusPhase != corev1.PodSucceeded {
+				allSucceeded = false
+			}
 		}
 	}
-
-	return readyNumber
+	return upgradedNumber, readyNumber, allSucceeded, deletePods
 }

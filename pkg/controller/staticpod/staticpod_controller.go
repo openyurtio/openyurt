@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
@@ -270,6 +271,12 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 
 		// upgradedNumber represents the number of nodes that have been upgraded
 		upgradedNumber int32
+
+		// check whether all worker pod is finished
+		allSucceeded bool
+
+		// the worker pod need to be deleted
+		deletePods []*corev1.Pod
 	)
 
 	// The latest hash value for static pod spec
@@ -294,8 +301,15 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	}
 
 	// The later upgrade operation is conducted based on upgradeInfos
-	upgradeInfos, err := upgradeinfo.New(r.Client, instance, UpgradeWorkerPodPrefix)
+	upgradeInfos, err := upgradeinfo.New(r.Client, instance, UpgradeWorkerPodPrefix, latestHash)
 	if err != nil {
+		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
+		if strings.Contains(err.Error(), "fail to init worker pod") {
+			r.recorder.Eventf(instance, corev1.EventTypeWarning, "StaticPod Upgrade Failed", err.Error())
+			klog.Errorf(err.Error())
+			return reconcile.Result{}, err
+		}
+
 		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of StaticPod %v, %v",
 			request.NamespacedName, err))
 		return ctrl.Result{}, err
@@ -307,56 +321,8 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
-	// Complete upgrade info
-	{
-		// Count the number of upgraded nodes
-		upgradedNumber = upgradeinfo.SetUpgradeNeededInfos(upgradeInfos, latestHash)
-
-		readyNumber = upgradeinfo.ReadyStaticPodsNumber(upgradeInfos)
-
-		// Set node ready info
-		if err := checkReadyNodes(r.Client, upgradeInfos); err != nil {
-			klog.Errorf(Format("Fail to check node ready status of StaticPod %v,%v", request.NamespacedName, err))
-			return ctrl.Result{}, err
-		}
-	}
-
-	// Sync worker pods
-	allSucceeded := true
-	deletePods := make([]*corev1.Pod, 0)
-	{
-		for node, info := range upgradeInfos {
-			if info.WorkerPod == nil {
-				continue
-			}
-
-			hash := info.WorkerPod.Annotations[StaticPodHashAnnotation]
-			// If the worker pod is not up-to-date, then it can be recreated directly
-			if hash != latestHash {
-				deletePods = append(deletePods, info.WorkerPod)
-				continue
-			}
-			// If the worker pod is up-to-date, there are three possible situations
-			// 1. The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
-			// 2. The worker pod is succeeded, then this node must be up-to-date. Just delete this worker pod
-			// 3. The worker pod is running, pending or unknown, then just wait
-			switch info.WorkerPod.Status.Phase {
-			case corev1.PodFailed:
-				r.recorder.Eventf(instance, corev1.EventTypeWarning, "StaticPod Upgrade Failed", "Fail to upgrade node: %v", node)
-				klog.Errorf("Fail to continue upgrade, cause worker pod %s of StaticPod %v in node %s failed",
-					info.WorkerPod.Name, request.NamespacedName, node)
-				return reconcile.Result{},
-					fmt.Errorf("fail to continue upgrade, cause worker pod %s of StaticPod %v in node %s failed",
-						info.WorkerPod.Name, request.NamespacedName, node)
-			case corev1.PodSucceeded:
-				deletePods = append(deletePods, info.WorkerPod)
-			default:
-				// In this node, the latest worker pod is still running, and we don't need to create new worker for it.
-				info.WorkerPodRunning = true
-				allSucceeded = false
-			}
-		}
-	}
+	// Count the number of ready static pods and upgraded nodes, the delete pods list and whether all worker is finished
+	upgradedNumber, readyNumber, allSucceeded, deletePods = upgradeinfo.CalculateOperateInfoFromUpgradeInfoMap(upgradeInfos)
 
 	// Clean up unused pods
 	if err := r.removeUnusedPods(deletePods); err != nil {
@@ -470,8 +436,7 @@ func (r *ReconcileStaticPod) autoUpgrade(instance *appsv1alpha1.StaticPod, infos
 
 // otaUpgrade adds condition PodNeedUpgrade to the target static pods and issue the latest manifest to corresponding nodes
 func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
-	upgradeNeededNodes := upgradeinfo.UpgradeNeededNodes(infos)
-	upgradedNodes := upgradeinfo.UpgradedNodes(infos)
+	upgradeNeededNodes, upgradedNodes := upgradeinfo.ListOutUpgradeNeededNodesAndUpgradedNodes(infos)
 
 	// Set condition for upgrade needed static pods
 	for _, n := range upgradeNeededNodes {
@@ -532,18 +497,6 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, node
 		klog.Infof(Format("Create static pod upgrade worker %s of StaticPod %s", pod.Name, instance.Name))
 	}
 
-	return nil
-}
-
-// checkReadyNodes checks and sets the ready status for every node which has the target static pod
-func checkReadyNodes(client client.Client, infos map[string]*upgradeinfo.UpgradeInfo) error {
-	for node, info := range infos {
-		ready, err := util.NodeReadyByName(client, node)
-		if err != nil {
-			return err
-		}
-		info.Ready = ready
-	}
 	return nil
 }
 
