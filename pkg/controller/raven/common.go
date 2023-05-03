@@ -18,6 +18,8 @@ package raven
 
 var (
 	ConcurrentReconciles = 3
+)
 
+const (
 	ControllerName = "ravenl3"
 )

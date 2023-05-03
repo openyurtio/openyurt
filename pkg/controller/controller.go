@@ -54,9 +54,9 @@ func init() {
 	controllerAddFuncs[csrapprover.ControllerName] = []AddControllerFn{csrapprover.Add}
 	controllerAddFuncs[daemonpodupdater.ControllerName] = []AddControllerFn{daemonpodupdater.Add}
 	controllerAddFuncs[delegatelease.ControllerName] = []AddControllerFn{delegatelease.Add}
+	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
 	controllerAddFuncs[raven.ControllerName] = []AddControllerFn{gateway.Add, service.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
-	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
 	controllerAddFuncs[poolcoordinatorcert.ControllerName] = []AddControllerFn{poolcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}
 	controllerAddFuncs[staticpod.ControllerName] = []AddControllerFn{staticpod.Add}

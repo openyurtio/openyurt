@@ -74,7 +74,7 @@ spec:
             {{- end }}
           command:
             - /usr/local/bin/yurt-manager
-          image: {{ .Values.yurtManager.image.repository }}:{{ .Values.yurtManager.image.tag }}
+          image: {{ .Values.yurtManager.Image.registry }}/{{ .Values.yurtManager.Image.repository }}:{{ .Values.yurtManager.Image.tag }}
           imagePullPolicy: IfNotPresent
           name: yurt-manager
           env:

@@ -33,7 +33,7 @@ yurtHub:
   bootstrapFile: "/var/lib/yurthub/bootstrap-hub.conf"
   yurthubServerAddr: "127.0.0.1"
   Image:
-    registry: registry.cn-hangzhou.aliyuncs.com/openyurt
+    registry: openyurt
     repository: yurthub
     tag: latest
 
@@ -44,7 +44,8 @@ yurtManager:
     level: 4
   replicas: 1
   image:
-    repository: openyurt/yurt-manager
+    registry: openyurt
+    repository: yurt-manager
     tag: latest
   metrics:
     port: 10271
