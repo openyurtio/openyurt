@@ -1,5 +1,100 @@
 # CHANGELOG
 
+## v1.3.0
+
+### What's New
+
+**Refactor OpenYurt control plane components**
+
+In order to improve the management of all repos in OpenYurt community, and reduce the complexity of installing OpenYurt,
+After detailed discussions in the community, a new component named yurt-manager was agreed to manage controllers and webhooks
+scattered across multiple components (like yurt-controller-manager, yurt-app-manager, raven-controller-manager, etc.).
+
+After the refactoring, based on the controller-runtime framework, new controllers and webhooks can be easily added to the
+yurt-manager component in the future. Also note that the yurt-manager must be installed on the same node as the K8s
+control-plane component (like kube-controller-manager). [#1067](https://github.com/openyurtio/openyurt/issues/1067)
+
+**Support OTA or Auto upgrade for static pods**
+
+As you know, static pods are managed directly by the kubelet daemon on the node and there is no APIServer watching them.
+In general, if a user wants to upgrade a static pod(like YurtHub), the user should manually modify or replace the manifest
+of the static pod. this can be a very tedious and painful task when the number of static pods becomes very large.
+
+Users can define Pod templates and upgrade models through StaticPod CRD. The upgrade models support both OTA and Auto kinds,
+thus easily meeting the upgrade needs of large-scale Static Pods. Also the Pod template in yurthub StaticPod CRD is used to
+install YurtHub component on the node when the node is joined. [#1261](https://github.com/openyurtio/openyurt/pull/1261), [#1168](https://github.com/openyurtio/openyurt/pull/1168), [#1172](https://github.com/openyurtio/openyurt/pull/1172)
+
+**NodePort Service supports nodepool isolation**
+
+In edge scenarios, users using the NodePort service expect to listen to nodePort ports only in a specified nodepools
+in order to prevent port conflicts and save edge resources.
+
+Users can specify the nodepools to listen to by adding annotation `nodeport.openyurt.io/listen` to the NodePort or
+LoadBalancer service, thus getting the nodepool isolation capability of the NodePort or LoadBalancer service. [#1183](https://github.com/openyurtio/openyurt/issues/1183), [#1209](https://github.com/openyurtio/openyurt/pull/1209)
+
+### Other Notable changes
+
+- improve image build efficiency by @Congrool in https://github.com/openyurtio/openyurt/pull/1191
+- support filter chain for filtering response data by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1189
+- fix: re-list when target change by @LaurenceLiZhixin in https://github.com/openyurtio/openyurt/pull/1195
+- fix: pool-coordinator cannot be rescheduled when its node fails (#1212) by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1218
+- feat: merge yurtctl to e2e by @YTGhost in https://github.com/openyurtio/openyurt/pull/1219
+- support pass bootstrap-file to yurthub by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1333
+- add system proxy for docker run by @gnunu in https://github.com/openyurtio/openyurt/pull/1335
+- feat: add yurtadm renew certificate command by @YTGhost in https://github.com/openyurtio/openyurt/pull/1314
+- add a new way to create webhook by @JameKeal in https://github.com/openyurtio/openyurt/pull/1359
+- feat: support pool-coordinator component work in specified namespace by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1355
+- feat: add nodepool e2e by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1365
+- feat: support yurt-manager work in specified namespace by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1367
+- support yurthub component work in specified namespace by @huweihuang in https://github.com/openyurtio/openyurt/pull/1366
+- support to specify enabled controllers by @xavier-hou in https://github.com/openyurtio/openyurt/pull/1388
+- feat: crd generate crds by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1389
+- add Yurtappdaemon e2e test by @theonefx in https://github.com/openyurtio/openyurt/pull/1406
+- fix generated crd name by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1408
+
+### Fixes
+
+- fix handle poolcoordinator certificates in case of restarting by @batthebee in https://github.com/openyurtio/openyurt/pull/1187
+- make rename replace old dir by @LaurenceLiZhixin in https://github.com/openyurtio/openyurt/pull/1237
+- yurtadm minor version compatibility of kubelet and kubeadm by @YTGhost in https://github.com/openyurtio/openyurt/pull/1244
+- delete specific iptables while testing kube-proxy by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1268
+- fix yurthub dnsPolicy when using pool-coordinator by @JameKeal in https://github.com/openyurtio/openyurt/pull/1321
+- fix: yurt-controller-manager reboot cannot remove taint node.openyurt.io/unschedulable (#1233) by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1337
+- fix daemonSet pod updater pointer error by @JameKeal in https://github.com/openyurtio/openyurt/pull/1340
+- bugfix for yurtappset by @theonefx in https://github.com/openyurtio/openyurt/pull/1391
+
+### Contributors
+
+**Thank you to everyone who contributed to this release!** ❤
+
+- [@batthebee](https://github.com/batthebee)
+- [@cndoit18](https://github.com/cndoit18)
+- [@fengshunli](https://github.com/fengshunli)
+- [@luc99hen](https://github.com/luc99hen)
+- [@frank-zsy](https://github.com/frank-zsy)
+- [@YTGhost](https://github.com/YTGhost)
+- [@Congrool](https://github.com/Congrool)
+- [@luckymrwang](https://github.com/luckymrwang)
+- [@AndyEWang](https://github.com/AndyEWang)
+- [@huiwq1990](https://github.com/huiwq1990)
+- [@njucjc](https://github.com/njucjc)
+- [@xavier-hou](https://github.com/xavier-hou)
+- [@kadisi](https://github.com/kadisi)
+- [@guoguodan](https://github.com/guoguodan)
+- [@JameKeal](https://github.com/JameKeal)
+- [@gnunu](https://github.com/gnunu)
+- [@y-ykcir](https://github.com/y-ykcir)
+- [@Lan-ce-lot](https://github.com/Lan-ce-lot)
+- [@River-sh](https://github.com/River-sh)
+- [@huweihuang](https://github.com/huweihuang)
+- [@lilongfeng0902](https://github.com/lilongfeng0902)
+- [@theonefx](https://github.com/theonefx)
+- [@fujitatomoya](https://github.com/fujitatomoya)
+- [@rambohe-ch](https://github.com/rambohe-ch)
+
+And thank you very much to everyone else not listed here who contributed in other ways like filing issues,
+giving feedback, helping users in community group, etc.
+
 ## v1.2.0
 
 ### What's New

@@ -27,7 +27,7 @@ spec:
             type: Directory
       containers:
         - name: yurt-hub
-          image: "{{ .Values.yurtHub.Image.registry }}/{{ .Values.yurtHub.Image.repository }}:{{ .Values.yurtHub.Image.tag }}"
+          image: {{ .Values.yurtHub.Image.registry }}/{{ .Values.yurtHub.Image.repository }}:{{ .Values.yurtHub.Image.tag }}
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: hub-dir
