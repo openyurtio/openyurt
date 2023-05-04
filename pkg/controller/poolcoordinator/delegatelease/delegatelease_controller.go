@@ -90,7 +90,7 @@ func (r *ReconcileDelegateLease) Reconcile(ctx context.Context, req reconcile.Re
 		return reconcile.Result{}, nil
 	}
 
-	klog.V(4).Infof("lease request: %s\n", lea.Name)
+	klog.V(5).Infof("lease request: %s\n", lea.Name)
 
 	nval, nok := lea.Annotations[constant.DelegateHeartBeat]
 

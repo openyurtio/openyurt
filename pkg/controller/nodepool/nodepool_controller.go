@@ -72,6 +72,8 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 		klog.Errorf(Format("DiscoverGVK error"))
 		return nil
 	}
+
+	klog.Infof("nodepool-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 

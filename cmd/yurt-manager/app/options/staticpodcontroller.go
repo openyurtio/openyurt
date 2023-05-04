@@ -42,7 +42,7 @@ func (o *StaticPodControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
-	fs.StringVar(&o.UpgradeWorkerImage, "upgrade-worker-image", o.UpgradeWorkerImage, "Specify the worker pod image used for static pod upgrade.")
+	fs.StringVar(&o.UpgradeWorkerImage, "node-servant-image", o.UpgradeWorkerImage, "Specify node servant pod image used for static pod upgrade.")
 }
 
 // ApplyTo fills up staticpod config with options.

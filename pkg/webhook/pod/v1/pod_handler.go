@@ -26,6 +26,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
+const (
+	WebhookName = "interceptpodeviction"
+)
+
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init

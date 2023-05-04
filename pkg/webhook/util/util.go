@@ -28,6 +28,7 @@ import (
 const (
 	MutatingWebhookConfigurationName   = "yurt-manager-mutating-webhook-configuration"
 	ValidatingWebhookConfigurationName = "yurt-manager-validating-webhook-configuration"
+	emptyGroupName                     = "core.openyurt.io"
 )
 
 var namespace = "kube-system"
@@ -82,12 +83,21 @@ func GetCertWriter() string {
 }
 
 func GenerateMutatePath(gvk schema.GroupVersionKind) string {
-	return "/mutate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+
+	return "/mutate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
 func GenerateValidatePath(gvk schema.GroupVersionKind) string {
-	return "/validate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+	return "/validate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 

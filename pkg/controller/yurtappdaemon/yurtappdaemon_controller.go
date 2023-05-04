@@ -79,6 +79,7 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 		return nil
 	}
 
+	klog.Infof("yurtappdaemon-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(mgr))
 }
 

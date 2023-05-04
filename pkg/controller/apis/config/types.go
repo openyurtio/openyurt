@@ -18,8 +18,6 @@ package config
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cmconfig "k8s.io/controller-manager/config"
-	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
@@ -27,18 +25,6 @@ import (
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
 )
-
-// YurtControllerManagerConfiguration contains elements describing yurt-controller manager.
-type YurtControllerManagerConfiguration struct {
-	metav1.TypeMeta
-
-	// Generic holds configuration for a generic controller-manager
-	Generic cmconfig.GenericControllerManagerConfiguration
-
-	// NodeLifecycleControllerConfiguration holds configuration for
-	// NodeLifecycleController related features.
-	NodeLifecycleController nodelifecycleconfig.NodeLifecycleControllerConfiguration
-}
 
 // YurtManagerConfiguration contains elements describing yurt-manager.
 type YurtManagerConfiguration struct {
@@ -64,6 +50,7 @@ type GenericConfiguration struct {
 	Version                 bool
 	MetricsAddr             string
 	HealthProbeAddr         string
+	WebhookPort             int
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
 	RestConfigQPS           int
