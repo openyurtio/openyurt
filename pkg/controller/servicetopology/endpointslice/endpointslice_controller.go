@@ -52,8 +52,8 @@ func init() {
 
 var (
 	concurrentReconciles  = 3
-	controllerV1Kind      = discoveryv1.SchemeGroupVersion.WithKind("Endpointslice")
-	controllerV1beta1Kind = discoveryv1beta1.SchemeGroupVersion.WithKind("Endpointslice")
+	controllerV1Kind      = discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice")
+	controllerV1beta1Kind = discoveryv1beta1.SchemeGroupVersion.WithKind("EndpointSlice")
 )
 
 func Format(format string, args ...interface{}) string {
@@ -67,6 +67,8 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerV1Kind) && !utildiscovery.DiscoverGVK(controllerV1beta1Kind) {
 		return nil
 	}
+
+	klog.Infof("servicetopology-endpointslice-controller add controller %s and %s", controllerV1Kind.String(), controllerV1beta1Kind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 

@@ -66,6 +66,7 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	cfg := c.ComponentConfig.Generic
 	ravenv1alpha1.ServiceNamespacedName.Namespace = cfg.WorkingNamespace
 
+	klog.Infof("ravenl3-gateway-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 

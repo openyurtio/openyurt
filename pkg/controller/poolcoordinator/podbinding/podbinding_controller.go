@@ -101,7 +101,7 @@ func (r *ReconcilePodBinding) processNode(ctx context.Context, node *corev1.Node
 
 	for i := range pods {
 		pod := &pods[i]
-		klog.V(4).Infof("pod %d on node %s: %s\n", i, node.Name, pod.Name)
+		klog.V(5).Infof("pod %d on node %s: %s\n", i, node.Name, pod.Name)
 		// skip DaemonSet pods and static pod
 		if isDaemonSetPodOrStaticPod(pod) {
 			continue
@@ -125,13 +125,10 @@ func (r *ReconcilePodBinding) processNode(ctx context.Context, node *corev1.Node
 func (r *ReconcilePodBinding) getPodsAssignedToNode(ctx context.Context, name string) []corev1.Pod {
 	pods, err := r.podBindingClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + name})
 	if err != nil {
-		klog.Errorf("failed to get pod list for node(%s)", name)
+		klog.Errorf("failed to get podList for node(%s), %v", name, err)
 		return nil
 	}
-	if pods != nil {
-		return pods.Items
-	}
-	return nil
+	return pods.Items
 }
 
 func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerationSeconds *int64) error {
@@ -141,8 +138,8 @@ func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerat
 	toleratesNodeNotReady := addOrUpdateTolerationInPodSpec(&pod.Spec, &notReadyToleration)
 	toleratesNodeUnreachable := addOrUpdateTolerationInPodSpec(&pod.Spec, &unreachableToleration)
 
-	klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%v", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, tolerationSeconds)
 	if toleratesNodeNotReady || toleratesNodeUnreachable {
+		klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds)
 		_, err := r.podBindingClient.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err)

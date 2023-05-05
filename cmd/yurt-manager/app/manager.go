@@ -193,23 +193,15 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("initialize webhook")
-	if err := webhook.Initialize(ctx, cfg, c); err != nil {
+	if err := webhook.Initialize(ctx, c); err != nil {
 		setupLog.Error(err, "unable to initialize webhook")
 		os.Exit(1)
 	}
 
-	if err := mgr.AddReadyzCheck("webhook-ready", webhook.Checker); err != nil {
+	if err := mgr.AddReadyzCheck("webhook-ready", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		setupLog.Error(err, "unable to add readyz check")
 		os.Exit(1)
 	}
-
-	go func() {
-		setupLog.Info("wait webhook ready")
-		if err = webhook.WaitReady(); err != nil {
-			setupLog.Error(err, "unable to wait webhook ready")
-			os.Exit(1)
-		}
-	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {

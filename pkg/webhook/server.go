@@ -19,10 +19,8 @@ package webhook
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -41,7 +39,6 @@ import (
 	v1alpha1staticpod "github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
-	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
 )
@@ -79,7 +76,7 @@ func init() {
 	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 
-	independentWebhooks["pod"] = &v1pod.PodHandler{}
+	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 }
 
 // Note !!! @kadisi
@@ -139,8 +136,8 @@ type GateFunc func() (enabled bool)
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
 
-func Initialize(ctx context.Context, cfg *rest.Config, cc *config.CompletedConfig) error {
-	c, err := webhookcontroller.New(cfg, WebhookHandlerPath, cc)
+func Initialize(ctx context.Context, cc *config.CompletedConfig) error {
+	c, err := webhookcontroller.New(WebhookHandlerPath, cc)
 	if err != nil {
 		return err
 	}
@@ -154,33 +151,6 @@ func Initialize(ctx context.Context, cfg *rest.Config, cc *config.CompletedConfi
 	case <-webhookcontroller.Inited():
 		return nil
 	case <-timer.C:
-		return fmt.Errorf("failed to start webhook controller for waiting more than 20s")
+		return fmt.Errorf("failed to prepare certificate for webhook within 20s")
 	}
-}
-
-func Checker(req *http.Request) error {
-	// Firstly wait webhook controller initialized
-	select {
-	case <-webhookcontroller.Inited():
-	default:
-		return fmt.Errorf("webhook controller has not initialized")
-	}
-	return health.Checker(req)
-}
-
-func WaitReady() error {
-	startTS := time.Now()
-	var err error
-	for {
-		duration := time.Since(startTS)
-		if err = Checker(nil); err == nil {
-			return nil
-		}
-
-		if duration > time.Second*5 {
-			klog.Warningf("Failed to wait webhook ready over %s: %v", duration, err)
-		}
-		time.Sleep(time.Second * 2)
-	}
-
 }

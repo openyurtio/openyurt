@@ -99,6 +99,7 @@ spec:
             - --enable-leader-election
             - --metrics-addr=:10271
             - --health-probe-addr=:10272
+            - --webhook-port=10273
             - --logtostderr=true
             - --v=4
           command:
@@ -106,9 +107,6 @@ spec:
           image: {{.image}}
           imagePullPolicy: IfNotPresent
           name: yurt-manager
-          env:
-            - name: WEBHOOK_PORT
-              value: "10273"
           ports:
             - containerPort: 10273
               name: webhook-server

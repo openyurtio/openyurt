@@ -75,12 +75,12 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new YurtAppSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-	klog.Infof("yurtappset-controller add controller %s", controllerKind.String())
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		klog.Errorf(Format("DiscoverGVK error"))
 		return nil
 	}
 
+	klog.Infof("yurtappset-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
