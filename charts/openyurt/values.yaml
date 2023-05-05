@@ -43,7 +43,7 @@ yurtManager:
     # log level for yurt-manager
     level: 4
   replicas: 1
-  image:
+  Image:
     registry: openyurt
     repository: yurt-manager
     tag: latest
