@@ -60,6 +60,7 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 	kubernetesServerAddrs := strings.Join(serverAddrs, ",")
 
 	ctx := map[string]string{
+		"yurthubBindingAddr":   data.YurtHubServer(),
 		"kubernetesServerAddr": kubernetesServerAddrs,
 		"workingMode":          data.NodeRegistration().WorkingMode,
 		"organizations":        data.NodeRegistration().Organizations,
