@@ -24,12 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,8 +39,6 @@ import (
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	common "github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
@@ -51,9 +46,8 @@ func init() {
 }
 
 var (
-	concurrentReconciles  = 3
-	controllerV1Kind      = discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice")
-	controllerV1beta1Kind = discoveryv1beta1.SchemeGroupVersion.WithKind("EndpointSlice")
+	concurrentReconciles = 3
+	v1EndpointSliceGVR   = discoveryv1.SchemeGroupVersion.WithResource("endpointslices")
 )
 
 func Format(format string, args ...interface{}) string {
@@ -63,13 +57,36 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new Servicetopology endpointslice Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerV1Kind) && !utildiscovery.DiscoverGVK(controllerV1beta1Kind) {
-		return nil
+func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
+	r := &ReconcileServiceTopologyEndpointSlice{}
+	c, err := controller.New(fmt.Sprintf("%s-endpointslice", common.ControllerName), mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	if err != nil {
+		return err
 	}
 
-	klog.Infof("servicetopology-endpointslice-controller add controller %s and %s", controllerV1Kind.String(), controllerV1beta1Kind.String())
-	return add(mgr, newReconciler(c, mgr))
+	if r.isSupportEndpointslicev1 {
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Adapter(r.kubeClient, r.Client)
+	} else {
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Beta1Adapter(r.kubeClient, r.Client)
+	}
+
+	// Watch for changes to Service
+	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsliceForService{
+		endpointsliceAdapter: r.endpointsliceAdapter,
+	}); err != nil {
+		return err
+	}
+
+	// Watch for changes to NodePool
+	if err := c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &EnqueueEndpointsliceForNodePool{
+		endpointsliceAdapter: r.endpointsliceAdapter,
+		client:               r.Client,
+	}); err != nil {
+		return err
+	}
+
+	klog.Infof("%s-endpointslice controller is added", common.ControllerName)
+	return nil
 }
 
 var _ reconcile.Reconciler = &ReconcileServiceTopologyEndpointSlice{}
@@ -77,19 +94,9 @@ var _ reconcile.Reconciler = &ReconcileServiceTopologyEndpointSlice{}
 // ReconcileServiceTopologyEndpointSlice reconciles a Example object
 type ReconcileServiceTopologyEndpointSlice struct {
 	client.Client
-	scheme                   *runtime.Scheme
-	recorder                 record.EventRecorder
+	kubeClient               kubernetes.Interface
 	endpointsliceAdapter     adapter.Adapter
 	isSupportEndpointslicev1 bool
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileServiceTopologyEndpointSlice{
-		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
-		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.ControllerName),
-	}
 }
 
 func (r *ReconcileServiceTopologyEndpointSlice) InjectConfig(cfg *rest.Config) error {
@@ -98,38 +105,24 @@ func (r *ReconcileServiceTopologyEndpointSlice) InjectConfig(cfg *rest.Config) e
 		klog.Errorf(Format("failed to create kube client, %v", err))
 		return err
 	}
-	endpointSliceAdapter, isSupportEndpointslicev1, err := getEndpointSliceAdapter(c, r.Client)
-	if err != nil {
-		return err
-	}
-	r.endpointsliceAdapter = endpointSliceAdapter
-	r.isSupportEndpointslicev1 = isSupportEndpointslicev1
+	r.kubeClient = c
 	return nil
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New(fmt.Sprintf("%s-endpointslice", common.ControllerName), mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
-	if err != nil {
-		return err
+func (r *ReconcileServiceTopologyEndpointSlice) InjectMapper(mapper meta.RESTMapper) error {
+	if gvk, err := mapper.KindFor(v1EndpointSliceGVR); err != nil {
+		klog.Errorf("v1.EndpointSlice is not supported, %v", err)
+		r.isSupportEndpointslicev1 = false
+	} else {
+		klog.Infof("%s is supported", gvk.String())
+		r.isSupportEndpointslicev1 = true
 	}
 
-	// Watch for changes to Service
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsliceForService{
-		endpointsliceAdapter: r.(*ReconcileServiceTopologyEndpointSlice).endpointsliceAdapter,
-	}); err != nil {
-		return err
-	}
+	return nil
+}
 
-	// Watch for changes to NodePool
-	if err := c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &EnqueueEndpointsliceForNodePool{
-		endpointsliceAdapter: r.(*ReconcileServiceTopologyEndpointSlice).endpointsliceAdapter,
-		client:               r.(*ReconcileServiceTopologyEndpointSlice).Client,
-	}); err != nil {
-		return err
-	}
-
+func (r *ReconcileServiceTopologyEndpointSlice) InjectClient(c client.Client) error {
+	r.Client = c
 	return nil
 }
 
@@ -174,18 +167,4 @@ func (r *ReconcileServiceTopologyEndpointSlice) Reconcile(_ context.Context, req
 
 func (r *ReconcileServiceTopologyEndpointSlice) syncEndpointslice(namespace, name string) error {
 	return r.endpointsliceAdapter.UpdateTriggerAnnotations(namespace, name)
-}
-
-func getEndpointSliceAdapter(kubeClient kubernetes.Interface, client client.Client) (adapter.Adapter, bool, error) {
-	_, err := kubeClient.DiscoveryV1().EndpointSlices(corev1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-
-	if err == nil {
-		klog.Infof(Format("v1.EndpointSlice is supported."))
-		return adapter.NewEndpointsV1Adapter(kubeClient, client), true, nil
-	}
-	if errors.IsNotFound(err) {
-		klog.Infof(Format("fall back to v1beta1.EndpointSlice."))
-		return adapter.NewEndpointsV1Beta1Adapter(kubeClient, client), false, nil
-	}
-	return nil, false, err
 }
