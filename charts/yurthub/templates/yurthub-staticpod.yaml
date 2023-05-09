@@ -2,7 +2,9 @@ apiVersion: apps.openyurt.io/v1alpha1
 kind: StaticPod
 metadata:
   name: yurt-hub
-  namespace: {{ include "openyurt.namespace" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yurthub.labels" . | nindent 4 }}
 spec:
   staticPodManifest: yurt-hub
   template:
@@ -10,7 +12,7 @@ spec:
       labels:
         k8s-app: yurt-hub
       name: yurt-hub
-      namespace: {{ include "openyurt.namespace" . }}
+      namespace: {{ .Release.Namespace }}
     spec:
       volumes:
         - name: hub-dir
@@ -21,36 +23,30 @@ spec:
           hostPath:
             path: /etc/kubernetes
             type: Directory
-        - name: pem-dir
-          hostPath:
-            path: /var/lib/kubelet/pki
-            type: Directory
       containers:
         - name: yurt-hub
-          image: {{ .Values.yurtHub.Image.registry }}/{{ .Values.yurtHub.Image.repository }}:{{ .Values.yurtHub.Image.tag }}
+          image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: hub-dir
               mountPath: /var/lib/yurthub
             - name: kubernetes
               mountPath: /etc/kubernetes
-            - name: pem-dir
-              mountPath: /var/lib/kubelet/pki
           command:
             - yurthub
             - --v=2
-            - --bind-address={{ .Values.yurtHub.yurthubServerAddr }}
+            - --bind-address={{`{{.yurthubBindingAddr}}`}}
             - --server-addr={{`{{.kubernetesServerAddr}}`}}
             - --node-name=$(NODE_NAME)
-            - --bootstrap-file={{ .Values.yurtHub.bootstrapFile }}
+            - --bootstrap-file={{ .Values.bootstrapFile }}
             - --working-mode={{`{{.workingMode}}`}}
-            - --namespace={{ include "openyurt.namespace" . }}
+            - --namespace={{ .Release.Namespace }}
               {{`{{if .organizations }}`}}
             - --hub-cert-organizations={{`{{.organizations}}`}}
               {{`{{end}}`}}
           livenessProbe:
             httpGet:
-              host: {{ .Values.yurtHub.yurthubServerAddr | quote }}
+              host: {{ .Values.yurthubServerAddr | quote }}
               path: /v1/healthz
               port: 10267
             initialDelaySeconds: 300
@@ -73,32 +69,5 @@ spec:
       hostNetwork: true
       priorityClassName: system-node-critical
       priority: 2000001000
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: read-static-pod-cm
-rules:
-  - apiGroups:
-    - ""
-    resources:
-    - configmaps
-    resourceNames:
-    - static-pod-cm-{{ include "openyurt.namespace" . }}-yurt-hub
-    verbs:
-    - get
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: read-static-pod-cm-bootstrap
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: read-static-pod-cm
-subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: system:bootstrappers
 
 

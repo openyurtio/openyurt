@@ -2,49 +2,51 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pool-coordinator-apiserver
-  namespace: {{ include "openyurt.namespace" . }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
-    name: pool-coordinator
+    {{- include "pool-coordinator.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
     - port: 443
-      targetPort: {{ .Values.poolCoordinator.apiserverSecurePort }}
+      targetPort: {{ .Values.apiserverSecurePort }}
       protocol: TCP
       name: https
   selector:
-    k8s-app: pool-coordinator
+    {{- include "pool-coordinator.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: pool-coordinator-etcd
-  namespace: {{ include "openyurt.namespace" . }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
-    name: pool-coordinator
+    {{- include "pool-coordinator.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
     - port: 2379
-      targetPort: {{ .Values.poolCoordinator.etcdPort }}
+      targetPort: {{ .Values.etcdPort }}
       protocol: TCP
       name: https
   selector:
-    k8s-app: pool-coordinator
+    {{- include "pool-coordinator.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppDaemon
 metadata:
   name: pool-coordinator
-  namespace: {{ include "openyurt.namespace" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pool-coordinator.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      k8s-app: pool-coordinator
+      {{- include "pool-coordinator.selectorLabels" . | nindent 6 }}
   nodepoolSelector:
     matchLabels:
       openyurt.io/node-pool-type: "edge"
@@ -52,16 +54,16 @@ spec:
     deploymentTemplate:
       metadata:
         labels:
-          k8s-app: pool-coordinator
+          {{- include "pool-coordinator.labels" . | nindent 10 }}
       spec:
         replicas: 1
         selector:
           matchLabels:
-            k8s-app: pool-coordinator
+            {{- include "pool-coordinator.selectorLabels" . | nindent 12 }}
         template:
           metadata:
             labels:
-              k8s-app: pool-coordinator
+              {{- include "pool-coordinator.labels" . | nindent 14 }}
           spec:
             containers:
               - command:
@@ -77,25 +79,25 @@ spec:
                   - --etcd-cafile=/etc/kubernetes/pki/ca.crt
                   - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
                   - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
-                  - --etcd-servers=https://127.0.0.1:{{ .Values.poolCoordinator.etcdPort }}
+                  - --etcd-servers=https://127.0.0.1:{{ .Values.etcdPort }}
                   - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
                   - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
                   - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
-                  - --secure-port={{ .Values.poolCoordinator.apiserverSecurePort }}
+                  - --secure-port={{ .Values.apiserverSecurePort }}
                   - --service-account-issuer=https://kubernetes.default.svc.cluster.local
                   - --service-account-key-file=/etc/kubernetes/pki/sa.pub
                   - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
-                  - --service-cluster-ip-range={{ .Values.poolCoordinator.serviceClusterIPRange }}
+                  - --service-cluster-ip-range={{ .Values.serviceClusterIPRange }}
                   - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
                   - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
-                image: "{{ .Values.poolCoordinator.apiserverImage.registry }}/{{ .Values.poolCoordinator.apiserverImage.repository }}:{{ .Values.poolCoordinator.apiserverImage.tag }}"
-                imagePullPolicy: {{ .Values.poolCoordinator.apiserverImage.pullPolicy }}
+                image: "{{ .Values.apiserverImage.registry }}/{{ .Values.apiserverImage.repository }}:{{ .Values.apiserverImage.tag }}"
+                imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 8
                   httpGet:
                     host: 127.0.0.1
                     path: /livez
-                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    port: {{ .Values.apiserverSecurePort }}
                     scheme: HTTPS
                   initialDelaySeconds: 10
                   periodSeconds: 10
@@ -107,21 +109,21 @@ spec:
                   httpGet:
                     host: 127.0.0.1
                     path: /readyz
-                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    port: {{ .Values.apiserverSecurePort }}
                     scheme: HTTPS
                   periodSeconds: 1
                   successThreshold: 1
                   timeoutSeconds: 15
-                {{- if .Values.poolCoordinator.apiserverResources }}
+                {{- if .Values.apiserverResources }}
                 resources:
-                  {{- toYaml .Values.poolCoordinator.apiserverResources | nindent 18 }}
+                  {{- toYaml .Values.apiserverResources | nindent 18 }}
                 {{- end }}
                 startupProbe:
                   failureThreshold: 24
                   httpGet:
                     host: 127.0.0.1
                     path: /livez
-                    port: {{ .Values.poolCoordinator.apiserverSecurePort }}
+                    port: {{ .Values.apiserverSecurePort }}
                     scheme: HTTPS
                   initialDelaySeconds: 10
                   periodSeconds: 10
@@ -135,30 +137,30 @@ spec:
                     readOnly: true
               - command:
                   - etcd
-                  - --advertise-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
-                  - --listen-client-urls=https://0.0.0.0:{{ .Values.poolCoordinator.etcdPort }}
+                  - --advertise-client-urls=https://0.0.0.0:{{ .Values.etcdPort }}
+                  - --listen-client-urls=https://0.0.0.0:{{ .Values.etcdPort }}
                   - --cert-file=/etc/kubernetes/pki/etcd-server.crt
                   - --client-cert-auth=true
                   - --max-txn-ops=102400
                   - --data-dir=/var/lib/etcd
                   - --max-request-bytes=100000000
                   - --key-file=/etc/kubernetes/pki/etcd-server.key
-                  - --listen-metrics-urls=http://0.0.0.0:{{ .Values.poolCoordinator.etcdMetricPort }}
+                  - --listen-metrics-urls=http://0.0.0.0:{{ .Values.etcdMetricPort }}
                   - --snapshot-count=10000
                   - --trusted-ca-file=/etc/kubernetes/pki/ca.crt
-                image: "{{ .Values.poolCoordinator.etcdImage.registry }}/{{ .Values.poolCoordinator.etcdImage.repository }}:{{ .Values.poolCoordinator.etcdImage.tag }}"
-                imagePullPolicy: {{ .Values.imagePullPolicy }}
+                image: "{{ .Values.etcdImage.registry }}/{{ .Values.etcdImage.repository }}:{{ .Values.etcdImage.tag }}"
+                imagePullPolicy: IfNotPresent
                 name: etcd
-                {{- if .Values.poolCoordinator.etcdResources}}
+                {{- if .Values.etcdResources}}
                 resources:
-                  {{- toYaml .Values.poolCoordinator.etcdResources | nindent 18 }}
+                  {{- toYaml .Values.etcdResources | nindent 18 }}
                 {{- end }}
                 startupProbe:
                   failureThreshold: 24
                   httpGet:
                     host: 127.0.0.1
                     path: /health
-                    port: {{ .Values.poolCoordinator.etcdMetricPort }}
+                    port: {{ .Values.etcdMetricPort }}
                     scheme: HTTP
                   initialDelaySeconds: 10
                   periodSeconds: 10

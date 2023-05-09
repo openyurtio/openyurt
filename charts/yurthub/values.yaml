@@ -1,0 +1,15 @@
+# Default values for yurthub.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+cacheAgents: ""
+
+bootstrapFile: "/var/lib/yurthub/bootstrap-hub.conf"
+
+yurthubServerAddr: "127.0.0.1"
+
+image:
+  registry: openyurt
+  repository: yurthub
+  tag: latest
