@@ -64,6 +64,8 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 		"kubernetesServerAddr": kubernetesServerAddrs,
 		"workingMode":          data.NodeRegistration().WorkingMode,
 		"organizations":        data.NodeRegistration().Organizations,
+		"namespace":            data.Namespace(),
+		"image":                data.YurtHubImage(),
 	}
 
 	yurthubTemplate, err := templates.SubsituteTemplate(data.YurtHubTemplate(), ctx)

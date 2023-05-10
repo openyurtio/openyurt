@@ -97,6 +97,8 @@ const (
 	TokenDiscoverySkipCAHash = "discovery-token-unsafe-skip-ca-verification"
 	// Namespace flag sets the namespace of yurthub staticpod manifest.
 	Namespace = "namespace"
+	// YurtHubImage flag sets the yurthub image for worker node.
+	YurtHubImage = "yurthub-image"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
 	// ServerAddr flag set the address of kubernetes kube-apiserver
@@ -108,6 +110,7 @@ const (
 	ServerHealthzURLPath         = "/v1/healthz"
 	ServerReadyzURLPath          = "/v1/readyz"
 	DefaultOpenYurtImageRegistry = "registry.cn-hangzhou.aliyuncs.com/openyurt"
+	Yurthub                      = "yurthub"
 	DefaultOpenYurtVersion       = "latest"
 	DefaultYurtHubServerAddr     = "127.0.0.1"
 	DirMode                      = 0755
@@ -214,11 +217,12 @@ spec:
     command:
     - yurthub
     - --v=2
-    - --bind-address={{.yurthubServerAddr}}
+    - --bind-address={{.yurthubBindingAddr}}
     - --server-addr={{.kubernetesServerAddr}}
     - --node-name=$(NODE_NAME)
-    - --bootstrap-file={{.bootstrapFile}}
+    - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
     - --working-mode={{.workingMode}}
+    - --namespace={{.namespace}}
       {{if .enableDummyIf }}
     - --enable-dummy-if={{.enableDummyIf}}
       {{end}}
@@ -230,7 +234,7 @@ spec:
       {{end}}
     livenessProbe:
       httpGet:
-        host: {{.yurthubServerAddr}}
+        host: {{.yurthubBindingAddr}}
         path: /v1/healthz
         port: 10267
       initialDelaySeconds: 300
