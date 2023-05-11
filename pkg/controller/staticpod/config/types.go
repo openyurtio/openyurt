@@ -16,7 +16,7 @@ limitations under the License.
 
 package config
 
-// StaticPodControllerConfiguration contains elements describing GatewayController.
+// StaticPodControllerConfiguration contains elements describing StaticPodController.
 type StaticPodControllerConfiguration struct {
 	// UpgradeWorkerImage specify the image used to execute the upgrade task
 	UpgradeWorkerImage string

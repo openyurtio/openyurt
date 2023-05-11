@@ -39,6 +39,23 @@ var (
 	fakeStaticPodName  = "nginx"
 )
 
+func newNode(name string) *corev1.Node {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	return node
+}
+
+func newNodes(nodeNames []string) []client.Object {
+	var nodes []client.Object
+	for _, n := range nodeNames {
+		nodes = append(nodes, client.Object(newNode(n)))
+	}
+	return nodes
+}
+
 func newPod(podName string, nodeName string, namespace string, isStaticPod bool) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -78,14 +95,17 @@ func newStaticPod() *appsv1alpha1.StaticPod {
 func Test_ConstructStaticPodsUpgradeInfoList(t *testing.T) {
 	staticPods := newPods(fakeStaticPodNodes, metav1.NamespaceDefault, true)
 	workerPods := newPods(fakeWorkerPodNodes, metav1.NamespaceDefault, false)
+	nodes := newNodes(fakeStaticPodNodes)
 	expect := map[string]*UpgradeInfo{
 		"node1": {
-			StaticPod: staticPods[0].(*corev1.Pod),
-			WorkerPod: workerPods[0].(*corev1.Pod),
+			StaticPod:        staticPods[0].(*corev1.Pod),
+			WorkerPod:        workerPods[0].(*corev1.Pod),
+			WorkerPodRunning: true,
 		},
 		"node2": {
-			StaticPod: staticPods[1].(*corev1.Pod),
-			WorkerPod: workerPods[1].(*corev1.Pod),
+			StaticPod:        staticPods[1].(*corev1.Pod),
+			WorkerPod:        workerPods[1].(*corev1.Pod),
+			WorkerPodRunning: true,
 		},
 		"node3": {
 			StaticPod: staticPods[2].(*corev1.Pod),
@@ -95,11 +115,12 @@ func Test_ConstructStaticPodsUpgradeInfoList(t *testing.T) {
 		},
 	}
 
-	pods := append(staticPods, workerPods...)
-	c := fake.NewClientBuilder().WithObjects(pods...).Build()
+	objects := append(staticPods, workerPods...)
+	objects = append(objects, nodes...)
+	c := fake.NewClientBuilder().WithObjects(objects...).Build()
 
 	t.Run("test", func(t *testing.T) {
-		spi, _ := New(c, newStaticPod(), UpgradeWorkerPodPrefix)
+		spi, _ := New(c, newStaticPod(), UpgradeWorkerPodPrefix, "")
 
 		if !reflect.DeepEqual(spi, expect) {
 			t.Fatalf("Fail to test ConstructStaticPodsUpgradeInfoList, got %v, want %v", spi, expect)
@@ -114,7 +135,7 @@ func TestNodes(t *testing.T) {
 		"node1": {
 			WorkerPodRunning: true,
 			UpgradeNeeded:    true,
-			Ready:            true,
+			NodeReady:        true,
 		},
 		"node2": {
 			StaticPod: &corev1.Pod{
@@ -125,7 +146,7 @@ func TestNodes(t *testing.T) {
 				},
 			},
 			UpgradeNeeded: true,
-			Ready:         true,
+			NodeReady:     true,
 		},
 		"node3": {
 			StaticPod: &corev1.Pod{
@@ -136,18 +157,70 @@ func TestNodes(t *testing.T) {
 				},
 			},
 			UpgradeNeeded: true,
-			Ready:         true,
+			NodeReady:     true,
 		},
 		"node4": {
-			Ready: true,
+			NodeReady: true,
 		},
-		"node5": {},
+		"node5": {
+			WorkerPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						OTALatestManifestAnnotation: fHash,
+					},
+				},
+			},
+		},
+		"node6": {
+			WorkerPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						OTALatestManifestAnnotation: fHash,
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node6",
+				},
+			},
+			WorkerPodDeleteNeeded: true,
+		},
+		"node7": {
+			WorkerPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						OTALatestManifestAnnotation: fHash,
+					},
+				},
+			},
+			WorkerPodStatusPhase: corev1.PodPending,
+		},
+		"node8": {
+			StaticPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						OTALatestManifestAnnotation: fHash,
+					},
+				},
+			},
+			StaticPodReady: true,
+		},
+		"node9": {
+			StaticPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						OTALatestManifestAnnotation: fHash,
+					},
+				},
+			},
+			UpgradeNeeded: false,
+		},
 	}
 
 	expectReadyUpgradeWaitingNodes := map[string]struct{}{"node2": {}, "node3": {}}
-	expectReadyNodes := map[string]struct{}{"node1": {}, "node2": {}, "node3": {}, "node4": {}}
 	expectUpgradeNeededNodes := map[string]struct{}{"node1": {}, "node2": {}, "node3": {}}
-	expectUpgradedNodes := map[string]struct{}{"node4": {}, "node5": {}}
+	expectUpgradedNodes := map[string]struct{}{"node4": {}, "node5": {}, "node6": {}, "node7": {}, "node8": {}, "node9": {}}
+	expectDeletePods := []string{"node6"}
+	expectStaticReadyPods := []string{"node8"}
 
 	t.Run("TestReadyUpgradeWaitingNodes", func(t *testing.T) {
 		if got := ReadyUpgradeWaitingNodes(spi); !hasCommonElement(got, expectReadyUpgradeWaitingNodes) {
@@ -155,21 +228,29 @@ func TestNodes(t *testing.T) {
 		}
 	})
 
-	t.Run("ReadyNodes", func(t *testing.T) {
-		if got := ReadyNodes(spi); !hasCommonElement(got, expectReadyNodes) {
-			t.Fatalf("ReadyNodes got %v, want %v", got, expectReadyNodes)
+	t.Run("ListOutUpgradeNeededNodesAndUpgradedNodes", func(t *testing.T) {
+		nGot, got := ListOutUpgradeNeededNodesAndUpgradedNodes(spi)
+		if !hasCommonElement(nGot, expectUpgradeNeededNodes) {
+			t.Fatalf("UpgradeNeededNodes got %v, want %v", nGot, expectUpgradeNeededNodes)
 		}
-	})
-
-	t.Run("UpgradeNeededNodes", func(t *testing.T) {
-		if got := UpgradeNeededNodes(spi); !hasCommonElement(got, expectUpgradeNeededNodes) {
-			t.Fatalf("UpgradeNeededNodes got %v, want %v", got, expectUpgradeNeededNodes)
-		}
-	})
-
-	t.Run("UpgradedNodes", func(t *testing.T) {
-		if got := UpgradedNodes(spi); !hasCommonElement(got, expectUpgradedNodes) {
+		if !hasCommonElement(got, expectUpgradedNodes) {
 			t.Fatalf("UpgradedNodes got %v, want %v", got, expectUpgradedNodes)
+		}
+	})
+
+	t.Run("TestCalculateOperateInfoFromUpgradeInfoMap", func(t *testing.T) {
+		upgradedNumber, readyNumber, allSucceeded, deletePods := CalculateOperateInfoFromUpgradeInfoMap(spi)
+		if upgradedNumber != 2 {
+			t.Fatalf("UpgradedNumber got %v, want 0", upgradedNumber)
+		}
+		if readyNumber != int32(len(expectStaticReadyPods)) {
+			t.Fatalf("ReadyNumber got %v, want 0", readyNumber)
+		}
+		if allSucceeded {
+			t.Fatalf("AllSucceeded got %v, want false", allSucceeded)
+		}
+		if !hasCommonElementForPod(expectDeletePods, deletePods) {
+			t.Fatalf("DeletePods got %v, want empty", deletePods)
 		}
 	})
 }
@@ -181,6 +262,19 @@ func hasCommonElement(a []string, b map[string]struct{}) bool {
 
 	for _, i := range a {
 		if b[i] != struct{}{} {
+			return false
+		}
+	}
+	return true
+}
+
+func hasCommonElementForPod(a []string, b []*corev1.Pod) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, name := range a {
+		if name != b[i].Spec.NodeName {
 			return false
 		}
 	}
