@@ -38,3 +38,19 @@ func redirectTo(to string) func(http.ResponseWriter, *http.Request) {
 		http.Redirect(rw, req, to, http.StatusFound)
 	}
 }
+
+func GetPprofHandlers() map[string]http.Handler {
+	handlers := make(map[string]http.Handler)
+
+	handlers["/debug/pprof/"] = http.HandlerFunc(pprof.Index)
+	handlers["/debug/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
+	handlers["/debug/pprof/profile"] = http.HandlerFunc(pprof.Profile)
+	handlers["/debug/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
+	handlers["/debug/pprof/goroutine"] = pprof.Handler("goroutine")
+	handlers["/debug/pprof/heap"] = pprof.Handler("heap")
+	handlers["/debug/pprof/threadcreate"] = pprof.Handler("threadcreate")
+	handlers["/debug/pprof/block"] = pprof.Handler("block")
+	handlers["/debug/pprof/allocs"] = pprof.Handler("allocs")
+
+	return handlers
+}
