@@ -13,7 +13,7 @@ nameOverride: ""
 image:
   registry: openyurt
   repository: yurt-manager
-  tag: latest
+  tag: v1.3.0
 
 ports:
   metrics: 10271

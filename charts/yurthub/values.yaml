@@ -11,4 +11,4 @@ bootstrapFile: "/var/lib/yurthub/bootstrap-hub.conf"
 image:
   registry: openyurt
   repository: yurthub
-  tag: latest
+  tag: v1.3.0
