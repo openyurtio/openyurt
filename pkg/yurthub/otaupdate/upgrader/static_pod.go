@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 )

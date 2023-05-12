@@ -14,10 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package v1alpha1
 
-// StaticPodControllerConfiguration contains elements describing StaticPodController.
-type StaticPodControllerConfiguration struct {
-	// UpgradeWorkerImage specify the image used to execute the upgrade task
-	UpgradeWorkerImage string
+import (
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+)
+
+// Default satisfies the defaulting webhook interface.
+func (webhook *YurtStaticSetHandler) Default(ctx context.Context, obj runtime.Object) error {
+	sp, ok := obj.(*v1alpha1.YurtStaticSet)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", obj))
+	}
+
+	v1alpha1.SetDefaultsYurtStaticSet(sp)
+
+	return nil
 }

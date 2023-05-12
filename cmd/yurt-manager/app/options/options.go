@@ -28,7 +28,7 @@ type YurtManagerOptions struct {
 	Generic                 *GenericOptions
 	NodePoolController      *NodePoolControllerOptions
 	GatewayController       *GatewayControllerOptions
-	StaticPodController     *StaticPodControllerOptions
+	YurtStaticSetController *YurtStaticSetControllerOptions
 	YurtAppSetController    *YurtAppSetControllerOptions
 	YurtAppDaemonController *YurtAppDaemonControllerOptions
 }
@@ -40,7 +40,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		Generic:                 NewGenericOptions(),
 		NodePoolController:      NewNodePoolControllerOptions(),
 		GatewayController:       NewGatewayControllerOptions(),
-		StaticPodController:     NewStaticPodControllerOptions(),
+		YurtStaticSetController: NewYurtStaticSetControllerOptions(),
 		YurtAppSetController:    NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
 	}
@@ -53,7 +53,7 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 	y.Generic.AddFlags(fss.FlagSet("generic"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.GatewayController.AddFlags(fss.FlagSet("gateway controller"))
-	y.StaticPodController.AddFlags(fss.FlagSet("staticpod controller"))
+	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	// Please Add Other controller flags @kadisi
 
@@ -66,7 +66,7 @@ func (y *YurtManagerOptions) Validate() error {
 	errs = append(errs, y.Generic.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.GatewayController.Validate()...)
-	errs = append(errs, y.StaticPodController.Validate()...)
+	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
@@ -79,7 +79,7 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
 		return err
 	}
-	if err := y.StaticPodController.ApplyTo(&c.ComponentConfig.StaticPodController); err != nil {
+	if err := y.YurtStaticSetController.ApplyTo(&c.ComponentConfig.YurtStaticSetController); err != nil {
 		return err
 	}
 	if err := y.YurtAppDaemonController.ApplyTo(&c.ComponentConfig.YurtAppDaemonController); err != nil {

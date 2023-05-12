@@ -34,10 +34,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/controller/servicetopology/endpoints"
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/controller/servicetopology/endpointslice"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod"
 	"github.com/openyurtio/openyurt/pkg/controller/util"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 )
 
 // Note !!! @kadisi
@@ -59,7 +59,7 @@ func init() {
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
 	controllerAddFuncs[poolcoordinatorcert.ControllerName] = []AddControllerFn{poolcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}
-	controllerAddFuncs[staticpod.ControllerName] = []AddControllerFn{staticpod.Add}
+	controllerAddFuncs[yurtstaticset.ControllerName] = []AddControllerFn{yurtstaticset.Add}
 	controllerAddFuncs[yurtappset.ControllerName] = []AddControllerFn{yurtappset.Add}
 	controllerAddFuncs[yurtappdaemon.ControllerName] = []AddControllerFn{yurtappdaemon.Add}
 }

@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	ConfigMapPrefix = "static-pod-cm-"
+	ConfigMapPrefix = "static-set-"
 
 	// PodNeedUpgrade indicates whether the pod is able to upgrade.
 	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
@@ -52,7 +52,7 @@ func Hyphen(str1, str2 string) string {
 	return str1 + "-" + str2
 }
 
-// WithConfigMapPrefix add prefix `static-pod-cm-` to the given string
+// WithConfigMapPrefix add prefix `static-set-` to the given string
 func WithConfigMapPrefix(str string) string {
 	return ConfigMapPrefix + str
 }
@@ -60,8 +60,8 @@ func WithConfigMapPrefix(str string) string {
 // UnavailableCount returns 0 if unavailability is not requested, the expected
 // unavailability number to allow out of numberToUpgrade if requested, or an error if
 // the unavailability percentage requested is invalid.
-func UnavailableCount(us *appsv1alpha1.StaticPodUpgradeStrategy, numberToUpgrade int) (int, error) {
-	if us == nil || (us.Type != appsv1alpha1.AutoStaticPodUpgradeStrategyType && us.Type != appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType) {
+func UnavailableCount(us *appsv1alpha1.YurtStaticSetUpgradeStrategy, numberToUpgrade int) (int, error) {
+	if us == nil || us.Type != appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType {
 		return 0, nil
 	}
 	return intstr.GetScaledValueFromIntOrPercent(us.MaxUnavailable, numberToUpgrade, true)

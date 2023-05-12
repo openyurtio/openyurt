@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package staticpod
+package yurtstaticset
 
 import (
 	"context"
@@ -42,25 +42,25 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/upgradeinfo"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/config"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/upgradeinfo"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
-	flag.IntVar(&concurrentReconciles, "staticpod-workers", concurrentReconciles, "Max concurrent workers for StaticPod controller.")
+	flag.IntVar(&concurrentReconciles, "yurtstaticset-workers", concurrentReconciles, "Max concurrent workers for YurtStaticSet controller.")
 }
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind("StaticPod")
+	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind("YurtStaticSet")
 	True                 = true
 )
 
 const (
-	ControllerName = "staticpod"
+	ControllerName = "yurtstaticset"
 
 	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
 
@@ -71,7 +71,7 @@ const (
 	hostPathVolumeSourcePath = hostPathVolumeMountPath
 
 	// UpgradeWorkerPodPrefix is the name prefix of worker pod which used for static pod upgrade
-	UpgradeWorkerPodPrefix     = "yurt-static-pod-upgrade-worker-"
+	UpgradeWorkerPodPrefix     = "yurt-static-set-upgrade-worker-"
 	UpgradeWorkerContainerName = "upgrade-worker"
 
 	ArgTmpl = "/usr/local/bin/node-servant static-pod-upgrade --name=%s --namespace=%s --manifest=%s --hash=%s --mode=%s"
@@ -79,7 +79,7 @@ const (
 
 // upgradeWorker is the pod template used for static pod upgrade
 // Fields need be set
-// 1. name of worker pod: `yurt-static-pod-upgrade-worker-node-hash`
+// 1. name of worker pod: `yurt-static-set-upgrade-worker-node-hash`
 // 2. node of worker pod
 // 3. image of worker pod, default is "openyurt/node-servant:latest"
 // 4. annotation `openyurt.io/static-pod-hash`
@@ -125,34 +125,34 @@ func Format(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
-// Add creates a new StaticPod Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
+// Add creates a new YurtStaticSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if !utildiscovery.DiscoverGVK(controllerKind) {
 		return nil
 	}
 
-	klog.Infof("staticpod-controller add controller %s", controllerKind.String())
+	klog.Infof("yurtstaticset-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
-var _ reconcile.Reconciler = &ReconcileStaticPod{}
+var _ reconcile.Reconciler = &ReconcileYurtStaticSet{}
 
-// ReconcileStaticPod reconciles a StaticPod object
-type ReconcileStaticPod struct {
+// ReconcileYurtStaticSet reconciles a YurtStaticSet object
+type ReconcileYurtStaticSet struct {
 	client.Client
 	scheme        *runtime.Scheme
 	recorder      record.EventRecorder
-	Configuration config.StaticPodControllerConfiguration
+	Configuration config.YurtStaticSetControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileStaticPod{
+	return &ReconcileYurtStaticSet{
 		Client:        utilclient.NewClientFromManager(mgr, ControllerName),
 		scheme:        mgr.GetScheme(),
 		recorder:      mgr.GetEventRecorderFor(ControllerName),
-		Configuration: c.ComponentConfig.StaticPodController,
+		Configuration: c.ComponentConfig.YurtStaticSetController,
 	}
 }
 
@@ -164,13 +164,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// 1. Watch for changes to StaticPod
-	if err := c.Watch(&source.Kind{Type: &appsv1alpha1.StaticPod{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	// 1. Watch for changes to YurtStaticSet
+	if err := c.Watch(&source.Kind{Type: &appsv1alpha1.YurtStaticSet{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
 	}
 
 	// 2. Watch for changes to node
-	// When node turn ready, reconcile all StaticPod instances
+	// When node turn ready, reconcile all YurtStaticSet instances
 	// nodeReadyPredicate filter events which are node turn ready
 	nodeReadyPredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
@@ -187,16 +187,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	reconcileAllStaticPods := func(c client.Client) []reconcile.Request {
-		staticPodList := &appsv1alpha1.StaticPodList{}
-		if err := c.List(context.TODO(), staticPodList); err != nil {
+	reconcileAllYurtStaticSets := func(c client.Client) []reconcile.Request {
+		yurtStaticSetList := &appsv1alpha1.YurtStaticSetList{}
+		if err := c.List(context.TODO(), yurtStaticSetList); err != nil {
 			return nil
 		}
 		var requests []reconcile.Request
-		for _, staticPod := range staticPodList.Items {
+		for _, yss := range yurtStaticSetList.Items {
 			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-				Namespace: staticPod.Namespace,
-				Name:      staticPod.Name,
+				Namespace: yss.Namespace,
+				Name:      yss.Name,
 			}})
 		}
 		return requests
@@ -205,13 +205,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(&source.Kind{Type: &corev1.Node{}},
 		handler.EnqueueRequestsFromMapFunc(
 			func(client.Object) []reconcile.Request {
-				return reconcileAllStaticPods(mgr.GetClient())
+				return reconcileAllYurtStaticSets(mgr.GetClient())
 			}), nodeReadyPredicate); err != nil {
 		return err
 	}
 
-	// 3. Watch for changes to upgrade worker pods which are created by static-pod-controller
-	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appsv1alpha1.StaticPod{}}); err != nil {
+	// 3. Watch for changes to upgrade worker pods which are created by yurt-static-set-controller
+	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appsv1alpha1.YurtStaticSet{}}); err != nil {
 		return err
 	}
 
@@ -236,26 +236,26 @@ func nodeTurnReady(evt event.UpdateEvent) bool {
 	return oldReady && newReady
 }
 
-//+kubebuilder:rbac:groups=apps.openyurt.io,resources=staticpods,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps.openyurt.io,resources=staticpods/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=apps.openyurt.io,resources=staticpods/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile reads that state of the cluster for a StaticPod object and makes changes based on the state read
-// and what is in the StaticPod.Spec
-func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+// Reconcile reads that state of the cluster for a YurtStaticSet object and makes changes based on the state read
+// and what is in the YurtStaticSet.Spec
+func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Reconcile StaticPod %s", request.Name))
+	klog.V(4).Infof(Format("Reconcile YurtStaticSet %s", request.Name))
 
-	// Fetch the StaticPod instance
-	instance := &appsv1alpha1.StaticPod{}
+	// Fetch the YurtStaticSet instance
+	instance := &appsv1alpha1.YurtStaticSet{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-		klog.Errorf("Fail to get StaticPod %v, %v", request.NamespacedName, err)
+		klog.Errorf("Fail to get YurtStaticSet %v, %v", request.NamespacedName, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -284,20 +284,20 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// This hash value is used in three places
 	// 1. Automatically added to the annotation of static pods to facilitate checking if the running static pods are up-to-date
 	// 2. Automatically added to the annotation of worker pods to facilitate checking if the worker pods are up-to-date
-	// 3. Added to static pods' corresponding configmap to facilitate checking if the configmap is up-to-date
+	// 3. Added to YurtStaticSet's corresponding configmap to facilitate checking if the configmap is up-to-date
 	latestHash := util.ComputeHash(&instance.Spec.Template)
 
 	// The latest static pod manifest generated from user-specified template
 	// The above hash value will be added to the annotation
 	latestManifest, err := util.GenStaticPodManifest(&instance.Spec.Template, latestHash)
 	if err != nil {
-		klog.Errorf(Format("Fail to generate static pod manifest of StaticPod %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("Fail to generate static pod manifest of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
 	// Sync the corresponding configmap to the latest state
 	if err := r.syncConfigMap(instance, latestHash, latestManifest); err != nil {
-		klog.Errorf(Format("Fail to sync the corresponding configmap of StaticPod %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("Fail to sync the corresponding configmap of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
@@ -306,20 +306,20 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	if err != nil {
 		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
 		if strings.Contains(err.Error(), "fail to init worker pod") {
-			r.recorder.Eventf(instance, corev1.EventTypeWarning, "StaticPod Upgrade Failed", err.Error())
+			r.recorder.Eventf(instance, corev1.EventTypeWarning, "YurtStaticSet Upgrade Failed", err.Error())
 			klog.Errorf(err.Error())
 			return reconcile.Result{}, err
 		}
 
-		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of StaticPod %v, %v",
+		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of YurtStaticSet %v, %v",
 			request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 	totalNumber = int32(len(upgradeInfos))
 	// There are no nodes running target static pods in the cluster
 	if totalNumber == 0 {
-		klog.Infof(Format("No static pods need to be upgraded of StaticPod %v", request.NamespacedName))
-		return r.updateStaticPodStatus(instance, totalNumber, totalNumber, totalNumber)
+		klog.Infof(Format("No static pods need to be upgraded of YurtStaticSet %v", request.NamespacedName))
+		return r.updateYurtStaticSetStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
 	// Count the number of ready static pods and upgraded nodes, the delete pods list and whether all worker is finished
@@ -327,48 +327,48 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 
 	// Clean up unused pods
 	if err := r.removeUnusedPods(deletePods); err != nil {
-		klog.Errorf(Format("Fail to remove unused pods of StaticPod %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("Fail to remove unused pods of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return reconcile.Result{}, err
 	}
 
 	// If all nodes have been upgraded, just return
 	// Put this here because we need to clean up the worker pods first
 	if totalNumber == upgradedNumber {
-		klog.Infof(Format("All static pods have been upgraded of StaticPod %v", request.NamespacedName))
-		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
+		klog.Infof(Format("All static pods have been upgraded of YurtStaticSet %v", request.NamespacedName))
+		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
 	switch instance.Spec.UpgradeStrategy.Type {
 	// AdvancedRollingUpdate Upgrade is to automate the upgrade process for the target static pods on ready nodes
 	// It supports rolling update and the max-unavailable number can be specified by users
-	case appsv1alpha1.AutoStaticPodUpgradeStrategyType, appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType:
+	case appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType:
 		if !allSucceeded {
-			klog.V(5).Infof(Format("Wait last round AdvancedRollingUpdate upgrade to finish of StaticPod %v", request.NamespacedName))
-			return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
+			klog.V(5).Infof(Format("Wait last round AdvancedRollingUpdate upgrade to finish of YurtStaticSet %v", request.NamespacedName))
+			return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 		}
 
 		if err := r.advancedRollingUpdate(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("Fail to AdvancedRollingUpdate upgrade of StaticPod %v, %v", request.NamespacedName, err))
+			klog.Errorf(Format("Fail to AdvancedRollingUpdate upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
+		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 
 	// OTA Upgrade can help users control the timing of static pods upgrade
 	// It will set PodNeedUpgrade condition and work with YurtHub component
-	case appsv1alpha1.OTAStaticPodUpgradeStrategyType:
-		if err := r.otaUpgrade(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("Fail to OTA upgrade of StaticPod %v, %v", request.NamespacedName, err))
+	case appsv1alpha1.OTAUpgradeStrategyType:
+		if err := r.otaUpgrade(upgradeInfos); err != nil {
+			klog.Errorf(Format("Fail to OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
-		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
+		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// syncConfigMap moves the target static pod's corresponding configmap to the latest state
-func (r *ReconcileStaticPod) syncConfigMap(instance *appsv1alpha1.StaticPod, hash, data string) error {
-	cmName := util.WithConfigMapPrefix(util.Hyphen(instance.Namespace, instance.Name))
+// syncConfigMap moves the target yurtstaticset's corresponding configmap to the latest state
+func (r *ReconcileYurtStaticSet) syncConfigMap(instance *appsv1alpha1.YurtStaticSet, hash, data string) error {
+	cmName := util.WithConfigMapPrefix(instance.Name)
 	cm := &corev1.ConfigMap{}
 	if err := r.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: instance.Namespace}, cm); err != nil {
 		// if the configmap does not exist, then create a new one
@@ -408,7 +408,7 @@ func (r *ReconcileStaticPod) syncConfigMap(instance *appsv1alpha1.StaticPod, has
 }
 
 // advancedRollingUpdate automatically rolling upgrade the target static pods in cluster
-func (r *ReconcileStaticPod) advancedRollingUpdate(instance *appsv1alpha1.StaticPod, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
+func (r *ReconcileYurtStaticSet) advancedRollingUpdate(instance *appsv1alpha1.YurtStaticSet, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
 	// readyUpgradeWaitingNodes represents nodes that need to create worker pods
 	readyUpgradeWaitingNodes := upgradeinfo.ReadyUpgradeWaitingNodes(infos)
 
@@ -429,14 +429,14 @@ func (r *ReconcileStaticPod) advancedRollingUpdate(instance *appsv1alpha1.Static
 
 	readyUpgradeWaitingNodes = readyUpgradeWaitingNodes[:max]
 	if err := createUpgradeWorker(r.Client, instance, readyUpgradeWaitingNodes, hash,
-		string(appsv1alpha1.AutoStaticPodUpgradeStrategyType), r.Configuration.UpgradeWorkerImage); err != nil {
+		string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType), r.Configuration.UpgradeWorkerImage); err != nil {
 		return err
 	}
 	return nil
 }
 
-// otaUpgrade adds condition PodNeedUpgrade to the target static pods and issue the latest manifest to corresponding nodes
-func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
+// otaUpgrade adds condition PodNeedUpgrade to the target static pods
+func (r *ReconcileYurtStaticSet) otaUpgrade(infos map[string]*upgradeinfo.UpgradeInfo) error {
 	upgradeNeededNodes, upgradedNodes := upgradeinfo.ListOutUpgradeNeededNodesAndUpgradedNodes(infos)
 
 	// Set condition for upgrade needed static pods
@@ -457,7 +457,7 @@ func (r *ReconcileStaticPod) otaUpgrade(instance *appsv1alpha1.StaticPod, infos 
 }
 
 // removeUnusedPods delete pods, include two situations: out-of-date worker pods and succeeded worker pods
-func (r *ReconcileStaticPod) removeUnusedPods(pods []*corev1.Pod) error {
+func (r *ReconcileYurtStaticSet) removeUnusedPods(pods []*corev1.Pod) error {
 	for _, pod := range pods {
 		if err := r.Delete(context.TODO(), pod, &client.DeleteOptions{}); err != nil {
 			return err
@@ -468,7 +468,7 @@ func (r *ReconcileStaticPod) removeUnusedPods(pods []*corev1.Pod) error {
 }
 
 // createUpgradeWorker creates static pod upgrade worker to the given nodes
-func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, nodes []string, hash, mode, img string) error {
+func createUpgradeWorker(c client.Client, instance *appsv1alpha1.YurtStaticSet, nodes []string, hash, mode, img string) error {
 	for _, node := range nodes {
 		pod := upgradeWorker.DeepCopy()
 		pod.Name = UpgradeWorkerPodPrefix + util.Hyphen(node, hash)
@@ -480,7 +480,7 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, node
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: util.WithConfigMapPrefix(util.Hyphen(instance.Namespace, instance.Name)),
+						Name: util.WithConfigMapPrefix(instance.Name),
 					},
 				},
 			},
@@ -495,14 +495,14 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.StaticPod, node
 		if err := c.Create(context.TODO(), pod, &client.CreateOptions{}); err != nil {
 			return err
 		}
-		klog.Infof(Format("Create static pod upgrade worker %s of StaticPod %s", pod.Name, instance.Name))
+		klog.Infof(Format("Create static pod upgrade worker %s of YurtStaticSet %s", pod.Name, instance.Name))
 	}
 
 	return nil
 }
 
-// updateStatus set the status of instance to the given values
-func (r *ReconcileStaticPod) updateStaticPodStatus(instance *appsv1alpha1.StaticPod, totalNum, readyNum, upgradedNum int32) (reconcile.Result, error) {
+// updateYurtStaticSetStatus set the status of instance to the given values
+func (r *ReconcileYurtStaticSet) updateYurtStaticSetStatus(instance *appsv1alpha1.YurtStaticSet, totalNum, readyNum, upgradedNum int32) (reconcile.Result, error) {
 	instance.Status.TotalNumber = totalNum
 	instance.Status.ReadyNumber = readyNum
 	instance.Status.UpgradedNumber = upgradedNum

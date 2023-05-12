@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package staticpod
+package yurtstaticset
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 )
 
 const (
@@ -86,18 +86,18 @@ func prepareNodes() []client.Object {
 }
 
 func TestReconcile(t *testing.T) {
-	var strategy = []appsv1alpha1.StaticPodUpgradeStrategy{
-		{Type: appsv1alpha1.OTAStaticPodUpgradeStrategyType},
-		{Type: appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType, MaxUnavailable: &DefaultMaxUnavailable},
+	var strategy = []appsv1alpha1.YurtStaticSetUpgradeStrategy{
+		{Type: appsv1alpha1.OTAUpgradeStrategyType},
+		{Type: appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType, MaxUnavailable: &DefaultMaxUnavailable},
 	}
 	staticPods := prepareStaticPods()
 	nodes := prepareNodes()
-	instance := &appsv1alpha1.StaticPod{
+	instance := &appsv1alpha1.YurtStaticSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      TestStaticPodName,
 			Namespace: metav1.NamespaceDefault,
 		},
-		Spec: appsv1alpha1.StaticPodSpec{
+		Spec: appsv1alpha1.YurtStaticSetSpec{
 			StaticPodManifest: "nginx",
 			Template:          corev1.PodTemplateSpec{},
 		},
@@ -116,7 +116,7 @@ func TestReconcile(t *testing.T) {
 		c := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
 
 		var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestStaticPodName}}
-		rsp := ReconcileStaticPod{
+		rsp := ReconcileYurtStaticSet{
 			Client: c,
 			scheme: scheme,
 		}

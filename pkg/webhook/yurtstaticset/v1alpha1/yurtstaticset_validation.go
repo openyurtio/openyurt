@@ -32,24 +32,24 @@ import (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *StaticPodHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	sp, ok := obj.(*v1alpha1.StaticPod)
+func (webhook *YurtStaticSetHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	sp, ok := obj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a StaticPod but got a %T", obj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", obj))
 	}
 
 	return validate(sp)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *StaticPodHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	newSP, ok := newObj.(*v1alpha1.StaticPod)
+func (webhook *YurtStaticSetHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	newSP, ok := newObj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a StaticPod but got a %T", newObj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", newObj))
 	}
-	oldSP, ok := oldObj.(*v1alpha1.StaticPod)
+	oldSP, ok := oldObj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a StaticPod but got a %T", oldObj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", oldObj))
 	}
 
 	if err := validate(newSP); err != nil {
@@ -64,17 +64,17 @@ func (webhook *StaticPodHandler) ValidateUpdate(ctx context.Context, oldObj, new
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *StaticPodHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+func (webhook *YurtStaticSetHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
 	return nil
 }
 
-func validate(obj *v1alpha1.StaticPod) error {
+func validate(obj *v1alpha1.YurtStaticSet) error {
 	var allErrs field.ErrorList
 	outPodTemplateSpec := &core.PodTemplateSpec{}
 	if err := k8s_api_v1.Convert_v1_PodTemplateSpec_To_core_PodTemplateSpec(&obj.Spec.Template, outPodTemplateSpec, nil); err != nil {
 		allErrs = append(allErrs, field.Required(field.NewPath("template"),
 			"template filed should be corev1.PodTemplateSpec type"))
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("StaticPod").GroupKind(), obj.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtStaticSet").GroupKind(), obj.Name, allErrs)
 	}
 
 	if e := k8s_validation.ValidatePodTemplateSpec(outPodTemplateSpec, field.NewPath("template"),
@@ -82,21 +82,21 @@ func validate(obj *v1alpha1.StaticPod) error {
 		allErrs = append(allErrs, e...)
 	}
 
-	if e := validateStaticPodSpec(&obj.Spec); len(e) > 0 {
+	if e := validateYurtStaticSetSpec(&obj.Spec); len(e) > 0 {
 		allErrs = append(allErrs, e...)
 	}
 
 	if len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("StaticPod").GroupKind(), obj.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtStaticSet").GroupKind(), obj.Name, allErrs)
 	}
 
-	klog.Infof("Validate StaticPod %s successfully ...", klog.KObj(obj))
+	klog.Infof("Validate YurtStaticSet %s successfully ...", klog.KObj(obj))
 
 	return nil
 }
 
-// validateStaticPodSpec validates the staticpod spec.
-func validateStaticPodSpec(spec *v1alpha1.StaticPodSpec) field.ErrorList {
+// validateYurtStaticSetSpec validates the YurtStaticSet spec.
+func validateYurtStaticSetSpec(spec *v1alpha1.YurtStaticSetSpec) field.ErrorList {
 	var allErrs field.ErrorList
 
 	if spec.StaticPodManifest == "" {
@@ -106,14 +106,12 @@ func validateStaticPodSpec(spec *v1alpha1.StaticPodSpec) field.ErrorList {
 
 	strategy := &spec.UpgradeStrategy
 
-	if strategy.Type != v1alpha1.AutoStaticPodUpgradeStrategyType && strategy.Type != v1alpha1.OTAStaticPodUpgradeStrategyType &&
-		strategy.Type != v1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType {
+	if strategy.Type != v1alpha1.OTAUpgradeStrategyType && strategy.Type != v1alpha1.AdvancedRollingUpdateUpgradeStrategyType {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("spec").Child("upgradeStrategy"),
-			strategy, []string{"auto", "OTA", "AdvancedRollingUpdate"}))
+			strategy, []string{"OTA", "AdvancedRollingUpdate"}))
 	}
 
-	if (strategy.Type == v1alpha1.AutoStaticPodUpgradeStrategyType || strategy.Type == v1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType) &&
-		strategy.MaxUnavailable == nil {
+	if strategy.Type == v1alpha1.AdvancedRollingUpdateUpgradeStrategyType && strategy.MaxUnavailable == nil {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("upgradeStrategy"),
 			"max-unavailable is required in AdvancedRollingUpdate mode"))
 	}

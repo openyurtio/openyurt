@@ -19,34 +19,34 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/config"
 )
 
 const DefaultUpgradeWorkerImage = "openyurt/node-servant:latest"
 
-type StaticPodControllerOptions struct {
-	*config.StaticPodControllerConfiguration
+type YurtStaticSetControllerOptions struct {
+	*config.YurtStaticSetControllerConfiguration
 }
 
-func NewStaticPodControllerOptions() *StaticPodControllerOptions {
-	return &StaticPodControllerOptions{
-		&config.StaticPodControllerConfiguration{
+func NewYurtStaticSetControllerOptions() *YurtStaticSetControllerOptions {
+	return &YurtStaticSetControllerOptions{
+		&config.YurtStaticSetControllerConfiguration{
 			UpgradeWorkerImage: DefaultUpgradeWorkerImage,
 		},
 	}
 }
 
-// AddFlags adds flags related to staticpod for yurt-manager to the specified FlagSet.
-func (o *StaticPodControllerOptions) AddFlags(fs *pflag.FlagSet) {
+// AddFlags adds flags related to yurtstaticset for yurt-manager to the specified FlagSet.
+func (o *YurtStaticSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if o == nil {
 		return
 	}
 
-	fs.StringVar(&o.UpgradeWorkerImage, "node-servant-image", o.UpgradeWorkerImage, "Specify node servant pod image used for static pod upgrade.")
+	fs.StringVar(&o.UpgradeWorkerImage, "node-servant-image", o.UpgradeWorkerImage, "Specify node servant pod image used for YurtStaticSet upgrade.")
 }
 
-// ApplyTo fills up staticpod config with options.
-func (o *StaticPodControllerOptions) ApplyTo(cfg *config.StaticPodControllerConfiguration) error {
+// ApplyTo fills up yurtstaticset config with options.
+func (o *YurtStaticSetControllerOptions) ApplyTo(cfg *config.YurtStaticSetControllerConfiguration) error {
 	if o == nil {
 		return nil
 	}
@@ -54,8 +54,8 @@ func (o *StaticPodControllerOptions) ApplyTo(cfg *config.StaticPodControllerConf
 	return nil
 }
 
-// Validate checks validation of StaticPodControllerOptions.
-func (o *StaticPodControllerOptions) Validate() []error {
+// Validate checks validation of YurtStaticSetControllerOptions.
+func (o *YurtStaticSetControllerOptions) Validate() []error {
 	if o == nil {
 		return nil
 	}

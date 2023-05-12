@@ -88,9 +88,9 @@ func (ctrl *Controller) Upgrade() error {
 
 	// execute upgrade operations
 	switch ctrl.upgradeMode {
-	case string(appsv1alpha1.AutoStaticPodUpgradeStrategyType):
+	case string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType):
 		return ctrl.AutoUpgrade()
-	case string(appsv1alpha1.OTAStaticPodUpgradeStrategyType):
+	case string(appsv1alpha1.OTAUpgradeStrategyType):
 		return ctrl.OTAUpgrade()
 	}
 

@@ -81,14 +81,14 @@ func newPods(nodes []string, namespace string, isStaticPod bool) []client.Object
 	return pods
 }
 
-func newStaticPod() *appsv1alpha1.StaticPod {
-	return &appsv1alpha1.StaticPod{
+func newStaticPod() *appsv1alpha1.YurtStaticSet {
+	return &appsv1alpha1.YurtStaticSet{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fakeStaticPodName,
 			Namespace: metav1.NamespaceDefault},
-		Spec:   appsv1alpha1.StaticPodSpec{},
-		Status: appsv1alpha1.StaticPodStatus{},
+		Spec:   appsv1alpha1.YurtStaticSetSpec{},
+		Status: appsv1alpha1.YurtStaticSetStatus{},
 	}
 }
 
@@ -129,8 +129,6 @@ func Test_ConstructStaticPodsUpgradeInfoList(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
-	tHash := "tHash"
-	fHash := "fHash"
 	spi := map[string]*UpgradeInfo{
 		"node1": {
 			WorkerPodRunning: true,
@@ -138,24 +136,12 @@ func TestNodes(t *testing.T) {
 			NodeReady:        true,
 		},
 		"node2": {
-			StaticPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: tHash,
-					},
-				},
-			},
+			StaticPod:     &corev1.Pod{},
 			UpgradeNeeded: true,
 			NodeReady:     true,
 		},
 		"node3": {
-			StaticPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
-			},
+			StaticPod:     &corev1.Pod{},
 			UpgradeNeeded: true,
 			NodeReady:     true,
 		},
@@ -163,21 +149,10 @@ func TestNodes(t *testing.T) {
 			NodeReady: true,
 		},
 		"node5": {
-			WorkerPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
-			},
+			WorkerPod: &corev1.Pod{},
 		},
 		"node6": {
 			WorkerPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
 				Spec: corev1.PodSpec{
 					NodeName: "node6",
 				},
@@ -185,33 +160,15 @@ func TestNodes(t *testing.T) {
 			WorkerPodDeleteNeeded: true,
 		},
 		"node7": {
-			WorkerPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
-			},
+			WorkerPod:            &corev1.Pod{},
 			WorkerPodStatusPhase: corev1.PodPending,
 		},
 		"node8": {
-			StaticPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
-			},
+			StaticPod:      &corev1.Pod{},
 			StaticPodReady: true,
 		},
 		"node9": {
-			StaticPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						OTALatestManifestAnnotation: fHash,
-					},
-				},
-			},
+			StaticPod:     &corev1.Pod{},
 			UpgradeNeeded: false,
 		},
 	}

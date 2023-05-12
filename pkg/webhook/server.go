@@ -28,19 +28,19 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod"
 	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
-	v1alpha1staticpod "github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
+	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/webhook/yurtstaticset/v1alpha1"
 )
 
 type SetupWebhookWithManager interface {
@@ -72,7 +72,7 @@ func init() {
 	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
-	addControllerWebhook(staticpod.ControllerName, &v1alpha1staticpod.StaticPodHandler{})
+	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 

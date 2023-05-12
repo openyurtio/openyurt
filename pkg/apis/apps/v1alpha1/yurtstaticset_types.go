@@ -22,48 +22,47 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// StaticPodUpgradeStrategy defines a strategy to upgrade a static pod.
-type StaticPodUpgradeStrategy struct {
-	// Type of Static Pod upgrade. Can be "AdvancedRollingUpdate" or "OTA".
-	Type StaticPodUpgradeStrategyType `json:"type,omitempty"`
+// YurtStaticSetUpgradeStrategy defines a strategy to upgrade static pods.
+type YurtStaticSetUpgradeStrategy struct {
+	// Type of YurtStaticSet upgrade. Can be "AdvancedRollingUpdate" or "OTA".
+	Type YurtStaticSetUpgradeStrategyType `json:"type,omitempty"`
 
 	// AdvancedRollingUpdate upgrade config params. Present only if type = "AdvancedRollingUpdate".
 	//+optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
-// StaticPodUpgradeStrategyType is a strategy according to which a static pod gets upgraded.
-type StaticPodUpgradeStrategyType string
+// YurtStaticSetUpgradeStrategyType is a strategy according to which static pods gets upgraded.
+type YurtStaticSetUpgradeStrategyType string
 
 const (
-	AdvancedRollingUpdateStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "AdvancedRollingUpdate"
-	AutoStaticPodUpgradeStrategyType                  StaticPodUpgradeStrategyType = "auto"
-	OTAStaticPodUpgradeStrategyType                   StaticPodUpgradeStrategyType = "OTA"
+	AdvancedRollingUpdateUpgradeStrategyType YurtStaticSetUpgradeStrategyType = "AdvancedRollingUpdate"
+	OTAUpgradeStrategyType                   YurtStaticSetUpgradeStrategyType = "OTA"
 )
 
-// StaticPodSpec defines the desired state of StaticPod
-type StaticPodSpec struct {
-	// StaticPodManifest indicates the Static Pod desired to be upgraded. The corresponding
-	// manifest file name is `StaticPodManifest.yaml`.
+// YurtStaticSetSpec defines the desired state of YurtStaticSet
+type YurtStaticSetSpec struct {
+	// StaticPodManifest indicates the file name of static pod manifest.
+	// The corresponding manifest file name is `StaticPodManifest.yaml`.
 	StaticPodManifest string `json:"staticPodManifest,omitempty"`
 
 	// An upgrade strategy to replace existing static pods with new ones.
-	UpgradeStrategy StaticPodUpgradeStrategy `json:"upgradeStrategy,omitempty"`
+	UpgradeStrategy YurtStaticSetUpgradeStrategy `json:"upgradeStrategy,omitempty"`
 
 	// The number of old history to retain to allow rollback.
 	// Defaults to 10.
 	// +optional
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 
-	// An object that describes the desired upgrade static pod.
+	// An object that describes the desired spec of static pod.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Template corev1.PodTemplateSpec `json:"template,omitempty"`
 }
 
-// StaticPodStatus defines the observed state of StaticPod
-type StaticPodStatus struct {
+// YurtStaticSetStatus defines the observed state of YurtStaticSet
+type YurtStaticSetStatus struct {
 	// The total number of nodes that are running the static pod.
 	TotalNumber int32 `json:"totalNumber"`
 
@@ -82,30 +81,30 @@ type StaticPodStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=sp
+// +kubebuilder:resource:shortName=yss
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 //+kubebuilder:printcolumn:name="TotalNumber",type="integer",JSONPath=".status.totalNumber",description="The total number of static pods"
 //+kubebuilder:printcolumn:name="ReadyNumber",type="integer",JSONPath=".status.readyNumber",description="The number of ready static pods"
 //+kubebuilder:printcolumn:name="UpgradedNumber",type="integer",JSONPath=".status.upgradedNumber",description="The number of static pods that have been upgraded"
 
-// StaticPod is the Schema for the staticpods API
-type StaticPod struct {
+// YurtStaticSet is the Schema for the yurtstaticsets API
+type YurtStaticSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   StaticPodSpec   `json:"spec,omitempty"`
-	Status StaticPodStatus `json:"status,omitempty"`
+	Spec   YurtStaticSetSpec   `json:"spec,omitempty"`
+	Status YurtStaticSetStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// StaticPodList contains a list of StaticPod
-type StaticPodList struct {
+// YurtStaticSetList contains a list of YurtStaticSet
+type YurtStaticSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []StaticPod `json:"items"`
+	Items           []YurtStaticSet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&StaticPod{}, &StaticPodList{})
+	SchemeBuilder.Register(&YurtStaticSet{}, &YurtStaticSetList{})
 }
