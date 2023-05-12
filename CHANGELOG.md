@@ -14,13 +14,13 @@ After the refactoring, based on the controller-runtime framework, new controller
 yurt-manager component in the future. Also note that the yurt-manager must be installed on the same node as the K8s
 control-plane component (like kube-controller-manager). [#1067](https://github.com/openyurtio/openyurt/issues/1067)
 
-**Support OTA or Auto upgrade for static pods**
+**Support OTA or AdvancedRollingUpdate upgrade models for static pods**
 
 As you know, static pods are managed directly by the kubelet daemon on the node and there is no APIServer watching them.
 In general, if a user wants to upgrade a static pod(like YurtHub), the user should manually modify or replace the manifest
 of the static pod. this can be a very tedious and painful task when the number of static pods becomes very large.
 
-Users can define Pod templates and upgrade models through StaticPod CRD. The upgrade models support both OTA and Auto kinds,
+Users can define Pod templates and upgrade models through StaticPod CRD. The upgrade models support both OTA and AdvancedRollingUpdate kinds,
 thus easily meeting the upgrade needs of large-scale Static Pods. Also the Pod template in yurthub StaticPod CRD is used to
 install YurtHub component on the node when the node is joined. [#1261](https://github.com/openyurtio/openyurt/pull/1261), [#1168](https://github.com/openyurtio/openyurt/pull/1168), [#1172](https://github.com/openyurtio/openyurt/pull/1172)
 
