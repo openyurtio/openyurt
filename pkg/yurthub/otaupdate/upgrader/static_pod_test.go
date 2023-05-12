@@ -43,7 +43,7 @@ func TestStaticPodUpgrader_ApplyManifestNotExist(t *testing.T) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: metav1.NamespaceDefault,
-			Name:      spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(metav1.NamespaceDefault, "nginx")),
+			Name:      spctrlutil.WithConfigMapPrefix("nginx"),
 		},
 		Data: map[string]string{
 			"nginx": `

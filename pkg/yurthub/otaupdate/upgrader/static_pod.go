@@ -34,7 +34,7 @@ import (
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 )
 
-const OTA = "ota"
+const OTA = "OTA"
 
 var (
 	DefaultUpgradePath = "/tmp/manifests"
@@ -46,29 +46,33 @@ type StaticPodUpgrader struct {
 }
 
 func (s *StaticPodUpgrader) Apply() error {
-	upgradeManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithUpgradeSuffix(s.Name))
 	cm, err := s.CoreV1().ConfigMaps(s.Namespace).Get(context.TODO(),
-		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(s.Namespace, s.Name)), metav1.GetOptions{})
+		spctrlutil.WithConfigMapPrefix(s.Name), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	data := cm.Data[s.Name]
-	if len(data) == 0 {
-		return fmt.Errorf("empty manifest in configmap %v",
-			spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(s.Namespace, s.Name)))
+	var manifest, data string
+	for k, v := range cm.Data {
+		manifest = k
+		data = v
 	}
+	if len(data) == 0 {
+		return fmt.Errorf("empty manifest in configmap %v", spctrlutil.WithConfigMapPrefix(s.Name))
+	}
+
+	upgradeManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithUpgradeSuffix(manifest))
 	if err := genUpgradeManifest(upgradeManifestPath, data); err != nil {
 		return err
 	}
 	klog.V(5).Info("Generate upgrade manifest")
 
-	ctrl := upgrade.New(s.Name, s.Namespace, s.Name, OTA)
+	ctrl := upgrade.New(s.Name, s.Namespace, manifest, OTA)
 	return ctrl.Upgrade()
 }
 
 func PreCheck(name, namespace string, c kubernetes.Interface) (bool, error) {
 	_, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(),
-		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(namespace, name)), metav1.GetOptions{})
+		spctrlutil.WithConfigMapPrefix(name), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil

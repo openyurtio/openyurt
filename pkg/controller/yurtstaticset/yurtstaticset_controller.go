@@ -240,6 +240,7 @@ func nodeTurnReady(evt event.UpdateEvent) bool {
 //+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
 //+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
