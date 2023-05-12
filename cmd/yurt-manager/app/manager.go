@@ -39,6 +39,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis"
 	extclient "github.com/openyurtio/openyurt/pkg/client"
 	"github.com/openyurtio/openyurt/pkg/controller"
+	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/webhook"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
@@ -201,6 +202,13 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	if err := mgr.AddReadyzCheck("webhook-ready", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		setupLog.Error(err, "unable to add readyz check")
 		os.Exit(1)
+	}
+
+	for path, handler := range profile.GetPprofHandlers() {
+		if err := mgr.AddMetricsExtraHandler(path, handler); err != nil {
+			setupLog.Error(err, "unable to add pprof handler")
+			os.Exit(1)
+		}
 	}
 
 	setupLog.Info("starting manager")

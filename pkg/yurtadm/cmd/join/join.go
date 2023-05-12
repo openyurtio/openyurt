@@ -18,6 +18,7 @@ limitations under the License.
 package join
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -44,6 +45,7 @@ type joinOptions struct {
 	criSocket                string
 	organizations            string
 	pauseImage               string
+	yurthubImage             string
 	namespace                string
 	caCertHashes             []string
 	unsafeSkipCAVerification bool
@@ -60,6 +62,7 @@ func newJoinOptions() *joinOptions {
 		nodeType:                 yurtconstants.EdgeNode,
 		criSocket:                yurtconstants.DefaultDockerCRISocket,
 		pauseImage:               yurtconstants.PauseImagePath,
+		yurthubImage:             fmt.Sprintf("%s/%s:%s", yurtconstants.DefaultOpenYurtImageRegistry, yurtconstants.Yurthub, yurtconstants.DefaultOpenYurtVersion),
 		namespace:                yurtconstants.YurthubNamespace,
 		caCertHashes:             make([]string, 0),
 		unsafeSkipCAVerification: false,
@@ -133,6 +136,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.pauseImage, yurtconstants.PauseImage, joinOptions.pauseImage,
 		"Sets the image version of pause container",
 	)
+	flagSet.StringVar(
+		&joinOptions.yurthubImage, yurtconstants.YurtHubImage, joinOptions.yurthubImage,
+		"Sets the image version of yurthub component",
+	)
 	flagSet.StringSliceVar(
 		&joinOptions.caCertHashes, yurtconstants.TokenDiscoveryCAHash, joinOptions.caCertHashes,
 		"For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").",
@@ -200,6 +207,7 @@ type joinData struct {
 	ignorePreflightErrors    sets.String
 	organizations            string
 	pauseImage               string
+	yurthubImage             string
 	yurthubTemplate          string
 	kubernetesVersion        string
 	caCertHashes             []string
@@ -207,6 +215,7 @@ type joinData struct {
 	kubernetesResourceServer string
 	yurthubServer            string
 	reuseCNIBin              bool
+	namespace                string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -258,6 +267,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		tlsBootstrapCfg:       nil,
 		ignorePreflightErrors: ignoreErrors,
 		pauseImage:            opt.pauseImage,
+		yurthubImage:          opt.yurthubImage,
 		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          opt.caCertHashes,
 		organizations:         opt.organizations,
@@ -270,6 +280,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		},
 		kubernetesResourceServer: opt.kubernetesResourceServer,
 		reuseCNIBin:              opt.reuseCNIBin,
+		namespace:                opt.namespace,
 	}
 
 	// parse node labels
@@ -312,8 +323,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// get the yurthub template from the staticpod cr
 	yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
 	if err != nil {
-		klog.Errorf("failed to get yurthub template, %v", err)
-		return nil, err
+		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
+		yurthubTemplate = yurtconstants.YurthubTemplate
 	}
 	data.yurthubTemplate = yurthubTemplate
 	klog.Infof("yurthub template: %s", yurthubTemplate)
@@ -334,6 +345,11 @@ func (j *joinData) JoinToken() string {
 // PauseImage returns the pause image.
 func (j *joinData) PauseImage() string {
 	return j.pauseImage
+}
+
+// YurtHubImage returns the YurtHub image.
+func (j *joinData) YurtHubImage() string {
+	return j.yurthubImage
 }
 
 // YurtHubServer returns the YurtHub server addr.
@@ -384,4 +400,8 @@ func (j *joinData) KubernetesResourceServer() string {
 
 func (j *joinData) ReuseCNIBin() bool {
 	return j.reuseCNIBin
+}
+
+func (j *joinData) Namespace() string {
+	return j.namespace
 }

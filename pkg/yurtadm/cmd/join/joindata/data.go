@@ -33,6 +33,7 @@ type YurtJoinData interface {
 	ServerAddr() string
 	JoinToken() string
 	PauseImage() string
+	YurtHubImage() string
 	YurtHubServer() string
 	YurtHubTemplate() string
 	KubernetesVersion() string
@@ -44,4 +45,5 @@ type YurtJoinData interface {
 	IgnorePreflightErrors() sets.String
 	KubernetesResourceServer() string
 	ReuseCNIBin() bool
+	Namespace() string
 }

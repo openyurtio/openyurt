@@ -46,7 +46,7 @@ spec:
               {{`{{end}}`}}
           livenessProbe:
             httpGet:
-              host: {{ .Values.yurthubServerAddr | quote }}
+              host: {{`{{.yurthubBindingAddr}}`}}
               path: /v1/healthz
               port: 10267
             initialDelaySeconds: 300
