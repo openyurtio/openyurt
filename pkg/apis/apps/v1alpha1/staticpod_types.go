@@ -24,10 +24,10 @@ import (
 
 // StaticPodUpgradeStrategy defines a strategy to upgrade a static pod.
 type StaticPodUpgradeStrategy struct {
-	// Type of Static Pod upgrade. Can be "auto" or "ota".
+	// Type of Static Pod upgrade. Can be "AdvancedRollingUpdate" or "OTA".
 	Type StaticPodUpgradeStrategyType `json:"type,omitempty"`
 
-	// Auto upgrade config params. Present only if type = "auto".
+	// AdvancedRollingUpdate upgrade config params. Present only if type = "AdvancedRollingUpdate".
 	//+optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
@@ -36,8 +36,9 @@ type StaticPodUpgradeStrategy struct {
 type StaticPodUpgradeStrategyType string
 
 const (
-	AutoStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "auto"
-	OTAStaticPodUpgradeStrategyType  StaticPodUpgradeStrategyType = "ota"
+	AdvancedRollingUpdateStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "AdvancedRollingUpdate"
+	AutoStaticPodUpgradeStrategyType                  StaticPodUpgradeStrategyType = "auto"
+	OTAStaticPodUpgradeStrategyType                   StaticPodUpgradeStrategyType = "OTA"
 )
 
 // StaticPodSpec defines the desired state of StaticPod

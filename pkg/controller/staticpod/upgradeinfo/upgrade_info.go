@@ -60,7 +60,7 @@ type UpgradeInfo struct {
 	// Indicate whether the worker pod need to be delete
 	WorkerPodDeleteNeeded bool
 
-	// Indicate whether the node is ready. It's used in Auto mode.
+	// Indicate whether the node is ready. It's used in AdvancedRollingUpdate mode.
 	NodeReady bool
 }
 
@@ -164,7 +164,7 @@ func isStaticPod(pod *corev1.Pod) bool {
 // 1. node is ready
 // 2. node needs to be upgraded
 // 3. no latest worker pod running on the node
-// On these nodes, new worker pods need to be created for auto mode
+// On these nodes, new worker pods need to be created for AdvancedRollingUpdate mode
 func ReadyUpgradeWaitingNodes(infos map[string]*UpgradeInfo) []string {
 	var nodes []string
 	for node, info := range infos {

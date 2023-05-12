@@ -207,12 +207,13 @@ func SetDefaults_ContainerPort(obj *corev1.ContainerPort) {
 
 // SetDefaultsStaticPod set default values for StaticPod.
 func SetDefaultsStaticPod(obj *StaticPod) {
-	// Set default upgrade strategy to "auto" with max-unavailable to "10%"
+	// Set default upgrade strategy to "AdvancedRollingUpdate" with max-unavailable to "10%"
 	strategy := &obj.Spec.UpgradeStrategy
 	if strategy.Type == "" {
-		strategy.Type = AutoStaticPodUpgradeStrategyType
+		strategy.Type = AdvancedRollingUpdateStaticPodUpgradeStrategyType
 	}
-	if strategy.Type == AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
+	if (strategy.Type == AutoStaticPodUpgradeStrategyType || strategy.Type == AdvancedRollingUpdateStaticPodUpgradeStrategyType) &&
+		strategy.MaxUnavailable == nil {
 		v := intstr.FromString("10%")
 		strategy.MaxUnavailable = &v
 	}
