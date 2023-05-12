@@ -69,22 +69,23 @@ const (
 	ControllerName = "daemonpodupdater"
 
 	// UpdateAnnotation is the annotation key used in daemonset spec to indicate
-	// which update strategy is selected. Currently, "ota" and "auto" are supported.
+	// which update strategy is selected. Currently, "OTA" and "AdvancedRollingUpdate" are supported.
 	UpdateAnnotation = "apps.openyurt.io/update-strategy"
 
 	// OTAUpdate set daemonset to over-the-air update mode.
 	// In daemonPodUpdater controller, we add PodNeedUpgrade condition to pods.
-	OTAUpdate = "ota"
-	// AutoUpdate set daemonset to auto update mode.
+	OTAUpdate = "OTA"
+	// AutoUpdate set daemonset to Auto update mode.
 	// In this mode, daemonset will keep updating even if there are not-ready nodes.
 	// For more details, see https://github.com/openyurtio/openyurt/pull/921.
-	AutoUpdate = "auto"
+	AutoUpdate            = "Auto"
+	AdvancedRollingUpdate = "AdvancedRollingUpdate"
 
 	// PodNeedUpgrade indicates whether the pod is able to upgrade.
 	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
 
 	// MaxUnavailableAnnotation is the annotation key added to daemonset to indicate
-	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=auto".
+	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=AdvancedRollingUpdate".
 	// If this annotation is not explicitly stated, it will be set to the default value 1.
 	MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
 	DefaultMaxUnavailable    = "10%"
@@ -246,13 +247,13 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	switch v {
 	case OTAUpdate:
 		if err := r.otaUpdate(instance); err != nil {
-			klog.Errorf(Format("Fail to ota update DaemonSet %v pod: %v", request.NamespacedName, err))
+			klog.Errorf(Format("Fail to OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 
-	case AutoUpdate:
-		if err := r.autoUpdate(instance); err != nil {
-			klog.Errorf(Format("Fail to auto update DaemonSet %v pod: %v", request.NamespacedName, err))
+	case AutoUpdate, AdvancedRollingUpdate:
+		if err := r.advancedRollingUpdate(instance); err != nil {
+			klog.Errorf(Format("Fail to advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 	default:
@@ -312,9 +313,9 @@ func (r *ReconcileDaemonpodupdater) otaUpdate(ds *appsv1.DaemonSet) error {
 	return nil
 }
 
-// autoUpdate identifies the set of old pods to delete within the constraints imposed by the max-unavailable number.
+// advancedRollingUpdate identifies the set of old pods to delete within the constraints imposed by the max-unavailable number.
 // Just ignore and do not calculate not-ready nodes.
-func (r *ReconcileDaemonpodupdater) autoUpdate(ds *appsv1.DaemonSet) error {
+func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) error {
 	nodeToDaemonPods, err := r.getNodesToDaemonPods(ds)
 	if err != nil {
 		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
@@ -455,7 +456,7 @@ func (r *ReconcileDaemonpodupdater) syncPodsOnNodes(ds *appsv1.DaemonSet, podsTo
 					utilruntime.HandleError(err)
 				}
 			}
-			klog.Infof("Auto update pod %v/%v", ds.Name, podsToDelete[ix])
+			klog.Infof("AdvancedRollingUpdate pod %v/%v", ds.Name, podsToDelete[ix])
 		}(i)
 	}
 	deleteWait.Wait()
