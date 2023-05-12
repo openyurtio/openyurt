@@ -62,8 +62,7 @@ var (
 const (
 	ControllerName = "staticpod"
 
-	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
-	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
+	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
 
 	hostPathVolumeName       = "hostpath"
 	hostPathVolumeMountPath  = "/etc/kubernetes/manifests/"
@@ -340,16 +339,16 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	}
 
 	switch instance.Spec.UpgradeStrategy.Type {
-	// Auto Upgrade is to automate the upgrade process for the target static pods on ready nodes
+	// AdvancedRollingUpdate Upgrade is to automate the upgrade process for the target static pods on ready nodes
 	// It supports rolling update and the max-unavailable number can be specified by users
-	case appsv1alpha1.AutoStaticPodUpgradeStrategyType:
+	case appsv1alpha1.AutoStaticPodUpgradeStrategyType, appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType:
 		if !allSucceeded {
-			klog.V(5).Infof(Format("Wait last round auto upgrade to finish of StaticPod %v", request.NamespacedName))
+			klog.V(5).Infof(Format("Wait last round AdvancedRollingUpdate upgrade to finish of StaticPod %v", request.NamespacedName))
 			return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
 		}
 
-		if err := r.autoUpgrade(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("Fail to auto upgrade of StaticPod %v, %v", request.NamespacedName, err))
+		if err := r.advancedRollingUpdate(instance, upgradeInfos, latestHash); err != nil {
+			klog.Errorf(Format("Fail to AdvancedRollingUpdate upgrade of StaticPod %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -358,7 +357,7 @@ func (r *ReconcileStaticPod) Reconcile(_ context.Context, request reconcile.Requ
 	// It will set PodNeedUpgrade condition and work with YurtHub component
 	case appsv1alpha1.OTAStaticPodUpgradeStrategyType:
 		if err := r.otaUpgrade(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("Fail to ota upgrade of StaticPod %v, %v", request.NamespacedName, err))
+			klog.Errorf(Format("Fail to OTA upgrade of StaticPod %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateStaticPodStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -408,8 +407,8 @@ func (r *ReconcileStaticPod) syncConfigMap(instance *appsv1alpha1.StaticPod, has
 	return nil
 }
 
-// autoUpgrade automatically rolling upgrade the target static pods in cluster
-func (r *ReconcileStaticPod) autoUpgrade(instance *appsv1alpha1.StaticPod, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
+// advancedRollingUpdate automatically rolling upgrade the target static pods in cluster
+func (r *ReconcileStaticPod) advancedRollingUpdate(instance *appsv1alpha1.StaticPod, infos map[string]*upgradeinfo.UpgradeInfo, hash string) error {
 	// readyUpgradeWaitingNodes represents nodes that need to create worker pods
 	readyUpgradeWaitingNodes := upgradeinfo.ReadyUpgradeWaitingNodes(infos)
 
@@ -418,7 +417,7 @@ func (r *ReconcileStaticPod) autoUpgrade(instance *appsv1alpha1.StaticPod, infos
 		return nil
 	}
 
-	// max is the maximum number of nodes can be upgraded in current round in auto upgrade mode
+	// max is the maximum number of nodes can be upgraded in current round in AdvancedRollingUpdate upgrade mode
 	max, err := util.UnavailableCount(&instance.Spec.UpgradeStrategy, len(infos))
 	if err != nil {
 		return err

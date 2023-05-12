@@ -106,14 +106,16 @@ func validateStaticPodSpec(spec *v1alpha1.StaticPodSpec) field.ErrorList {
 
 	strategy := &spec.UpgradeStrategy
 
-	if strategy.Type != v1alpha1.AutoStaticPodUpgradeStrategyType && strategy.Type != v1alpha1.OTAStaticPodUpgradeStrategyType {
+	if strategy.Type != v1alpha1.AutoStaticPodUpgradeStrategyType && strategy.Type != v1alpha1.OTAStaticPodUpgradeStrategyType &&
+		strategy.Type != v1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("spec").Child("upgradeStrategy"),
-			strategy, []string{"auto", "ota"}))
+			strategy, []string{"auto", "OTA", "AdvancedRollingUpdate"}))
 	}
 
-	if strategy.Type == v1alpha1.AutoStaticPodUpgradeStrategyType && strategy.MaxUnavailable == nil {
+	if (strategy.Type == v1alpha1.AutoStaticPodUpgradeStrategyType || strategy.Type == v1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType) &&
+		strategy.MaxUnavailable == nil {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("upgradeStrategy"),
-			"max-unavailable is required in auto mode"))
+			"max-unavailable is required in AdvancedRollingUpdate mode"))
 	}
 
 	if allErrs != nil {

@@ -61,7 +61,7 @@ func WithConfigMapPrefix(str string) string {
 // unavailability number to allow out of numberToUpgrade if requested, or an error if
 // the unavailability percentage requested is invalid.
 func UnavailableCount(us *appsv1alpha1.StaticPodUpgradeStrategy, numberToUpgrade int) (int, error) {
-	if us == nil || us.Type != appsv1alpha1.AutoStaticPodUpgradeStrategyType {
+	if us == nil || (us.Type != appsv1alpha1.AutoStaticPodUpgradeStrategyType && us.Type != appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType) {
 		return 0, nil
 	}
 	return intstr.GetScaledValueFromIntOrPercent(us.MaxUnavailable, numberToUpgrade, true)

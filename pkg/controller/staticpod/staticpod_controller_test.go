@@ -88,7 +88,7 @@ func prepareNodes() []client.Object {
 func TestReconcile(t *testing.T) {
 	var strategy = []appsv1alpha1.StaticPodUpgradeStrategy{
 		{Type: appsv1alpha1.OTAStaticPodUpgradeStrategyType},
-		{Type: appsv1alpha1.AutoStaticPodUpgradeStrategyType, MaxUnavailable: &DefaultMaxUnavailable},
+		{Type: appsv1alpha1.AdvancedRollingUpdateStaticPodUpgradeStrategyType, MaxUnavailable: &DefaultMaxUnavailable},
 	}
 	staticPods := prepareStaticPods()
 	nodes := prepareNodes()

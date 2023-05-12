@@ -76,11 +76,12 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
-                    description: Auto upgrade config params. Present only if type
-                      = "auto".
+                    description: AdvancedRollingUpdate upgrade config params. Present
+                      only if type = "AdvancedRollingUpdate".
                     x-kubernetes-int-or-string: true
                   type:
-                    description: Type of Static Pod upgrade. Can be "auto" or "ota".
+                    description: Type of Static Pod upgrade. Can be "AdvancedRollingUpdate"
+                      or "OTA".
                     type: string
                 type: object
             type: object
