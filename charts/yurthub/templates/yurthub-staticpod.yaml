@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "yurthub.labels" . | nindent 4 }}
 spec:
-  staticPodManifest: yurt-hub
+  staticPodManifest: yurthub
   template:
     metadata:
       labels:
