@@ -78,7 +78,7 @@ Note: No modification to Kubernetes, keeping it non-invasive, no modification to
   <img src="../img/OTA.png" width=50% title="OTA">
 </div>
 
-**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: ota`) for DaemonSet
+**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: OTA`) for DaemonSet
 
 1. Users query whether a newer version of the application is available via OTA module's API.
 2. OTA module accesses Kubernetes APIServer through client-go library and get the current application's version.
@@ -118,7 +118,7 @@ POST /openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade  HTTP/1.1
 
 ##### Steps
 
-**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: auto`) for DaemonSet
+**Pre-requisites**: Set application's updateStrategy to `type: OnDelete`; add a new annotation(`apps.openyurt.io/upgrade-strategy: AdvancedRollingUpdate`) for DaemonSet
 
 1. New controller monitor daemonset's changes.
 2. When the daemonset is updated, check the status of all the nodes selected by this daemosnet and if it is ready, then delete pods.
