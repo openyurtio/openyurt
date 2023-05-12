@@ -209,6 +209,7 @@ type joinData struct {
 	pauseImage               string
 	yurthubImage             string
 	yurthubTemplate          string
+	yurthubManifest          string
 	kubernetesVersion        string
 	caCertHashes             []string
 	nodeLabels               map[string]string
@@ -321,12 +322,15 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr
-	yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
+	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
 	if err != nil {
 		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
+		yurthubManifest = yurtconstants.YurthubStaticPodManifest
 		yurthubTemplate = yurtconstants.YurthubTemplate
+
 	}
 	data.yurthubTemplate = yurthubTemplate
+	data.yurthubManifest = yurthubManifest
 	klog.Infof("yurthub template: %s", yurthubTemplate)
 
 	return data, nil
@@ -360,6 +364,10 @@ func (j *joinData) YurtHubServer() string {
 // YurtHubTemplate returns the YurtHub template.
 func (j *joinData) YurtHubTemplate() string {
 	return j.yurthubTemplate
+}
+
+func (j *joinData) YurtHubManifest() string {
+	return j.yurthubManifest
 }
 
 // KubernetesVersion returns the kubernetes version.

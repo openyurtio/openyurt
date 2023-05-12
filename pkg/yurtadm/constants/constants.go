@@ -32,13 +32,13 @@ const (
 	KubeletServiceFilepath   = "/etc/systemd/system/kubelet.service"
 	KubeletServiceConfPath   = "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
 	KubeletSvcPath           = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
-	YurthubStaticPodFileName = "yurthub.yaml"
 	PauseImagePath           = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 	DefaultCertificatesDir   = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket   = "/var/run/dockershim.sock"
-	YurthubYamlName          = "yurt-hub.yaml"
-	YurthubStaticPodManifest = "yurt-hub"
+	YurthubYamlName          = "yurthub.yaml"
+	YurthubStaticPodManifest = "yurthub"
 	YurthubNamespace         = "kube-system"
+	YurthubYurtStaticSetName = "yurt-hub"
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking

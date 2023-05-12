@@ -491,18 +491,22 @@ func CheckKubeletStatus() error {
 }
 
 // GetYurthubTemplateFromStaticPod get yurthub template from static pod
-func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace string) (string, error) {
+func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace string) (string, string, error) {
 	configMap, err := apiclient.GetConfigMapWithRetry(
 		client,
 		namespace,
-		spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(namespace, constants.YurthubStaticPodManifest)))
+		spctrlutil.WithConfigMapPrefix(constants.YurthubYurtStaticSetName))
 	if err != nil {
-		return "", pkgerrors.Wrap(err, "failed to get yurt-hub static-pod configmap")
+		return "", "", pkgerrors.Wrap(err, "failed to get configmap of yurthub yurtstaticset")
 	}
-	data := configMap.Data[constants.YurthubStaticPodManifest]
-	if len(data) == 0 {
-		return "", fmt.Errorf("empty manifest in configmap %v",
-			spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(metav1.NamespaceSystem, constants.YurthubStaticPodManifest)))
+
+	if len(configMap.Data) == 1 {
+		for manifest, data := range configMap.Data {
+			return manifest, data, nil
+		}
 	}
-	return data, nil
+
+	return "", "", fmt.Errorf("invalid manifest in configmap %s",
+		spctrlutil.WithConfigMapPrefix(constants.YurthubYurtStaticSetName))
+
 }

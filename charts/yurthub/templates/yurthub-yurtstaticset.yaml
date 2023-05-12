@@ -1,5 +1,5 @@
 apiVersion: apps.openyurt.io/v1alpha1
-kind: StaticPod
+kind: YurtStaticSet
 metadata:
   name: yurt-hub
   namespace: {{ .Release.Namespace }}
@@ -35,7 +35,7 @@ spec:
           command:
             - yurthub
             - --v=2
-            - --bind-address={{`{{.yurthubBindingAddr}}`}}
+            - --bind-address={{ .Values.yurthubBindingAddr }}
             - --server-addr={{`{{.kubernetesServerAddr}}`}}
             - --node-name=$(NODE_NAME)
             - --bootstrap-file={{ .Values.bootstrapFile }}
@@ -46,7 +46,7 @@ spec:
               {{`{{end}}`}}
           livenessProbe:
             httpGet:
-              host: {{`{{.yurthubBindingAddr}}`}}
+              host: {{ .Values.yurthubBindingAddr }}
               path: /v1/healthz
               port: 10267
             initialDelaySeconds: 300
