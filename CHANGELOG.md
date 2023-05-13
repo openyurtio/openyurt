@@ -20,8 +20,8 @@ As you know, static pods are managed directly by the kubelet daemon on the node 
 In general, if a user wants to upgrade a static pod(like YurtHub), the user should manually modify or replace the manifest
 of the static pod. this can be a very tedious and painful task when the number of static pods becomes very large.
 
-Users can define Pod templates and upgrade models through StaticPod CRD. The upgrade models support both OTA and AdvancedRollingUpdate kinds,
-thus easily meeting the upgrade needs of large-scale Static Pods. Also the Pod template in yurthub StaticPod CRD is used to
+Users can define Pod templates and upgrade models through YurtStaticSet CRD. The upgrade models support both OTA and AdvancedRollingUpdate kinds,
+thus easily meeting the upgrade needs of large-scale Static Pods. Also the Pod template in yurthub YurtAppSet CRD is used to
 install YurtHub component on the node when the node is joined. [#1261](https://github.com/openyurtio/openyurt/pull/1261), [#1168](https://github.com/openyurtio/openyurt/pull/1168), [#1172](https://github.com/openyurtio/openyurt/pull/1172)
 
 **NodePort Service supports nodepool isolation**
