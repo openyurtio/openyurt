@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	ConfigMapPrefix = "static-set-"
+	ConfigMapPrefix = "yurt-static-set-"
 
 	// PodNeedUpgrade indicates whether the pod is able to upgrade.
 	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
@@ -52,7 +52,7 @@ func Hyphen(str1, str2 string) string {
 	return str1 + "-" + str2
 }
 
-// WithConfigMapPrefix add prefix `static-set-` to the given string
+// WithConfigMapPrefix add prefix `yurt-static-set-` to the given string
 func WithConfigMapPrefix(str string) string {
 	return ConfigMapPrefix + str
 }

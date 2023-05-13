@@ -59,10 +59,11 @@ spec:
 		},
 	}
 
-	clientset := fake.NewSimpleClientset(util.NewPodWithCondition("nginx", "Node", corev1.ConditionTrue), cm)
+	clientset := fake.NewSimpleClientset(util.NewPodWithCondition("nginx-node", "Node", corev1.ConditionTrue), cm)
 	upgrader := StaticPodUpgrader{
 		Interface:      clientset,
-		NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: "nginx"},
+		NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: "nginx-node"},
+		StaticName:     "nginx",
 	}
 
 	t.Run("TestStaticPodUpgrader_ApplyManifestNotExist", func(t *testing.T) {

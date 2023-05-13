@@ -32,6 +32,7 @@ import (
 	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
 const OTA = "OTA"
@@ -43,11 +44,13 @@ var (
 type StaticPodUpgrader struct {
 	kubernetes.Interface
 	types.NamespacedName
+	// Name format of static pod is `staticName-nodeName`
+	StaticName string
 }
 
 func (s *StaticPodUpgrader) Apply() error {
 	cm, err := s.CoreV1().ConfigMaps(s.Namespace).Get(context.TODO(),
-		spctrlutil.WithConfigMapPrefix(s.Name), metav1.GetOptions{})
+		spctrlutil.WithConfigMapPrefix(s.StaticName), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -57,7 +60,7 @@ func (s *StaticPodUpgrader) Apply() error {
 		data = v
 	}
 	if len(data) == 0 {
-		return fmt.Errorf("empty manifest in configmap %v", spctrlutil.WithConfigMapPrefix(s.Name))
+		return fmt.Errorf("empty manifest in configmap %v", spctrlutil.WithConfigMapPrefix(s.StaticName))
 	}
 
 	upgradeManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithUpgradeSuffix(manifest))
@@ -70,16 +73,20 @@ func (s *StaticPodUpgrader) Apply() error {
 	return ctrl.Upgrade()
 }
 
-func PreCheck(name, namespace string, c kubernetes.Interface) (bool, error) {
+func PreCheck(name, nodename, namespace string, c kubernetes.Interface) (bool, string, error) {
+	ok, staticName := util.RemoveNodeNameFromStaticPod(name, nodename)
+	if !ok {
+		return false, "", fmt.Errorf("pod name doesn't meet static pod's format")
+	}
 	_, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(),
-		spctrlutil.WithConfigMapPrefix(name), metav1.GetOptions{})
+		spctrlutil.WithConfigMapPrefix(staticName), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return false, nil
+			return false, "", nil
 		}
-		return false, err
+		return false, "", err
 	}
-	return true, nil
+	return true, staticName, nil
 }
 
 func genUpgradeManifest(path, data string) error {

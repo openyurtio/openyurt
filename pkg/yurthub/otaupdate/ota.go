@@ -107,8 +107,9 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		kind := pod.GetOwnerReferences()[0].Kind
 		switch kind {
 		case StaticPod:
-			ok, err := upgrade.PreCheck(podName, namespace, clientset)
+			ok, staticName, err := upgrade.PreCheck(podName, nodeName, namespace, clientset)
 			if err != nil {
+				klog.Errorf("Static pod pre-check failed, %v", err)
 				util.WriteErr(w, "Static pod pre-check failed", http.StatusInternalServerError)
 				return
 			}
@@ -117,7 +118,7 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 				return
 			}
 			upgrader = &upgrade.StaticPodUpgrader{Interface: clientset,
-				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}}
+				NamespacedName: types.NamespacedName{Namespace: namespace, Name: podName}, StaticName: staticName}
 
 		case DaemonPod:
 			upgrader = &upgrade.DaemonPodUpgrader{Interface: clientset,
@@ -128,6 +129,7 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		}
 
 		if err := upgrader.Apply(); err != nil {
+			klog.Errorf("Apply update failed, %v", err)
 			// Pod update failed with error
 			util.WriteErr(w, "Apply update failed", http.StatusInternalServerError)
 			return

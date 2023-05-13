@@ -18,6 +18,7 @@ package util
 
 import (
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,4 +89,11 @@ func SetPodUpgradeCondition(pod *corev1.Pod, ready corev1.ConditionStatus) {
 		Status: ready,
 	}
 	pod.Status.Conditions = append(pod.Status.Conditions, cond)
+}
+
+func RemoveNodeNameFromStaticPod(podname, nodename string) (bool, string) {
+	if !strings.HasSuffix(podname, "-"+nodename) {
+		return false, ""
+	}
+	return true, strings.Split(podname, "-"+nodename)[0]
 }
