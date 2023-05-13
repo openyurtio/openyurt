@@ -144,32 +144,6 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
-  - staticpods
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
-  - staticpods/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - apps.openyurt.io
-  resources:
-  - staticpods/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappdaemons
   verbs:
   - create
@@ -203,6 +177,32 @@ rules:
   - apps.openyurt.io
   resources:
   - yurtappsets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtstaticsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtstaticsets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtstaticsets/status
   verbs:
   - get
   - patch
@@ -313,6 +313,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - update
 - apiGroups:
   - ""
   resources:
@@ -431,27 +437,6 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-apps-openyurt-io-v1alpha1-staticpod
-  failurePolicy: Fail
-  name: mutate.apps.v1alpha1.staticpod.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - staticpods
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
       path: /mutate-apps-openyurt-io-v1alpha1-yurtappdaemon
   failurePolicy: Fail
   name: mutate.apps.v1alpha1.yurtappdaemon.openyurt.io
@@ -485,6 +470,27 @@ webhooks:
     - UPDATE
     resources:
     - yurtappsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtstaticset
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.yurtstaticset.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtstaticsets
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -562,27 +568,6 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-apps-openyurt-io-v1alpha1-staticpod
-  failurePolicy: Fail
-  name: validate.apps.v1alpha1.staticpod.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - staticpods
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
       path: /validate-apps-openyurt-io-v1alpha1-yurtappdaemon
   failurePolicy: Fail
   name: validate.apps.v1alpha1.yurtappdaemon.openyurt.io
@@ -616,4 +601,25 @@ webhooks:
     - UPDATE
     resources:
     - yurtappsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-apps-openyurt-io-v1alpha1-yurtstaticset
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.yurtstaticset.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtstaticsets
   sideEffects: None

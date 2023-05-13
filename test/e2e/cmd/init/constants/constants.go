@@ -156,9 +156,8 @@ rules:
       - ""
     resources:
       - configmaps
-    resourceNames:
-      - yurt-hub-cfg
     verbs:
+      - get
       - list
       - watch
 `

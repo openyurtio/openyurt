@@ -26,26 +26,26 @@ import (
 )
 
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
-func (webhook *StaticPodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	gvk, err := apiutil.GVKForObject(&v1alpha1.StaticPod{}, mgr.GetScheme())
+func (webhook *YurtStaticSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
+	gvk, err := apiutil.GVKForObject(&v1alpha1.YurtStaticSet{}, mgr.GetScheme())
 	if err != nil {
 		return "", "", err
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
 		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.StaticPod{}).
+			For(&v1alpha1.YurtStaticSet{}).
 			WithDefaulter(webhook).
 			WithValidator(webhook).
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-staticpod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.staticpod.openyurt.io
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-staticpod,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=staticpods,verbs=create;update,versions=v1alpha1,name=mutate.apps.v1alpha1.staticpod.openyurt.io
+// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-yurtstaticset,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=yurtstaticsets,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.yurtstaticset.openyurt.io
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-yurtstaticset,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=yurtstaticsets,verbs=create;update,versions=v1alpha1,name=mutate.apps.v1alpha1.yurtstaticset.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
-type StaticPodHandler struct {
+type YurtStaticSetHandler struct {
 }
 
-var _ webhook.CustomDefaulter = &StaticPodHandler{}
-var _ webhook.CustomValidator = &StaticPodHandler{}
+var _ webhook.CustomDefaulter = &YurtStaticSetHandler{}
+var _ webhook.CustomValidator = &YurtStaticSetHandler{}

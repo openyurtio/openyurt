@@ -38,7 +38,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"

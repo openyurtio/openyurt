@@ -26,15 +26,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 )
 
 const (
-	StaticPodHashAnnotation     = "openyurt.io/static-pod-hash"
-	OTALatestManifestAnnotation = "openyurt.io/ota-latest-version"
+	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
 )
 
-// UpgradeInfo is a structure that stores some information used by static pods to upgrade.
+// UpgradeInfo is a structure that stores some information used by YurtStaticSet to upgrade.
 type UpgradeInfo struct {
 	// Static pod running on the node
 	StaticPod *corev1.Pod
@@ -65,7 +64,7 @@ type UpgradeInfo struct {
 }
 
 // New constructs the upgrade information for nodes which have the target static pod
-func New(c client.Client, instance *appsv1alpha1.StaticPod, workerPodName, hash string) (map[string]*UpgradeInfo, error) {
+func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, hash string) (map[string]*UpgradeInfo, error) {
 	infos := make(map[string]*UpgradeInfo)
 
 	var podList corev1.PodList

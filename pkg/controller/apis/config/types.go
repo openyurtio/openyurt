@@ -21,9 +21,9 @@ import (
 
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
-	staticpodconfig "github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
+	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/config"
 )
 
 // YurtManagerConfiguration contains elements describing yurt-manager.
@@ -39,8 +39,8 @@ type YurtManagerConfiguration struct {
 	// YurtAppSetControllerConfiguration holds configuration for YurtAppSetController related features.
 	YurtAppSetController yurtappsetconfig.YurtAppSetControllerConfiguration
 
-	// StaticPodControllerConfiguration holds configuration for  StaticPodController related features.
-	StaticPodController staticpodconfig.StaticPodControllerConfiguration
+	// YurtStaticSetControllerConfiguration holds configuration for YurtStaticSetController related features.
+	YurtStaticSetController yurtstaticsetconfig.YurtStaticSetControllerConfiguration
 
 	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
 	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
