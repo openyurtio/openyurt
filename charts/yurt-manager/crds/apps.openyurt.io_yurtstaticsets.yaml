@@ -26,15 +26,15 @@ spec:
       type: date
     - description: The total number of static pods
       jsonPath: .status.totalNumber
-      name: TotalNumber
+      name: Total
       type: integer
     - description: The number of ready static pods
       jsonPath: .status.readyNumber
-      name: ReadyNumber
+      name: Ready
       type: integer
     - description: The number of static pods that have been upgraded
       jsonPath: .status.upgradedNumber
-      name: UpgradedNumber
+      name: Upgraded
       type: integer
     name: v1alpha1
     schema:

@@ -83,9 +83,9 @@ type YurtStaticSetStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=yss
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
-//+kubebuilder:printcolumn:name="TotalNumber",type="integer",JSONPath=".status.totalNumber",description="The total number of static pods"
-//+kubebuilder:printcolumn:name="ReadyNumber",type="integer",JSONPath=".status.readyNumber",description="The number of ready static pods"
-//+kubebuilder:printcolumn:name="UpgradedNumber",type="integer",JSONPath=".status.upgradedNumber",description="The number of static pods that have been upgraded"
+//+kubebuilder:printcolumn:name="Total",type="integer",JSONPath=".status.totalNumber",description="The total number of static pods"
+//+kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyNumber",description="The number of ready static pods"
+//+kubebuilder:printcolumn:name="Upgraded",type="integer",JSONPath=".status.upgradedNumber",description="The number of static pods that have been upgraded"
 
 // YurtStaticSet is the Schema for the yurtstaticsets API
 type YurtStaticSet struct {
