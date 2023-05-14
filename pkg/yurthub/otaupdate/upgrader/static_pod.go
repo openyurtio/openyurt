@@ -63,6 +63,13 @@ func (s *StaticPodUpgrader) Apply() error {
 		return fmt.Errorf("empty manifest in configmap %v", spctrlutil.WithConfigMapPrefix(s.StaticName))
 	}
 
+	// Make sure upgrade dir exist
+	if _, err := os.Stat(DefaultUpgradePath); os.IsNotExist(err) {
+		if err = os.Mkdir(DefaultUpgradePath, 0755); err != nil {
+			return err
+		}
+	}
+
 	upgradeManifestPath := filepath.Join(DefaultUpgradePath, upgradeutil.WithUpgradeSuffix(manifest))
 	if err := genUpgradeManifest(upgradeManifestPath, data); err != nil {
 		return err
