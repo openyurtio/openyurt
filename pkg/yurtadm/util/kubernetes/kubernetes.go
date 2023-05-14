@@ -38,7 +38,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
@@ -491,11 +490,11 @@ func CheckKubeletStatus() error {
 }
 
 // GetYurthubTemplateFromStaticPod get yurthub template from static pod
-func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace string) (string, string, error) {
+func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace, name string) (string, string, error) {
 	configMap, err := apiclient.GetConfigMapWithRetry(
 		client,
 		namespace,
-		spctrlutil.WithConfigMapPrefix(constants.YurthubYurtStaticSetName))
+		name)
 	if err != nil {
 		return "", "", pkgerrors.Wrap(err, "failed to get configmap of yurthub yurtstaticset")
 	}
@@ -506,7 +505,5 @@ func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace stri
 		}
 	}
 
-	return "", "", fmt.Errorf("invalid manifest in configmap %s",
-		spctrlutil.WithConfigMapPrefix(constants.YurthubYurtStaticSetName))
-
+	return "", "", fmt.Errorf("invalid manifest in configmap %s", name)
 }

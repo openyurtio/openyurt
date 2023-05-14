@@ -1,7 +1,7 @@
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtStaticSet
 metadata:
-  name: yurt-hub
+  name: yurt-hub-cloud
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "yurthub.labels" . | nindent 4 }}
@@ -10,8 +10,8 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: yurt-hub
-      name: yurt-hub
+        k8s-app: yurt-hub-cloud
+      name: yurt-hub-cloud
       namespace: {{ .Release.Namespace }}
     spec:
       volumes:
@@ -39,7 +39,7 @@ spec:
             - --server-addr={{ .Values.kubernetesServerAddr }}
             - --node-name=$(NODE_NAME)
             - --bootstrap-file={{ .Values.bootstrapFile }}
-            - --working-mode=edge
+            - --working-mode=cloud
             - --namespace={{ .Release.Namespace }}
             {{- if .Values.organizations }}
             - --hub-cert-organizations={{ .Values.organizations }}

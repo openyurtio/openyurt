@@ -30,6 +30,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
@@ -322,7 +323,12 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr
-	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
+	yurthubYurtStaticSetName := yurtconstants.YurthubYurtStaticSetName
+	if data.NodeRegistration().WorkingMode == "cloud" {
+		yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
+	}
+
+	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
 		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
 		yurthubManifest = yurtconstants.YurthubStaticPodManifest

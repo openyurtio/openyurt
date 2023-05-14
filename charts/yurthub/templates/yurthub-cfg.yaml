@@ -79,6 +79,7 @@ rules:
       - configmaps
     resourceNames:
       - yurt-static-set-yurt-hub
+      - yurt-static-set-yurt-hub-cloud
     verbs:
       - get
 ---
