@@ -79,7 +79,7 @@ func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, h
 		}
 
 		// The name format of mirror static pod is `StaticPodName-NodeName`
-		if util.Hyphen(instance.Name, nodeName) == pod.Name && isStaticPod(&pod) {
+		if util.Hyphen(instance.Name, nodeName) == pod.Name && util.IsStaticPod(&pod) {
 			// initialize static pod info
 			if err := initStaticPodInfo(c, nodeName, hash, &podList.Items[i], infos); err != nil {
 				return nil, err
@@ -147,16 +147,6 @@ func initWorkerPodInfo(nodeName, hash string, pod *corev1.Pod, infos map[string]
 		infos[nodeName].WorkerPodDeleteNeeded = true
 	}
 	return nil
-}
-
-// isStaticPod judges whether a pod is static by its OwnerReference
-func isStaticPod(pod *corev1.Pod) bool {
-	for _, ownerRef := range pod.GetOwnerReferences() {
-		if ownerRef.Kind == "Node" {
-			return true
-		}
-	}
-	return false
 }
 
 // ReadyUpgradeWaitingNodes gets those nodes that satisfied
