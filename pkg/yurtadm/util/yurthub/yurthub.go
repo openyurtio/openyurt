@@ -73,8 +73,10 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 	if err != nil {
 		return err
 	}
+	yurthubManifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(data.YurtHubManifest()))
+	klog.Infof("yurthub template: %s\n%s", yurthubManifestFile, yurthubTemplate)
 
-	if err := os.WriteFile(filepath.Join(podManifestPath, util.WithYamlSuffix(data.YurtHubManifest())), []byte(yurthubTemplate), 0600); err != nil {
+	if err := os.WriteFile(yurthubManifestFile, []byte(yurthubTemplate), 0600); err != nil {
 		return err
 	}
 	klog.Info("[join-node] Add hub agent static yaml is ok")

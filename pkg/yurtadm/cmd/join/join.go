@@ -331,7 +331,6 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	}
 	data.yurthubTemplate = yurthubTemplate
 	data.yurthubManifest = yurthubManifest
-	klog.Infof("yurthub template: %s", yurthubTemplate)
 
 	return data, nil
 }
