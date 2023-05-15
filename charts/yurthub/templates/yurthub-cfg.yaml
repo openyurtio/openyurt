@@ -71,14 +71,15 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: bootstrap-static-pod
+  name: yurt-hub-yurt-static-set-role
 rules:
   - apiGroups:
       - ""
     resources:
       - configmaps
     resourceNames:
-      - static-pod-cm-{{ .Release.Namespace }}-yurt-hub
+      - yurt-static-set-yurt-hub
+      - yurt-static-set-yurt-hub-cloud
     verbs:
       - get
 ---
@@ -89,7 +90,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: bootstrap-static-pod
+  name: yurt-hub-yurt-static-set-role
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group

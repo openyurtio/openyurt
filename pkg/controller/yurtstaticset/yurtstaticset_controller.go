@@ -215,6 +215,33 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// 4. Watch for changes of static pods
+	reconcileYurtStatisSetForStaticPod := func(obj client.Object) []reconcile.Request {
+		var reqs []reconcile.Request
+		pod, ok := obj.(*corev1.Pod)
+		if !ok {
+			return reqs
+		}
+
+		if !util.IsStaticPod(pod) {
+			return reqs
+		}
+
+		yurtStaticSetName := strings.TrimSuffix(pod.Name, fmt.Sprintf("-%s", pod.Spec.NodeName))
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+			Namespace: pod.Namespace,
+			Name:      yurtStaticSetName,
+		}})
+
+		return reqs
+	}
+	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(
+		func(obj client.Object) []reconcile.Request {
+			return reconcileYurtStatisSetForStaticPod(obj)
+		})); err != nil {
+		return err
+	}
+
 	return nil
 }
 

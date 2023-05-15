@@ -198,3 +198,13 @@ func GetPodConditionFromList(conditions []corev1.PodCondition, conditionType cor
 	}
 	return -1, nil
 }
+
+// IsStaticPod judges whether a pod is static by its OwnerReference
+func IsStaticPod(pod *corev1.Pod) bool {
+	for _, ownerRef := range pod.GetOwnerReferences() {
+		if ownerRef.Kind == "Node" {
+			return true
+		}
+	}
+	return false
+}

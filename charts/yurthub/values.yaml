@@ -6,7 +6,10 @@ nameOverride: ""
 
 cacheAgents: ""
 
+yurthubBindingAddr: 127.0.0.1
+kubernetesServerAddr: https://127.0.0.1:6443
 bootstrapFile: "/var/lib/yurthub/bootstrap-hub.conf"
+organizations: ""
 
 image:
   registry: openyurt

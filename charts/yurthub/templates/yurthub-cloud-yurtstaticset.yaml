@@ -1,7 +1,7 @@
 apiVersion: apps.openyurt.io/v1alpha1
-kind: StaticPod
+kind: YurtStaticSet
 metadata:
-  name: yurt-hub
+  name: yurt-hub-cloud
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "yurthub.labels" . | nindent 4 }}
@@ -10,8 +10,8 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: yurt-hub
-      name: yurt-hub
+        k8s-app: yurt-hub-cloud
+      name: yurt-hub-cloud
       namespace: {{ .Release.Namespace }}
     spec:
       volumes:
@@ -35,18 +35,18 @@ spec:
           command:
             - yurthub
             - --v=2
-            - --bind-address={{`{{.yurthubBindingAddr}}`}}
-            - --server-addr={{`{{.kubernetesServerAddr}}`}}
+            - --bind-address={{ .Values.yurthubBindingAddr }}
+            - --server-addr={{ .Values.kubernetesServerAddr }}
             - --node-name=$(NODE_NAME)
             - --bootstrap-file={{ .Values.bootstrapFile }}
-            - --working-mode={{`{{.workingMode}}`}}
+            - --working-mode=cloud
             - --namespace={{ .Release.Namespace }}
-              {{`{{if .organizations }}`}}
-            - --hub-cert-organizations={{`{{.organizations}}`}}
-              {{`{{end}}`}}
+            {{- if .Values.organizations }}
+            - --hub-cert-organizations={{ .Values.organizations }}
+            {{- end }}
           livenessProbe:
             httpGet:
-              host: {{`{{.yurthubBindingAddr}}`}}
+              host: {{ .Values.yurthubBindingAddr }}
               path: /v1/healthz
               port: 10267
             initialDelaySeconds: 300
