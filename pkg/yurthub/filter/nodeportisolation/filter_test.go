@@ -19,6 +19,7 @@ package nodeportisolation
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -103,7 +105,7 @@ func TestSetSharedInformerFactory(t *testing.T) {
 	}
 }
 
-func TestSetStorageWrapper(t *testing.T) {
+func TestSetCacheManager(t *testing.T) {
 	nif := &nodePortIsolationFilter{
 		workingMode: "edge",
 		nodeName:    "foo",
@@ -113,8 +115,12 @@ func TestSetStorageWrapper(t *testing.T) {
 		t.Fatalf("could not create storage manager, %v", err)
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
+	serializerManager := serializer.NewSerializerManager()
+	fakeClient := &fake.Clientset{}
+	sharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour)
+	cacheManager := cachemanager.NewCacheManager(storageWrapper, serializerManager, nil, sharedFactory)
 
-	if err := nif.SetStorageWrapper(storageWrapper); err != nil {
+	if err := nif.SetCacheManager(cacheManager); err != nil {
 		t.Errorf("expect nil, but got %v", err)
 	}
 }

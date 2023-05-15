@@ -31,8 +31,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
@@ -116,13 +114,7 @@ func (stf *serviceTopologyFilter) SetNodeName(nodeName string) error {
 	return nil
 }
 
-// TODO: should use disk storage as parameter instead of StorageWrapper
-// we can internally construct a new StorageWrapper with passed-in disk storage
-func (stf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrapper) error {
-	if s.Name() != disk.StorageName {
-		return fmt.Errorf("serviceTopologyFilter can only support disk storage currently, cannot use %s", s.Name())
-	}
-
+func (stf *serviceTopologyFilter) SetCacheManager(s cachemanager.CacheManager) error {
 	if len(stf.nodeName) == 0 {
 		return fmt.Errorf("node name for serviceTopologyFilter is not ready")
 	}
@@ -133,18 +125,8 @@ func (stf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 	}
 	klog.Infof("prepare local disk storage to sync node(%s) for edge working mode", stf.nodeName)
 
-	nodeKey, err := s.KeyFunc(storage.KeyBuildInfo{
-		Component: "kubelet",
-		Name:      stf.nodeName,
-		Resources: "nodes",
-		Group:     "",
-		Version:   "v1",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get node key for %s, %v", stf.nodeName, err)
-	}
 	stf.nodeSynced = func() bool {
-		obj, err := s.Get(nodeKey)
+		obj, err := s.QueryInMemoryCache("nodes", "", stf.nodeName)
 		if err != nil || obj == nil {
 			return false
 		}
@@ -157,17 +139,7 @@ func (stf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrappe
 	}
 
 	stf.nodeGetter = func(name string) (*v1.Node, error) {
-		key, err := s.KeyFunc(storage.KeyBuildInfo{
-			Component: "kubelet",
-			Name:      name,
-			Resources: "nodes",
-			Group:     "",
-			Version:   "v1",
-		})
-		if err != nil {
-			return nil, fmt.Errorf("nodeGetter failed to get node key for %s, %v", name, err)
-		}
-		obj, err := s.Get(key)
+		obj, err := s.QueryInMemoryCache("nodes", "", name)
 		if err != nil {
 			return nil, err
 		} else if obj == nil {

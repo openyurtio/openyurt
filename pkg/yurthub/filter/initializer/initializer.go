@@ -45,9 +45,9 @@ type WantsNodePoolName interface {
 	SetNodePoolName(nodePoolName string) error
 }
 
-// WantsStorageWrapper is an interface for setting StorageWrapper
-type WantsStorageWrapper interface {
-	SetStorageWrapper(s cachemanager.StorageWrapper) error
+// WantsCacheManager is an interface for setting CacheManager
+type WantsCacheManager interface {
+	SetCacheManager(c cachemanager.CacheManager) error
 }
 
 // WantsMasterServiceAddr is an interface for setting mutated master service address
@@ -65,7 +65,7 @@ type WantsWorkingMode interface {
 type genericFilterInitializer struct {
 	factory           informers.SharedInformerFactory
 	yurtFactory       yurtinformers.SharedInformerFactory
-	storageWrapper    cachemanager.StorageWrapper
+	cacheManager      cachemanager.CacheManager
 	nodeName          string
 	nodePoolName      string
 	masterServiceHost string
@@ -76,13 +76,13 @@ type genericFilterInitializer struct {
 // New creates an filterInitializer object
 func New(factory informers.SharedInformerFactory,
 	yurtFactory yurtinformers.SharedInformerFactory,
-	sw cachemanager.StorageWrapper,
+	cacheManager cachemanager.CacheManager,
 	nodeName, nodePoolName, masterServiceHost, masterServicePort string,
 	workingMode util.WorkingMode) *genericFilterInitializer {
 	return &genericFilterInitializer{
 		factory:           factory,
 		yurtFactory:       yurtFactory,
-		storageWrapper:    sw,
+		cacheManager:      cacheManager,
 		nodeName:          nodeName,
 		masterServiceHost: masterServiceHost,
 		masterServicePort: masterServicePort,
@@ -132,8 +132,8 @@ func (fi *genericFilterInitializer) Initialize(ins filter.ObjectFilter) error {
 		}
 	}
 
-	if wants, ok := ins.(WantsStorageWrapper); ok {
-		if err := wants.SetStorageWrapper(fi.storageWrapper); err != nil {
+	if wants, ok := ins.(WantsCacheManager); ok {
+		if err := wants.SetCacheManager(fi.cacheManager); err != nil {
 			return err
 		}
 	}

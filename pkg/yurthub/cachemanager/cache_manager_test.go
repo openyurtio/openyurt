@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -3332,3 +3333,53 @@ func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 }
 
 // TODO: in-memory cache unit tests
+
+func TestQueryInMemoryCache(t *testing.T) {
+	cacheMgr := &cacheManager{
+		inMemoryCache: make(map[string]runtime.Object),
+	}
+	key := filepath.Join("pod", metav1.NamespaceDefault, "pod1")
+	cacheMgr.inMemoryCache[key] = &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: metav1.NamespaceDefault,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "DaemonSet",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		testName string
+		res      string
+		ns       string
+		name     string
+		wantErr  bool
+	}{
+		{
+			testName: "test1",
+			res:      "node",
+			ns:       "",
+			name:     "node-name",
+			wantErr:  true,
+		},
+		{
+			testName: "test2",
+			res:      "pod",
+			ns:       metav1.NamespaceDefault,
+			name:     "pod1",
+			wantErr:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := cacheMgr.QueryInMemoryCache(tt.res, tt.ns, tt.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("QueryInMemoryCache() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}

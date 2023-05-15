@@ -50,6 +50,7 @@ func TestFindResponseFilter(t *testing.T) {
 		t.Fatalf("could not create storage manager, %v", err)
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
+	cacheManager := cachemanager.NewCacheManager(storageWrapper, serializerManager, nil, sharedFactory)
 	apiserverAddr := "127.0.0.1:6443"
 	stopper := make(chan struct{})
 	defer close(stopper)
@@ -140,7 +141,7 @@ func TestFindResponseFilter(t *testing.T) {
 			}
 			options.DisabledResourceFilters = append(options.DisabledResourceFilters, tt.disabledResourceFilters...)
 
-			mgr, _ := NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, apiserverAddr)
+			mgr, _ := NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, cacheManager, apiserverAddr)
 			if tt.mgrIsNil && mgr != nil {
 				t.Errorf("expect manager is nil, but got not nil: %v", mgr)
 			} else {

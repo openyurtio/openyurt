@@ -60,6 +60,7 @@ type CacheManager interface {
 	QueryCache(req *http.Request) (runtime.Object, error)
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
+	QueryInMemoryCache(res, ns, name string) (runtime.Object, error)
 }
 
 type cacheManager struct {
@@ -228,10 +229,10 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	// query in-memory cache first
-	var isInMemoryCache = isInMemeoryCache(ctx)
+	var isInMemoryCache = isInMemoryCache(ctx)
 	var isInMemoryCacheMiss bool
 	if isInMemoryCache {
-		if obj, err := cm.queryInMemeryCache(info); err != nil {
+		if obj, err := cm.queryInMemoryCache(info); err != nil {
 			if err == ErrInMemoryCacheMiss {
 				isInMemoryCacheMiss = true
 				klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
@@ -602,7 +603,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	}
 
 	// update the in-memory cache with cloud response
-	if !isInMemeoryCache(ctx) {
+	if !isInMemoryCache(ctx) {
 		return nil
 	}
 	// When reaching here, it means the obj in backend storage has been updated/created successfully,
@@ -794,7 +795,7 @@ func (cm *cacheManager) DeleteKindFor(gvr schema.GroupVersionResource) error {
 	return cm.restMapperManager.DeleteKindFor(gvr)
 }
 
-func (cm *cacheManager) queryInMemeryCache(reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
+func (cm *cacheManager) queryInMemoryCache(reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
 	key, err := inMemoryCacheKeyFunc(reqInfo)
 	if err != nil {
 		return nil, err
@@ -826,7 +827,7 @@ func isKubeletPodRequest(req *http.Request) bool {
 
 // isInMemmoryCache verify if the response of the request should be cached in-memory.
 // In order to accelerate kubelet get node and lease object, we cache them
-func isInMemeoryCache(reqCtx context.Context) bool {
+func isInMemoryCache(reqCtx context.Context) bool {
 	var comp, resource string
 	var reqInfo *apirequest.RequestInfo
 	var ok bool
@@ -876,4 +877,17 @@ func isListRequestWithNameFieldSelector(req *http.Request) bool {
 		}
 	}
 	return false
+}
+
+func (cm *cacheManager) QueryInMemoryCache(res, ns, name string) (runtime.Object, error) {
+	key := filepath.Join(res, ns, name)
+
+	cm.RLock()
+	defer cm.RUnlock()
+	obj, ok := cm.inMemoryCache[key]
+	if !ok {
+		return nil, ErrInMemoryCacheMiss
+	}
+
+	return obj, nil
 }

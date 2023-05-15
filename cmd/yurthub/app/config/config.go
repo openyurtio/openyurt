@@ -74,6 +74,7 @@ type YurtHubConfiguration struct {
 	HeartbeatIntervalSeconds        int
 	MaxRequestInFlight              int
 	EnableProfiling                 bool
+	CacheManager                    cachemanager.CacheManager
 	StorageWrapper                  cachemanager.StorageWrapper
 	SerializerManager               *serializer.SerializerManager
 	RESTMapperManager               *meta.RESTMapperManager
@@ -139,7 +140,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(options, sharedFactory, yurtSharedFactory, workingMode, tenantNs)
-	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
+	cacheManager := cachemanager.NewCacheManager(storageWrapper, serializerManager, restMapperManager, sharedFactory)
+	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, cacheManager, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -157,6 +159,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		MaxRequestInFlight:        options.MaxRequestInFlight,
 		EnableProfiling:           options.EnableProfiling,
 		WorkingMode:               workingMode,
+		CacheManager:              cacheManager,
 		StorageWrapper:            storageWrapper,
 		SerializerManager:         serializerManager,
 		RESTMapperManager:         restMapperManager,

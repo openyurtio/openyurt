@@ -29,8 +29,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
@@ -89,11 +87,7 @@ func (nif *nodePortIsolationFilter) SetSharedInformerFactory(factory informers.S
 	return nil
 }
 
-func (nif *nodePortIsolationFilter) SetStorageWrapper(s cachemanager.StorageWrapper) error {
-	if s.Name() != disk.StorageName {
-		return fmt.Errorf("nodePortIsolationFilter can only support disk storage currently, cannot use %s", s.Name())
-	}
-
+func (nif *nodePortIsolationFilter) SetCacheManager(s cachemanager.CacheManager) error {
 	if len(nif.nodeName) == 0 {
 		return fmt.Errorf("node name for nodePortIsolationFilter is not set")
 	}
@@ -104,18 +98,8 @@ func (nif *nodePortIsolationFilter) SetStorageWrapper(s cachemanager.StorageWrap
 	}
 	klog.Infof("prepare local disk storage to sync node(%s) for edge working mode", nif.nodeName)
 
-	nodeKey, err := s.KeyFunc(storage.KeyBuildInfo{
-		Component: "kubelet",
-		Name:      nif.nodeName,
-		Resources: "nodes",
-		Group:     "",
-		Version:   "v1",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get node key for %s, %v", nif.nodeName, err)
-	}
 	nif.nodeSynced = func() bool {
-		obj, err := s.Get(nodeKey)
+		obj, err := s.QueryInMemoryCache("nodes", "", nif.nodeName)
 		if err != nil || obj == nil {
 			return false
 		}
@@ -128,17 +112,7 @@ func (nif *nodePortIsolationFilter) SetStorageWrapper(s cachemanager.StorageWrap
 	}
 
 	nif.nodeGetter = func(name string) (*v1.Node, error) {
-		key, err := s.KeyFunc(storage.KeyBuildInfo{
-			Component: "kubelet",
-			Name:      name,
-			Resources: "nodes",
-			Group:     "",
-			Version:   "v1",
-		})
-		if err != nil {
-			return nil, fmt.Errorf("nodeGetter failed to get node key for %s, %v", name, err)
-		}
-		obj, err := s.Get(key)
+		obj, err := s.QueryInMemoryCache("nodes", "", name)
 		if err != nil {
 			return nil, err
 		} else if obj == nil {

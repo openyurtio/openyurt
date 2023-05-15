@@ -48,7 +48,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
 	serializerManager *serializer.SerializerManager,
-	storageWrapper cachemanager.StorageWrapper,
+	cacheManager cachemanager.CacheManager,
 	apiserverAddr string) (*Manager, error) {
 	if !options.EnableResourceFilter {
 		return nil, nil
@@ -70,7 +70,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, cacheManager, util.WorkingMode(options.WorkingMode), options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +114,14 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 func createObjectFilters(filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	storageWrapper cachemanager.StorageWrapper,
+	cacheManager cachemanager.CacheManager,
 	workingMode util.WorkingMode,
 	nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
+	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, cacheManager, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
 	initializerChain := filter.Initializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
