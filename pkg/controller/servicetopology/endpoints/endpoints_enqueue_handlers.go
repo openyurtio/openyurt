@@ -17,20 +17,18 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
+	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/util"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
@@ -58,7 +56,7 @@ func (e *EnqueueEndpointsForService) Update(evt event.UpdateEvent,
 			evt.ObjectNew.GetName()))
 		return
 	}
-	if isServiceTopologyTypeChanged(oldSvc, newSvc) {
+	if util.ServiceTopologyTypeChanged(oldSvc, newSvc) {
 		e.enqueueEndpointsForSvc(newSvc, q)
 	}
 }
@@ -77,17 +75,15 @@ func (e *EnqueueEndpointsForService) enqueueEndpointsForSvc(newSvc *corev1.Servi
 	keys := e.endpointsAdapter.GetEnqueueKeysBySvc(newSvc)
 	klog.Infof(Format("the topology configuration of svc %s/%s is changed, enqueue endpoints: %v", newSvc.Namespace, newSvc.Name, keys))
 	for _, key := range keys {
-		q.AddRateLimited(key)
+		ns, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			klog.Errorf("failed to split key %s, %v", key, err)
+			continue
+		}
+		q.AddRateLimited(reconcile.Request{
+			NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+		})
 	}
-}
-
-func isServiceTopologyTypeChanged(oldSvc, newSvc *corev1.Service) bool {
-	oldType := oldSvc.Annotations[servicetopology.AnnotationServiceTopologyKey]
-	newType := newSvc.Annotations[servicetopology.AnnotationServiceTopologyKey]
-	if oldType == newType {
-		return false
-	}
-	return true
 }
 
 type EnqueueEndpointsForNodePool struct {
@@ -122,7 +118,7 @@ func (e *EnqueueEndpointsForNodePool) Update(evt event.UpdateEvent,
 	}
 	klog.Infof(Format("the nodes record of nodepool %s is changed from %v to %v.", newNp.Name, oldNp.Status.Nodes, newNp.Status.Nodes))
 	allNpNodes := newNpNodes.Union(oldNpNodes)
-	svcTopologyTypes := e.getSvcTopologyTypes()
+	svcTopologyTypes := util.GetSvcTopologyTypes(e.client)
 	e.enqueueEndpointsForNodePool(svcTopologyTypes, allNpNodes, newNp, q)
 }
 
@@ -137,7 +133,7 @@ func (e *EnqueueEndpointsForNodePool) Delete(evt event.DeleteEvent,
 	}
 	klog.Infof(Format("nodepool %s is deleted", nodePool.Name))
 	allNpNodes := sets.NewString(nodePool.Status.Nodes...)
-	svcTopologyTypes := e.getSvcTopologyTypes()
+	svcTopologyTypes := util.GetSvcTopologyTypes(e.client)
 	e.enqueueEndpointsForNodePool(svcTopologyTypes, allNpNodes, nodePool, q)
 }
 
@@ -150,30 +146,13 @@ func (e *EnqueueEndpointsForNodePool) enqueueEndpointsForNodePool(svcTopologyTyp
 	keys := e.endpointsAdapter.GetEnqueueKeysByNodePool(svcTopologyTypes, allNpNodes)
 	klog.Infof(Format("according to the change of the nodepool %s, enqueue endpoints: %v", np.Name, keys))
 	for _, key := range keys {
-		q.AddRateLimited(key)
-	}
-}
-
-func (e *EnqueueEndpointsForNodePool) getSvcTopologyTypes() map[string]string {
-	svcTopologyTypes := make(map[string]string)
-	svcList := &corev1.ServiceList{}
-	if err := e.client.List(context.TODO(), svcList, &client.ListOptions{LabelSelector: labels.Everything()}); err != nil {
-		klog.V(4).Infof(Format("Error listing service sets: %v", err))
-		return svcTopologyTypes
-	}
-
-	for _, svc := range svcList.Items {
-		topologyType, ok := svc.Annotations[servicetopology.AnnotationServiceTopologyKey]
-		if !ok {
-			continue
-		}
-
-		key, err := cache.MetaNamespaceKeyFunc(svc)
+		ns, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			runtime.HandleError(err)
+			klog.Errorf("failed to split key %s, %v", key, err)
 			continue
 		}
-		svcTopologyTypes[key] = topologyType
+		q.AddRateLimited(reconcile.Request{
+			NamespacedName: types.NamespacedName{Namespace: ns, Name: name},
+		})
 	}
-	return svcTopologyTypes
 }

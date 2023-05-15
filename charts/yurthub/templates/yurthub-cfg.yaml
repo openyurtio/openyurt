@@ -1,0 +1,110 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-hub
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - get
+  - apiGroups:
+      - apps.openyurt.io
+    resources:
+      - nodepools
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - pool-coordinator-yurthub-certs
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - "discovery.k8s.io"
+    resources: 
+      - "endpointslices"
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - "endpoints"
+    verbs:
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-hub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-hub
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:nodes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-hub-yurt-static-set-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - yurt-static-set-yurt-hub
+      - yurt-static-set-yurt-hub-cloud
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bootstrap-static-pod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-hub-yurt-static-set-role
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:bootstrappers
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yurt-hub-cfg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yurthub.labels" . | nindent 4 }}
+data:
+  cache_agents: {{ .Values.cacheAgents | quote }}
+  servicetopology: ""
+  discardcloudservice: ""
+  masterservice: ""

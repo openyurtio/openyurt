@@ -46,7 +46,7 @@ func init() {
 }
 
 const (
-	controllerName = "delegatelease-controller"
+	ControllerName = "delegatelease"
 )
 
 var (
@@ -67,7 +67,7 @@ func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 		ldc:    utils.NewLeaseDelegatedCounter(),
 		delLdc: utils.NewLeaseDelegatedCounter(),
 	}
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {
@@ -90,7 +90,7 @@ func (r *ReconcileDelegateLease) Reconcile(ctx context.Context, req reconcile.Re
 		return reconcile.Result{}, nil
 	}
 
-	klog.V(4).Infof("lease request: %s\n", lea.Name)
+	klog.V(5).Infof("lease request: %s\n", lea.Name)
 
 	nval, nok := lea.Annotations[constant.DelegateHeartBeat]
 

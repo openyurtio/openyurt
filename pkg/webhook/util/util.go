@@ -28,6 +28,7 @@ import (
 const (
 	MutatingWebhookConfigurationName   = "yurt-manager-mutating-webhook-configuration"
 	ValidatingWebhookConfigurationName = "yurt-manager-validating-webhook-configuration"
+	emptyGroupName                     = "core.openyurt.io"
 )
 
 var namespace = "kube-system"
@@ -59,7 +60,7 @@ func GetServiceName() string {
 }
 
 func GetWebHookPort() int {
-	port := 9876
+	port := 10273
 	if p := os.Getenv("WEBHOOK_PORT"); len(p) > 0 {
 		if p, err := strconv.ParseInt(p, 10, 32); err == nil {
 			port = int(p)
@@ -82,12 +83,21 @@ func GetCertWriter() string {
 }
 
 func GenerateMutatePath(gvk schema.GroupVersionKind) string {
-	return "/mutate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+
+	return "/mutate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
 func GenerateValidatePath(gvk schema.GroupVersionKind) string {
-	return "/validate-" + strings.ReplaceAll(gvk.Group, ".", "-") + "-" +
+	groupName := gvk.Group
+	if groupName == "" {
+		groupName = emptyGroupName
+	}
+	return "/validate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 

@@ -36,6 +36,7 @@ type YurtJoinData interface {
 	YurtHubImage() string
 	YurtHubServer() string
 	YurtHubTemplate() string
+	YurtHubManifest() string
 	KubernetesVersion() string
 	TLSBootstrapCfg() *clientcmdapi.Config
 	BootstrapClient() *clientset.Clientset
@@ -45,4 +46,5 @@ type YurtJoinData interface {
 	IgnorePreflightErrors() sets.String
 	KubernetesResourceServer() string
 	ReuseCNIBin() bool
+	Namespace() string
 }

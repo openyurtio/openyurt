@@ -51,7 +51,7 @@ If this proposal adds new terms, or defines some, make the changes to the book's
 
 ## Summary
 
-In this proposal, we hope to put forward a new method to control the upgrade of static pods automatically, so we add a new CRD(StaticPod) to control the upgrade of static pods. Meanwhile, we provide two upgrade strategy for static pod: Auto and OTA.
+In this proposal, we hope to put forward a new method to control the upgrade of static pods automatically, so we add a new CRD(StaticPod) to control the upgrade of static pods. Meanwhile, we provide two upgrade strategy for static pod: AdvancedRollingUpdate and OTA.
 
 ## Motivation
 
@@ -60,7 +60,7 @@ We all know that static pods are managed directly by the kubelet daemon on a spe
 ### Goals
 
 1. Provide common upgrade model for upgrading static pod.
-2. Provide Auto upgrade model for static pod in order to get rid of blocking upgrade by notReady nodes.
+2. Provide AdvancedRollingUpdate upgrade model for static pod in order to get rid of blocking upgrade by notReady nodes.
 3. Provide OTA upgrade model for static pod when end user hope to control the time of upgrade.
 
 ### Non Goals
@@ -76,11 +76,11 @@ We all know that static pods are managed directly by the kubelet daemon on a spe
 ```go
 // StaticPodUpgradeStrategy defines a strategy to upgrade a static pod.
 type StaticPodUpgradeStrategy struct {
-	// Type of Static Pod upgrade. Can be "Auto" or "OTA".
+	// Type of Static Pod upgrade. Can be "AdvancedRollingUpdate" or "OTA".
 	// +optional
 	Type StaticPodUpgradeStrategyType
 
-	// Auto upgrade config params. Present only if type = "Auto".
+	// AdvancedRollingUpdate upgrade config params. Present only if type = "AdvancedRollingUpdate".
 	MaxUnavailable intstr.IntOrString
 }
 
@@ -88,8 +88,8 @@ type StaticPodUpgradeStrategy struct {
 type StaticPodUpgradeStrategyType string
 
 const (
-	// AutoStaticPodUpgradeStrategyType - Replace the old static pod by new ones using auto upgrade i.e. replace them on each node one after the other.
-	AutoStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "Auto"
+	// AdvancedRollingUpdateStaticPodUpgradeStrategyType - Replace the old static pod by new ones using AdvancedRollingUpdate upgrade i.e. replace them on each node one after the other.
+    AdvancedRollingUpdateStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "AdvancedRollingUpdate"
 
 	// OTAStaticPodUpgradeStrategyType - Replace the old static pod only when it's killed
 	OTAStaticPodUpgradeStrategyType StaticPodUpgradeStrategyType = "OTA"
@@ -180,15 +180,15 @@ type StaticPodStatus struct {
 2. Controller creates a ConfigMap to store the new manifest.
 3. Controller creates an upgrade-task pod which refers to the ConfigMap.
 
-#### Auto Upgrade
+#### AdvancedRollingUpdate Upgrade
 
-Auto Upgrade is the default static pod upgrade strategy we want to provide. The core capability of Auto Upgrade is to automate the upgrade process for all selected static pods on ready nodes after user submits an upgrade request. This strategy ensures that ready nodes can be upgraded smoothly even when some edge nodes are disconnected from the cloud.
+AdvancedRollingUpdate Upgrade is the default static pod upgrade strategy we want to provide. The core capability of AdvancedRollingUpdate Upgrade is to automate the upgrade process for all selected static pods on ready nodes after user submits an upgrade request. This strategy ensures that ready nodes can be upgraded smoothly even when some edge nodes are disconnected from the cloud.
 <div align="center">
   <img src="../img/static-pod/auto.png" title="Static-Pod-Upgrade">
 </div>
 
-- Auto Upgrade strategy supports rolling update and the configuration method is the same with native K8s workload.
-- `Not-ready` nodes will be ignored during upgrade tasks in Auto Upgrade strategy. However, the controller will monitor the status of the `not-ready` node and automatically performs upgrade operation once the node turn ready.
+- AdvancedRollingUpdate Upgrade strategy supports rolling update and the configuration method is the same with native K8s workload.
+- `Not-ready` nodes will be ignored during upgrade tasks in AdvancedRollingUpdate Upgrade strategy. However, the controller will monitor the status of the `not-ready` node and automatically performs upgrade operation once the node turn ready.
 
 #### OTA Upgrade
 

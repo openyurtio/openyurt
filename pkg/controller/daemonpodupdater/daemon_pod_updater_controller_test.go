@@ -209,7 +209,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "failed with not OnDelete strategy",
 			onDelete:       false,
-			strategy:       "auto",
+			strategy:       "Auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
 			maxUnavailable: SingleMaxUnavailable,
@@ -219,7 +219,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "Auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
 			maxUnavailable: SingleMaxUnavailable,
@@ -229,7 +229,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success with maxUnavailable is 2",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "Auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
 			maxUnavailable: SingleMaxUnavailable,
@@ -239,7 +239,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success with maxUnavailable is 50%",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "Auto",
 			nodeNum:        3,
 			readyNodeNum:   3,
 			maxUnavailable: "50%",
@@ -249,7 +249,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success with 1 node not-ready",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "Auto",
 			nodeNum:        3,
 			readyNodeNum:   2,
 			maxUnavailable: SingleMaxUnavailable,
@@ -259,7 +259,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success with 2 nodes not-ready",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "AdvancedRollingUpdate",
 			nodeNum:        3,
 			readyNodeNum:   1,
 			maxUnavailable: SingleMaxUnavailable,
@@ -269,7 +269,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		{
 			name:           "success with 2 nodes not-ready, then turn ready",
 			onDelete:       true,
-			strategy:       "auto",
+			strategy:       "AdvancedRollingUpdate",
 			nodeNum:        3,
 			readyNodeNum:   1,
 			maxUnavailable: SingleMaxUnavailable,
@@ -286,7 +286,7 @@ func TestDaemonsetPodUpdater(t *testing.T) {
 		}
 		setMaxUnavailableAnnotation(ds, tcase.maxUnavailable)
 		switch tcase.strategy {
-		case AutoUpdate:
+		case AutoUpdate, AdvancedRollingUpdate:
 			setAutoUpdateAnnotation(ds)
 		}
 

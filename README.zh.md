@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.2.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -16,10 +16,10 @@
 
 [English](./README.md) | 简体中文
 
-| ![notification](docs/img/bell-outline-badge.svg) What is NEW!                             |
-| ----------------------------------------------------------------------------------------- |
-| 最新发布：2023-01-19 OpenYurt v1.2.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节. |
-| 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1                                             |
+| ![notification](docs/img/bell-outline-badge.svg) What is NEW!            |
+|--------------------------------------------------------------------------|
+| 最新发布：2023-05-03 OpenYurt v1.3.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节. |
+| 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1                                  |
 
 OpenYurt (官网: https://openyurt.io) 是基于 Upstream Kubernetes 构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
 
@@ -46,17 +46,8 @@ OpenYurt 遵循经典的云边一体化架构。
 上图展示了 OpenYurt 的核心架构。OpenYurt 的主要组件包括：
 
 - **[YurtHub](https://openyurt.io/zh/docs/next/core-concepts/yurthub/)**：YurtHub 以静态 pod 模式在工作节点上运行，它作为节点的 Sidecar 处理所有来自工作节点上的组件(如 Kubelet, Kubeproxy 等)到 kube-apiserver 的请求。
-- **[Yurt Controller Manager](https://openyurt.io/zh/docs/next/core-concepts/yurt-controller-manager)**：目前包括如下控制器。
-  - `yurtcsrapprover` 控制器用于处理来自 OpenYurt 组件的 TLS 证书申请
-  - `daemonpodupdater` 控制器主要为 DaemonSet 工作负载提供 OTA 和 Auto 两种新型升级模型
-  - `servicetopologycontroller` 控制器主要用于配合 Yurthub 中的服务拓扑流量路由功能，实时响应 Service 和 NodePool 的变化
-  - `poolcoordinator` 控制器主要配合 Pool-Coordinator 组件一起工作，为用户提供边缘自治(包括节点自治和节点池自治两种模式)的能力.
-- **[Yurt App Manager](https://openyurt.io/zh/docs/next/core-concepts/yurt-app-manager)**：它管理 OpenYurt 中引入的四个 CRD 资源:[NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md)，[YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md)(以前的 UnitedDeployment)，[YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)， [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md)。
-  - `NodePool`为同一区域或站点内的节点资源提供了方便的管理。
-  - `YurtAppSet`定义了一个基于节点池维度的工作负载管理模型。
-  - `YurtAppDaemon`从节点池维度提供一种类似 K8s DaemonSet 的工作负载管理模型。
-  - `YurtIngress`负责将 Ingress Controller 部署到用户指定的节点池。
-- **[Raven/Raven Controller Manager](https://openyurt.io/docs/next/core-concepts/raven)**: 它用于处理 OpenYurt 中的云边，边边间的跨公网通信。 主要在不同物理区域的 pod 之间提供第 3 层网络连接，就像在一个 vanilla Kubernetes 集群中一样。
+- **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**：包括所有云边协同场景下的Controllers和Webhooks。
+- **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: 它用于处理 OpenYurt 中的云边，边边间的跨公网通信。 主要在不同物理区域的 pod 之间提供第 3 层网络连接，就像在一个 vanilla Kubernetes 集群中一样。
 - **Pool-Coordinator**：每个边缘 NodePool 中会自动部署一个 Pool-Coordinator 实例，它联合 YurtHub 为节点池提供心跳代理、云边缘流量复用等能力。
 
 此外，OpenYurt 还包括用于集成和定制的辅助控制器。
@@ -83,13 +74,9 @@ OpenYurt 集群安装分成 2 个部分，分别为安装 OpenYurt 管控组件�
 - [安装 OpenYurt 管控组件](https://openyurt.io/zh/docs/installation/summary/#part-1-%E5%AE%89%E8%A3%85openyurt%E7%AE%A1%E6%8E%A7%E7%BB%84%E4%BB%B6)
 - [节点接入](https://openyurt.io/zh/docs/installation/summary/#part-2-%E8%8A%82%E7%82%B9%E6%8E%A5%E5%85%A5)
 
-## 使用方法
-
-OpenYurt 官网提供详细的[教程](https://openyurt.io/docs/next/)来演示如何使用 OpenYurt。
-
 ## 发展规划
 
-[OpenYurt 发展规划](docs/roadmap.md)
+[OpenYurt 发展规划](https://github.com/openyurtio/community/blob/main/roadmap.md)
 
 ## 社区
 
@@ -111,7 +98,7 @@ OpenYurt 官网提供详细的[教程](https://openyurt.io/docs/next/)来演示�
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - 邮件组: https://groups.google.com/g/openyurt/
-- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1q04kn3nl-9UOKBo__Z~Qhcaj4jnHH~g) (_English_)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1upos7vk0-TREtWsBhyw79zyVnX9TPJQ) (_English_)
 - DingTalk: 搜索群 ID `12640034121` (_Chinese_)
 
 <div align="left">

@@ -31,7 +31,6 @@ import (
 	admissionregistrationinformers "k8s.io/client-go/informers/admissionregistration/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -66,16 +65,18 @@ type Controller struct {
 	informerFactory informers.SharedInformerFactory
 	synced          []cache.InformerSynced
 
-	queue workqueue.RateLimitingInterface
+	queue       workqueue.RateLimitingInterface
+	webhookPort int
 }
 
-func New(cfg *rest.Config, handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller, error) {
+func New(handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller, error) {
 	webhookutil.SetNamespace(cc.ComponentConfig.Generic.WorkingNamespace)
 
 	c := &Controller{
-		kubeClient: extclient.GetGenericClientWithName("webhook-controller").KubeClient,
-		handlers:   handlers,
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhook-controller"),
+		kubeClient:  extclient.GetGenericClientWithName("webhook-controller").KubeClient,
+		handlers:    handlers,
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhook-controller"),
+		webhookPort: cc.ComponentConfig.Generic.WebhookPort,
 	}
 
 	c.informerFactory = informers.NewSharedInformerFactory(c.kubeClient, 0)
@@ -222,7 +223,7 @@ func (c *Controller) sync() error {
 		return fmt.Errorf("failed to write certs to dir: %v", err)
 	}
 
-	if err := configuration.Ensure(c.kubeClient, c.handlers, certs.CACert); err != nil {
+	if err := configuration.Ensure(c.kubeClient, c.handlers, certs.CACert, c.webhookPort); err != nil {
 		return fmt.Errorf("failed to ensure configuration: %v", err)
 	}
 

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,10 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
-)
 
-const (
-	emptyGroupName = "core.openyurt.io"
+	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
 // WebhookBuilder builds a Webhook.
@@ -119,7 +116,7 @@ func (blder *WebhookBuilder) getType() (runtime.Object, error) {
 func (blder *WebhookBuilder) registerDefaultingWebhook() {
 	mwh := blder.getDefaultingWebhook()
 	if mwh != nil {
-		path := generateMutatePath(blder.gvk)
+		path := util.GenerateMutatePath(blder.gvk)
 
 		// Checking if the path is already registered.
 		// If so, just skip it.
@@ -159,7 +156,7 @@ func (blder *WebhookBuilder) isAlreadyHandled(path string) bool {
 func (blder *WebhookBuilder) registerValidatingWebhook() {
 	vwh := blder.getValidatingWebhook()
 	if vwh != nil {
-		path := generateValidatePath(blder.gvk)
+		path := util.GenerateValidatePath(blder.gvk)
 
 		// Checking if the path is already registered.
 		// If so, just skip it.
@@ -199,22 +196,4 @@ func (blder *WebhookBuilder) registerConversionWebhook() error {
 	}
 
 	return nil
-}
-
-func generateMutatePath(gvk schema.GroupVersionKind) string {
-	groupName := gvk.Group
-	if groupName == "" {
-		groupName = emptyGroupName
-	}
-	return "/mutate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
-		gvk.Version + "-" + strings.ToLower(gvk.Kind)
-}
-
-func generateValidatePath(gvk schema.GroupVersionKind) string {
-	groupName := gvk.Group
-	if groupName == "" {
-		groupName = emptyGroupName
-	}
-	return "/validate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
-		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }

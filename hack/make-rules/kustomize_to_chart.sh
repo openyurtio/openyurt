@@ -188,7 +188,7 @@ EOF
    ${YURT_ROOT}/bin/kustomize build ${output_crd_dir} -o ${crd_dir}
    # TODO currently kustomize may not support custom generate names, find more elegant way generate crds
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_nodepools.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_nodepools.yaml
-   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_staticpods.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_staticpods.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtstaticsets.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtstaticsets.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappdaemons.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappdaemons.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappsets.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappsets.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_gateways.raven.openyurt.io.yaml ${crd_dir}/raven.openyurt.io_gateways.yaml
@@ -272,8 +272,16 @@ EOF
 
     # replace webhook-service to yurt-manager-webhook-service because webhooks can not installed when service doesn't exist
     # replace kube-system in webhook to {{ include "openyurt.namespace" . }} in webhooks
-    sed -i 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
-    sed -i 's/kube-system/\{\{ include \"openyurt\.namespace\" \. \}\}/g' $yurt_manager_templatefile
+    case `$echo uname` in
+    "Darwin")
+             sed -i '' 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i '' 's/kube-system/\{\{ \.Release.Namespace \}\}/g' $yurt_manager_templatefile
+             ;;
+    "Linux")
+             sed -i 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i 's/kube-system/\{\{ \.Release.Namespace \}\}/g' $yurt_manager_templatefile
+             ;;
+    esac
 }
 
 

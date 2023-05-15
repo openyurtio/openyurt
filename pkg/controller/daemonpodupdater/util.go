@@ -139,11 +139,11 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 }
 
 // checkPrerequisites checks that daemonset meets two conditions
-// 1. annotation "apps.openyurt.io/update-strategy"="auto" or "ota"
+// 1. annotation "apps.openyurt.io/update-strategy"="AdvancedRollingUpdate" or "OTA"
 // 2. update strategy is "OnDelete"
 func checkPrerequisites(ds *appsv1.DaemonSet) bool {
 	v, ok := ds.Annotations[UpdateAnnotation]
-	if !ok || (v != AutoUpdate && v != OTAUpdate) {
+	if !ok || (v != AutoUpdate && v != OTAUpdate && v != AdvancedRollingUpdate) {
 		return false
 	}
 	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType

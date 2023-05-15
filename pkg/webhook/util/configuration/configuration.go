@@ -31,7 +31,7 @@ import (
 	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
-func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte) error {
+func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte, webhookPort int) error {
 	mutatingConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), webhookutil.MutatingWebhookConfigurationName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("not found MutatingWebhookConfiguration %s", webhookutil.MutatingWebhookConfigurationName)
@@ -69,7 +69,7 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 			wh.ClientConfig.Service.Name = webhookutil.GetServiceName()
 
 			if host := webhookutil.GetHost(); len(host) > 0 {
-				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetWebHookPort())
+				convertClientConfig(&wh.ClientConfig, host, webhookPort)
 			}
 		}
 
@@ -94,7 +94,7 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 			wh.ClientConfig.Service.Name = webhookutil.GetServiceName()
 
 			if host := webhookutil.GetHost(); len(host) > 0 {
-				convertClientConfig(&wh.ClientConfig, host, webhookutil.GetWebHookPort())
+				convertClientConfig(&wh.ClientConfig, host, webhookPort)
 			}
 		}
 

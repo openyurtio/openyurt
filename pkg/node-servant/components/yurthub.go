@@ -80,7 +80,7 @@ func (op *yurtHubOperator) Install() error {
 	// 1-1. replace variables in yaml file
 	klog.Infof("setting up yurthub apiServer addr")
 	yurthubTemplate, err := templates.SubsituteTemplate(constants.YurthubTemplate, map[string]string{
-		"yurthubServerAddr":    constants.DefaultYurtHubServerAddr,
+		"yurthubBindingAddr":   constants.DefaultYurtHubServerAddr,
 		"kubernetesServerAddr": op.apiServerAddr,
 		"image":                op.yurthubImage,
 		"bootstrapFile":        constants.YurtHubBootstrapConfig,

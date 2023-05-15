@@ -1,0 +1,124 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: yurtstaticsets.apps.openyurt.io
+spec:
+  group: apps.openyurt.io
+  names:
+    kind: YurtStaticSet
+    listKind: YurtStaticSetList
+    plural: yurtstaticsets
+    shortNames:
+    - yss
+    singular: yurtstaticset
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC.
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    - description: The total number of static pods
+      jsonPath: .status.totalNumber
+      name: Total
+      type: integer
+    - description: The number of ready static pods
+      jsonPath: .status.readyNumber
+      name: Ready
+      type: integer
+    - description: The number of static pods that have been upgraded
+      jsonPath: .status.upgradedNumber
+      name: Upgraded
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: YurtStaticSet is the Schema for the yurtstaticsets API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: YurtStaticSetSpec defines the desired state of YurtStaticSet
+            properties:
+              revisionHistoryLimit:
+                description: The number of old history to retain to allow rollback.
+                  Defaults to 10.
+                format: int32
+                type: integer
+              staticPodManifest:
+                description: StaticPodManifest indicates the file name of static pod
+                  manifest. The corresponding manifest file name is `StaticPodManifest.yaml`.
+                type: string
+              template:
+                description: An object that describes the desired spec of static pod.
+                x-kubernetes-preserve-unknown-fields: true
+              upgradeStrategy:
+                description: An upgrade strategy to replace existing static pods with
+                  new ones.
+                properties:
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: AdvancedRollingUpdate upgrade config params. Present
+                      only if type = "AdvancedRollingUpdate".
+                    x-kubernetes-int-or-string: true
+                  type:
+                    description: Type of YurtStaticSet upgrade. Can be "AdvancedRollingUpdate"
+                      or "OTA".
+                    type: string
+                type: object
+            type: object
+          status:
+            description: YurtStaticSetStatus defines the observed state of YurtStaticSet
+            properties:
+              observedGeneration:
+                description: The most recent generation observed by the static pod
+                  controller.
+                format: int64
+                type: integer
+              readyNumber:
+                description: The number of ready static pods.
+                format: int32
+                type: integer
+              totalNumber:
+                description: The total number of nodes that are running the static
+                  pod.
+                format: int32
+                type: integer
+              upgradedNumber:
+                description: The number of nodes that are running updated static pod.
+                format: int32
+                type: integer
+            required:
+            - readyNumber
+            - totalNumber
+            - upgradedNumber
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

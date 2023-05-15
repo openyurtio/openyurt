@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yurt-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yurt-manager.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-role
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: {{ .Release.Namespace }}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-manager-webhook-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yurt-manager.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: {{ .Values.ports.webhook }}
+      name: https
+    - port: {{ .Values.ports.metrics }}
+      protocol: TCP
+      targetPort: {{ .Values.ports.metrics }}
+      name: metrics
+  selector:
+    {{- include "yurt-manager.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    {{- include "yurt-manager.labels" . | nindent 4 }}
+  name: yurt-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "yurt-manager.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yurt-manager.selectorLabels" . | nindent 8 }}
+    spec:
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+      containers:
+        - args:
+            - --enable-leader-election=true
+            - --metrics-addr=:{{ .Values.ports.metrics }}
+            - --health-probe-addr=:{{ .Values.ports.healthProbe }}
+            - --webhook-port={{ .Values.ports.webhook }}
+            - --logtostderr=true
+            - --v={{ .Values.log.level }}
+            - --working-namespace={{ .Release.Namespace }}
+            {{- if .Values.controllers }}
+            - --controllers={{ .Values.controllers }}
+            {{- end }}
+            {{- if .Values.disableIndependentWebhooks }}
+            - --disable-independent-webhooks={{ .Values.disableIndependentWebhooks }}
+            {{- end }}
+          command:
+            - /usr/local/bin/yurt-manager
+          image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          name: yurt-manager
+          ports:
+            - containerPort: {{ .Values.ports.webhook }}
+              name: webhook-server
+              protocol: TCP
+            - containerPort: {{ .Values.ports.metrics }}
+              name: metrics
+              protocol: TCP
+            - containerPort: {{ .Values.ports.healthProbe }}
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.ports.healthProbe }}
+      serviceAccountName: yurt-manager
+    {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+    {{- end }}
