@@ -7,7 +7,7 @@
 **Refactor OpenYurt control plane components**
 
 In order to improve the management of all repos in OpenYurt community, and reduce the complexity of installing OpenYurt,
-After detailed discussions in the community, a new component named yurt-manager was agreed to manage controllers and webhooks
+after detailed discussions in the community, a new component named yurt-manager was agreed to manage controllers and webhooks
 scattered across multiple components (like yurt-controller-manager, yurt-app-manager, raven-controller-manager, etc.).
 
 After the refactoring, based on the controller-runtime framework, new controllers and webhooks can be easily added to the
@@ -18,7 +18,7 @@ control-plane component (like kube-controller-manager). [#1067](https://github.c
 
 As you know, static pods are managed directly by the kubelet daemon on the node and there is no APIServer watching them.
 In general, if a user wants to upgrade a static pod(like YurtHub), the user should manually modify or replace the manifest
-of the static pod. this can be a very tedious and painful task when the number of static pods becomes very large.
+of the static pod. This can be a very tedious and painful task when the number of static pods becomes very large.
 
 Users can define Pod templates and upgrade models through YurtStaticSet CRD. The upgrade models support both OTA and AdvancedRollingUpdate kinds,
 thus easily meeting the upgrade needs of large-scale Static Pods. Also the Pod template in yurthub YurtAppSet CRD is used to
@@ -107,7 +107,7 @@ After improving edge autonomy capability, when the reason of node NotReady is cl
 because leader yurthub will help these offline nodes to proxy their heartbeats to the cloud via pool-coordinator component,
 and pods will be evicted and recreated on other ready node if node crashed.
 
-By the way, The original edge autonomy capability by annotating node (with node.beta.openyurt.io/autonomy) will be kept as it is,
+By the way, the original edge autonomy capability by annotating node (with node.beta.openyurt.io/autonomy) will be kept as it is,
 which will influence all pods on autonomy nodes. And a new annotation (named apps.openyurt.io/binding) can be added to workload to
 enable the original edge autonomy capability for specified pod.
 
@@ -446,7 +446,7 @@ Thanks to all contributors for maintaining docs for OpenYurt. ([@huangyuqi](http
 - yurt-edgex-manager
 
   Yurt-edgex-manager enable OpenYurt to be able to manage the EdgeX lifecycle. Each EdgeX CR (Custom Resource) stands for an EdgeX instance.
-Users can deploy/update/delete EdgeX in OpenYurt cluster by operate the EdgeX CR directly. ([yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager), [@yixingjia](https://github.com/yixingjia), [@lwmqwer](https://github.com/lwmqwer))
+Users can deploy/update/delete EdgeX in OpenYurt cluster by operating the EdgeX CR directly. ([yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager), [@yixingjia](https://github.com/yixingjia), [@lwmqwer](https://github.com/lwmqwer))
 
 - yurt-device-controller
 
@@ -499,7 +499,7 @@ Please refer to the [proposal doc](https://github.com/openyurtio/openyurt/blob/m
 
 **Support Pods use `InClusterConfig` access kube-apiserver through yurthub**
 
-Many users in OpenYurt community have requested that support InClusterConfig for pods to access kube-apiserver through yurthub on edge nodes. so pods on cloud can move to edge cluster smoothly. so we add the following features.
+Many users in OpenYurt community have requested that support InClusterConfig for pods to access kube-apiserver through yurthub on edge nodes. so pods on cloud can move to edge cluster smoothly. So we add the following features.
 -  yurthub supports https serve.
 - env `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT` should be the address that yurthub listening, like `169.254.2.1:10261`
 
