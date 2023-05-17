@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -121,6 +122,6 @@ func writeErrResponse(path string, err error, w http.ResponseWriter) {
 }
 
 func writeRawJSON(output []byte, w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
 	w.Write(output)
 }
