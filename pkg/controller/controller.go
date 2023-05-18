@@ -25,6 +25,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/controller/podreadyupdater"
 	poolcoordinatorcert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
 	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
@@ -62,6 +63,7 @@ func init() {
 	controllerAddFuncs[yurtstaticset.ControllerName] = []AddControllerFn{yurtstaticset.Add}
 	controllerAddFuncs[yurtappset.ControllerName] = []AddControllerFn{yurtappset.Add}
 	controllerAddFuncs[yurtappdaemon.ControllerName] = []AddControllerFn{yurtappdaemon.Add}
+	controllerAddFuncs[podreadyupdater.ControllerName] = []AddControllerFn{podreadyupdater.Add}
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi

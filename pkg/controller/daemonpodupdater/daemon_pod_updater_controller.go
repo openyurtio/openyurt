@@ -50,6 +50,7 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
+	podutil "github.com/openyurtio/openyurt/pkg/controller/util/pod"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
@@ -355,14 +356,14 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 			numUnavailable++
 		case newPod != nil:
 			// This pod is up-to-date, check its availability
-			if !k8sutil.IsPodAvailable(newPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}) {
+			if !podutil.IsPodAvailable(newPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}) {
 				// An unavailable new pod is counted against maxUnavailable
 				numUnavailable++
 			}
 		default:
 			// This pod is old, it is an update candidate
 			switch {
-			case !k8sutil.IsPodAvailable(oldPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}):
+			case !podutil.IsPodAvailable(oldPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}):
 				// The old pod isn't available, so it needs to be replaced
 				klog.V(5).Infof("DaemonSet %s/%s pod %s on node %s is out of date and not available, allowing replacement", ds.Namespace, ds.Name, oldPod.Name, nodeName)
 				// Record the replacement

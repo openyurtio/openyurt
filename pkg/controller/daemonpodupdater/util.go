@@ -31,6 +31,7 @@ import (
 
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
 	util "github.com/openyurtio/openyurt/pkg/controller/util/node"
+	podutil "github.com/openyurtio/openyurt/pkg/controller/util/pod"
 )
 
 // GetDaemonsetPods get all pods belong to the given daemonset
@@ -243,6 +244,6 @@ func IsPodUpgradeConditionTrue(status corev1.PodStatus) bool {
 // GetPodUpgradeCondition extracts the pod upgrade condition from the given status and returns that.
 // Returns nil if the condition is not present.
 func GetPodUpgradeCondition(status corev1.PodStatus) *corev1.PodCondition {
-	_, condition := k8sutil.GetPodCondition(&status, PodNeedUpgrade)
+	_, condition := podutil.GetPodCondition(&status, PodNeedUpgrade)
 	return condition
 }
