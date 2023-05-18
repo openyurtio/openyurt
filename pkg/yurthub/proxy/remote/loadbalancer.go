@@ -29,6 +29,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
@@ -278,7 +279,7 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusPartialContent {
 		// prepare response content type
 		reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)
-		respContentType := resp.Header.Get("Content-Type")
+		respContentType := resp.Header.Get(yurtutil.HttpHeaderContentType)
 		if len(respContentType) == 0 {
 			respContentType = reqContentType
 		}
@@ -297,7 +298,7 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 				resp.Body = filterRc
 				if size > 0 {
 					resp.ContentLength = int64(size)
-					resp.Header.Set("Content-Length", fmt.Sprint(size))
+					resp.Header.Set(yurtutil.HttpHeaderContentLength, fmt.Sprint(size))
 				}
 
 				// after gunzip in filter, the header content encoding should be removed.
