@@ -526,7 +526,7 @@ func (ki *Initializer) loadImagesToKindNodes(images, nodes []string) error {
 func validateKubernetesVersion(ver string) error {
 	s := strings.Split(ver, ".")
 	var originVer = ver
-	if len(s) < 2 || len(s) > 3 {
+	if len(s) <= 2 || len(s) > 3 {
 		return fmt.Errorf("invalid format of kubernetes version: %s", ver)
 	}
 	if len(s) == 3 {
