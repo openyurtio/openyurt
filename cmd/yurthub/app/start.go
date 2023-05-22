@@ -75,6 +75,9 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 			}
 			klog.Infof("%s cfg: %#+v", projectinfo.GetHubName(), yurtHubCfg)
 
+			util.SetupDumpStackTrap(ctx.Done())
+			klog.Infof("start watch SIGUSR1 signal")
+
 			if err := Run(ctx, yurtHubCfg); err != nil {
 				klog.Fatalf("run %s failed, %v", projectinfo.GetHubName(), err)
 			}
