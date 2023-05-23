@@ -11,8 +11,6 @@ spec:
     metadata:
       labels:
         k8s-app: yurt-hub
-      name: yurt-hub
-      namespace: {{ .Release.Namespace }}
     spec:
       volumes:
         - name: hub-dir
