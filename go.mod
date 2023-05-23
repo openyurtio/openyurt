@@ -188,7 +188,7 @@ replace (
 	k8s.io/mount-utils => k8s.io/mount-utils v0.22.3
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.22.3
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.3
-	sigs.k8s.io/apiserver-network-proxy => github.com/openyurtio/apiserver-network-proxy v1.18.8
+	sigs.k8s.io/apiserver-network-proxy => github.com/openyurtio/apiserver-network-proxy v0.1.0
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client => sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.22
 )
 
