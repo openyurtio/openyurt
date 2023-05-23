@@ -258,6 +258,28 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   verbs:
   - create
@@ -352,6 +374,32 @@ rules:
   - list
   - watch
 - apiGroups:
+  - device.openyurt.io
+  resources:
+  - iots
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - iots/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - iots/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - discovery.k8s.io
   resources:
   - endpointslices
@@ -409,6 +457,26 @@ webhooks:
     - UPDATE
     resources:
     - gateways
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-device-openyurt-io-v1alpha2-iot
+  failurePolicy: Fail
+  name: miot.kb.io
+  rules:
+  - apiGroups:
+    - device.openyurt.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - iots
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -519,6 +587,26 @@ webhooks:
     - UPDATE
     resources:
     - gateways
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-device-openyurt-io-v1alpha2-iot
+  failurePolicy: Fail
+  name: viot.kb.io
+  rules:
+  - apiGroups:
+    - device.openyurt.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - iots
   sideEffects: None
 - admissionReviewVersions:
   - v1
