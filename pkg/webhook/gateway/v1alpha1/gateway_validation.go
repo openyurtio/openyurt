@@ -73,6 +73,11 @@ func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Obj
 
 func validate(g *v1alpha1.Gateway) error {
 	var errList field.ErrorList
+	if g.Spec.ProxyMode == "" {
+		fldPath := field.NewPath("spec").Child("proxyMode")
+		errList = append(errList, field.Invalid(fldPath, g.Spec.Endpoints, "missing required field 'proxyMode'"))
+	}
+
 	if len(g.Spec.Endpoints) == 0 {
 		fldPath := field.NewPath("spec").Child("endpoints")
 		errList = append(errList, field.Invalid(fldPath, g.Spec.Endpoints, "missing required field 'endpoints'"))

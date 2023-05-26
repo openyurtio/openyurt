@@ -43,12 +43,22 @@ const (
 	ExposeTypeLoadBalancer = "LoadBalancer"
 )
 
+type ProxyMode string
+
+const (
+	EdgeMode  = "edge"
+	CloudMode = "cloud"
+	SoloMode  = "solo"
+)
+
 // GatewaySpec defines the desired state of Gateway
 type GatewaySpec struct {
 	// NodeSelector is a label query over nodes that managed by the gateway.
 	// The nodes in the same gateway should share same layer 3 network.
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 	// TODO add a field to configure using vxlan or host-gw for inner gateway communication?
+	// ProxyMode determines which proxy mode is enabled on the Gateway
+	ProxyMode ProxyMode `json:"proxyMode,omitempty"`
 	// Endpoints is a list of available Endpoint.
 	Endpoints []Endpoint `json:"endpoints"`
 	// ExposeType determines how the Gateway is exposed.
@@ -76,8 +86,8 @@ type NodeInfo struct {
 type GatewayStatus struct {
 	// Nodes contains all information of nodes managed by Gateway.
 	Nodes []NodeInfo `json:"nodes,omitempty"`
-	// ActiveEndpoint is the reference of the active endpoint.
-	ActiveEndpoint *Endpoint `json:"activeEndpoint,omitempty"`
+	// ActiveEndpoints is the reference of the active endpoint.
+	ActiveEndpoints []*Endpoint `json:"activeEndpoints,omitempty"`
 }
 
 // +genclient
@@ -85,7 +95,6 @@ type GatewayStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,path=gateways,shortName=gw,categories=all
-//+kubebuilder:printcolumn:name="ActiveEndpoint",type=string,JSONPath=`.status.activeEndpoint.nodeName`
 
 // Gateway is the Schema for the gateways API
 type Gateway struct {

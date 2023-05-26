@@ -17,11 +17,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ravenv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/config"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -44,14 +45,17 @@ var (
 )
 
 func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayControllerConfiguration{
+			ActiveEndpointsNum: 1,
+		},
+	}
 	var tt = []struct {
-		name       string
-		nodeList   corev1.NodeList
-		gw         *ravenv1alpha1.Gateway
-		expectedEp *ravenv1alpha1.Endpoint
+		name        string
+		nodeList    corev1.NodeList
+		gw          *ravenv1alpha1.Gateway
+		expectedEps []*ravenv1alpha1.Endpoint
 	}{
-
 		{
 			// The node hosting active endpoint becomes NotReady, and it is the only node in the Gateway,
 			// then the active endpoint should be removed.
@@ -78,12 +82,14 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+						},
 					},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
 		{
 			// The node hosting active endpoint becomes NotReady, but there are at least one Ready node,
@@ -119,15 +125,20 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+				},
 			},
 		},
+
 		{
 
 			name: "elect new active endpoint",
@@ -161,15 +172,23 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+						},
+						{
+							NodeName: "node-2",
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+				},
 			},
 		},
+
 		{
 			name: "no available active endpoint",
 			nodeList: corev1.NodeList{
@@ -202,10 +221,10 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: nil,
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
 		{
 			// The node hosting the active endpoint is still ready, do not change it.
@@ -240,28 +259,36 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-2",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-2",
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+				},
 			},
 		},
 	}
 	for _, v := range tt {
 		t.Run(v.name, func(t *testing.T) {
 			a := assert.New(t)
-			ep := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
-			a.Equal(v.expectedEp, ep)
+			eps := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
+			a.Equal(v.expectedEps, eps)
 		})
 	}
 
 }
 
 func TestReconcileGateway_getPodCIDRs(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayControllerConfiguration{
+			ActiveEndpointsNum: 1,
+		},
+	}
 	var tt = []struct {
 		name          string
 		node          corev1.Node

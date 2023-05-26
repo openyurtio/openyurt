@@ -18,4 +18,5 @@ package config
 
 // GatewayControllerConfiguration contains elements describing GatewayController.
 type GatewayControllerConfiguration struct {
+	ActiveEndpointsNum int
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
+
 	"github.com/spf13/pflag"
 
 	"github.com/openyurtio/openyurt/pkg/controller/raven/config"
@@ -28,11 +30,13 @@ type GatewayControllerOptions struct {
 
 func NewGatewayControllerOptions() *GatewayControllerOptions {
 	return &GatewayControllerOptions{
-		&config.GatewayControllerConfiguration{},
+		&config.GatewayControllerConfiguration{
+			ActiveEndpointsNum: 1,
+		},
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to gateway for yurt-manager to the specified FlagSet.
 func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if g == nil {
 		return
@@ -40,12 +44,12 @@ func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
 
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up gateway config with options.
 func (g *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfiguration) error {
 	if g == nil {
 		return nil
 	}
-
+	cfg.ActiveEndpointsNum = g.ActiveEndpointsNum
 	return nil
 }
 
@@ -55,5 +59,8 @@ func (g *GatewayControllerOptions) Validate() []error {
 		return nil
 	}
 	var errs []error
+	if g.ActiveEndpointsNum < 1 {
+		errs = append(errs, fmt.Errorf("gateway must have more than %d active endpoints", 1))
+	}
 	return errs
 }
