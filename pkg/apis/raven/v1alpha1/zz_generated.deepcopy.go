@@ -144,10 +144,16 @@ func (in *GatewayStatus) DeepCopyInto(out *GatewayStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.ActiveEndpoint != nil {
-		in, out := &in.ActiveEndpoint, &out.ActiveEndpoint
-		*out = new(Endpoint)
-		(*in).DeepCopyInto(*out)
+	if in.ActiveEndpoints != nil {
+		in, out := &in.ActiveEndpoints, &out.ActiveEndpoints
+		*out = make([]*Endpoint, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(Endpoint)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 }
 

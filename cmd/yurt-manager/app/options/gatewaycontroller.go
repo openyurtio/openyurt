@@ -32,7 +32,7 @@ func NewGatewayControllerOptions() *GatewayControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to gateway for yurt-manager to the specified FlagSet.
 func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if g == nil {
 		return
@@ -40,12 +40,11 @@ func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
 
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up gateway config with options.
 func (g *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfiguration) error {
 	if g == nil {
 		return nil
 	}
-
 	return nil
 }
 

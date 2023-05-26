@@ -19,16 +19,16 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"sort"
 	"strings"
 	"time"
 
-	calicov3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -45,6 +45,7 @@ import (
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
+	calicov3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
 )
 
 var (
@@ -53,8 +54,14 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s-gateway: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s: %s", common.GatewayController, s)
 }
+
+const (
+	ActiveEndpointsName      = "ActiveEndpointName"
+	ActiveEndpointsPublicIP  = "ActiveEndpointsPublicIP"
+	ActiveEndpointsProxyType = "ActiveEndpointsProxyType"
+)
 
 // Add creates a new Gateway Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -66,7 +73,7 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	cfg := c.ComponentConfig.Generic
 	ravenv1alpha1.ServiceNamespacedName.Namespace = cfg.WorkingNamespace
 
-	klog.Infof("ravenl3-gateway-controller add controller %s", controllerKind.String())
+	klog.Infof("raven-gateway-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -83,9 +90,9 @@ type ReconcileGateway struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileGateway{
-		Client:       utilclient.NewClientFromManager(mgr, common.ControllerName),
+		Client:       utilclient.NewClientFromManager(mgr, common.GatewayController),
 		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(common.ControllerName),
+		recorder:     mgr.GetEventRecorderFor(common.GatewayController),
 		Configration: c.ComponentConfig.GatewayController,
 	}
 }
@@ -93,7 +100,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(fmt.Sprintf("%s-gateway", common.ControllerName), mgr, controller.Options{
+	c, err := controller.New(common.GatewayController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {
@@ -154,10 +161,10 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 		err = fmt.Errorf("unable to list nodes: %s", err)
 		return reconcile.Result{}, err
 	}
+	klog.V(1).Info(Format("list gateway %d node %v", len(nodeList.Items), nodeList.Items))
 
 	// 1. try to elect an active endpoint if possible
 	activeEp := r.electActiveEndpoint(nodeList, &gw)
-	r.recordEndpointEvent(ctx, &gw, gw.Status.ActiveEndpoint, activeEp)
 	if utils.IsGatewayExposeByLB(&gw) {
 		var svc corev1.Service
 		if err := r.Get(ctx, ravenv1alpha1.ServiceNamespacedName, &svc); err != nil {
@@ -168,9 +175,12 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 			klog.V(2).Info("waiting for LB ingress sync")
 			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
-		activeEp.PublicIP = svc.Status.LoadBalancer.Ingress[0].IP
+		for _, aep := range activeEp {
+			aep.PublicIP = svc.Status.LoadBalancer.Ingress[0].IP
+		}
 	}
-	gw.Status.ActiveEndpoint = activeEp
+	r.recordEndpointEvent(ctx, &gw, gw.Status.ActiveEndpoints, activeEp)
+	gw.Status.ActiveEndpoints = activeEp
 
 	// 2. get nodeInfo list of nodes managed by the Gateway
 	var nodes []ravenv1alpha1.NodeInfo
@@ -198,19 +208,23 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileGateway) recordEndpointEvent(ctx context.Context, sourceObj *ravenv1alpha1.Gateway, previous, current *ravenv1alpha1.Endpoint) {
-	if current != nil && !reflect.DeepEqual(previous, current) {
+func (r *ReconcileGateway) recordEndpointEvent(ctx context.Context, sourceObj *ravenv1alpha1.Gateway, previous, current []*ravenv1alpha1.Endpoint) {
+	sort.Slice(previous, func(i, j int) bool { return previous[i].NodeName < previous[j].NodeName })
+	sort.Slice(current, func(i, j int) bool { return current[i].NodeName < current[j].NodeName })
+	if len(current) != 0 && !reflect.DeepEqual(previous, current) {
+		eps := getActiveEndpointsInfo(current)
 		r.recorder.Event(sourceObj.DeepCopy(), corev1.EventTypeNormal,
 			ravenv1alpha1.EventActiveEndpointElected,
-			fmt.Sprintf("The endpoint hosted by node %s has been elected active endpoint, publicIP: %s", current.NodeName, current.PublicIP))
-		klog.V(2).InfoS(Format("elected new active endpoint"), "nodeName", current.NodeName, "publicIP", current.PublicIP)
+			fmt.Sprintf("The endpoint hosted by node %s has been elected active endpoint, publicIP: %s", eps[ActiveEndpointsName], eps[ActiveEndpointsPublicIP]))
+		klog.V(2).InfoS(Format("elected new active endpoint"), "nodeName", eps[ActiveEndpointsName], "publicIP", eps[ActiveEndpointsPublicIP])
 		return
 	}
-	if current == nil && previous != nil {
+	if len(previous) != 0 && !reflect.DeepEqual(previous, current) {
+		eps := getActiveEndpointsInfo(previous)
 		r.recorder.Event(sourceObj.DeepCopy(), corev1.EventTypeWarning,
 			ravenv1alpha1.EventActiveEndpointLost,
-			fmt.Sprintf("The active endpoint hosted by node %s was lost, publicIP: %s", previous.NodeName, previous.PublicIP))
-		klog.V(2).InfoS(Format("active endpoint lost"), "nodeName", previous.NodeName, "publicIP", previous.PublicIP)
+			fmt.Sprintf("The active endpoint hosted by node %s was change, publicIP: %s", eps[ActiveEndpointsName], eps[ActiveEndpointsPublicIP]))
+		klog.V(2).InfoS(Format("active endpoint lost"), "nodeName", eps[ActiveEndpointsName], "publicIP", eps[ActiveEndpointsPublicIP])
 		return
 	}
 }
@@ -218,50 +232,76 @@ func (r *ReconcileGateway) recordEndpointEvent(ctx context.Context, sourceObj *r
 // electActiveEndpoint trys to elect an active Endpoint.
 // If the current active endpoint remains valid, then we don't change it.
 // Otherwise, try to elect a new one.
-func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *ravenv1alpha1.Gateway) (ep *ravenv1alpha1.Endpoint) {
+func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *ravenv1alpha1.Gateway) []*ravenv1alpha1.Endpoint {
 	// get all ready nodes referenced by endpoints
-	readyNodes := make(map[string]corev1.Node)
+	readyNodes := make(map[string]*corev1.Node)
 	for _, v := range nodeList.Items {
 		if isNodeReady(v) {
-			readyNodes[v.Name] = v
+			readyNodes[v.Name] = &v
 		}
 	}
-	// checkActive check if the given endpoint is able to become the active endpoint.
-	checkActive := func(ep *ravenv1alpha1.Endpoint) bool {
-		if ep == nil {
-			return false
-		}
-		// check if the node status is ready
-		if _, ok := readyNodes[ep.NodeName]; ok {
-			var inList bool
-			// check if ep is in the Endpoint list
-			for _, v := range gw.Spec.Endpoints {
-				if reflect.DeepEqual(v, *ep) {
-					inList = true
-					break
-				}
-			}
-			return inList
+	klog.V(1).Infof(Format("Ready node has %d, node %v", len(readyNodes), readyNodes))
+	// init a endpoints slice
+	eps := make([]*ravenv1alpha1.Endpoint, 0)
+	serverProxyGateway := make([]*ravenv1alpha1.Endpoint, 0)
+	networkProxyGateway := make([]*ravenv1alpha1.Endpoint, 0)
+	if gw.Spec.EnableNetworkProxy {
+		networkProxyGateway = electEndpoints(gw, ravenv1alpha1.NetworkProxy, readyNodes)
+	}
+
+	if gw.Spec.EnableServerProxy {
+		serverProxyGateway = electEndpoints(gw, ravenv1alpha1.ServerProxy, readyNodes)
+	}
+	eps = append(eps, networkProxyGateway...)
+	eps = append(eps, serverProxyGateway...)
+	return eps
+}
+
+func electEndpoints(gw *ravenv1alpha1.Gateway, proxyType string, readyNodes map[string]*corev1.Node) []*ravenv1alpha1.Endpoint {
+	eps := make([]*ravenv1alpha1.Endpoint, 0)
+	replicas := 1
+	if proxyType == ravenv1alpha1.ServerProxy {
+		replicas = gw.Spec.Replicas
+	}
+
+	checkCandidates := func(ep *ravenv1alpha1.Endpoint) bool {
+		if _, ok := readyNodes[ep.NodeName]; ok && ep.ProxyType == proxyType {
+			return true
 		}
 		return false
 	}
 
 	// the current active endpoint is still competent.
-	if checkActive(gw.Status.ActiveEndpoint) {
-		for _, v := range gw.Spec.Endpoints {
-			if v.NodeName == gw.Status.ActiveEndpoint.NodeName {
-				return v.DeepCopy()
-			}
+	candidates := make(map[string]*ravenv1alpha1.Endpoint, 0)
+	for _, activeEndpoint := range gw.Status.ActiveEndpoints {
+		if checkCandidates(activeEndpoint) {
+			candidates[activeEndpoint.NodeName] = activeEndpoint.DeepCopy()
 		}
+	}
+	for _, aep := range candidates {
+		if len(eps) == replicas {
+			klog.V(4).InfoS(Format("elect %d active endpoints %s for gateway %s/%s",
+				len(eps), fmt.Sprintf("[%s]", getActiveEndpointsInfo(eps)[ActiveEndpointsName]), gw.GetNamespace(), gw.GetName()))
+			return eps
+		}
+		klog.V(1).Infof(Format("node %s is active endpoints, type is %s", aep.NodeName, aep.ProxyType))
+		klog.V(1).Infof(Format("add node %v", aep.DeepCopy()))
+		eps = append(eps, aep.DeepCopy())
 	}
 
-	// try to elect an active endpoint.
-	for _, v := range gw.Spec.Endpoints {
-		if checkActive(&v) {
-			return v.DeepCopy()
+	for _, ep := range gw.Spec.Endpoints {
+		if _, ok := candidates[ep.NodeName]; !ok && checkCandidates(&ep) {
+			if len(eps) == replicas {
+				klog.V(4).InfoS(Format("elect %d active endpoints %s for gateway %s/%s",
+					len(eps), fmt.Sprintf("[%s]", getActiveEndpointsInfo(eps)[ActiveEndpointsName]), gw.GetNamespace(), gw.GetName()))
+				return eps
+			}
+			klog.V(1).Infof(Format("node %s is active endpoints, type is %s", ep.NodeName, ep.ProxyType))
+			klog.V(1).Infof(Format("add node %v", ep.DeepCopy()))
+			eps = append(eps, ep.DeepCopy())
 		}
 	}
-	return
+	return eps
 }
 
 // isNodeReady checks if the `node` is `corev1.NodeReady`
@@ -292,4 +332,25 @@ func (r *ReconcileGateway) getPodCIDRs(ctx context.Context, node corev1.Node) ([
 		}
 	}
 	return append(podCIDRs, node.Spec.PodCIDR), nil
+}
+
+func getActiveEndpointsInfo(eps []*ravenv1alpha1.Endpoint) map[string]string {
+	infos := make(map[string]string)
+	infos[ActiveEndpointsName] = ""
+	infos[ActiveEndpointsPublicIP] = ""
+	if len(eps) == 0 {
+		return infos
+	}
+	names := make([]string, 0)
+	publicIPs := make([]string, 0)
+	proxyTypes := make([]string, 0)
+	for _, ep := range eps {
+		names = append(names, ep.NodeName)
+		publicIPs = append(publicIPs, ep.PublicIP)
+		proxyTypes = append(proxyTypes, ep.ProxyType)
+	}
+	infos[ActiveEndpointsName] = fmt.Sprintf("[%s]", strings.Join(names, ","))
+	infos[ActiveEndpointsPublicIP] = fmt.Sprintf("[%s]", strings.Join(publicIPs, ","))
+	infos[ActiveEndpointsProxyType] = fmt.Sprintf("[%s]", strings.Join(proxyTypes, ","))
+	return infos
 }

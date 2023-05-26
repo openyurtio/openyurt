@@ -55,7 +55,8 @@ func init() {
 	controllerAddFuncs[daemonpodupdater.ControllerName] = []AddControllerFn{daemonpodupdater.Add}
 	controllerAddFuncs[delegatelease.ControllerName] = []AddControllerFn{delegatelease.Add}
 	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
-	controllerAddFuncs[raven.ControllerName] = []AddControllerFn{gateway.Add, service.Add}
+	controllerAddFuncs[raven.GatewayController] = []AddControllerFn{gateway.Add}
+	controllerAddFuncs[raven.ServiceController] = []AddControllerFn{service.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
 	controllerAddFuncs[yurtcoordinatorcert.ControllerName] = []AddControllerFn{yurtcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +52,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s-service: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s-service: %s", common.ServiceController, s)
 }
 
 // Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -61,7 +62,7 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 		return nil
 	}
 
-	klog.Infof("ravenl3-service-controller add controller %s", controllerKind.String())
+	klog.Infof("raven-service-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -77,16 +78,16 @@ type ReconcileService struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileService{
-		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
+		Client:   utilclient.NewClientFromManager(mgr, common.ServiceController),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.ControllerName),
+		recorder: mgr.GetEventRecorderFor(common.ServiceController),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(fmt.Sprintf("%s-service", common.ControllerName), mgr, controller.Options{
+	c, err := controller.New(common.ServiceController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {
@@ -193,20 +194,25 @@ func (r *ReconcileService) reconcileEndpoint(ctx context.Context, req ctrl.Reque
 	for _, gw := range gatewayList.Items {
 		if utils.IsGatewayExposeByLB(&gw) {
 			exposedByLB = true
-			if gw.Status.ActiveEndpoint != nil {
-				var node corev1.Node
-				if err := r.Get(ctx, types.NamespacedName{
-					Name: gw.Status.ActiveEndpoint.NodeName,
-				}, &node); err != nil {
-					return err
+			if len(gw.Status.ActiveEndpoints) != 0 {
+				nodes := make([]*corev1.Node, 0)
+				for _, ep := range gw.Status.ActiveEndpoints {
+					var node corev1.Node
+					err := r.Get(ctx, types.NamespacedName{Name: ep.NodeName}, &node)
+					if err != nil {
+						return err
+					}
+					nodes = append(nodes, &node)
 				}
-				return r.ensureEndpoint(ctx, req, node)
+				return r.ensureEndpoint(ctx, req, nodes)
 			}
 		}
 	}
+
 	if !exposedByLB {
 		return r.cleanEndpoint(ctx, req)
 	}
+
 	return nil
 }
 
@@ -222,16 +228,19 @@ func (r *ReconcileService) cleanEndpoint(ctx context.Context, req ctrl.Request) 
 	return nil
 }
 
-func (r *ReconcileService) ensureEndpoint(ctx context.Context, req ctrl.Request, node corev1.Node) error {
+func (r *ReconcileService) ensureEndpoint(ctx context.Context, req ctrl.Request, nodes []*corev1.Node) error {
+	addresses := make([]corev1.EndpointAddress, 0)
+	for _, node := range nodes {
+		addresses = append(addresses, corev1.EndpointAddress{
+			IP:       utils.GetNodeInternalIP(*node),
+			NodeName: func(n corev1.Node) *string { return &n.Name }(*node),
+		})
+	}
+
 	var serviceEndpoint corev1.Endpoints
 	newSubnets := []corev1.EndpointSubset{
 		{
-			Addresses: []corev1.EndpointAddress{
-				{
-					IP:       utils.GetNodeInternalIP(node),
-					NodeName: func(n corev1.Node) *string { return &n.Name }(node),
-				},
-			},
+			Addresses: addresses,
 			Ports: []corev1.EndpointPort{
 				{
 					Port:     4500,

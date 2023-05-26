@@ -85,6 +85,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 	if err := y.YurtAppDaemonController.ApplyTo(&c.ComponentConfig.YurtAppDaemonController); err != nil {
 		return err
 	}
+	if err := y.GatewayController.ApplyTo(&c.ComponentConfig.GatewayController); err != nil {
+		return err
+	}
 	return nil
 }
 

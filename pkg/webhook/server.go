@@ -19,6 +19,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/raven/gateway/v1alpha1"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -32,7 +33,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
-	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
@@ -69,7 +69,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook(raven.GatewayController, &v1alpha1gateway.GatewayHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})

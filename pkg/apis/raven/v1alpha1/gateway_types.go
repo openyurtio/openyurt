@@ -40,7 +40,10 @@ var ServiceNamespacedName = types.NamespacedName{
 type ExposeType string
 
 const (
+	ExposeTypeNodePort     = "NodePort"
 	ExposeTypeLoadBalancer = "LoadBalancer"
+	ServerProxy            = "ServerProxy"
+	NetworkProxy           = "NetworkProxy"
 )
 
 // GatewaySpec defines the desired state of Gateway
@@ -48,9 +51,14 @@ type GatewaySpec struct {
 	// NodeSelector is a label query over nodes that managed by the gateway.
 	// The nodes in the same gateway should share same layer 3 network.
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
-	// TODO add a field to configure using vxlan or host-gw for inner gateway communication?
-	// Endpoints is a list of available Endpoint.
-	Endpoints []Endpoint `json:"endpoints"`
+	// EnableServerProxy determine whether to enable the server proxy
+	EnableServerProxy bool `json:"EnableServerProxy,omitempty"`
+	// EnableProxyClient determine whether to enable the network proxy
+	EnableNetworkProxy bool `json:"EnableNetworkProxy,omitempty"`
+	// Replicas determine how many gateways in a network domain
+	Replicas int `json:"Replicas,omitempty"`
+	// Endpoints are a list of available Endpoint.
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 	// ExposeType determines how the Gateway is exposed.
 	ExposeType ExposeType `json:"exposeType,omitempty"`
 }
@@ -59,10 +67,11 @@ type GatewaySpec struct {
 // TODO add priority field?
 type Endpoint struct {
 	// NodeName is the Node hosting this endpoint.
-	NodeName string            `json:"nodeName"`
-	UnderNAT bool              `json:"underNAT,omitempty"`
-	PublicIP string            `json:"publicIP,omitempty"`
-	Config   map[string]string `json:"config,omitempty"`
+	NodeName  string            `json:"nodeName"`
+	ProxyType string            `json:"proxyType"`
+	UnderNAT  bool              `json:"underNAT,omitempty"`
+	PublicIP  string            `json:"publicIP,omitempty"`
+	Config    map[string]string `json:"config,omitempty"`
 }
 
 // NodeInfo stores information of node managed by Gateway.
@@ -76,8 +85,8 @@ type NodeInfo struct {
 type GatewayStatus struct {
 	// Nodes contains all information of nodes managed by Gateway.
 	Nodes []NodeInfo `json:"nodes,omitempty"`
-	// ActiveEndpoint is the reference of the active endpoint.
-	ActiveEndpoint *Endpoint `json:"activeEndpoint,omitempty"`
+	// ActiveEndpoints is the reference of the active endpoint.
+	ActiveEndpoints []*Endpoint `json:"activeEndpoints,omitempty"`
 }
 
 // +genclient
@@ -85,7 +94,6 @@ type GatewayStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,path=gateways,shortName=gw,categories=all
-//+kubebuilder:printcolumn:name="ActiveEndpoint",type=string,JSONPath=`.status.activeEndpoint.nodeName`
 
 // Gateway is the Schema for the gateways API
 type Gateway struct {

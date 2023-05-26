@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -28,12 +27,12 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *GatewayHandler) Default(ctx context.Context, obj runtime.Object) error {
-	np, ok := obj.(*v1alpha1.Gateway)
+	gw, ok := obj.(*v1alpha1.Gateway)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
 	}
 
-	v1alpha1.SetDefaultsGateway(np)
+	v1alpha1.SetDefaultsGateway(gw)
 
 	return nil
 }

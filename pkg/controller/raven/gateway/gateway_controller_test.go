@@ -17,11 +17,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ravenv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/config"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -44,12 +45,14 @@ var (
 )
 
 func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayControllerConfiguration{},
+	}
 	var tt = []struct {
-		name       string
-		nodeList   corev1.NodeList
-		gw         *ravenv1alpha1.Gateway
-		expectedEp *ravenv1alpha1.Endpoint
+		name        string
+		nodeList    corev1.NodeList
+		gw          *ravenv1alpha1.Gateway
+		expectedEps []*ravenv1alpha1.Endpoint
 	}{
 
 		{
@@ -71,19 +74,34 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					Replicas:           1,
+					EnableNetworkProxy: true,
+					EnableServerProxy:  true,
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
-							NodeName: "node-1",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.ServerProxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
 					},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
 		{
 			// The node hosting active endpoint becomes NotReady, but there are at least one Ready node,
@@ -109,27 +127,54 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					Replicas:           1,
+					EnableNetworkProxy: true,
+					EnableServerProxy:  true,
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
-							NodeName: "node-1",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
 						},
 						{
-							NodeName: "node-2",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.ServerProxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName:  "node-2",
+					ProxyType: ravenv1alpha1.NetworkProxy,
+				},
+				{
+					NodeName:  "node-2",
+					ProxyType: ravenv1alpha1.ServerProxy,
+				},
 			},
 		},
-		{
 
+		{
 			name: "elect new active endpoint",
 			nodeList: corev1.NodeList{
 				Items: []corev1.Node{
@@ -138,9 +183,16 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 							Name: "node-1",
 						},
 						Status: nodeNotReadyStatus,
-					}, {
+					},
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node-2",
+						},
+						Status: nodeReadyStatus,
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-3",
 						},
 						Status: nodeReadyStatus,
 					},
@@ -151,25 +203,49 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					Replicas:           2,
+					EnableNetworkProxy: true,
+					EnableServerProxy:  true,
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
-							NodeName: "node-1",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
 						},
 						{
-							NodeName: "node-2",
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
+						{
+							NodeName:  "node-3",
+							ProxyType: ravenv1alpha1.ServerProxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName:  "node-2",
+					ProxyType: ravenv1alpha1.ServerProxy,
+				},
+				{
+					NodeName:  "node-3",
+					ProxyType: ravenv1alpha1.ServerProxy,
+				},
 			},
 		},
+
 		{
 			name: "no available active endpoint",
 			nodeList: corev1.NodeList{
@@ -185,6 +261,17 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 						},
 						Status: nodeNotReadyStatus,
 					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-3",
+						},
+						Status: nodeNotReadyStatus,
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-4",
+						},
+						Status: nodeNotReadyStatus,
+					},
 				},
 			},
 			gw: &ravenv1alpha1.Gateway{
@@ -192,21 +279,48 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					Replicas:           2,
+					EnableNetworkProxy: true,
+					EnableServerProxy:  true,
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
-							NodeName: "node-1",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
 						},
 						{
-							NodeName: "node-2",
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-3",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
+						{
+							NodeName:  "node-4",
+							ProxyType: ravenv1alpha1.ServerProxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: nil,
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-3",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
+						{
+							NodeName:  "node-4",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
+					},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
+
 		{
 			// The node hosting the active endpoint is still ready, do not change it.
 			name: "don't switch active endpoint",
@@ -230,38 +344,63 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					Replicas:           1,
+					EnableNetworkProxy: true,
+					EnableServerProxy:  true,
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
-							NodeName: "node-1",
+							NodeName:  "node-1",
+							ProxyType: ravenv1alpha1.NetworkProxy,
 						},
 						{
-							NodeName: "node-2",
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.ServerProxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-2",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.NetworkProxy,
+						},
+						{
+							NodeName:  "node-2",
+							ProxyType: ravenv1alpha1.ServerProxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName:  "node-2",
+					ProxyType: ravenv1alpha1.NetworkProxy,
+				},
+				{
+					NodeName:  "node-2",
+					ProxyType: ravenv1alpha1.ServerProxy,
+				},
 			},
 		},
 	}
 	for _, v := range tt {
 		t.Run(v.name, func(t *testing.T) {
 			a := assert.New(t)
-			ep := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
-			a.Equal(v.expectedEp, ep)
+			eps := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
+			a.Equal(v.expectedEps, eps)
 		})
 	}
 
 }
 
 func TestReconcileGateway_getPodCIDRs(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayControllerConfiguration{},
+	}
 	var tt = []struct {
 		name          string
 		node          corev1.Node
