@@ -27,6 +27,17 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
 )
 
+const (
+	WorkingNamespace  = "kube-system"
+	RavenGlobalConfig = "raven-cfg"
+
+	RavenEnableProxy  = "EnableL7Proxy"
+	RavenEnableTunnel = "EnableL3Tunnel"
+
+	ProxyServerPort = "ProxyServerPort"
+	VPNServerPort   = "VPNServerPort"
+)
+
 // GetNodeInternalIP returns internal ip of the given `node`.
 func GetNodeInternalIP(node corev1.Node) string {
 	var ip string

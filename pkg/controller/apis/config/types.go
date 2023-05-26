@@ -21,7 +21,7 @@ import (
 
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
-	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
+	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/config"
@@ -35,7 +35,7 @@ type YurtManagerConfiguration struct {
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
 
 	// GatewayControllerConfiguration holds configuration for GatewayController related features.
-	GatewayController gatewayconfig.GatewayControllerConfiguration
+	GatewayController gatewayconfig.GatewayPickupControllerConfiguration
 
 	// YurtAppSetControllerConfiguration holds configuration for YurtAppSetController related features.
 	YurtAppSetController yurtappsetconfig.YurtAppSetControllerConfiguration

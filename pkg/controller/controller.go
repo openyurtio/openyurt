@@ -27,7 +27,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
 	"github.com/openyurtio/openyurt/pkg/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
-	"github.com/openyurtio/openyurt/pkg/controller/raven/gateway"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/service"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/controller/servicetopology/endpoints"
@@ -56,7 +56,8 @@ func init() {
 	controllerAddFuncs[daemonpodupdater.ControllerName] = []AddControllerFn{daemonpodupdater.Add}
 	controllerAddFuncs[delegatelease.ControllerName] = []AddControllerFn{delegatelease.Add}
 	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
-	controllerAddFuncs[raven.ControllerName] = []AddControllerFn{gateway.Add, service.Add}
+	controllerAddFuncs[raven.GatewayController] = []AddControllerFn{gatewaypickup.Add}
+	controllerAddFuncs[raven.ServiceController] = []AddControllerFn{service.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
 	controllerAddFuncs[yurtcoordinatorcert.ControllerName] = []AddControllerFn{yurtcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}

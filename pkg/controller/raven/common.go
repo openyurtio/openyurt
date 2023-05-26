@@ -21,5 +21,7 @@ var (
 )
 
 const (
-	ControllerName = "ravenl3"
+	GatewayController = "raven-gateway-pickup"
+	ServiceController = "raven-service"
+	DnsController     = "raven-dns"
 )

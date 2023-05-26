@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gateway
+package gatewaypickup
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ravenv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup/config"
 )
 
 var (
@@ -44,12 +45,14 @@ var (
 )
 
 func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayPickupControllerConfiguration{},
+	}
 	var tt = []struct {
-		name       string
-		nodeList   corev1.NodeList
-		gw         *ravenv1alpha1.Gateway
-		expectedEp *ravenv1alpha1.Endpoint
+		name        string
+		nodeList    corev1.NodeList
+		gw          *ravenv1alpha1.Gateway
+		expectedEps []*ravenv1alpha1.Endpoint
 	}{
 
 		{
@@ -71,19 +74,39 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					ProxyConfig: ravenv1alpha1.ProxyConfiguration{
+						Replicas:        1,
+						ProxyServerPort: "10262, 10263",
+					},
+					TunnelConfig: ravenv1alpha1.TunnelConfiguration{
+						Replicas:      1,
+						VPNServerPort: "4500",
+					},
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
 							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Proxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Proxy,
+						},
 					},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
 		{
 			// The node hosting active endpoint becomes NotReady, but there are at least one Ready node,
@@ -109,27 +132,59 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					ProxyConfig: ravenv1alpha1.ProxyConfiguration{
+						Replicas:        2,
+						ProxyServerPort: "10262, 10263",
+					},
+					TunnelConfig: ravenv1alpha1.TunnelConfiguration{
+						Replicas:      1,
+						VPNServerPort: "4500",
+					},
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
 							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Proxy,
 						},
 						{
 							NodeName: "node-2",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-2",
+							Type:     ravenv1alpha1.Proxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Proxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+					Type:     ravenv1alpha1.Tunnel,
+				},
+				{
+					NodeName: "node-2",
+					Type:     ravenv1alpha1.Proxy,
+				},
 			},
 		},
-		{
 
+		{
 			name: "elect new active endpoint",
 			nodeList: corev1.NodeList{
 				Items: []corev1.Node{
@@ -138,9 +193,16 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 							Name: "node-1",
 						},
 						Status: nodeNotReadyStatus,
-					}, {
+					},
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node-2",
+						},
+						Status: nodeReadyStatus,
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-3",
 						},
 						Status: nodeReadyStatus,
 					},
@@ -151,25 +213,54 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					ProxyConfig: ravenv1alpha1.ProxyConfiguration{
+						Replicas:        2,
+						ProxyServerPort: "10262, 10263",
+					},
+					TunnelConfig: ravenv1alpha1.TunnelConfiguration{
+						Replicas:      1,
+						VPNServerPort: "4500",
+					},
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
 							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
 						},
 						{
 							NodeName: "node-2",
+							Type:     ravenv1alpha1.Proxy,
+						},
+						{
+							NodeName: "node-3",
+							Type:     ravenv1alpha1.Proxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-1",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-2",
+							Type:     ravenv1alpha1.Proxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+					Type:     ravenv1alpha1.Proxy,
+				},
+				{
+					NodeName: "node-3",
+					Type:     ravenv1alpha1.Proxy,
+				},
 			},
 		},
+
 		{
 			name: "no available active endpoint",
 			nodeList: corev1.NodeList{
@@ -185,6 +276,17 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 						},
 						Status: nodeNotReadyStatus,
 					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-3",
+						},
+						Status: nodeNotReadyStatus,
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-4",
+						},
+						Status: nodeNotReadyStatus,
+					},
 				},
 			},
 			gw: &ravenv1alpha1.Gateway{
@@ -192,21 +294,53 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					ProxyConfig: ravenv1alpha1.ProxyConfiguration{
+						Replicas:        2,
+						ProxyServerPort: "10262, 10263",
+					},
+					TunnelConfig: ravenv1alpha1.TunnelConfiguration{
+						Replicas:      1,
+						VPNServerPort: "4500",
+					},
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
 							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
 						},
 						{
 							NodeName: "node-2",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-3",
+							Type:     ravenv1alpha1.Proxy,
+						},
+						{
+							NodeName: "node-4",
+							Type:     ravenv1alpha1.Proxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: nil,
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-3",
+							Type:     ravenv1alpha1.Proxy,
+						},
+						{
+							NodeName: "node-4",
+							Type:     ravenv1alpha1.Proxy,
+						},
+					},
 				},
 			},
-			expectedEp: nil,
+			expectedEps: []*ravenv1alpha1.Endpoint{},
 		},
+
 		{
 			// The node hosting the active endpoint is still ready, do not change it.
 			name: "don't switch active endpoint",
@@ -230,38 +364,68 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					Name: "gateway-1",
 				},
 				Spec: ravenv1alpha1.GatewaySpec{
+					ProxyConfig: ravenv1alpha1.ProxyConfiguration{
+						Replicas:        1,
+						ProxyServerPort: "10262, 10263",
+					},
+					TunnelConfig: ravenv1alpha1.TunnelConfiguration{
+						Replicas:      1,
+						VPNServerPort: "4500",
+					},
 					Endpoints: []ravenv1alpha1.Endpoint{
 						{
 							NodeName: "node-1",
+							Type:     ravenv1alpha1.Tunnel,
 						},
 						{
 							NodeName: "node-2",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-2",
+							Type:     ravenv1alpha1.Proxy,
 						},
 					},
 				},
 				Status: ravenv1alpha1.GatewayStatus{
-					ActiveEndpoint: &ravenv1alpha1.Endpoint{
-						NodeName: "node-2",
+					ActiveEndpoints: []*ravenv1alpha1.Endpoint{
+						{
+							NodeName: "node-2",
+							Type:     ravenv1alpha1.Tunnel,
+						},
+						{
+							NodeName: "node-2",
+							Type:     ravenv1alpha1.Proxy,
+						},
 					},
 				},
 			},
-			expectedEp: &ravenv1alpha1.Endpoint{
-				NodeName: "node-2",
+			expectedEps: []*ravenv1alpha1.Endpoint{
+				{
+					NodeName: "node-2",
+					Type:     ravenv1alpha1.Tunnel,
+				},
+				{
+					NodeName: "node-2",
+					Type:     ravenv1alpha1.Proxy,
+				},
 			},
 		},
 	}
 	for _, v := range tt {
 		t.Run(v.name, func(t *testing.T) {
 			a := assert.New(t)
-			ep := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
-			a.Equal(v.expectedEp, ep)
+			eps := mockReconciler.electActiveEndpoint(v.nodeList, v.gw)
+			a.Equal(v.expectedEps, eps)
 		})
 	}
 
 }
 
 func TestReconcileGateway_getPodCIDRs(t *testing.T) {
-	mockReconciler := &ReconcileGateway{}
+	mockReconciler := &ReconcileGateway{
+		Configration: config.GatewayPickupControllerConfiguration{},
+	}
 	var tt = []struct {
 		name          string
 		node          corev1.Node
@@ -291,7 +455,6 @@ func TestReconcileGateway_getPodCIDRs(t *testing.T) {
 			if a.NoError(err) {
 				a.Equal(v.expectPodCIDR, podCIDRs)
 			}
-
 		})
 	}
 }

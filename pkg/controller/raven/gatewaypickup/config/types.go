@@ -14,26 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package config
 
-import (
-	"context"
-	"fmt"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
-)
-
-// Default satisfies the defaulting webhook interface.
-func (webhook *GatewayHandler) Default(ctx context.Context, obj runtime.Object) error {
-	np, ok := obj.(*v1alpha1.Gateway)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
-	}
-
-	v1alpha1.SetDefaultsGateway(np)
-
-	return nil
+// GatewayControllerConfiguration contains elements describing GatewayController.
+type GatewayPickupControllerConfiguration struct {
 }

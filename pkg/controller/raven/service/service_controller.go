@@ -51,7 +51,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s-service: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s-service: %s", common.ServiceController, s)
 }
 
 // Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -61,7 +61,7 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 		return nil
 	}
 
-	klog.Infof("ravenl3-service-controller add controller %s", controllerKind.String())
+	klog.Infof("raven-service-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -77,16 +77,16 @@ type ReconcileService struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileService{
-		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
+		Client:   utilclient.NewClientFromManager(mgr, common.ServiceController),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.ControllerName),
+		recorder: mgr.GetEventRecorderFor(common.ServiceController),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(fmt.Sprintf("%s-service", common.ControllerName), mgr, controller.Options{
+	c, err := controller.New(common.ServiceController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {
@@ -193,20 +193,25 @@ func (r *ReconcileService) reconcileEndpoint(ctx context.Context, req ctrl.Reque
 	for _, gw := range gatewayList.Items {
 		if utils.IsGatewayExposeByLB(&gw) {
 			exposedByLB = true
-			if gw.Status.ActiveEndpoint != nil {
-				var node corev1.Node
-				if err := r.Get(ctx, types.NamespacedName{
-					Name: gw.Status.ActiveEndpoint.NodeName,
-				}, &node); err != nil {
-					return err
+			if len(gw.Status.ActiveEndpoints) != 0 {
+				nodes := make([]*corev1.Node, 0)
+				for _, ep := range gw.Status.ActiveEndpoints {
+					var node corev1.Node
+					err := r.Get(ctx, types.NamespacedName{Name: ep.NodeName}, &node)
+					if err != nil {
+						return err
+					}
+					nodes = append(nodes, &node)
 				}
-				return r.ensureEndpoint(ctx, req, node)
+				return r.ensureEndpoint(ctx, req, nodes)
 			}
 		}
 	}
+
 	if !exposedByLB {
 		return r.cleanEndpoint(ctx, req)
 	}
+
 	return nil
 }
 
@@ -222,16 +227,19 @@ func (r *ReconcileService) cleanEndpoint(ctx context.Context, req ctrl.Request) 
 	return nil
 }
 
-func (r *ReconcileService) ensureEndpoint(ctx context.Context, req ctrl.Request, node corev1.Node) error {
+func (r *ReconcileService) ensureEndpoint(ctx context.Context, req ctrl.Request, nodes []*corev1.Node) error {
+	addresses := make([]corev1.EndpointAddress, 0)
+	for _, node := range nodes {
+		addresses = append(addresses, corev1.EndpointAddress{
+			IP:       utils.GetNodeInternalIP(*node),
+			NodeName: func(n corev1.Node) *string { return &n.Name }(*node),
+		})
+	}
+
 	var serviceEndpoint corev1.Endpoints
 	newSubnets := []corev1.EndpointSubset{
 		{
-			Addresses: []corev1.EndpointAddress{
-				{
-					IP:       utils.GetNodeInternalIP(node),
-					NodeName: func(n corev1.Node) *string { return &n.Name }(node),
-				},
-			},
+			Addresses: addresses,
 			Ports: []corev1.EndpointPort{
 				{
 					Port:     4500,
@@ -265,39 +273,15 @@ func (r *ReconcileService) ensureEndpoint(ctx context.Context, req ctrl.Request,
 
 // mapGatewayToRequest maps the given Gateway object to reconcile.Request.
 func mapGatewayToRequest(object client.Object) []reconcile.Request {
-	gw, ok := object.(*ravenv1alpha1.Gateway)
-	if ok && utils.IsGatewayExposeByLB(gw) {
-		return []reconcile.Request{
-			{
-				NamespacedName: ravenv1alpha1.ServiceNamespacedName,
-			},
-		}
-	}
 	return []reconcile.Request{}
 }
 
 // mapEndpointToRequest maps the given Endpoint object to reconcile.Request.
 func mapEndpointToRequest(object client.Object) []reconcile.Request {
-	ep, ok := object.(*corev1.Endpoints)
-	if ok && ep.Name == ravenv1alpha1.ServiceNamespacedName.Name && ep.Namespace == ravenv1alpha1.ServiceNamespacedName.Namespace {
-		return []reconcile.Request{
-			{
-				NamespacedName: ravenv1alpha1.ServiceNamespacedName,
-			},
-		}
-	}
 	return []reconcile.Request{}
 }
 
 // mapEndpointToRequest maps the given Endpoint object to reconcile.Request.
 func mapServiceToRequest(object client.Object) []reconcile.Request {
-	svc, ok := object.(*corev1.Service)
-	if ok && svc.Name == ravenv1alpha1.ServiceNamespacedName.Name && svc.Namespace == ravenv1alpha1.ServiceNamespacedName.Namespace {
-		return []reconcile.Request{
-			{
-				NamespacedName: ravenv1alpha1.ServiceNamespacedName,
-			},
-		}
-	}
 	return []reconcile.Request{}
 }

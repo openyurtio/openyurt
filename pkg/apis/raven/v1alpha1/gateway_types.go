@@ -16,10 +16,7 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-)
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -32,52 +29,87 @@ const (
 	EventActiveEndpointLost = "ActiveEndpointLost"
 )
 
-var ServiceNamespacedName = types.NamespacedName{
-	Namespace: "kube-system",
-	Name:      "raven-agent-service",
-}
-
-type ExposeType string
-
 const (
+	ExposeTypePublicIP     = "PublicIP"
 	ExposeTypeLoadBalancer = "LoadBalancer"
 )
+
+const (
+	Proxy      = "proxy"
+	Tunnel     = "tunnel"
+	ProxyPort  = 10262
+	TunnelPort = 4500
+)
+
+// ProxySpec is the configuration for raven l7 proxy
+type ProxyConfiguration struct {
+	// Replicas is the number of gateway active endpoints that enabled proxy
+	Replicas int `json:"Replicas,omitempty"`
+	// ProxyHTTPPort is the proxy http port of the cross-domain request
+	ProxyHTTPPort string `json:"proxyHTTPPort,omitempty"`
+	// ProxyHTTPSPort is the proxy https port of the cross-domain request
+	ProxyHTTPsPort string `json:"proxyHTTPSPort,omitempty"`
+	// LocalHostPort is the proxy localhost port of the cross-domain request
+	ProxyLocalHostPort string `json:"proxyLocalHostPort,omitempty"`
+	// ProxyServerPort is the proxy service port of the exposed gateway
+	ProxyServerPort string `json:"proxyServerPort,omitempty"`
+}
+
+// TunnelSpec is the configuration for raven l3 tunnel
+type TunnelConfiguration struct {
+	// Replicas is the number of gateway active endpoints that enabled tunnel
+	Replicas int `json:"Replicas,omitempty"`
+	// VPNServerPort is the tunnel service port of the exposed gateway
+	VPNServerPort string `json:"VPNServerPort,omitempty"`
+}
 
 // GatewaySpec defines the desired state of Gateway
 type GatewaySpec struct {
 	// NodeSelector is a label query over nodes that managed by the gateway.
 	// The nodes in the same gateway should share same layer 3 network.
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
-	// TODO add a field to configure using vxlan or host-gw for inner gateway communication?
-	// Endpoints is a list of available Endpoint.
-	Endpoints []Endpoint `json:"endpoints"`
+	// ProxyConfig determine the l7 proxy configuration
+	ProxyConfig ProxyConfiguration `json:"proxyConfig,omitempty"`
+	// TunnelConfig determine the l3 tunnel configuration
+	TunnelConfig TunnelConfiguration `json:"tunnelConfig,omitempty"`
+	// Endpoints are a list of available Endpoint.
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 	// ExposeType determines how the Gateway is exposed.
-	ExposeType ExposeType `json:"exposeType,omitempty"`
+	ExposeType string `json:"exposeType,omitempty"`
 }
 
-// Endpoint stores all essential data for establishing the VPN tunnel.
-// TODO add priority field?
+// Endpoint stores all essential data for establishing the VPN tunnel and Proxy
 type Endpoint struct {
 	// NodeName is the Node hosting this endpoint.
-	NodeName string            `json:"nodeName"`
-	UnderNAT bool              `json:"underNAT,omitempty"`
-	PublicIP string            `json:"publicIP,omitempty"`
-	Config   map[string]string `json:"config,omitempty"`
+	NodeName string `json:"nodeName"`
+	// Type is the service type of the node, proxy or tunnel
+	Type string `json:"type"`
+	// Port is the exposed port of the node, proxy=10262 tunnel=4500
+	Port int `json:"port,omitempty"`
+	// UnderNAT indicates whether node is under NAT
+	UnderNAT bool `json:"underNAT,omitempty"`
+	// PublicIP is the exposed IP of the node
+	PublicIP string `json:"publicIP,omitempty"`
+	// Config is a map to record config for the raven agent of node
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // NodeInfo stores information of node managed by Gateway.
 type NodeInfo struct {
-	NodeName  string   `json:"nodeName"`
-	PrivateIP string   `json:"privateIP"`
-	Subnets   []string `json:"subnets"`
+	// NodeName is the Node host name.
+	NodeName string `json:"nodeName"`
+	// PrivateIP is the node private ip address
+	PrivateIP string `json:"privateIP"`
+	// Subnets is the pod ip range of the node
+	Subnets []string `json:"subnets"`
 }
 
 // GatewayStatus defines the observed state of Gateway
 type GatewayStatus struct {
 	// Nodes contains all information of nodes managed by Gateway.
 	Nodes []NodeInfo `json:"nodes,omitempty"`
-	// ActiveEndpoint is the reference of the active endpoint.
-	ActiveEndpoint *Endpoint `json:"activeEndpoint,omitempty"`
+	// ActiveEndpoints is the reference of the active endpoint.
+	ActiveEndpoints []*Endpoint `json:"activeEndpoints,omitempty"`
 }
 
 // +genclient
@@ -85,7 +117,6 @@ type GatewayStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,path=gateways,shortName=gw,categories=all
-//+kubebuilder:printcolumn:name="ActiveEndpoint",type=string,JSONPath=`.status.activeEndpoint.nodeName`
 
 // Gateway is the Schema for the gateways API
 type Gateway struct {

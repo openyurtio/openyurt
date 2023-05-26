@@ -33,12 +33,12 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
-	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha1"
 	v1alpha2platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha2"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
+	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/raven/gateway/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
@@ -47,7 +47,6 @@ import (
 )
 
 type SetupWebhookWithManager interface {
-	// mutate path, validatepath, error
 	SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error)
 }
 
@@ -72,7 +71,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook(raven.GatewayController, &v1alpha1gateway.GatewayHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})

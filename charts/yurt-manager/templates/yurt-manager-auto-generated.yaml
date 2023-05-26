@@ -439,27 +439,6 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /mutate-raven-openyurt-io-v1alpha1-gateway
-  failurePolicy: Fail
-  name: mutate.raven.v1alpha1.gateway.openyurt.io
-  rules:
-  - apiGroups:
-    - raven.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - gateways
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
@@ -497,6 +476,27 @@ webhooks:
     - UPDATE
     resources:
     - platformadmins
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-raven-openyurt-io-v1alpha1-gateway
+  failurePolicy: Fail
+  name: mutate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -569,27 +569,6 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-raven-openyurt-io-v1alpha1-gateway
-  failurePolicy: Fail
-  name: validate.raven.v1alpha1.gateway.openyurt.io
-  rules:
-  - apiGroups:
-    - raven.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - gateways
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
@@ -648,6 +627,27 @@ webhooks:
     - DELETE
     resources:
     - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-raven-openyurt-io-v1alpha1-gateway
+  failurePolicy: Fail
+  name: validate.raven.v1alpha1.gateway.openyurt.io
+  rules:
+  - apiGroups:
+    - raven.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - gateways
   sideEffects: None
 - admissionReviewVersions:
   - v1

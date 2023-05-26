@@ -18,11 +18,7 @@ spec:
     singular: gateway
   scope: Cluster
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.activeEndpoint.nodeName
-      name: ActiveEndpoint
-      type: string
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Gateway is the Schema for the gateways API
@@ -43,26 +39,37 @@ spec:
             description: GatewaySpec defines the desired state of Gateway
             properties:
               endpoints:
-                description: TODO add a field to configure using vxlan or host-gw
-                  for inner gateway communication? Endpoints is a list of available
-                  Endpoint.
+                description: Endpoints are a list of available Endpoint.
                 items:
                   description: Endpoint stores all essential data for establishing
-                    the VPN tunnel. TODO add priority field?
+                    the VPN tunnel and Proxy
                   properties:
                     config:
                       additionalProperties:
                         type: string
+                      description: Config is a map to record config for the raven
+                        agent of node
                       type: object
                     nodeName:
                       description: NodeName is the Node hosting this endpoint.
                       type: string
+                    port:
+                      description: Port is the exposed port of the node, proxy=10262
+                        tunnel=4500
+                      type: integer
                     publicIP:
+                      description: PublicIP is the exposed IP of the node
+                      type: string
+                    type:
+                      description: Type is the service type of the node, proxy or
+                        tunnel
                       type: string
                     underNAT:
+                      description: UnderNAT indicates whether node is under NAT
                       type: boolean
                   required:
                   - nodeName
+                  - type
                   type: object
                 type: array
               exposeType:
@@ -114,39 +121,93 @@ spec:
                       are ANDed.
                     type: object
                 type: object
-            required:
-            - endpoints
+              proxyConfig:
+                description: ProxyConfig determine the l7 proxy configuration
+                properties:
+                  Replicas:
+                    description: Replicas is the number of gateway active endpoints
+                      that enabled proxy
+                    type: integer
+                  proxyHTTPPort:
+                    description: ProxyHTTPPort is the proxy http port of the cross-domain
+                      request
+                    type: string
+                  proxyHTTPSPort:
+                    description: ProxyHTTPSPort is the proxy https port of the cross-domain
+                      request
+                    type: string
+                  proxyLocalHostPort:
+                    description: LocalHostPort is the proxy localhost port of the
+                      cross-domain request
+                    type: string
+                  proxyServerPort:
+                    description: ProxyServerPort is the proxy service port of the
+                      exposed gateway
+                    type: string
+                type: object
+              tunnelConfig:
+                description: TunnelConfig determine the l3 tunnel configuration
+                properties:
+                  Replicas:
+                    description: Replicas is the number of gateway active endpoints
+                      that enabled tunnel
+                    type: integer
+                  VPNServerPort:
+                    description: VPNServerPort is the tunnel service port of the exposed
+                      gateway
+                    type: string
+                type: object
             type: object
           status:
             description: GatewayStatus defines the observed state of Gateway
             properties:
-              activeEndpoint:
-                description: ActiveEndpoint is the reference of the active endpoint.
-                properties:
-                  config:
-                    additionalProperties:
+              activeEndpoints:
+                description: ActiveEndpoints is the reference of the active endpoint.
+                items:
+                  description: Endpoint stores all essential data for establishing
+                    the VPN tunnel and Proxy
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      description: Config is a map to record config for the raven
+                        agent of node
+                      type: object
+                    nodeName:
+                      description: NodeName is the Node hosting this endpoint.
                       type: string
-                    type: object
-                  nodeName:
-                    description: NodeName is the Node hosting this endpoint.
-                    type: string
-                  publicIP:
-                    type: string
-                  underNAT:
-                    type: boolean
-                required:
-                - nodeName
-                type: object
+                    port:
+                      description: Port is the exposed port of the node, proxy=10262
+                        tunnel=4500
+                      type: integer
+                    publicIP:
+                      description: PublicIP is the exposed IP of the node
+                      type: string
+                    type:
+                      description: Type is the service type of the node, proxy or
+                        tunnel
+                      type: string
+                    underNAT:
+                      description: UnderNAT indicates whether node is under NAT
+                      type: boolean
+                  required:
+                  - nodeName
+                  - type
+                  type: object
+                type: array
               nodes:
                 description: Nodes contains all information of nodes managed by Gateway.
                 items:
                   description: NodeInfo stores information of node managed by Gateway.
                   properties:
                     nodeName:
+                      description: NodeName is the Node host name.
                       type: string
                     privateIP:
+                      description: PrivateIP is the node private ip address
                       type: string
                     subnets:
+                      description: Subnets is the pod ip range of the node
                       items:
                         type: string
                       type: array

@@ -27,7 +27,7 @@ import (
 type YurtManagerOptions struct {
 	Generic                 *GenericOptions
 	NodePoolController      *NodePoolControllerOptions
-	GatewayController       *GatewayControllerOptions
+	GatewayPickupController *GatewayPickupControllerOptions
 	YurtStaticSetController *YurtStaticSetControllerOptions
 	YurtAppSetController    *YurtAppSetControllerOptions
 	YurtAppDaemonController *YurtAppDaemonControllerOptions
@@ -40,7 +40,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 	s := YurtManagerOptions{
 		Generic:                 NewGenericOptions(),
 		NodePoolController:      NewNodePoolControllerOptions(),
-		GatewayController:       NewGatewayControllerOptions(),
+		GatewayPickupController: NewGatewayPickupControllerOptions(),
 		YurtStaticSetController: NewYurtStaticSetControllerOptions(),
 		YurtAppSetController:    NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
@@ -54,7 +54,7 @@ func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	y.Generic.AddFlags(fss.FlagSet("generic"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
-	y.GatewayController.AddFlags(fss.FlagSet("gateway controller"))
+	y.GatewayPickupController.AddFlags(fss.FlagSet("gateway controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
@@ -68,7 +68,7 @@ func (y *YurtManagerOptions) Validate() error {
 	var errs []error
 	errs = append(errs, y.Generic.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
-	errs = append(errs, y.GatewayController.Validate()...)
+	errs = append(errs, y.GatewayPickupController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
@@ -90,6 +90,10 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 		return err
 	}
 	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {
+		return err
+	}
+	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayController); err != nil {
+
 		return err
 	}
 	return nil
