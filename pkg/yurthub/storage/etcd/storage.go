@@ -141,6 +141,9 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 		poolScopedResourcesGetter: resources.GetPoolScopeResources,
 	}
 	if err := cache.Recover(); err != nil {
+		if err := client.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close etcd client, %v", err)
+		}
 		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
 	}
 	s.localComponentKeyCache = cache
@@ -182,6 +185,9 @@ func (s *etcdStorage) clientLifeCycleManagement() {
 	for {
 		select {
 		case <-s.ctx.Done():
+			if err := s.client.Close(); err != nil {
+				klog.Errorf("failed to close etcd client, %v", err)
+			}
 			klog.Info("etcdstorage lifecycle routine exited")
 			return
 		default:
