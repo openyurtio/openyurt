@@ -109,7 +109,7 @@ func (blder *WebhookBuilder) getType() (runtime.Object, error) {
 	if blder.apiType != nil {
 		return blder.apiType, nil
 	}
-	return nil, errors.New("For() must be called with a valid object")
+	return nil, errors.New("for() must be called with a valid object")
 }
 
 // registerDefaultingWebhook registers a defaulting webhook if th.
