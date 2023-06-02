@@ -35,9 +35,10 @@ import (
 )
 
 const (
-	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
-	ServerName     string                  = "127.0.0.1"
-	ServerPort     string                  = "10267"
+	PodNeedUpgrade   corev1.PodConditionType = "PodNeedUpgrade"
+	ServerName       string                  = "127.0.0.1"
+	ServerPort       string                  = "10267"
+	FlannelNamespace string                  = "kube-flannel"
 )
 
 var _ = Describe("daemonPodUpdater Test", Ordered, func() {
@@ -175,6 +176,36 @@ var _ = Describe("daemonPodUpdater Test", Ordered, func() {
 		return fmt.Errorf("node openyurt-e2e-test-worker2 is not ready")
 	}
 
+	reconnectNode := func(nodeName string) {
+		// reconnect node
+		cmd := exec.Command("/bin/bash", "-c", "docker network connect kind "+nodeName)
+		err := cmd.Run()
+		Expect(err).NotTo(HaveOccurred(), "fail to reconnect "+nodeName+" node to kind bridge")
+
+		Eventually(func() error {
+			return checkNodeStatus(nodeName)
+		}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+
+		// restart flannel pod on node to recover flannel NIC
+		Eventually(func() error {
+			flannelPods := &corev1.PodList{}
+			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace)); err != nil {
+				return err
+			}
+			if len(flannelPods.Items) != 3 {
+				return fmt.Errorf("not reconcile")
+			}
+			for _, pod := range flannelPods.Items {
+				if pod.Spec.NodeName == nodeName {
+					if err := k8sClient.Delete(ctx, &pod); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}).WithTimeout(timeout).Should(SatisfyAny(BeNil()))
+	}
+
 	BeforeEach(func() {
 		By("Start to run daemonPodUpdater test, clean up previous resources")
 		nodeToImageMap = map[string]string{}
@@ -218,13 +249,8 @@ var _ = Describe("daemonPodUpdater Test", Ordered, func() {
 				return fmt.Errorf("error image update")
 			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(Succeed())
 
-			// reconnect openyurt-e2e-test-worker2 node
-			cmd = exec.Command("/bin/bash", "-c", "docker network connect kind openyurt-e2e-test-worker2")
-			err = cmd.Run()
-			Expect(err).NotTo(HaveOccurred(), "fail to reconnect openyurt-e2e-test-worker2 node to kind bridge")
-			Eventually(func() error {
-				return checkNodeStatus("openyurt-e2e-test-worker2")
-			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+			// recover network environment
+			reconnectNode("openyurt-e2e-test-worker2")
 
 			// check image version
 			Eventually(func() error {
@@ -242,13 +268,7 @@ var _ = Describe("daemonPodUpdater Test", Ordered, func() {
 				return
 			}
 			// reconnect openyurt-e2e-test-worker2 node to avoid impact on other tests
-			cmd := exec.Command("/bin/bash", "-c", "docker network connect kind openyurt-e2e-test-worker2")
-			err := cmd.Run()
-			Expect(err).NotTo(HaveOccurred(), "fail to reconnect openyurt-e2e-test-worker2 node to kind bridge")
-
-			Eventually(func() error {
-				return checkNodeStatus("openyurt-e2e-test-worker2")
-			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+			reconnectNode("openyurt-e2e-test-worker2")
 		})
 	})
 
