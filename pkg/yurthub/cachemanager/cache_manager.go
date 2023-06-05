@@ -228,7 +228,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	// query in-memory cache first
-	var isInMemoryCache = isInMemeoryCache(ctx)
+	var isInMemoryCache = isInMemoryCache(ctx)
 	var isInMemoryCacheMiss bool
 	if isInMemoryCache {
 		if obj, err := cm.queryInMemeryCache(info); err != nil {
@@ -602,7 +602,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	}
 
 	// update the in-memory cache with cloud response
-	if !isInMemeoryCache(ctx) {
+	if !isInMemoryCache(ctx) {
 		return nil
 	}
 	// When reaching here, it means the obj in backend storage has been updated/created successfully,
@@ -824,9 +824,9 @@ func isKubeletPodRequest(req *http.Request) bool {
 	return false
 }
 
-// isInMemmoryCache verify if the response of the request should be cached in-memory.
+// isInMemoryCache verify if the response of the request should be cached in-memory.
 // In order to accelerate kubelet get node and lease object, we cache them
-func isInMemeoryCache(reqCtx context.Context) bool {
+func isInMemoryCache(reqCtx context.Context) bool {
 	var comp, resource string
 	var reqInfo *apirequest.RequestInfo
 	var ok bool
