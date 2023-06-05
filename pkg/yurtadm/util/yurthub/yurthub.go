@@ -17,6 +17,8 @@ limitations under the License.
 package yurthub
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,6 +75,12 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 	if err != nil {
 		return err
 	}
+
+	yurthubTemplate, err = useRealServerAddr(yurthubTemplate, kubernetesServerAddrs)
+	if err != nil {
+		return err
+	}
+
 	yurthubManifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(data.YurtHubManifest()))
 	klog.Infof("yurthub template: %s\n%s", yurthubManifestFile, yurthubTemplate)
 
@@ -169,4 +177,26 @@ func CleanHubBootstrapConfig() error {
 		klog.Warningf("Clean file %s fail: %v, please clean it manually.", constants.YurtHubBootstrapConfig, err)
 	}
 	return nil
+}
+
+// useRealServerAddr check if the server-addr from yurthubTemplate is default value: 127.0.0.1:6443
+// if yes, we should use the real server addr
+func useRealServerAddr(yurthubTemplate string, kubernetesServerAddrs string) (string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader([]byte(yurthubTemplate)))
+	var buffer bytes.Buffer
+	target := fmt.Sprintf("%v=%v", constants.ServerAddr, constants.DefaultServerAddr)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, target) {
+			line = strings.Replace(line, constants.DefaultServerAddr, kubernetesServerAddrs, -1)
+		}
+		buffer.WriteString(line + "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		klog.Infof("Error scanning file: %v\n", err)
+		return "", err
+	}
+	return buffer.String(), nil
 }
