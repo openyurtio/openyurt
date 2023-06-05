@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	utilpointer "k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -236,4 +237,161 @@ func hasCommonElementForPod(a []string, b []*corev1.Pod) bool {
 		}
 	}
 	return true
+}
+
+var (
+	hostPathDirectoryOrCreate = corev1.HostPathDirectoryOrCreate
+	testYss                   = &appsv1alpha1.YurtStaticSet{
+		Spec: appsv1alpha1.YurtStaticSetSpec{
+			StaticPodManifest: "yurthub",
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"k8s-app": "yurthub",
+					},
+					Name:      "yurthub",
+					Namespace: "kube-system",
+				},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "hub-dir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/yurthub",
+									Type: &hostPathDirectoryOrCreate,
+								},
+							},
+						},
+					},
+					HostNetwork:       true,
+					PriorityClassName: "system-node-critical",
+					Priority:          utilpointer.Int32Ptr(2000001000),
+				},
+			},
+		},
+	}
+)
+
+func preparePods() []*corev1.Pod {
+	podList := make([]*corev1.Pod, 0)
+	testPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"k8s-app": "yurthub",
+			},
+			Name:            "yurt-hub-host-475424",
+			Namespace:       "kube-system",
+			ResourceVersion: "111112",
+		},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: "hub-dir",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/yurthub",
+							Type: &hostPathDirectoryOrCreate,
+						},
+					},
+				},
+			},
+			HostNetwork:       true,
+			PriorityClassName: "system-node-critical",
+			Priority:          utilpointer.Int32Ptr(2000001000),
+			NodeName:          "aaa",
+			SchedulerName:     "default-scheduler",
+			RestartPolicy:     "Always",
+		},
+	}
+	podList = append(podList, testPod)
+
+	testPod2 := testPod.DeepCopy()
+	testPod2.Spec.PriorityClassName = "aaaa"
+	podList = append(podList, testPod2)
+
+	testPod3 := testPod.DeepCopy()
+	testPod3.Spec = corev1.PodSpec{
+		Volumes: []corev1.Volume{
+			{
+				Name: "hub-dir",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/lib/yurthub",
+						Type: &hostPathDirectoryOrCreate,
+					},
+				},
+			},
+		},
+		PriorityClassName: "system-node-critical",
+		Priority:          utilpointer.Int32Ptr(2000001000),
+		NodeName:          "aaa",
+		SchedulerName:     "default-scheduler",
+		RestartPolicy:     "Always",
+	}
+	podList = append(podList, testPod3)
+
+	testPod4 := testPod.DeepCopy()
+	testPod4.Namespace = "fffff"
+	podList = append(podList, testPod4)
+
+	testPod5 := testPod.DeepCopy()
+	testPod5.ObjectMeta = metav1.ObjectMeta{
+		Labels: map[string]string{
+			"k8s-app": "yurthub",
+		},
+		Name:            "yurt-hub-host-475424",
+		ResourceVersion: "111112",
+	}
+	podList = append(podList, testPod5)
+
+	return podList
+}
+
+func TestMatch(t *testing.T) {
+	pods := preparePods()
+	tests := []struct {
+		name     string
+		instance *appsv1alpha1.YurtStaticSet
+		pod      *corev1.Pod
+		want     bool
+	}{
+		{
+			name:     "test1",
+			instance: testYss,
+			pod:      pods[0],
+			want:     true,
+		},
+		{
+			name:     "test2",
+			instance: testYss,
+			pod:      pods[1],
+			want:     false,
+		},
+		{
+			name:     "test3",
+			instance: testYss,
+			pod:      pods[2],
+			want:     false,
+		},
+		{
+			name:     "test4",
+			instance: testYss,
+			pod:      pods[3],
+			want:     false,
+		},
+		{
+			name:     "test5",
+			instance: testYss,
+			pod:      pods[4],
+			want:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := match(tt.instance, tt.pod); got != tt.want {
+				t.Errorf("match() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

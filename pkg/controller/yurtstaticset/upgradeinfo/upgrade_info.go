@@ -17,11 +17,13 @@ limitations under the License.
 package upgradeinfo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/kubectl/pkg/util/podutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -81,7 +83,7 @@ func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, h
 		// The name format of mirror static pod is `StaticPodName-NodeName`
 		if util.Hyphen(instance.Name, nodeName) == pod.Name && util.IsStaticPod(&pod) {
 			// initialize static pod info
-			if err := initStaticPodInfo(c, nodeName, hash, &podList.Items[i], infos); err != nil {
+			if err := initStaticPodInfo(instance, c, nodeName, hash, &podList.Items[i], infos); err != nil {
 				return nil, err
 			}
 		}
@@ -98,14 +100,20 @@ func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, h
 	return infos, nil
 }
 
-func initStaticPodInfo(c client.Client, nodeName, hash string, pod *corev1.Pod, infos map[string]*UpgradeInfo) error {
+func initStaticPodInfo(instance *appsv1alpha1.YurtStaticSet, c client.Client, nodeName, hash string,
+	pod *corev1.Pod, infos map[string]*UpgradeInfo) error {
+
 	if info := infos[nodeName]; info == nil {
 		infos[nodeName] = &UpgradeInfo{}
 	}
 	infos[nodeName].StaticPod = pod
 
-	if pod.Annotations[StaticPodHashAnnotation] != hash {
+	hashAnnotation, ok := pod.Annotations[StaticPodHashAnnotation]
+	if ok && hashAnnotation != hash {
 		// Indicate the static pod in this node needs to be upgraded
+		infos[nodeName].UpgradeNeeded = true
+	} else if !ok && !match(instance, pod) {
+		// Indicate the static pod which is already existing and has no hash
 		infos[nodeName].UpgradeNeeded = true
 	}
 
@@ -147,6 +155,74 @@ func initWorkerPodInfo(nodeName, hash string, pod *corev1.Pod, infos map[string]
 		infos[nodeName].WorkerPodDeleteNeeded = true
 	}
 	return nil
+}
+
+// match check if the given YurtStaticSet's template matches the pod.
+func match(instance *appsv1alpha1.YurtStaticSet, pod *corev1.Pod) bool {
+
+	yssBytes, err := json.Marshal(instance.Spec.Template)
+	if err != nil {
+		return false
+	}
+	var yssRaw map[string]interface{}
+	err = json.Unmarshal(yssBytes, &yssRaw)
+	if err != nil {
+		return false
+	}
+	yssSpec := yssRaw["spec"].(map[string]interface{})
+	yssMetadata := yssRaw["metadata"].(map[string]interface{})
+	delete(yssMetadata, "name")
+	delete(yssMetadata, "creationTimestamp")
+
+	podBytes, err := json.Marshal(pod)
+	if err != nil {
+		return false
+	}
+	var podRaw map[string]interface{}
+	err = json.Unmarshal(podBytes, &podRaw)
+	if err != nil {
+		return false
+	}
+	podSpec := podRaw["spec"].(map[string]interface{})
+	podMetadata := podRaw["metadata"].(map[string]interface{})
+
+	for k, v := range yssSpec {
+		if value, ok := podSpec[k]; ok {
+			byte1, err := json.Marshal(value)
+			if err != nil {
+				return false
+			}
+			byte2, err := json.Marshal(v)
+			if err != nil {
+				return false
+			}
+			if !bytes.Equal(byte1, byte2) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	for k, v := range yssMetadata {
+		if value, ok := podMetadata[k]; ok {
+			byte1, err := json.Marshal(value)
+			if err != nil {
+				return false
+			}
+			byte2, err := json.Marshal(v)
+			if err != nil {
+				return false
+			}
+			if !bytes.Equal(byte1, byte2) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	return true
 }
 
 // ReadyUpgradeWaitingNodes gets those nodes that satisfied
