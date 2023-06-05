@@ -302,12 +302,20 @@ func registerInformers(options *options.YurtHubOptions,
 
 	if tenantNs != "" {
 		newSecretInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-
 			return coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
 		}
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
 
+	if workingMode == util.WorkingModeCloud {
+		newPodInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+			listOptions := func(ops *metav1.ListOptions) {
+				ops.FieldSelector = fields.Set{"spec.nodeName": options.NodeName}.String()
+			}
+			return coreinformers.NewFilteredPodInformer(client, "", resyncPeriod, nil, listOptions)
+		}
+		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
+	}
 }
 
 // isServiceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.
