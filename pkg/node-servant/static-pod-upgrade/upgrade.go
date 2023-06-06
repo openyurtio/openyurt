@@ -75,7 +75,7 @@ func New(name, namespace, manifest, mode string) *Controller {
 	ctrl.manifestPath = filepath.Join(DefaultManifestPath, util.WithYamlSuffix(ctrl.manifest))
 	ctrl.bakManifestPath = filepath.Join(DefaultUpgradePath, util.WithBackupSuffix(ctrl.manifest))
 	ctrl.configMapDataPath = filepath.Join(DefaultConfigmapPath, ctrl.manifest)
-	ctrl.upgradeManifestPath = filepath.Join(DefaultUpgradePath, util.WithUpgradeSuffix(ctrl.manifest))
+	ctrl.upgradeManifestPath = filepath.Join(DefaultManifestPath, util.WithUpgradeSuffix(ctrl.manifest))
 
 	return ctrl
 }
@@ -174,7 +174,7 @@ func (ctrl *Controller) backupManifest() error {
 
 // replaceManifest replace old manifest with the latest one, it achieves static pod upgrade
 func (ctrl *Controller) replaceManifest() error {
-	return util.CopyFile(ctrl.upgradeManifestPath, ctrl.manifestPath)
+	return os.Rename(ctrl.upgradeManifestPath, ctrl.manifestPath)
 }
 
 // rollbackManifest replace new manifest with the backup

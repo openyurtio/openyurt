@@ -37,7 +37,7 @@ func TestStaticPodUpgrader_ApplyManifestNotExist(t *testing.T) {
 	// Temporarily modify the manifest path in order to test
 	upgrade.DefaultUpgradePath = t.TempDir()
 	upgrade.DefaultManifestPath = t.TempDir()
-	DefaultUpgradePath = upgrade.DefaultUpgradePath
+	DefaultUpgradePath = upgrade.DefaultManifestPath
 	_, _ = os.Create(filepath.Join(upgrade.DefaultManifestPath, upgradeutil.WithYamlSuffix("nginx")))
 
 	cm := &corev1.ConfigMap{
