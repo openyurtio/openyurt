@@ -216,7 +216,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// 4. Watch for changes of static pods
-	reconcileYurtStatisSetForStaticPod := func(obj client.Object) []reconcile.Request {
+	reconcileYurtStaticSetForStaticPod := func(obj client.Object) []reconcile.Request {
 		var reqs []reconcile.Request
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {
@@ -237,7 +237,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(
 		func(obj client.Object) []reconcile.Request {
-			return reconcileYurtStatisSetForStaticPod(obj)
+			return reconcileYurtStaticSetForStaticPod(obj)
 		})); err != nil {
 		return err
 	}
