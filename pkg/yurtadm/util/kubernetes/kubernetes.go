@@ -270,6 +270,21 @@ func SetKubeletService() error {
 	return nil
 }
 
+// EnableKubeletService enable kubelet service
+func EnableKubeletService() error {
+	initSystem, err := initsystem.GetInitSystem()
+	if err != nil {
+		return err
+	}
+
+	if !initSystem.ServiceIsEnabled("kubelet") {
+		if err = initSystem.ServiceEnable("kubelet"); err != nil {
+			return fmt.Errorf("enable kubelet service failed")
+		}
+	}
+	return nil
+}
+
 // SetKubeletUnitConfig configure kubelet startup parameters.
 func SetKubeletUnitConfig() error {
 	kubeletUnitDir := filepath.Dir(constants.KubeletServiceConfPath)
