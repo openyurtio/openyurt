@@ -288,9 +288,9 @@ func (coordinator *coordinator) Run() {
 					continue
 				}
 
-				klog.Infof("coordinator newCloudLeaseClient success.")
 				if err := coordinator.poolCacheSyncManager.EnsureStart(); err != nil {
 					klog.Errorf("failed to sync pool-scoped resource, %v", err)
+					cancelEtcdStorage()
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
@@ -299,9 +299,11 @@ func (coordinator *coordinator) Run() {
 				nodeLeaseProxyClient, err := coordinator.newNodeLeaseProxyClient()
 				if err != nil {
 					klog.Errorf("cloud not get cloud lease client when becoming leader yurthub, %v", err)
+					cancelEtcdStorage()
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
+				klog.Infof("coordinator newCloudLeaseClient success.")
 				coordinator.delegateNodeLeaseManager.EnsureStartWithHandler(cache.FilteringResourceEventHandler{
 					FilterFunc: ifDelegateHeartBeat,
 					Handler: cache.ResourceEventHandlerFuncs{
