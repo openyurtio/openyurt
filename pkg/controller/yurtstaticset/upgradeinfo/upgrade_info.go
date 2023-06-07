@@ -88,8 +88,9 @@ func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, h
 			}
 		}
 
-		// The name format of worker pods are `WorkerPodName-NodeName-Hash` Todo: may lead to mismatch
-		if strings.Contains(pod.Name, workerPodName) {
+		// The name format of worker pods are `WorkerPodName-YssName-NodeName-Hash`
+		name := workerPodName + instance.Name
+		if strings.Contains(pod.Name, name) {
 			// initialize worker pod info
 			if err := initWorkerPodInfo(nodeName, hash, &podList.Items[i], infos); err != nil {
 				return nil, err

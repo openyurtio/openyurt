@@ -60,7 +60,7 @@ func newNodes(nodeNames []string) []client.Object {
 func newPod(podName string, nodeName string, namespace string, isStaticPod bool) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      UpgradeWorkerPodPrefix + rand.String(10),
+			Name:      UpgradeWorkerPodPrefix + podName + "-" + rand.String(10),
 			Namespace: namespace,
 		},
 		Spec: corev1.PodSpec{NodeName: nodeName},

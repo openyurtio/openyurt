@@ -71,7 +71,7 @@ const (
 	hostPathVolumeSourcePath = hostPathVolumeMountPath
 
 	// UpgradeWorkerPodPrefix is the name prefix of worker pod which used for static pod upgrade
-	UpgradeWorkerPodPrefix     = "yurt-static-set-upgrade-worker-"
+	UpgradeWorkerPodPrefix     = "yss-upgrade-worker-"
 	UpgradeWorkerContainerName = "upgrade-worker"
 
 	ArgTmpl = "/usr/local/bin/node-servant static-pod-upgrade --name=%s --namespace=%s --manifest=%s --hash=%s --mode=%s"
@@ -499,7 +499,7 @@ func (r *ReconcileYurtStaticSet) removeUnusedPods(pods []*corev1.Pod) error {
 func createUpgradeWorker(c client.Client, instance *appsv1alpha1.YurtStaticSet, nodes []string, hash, mode, img string) error {
 	for _, node := range nodes {
 		pod := upgradeWorker.DeepCopy()
-		pod.Name = UpgradeWorkerPodPrefix + util.Hyphen(node, hash)
+		pod.Name = UpgradeWorkerPodPrefix + instance.Name + "-" + util.Hyphen(node, hash)
 		pod.Namespace = instance.Namespace
 		pod.Spec.NodeName = node
 		metav1.SetMetaDataAnnotation(&pod.ObjectMeta, StaticPodHashAnnotation, hash)
