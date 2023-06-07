@@ -28,10 +28,11 @@ import (
 )
 
 func TestSetupDumpStackTrap(t *testing.T) {
+	logDir := "/tmp"
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	SetupDumpStackTrap(stopCh)
+	SetupDumpStackTrap(logDir, stopCh)
 
 	proc, err := os.FindProcess(os.Getpid())
 	assert.NoError(t, err)
@@ -41,8 +42,7 @@ func TestSetupDumpStackTrap(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	fileName := fmt.Sprintf("yurthub.%d.stacks.log", os.Getpid())
-	tmpDir := os.TempDir()
-	filePath := filepath.Join(tmpDir, fileName)
+	filePath := filepath.Join(logDir, fileName)
 
 	assert.FileExists(t, filePath)
 	assert.NoError(t, os.Remove(filePath))

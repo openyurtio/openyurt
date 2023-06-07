@@ -27,7 +27,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func SetupDumpStackTrap(stopCh <-chan struct{}) {
+func SetupDumpStackTrap(logDir string, stopCh <-chan struct{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGUSR1)
 
@@ -35,7 +35,7 @@ func SetupDumpStackTrap(stopCh <-chan struct{}) {
 		for {
 			select {
 			case <-c:
-				dumpStacks(true)
+				dumpStacks(true, logDir)
 			case <-stopCh:
 				return
 			}
@@ -43,7 +43,7 @@ func SetupDumpStackTrap(stopCh <-chan struct{}) {
 	}()
 }
 
-func dumpStacks(writeToFile bool) {
+func dumpStacks(writeToFile bool, logDir string) {
 	var (
 		buf       []byte
 		stackSize int
@@ -59,7 +59,7 @@ func dumpStacks(writeToFile bool) {
 
 	if writeToFile {
 		// Also write to file to aid gathering diagnostics
-		name := filepath.Join(os.TempDir(), fmt.Sprintf("yurthub.%d.stacks.log", os.Getpid()))
+		name := filepath.Join(logDir, fmt.Sprintf("yurthub.%d.stacks.log", os.Getpid()))
 		f, err := os.Create(name)
 		if err != nil {
 			return
