@@ -58,6 +58,9 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurtadmutil.SetKubeletService(); err != nil {
 		return err
 	}
+	if err := yurtadmutil.EnableKubeletService(); err != nil {
+		return err
+	}
 	if err := yurtadmutil.SetKubeletUnitConfig(); err != nil {
 		return err
 	}
