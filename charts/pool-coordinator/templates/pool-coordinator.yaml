@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: pool-coordinator-apiserver
+  name: yurt-coordinator-apiserver
   namespace: {{ .Release.Namespace }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
-    {{- include "pool-coordinator.labels" . | nindent 4 }}
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -15,17 +15,17 @@ spec:
       protocol: TCP
       name: https
   selector:
-    {{- include "pool-coordinator.selectorLabels" . | nindent 4 }}
+    {{- include "yurt-coordinator.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pool-coordinator-etcd
+  name: yurt-coordinator-etcd
   namespace: {{ .Release.Namespace }}
   annotations:
     openyurt.io/topologyKeys: openyurt.io/nodepool
   labels:
-    {{- include "pool-coordinator.labels" . | nindent 4 }}
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -34,19 +34,19 @@ spec:
       protocol: TCP
       name: https
   selector:
-    {{- include "pool-coordinator.selectorLabels" . | nindent 4 }}
+    {{- include "yurt-coordinator.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppDaemon
 metadata:
-  name: pool-coordinator
+  name: yurt-coordinator
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "pool-coordinator.labels" . | nindent 4 }}
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "pool-coordinator.selectorLabels" . | nindent 6 }}
+      {{- include "yurt-coordinator.selectorLabels" . | nindent 6 }}
   nodepoolSelector:
     matchLabels:
       openyurt.io/node-pool-type: "edge"
@@ -54,16 +54,16 @@ spec:
     deploymentTemplate:
       metadata:
         labels:
-          {{- include "pool-coordinator.labels" . | nindent 10 }}
+          {{- include "yurt-coordinator.labels" . | nindent 10 }}
       spec:
         replicas: 1
         selector:
           matchLabels:
-            {{- include "pool-coordinator.selectorLabels" . | nindent 12 }}
+            {{- include "yurt-coordinator.selectorLabels" . | nindent 12 }}
         template:
           metadata:
             labels:
-              {{- include "pool-coordinator.labels" . | nindent 14 }}
+              {{- include "yurt-coordinator.labels" . | nindent 14 }}
           spec:
             containers:
               - command:
@@ -133,7 +133,7 @@ spec:
                 terminationMessagePolicy: File
                 volumeMounts:
                   - mountPath: /etc/kubernetes/pki
-                    name: pool-coordinator-certs
+                    name: yurt-coordinator-certs
                     readOnly: true
               - command:
                   - etcd
@@ -170,7 +170,7 @@ spec:
                   - mountPath: /var/lib/etcd
                     name: etcd-data
                   - mountPath: /etc/kubernetes/pki
-                    name: pool-coordinator-certs
+                    name: yurt-coordinator-certs
                     readOnly: true
             dnsPolicy: ClusterFirst
             {{- if .Values.imagePullSecrets }}
@@ -196,15 +196,15 @@ spec:
                   defaultMode: 420
                   sources:
                     - secret:
-                        name: pool-coordinator-dynamic-certs
+                        name: yurt-coordinator-dynamic-certs
                     - secret:
-                        name: pool-coordinator-static-certs
-                name: pool-coordinator-certs
+                        name: yurt-coordinator-static-certs
+                name: yurt-coordinator-certs
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: openyurt:pool-coordinator:node-lease-proxy-client 
+  name: openyurt:yurt-coordinator:node-lease-proxy-client 
 rules:
   - apiGroups:
       - "coordination.k8s.io"
@@ -217,12 +217,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: openyurt:pool-coordinator:node-lease-proxy-client
+  name: openyurt:yurt-coordinator:node-lease-proxy-client
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: openyurt:pool-coordinator:node-lease-proxy-client
+  name: openyurt:yurt-coordinator:node-lease-proxy-client
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: User
-    name: openyurt:pool-coordinator:node-lease-proxy-client
+    name: openyurt:yurt-coordinator:node-lease-proxy-client

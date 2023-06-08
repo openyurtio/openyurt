@@ -26,10 +26,10 @@ status: provisional
     - [Architecture](#architecture)
     - [Implementation Details](#implementation-details)
       - [Coordinator-Controller](#coordinator-controller)
-      - [Pool-Coordinator](#pool-coordinator)
+      - [Yurt-Coordinator](#yurt-coordinator)
       - [Operations and Maintenance in NodePool](#operations-and-maintenance-in-nodepool)
-        - [Write Resources to pool-coordinator](#write-resources-to-pool-coordinator)
-        - [Kubeconfig for users to access pool-coordinator](#kubeconfig-for-users-to-access-pool-coordinator)
+        - [Write Resources to yurt-coordinator](#write-resources-to-yurt-coordinator)
+        - [Kubeconfig for users to access yurt-coordinator](#kubeconfig-for-users-to-access-yurt-coordinator)
       - [NodePool Autonomy](#nodepool-autonomy)
     - [User Stories](#user-stories)
     - [Other Problems](#other-problems)
@@ -93,93 +93,93 @@ That is to say, the high availability of services in the node pool is not involv
 
 ### Architecture
 
-To provide `NodePool governance capability`, we add a component `pool-coordinator` to the NodePool.
-pool-coordinator should not replace the kube-apiserver on the cloud, but only provide governance capabilities in NodePool scope.
+To provide `NodePool governance capability`, we add a component `yurt-coordinator` to the NodePool.
+yurt-coordinator should not replace the kube-apiserver on the cloud, but only provide governance capabilities in NodePool scope.
 Its structure is as follows:
 
 ![nodepool-governance](../img/nodepool-governance/img-1.png)
 
-- The `coordinator-controller` deployed in the cloud manages the pool-coordinator through YurtAppSet.
-When NodePool enables the NodePool governance capability, pool-coordinator will be automatically deployed by coordinator-controller in NodePool.
-- When pool-coordinator  starts, all YurtHubs in NodePool upload the node scope resources cached on their nodes to pool-coordinator,
+- The `coordinator-controller` deployed in the cloud manages the yurt-coordinator through YurtAppSet.
+When NodePool enables the NodePool governance capability, yurt-coordinator will be automatically deployed by coordinator-controller in NodePool.
+- When yurt-coordinator  starts, all YurtHubs in NodePool upload the node scope resources cached on their nodes to yurt-coordinator,
 including pod, configmap, secrets, service, node, lease, serviceaccount, etc.
 - When the edge node can connect to the master, YurtHub directly accesses the kube-apiserver,
-caches the data returned by the cloud locally, and updates the data to pool-coordinator in time.
+caches the data returned by the cloud locally, and updates the data to yurt-coordinator in time.
 This ensures that users can obtain the latest resources when operating in the node pool (such as kubectl get).
 - When the node can connect to the cloud, YurtHub sends node lease to the cloud. However,
 when the node is disconnected from the cloud, YurtHub adds an agent forwarding Annotation to the node lease and
-sends it to pool-coordinator, then leader YurtHub forwards it to the cloud in real time.
-- When NodePool disables the NodePool governance capability, coordinator-controller will clean up the pool-coordinator belonging to this NodePool.
+sends it to yurt-coordinator, then leader YurtHub forwards it to the cloud in real time.
+- When NodePool disables the NodePool governance capability, coordinator-controller will clean up the yurt-coordinator belonging to this NodePool.
 
 ### Implementation Details
 
 #### Coordinator-Controller
 
-coordinator-controller is used to manage the life cycle of the pool-coordinator in each NodePool and deployed as deployment.
+coordinator-controller is used to manage the life cycle of the yurt-coordinator in each NodePool and deployed as deployment.
 
 coordinator-controller can be described as:
 
 - Initialize work at startup:
 1. coordinator-controller will block until the YurtAppSet CRDs are ready.
-2. coordinator-controller prepares the client certificate to access the kubelet for pool-coordinator,
-saves the certificate in secret and mounts it to pool-coordinator.
-Note that all pool-coordinators can share this client certificate.
+2. coordinator-controller prepares the client certificate to access the kubelet for yurt-coordinator,
+saves the certificate in secret and mounts it to yurt-coordinator.
+Note that all yurt-coordinators can share this client certificate.
 3. coordinator-controller prepares the client certificate for forwarding node lease to cloud by yurthub,
 saves the client certificate in secret and will be used by leader yurthub.
-4. coordinator-controller creates service for pool-coordinator.
-5. coordinator-controller generates a YurtAppSet Object for managing pool-coordinator, and set field 'pool' to empty.
+4. coordinator-controller creates service for yurt-coordinator.
+5. coordinator-controller generates a YurtAppSet Object for managing yurt-coordinator, and set field 'pool' to empty.
 
 - Reconcile:
-1. coordinator-controller will list/watch PoolCoordinator CR. When user creates a PoolCoordinator CR, coordinator-controller adds the NodePool information
-to YurtAppSet, so that a pool-coordinator instance will be deployed in the NodePool. Note that the coordinator-controller refuses to
-deploy the pool-coordinator when the number of nodes in the NodePool is less than 3, or if a pool-coordinator has been deployed in the NodePool.
-2. When pool-coordinator is scheduled, coordinator-controller prepares the tls server certificate for pool-coordinator,
-saves the certificate in secret and mounts it to pool-coordinator. Note that the tls server certificate for each pool-coordinator is different
-because certificate includes the pool-coordinator service clusterIP and the node IP.
-3. coordinator-controller generates kubeconfig for users to access pool-coordinator. The server address in kubeconfig is set to
+1. coordinator-controller will list/watch YurtCoordinator CR. When user creates a YurtCoordinator CR, coordinator-controller adds the NodePool information
+to YurtAppSet, so that a yurt-coordinator instance will be deployed in the NodePool. Note that the coordinator-controller refuses to
+deploy the yurt-coordinator when the number of nodes in the NodePool is less than 3, or if a yurt-coordinator has been deployed in the NodePool.
+2. When yurt-coordinator is scheduled, coordinator-controller prepares the tls server certificate for yurt-coordinator,
+saves the certificate in secret and mounts it to yurt-coordinator. Note that the tls server certificate for each yurt-coordinator is different
+because certificate includes the yurt-coordinator service clusterIP and the node IP.
+3. coordinator-controller generates kubeconfig for users to access yurt-coordinator. The server address in kubeconfig is set to
 https://{nodeIP}:10270. In addition, the client certificate authority in kubeconfig should be restricted. For details,
-please refer to the [kubeconfig of pool-coordinator](#kubeconfig-for-users-to-access-pool-coordinator).
-4. When the pool-coordinator is rebuilt, coordinator-controller will clean up and rebuild the tls server certificate.
-5. When PoolCoordinator CR is deleted, coordinator-controller will delete the NodePool information in YurtAppSet. It also cleans up
-the certificates of pool-coordinator(tls server certificate and kubeconfig).
+please refer to the [kubeconfig of yurt-coordinator](#kubeconfig-for-users-to-access-yurt-coordinator).
+4. When the yurt-coordinator is rebuilt, coordinator-controller will clean up and rebuild the tls server certificate.
+5. When YurtCoordinator CR is deleted, coordinator-controller will delete the NodePool information in YurtAppSet. It also cleans up
+the certificates of yurt-coordinator(tls server certificate and kubeconfig).
 
 Since node autonomy already supported by OpenYurt and [NodePool Autonomy](#nodepool-autonomy) are applicable to
 different scenarios, both abilities cannot be enabled at the same time. We do it through admission webhook.
 
-#### Pool-Coordinator
+#### Yurt-Coordinator
 
-pool-coordinator will store various resources in the node pool, including node, pod, service, endpoints, endpointslices, etc.
-pool-coordinator is managed by YurtAppSet and deploys kube-apiserver and etcd in one pod. Here resources in etcd will be stored in memory instead of disk.
+yurt-coordinator will store various resources in the node pool, including node, pod, service, endpoints, endpointslices, etc.
+yurt-coordinator is managed by YurtAppSet and deploys kube-apiserver and etcd in one pod. Here resources in etcd will be stored in memory instead of disk.
 
 ```go
-// PoolCoordinator CRD
-type PoolCoordinator Struct {
+// YurtCoordinator CRD
+type YurtCoordinator Struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
-	Spec PoolCoordinatorSpec
-	Status PoolCoordinatorStatus
+	Spec YurtCoordinatorSpec
+	Status YurtCoordinatorStatus
 }
 
-type PoolCoordinatorSpec struct {
-  	// Version of pool-coordinator, which corresponding to the Kubernetes version
+type YurtCoordinatorSpec struct {
+  	// Version of yurt-coordinator, which corresponding to the Kubernetes version
   	Version string
-  	// The NodePool managed by pool-coordinator.
+  	// The NodePool managed by yurt-coordinator.
 	NodePool string
 }
 
-type PoolCoordinatorStatus struct {
-  	// The node where pool-coordinator is located.
+type YurtCoordinatorStatus struct {
+  	// The node where yurt-coordinator is located.
   	NodeName string
- 	// Conditions represent the status of pool-coordinator, which is filled by the coordinator-controller.
-  	Conditions []PoolCoordinatorCondition
+ 	// Conditions represent the status of yurt-coordinator, which is filled by the coordinator-controller.
+  	Conditions []YurtCoordinatorCondition
   	// DelegatedNodes are the nodes in the node pool that are disconnected from the cloud.
   	DelegatedNodes []string
-  	// OutsidePoolNodes are nodes in the node pool that cannot connect to pool-coordinator.
+  	// OutsidePoolNodes are nodes in the node pool that cannot connect to yurt-coordinator.
   	OutsidePoolNodes []string
 }
 
-type PoolCoordinatorCondition struct {
-	Type PoolCoordinatorConditionType
+type YurtCoordinatorCondition struct {
+	Type YurtCoordinatorConditionType
   	Status ConditionStatus
   	LastProbeTime metav1.Time
   	LastTransitionTime metav1.Time
@@ -187,16 +187,16 @@ type PoolCoordinatorCondition struct {
 	Message string
 }
 
-type PoolCoordinatorConditionType string
+type YurtCoordinatorConditionType string
 
 const (
-	// PoolCoordinatorPending indicates that the deployment of pool-coordinator is blocked.
+	// YurtCoordinatorPending indicates that the deployment of yurt-coordinator is blocked.
 	//This happens, for example, if the number of nodes in the node pool is less than 3.
-	PoolCoordinatorPending PoolCoordinatorConditionType = "Pending"
-	// PoolCoordinatorCertsReady indicates that the certificate used by pool-coordinator is ready.
-	PoolCoordinatorCertsReady PoolCoordinatorConditionType = "CertsReady"
-  	// PoolCoordinatorReady indicates that pool-coordinator is ready.
-  	PoolCoordinatorReady PoolCoordinatorConditionType = "Ready"
+	YurtCoordinatorPending YurtCoordinatorConditionType = "Pending"
+	// YurtCoordinatorCertsReady indicates that the certificate used by yurt-coordinator is ready.
+	YurtCoordinatorCertsReady YurtCoordinatorConditionType = "CertsReady"
+  	// YurtCoordinatorReady indicates that yurt-coordinator is ready.
+  	YurtCoordinatorReady YurtCoordinatorConditionType = "Ready"
 )
 
 type ConditionStatus string
@@ -210,43 +210,43 @@ const (
 
 - Https Server Certificate
 
-coordinator-controller prepares the tls server certificate for kube-apiserer in pool-coordinator and mounts it into the pod through
-a secret by using the patch feature of YurtAppSet. pool-coordinator runs in HostNetWork mode,
+coordinator-controller prepares the tls server certificate for kube-apiserer in yurt-coordinator and mounts it into the pod through
+a secret by using the patch feature of YurtAppSet. yurt-coordinator runs in HostNetWork mode,
 and the https server listening address is: https://{nodeIP}:10270.
 
 - Service Discovery
 
-pool-coordinator provides services by ClusterIP Service in Kubernetes, and all pool-coordinators share the service IP.
+yurt-coordinator provides services by ClusterIP Service in Kubernetes, and all yurt-coordinators share the service IP.
 
-In order to ensure that pool-coordinator only serves nodes in the same node pool, the annotation of service topology needs to be added to the pool-coordinator service.
+In order to ensure that yurt-coordinator only serves nodes in the same node pool, the annotation of service topology needs to be added to the yurt-coordinator service.
 
 #### Operations and Maintenance in NodePool
 
-In terms of operation and maintenance, pool-coordinator supports two types of requests:
+In terms of operation and maintenance, yurt-coordinator supports two types of requests:
 
 - GET requests for resources in NodePool, such as nodes, pods, etc.
 - Native kubernetes operation and maintenance requests for pods in NodePool, such as kubectl logs/exec/cp/attach, etc.
 
 To support the above capabilities, the following problems need to be solved:
 
-##### Write Resources to pool-coordinator
+##### Write Resources to yurt-coordinator
 
 In OpenYurt, the data flow between cloud and edge is: kube-apiserver --> yurthub --> kubelet (and other clients).
-In order to ensure data consistency and efficiency, pool-coordinator reuses the current data flow of OpenYurt.
-The data flow of pool-coordinator is: kube-apiserver --> yurthub --> pool-coordinator. Data in pool-coordinator is written by each YurtHub.
+In order to ensure data consistency and efficiency, yurt-coordinator reuses the current data flow of OpenYurt.
+The data flow of yurt-coordinator is: kube-apiserver --> yurthub --> yurt-coordinator. Data in yurt-coordinator is written by each YurtHub.
 
-YurtHub updates data to pool-coordinator, so it requires Create/Update permissions for resources. After the pool-coordinator starts,
+YurtHub updates data to yurt-coordinator, so it requires Create/Update permissions for resources. After the yurt-coordinator starts,
 we need to prepare the CRD NodePool, clusterrolebinding associated with `system:nodes` group and admin clusterrole in the kube-apiserver.
 This ensures that YurtHub can successfully write to etcd using node client certificate.
 
 ![](../img/nodepool-governance/img-2.png)
 
-##### Kubeconfig for users to access pool-coordinator
+##### Kubeconfig for users to access yurt-coordinator
 
 Kubeconfig is generated by coordinator-controller, and the organization configuration of client certificate is: `openyurt:coordinators`.
 
 In addition, add the get permission of the resource and the operation and maintenance permissions(logs/exec) for the
-group `openyurt:coordinators` to kube-apiserver of pool-coordinator.
+group `openyurt:coordinators` to kube-apiserver of yurt-coordinator.
 
 #### NodePool Autonomy
 
@@ -257,7 +257,7 @@ In the same node pool, when the node is disconnected from the cloud,the leader Y
 the node lease to the cloud. It can be described as:
 ![](../img/nodepool-governance/img-3.png)
 ![](../img/nodepool-governance/img-4.png)
-**Note:** If the lease of pool-coordinator  node is also need to be forwarded, the leader YurtHub will give priority to forwarding Node leases of its node.
+**Note:** If the lease of yurt-coordinator  node is also need to be forwarded, the leader YurtHub will give priority to forwarding Node leases of its node.
 
 The policy of the cloud controller is as follows:
 
@@ -275,5 +275,5 @@ in normal nodes when node downtime.
 
 #### H/A Consideration
 
-Consider that when the pool-coordinator fails, each component can be fully rolled back.
-Therefore, in order to save resources, only one pool-coordinator instance is deployed in each NodePool.
+Consider that when the yurt-coordinator fails, each component can be fully rolled back.
+Therefore, in order to save resources, only one yurt-coordinator instance is deployed in each NodePool.

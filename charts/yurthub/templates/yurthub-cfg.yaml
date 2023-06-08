@@ -29,7 +29,7 @@ rules:
     resources:
       - secrets
     resourceNames:
-      - pool-coordinator-yurthub-certs
+      - yurt-coordinator-yurthub-certs
     verbs:
       - list
       - watch
