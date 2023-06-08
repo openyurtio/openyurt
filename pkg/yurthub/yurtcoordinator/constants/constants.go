@@ -14,20 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinator
+package constants
 
-import "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+import (
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+)
 
-type FakeCoordinator struct{}
+var (
+	UploadResourcesKeyBuildInfo = map[storage.KeyBuildInfo]struct{}{
+		{Component: "kubelet", Resources: "pods", Group: "", Version: "v1"}:  {},
+		{Component: "kubelet", Resources: "nodes", Group: "", Version: "v1"}: {},
+	}
+)
 
-var _ Coordinator = &FakeCoordinator{}
-
-func (fc *FakeCoordinator) Run() {}
-
-func (fc *FakeCoordinator) IsReady() (cachemanager.CacheManager, bool) {
-	return nil, false
-}
-
-func (fc *FakeCoordinator) IsHealthy() (cachemanager.CacheManager, bool) {
-	return nil, false
-}
+const (
+	DefaultPoolScopedUserAgent      = "leader-yurthub"
+	YurtCoordinatorClientSecretName = "yurt-coordinator-yurthub-certs"
+)

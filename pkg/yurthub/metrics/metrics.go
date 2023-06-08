@@ -51,9 +51,9 @@ type HubMetrics struct {
 	closableConnsCollector                *prometheus.GaugeVec
 	proxyTrafficCollector                 *prometheus.CounterVec
 	proxyLatencyCollector                 *prometheus.GaugeVec
-	poolCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
-	poolCoordinatorHealthyStatusCollector *prometheus.GaugeVec
-	poolCoordinatorReadyStatusCollector   *prometheus.GaugeVec
+	yurtCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
+	yurtCoordinatorHealthyStatusCollector *prometheus.GaugeVec
+	yurtCoordinatorReadyStatusCollector   *prometheus.GaugeVec
 }
 
 func newHubMetrics() *HubMetrics {
@@ -111,28 +111,28 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of proxy latency of incoming requests(unit: ms)",
 		},
 		[]string{"client", "verb", "resource", "subresources", "type"})
-	poolCoordinatorYurthubRoleCollector := prometheus.NewGaugeVec(
+	yurtCoordinatorYurthubRoleCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "pool_coordinator_yurthub_role",
-			Help:      "pool coordinator status of yurthub. 1: LeaderHub, 2: FollowerHub 3: Pending",
+			Name:      "yurt_coordinator_yurthub_role",
+			Help:      "yurt coordinator status of yurthub. 1: LeaderHub, 2: FollowerHub 3: Pending",
 		},
 		[]string{})
-	poolCoordinatorHealthyStatusCollector := prometheus.NewGaugeVec(
+	yurtCoordinatorHealthyStatusCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "pool_coordinator_healthy_status",
-			Help:      "pool coordinator heahty status 1: healthy, 0: unhealthy",
+			Name:      "yurt_coordinator_healthy_status",
+			Help:      "yurt coordinator heahty status 1: healthy, 0: unhealthy",
 		},
 		[]string{})
-	poolCoordinatorReadyStatusCollector := prometheus.NewGaugeVec(
+	yurtCoordinatorReadyStatusCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "pool_coordinator_ready_status",
-			Help:      "pool coordinator ready status 1: ready, 0: notReady",
+			Name:      "yurt_coordinator_ready_status",
+			Help:      "yurt coordinator ready status 1: ready, 0: notReady",
 		},
 		[]string{})
 	prometheus.MustRegister(serversHealthyCollector)
@@ -142,9 +142,9 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
 	prometheus.MustRegister(proxyLatencyCollector)
-	prometheus.MustRegister(poolCoordinatorYurthubRoleCollector)
-	prometheus.MustRegister(poolCoordinatorHealthyStatusCollector)
-	prometheus.MustRegister(poolCoordinatorReadyStatusCollector)
+	prometheus.MustRegister(yurtCoordinatorYurthubRoleCollector)
+	prometheus.MustRegister(yurtCoordinatorHealthyStatusCollector)
+	prometheus.MustRegister(yurtCoordinatorReadyStatusCollector)
 	return &HubMetrics{
 		serversHealthyCollector:               serversHealthyCollector,
 		inFlightRequestsCollector:             inFlightRequestsCollector,
@@ -153,9 +153,9 @@ func newHubMetrics() *HubMetrics {
 		closableConnsCollector:                closableConnsCollector,
 		proxyTrafficCollector:                 proxyTrafficCollector,
 		proxyLatencyCollector:                 proxyLatencyCollector,
-		poolCoordinatorHealthyStatusCollector: poolCoordinatorHealthyStatusCollector,
-		poolCoordinatorReadyStatusCollector:   poolCoordinatorReadyStatusCollector,
-		poolCoordinatorYurthubRoleCollector:   poolCoordinatorYurthubRoleCollector,
+		yurtCoordinatorHealthyStatusCollector: yurtCoordinatorHealthyStatusCollector,
+		yurtCoordinatorReadyStatusCollector:   yurtCoordinatorReadyStatusCollector,
+		yurtCoordinatorYurthubRoleCollector:   yurtCoordinatorYurthubRoleCollector,
 	}
 }
 
@@ -172,16 +172,16 @@ func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
 	hm.serversHealthyCollector.WithLabelValues(server).Set(float64(status))
 }
 
-func (hm *HubMetrics) ObservePoolCoordinatorYurthubRole(status int32) {
-	hm.poolCoordinatorYurthubRoleCollector.WithLabelValues().Set(float64(status))
+func (hm *HubMetrics) ObserveYurtCoordinatorYurthubRole(status int32) {
+	hm.yurtCoordinatorYurthubRoleCollector.WithLabelValues().Set(float64(status))
 }
 
-func (hm *HubMetrics) ObservePoolCoordinatorReadyStatus(status int32) {
-	hm.poolCoordinatorReadyStatusCollector.WithLabelValues().Set(float64(status))
+func (hm *HubMetrics) ObserveYurtCoordinatorReadyStatus(status int32) {
+	hm.yurtCoordinatorReadyStatusCollector.WithLabelValues().Set(float64(status))
 }
 
-func (hm *HubMetrics) ObservePoolCoordinatorHealthyStatus(status int32) {
-	hm.poolCoordinatorHealthyStatusCollector.WithLabelValues().Set(float64(status))
+func (hm *HubMetrics) ObserveYurtCoordinatorHealthyStatus(status int32) {
+	hm.yurtCoordinatorHealthyStatusCollector.WithLabelValues().Set(float64(status))
 }
 
 func (hm *HubMetrics) IncInFlightRequests(verb, resource, subresource, client string) {

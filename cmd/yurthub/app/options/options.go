@@ -120,8 +120,8 @@ func NewYurtHubOptions() *YurtHubOptions {
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
-		CoordinatorServerAddr:     fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorAPIServerSvcName, util.DefaultPoolCoordinatorAPIServerSvcPort),
-		CoordinatorStorageAddr:    fmt.Sprintf("https://%s:%s", util.DefaultPoolCoordinatorEtcdSvcName, util.DefaultPoolCoordinatorEtcdSvcPort),
+		CoordinatorServerAddr:     fmt.Sprintf("https://%s:%s", util.DefaultYurtCoordinatorAPIServerSvcName, util.DefaultYurtCoordinatorAPIServerSvcPort),
+		CoordinatorStorageAddr:    fmt.Sprintf("https://%s:%s", util.DefaultYurtCoordinatorEtcdSvcName, util.DefaultYurtCoordinatorEtcdSvcPort),
 		CoordinatorStoragePrefix:  "/registry",
 		LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
 			LeaderElect:       true,
@@ -208,17 +208,17 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
 	fs.StringSliceVar(&o.CACertHashes, "discovery-token-ca-cert-hash", o.CACertHashes, "For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").")
 	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
-	fs.BoolVar(&o.EnableCoordinator, "enable-coordinator", o.EnableCoordinator, "make yurthub aware of the pool coordinator")
+	fs.BoolVar(&o.EnableCoordinator, "enable-coordinator", o.EnableCoordinator, "make yurthub aware of the yurt coordinator")
 	fs.StringVar(&o.CoordinatorServerAddr, "coordinator-server-addr", o.CoordinatorServerAddr, "Coordinator APIServer address in format https://host:port")
-	fs.StringVar(&o.CoordinatorStoragePrefix, "coordinator-storage-prefix", o.CoordinatorStoragePrefix, "Pool-Coordinator etcd storage prefix, same as etcd-prefix of Kube-APIServer")
-	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Pool-Coordinator etcd, in the format host:port")
+	fs.StringVar(&o.CoordinatorStoragePrefix, "coordinator-storage-prefix", o.CoordinatorStoragePrefix, "Yurt-Coordinator etcd storage prefix, same as etcd-prefix of Kube-APIServer")
+	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Yurt-Coordinator etcd, in the format host:port")
 	bindFlags(&o.LeaderElection, fs)
 }
 
 // bindFlags binds the LeaderElectionConfiguration struct fields to a flagset
 func bindFlags(l *componentbaseconfig.LeaderElectionConfiguration, fs *pflag.FlagSet) {
 	fs.BoolVar(&l.LeaderElect, "leader-elect", l.LeaderElect, ""+
-		"Start a leader election client and gain leadership based on pool coordinator")
+		"Start a leader election client and gain leadership based on yurt coordinator")
 	fs.DurationVar(&l.LeaseDuration.Duration, "leader-elect-lease-duration", l.LeaseDuration.Duration, ""+
 		"The duration that non-leader candidates will wait after observing a leadership "+
 		"renewal until attempting to acquire leadership of a led but unrenewed leader "+

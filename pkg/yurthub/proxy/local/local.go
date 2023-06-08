@@ -204,7 +204,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 				return nil
 			}
 
-			// if poolcoordinator becomes healthy, exit the watch wait
+			// if yurtcoordinator becomes healthy, exit the watch wait
 			if isPoolScopedListWatch && lp.isCoordinatorReady() {
 				return nil
 			}

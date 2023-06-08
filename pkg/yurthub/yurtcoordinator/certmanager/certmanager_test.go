@@ -30,13 +30,13 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 const (
-	testPKIDir = "/tmp/pool-coordinator-pki"
+	testPKIDir = "/tmp/yurt-coordinator-pki"
 	caByte     = `-----BEGIN CERTIFICATE-----
 MIIC/jCCAeagAwIBAgIBADANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwprdWJl
 cm5ldGVzMB4XDTIyMTIyODAzMzgyM1oXDTMyMTIyNTAzMzgyM1owFTETMBEGA1UE
@@ -190,9 +190,9 @@ type expectFile struct {
 var (
 	fileStore             = fs.FileSystemOperator{}
 	secretGVR             = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
-	poolCoordinatorSecret = &corev1.Secret{
+	yurtCoordinatorSecret = &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      constants.PoolCoordinatorClientSecretName,
+			Name:      constants.YurtCoordinatorClientSecretName,
 			Namespace: util.YurtHubNamespace,
 		},
 		TypeMeta: v1.TypeMeta{
@@ -201,8 +201,8 @@ var (
 		},
 		Data: map[string][]byte{
 			"ca.crt":                              []byte(caByte),
-			"pool-coordinator-yurthub-client.crt": []byte(coordinatorCertByte),
-			"pool-coordinator-yurthub-client.key": []byte(coordinatorKeyByte),
+			"yurt-coordinator-yurthub-client.crt": []byte(coordinatorCertByte),
+			"yurt-coordinator-yurthub-client.key": []byte(coordinatorKeyByte),
 		},
 	}
 
@@ -223,7 +223,7 @@ var (
 )
 
 func TestSecretAdd(t *testing.T) {
-	t.Run("CertManager should not react for secret that is not pool-coordinator-yurthub-certs", func(t *testing.T) {
+	t.Run("CertManager should not react for secret that is not yurt-coordinator-yurthub-certs", func(t *testing.T) {
 		fakeClient, certMgr, cancel, err := initFakeClientAndCertManager()
 		if err != nil {
 			t.Errorf("failed to initialize, %v", err)
@@ -235,7 +235,7 @@ func TestSecretAdd(t *testing.T) {
 		}
 
 		// Expect to timeout which indicates the CertManager does not save the cert
-		// that is not pool-coordinator-yurthub-certs.
+		// that is not yurt-coordinator-yurthub-certs.
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
 			if certMgr.secret != nil {
 				return false, fmt.Errorf("unexpect cert initialization")
@@ -251,7 +251,7 @@ func TestSecretAdd(t *testing.T) {
 		})
 
 		if err != wait.ErrWaitTimeout {
-			t.Errorf("CertManager should not react for add event of secret that is not pool-coordinator-yurthub-certs, %v", err)
+			t.Errorf("CertManager should not react for add event of secret that is not yurt-coordinator-yurthub-certs, %v", err)
 		}
 
 		if err := fileStore.DeleteDir(testPKIDir); err != nil {
@@ -259,33 +259,33 @@ func TestSecretAdd(t *testing.T) {
 		}
 	})
 
-	t.Run("CertManager should react for pool-coordinator-yurthub-certs", func(t *testing.T) {
+	t.Run("CertManager should react for yurt-coordinator-yurthub-certs", func(t *testing.T) {
 		fakeClient, certMgr, cancel, err := initFakeClientAndCertManager()
 		if err != nil {
 			t.Errorf("failed to initialize, %v", err)
 		}
 		defer cancel()
 
-		if err := fakeClient.Tracker().Add(poolCoordinatorSecret); err != nil {
-			t.Errorf("failed to add secret %s, %v", poolCoordinatorSecret.Name, err)
+		if err := fakeClient.Tracker().Add(yurtCoordinatorSecret); err != nil {
+			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
-					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Data:     yurtCoordinatorSecret.Data["ca.crt"],
 					Exists:   true,
 				},
 				{
 					FilePath: certMgr.GetFilePath(YurthubClientCert),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.crt"],
 					Exists:   true,
 				},
 				{
 
 					FilePath: certMgr.GetFilePath(YurthubClientKey),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.key"],
 					Exists:   true,
 				},
 				{
@@ -307,7 +307,7 @@ func TestSecretAdd(t *testing.T) {
 		})
 
 		if err != nil {
-			t.Errorf("failed to check poolcoordinator cert, %v", err)
+			t.Errorf("failed to check yurtcoordinator cert, %v", err)
 		}
 
 		if err := fileStore.DeleteDir(testPKIDir); err != nil {
@@ -324,26 +324,26 @@ func TestSecretUpdate(t *testing.T) {
 		}
 		defer cancel()
 
-		if err := fakeClient.Tracker().Add(poolCoordinatorSecret); err != nil {
-			t.Errorf("failed to add secret %s, %v", poolCoordinatorSecret.Name, err)
+		if err := fakeClient.Tracker().Add(yurtCoordinatorSecret); err != nil {
+			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
 		err = wait.Poll(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
-					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Data:     yurtCoordinatorSecret.Data["ca.crt"],
 					Exists:   true,
 				},
 				{
 					FilePath: certMgr.GetFilePath(YurthubClientCert),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.crt"],
 					Exists:   true,
 				},
 				{
 
 					FilePath: certMgr.GetFilePath(YurthubClientKey),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.key"],
 					Exists:   true,
 				},
 				{
@@ -368,9 +368,9 @@ func TestSecretUpdate(t *testing.T) {
 		}
 
 		// test updating existing cert and key
-		newSecret := poolCoordinatorSecret.DeepCopy()
-		newSecret.Data["pool-coordinator-yurthub-client.key"] = []byte(newKeyByte)
-		newSecret.Data["pool-coordinator-yurthub-client.crt"] = []byte(newCertByte)
+		newSecret := yurtCoordinatorSecret.DeepCopy()
+		newSecret.Data["yurt-coordinator-yurthub-client.key"] = []byte(newKeyByte)
+		newSecret.Data["yurt-coordinator-yurthub-client.crt"] = []byte(newCertByte)
 		if err := fakeClient.Tracker().Update(secretGVR, newSecret, newSecret.Namespace); err != nil {
 			t.Errorf("failed to update secret, %v", err)
 		}
@@ -384,13 +384,13 @@ func TestSecretUpdate(t *testing.T) {
 				},
 				{
 					FilePath: certMgr.GetFilePath(YurthubClientCert),
-					Data:     newSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Data:     newSecret.Data["yurt-coordinator-yurthub-client.crt"],
 					Exists:   true,
 				},
 				{
 
 					FilePath: certMgr.GetFilePath(YurthubClientKey),
-					Data:     newSecret.Data["pool-coordinator-yurthub-client.key"],
+					Data:     newSecret.Data["yurt-coordinator-yurthub-client.key"],
 					Exists:   true,
 				},
 				{
@@ -430,13 +430,13 @@ func TestSecretUpdate(t *testing.T) {
 				},
 				{
 					FilePath: certMgr.GetFilePath(YurthubClientCert),
-					Data:     newSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Data:     newSecret.Data["yurt-coordinator-yurthub-client.crt"],
 					Exists:   true,
 				},
 				{
 
 					FilePath: certMgr.GetFilePath(YurthubClientKey),
-					Data:     newSecret.Data["pool-coordinator-yurthub-client.key"],
+					Data:     newSecret.Data["yurt-coordinator-yurthub-client.key"],
 					Exists:   true,
 				},
 				{
@@ -479,26 +479,26 @@ func TestSecretDelete(t *testing.T) {
 		}
 		defer cancel()
 
-		if err := fakeClient.Tracker().Add(poolCoordinatorSecret); err != nil {
-			t.Errorf("failed to add secret %s, %v", poolCoordinatorSecret.Name, err)
+		if err := fakeClient.Tracker().Add(yurtCoordinatorSecret); err != nil {
+			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
 		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
-			if pass, err := checkSecret(certMgr, poolCoordinatorSecret, []expectFile{
+			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
-					Data:     poolCoordinatorSecret.Data["ca.crt"],
+					Data:     yurtCoordinatorSecret.Data["ca.crt"],
 					Exists:   true,
 				},
 				{
 					FilePath: certMgr.GetFilePath(YurthubClientCert),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.crt"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.crt"],
 					Exists:   true,
 				},
 				{
 
 					FilePath: certMgr.GetFilePath(YurthubClientKey),
-					Data:     poolCoordinatorSecret.Data["pool-coordinator-yurthub-client.key"],
+					Data:     yurtCoordinatorSecret.Data["yurt-coordinator-yurthub-client.key"],
 					Exists:   true,
 				},
 				{
@@ -522,7 +522,7 @@ func TestSecretDelete(t *testing.T) {
 			t.Errorf("failed to wait cert manager to be initialized, %v", err)
 		}
 
-		if err := fakeClient.Tracker().Delete(secretGVR, poolCoordinatorSecret.Namespace, poolCoordinatorSecret.Name); err != nil {
+		if err := fakeClient.Tracker().Delete(secretGVR, yurtCoordinatorSecret.Namespace, yurtCoordinatorSecret.Name); err != nil {
 			t.Errorf("failed to delete secret, %v", err)
 		}
 

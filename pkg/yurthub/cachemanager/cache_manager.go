@@ -268,7 +268,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// Note:
 	// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
 	// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
-	// such as local disk and pool-coordinator.
+	// such as local disk and yurt-coordinator.
 	if isInMemoryCacheMiss {
 		if inMemoryCacheKey, err := inMemoryCacheKeyFunc(info); err != nil {
 			klog.Errorf("cannot in-memory cache key for req %s, %v", util.ReqString(req), err)
