@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinatorcert
+package yurtcoordinatorcert
 
 import (
 	"testing"
@@ -97,8 +97,8 @@ func TestGetAPIServerSVCURL(t *testing.T) {
 
 	normalClient := fake.NewSimpleClientset(&corev1.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Namespace: PoolcoordinatorNS,
-			Name:      PoolcoordinatorAPIServerSVC,
+			Namespace: YurtCoordinatorNS,
+			Name:      YurtCoordinatorAPIServerSVC,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "xxxx",
@@ -120,8 +120,8 @@ func TestWaitUntilSVCReady(t *testing.T) {
 
 	normalClient := fake.NewSimpleClientset(&corev1.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Namespace: PoolcoordinatorNS,
-			Name:      PoolcoordinatorAPIServerSVC,
+			Namespace: YurtCoordinatorNS,
+			Name:      YurtCoordinatorAPIServerSVC,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "xxxx",
@@ -132,7 +132,7 @@ func TestWaitUntilSVCReady(t *testing.T) {
 			},
 		},
 	})
-	ips, _, err := waitUntilSVCReady(normalClient, PoolcoordinatorAPIServerSVC, stop)
+	ips, _, err := waitUntilSVCReady(normalClient, YurtCoordinatorAPIServerSVC, stop)
 	assert.Equal(t, nil, err)
 	expectIPS := ip.ParseIPList([]string{"xxxx"})
 	assert.Equal(t, expectIPS, ips)

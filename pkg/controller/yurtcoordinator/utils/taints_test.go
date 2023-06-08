@@ -21,7 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
 )
 
 func TestDeleteTaintsByKey(t *testing.T) {

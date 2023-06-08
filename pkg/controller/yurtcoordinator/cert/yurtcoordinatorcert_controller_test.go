@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinatorcert
+package yurtcoordinatorcert
 
 import (
 	"testing"
@@ -42,8 +42,8 @@ func TestInitCA(t *testing.T) {
 			"CA already exist",
 			fake.NewSimpleClientset(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      PoolCoordinatorCASecretName,
-					Namespace: PoolcoordinatorNS,
+					Name:      YurtCoordinatorCASecretName,
+					Namespace: YurtCoordinatorNS,
 				},
 				Data: map[string][]byte{
 					"ca.crt": []byte(caCertBytes),
@@ -56,8 +56,8 @@ func TestInitCA(t *testing.T) {
 			"CA not exist",
 			fake.NewSimpleClientset(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      PoolCoordinatorCASecretName,
-					Namespace: PoolcoordinatorNS,
+					Name:      YurtCoordinatorCASecretName,
+					Namespace: YurtCoordinatorNS,
 				},
 			}),
 			false,

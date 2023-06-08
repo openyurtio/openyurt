@@ -21,7 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/utils"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/utils"
 )
 
 func TestTaintNode(t *testing.T) {

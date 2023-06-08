@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinatorcert
+package yurtcoordinatorcert
 
 import (
 	"crypto/x509"
@@ -228,12 +228,12 @@ clusters:
 contexts:
 - context:
     cluster: cluster
-    user: openyurt:pool-coordinator:monitoring
-  name: openyurt:pool-coordinator:monitoring@cluster
-current-context: openyurt:pool-coordinator:monitoring@cluster
+    user: openyurt:yurt-coordinator:monitoring
+  name: openyurt:yurt-coordinator:monitoring@cluster
+current-context: openyurt:yurt-coordinator:monitoring@cluster
 kind: Config
 users:
-- name: openyurt:pool-coordinator:monitoring
+- name: openyurt:yurt-coordinator:monitoring
   user:
     client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVCVENDQXUyZ0F3SUJBZ0lJQ2tZTjVhSGc1d293RFFZSktvWklodmNOQVFFTEJRQXdKREVpTUNBR0ExVUUKQXhNWmIzQmxibmwxY25RNmNHOXZiQzFqYjI5eVpHbHVZWFJ2Y2pBZ0Z3MHlNakV5TWpreE16VTVNVE5hR0E4eQpNVEl5TVRJd05URTNNalUwT1Zvd1V6RWlNQ0FHQTFVRUNoTVpiM0JsYm5sMWNuUTZjRzl2YkMxamIyOXlaR2x1CllYUnZjakV0TUNzR0ExVUVBeE1rYjNCbGJubDFjblE2Y0c5dmJDMWpiMjl5WkdsdVlYUnZjanB0YjI1cGRHOXkKYVc1bk1JSUJJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBOGhVQjEwWlVidzVzYXduWgo5L1I2TnpuMk9MYmZyS2E1ckxkcWNaNXNHR3ZUOUQ3TFRnUUV1QlJVRkEzRXFwRUFoZmppNXcxOGhZdVNVdUR2CmNJOCtRZWJCZDNpMEtGV1hSNmpJMWZlbUhnRFpKQXplK0VKOVRycnZqNjMzd1g2N3l3UnRiWUNjaFY5VUxLbnYKNkdNMWh4aW1XL25IZHBBN1hRdnVFU1pMbGRkcDNZbXRNYk5kZUV0Y1pUVldwZlhQSFI1VWRiZENncTJybENoNgpuNUdKbzA4TGsvdVR5dngvSlllcVZFZ0ErK1FIeFJuZWZ4ZHVqNlBWbVNJa1M4Uk1haUUwL05KVUM3NlZPTDhtClV5a2NvUmV6SHkzSVNGUFBQYTJVWVJueUsvWHBMTjhWYVlISldFcUlLL1hMZjloaGVjZldxem44OEFTRkNybVkKVFJSVEVRSURBUUFCbzRJQkNEQ0NBUVF3RGdZRFZSMFBBUUgvQkFRREFnV2dNQk1HQTFVZEpRUU1NQW9HQ0NzRwpBUVVGQndNQ01COEdBMVVkSXdRWU1CYUFGRmFwTWdPay9KRmFFNUd3QTgyYjhLYjI2RWVmTUlHN0JnTlZIUkVFCmdiTXdnYkNDR25CdmIyd3RZMjl2Y21ScGJtRjBiM0l0WVhCcGMyVnlkbVZ5Z2lad2IyOXNMV052YjNKa2FXNWgKZEc5eUxXRndhWE5sY25abGNpNXJkV0psTFhONWMzUmxiWUlxY0c5dmJDMWpiMjl5WkdsdVlYUnZjaTFoY0dsegpaWEoyWlhJdWEzVmlaUzF6ZVhOMFpXMHVjM1pqZ2pod2IyOXNMV052YjNKa2FXNWhkRzl5TFdGd2FYTmxjblpsCmNpNXJkV0psTFhONWMzUmxiUzV6ZG1NdVkyeDFjM1JsY2k1c2IyTmhiSWNFQ21DcnF6QU5CZ2txaGtpRzl3MEIKQVFzRkFBT0NBUUVBZzVRVVVyeEtWakp1by9GcFJCcmFzcGtJTk9ZUmNNV2dzaWpwMUoxbWxZdkExWWMweitVQgp2cmQ4aFJsa2pFdGQwYzl0UjZPYVE5M1hPQU8zK1laVkZRcUN3eU5nM2g1c3dGQzhuQ3VhclRHZ2kxcDRxVTRRCm9XbmRUdTJqeDVmcUowazVzdHlieW0rY2ZnTkpsM3JyY2pBem1PRmEvbUFMSDFYVFYwZGIyZFpBai9WV01iK0IKSFlmc3lyb2daVnpnOXJVZTNEME1KZFcwc3BxbXZFYlVsWkhHLzFteFVvQStvdzhoVDhhdmUyenFSZ3lNTEhHTwo2NFk4aXY3d003N1N2dWtyOWdkVFRWQXhVRkhMcDBtazU4K1ZoSU9sRldyVnBpc3A4TlVCZHIrT2lzdXhyZ0FWCkJZTlh6eDZCb3ZBLzh4SDdVZlh6OFVic0gwc2lTdGRyN0E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
     client-key-data: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBOGhVQjEwWlVidzVzYXduWjkvUjZOem4yT0xiZnJLYTVyTGRxY1o1c0dHdlQ5RDdMClRnUUV1QlJVRkEzRXFwRUFoZmppNXcxOGhZdVNVdUR2Y0k4K1FlYkJkM2kwS0ZXWFI2akkxZmVtSGdEWkpBemUKK0VKOVRycnZqNjMzd1g2N3l3UnRiWUNjaFY5VUxLbnY2R00xaHhpbVcvbkhkcEE3WFF2dUVTWkxsZGRwM1ltdApNYk5kZUV0Y1pUVldwZlhQSFI1VWRiZENncTJybENoNm41R0pvMDhMay91VHl2eC9KWWVxVkVnQSsrUUh4Um5lCmZ4ZHVqNlBWbVNJa1M4Uk1haUUwL05KVUM3NlZPTDhtVXlrY29SZXpIeTNJU0ZQUFBhMlVZUm55Sy9YcExOOFYKYVlISldFcUlLL1hMZjloaGVjZldxem44OEFTRkNybVlUUlJURVFJREFRQUJBb0lCQUROYzA2d3FSdVhkU0pHWgpZSDdraHozS2RYeHBDS0lvS2NNRWszZ1I1ZHQwblY3NEo4aWd2Nk9TNUpmd3ArYU1wM0RGY3RjVkhITjFQcEdKCkdpUm1zQTNwZU9qeFdrQW9rTlZxY1ZvOGxpbE5nc1RNV2s2UVJPZjhiN0dyZHFLK1VmZnNNNCtGTnpCeEhubnYKZ0hCdEJFRnFzSGxaVU1IT0xsbzZtc05XdmJqSHR4QVRqS1JQN2pGa0w1Z0pCelQxeFQ3a0dnTlhkNjNZc1c4MAp4MFEyc0pTRW1qTSt2ZEcvMkZhV2V3RytZRmY1c0lXbGFudFZlaDJUODZjYWNlWm1OeVV2bVc5WFVUNGF6TExXCjllZ0pRVjBYNjJkRjJTRGlIUDc5OGFvY0lzSk1xSjYzWGx0b1IzWlJkYVhUMVhuT05uc0U4OWU2WlhlcUtMeTIKN1dxQVZVRUNnWUVBKy9mMUFTQ0E2a2dBNzVpRTdKc1g4c3ZSSzB6VFR6QWhJMkdnWCtmbDgzR3B5WGpNMVl2NgoxOFNobVBKeXdaTHRiMkdDOUxPMlVtdTNKeiszcTVvbHRkZStieCsyMWRGUVZycUZBWHFRM01qSFZ1NDhOQXI4CkFpN1lnTkx6WkF1MHZhZG5FbFpCK0NOVzI2Q0dSbUgzRGQ0bGptWjRvRHdEaFU2dmhiQ1diZGtDZ1lFQTlmU08KUlRwVmxpbTJEY3ZzUG82RmhjWi9ScnpLN2hhS3RFWTZKUjZmbGpWaEtaWUUvSk5WV05TckRRUEVGbDNBSlZXdwp5OWhONnZJeU5ydjhGTWc1d3U4Zi9HOFhCdWF1Q21YSXVIc29ZUU80a3RsTjYySFVFemdPQzVVZERzV0U3RE5ECjlybk1kV0hJZ0cxdmtkT2l3dy9NRHYrNnV3NTdEZHVaOHhEamMva0NnWUFVdisyd1F4SDZ1U1ZDbGVmVWFFMUgKbEZ0TVdvNUlSaWxrZFlTMGdTOWhwZW1haXRVcmZOU1Nja0h3aTM3QnpDeTdjR2ROYVlOSk5FK243c3BjV2x4aQpwanFyZ2d3WGZaNUZGaVVmNHcwTThZZmc4OHVIYWFRcE5keGtkM3JOc1YwWUJUSXF3Mm01V29lcm5JT1NSajBICktsVWpiZkxmRnpJZkIwVFRHS0M2dVFLQmdEVlBiYXJwcXZWaVV4aUljOHRYWHUrUkI3TlFabmZXb1BmVUpQUTQKd0FSeHkzNlZDcjJvUFo2RWNoTGZGeGgxOTVqZ0N2TVVEa2QzZVpUTmlDVUZCU2dRWnBGempyMHJNTndHRmN5Twp2VURSNnFiQnZSYmczSFBSK1pGZkg2NDg5OE91bFBPY2NBbWRTVFUxQXpMTGVZTG9JS1c3bmtDL01jTGVMMjgwCjRPZ1pBb0dCQU12SUNaK3drbVdZRXZMK0VTWE1MTTdvb2tSdDMyL1piTXUxNmY2U01JRnhuOGtIYTBINEZzamoKQVkzeWFBYlBwVGs5L3Z0c1l1U2JYVEpqRER6VmtFTk1CaDdrN0JTUGthalU1SXk0ODdpY0hnekFKSzl5WGFvcAprZnhKT0FFVyt5Y2lsazFmbnREQVhibHFNQTVxYm5JR0VCNk9ZUlFIMW5HaEJrdm5YYllqCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==`
@@ -241,14 +241,14 @@ users:
 	emptySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: PoolcoordinatorNS,
+			Namespace: YurtCoordinatorNS,
 		},
 		Data: make(map[string][]byte),
 	}
 	kubeConfigSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: PoolcoordinatorNS,
+			Namespace: YurtCoordinatorNS,
 		},
 		Data: map[string][]byte{
 			"kubeconfig": []byte(kubeConfigStr),
@@ -257,7 +257,7 @@ users:
 	certSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: PoolcoordinatorNS,
+			Namespace: YurtCoordinatorNS,
 		},
 		Data: map[string][]byte{
 			"test.crt": []byte(cert),
@@ -299,7 +299,7 @@ users:
 				IsKubeConfig: true,
 				CertName:     "kubeconfig",
 				SecretName:   "test",
-				CommonName:   "openyurt:pool-coordinator:monitoring",
+				CommonName:   "openyurt:yurt-coordinator:monitoring",
 			},
 			cert: []byte(kubeconfigCert),
 			key:  []byte(kubeconfigKey),
@@ -336,12 +336,12 @@ users:
 	}
 }
 
-// Create a fake client which have an PoolCoordinatorAPIServer SVC
-func newClientWithPoolCoordinatorAPIServerSVC(objects ...runtime.Object) *fake.Clientset {
+// Create a fake client which have an YurtCoordinatorAPIServer SVC
+func newClientWithYurtCoordinatorAPIServerSVC(objects ...runtime.Object) *fake.Clientset {
 	objects = append(objects, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: PoolcoordinatorNS,
-			Name:      PoolcoordinatorAPIServerSVC,
+			Namespace: YurtCoordinatorNS,
+			Name:      YurtCoordinatorAPIServerSVC,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "xxxx",
@@ -354,7 +354,7 @@ func newClientWithPoolCoordinatorAPIServerSVC(objects ...runtime.Object) *fake.C
 	return fake.NewSimpleClientset(objects...)
 }
 
-func TestInitPoolCoordinatorCert(t *testing.T) {
+func TestInitYurtCoordinatorCert(t *testing.T) {
 	caCert, caKey, _ := NewSelfSignedCA()
 
 	tests := []struct {
@@ -379,7 +379,7 @@ func TestInitPoolCoordinatorCert(t *testing.T) {
 			fake.NewSimpleClientset(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: PoolcoordinatorNS,
+					Namespace: YurtCoordinatorNS,
 				},
 				Data: map[string][]byte{
 					"test.crt": nil,
@@ -397,7 +397,7 @@ func TestInitPoolCoordinatorCert(t *testing.T) {
 		},
 		{
 			"normal kubeconfig init",
-			newClientWithPoolCoordinatorAPIServerSVC(),
+			newClientWithYurtCoordinatorAPIServerSVC(),
 			CertConfig{
 				IsKubeConfig: true,
 				CertName:     "test",
@@ -416,7 +416,7 @@ func TestInitPoolCoordinatorCert(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				err := initPoolCoordinatorCert(st.client, st.cfg, caCert, caKey, nil)
+				err := initYurtCoordinatorCert(st.client, st.cfg, caCert, caKey, nil)
 				assert.Nil(t, err)
 			}
 		}

@@ -36,9 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/utils"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/utils"
 )
 
 func init() {

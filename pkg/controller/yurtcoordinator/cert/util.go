@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinatorcert
+package yurtcoordinatorcert
 
 import (
 	"context"
@@ -33,9 +33,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/server/serveraddr"
 )
 
-// get poolcoordinator apiserver address
+// get yurtcoordinator apiserver address
 func getAPIServerSVCURL(clientSet client.Interface) (string, error) {
-	serverSVC, err := clientSet.CoreV1().Services(PoolcoordinatorNS).Get(context.TODO(), PoolcoordinatorAPIServerSVC, metav1.GetOptions{})
+	serverSVC, err := clientSet.CoreV1().Services(YurtCoordinatorNS).Get(context.TODO(), YurtCoordinatorAPIServerSVC, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -57,9 +57,9 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 
 	// wait until get tls server Service
 	if err = wait.PollUntil(1*time.Second, func() (bool, error) {
-		serverSVC, err = clientSet.CoreV1().Services(PoolcoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
+		serverSVC, err = clientSet.CoreV1().Services(YurtCoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err == nil {
-			klog.Infof(Format("%s service is ready for poolcoordinator_cert_manager", serviceName))
+			klog.Infof(Format("%s service is ready for yurtcoordinator_cert_manager", serviceName))
 			return true, nil
 		}
 		return false, nil
@@ -69,7 +69,7 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 
 	// prepare certmanager
 	ips = ip.ParseIPList([]string{serverSVC.Spec.ClusterIP})
-	dnsnames = serveraddr.GetDefaultDomainsForSvc(PoolcoordinatorNS, serviceName)
+	dnsnames = serveraddr.GetDefaultDomainsForSvc(YurtCoordinatorNS, serviceName)
 
 	return ips, dnsnames, nil
 }
