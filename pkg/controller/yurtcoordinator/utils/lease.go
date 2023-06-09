@@ -20,7 +20,7 @@ package utils
 import (
 	"sync"
 
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
 )
 
 type LeaseDelegatedCounter struct {

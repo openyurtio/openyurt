@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poolcoordinatorcert
+package yurtcoordinatorcert
 
 import (
 	"context"
@@ -64,7 +64,7 @@ func NewSelfSignedCA() (*x509.Certificate, crypto.Signer, error) {
 	}
 
 	cert, err := certutil.NewSelfSignedCACert(certutil.Config{
-		CommonName: PoolcoordinatorOrg,
+		CommonName: YurtCoordinatorOrg,
 	}, key)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "Create CA cert fail")
@@ -134,7 +134,7 @@ func loadCertAndKeyFromSecret(clientSet client.Interface, certConf CertConfig) (
 	certName := certConf.CertName
 
 	// get secret
-	secret, err := clientSet.CoreV1().Secrets(PoolcoordinatorNS).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := clientSet.CoreV1().Secrets(YurtCoordinatorNS).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -209,26 +209,26 @@ func IsCertFromCA(cert *x509.Certificate, caCert *x509.Certificate) bool {
 	return true
 }
 
-func initPoolCoordinatorCert(client client.Interface, cfg CertConfig, caCert *x509.Certificate, caKey crypto.Signer, stopCh <-chan struct{}) error {
+func initYurtCoordinatorCert(client client.Interface, cfg CertConfig, caCert *x509.Certificate, caKey crypto.Signer, stopCh <-chan struct{}) error {
 	key, err := NewPrivateKey()
 	if err != nil {
-		return errors.Wrapf(err, "init poolcoordinator cert: create %s key fail", cfg.CertName)
+		return errors.Wrapf(err, "init yurtcoordinator cert: create %s key fail", cfg.CertName)
 	}
 
 	cert, err := NewSignedCert(client, &cfg, key, caCert, caKey, stopCh)
 	if err != nil {
-		return errors.Wrapf(err, "init poolcoordinator cert: create %s cert fail", cfg.CertName)
+		return errors.Wrapf(err, "init yurtcoordinator cert: create %s cert fail", cfg.CertName)
 	}
 
 	if !cfg.IsKubeConfig {
 		err = WriteCertAndKeyIntoSecret(client, cfg.CertName, cfg.SecretName, cert, key)
 		if err != nil {
-			return errors.Wrapf(err, "init poolcoordinator cert: write %s into secret %s fail", cfg.CertName, cfg.SecretName)
+			return errors.Wrapf(err, "init yurtcoordinator cert: write %s into secret %s fail", cfg.CertName, cfg.SecretName)
 		}
 	} else {
 		apiServerURL, err := getAPIServerSVCURL(client)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't get PoolCoordinator APIServer service url")
+			return errors.Wrapf(err, "couldn't get YurtCoordinator APIServer service url")
 		}
 
 		keyBytes, _ := keyutil.MarshalPrivateKeyToPEM(key)
@@ -338,7 +338,7 @@ func WriteCertIntoSecret(clientSet client.Interface, certName, secretName string
 	}
 
 	// write certificate data into secret
-	secretClient, err := NewSecretClient(clientSet, PoolcoordinatorNS, secretName)
+	secretClient, err := NewSecretClient(clientSet, YurtCoordinatorNS, secretName)
 	if err != nil {
 		return err
 	}
@@ -360,7 +360,7 @@ func WriteCertIntoSecret(clientSet client.Interface, certName, secretName string
 // Notice: if cert OR key is nil, it will be ignored
 func WriteCertAndKeyIntoSecret(clientSet client.Interface, certName, secretName string, cert *x509.Certificate, key crypto.Signer) error {
 	// write certificate data into secret
-	secretClient, err := NewSecretClient(clientSet, PoolcoordinatorNS, secretName)
+	secretClient, err := NewSecretClient(clientSet, YurtCoordinatorNS, secretName)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func WriteCertAndKeyIntoSecret(clientSet client.Interface, certName, secretName 
 }
 
 func WriteKubeConfigIntoSecret(clientSet client.Interface, secretName, kubeConfigName string, kubeConfigByte []byte) error {
-	secretClient, err := NewSecretClient(clientSet, PoolcoordinatorNS, secretName)
+	secretClient, err := NewSecretClient(clientSet, YurtCoordinatorNS, secretName)
 	if err != nil {
 		return err
 	}
@@ -408,7 +408,7 @@ func WriteKubeConfigIntoSecret(clientSet client.Interface, secretName, kubeConfi
 }
 
 func WriteKeyPairIntoSecret(clientSet client.Interface, secretName, keyName string, key crypto.Signer) error {
-	secretClient, err := NewSecretClient(clientSet, PoolcoordinatorNS, secretName)
+	secretClient, err := NewSecretClient(clientSet, YurtCoordinatorNS, secretName)
 	if err != nil {
 		return err
 	}
