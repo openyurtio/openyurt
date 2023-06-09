@@ -26,9 +26,9 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 type storageKeySet map[storageKey]struct{}
@@ -99,7 +99,7 @@ func (c *componentKeyCache) Recover() error {
 		return fmt.Errorf("failed to get pool-scoped keys, %v", err)
 	}
 	// Overwrite the data we recovered from local disk, if any. Because we
-	// only respect to the resources stored in pool-coordinator to recover the
+	// only respect to the resources stored in yurt-coordinator to recover the
 	// pool-scoped keys.
 	c.cache[coordinatorconstants.DefaultPoolScopedUserAgent] = *poolScopedKeyset
 

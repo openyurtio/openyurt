@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 type CertFileType int
@@ -47,9 +47,9 @@ const (
 )
 
 var certFileNames = map[CertFileType]string{
-	RootCA:                   "pool-coordinator-ca.crt",
-	YurthubClientCert:        "pool-coordinator-yurthub-client.crt",
-	YurthubClientKey:         "pool-coordinator-yurthub-client.key",
+	RootCA:                   "yurt-coordinator-ca.crt",
+	YurthubClientCert:        "yurt-coordinator-yurthub-client.crt",
+	YurthubClientKey:         "yurt-coordinator-yurthub-client.key",
 	NodeLeaseProxyClientCert: "node-lease-proxy-client.crt",
 	NodeLeaseProxyClientKey:  "node-lease-proxy-client.key",
 }
@@ -67,24 +67,24 @@ func NewCertManager(pkiDir, yurtHubNs string, yurtClient kubernetes.Interface, i
 
 	secretInformerFunc := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
-			options.FieldSelector = fields.Set{"metadata.name": constants.PoolCoordinatorClientSecretName}.String()
+			options.FieldSelector = fields.Set{"metadata.name": constants.YurtCoordinatorClientSecretName}.String()
 		}
 		return coreinformers.NewFilteredSecretInformer(yurtClient, yurtHubNs, 0, nil, tweakListOptions)
 	}
 	secretInformer := informerFactory.InformerFor(&corev1.Secret{}, secretInformerFunc)
 	secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			klog.V(4).Infof("notify secret add event for %s", constants.PoolCoordinatorClientSecretName)
+			klog.V(4).Infof("notify secret add event for %s", constants.YurtCoordinatorClientSecretName)
 			secret := obj.(*corev1.Secret)
 			certMgr.updateCerts(secret)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			klog.V(4).Infof("notify secret update event for %s", constants.PoolCoordinatorClientSecretName)
+			klog.V(4).Infof("notify secret update event for %s", constants.YurtCoordinatorClientSecretName)
 			secret := newObj.(*corev1.Secret)
 			certMgr.updateCerts(secret)
 		},
 		DeleteFunc: func(_ interface{}) {
-			klog.V(4).Infof("notify secret delete event for %s", constants.PoolCoordinatorClientSecretName)
+			klog.V(4).Infof("notify secret delete event for %s", constants.YurtCoordinatorClientSecretName)
 			certMgr.deleteCerts()
 		},
 	})
@@ -126,10 +126,10 @@ func (c *CertManager) GetFilePath(t CertFileType) string {
 func (c *CertManager) updateCerts(secret *corev1.Secret) {
 	ca, caok := secret.Data["ca.crt"]
 
-	// pool-coordinator-yurthub-client.crt should appear with pool-coordinator-yurthub-client.key. So we
+	// yurt-coordinator-yurthub-client.crt should appear with yurt-coordinator-yurthub-client.key. So we
 	// only check the existence once.
-	coordinatorClientCrt, cook := secret.Data["pool-coordinator-yurthub-client.crt"]
-	coordinatorClientKey := secret.Data["pool-coordinator-yurthub-client.key"]
+	coordinatorClientCrt, cook := secret.Data["yurt-coordinator-yurthub-client.crt"]
+	coordinatorClientKey := secret.Data["yurt-coordinator-yurthub-client.key"]
 
 	// node-lease-proxy-client.crt should appear with node-lease-proxy-client.key. So we
 	// only check the existence once.
@@ -165,7 +165,7 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 	}
 
 	if cook {
-		klog.Infof("updating pool-coordinator-yurthub client cert and key")
+		klog.Infof("updating yurt-coordinator-yurthub client cert and key")
 		if err := c.createOrUpdateFile(c.GetFilePath(YurthubClientKey), coordinatorClientKey); err != nil {
 			klog.Errorf("failed to update coordinator client key, %v", err)
 		}

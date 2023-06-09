@@ -58,7 +58,7 @@ type coordinatorHealthChecker struct {
 	heartbeatInterval        int
 }
 
-// NewCoordinatorHealthChecker returns a health checker for verifying pool coordinator status.
+// NewCoordinatorHealthChecker returns a health checker for verifying yurt coordinator status.
 func NewCoordinatorHealthChecker(cfg *config.YurtHubConfiguration, checkerClient kubernetes.Interface, cloudServerHealthChecker HealthChecker, stopCh <-chan struct{}) (HealthChecker, error) {
 	chc := &coordinatorHealthChecker{
 		cloudServerHealthChecker: cloudServerHealthChecker,

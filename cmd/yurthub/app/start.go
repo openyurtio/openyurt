@@ -38,13 +38,13 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
-	coordinatorcertmgr "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator"
+	coordinatorcertmgr "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/certmanager"
 )
 
 // NewCmdStartYurtHub creates a *cobra.Command object with default parameters
@@ -108,7 +108,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
 	if cfg.WorkingMode == util.WorkingModeEdge {
-		klog.Infof("%d. create health checkers for remote servers and pool coordinator", trace)
+		klog.Infof("%d. create health checkers for remote servers and yurt coordinator", trace)
 		cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, cloudClients, ctx.Done())
 		if err != nil {
 			return fmt.Errorf("could not new cloud health checker, %w", err)
@@ -116,7 +116,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	} else {
 		klog.Infof("%d. disable health checker for node %s because it is a cloud node", trace, cfg.NodeName)
 		// In cloud mode, cloud health checker is not needed.
-		// This fake checker will always report that the cloud is healthy and pool coordinator is unhealthy.
+		// This fake checker will always report that the cloud is healthy and yurt coordinator is unhealthy.
 		cloudHealthChecker = healthchecker.NewFakeChecker(true, make(map[string]int))
 	}
 	trace++
@@ -155,7 +155,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	var coordinatorHealthCheckerGetter func() healthchecker.HealthChecker = getFakeCoordinatorHealthChecker
 	var coordinatorTransportManagerGetter func() transport.Interface = getFakeCoordinatorTransportManager
-	var coordinatorGetter func() poolcoordinator.Coordinator = getFakeCoordinator
+	var coordinatorGetter func() yurtcoordinator.Coordinator = getFakeCoordinator
 	var coordinatorServerURLGetter func() *url.URL = getFakeCoordinatorServerURL
 
 	if cfg.EnableCoordinator {
@@ -237,12 +237,12 @@ func coordinatorRun(ctx context.Context,
 	coordinatorInformerRegistryChan chan struct{}) (
 	func() healthchecker.HealthChecker,
 	func() transport.Interface,
-	func() poolcoordinator.Coordinator,
+	func() yurtcoordinator.Coordinator,
 	func() *url.URL) {
 
 	var coordinatorHealthChecker healthchecker.HealthChecker
 	var coordinatorTransportMgr transport.Interface
-	var coordinator poolcoordinator.Coordinator
+	var coordinator yurtcoordinator.Coordinator
 	var coordinatorServiceUrl *url.URL
 
 	go func() {
@@ -261,9 +261,9 @@ func coordinatorRun(ctx context.Context,
 		}
 		klog.Info("coordinatorRun sync service complete")
 
-		// resolve pool-coordinator-apiserver and etcd from domain to ips
+		// resolve yurt-coordinator-apiserver and etcd from domain to ips
 		serviceList := cfg.SharedFactory.Core().V1().Services().Lister()
-		// if pool-coordinator-apiserver and pool-coordinator-etcd address is ip, don't need to resolve
+		// if yurt-coordinator-apiserver and yurt-coordinator-etcd address is ip, don't need to resolve
 		apiServerIP := net.ParseIP(cfg.CoordinatorServerURL.Hostname())
 		etcdUrl, err := url.Parse(cfg.CoordinatorStorageAddr)
 		if err != nil {
@@ -295,7 +295,7 @@ func coordinatorRun(ctx context.Context,
 			cfg.CoordinatorStorageAddr = fmt.Sprintf("https://%s:%s", etcdService.Spec.ClusterIP, etcdUrl.Port())
 		}
 
-		coorTransportMgr, err := poolCoordinatorTransportMgrGetter(coorCertManager, ctx.Done())
+		coorTransportMgr, err := yurtCoordinatorTransportMgrGetter(coorCertManager, ctx.Done())
 		if err != nil {
 			klog.Errorf("coordinator failed to create coordinator transport manager, %v", err)
 			return
@@ -307,7 +307,7 @@ func coordinatorRun(ctx context.Context,
 			Timeout:   time.Duration(cfg.HeartbeatTimeoutSeconds) * time.Second,
 		})
 		if err != nil {
-			klog.Errorf("coordinator failed to get coordinator client for pool coordinator, %v", err)
+			klog.Errorf("coordinator failed to get coordinator client for yurt coordinator, %v", err)
 			return
 		}
 
@@ -317,15 +317,15 @@ func coordinatorRun(ctx context.Context,
 			return
 		}
 
-		var elector *poolcoordinator.HubElector
-		elector, err = poolcoordinator.NewHubElector(cfg, coordinatorClient, coorHealthChecker, cloudHealthChecker, ctx.Done())
+		var elector *yurtcoordinator.HubElector
+		elector, err = yurtcoordinator.NewHubElector(cfg, coordinatorClient, coorHealthChecker, cloudHealthChecker, ctx.Done())
 		if err != nil {
 			klog.Errorf("coordinator failed to create hub elector, %v", err)
 			return
 		}
 		go elector.Run(ctx.Done())
 
-		coor, err := poolcoordinator.NewCoordinator(ctx, cfg, cloudHealthChecker, restConfigMgr, coorCertManager, coorTransportMgr, elector)
+		coor, err := yurtcoordinator.NewCoordinator(ctx, cfg, cloudHealthChecker, restConfigMgr, coorCertManager, coorTransportMgr, elector)
 		if err != nil {
 			klog.Errorf("coordinator failed to create coordinator, %v", err)
 			return
@@ -342,14 +342,14 @@ func coordinatorRun(ctx context.Context,
 			return coordinatorHealthChecker
 		}, func() transport.Interface {
 			return coordinatorTransportMgr
-		}, func() poolcoordinator.Coordinator {
+		}, func() yurtcoordinator.Coordinator {
 			return coordinator
 		}, func() *url.URL {
 			return coordinatorServiceUrl
 		}
 }
 
-func poolCoordinatorTransportMgrGetter(coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {
+func yurtCoordinatorTransportMgrGetter(coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {
 	err := wait.PollImmediate(5*time.Second, 4*time.Minute, func() (done bool, err error) {
 		klog.Info("waiting for preparing certificates for coordinator client and node lease proxy client")
 		if coordinatorCertMgr.GetAPIServerClientCert() == nil {
@@ -366,13 +366,13 @@ func poolCoordinatorTransportMgrGetter(coordinatorCertMgr *coordinatorcertmgr.Ce
 
 	coordinatorTransportMgr, err := transport.NewTransportManager(coordinatorCertMgr, stopCh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create transport manager for pool coordinator, %v", err)
+		return nil, fmt.Errorf("failed to create transport manager for yurt coordinator, %v", err)
 	}
 	return coordinatorTransportMgr, nil
 }
 
-func getFakeCoordinator() poolcoordinator.Coordinator {
-	return &poolcoordinator.FakeCoordinator{}
+func getFakeCoordinator() yurtcoordinator.Coordinator {
+	return &yurtcoordinator.FakeCoordinator{}
 }
 
 func getFakeCoordinatorHealthChecker() healthchecker.HealthChecker {

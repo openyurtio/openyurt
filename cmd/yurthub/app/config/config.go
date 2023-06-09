@@ -170,7 +170,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubNamespace:          options.YurtHubNamespace,
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
-		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
+		CoordinatorPKIDir:         filepath.Join(options.RootDir, "yurtcoordinator"),
 		EnableCoordinator:         options.EnableCoordinator,
 		CoordinatorServerURL:      coordinatorServerURL,
 		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
