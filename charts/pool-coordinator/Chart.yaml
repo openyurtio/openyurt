@@ -1,6 +1,6 @@
 apiVersion: v2
-name: pool-coordinator
-description: A Helm chart for OpenYurt pool-coordinator component
+name: yurt-coordinator
+description: A Helm chart for OpenYurt yurt-coordinator component
 
 # A chart can be either an 'application' or a 'library' chart.
 #

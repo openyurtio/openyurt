@@ -112,12 +112,12 @@ detail info: https://github.com/orgs/openyurtio/projects/4
 **ControlPlane SIG**
 
 - Provide NodePool Governance Capability
-  - add pool-coordinator-certificate controller ([#774](https://github.com/openyurtio/openyurt/issues/774))
+  - add yurt-coordinator-certificate controller ([#774](https://github.com/openyurtio/openyurt/issues/774))
   - add admission webhook ([#775](https://github.com/openyurtio/openyurt/issues/775))
-  - remove nodelifecycle controller and add pool-coordinator controller in yurt-controller-manager component ([#776](https://github.com/openyurtio/openyurt/issues/776))
-  - add pool-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
+  - remove nodelifecycle controller and add yurt-coordinator controller in yurt-controller-manager component ([#776](https://github.com/openyurtio/openyurt/issues/776))
+  - add yurt-coordinator component ([#777](https://github.com/openyurtio/openyurt/issues/777))
   - yurthub are delegated to report heartbeats for nodes that disconnected with cloud ([#779](https://github.com/openyurtio/openyurt/issues/779))
-- pool-coordinator supports share pool scope data in the nodepool ([#778](https://github.com/openyurtio/openyurt/issues/778))
+- yurt-coordinator supports share pool scope data in the nodepool ([#778](https://github.com/openyurtio/openyurt/issues/778))
 - Improve Yurtadm Join command ([#889](https://github.com/openyurtio/openyurt/issues/889))
 - Improve Yurtadm Reset command ([#1058](https://github.com/openyurtio/openyurt/issues/1058))
 
