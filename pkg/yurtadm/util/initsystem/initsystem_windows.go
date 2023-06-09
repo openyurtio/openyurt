@@ -55,19 +55,19 @@ func (sysd WindowsInitSystem) ServiceIsEnabled(service string) bool {
 func (sysd WindowsInitSystem) ServiceEnable(service string) error {
 	m, err := mgr.Connect()
 	if err != nil {
-		return false
+		return err
 	}
 	defer m.Disconnect()
 
 	s, err := m.OpenService(service)
 	if err != nil {
-		return false
+		return err
 	}
 	defer s.Close()
 
 	c, err := s.Config()
 	if err != nil {
-		return false
+		return err
 	}
 	c.StartType = mgr.StartAutomatic
 
