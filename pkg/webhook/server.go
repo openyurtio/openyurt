@@ -21,28 +21,29 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	"github.com/openyurtio/openyurt/pkg/controller/iot"
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
 	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
-	v1alpha1iot "github.com/openyurtio/openyurt/pkg/webhook/iot/v1alpha1"
-	v1alpha2iot "github.com/openyurtio/openyurt/pkg/webhook/iot/v1alpha2"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
+	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha1"
+	v1alpha2platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha2"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
 	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/webhook/yurtstaticset/v1alpha1"
-	"k8s.io/klog/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type SetupWebhookWithManager interface {
@@ -77,8 +78,8 @@ func init() {
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
-	addControllerWebhook(iot.ControllerName, &v1alpha1iot.IoTHandler{})
-	addControllerWebhook(iot.ControllerName, &v1alpha2iot.IoTHandler{})
+	addControllerWebhook(platformadmin.ControllerName, &v1alpha1platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(platformadmin.ControllerName, &v1alpha2platformadmin.PlatformAdminHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 }

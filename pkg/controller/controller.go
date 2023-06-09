@@ -24,8 +24,8 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
-	"github.com/openyurtio/openyurt/pkg/controller/iot"
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/gateway"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/service"
@@ -63,7 +63,7 @@ func init() {
 	controllerAddFuncs[yurtstaticset.ControllerName] = []AddControllerFn{yurtstaticset.Add}
 	controllerAddFuncs[yurtappset.ControllerName] = []AddControllerFn{yurtappset.Add}
 	controllerAddFuncs[yurtappdaemon.ControllerName] = []AddControllerFn{yurtappdaemon.Add}
-	controllerAddFuncs[iot.ControllerName] = []AddControllerFn{iot.Add}
+	controllerAddFuncs[platformadmin.ControllerName] = []AddControllerFn{platformadmin.Add}
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi
