@@ -146,7 +146,7 @@ spec:
 								Name:    testContainerName,
 								Image:   testImg1,
 								Command: []string{"/bin/sh"},
-								Args:    []string{"-c", "while true; do echo hello; sleep 10;done"},
+								Args:    []string{"-c", "while true; do echo hello; sleep 10; done"},
 							},
 						},
 					},
@@ -253,17 +253,9 @@ spec:
 		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(BeNil())
 	})
 
-	Describe("Test YurtStaticSet auto upgrade model", func() {
+	Describe("Test YurtStaticSet AdvancedRollingUpdate upgrade model", func() {
 		It("Test one worker disconnect", func() {
-			By("Run staticpod auto upgrade model test")
-			updateStrategyType = "AdvancedRollingUpdate"
-
-			createStaticPod("openyurt-e2e-test-worker")
-			createStaticPod("openyurt-e2e-test-worker2")
-
-			createYurtStaticSet()
-			checkPodStatusAndUpdate()
-
+			By("Run staticpod AdvancedRollingUpdate upgrade model test")
 			// disconnect openyurt-e2e-test-worker2 node
 			cmd := exec.Command("/bin/bash", "-c", "docker network disconnect kind openyurt-e2e-test-worker2")
 			err := cmd.Run()
@@ -295,6 +287,30 @@ spec:
 				}
 				return fmt.Errorf("error image update")
 			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(Succeed())
+		})
+
+		It("Testing situation where upgrade is not required", func() {
+			Consistently(func() error {
+				podList := &corev1.PodList{}
+				if err := k8sClient.List(ctx, podList, client.InNamespace(namespaceName)); err != nil {
+					return err
+				}
+				if len(podList.Items) != 2 {
+					return fmt.Errorf("should no worker pod be created")
+				}
+				return nil
+			}, 10*time.Second, 500*time.Millisecond).Should(Succeed())
+		})
+
+		BeforeEach(func() {
+			By("Prepare for staticpod AdvancedRollingUpdate upgrade model test")
+			updateStrategyType = "AdvancedRollingUpdate"
+
+			createStaticPod("openyurt-e2e-test-worker")
+			createStaticPod("openyurt-e2e-test-worker2")
+
+			checkPodStatusAndUpdate()
+			createYurtStaticSet()
 		})
 
 		AfterEach(func() {
