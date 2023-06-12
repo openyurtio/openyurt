@@ -42,6 +42,9 @@ spec:
             {{- if .Values.organizations }}
             - --hub-cert-organizations={{ .Values.organizations }}
             {{- end }}
+            {{- if .nodePoolName }}
+            - --nodepool-name={{ .Values.nodePoolName }}
+            {{- end }}
           livenessProbe:
             httpGet:
               host: {{ .Values.yurthubBindingAddr }}

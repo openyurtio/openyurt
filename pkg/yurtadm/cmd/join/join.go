@@ -38,6 +38,7 @@ import (
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 type joinOptions struct {
@@ -341,6 +342,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 			// the specified nodePool not exist, return
 			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
 		}
+		// add nodePool label for node by kubelet
+		data.nodeLabels[nodepoolv1alpha1.LabelDesiredNodePool] = opt.nodePoolName
 	}
 	klog.Infof("node join data info: %#+v", *data)
 

@@ -154,28 +154,3 @@ func GetNodePoolInfoWithRetry(client yurtclientset.Interface, name string) (*nod
 	}
 	return nil, lastError
 }
-
-func JoinNodeInSpecifiedNodePool(client clientset.Interface, nodeName, nodePoolName string) error {
-	var node *v1.Node
-	var lastError error
-	err := wait.ExponentialBackoff(clientsetretry.DefaultBackoff, func() (bool, error) {
-		var err error
-		node, err = client.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			lastError = err
-			return false, nil
-		}
-
-		node.Labels[nodepoolv1alpha1.LabelDesiredNodePool] = nodePoolName
-		_, err = client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
-		if err != nil {
-			lastError = err
-			return false, nil
-		}
-		return true, nil
-	})
-	if err == nil {
-		return nil
-	}
-	return lastError
-}
