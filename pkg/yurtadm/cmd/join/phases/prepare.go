@@ -58,6 +58,9 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurtadmutil.SetKubeletService(); err != nil {
 		return err
 	}
+	if err := yurtadmutil.EnableKubeletService(); err != nil {
+		return err
+	}
 	if err := yurtadmutil.SetKubeletUnitConfig(); err != nil {
 		return err
 	}
@@ -67,7 +70,7 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 		return err
 	}
-	if err := yurthub.AddYurthubStaticYaml(data, filepath.Join(constants.KubeletConfigureDir, constants.ManifestsSubDirName)); err != nil {
+	if err := yurthub.AddYurthubStaticYaml(data, constants.StaticPodPath); err != nil {
 		return err
 	}
 	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {

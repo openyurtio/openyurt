@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.2.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.3.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -16,10 +16,10 @@
 
 English | [简体中文](./README.zh.md)
 
-| ![notification](docs/img/bell-outline-badge.svg) What is NEW!                                            |
-| -------------------------------------------------------------------------------------------------------- |
-| Latest Release: Jan 19th, 2023. OpenYurt v1.2.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
-| First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1                                                    |
+| ![notification](docs/img/bell-outline-badge.svg) What is NEW!                                           |
+|---------------------------------------------------------------------------------------------------------|
+| Latest Release: May 3rd, 2023. OpenYurt v1.3.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
+| First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1                                                   |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
 
@@ -30,7 +30,7 @@ English | [简体中文](./README.zh.md)
 OpenYurt has been designed to meet various DevOps requirements against typical edge infrastructures.
 It provides consistent user experience for managing the edge applications as if they were running in the cloud infrastructure.
 It addresses specific challenges for cloud-edge orchestration in Kubernetes such as unreliable or disconnected cloud-edge networking,
-edge autonomy, edge device management, region-aware deployment and so on. OpenYurt preserves intact Kubernetes API compatibility,
+edge autonomy, edge device management, region-aware deployment, and so on. OpenYurt preserves intact Kubernetes API compatibility,
 is vendor agnostic, and more importantly, is **SIMPLE** to use.
 
 ## Architecture
@@ -47,21 +47,10 @@ multiple physical regions, which are referred to as `Pools` in OpenYurt.
 
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
 
-- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serve as a node sidecar to handle requests that comes from components(like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
-- **[Yurt Controller Manager](https://openyurt.io/docs/next/core-concepts/yurt-controller-manager)**: It includes several controllers for edge control loops.
-  - `yurtcsrapprover` controller is used for handling CSRs from OpenYurt components.
-  - `daemonpodupdater` controller is used for providing OTA and Auto upgrade model for DaemonSet workload.
-  - `servicetopology` controller is used for reconciling endpoints/endpointslices when service or nodepool happen to change.
-  - `poolcoordinator` controller mainly works with the Pool-Coordinator component to provide users with the ability of edge autonomy (including two modes of node autonomy and node pool autonomy).
-- **[Yurt App Manager](https://openyurt.io/docs/next/core-concepts/yurt-app-manager)**: It manages several CRD resources introduced in OpenYurt: [NodePool](docs/enhancements/20201211-nodepool_uniteddeployment.md),
-  [YurtAppSet](docs/enhancements/20201211-nodepool_uniteddeployment.md), [YurtAppDaemon](docs/enhancements/20210729-yurtappdaemon.md)
-  and [YurtIngress](docs/proposals/20210628-nodepool-ingress-support.md).
-  - `NodePool` provides a convenient management for a pool of nodes within the same region or site.
-  - `YurtAppSet` defines a new edge application management methodology of using per NodePool workload.
-  - `YurtAppDaemon` enables to deploy workload for every matching NodePool.
-  - `YurtIngress` orchestrates the deployment of multiple ingress controllers to the respective NodePools.
-- **[Raven/Raven Controller Manager](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt, and provides layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
-- **Pool-Coordinator**: One instance of Pool-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
+- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serves as a node sidecar to handle requests that comes from components (like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
+- **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**: include all controllers and webhooks for edge.
+- **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt, and provides layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
+- **Yurt-Coordinator**: One instance of Yurt-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
 
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
 
@@ -86,13 +75,9 @@ compatibility issues. OpenYurt installation is divided into two parts:
 - [Install OpenYurt Control Plane Components](https://openyurt.io/docs/installation/summary#part-1-install-control-plane-components)
 - [Join Nodes](https://openyurt.io/docs/installation/summary#part-2-join-nodes)
 
-## Tutorials
-
-To experience the power of OpenYurt, please try the detailed [tutorials](https://openyurt.io/docs/next/).
-
 ## Roadmap
 
-- [OpenYurt Roadmap](docs/roadmap.md)
+- [OpenYurt Roadmap](https://github.com/openyurtio/community/blob/main/roadmap.md)
 
 ## Community
 
@@ -116,7 +101,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1q04kn3nl-9UOKBo__Z~Qhcaj4jnHH~g) (_English_)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1upos7vk0-TREtWsBhyw79zyVnX9TPJQ) (_English_)
 - DingTalk：Search GroupID `12640034121` (_Chinese_)
 
 <div align="left">

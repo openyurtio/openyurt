@@ -22,7 +22,7 @@ IMAGE_REPO ?= openyurt
 IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
 GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
-CRD_OPTIONS ?= "crd:crdVersions=v1"
+CRD_OPTIONS ?= "crd:crdVersions=v1,maxDescLen=1000"
 BUILD_KUSTOMIZE ?= _output/manifest
 GOPROXY ?= $(shell go env GOPROXY)
 
@@ -51,6 +51,17 @@ ifneq (${https_proxy},)
 DOCKER_BUILD_ARGS += --build-arg https_proxy='${https_proxy}'
 endif
 
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+KUSTOMIZE_VERSION ?= v4.5.7
+## Tool Binaries
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+
+KUBECTL_VERSION ?= v1.22.3
+KUBECTL ?= $(LOCALBIN)/kubectl
+
 .PHONY: clean all build test
 
 all: test build
@@ -68,7 +79,10 @@ clean:
 	-rm -Rf _output
 
 # verify will verify the code.
-verify: verify-mod verify-license
+verify: verify-mod verify-license verify_manifests
+
+verify_manifests:
+	hack/make-rules/verify_manifests.sh
 
 # verify-license will check if license has been added to files. 
 verify-license:
@@ -130,7 +144,7 @@ docker-build:
 
 
 # Build and Push the docker images with multi-arch
-docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager
+docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent
 
 
 docker-buildx-builder:
@@ -151,14 +165,21 @@ docker-push-node-servant: docker-buildx-builder
 docker-push-yurt-manager: manifests docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
 
+docker-push-yurt-tunnel-server: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
+
+docker-push-yurt-tunnel-agent: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
+
+
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
 
-manifests: generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: kustomize kubectl generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	rm -rf $(BUILD_KUSTOMIZE)
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./pkg/..." output:crd:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/crd output:rbac:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/rbac output:webhook:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/webhook
-	hack/make-rules/kustomize_to_chart.sh --crd $(BUILD_KUSTOMIZE)/auto_generate/crd  --webhook $(BUILD_KUSTOMIZE)/auto_generate/webhook --rbac $(BUILD_KUSTOMIZE)/auto_generate/rbac --output $(BUILD_KUSTOMIZE)/kustomize --templateDir charts/openyurt/templates
+	hack/make-rules/kustomize_to_chart.sh --crd $(BUILD_KUSTOMIZE)/auto_generate/crd  --webhook $(BUILD_KUSTOMIZE)/auto_generate/webhook --rbac $(BUILD_KUSTOMIZE)/auto_generate/rbac --output $(BUILD_KUSTOMIZE)/kustomize --chartDir charts/yurt-manager
 
 
 # newcontroller
@@ -175,6 +196,26 @@ else
 	rm -rf $(CONTROLLER_GEN)
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0)
 endif
+
+.PHONY: kubectl
+kubectl: $(KUBECTL) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUBECTL): $(LOCALBIN)
+	@if test -x $(LOCALBIN)/kubectl && ! $(LOCALBIN)/kubectl version | grep -q $(KUBECTL_VERSION); then \
+		echo "$(LOCALBIN)/kubectl version is not expected $(KUBECTL_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kubectl; \
+	fi
+	test -s $(LOCALBIN)/kubectl || curl https://storage.googleapis.com/kubernetes-release/release/v1.22.3/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
+	chmod +x $(KUBECTL)
+
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUSTOMIZE): $(LOCALBIN)
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

@@ -40,16 +40,17 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/controller/util"
-	"github.com/openyurtio/openyurt/pkg/controller/util/gate"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/workloadcontroller"
+	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 var (
 	concurrentReconciles = 3
+	controllerKind       = unitv1alpha1.SchemeGroupVersion.WithKind("YurtAppDaemon")
 )
 
 const (
-	controllerName            = "yurtappdaemon-controller"
+	ControllerName            = "yurtappdaemon"
 	slowStartInitialBatchSize = 1
 
 	eventTypeRevisionProvision  = "RevisionProvision"
@@ -66,23 +67,26 @@ func init() {
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", controllerName, s)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
 }
 
 // Add creates a new YurtAppDaemon Controller and adds it to the Manager with default RBAC.
 // The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-	if !gate.ResourceEnabled(&unitv1alpha1.YurtAppDaemon{}) {
+	if !utildiscovery.DiscoverGVK(controllerKind) {
+		klog.Errorf(Format("DiscoverGVK error"))
 		return nil
 	}
+
+	klog.Infof("yurtappdaemon-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(mgr))
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -118,7 +122,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		Client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
 
-		recorder: mgr.GetEventRecorderFor(controllerName),
+		recorder: mgr.GetEventRecorderFor(ControllerName),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
 			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},

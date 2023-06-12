@@ -84,7 +84,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/update-strategy": "ota",
+						"apps.openyurt.io/update-strategy": "OTA",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -100,7 +100,7 @@ func Test_checkPrerequisites(t *testing.T) {
 			ds: &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"apps.openyurt.io/update-strategy": "auto",
+						"apps.openyurt.io/update-strategy": "Auto",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{

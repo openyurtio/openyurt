@@ -30,6 +30,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
@@ -215,12 +216,14 @@ type joinData struct {
 	pauseImage               string
 	yurthubImage             string
 	yurthubTemplate          string
+	yurthubManifest          string
 	kubernetesVersion        string
 	caCertHashes             []string
 	nodeLabels               map[string]string
 	kubernetesResourceServer string
 	yurthubServer            string
 	reuseCNIBin              bool
+	namespace                string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -286,6 +289,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		},
 		kubernetesResourceServer: opt.kubernetesResourceServer,
 		reuseCNIBin:              opt.reuseCNIBin,
+		namespace:                opt.namespace,
 	}
 
 	// parse node labels
@@ -341,13 +345,20 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr
-	yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace)
+	yurthubYurtStaticSetName := yurtconstants.YurthubYurtStaticSetName
+	if data.NodeRegistration().WorkingMode == "cloud" {
+		yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
+	}
+
+	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
-		klog.Errorf("failed to get yurthub template, %v", err)
-		return nil, err
+		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
+		yurthubManifest = yurtconstants.YurthubStaticPodManifest
+		yurthubTemplate = yurtconstants.YurthubTemplate
+
 	}
 	data.yurthubTemplate = yurthubTemplate
-	klog.Infof("yurthub template: %s", yurthubTemplate)
+	data.yurthubManifest = yurthubManifest
 
 	return data, nil
 }
@@ -380,6 +391,10 @@ func (j *joinData) YurtHubServer() string {
 // YurtHubTemplate returns the YurtHub template.
 func (j *joinData) YurtHubTemplate() string {
 	return j.yurthubTemplate
+}
+
+func (j *joinData) YurtHubManifest() string {
+	return j.yurthubManifest
 }
 
 // KubernetesVersion returns the kubernetes version.
@@ -420,4 +435,8 @@ func (j *joinData) KubernetesResourceServer() string {
 
 func (j *joinData) ReuseCNIBin() bool {
 	return j.reuseCNIBin
+}
+
+func (j *joinData) Namespace() string {
+	return j.namespace
 }

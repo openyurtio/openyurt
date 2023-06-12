@@ -67,7 +67,7 @@ spec:
   ports:
     - port: 443
       protocol: TCP
-      targetPort: 10270
+      targetPort: 10273
   selector:
     app.kubernetes.io/name: yurt-manager
 `
@@ -99,6 +99,7 @@ spec:
             - --enable-leader-election
             - --metrics-addr=:10271
             - --health-probe-addr=:10272
+            - --webhook-port=10273
             - --logtostderr=true
             - --v=4
           command:
@@ -106,11 +107,8 @@ spec:
           image: {{.image}}
           imagePullPolicy: IfNotPresent
           name: yurt-manager
-          env:
-            - name: WEBHOOK_PORT
-              value: "10270"
           ports:
-            - containerPort: 10270
+            - containerPort: 10273
               name: webhook-server
               protocol: TCP
             - containerPort: 10271
@@ -158,9 +156,8 @@ rules:
       - ""
     resources:
       - configmaps
-    resourceNames:
-      - yurt-hub-cfg
     verbs:
+      - get
       - list
       - watch
 `

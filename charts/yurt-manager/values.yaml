@@ -1,0 +1,44 @@
+# Default values for yurt-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# settings for log print
+log:
+  # log level for yurt-manager
+  level: 4
+
+replicaCount: 1
+nameOverride: ""
+
+image:
+  registry: openyurt
+  repository: yurt-manager
+  tag: v1.3.0
+
+ports:
+  metrics: 10271
+  healthProbe: 10272
+  webhook: 10273
+
+# format should be "foo,-bar,*"
+controllers: ""
+
+# format should be "foo,*"
+disableIndependentWebhooks: ""
+
+# resources of yurt-manager container
+resources:
+  limits:
+    cpu: 2000m
+    memory: 1024Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/master
+              operator: Exists

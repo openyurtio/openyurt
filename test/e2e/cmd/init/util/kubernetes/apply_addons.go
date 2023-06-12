@@ -125,9 +125,10 @@ func NewBuilder(kubeconfig string) *Builder {
 	return &Builder{f}
 }
 
-func (b Builder) InstallComponents(path string) error {
+func (b Builder) InstallComponents(path string, recursive bool) error {
 	fo := resource.FilenameOptions{
 		Filenames: []string{path},
+		Recursive: recursive,
 	}
 	cmdNs, enforceNs, err := b.ToRawKubeConfigLoader().Namespace()
 	if err != nil {

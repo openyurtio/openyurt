@@ -17,6 +17,8 @@ limitations under the License.
 package yurthub
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/util/token"
@@ -60,9 +63,12 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 	kubernetesServerAddrs := strings.Join(serverAddrs, ",")
 
 	ctx := map[string]string{
+		"yurthubBindingAddr":   data.YurtHubServer(),
 		"kubernetesServerAddr": kubernetesServerAddrs,
 		"workingMode":          data.NodeRegistration().WorkingMode,
 		"organizations":        data.NodeRegistration().Organizations,
+		"namespace":            data.Namespace(),
+		"image":                data.YurtHubImage(),
 	}
 	if len(data.NodeRegistration().NodePoolName) != 0 {
 		ctx["nodePoolName"] = data.NodeRegistration().NodePoolName
@@ -73,7 +79,15 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 		return err
 	}
 
-	if err := os.WriteFile(filepath.Join(podManifestPath, constants.YurthubStaticPodFileName), []byte(yurthubTemplate), 0600); err != nil {
+	yurthubTemplate, err = useRealServerAddr(yurthubTemplate, kubernetesServerAddrs)
+	if err != nil {
+		return err
+	}
+
+	yurthubManifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(data.YurtHubManifest()))
+	klog.Infof("yurthub template: %s\n%s", yurthubManifestFile, yurthubTemplate)
+
+	if err := os.WriteFile(yurthubManifestFile, []byte(yurthubTemplate), 0600); err != nil {
 		return err
 	}
 	klog.Info("[join-node] Add hub agent static yaml is ok")
@@ -166,4 +180,26 @@ func CleanHubBootstrapConfig() error {
 		klog.Warningf("Clean file %s fail: %v, please clean it manually.", constants.YurtHubBootstrapConfig, err)
 	}
 	return nil
+}
+
+// useRealServerAddr check if the server-addr from yurthubTemplate is default value: 127.0.0.1:6443
+// if yes, we should use the real server addr
+func useRealServerAddr(yurthubTemplate string, kubernetesServerAddrs string) (string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader([]byte(yurthubTemplate)))
+	var buffer bytes.Buffer
+	target := fmt.Sprintf("%v=%v", constants.ServerAddr, constants.DefaultServerAddr)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, target) {
+			line = strings.Replace(line, constants.DefaultServerAddr, kubernetesServerAddrs, -1)
+		}
+		buffer.WriteString(line + "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		klog.Infof("Error scanning file: %v\n", err)
+		return "", err
+	}
+	return buffer.String(), nil
 }

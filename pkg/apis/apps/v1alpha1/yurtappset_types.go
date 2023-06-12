@@ -139,6 +139,7 @@ type Pool struct {
 	// Patch takes precedence over Replicas fields
 	// If the Patch also modifies the Replicas, use the Replicas value in the Patch
 	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Patch *runtime.RawExtension `json:"patch,omitempty"`
 }
 

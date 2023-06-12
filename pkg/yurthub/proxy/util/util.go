@@ -43,9 +43,9 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/resources"
 )
 
 const (

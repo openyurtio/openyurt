@@ -19,26 +19,28 @@ package webhook
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
+	"github.com/openyurtio/openyurt/pkg/controller/raven"
 	ctrlutil "github.com/openyurtio/openyurt/pkg/controller/util"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1pod "github.com/openyurtio/openyurt/pkg/webhook/pod/v1"
-	v1alpha1staticpod "github.com/openyurtio/openyurt/pkg/webhook/staticpod/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/webhook/util/controller"
-	"github.com/openyurtio/openyurt/pkg/webhook/util/health"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/webhook/yurtappset/v1alpha1"
+	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/webhook/yurtstaticset/v1alpha1"
 )
 
 type SetupWebhookWithManager interface {
@@ -67,14 +69,14 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook("gateway", &v1alpha1gateway.GatewayHandler{})
-	addControllerWebhook("nodepool", &v1alpha1nodepool.NodePoolHandler{})
-	addControllerWebhook("nodepool", &v1beta1nodepool.NodePoolHandler{})
-	addControllerWebhook("staticpod", &v1alpha1staticpod.StaticPodHandler{})
-	addControllerWebhook("yurtappset", &v1alpha1yurtappset.YurtAppSetHandler{})
-	addControllerWebhook("yurtappdaemon", &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
+	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
+	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
+	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
+	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
+	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 
-	independentWebhooks["pod"] = &v1pod.PodHandler{}
+	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 }
 
 // Note !!! @kadisi
@@ -134,8 +136,8 @@ type GateFunc func() (enabled bool)
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
 
-func Initialize(ctx context.Context, cfg *rest.Config, cc *config.CompletedConfig) error {
-	c, err := webhookcontroller.New(cfg, WebhookHandlerPath, cc)
+func Initialize(ctx context.Context, cc *config.CompletedConfig) error {
+	c, err := webhookcontroller.New(WebhookHandlerPath, cc)
 	if err != nil {
 		return err
 	}
@@ -149,33 +151,6 @@ func Initialize(ctx context.Context, cfg *rest.Config, cc *config.CompletedConfi
 	case <-webhookcontroller.Inited():
 		return nil
 	case <-timer.C:
-		return fmt.Errorf("failed to start webhook controller for waiting more than 20s")
+		return fmt.Errorf("failed to prepare certificate for webhook within 20s")
 	}
-}
-
-func Checker(req *http.Request) error {
-	// Firstly wait webhook controller initialized
-	select {
-	case <-webhookcontroller.Inited():
-	default:
-		return fmt.Errorf("webhook controller has not initialized")
-	}
-	return health.Checker(req)
-}
-
-func WaitReady() error {
-	startTS := time.Now()
-	var err error
-	for {
-		duration := time.Since(startTS)
-		if err = Checker(nil); err == nil {
-			return nil
-		}
-
-		if duration > time.Second*5 {
-			klog.Warningf("Failed to wait webhook ready over %s: %v", duration, err)
-		}
-		time.Sleep(time.Second * 2)
-	}
-
 }

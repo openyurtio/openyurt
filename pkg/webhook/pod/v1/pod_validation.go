@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
 )
 
 const (

@@ -34,6 +34,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
@@ -132,7 +133,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 		req.Body = rc
 	}
 
-	headerNStr := req.Header.Get("Content-Length")
+	headerNStr := req.Header.Get(yurtutil.HttpHeaderContentLength)
 	headerN, _ := strconv.Atoi(headerNStr)
 	n, err := buf.ReadFrom(req.Body)
 	if err != nil || (headerN != 0 && int(n) != headerN) {
@@ -171,8 +172,8 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 
 	ctx := req.Context()
 	contentType, _ := hubutil.ReqContentTypeFrom(ctx)
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Transfer-Encoding", "chunked")
+	w.Header().Set(yurtutil.HttpHeaderContentType, contentType)
+	w.Header().Set(yurtutil.HttpHeaderTransferEncoding, "chunked")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
@@ -203,7 +204,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 				return nil
 			}
 
-			// if poolcoordinator becomes healthy, exit the watch wait
+			// if yurtcoordinator becomes healthy, exit the watch wait
 			if isPoolScopedListWatch && lp.isCoordinatorReady() {
 				return nil
 			}
@@ -236,7 +237,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
-		if k == "Content-Type" || k == "Content-Length" {
+		if k == yurtutil.HttpHeaderContentType || k == yurtutil.HttpHeaderContentLength {
 			for _, v := range vv {
 				dst.Add(k, v)
 			}

@@ -30,6 +30,50 @@ import (
 // WindowsInitSystem is the windows implementation of InitSystem
 type WindowsInitSystem struct{}
 
+// ServiceIsEnabled ensures the service is enabled to start on each boot.
+func (sysd WindowsInitSystem) ServiceIsEnabled(service string) bool {
+	m, err := mgr.Connect()
+	if err != nil {
+		return false
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(service)
+	if err != nil {
+		return false
+	}
+	defer s.Close()
+
+	c, err := s.Config()
+	if err != nil {
+		return false
+	}
+
+	return c.StartType != mgr.StartDisabled
+}
+
+func (sysd WindowsInitSystem) ServiceEnable(service string) error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(service)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	c, err := s.Config()
+	if err != nil {
+		return err
+	}
+	c.StartType = mgr.StartAutomatic
+
+	return s.UpdateConfig(c)
+}
+
 // ServiceIsActive ensures the service is running, or attempting to run. (crash looping in the case of kubelet)
 func (sysd WindowsInitSystem) ServiceIsActive(service string) bool {
 	m, err := mgr.Connect()

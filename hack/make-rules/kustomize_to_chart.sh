@@ -30,7 +30,7 @@ function usage(){
     echo -e "\t-w, --webhook\t webhook manifest path, Only relative directories are needed."
     echo -e "\t-r, --rbac\t rbac manifest path, Only relative directories are needed."
     echo -e "\t-o, --output\t output kustomize path, Only relative directories are needed."
-    echo -e "\t-t, --templateDir\t output helm chart template path, Only relative directories are needed."
+    echo -e "\t-t, --chartDir\t output helm chart template path, Only relative directories are needed."
     echo -e "\t-h, --help\tHelp information"
     exit 1
 }
@@ -61,9 +61,9 @@ while [ $# -gt 0 ];do
       OUTPUT=$1
       shift
       ;;
-    --templateDir|-t)
+    --chartDir|-t)
       shift
-      TEMPLATEDIR=$1
+      CHARTDIR=$1
       shift
       ;;
 
@@ -77,7 +77,7 @@ while [ $# -gt 0 ];do
     esac
 done
 
-if [ -z $CRD ] || [ -z $WEBHOOK ] || [ -z $RBAC ] || [ -z $OUTPUT ] || [ -z $TEMPLATEDIR ] ; then
+if [ -z $CRD ] || [ -z $WEBHOOK ] || [ -z $RBAC ] || [ -z $OUTPUT ] || [ -z $CHARTDIR ] ; then
     usage	
 fi
 
@@ -98,7 +98,8 @@ EOF
 function create_manifest() {
 
     local output_dir="${YURT_ROOT}/${OUTPUT}"
-    local template_dir="${YURT_ROOT}/${TEMPLATEDIR}"
+    local template_dir="${YURT_ROOT}/${CHARTDIR}/templates"
+    local crd_dir="${YURT_ROOT}/${CHARTDIR}/crds"
     local yurt_manager_templatefile="${template_dir}/yurt-manager-auto-generated.yaml"
 
     if [ ! -d ${template_dir} ]; then
@@ -133,12 +134,11 @@ namePrefix: yurt-manager-
 #  someName: someValue
 
 bases:
-- ../crd
 - ../rbac
 - ../webhook
 EOF
 
-    # crd dir
+    # crd copy to chart crds dir
     local crd_kustomization_resources=""
     for file in ${YURT_ROOT}/${CRD}/*
     do
@@ -184,6 +184,14 @@ namespace:
 varReference:
 - path: metadata/annotations
 EOF
+
+   ${YURT_ROOT}/bin/kustomize build ${output_crd_dir} -o ${crd_dir}
+   # TODO currently kustomize may not support custom generate names, find more elegant way generate crds
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_nodepools.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_nodepools.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtstaticsets.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtstaticsets.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappdaemons.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappdaemons.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappsets.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappsets.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_gateways.raven.openyurt.io.yaml ${crd_dir}/raven.openyurt.io_gateways.yaml
 
     # rbac dir
     local rbac_kustomization_resources=""
@@ -260,7 +268,20 @@ EOF
 
     append_note $yurt_manager_templatefile
 
-    kubectl kustomize ${output_default_dir} >> $yurt_manager_templatefile
+    ${YURT_ROOT}/bin/kubectl kustomize ${output_default_dir} >> $yurt_manager_templatefile
+
+    # replace webhook-service to yurt-manager-webhook-service because webhooks can not installed when service doesn't exist
+    # replace kube-system in webhook to {{ include "openyurt.namespace" . }} in webhooks
+    case `$echo uname` in
+    "Darwin")
+             sed -i '' 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i '' 's/kube-system/\{\{ \.Release.Namespace \}\}/g' $yurt_manager_templatefile
+             ;;
+    "Linux")
+             sed -i 's/webhook-service/yurt-manager-webhook-service/g' $yurt_manager_templatefile
+             sed -i 's/kube-system/\{\{ \.Release.Namespace \}\}/g' $yurt_manager_templatefile
+             ;;
+    esac
 }
 
 

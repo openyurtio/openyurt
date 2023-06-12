@@ -18,6 +18,7 @@ package util
 
 import (
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 )
 
 // Derived from kubelet encodePods
@@ -51,7 +53,7 @@ func WriteJSONResponse(w http.ResponseWriter, data []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
 	w.WriteHeader(http.StatusOK)
 	n, err := w.Write(data)
 	if err != nil || n != len(data) {
@@ -88,4 +90,11 @@ func SetPodUpgradeCondition(pod *corev1.Pod, ready corev1.ConditionStatus) {
 		Status: ready,
 	}
 	pod.Status.Conditions = append(pod.Status.Conditions, cond)
+}
+
+func RemoveNodeNameFromStaticPod(podname, nodename string) (bool, string) {
+	if !strings.HasSuffix(podname, "-"+nodename) {
+		return false, ""
+	}
+	return true, strings.Split(podname, "-"+nodename)[0]
 }

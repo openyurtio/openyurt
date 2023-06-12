@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 
-	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/staticpod/util"
+	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
@@ -43,7 +43,7 @@ func TestStaticPodUpgrader_ApplyManifestNotExist(t *testing.T) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: metav1.NamespaceDefault,
-			Name:      spctrlutil.WithConfigMapPrefix(spctrlutil.Hyphen(metav1.NamespaceDefault, "nginx")),
+			Name:      spctrlutil.WithConfigMapPrefix("nginx"),
 		},
 		Data: map[string]string{
 			"nginx": `
@@ -59,10 +59,11 @@ spec:
 		},
 	}
 
-	clientset := fake.NewSimpleClientset(util.NewPodWithCondition("nginx", "Node", corev1.ConditionTrue), cm)
+	clientset := fake.NewSimpleClientset(util.NewPodWithCondition("nginx-node", "Node", corev1.ConditionTrue), cm)
 	upgrader := StaticPodUpgrader{
 		Interface:      clientset,
-		NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: "nginx"},
+		NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: "nginx-node"},
+		StaticName:     "nginx",
 	}
 
 	t.Run("TestStaticPodUpgrader_ApplyManifestNotExist", func(t *testing.T) {

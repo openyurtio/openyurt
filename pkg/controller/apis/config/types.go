@@ -18,27 +18,13 @@ package config
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cmconfig "k8s.io/controller-manager/config"
-	nodelifecycleconfig "k8s.io/kube-controller-manager/config/v1alpha1"
 
-	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/gateway/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
-	staticpodconfig "github.com/openyurtio/openyurt/pkg/controller/staticpod/config"
+	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
+	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/config"
 )
-
-// YurtControllerManagerConfiguration contains elements describing yurt-controller manager.
-type YurtControllerManagerConfiguration struct {
-	metav1.TypeMeta
-
-	// Generic holds configuration for a generic controller-manager
-	Generic cmconfig.GenericControllerManagerConfiguration
-
-	// NodeLifecycleControllerConfiguration holds configuration for
-	// NodeLifecycleController related features.
-	NodeLifecycleController nodelifecycleconfig.NodeLifecycleControllerConfiguration
-}
 
 // YurtManagerConfiguration contains elements describing yurt-manager.
 type YurtManagerConfiguration struct {
@@ -53,8 +39,8 @@ type YurtManagerConfiguration struct {
 	// YurtAppSetControllerConfiguration holds configuration for YurtAppSetController related features.
 	YurtAppSetController yurtappsetconfig.YurtAppSetControllerConfiguration
 
-	// StaticPodControllerConfiguration holds configuration for  StaticPodController related features.
-	StaticPodController staticpodconfig.StaticPodControllerConfiguration
+	// YurtStaticSetControllerConfiguration holds configuration for YurtStaticSetController related features.
+	YurtStaticSetController yurtstaticsetconfig.YurtStaticSetControllerConfiguration
 
 	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
 	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
@@ -64,6 +50,7 @@ type GenericConfiguration struct {
 	Version                 bool
 	MetricsAddr             string
 	HealthProbeAddr         string
+	WebhookPort             int
 	EnableLeaderElection    bool
 	LeaderElectionNamespace string
 	RestConfigQPS           int

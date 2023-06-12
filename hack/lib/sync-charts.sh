@@ -28,19 +28,41 @@ git config --global user.email "openyurt-bot@openyurt.io"
 git config --global user.name "openyurt-bot"
 git clone --single-branch --depth 1 git@github.com:openyurtio/openyurt-helm.git openyurt-helm
 
-echo "clear openyurt-helm charts/openyurt"
+echo "clear openyurt-helm charts/yurt-coordinator"
 
-if [ -d "openyurt-helm/charts/openyurt" ]
+if [ -d "openyurt-helm/charts/yurt-coordinator" ]
 then
-    echo "charts openyurt exists, remove it"
-    rm -r openyurt-helm/charts/openyurt/*
+    echo "charts yurt-coordinator exists, remove it"
+    rm -r openyurt-helm/charts/yurt-coordinator/*
 else
-    mkdir -p openyurt-helm/charts/openyurt
+    mkdir -p openyurt-helm/charts/yurt-coordinator
+fi
+
+echo "clear openyurt-helm charts/yurt-manager"
+
+if [ -d "openyurt-helm/charts/yurt-manager" ]
+then
+    echo "charts yurt-manager exists, remove it"
+    rm -r openyurt-helm/charts/yurt-manager/*
+else
+    mkdir -p openyurt-helm/charts/yurt-manager
+fi
+
+echo "clear openyurt-helm charts/yurthub"
+
+if [ -d "openyurt-helm/charts/yurthub" ]
+then
+    echo "charts yurthub exists, remove it"
+    rm -r openyurt-helm/charts/yurthub/*
+else
+    mkdir -p openyurt-helm/charts/yurthub
 fi
 
 echo "copy folder openyurt/charts to openyurt-helm/charts"
 
-cp -R openyurt/charts/openyurt/* openyurt-helm/charts/openyurt/
+cp -R openyurt/charts/yurt-coordinator/* openyurt-helm/charts/yurt-coordinator/
+cp -R openyurt/charts/yurt-manager/* openyurt-helm/charts/yurt-manager/
+cp -R openyurt/charts/yurthub/* openyurt-helm/charts/yurthub/
 
 echo "push to openyurt-helm"
 echo "version: $VERSION, commit: $COMMIT_ID, tag: $TAG"
