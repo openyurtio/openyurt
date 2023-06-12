@@ -114,10 +114,14 @@ func (r *ReconcilePodBinding) processNode(ctx context.Context, node *corev1.Node
 
 		// pod binding takes precedence against node autonomy
 		if isPodBoundenToNode(node) {
-			r.configureTolerationForPod(pod, nil)
+			if err := r.configureTolerationForPod(pod, nil); err != nil {
+				klog.Errorf("failed to configure toleration of pod, %v", err)
+			}
 		} else {
 			tolerationSeconds := int64(defaultTolerationSeconds)
-			r.configureTolerationForPod(pod, &tolerationSeconds)
+			if err := r.configureTolerationForPod(pod, &tolerationSeconds); err != nil {
+				klog.Errorf("failed to configure toleration of pod, %v", err)
+			}
 		}
 	}
 }
@@ -139,7 +143,11 @@ func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerat
 	toleratesNodeUnreachable := addOrUpdateTolerationInPodSpec(&pod.Spec, &unreachableToleration)
 
 	if toleratesNodeNotReady || toleratesNodeUnreachable {
-		klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds)
+		if tolerationSeconds == nil {
+			klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=0", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable)
+		} else {
+			klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds)
+		}
 		_, err := r.podBindingClient.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err)
@@ -156,12 +164,12 @@ func (r *ReconcilePodBinding) InjectClient(c client.Client) error {
 }
 
 func (r *ReconcilePodBinding) InjectConfig(cfg *rest.Config) error {
-	client, err := kubernetes.NewForConfig(cfg)
+	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Errorf("failed to create kube client, %v", err)
 		return err
 	}
-	r.podBindingClient = client
+	r.podBindingClient = clientSet
 	return nil
 }
 
