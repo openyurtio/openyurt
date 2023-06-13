@@ -20,6 +20,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/sets"
+	clientset "k8s.io/client-go/kubernetes"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 )
 
 var (
@@ -222,6 +227,110 @@ func Test_useRealServerAddr(t *testing.T) {
 			}
 
 			assert.Equal(t, actualYaml, test.want)
+		})
+	}
+}
+
+type testData struct {
+	joinNodeData *joindata.NodeRegistration
+}
+
+func (j *testData) ServerAddr() string {
+	return ""
+}
+
+func (j *testData) JoinToken() string {
+	return ""
+}
+
+func (j *testData) PauseImage() string {
+	return ""
+}
+
+func (j *testData) YurtHubImage() string {
+	return ""
+}
+
+func (j *testData) YurtHubServer() string {
+	return ""
+}
+
+func (j *testData) YurtHubTemplate() string {
+	return ""
+}
+
+func (j *testData) YurtHubManifest() string {
+	return ""
+}
+
+func (j *testData) KubernetesVersion() string {
+	return ""
+}
+
+func (j *testData) TLSBootstrapCfg() *clientcmdapi.Config {
+	return nil
+}
+
+func (j *testData) BootstrapClient() *clientset.Clientset {
+	return nil
+}
+
+func (j *testData) NodeRegistration() *joindata.NodeRegistration {
+	return j.joinNodeData
+}
+
+func (j *testData) IgnorePreflightErrors() sets.String {
+	return nil
+}
+
+func (j *testData) CaCertHashes() []string {
+	return nil
+}
+
+func (j *testData) NodeLabels() map[string]string {
+	return nil
+}
+
+func (j *testData) KubernetesResourceServer() string {
+	return ""
+}
+
+func (j *testData) ReuseCNIBin() bool {
+	return false
+}
+
+func (j *testData) Namespace() string {
+	return ""
+}
+
+func TestAddYurthubStaticYaml(t *testing.T) {
+	xdata := testData{
+		joinNodeData: &joindata.NodeRegistration{
+			Name:          "name1",
+			NodePoolName:  "nodePool1",
+			CRISocket:     "",
+			WorkingMode:   "edge",
+			Organizations: "",
+		}}
+
+	tests := []struct {
+		name            string
+		data            testData
+		podManifestPath string
+		wantErr         bool
+	}{
+		{
+			name:            "test",
+			data:            xdata,
+			podManifestPath: "/tmp",
+			wantErr:         false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := AddYurthubStaticYaml(&tt.data, tt.podManifestPath); (err != nil) != tt.wantErr {
+				t.Errorf("AddYurthubStaticYaml() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }

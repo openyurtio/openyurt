@@ -32,17 +32,20 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 type joinOptions struct {
 	token                    string
 	nodeType                 string
 	nodeName                 string
+	nodePoolName             string
 	criSocket                string
 	organizations            string
 	pauseImage               string
@@ -124,6 +127,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.namespace, yurtconstants.Namespace, joinOptions.namespace,
 		`Specify the namespace of the yurthub staticpod configmap, if not specified, the namespace will be default.`,
+	)
+	flagSet.StringVar(
+		&joinOptions.nodePoolName, yurtconstants.NodePoolName, joinOptions.nodePoolName,
+		`Specify the nodePool name. if specified, that will add node into specified nodePool.`,
 	)
 	flagSet.StringVar(
 		&joinOptions.criSocket, yurtconstants.NodeCRISocket, joinOptions.criSocket,
@@ -276,6 +283,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		nodeLabels:            make(map[string]string),
 		joinNodeData: &joindata.NodeRegistration{
 			Name:          name,
+			NodePoolName:  opt.nodePoolName,
 			WorkingMode:   opt.nodeType,
 			CRISocket:     opt.criSocket,
 			Organizations: opt.organizations,
@@ -320,6 +328,23 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, err
 	}
 	data.kubernetesVersion = k8sVersion
+
+	// check whether specified nodePool exists
+	if len(opt.nodePoolName) != 0 {
+		yurtClient, err := kubeconfigutil.ToYurtClientSet(cfg)
+		if err != nil {
+			klog.Errorf("failed to create yurt client, %v", err)
+			return nil, err
+		}
+
+		np, err := apiclient.GetNodePoolInfoWithRetry(yurtClient, opt.nodePoolName)
+		if err != nil || np == nil {
+			// the specified nodePool not exist, return
+			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
+		}
+		// add nodePool label for node by kubelet
+		data.nodeLabels[nodepoolv1alpha1.LabelDesiredNodePool] = opt.nodePoolName
+	}
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr

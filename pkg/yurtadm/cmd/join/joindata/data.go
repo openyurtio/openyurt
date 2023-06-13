@@ -24,6 +24,7 @@ import (
 
 type NodeRegistration struct {
 	Name          string
+	NodePoolName  string
 	CRISocket     string
 	WorkingMode   string
 	Organizations string
