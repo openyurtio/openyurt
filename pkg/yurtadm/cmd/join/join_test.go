@@ -650,3 +650,65 @@ func TestKubernetesResourceServer(t *testing.T) {
 		})
 	}
 }
+
+func TestStaticPodTemplateList(t *testing.T) {
+	jd := joinData{
+		staticPodTemplateList: []string{},
+	}
+
+	tests := []struct {
+		name   string
+		expect []string
+	}{
+		{
+			"normal",
+			[]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.StaticPodTemplateList()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestStaticPodManifestList(t *testing.T) {
+	jd := joinData{
+		staticPodManifestList: []string{},
+	}
+
+	tests := []struct {
+		name   string
+		expect []string
+	}{
+		{
+			"normal",
+			[]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.StaticPodManifestList()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}

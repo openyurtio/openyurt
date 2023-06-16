@@ -108,6 +108,8 @@ const (
 	ServerAddr = "server-addr"
 	// ReuseCNIBin flag sets whether to reuse local CNI binaries or not.
 	ReuseCNIBin = "reuse-cni-bin"
+	// StaticPods flag set the specified static pods on this node want to install
+	StaticPods = "static-pods"
 
 	DefaultServerAddr            = "https://127.0.0.1:6443"
 	ServerHealthzServer          = "127.0.0.1:10267"

@@ -203,3 +203,11 @@ func useRealServerAddr(yurthubTemplate string, kubernetesServerAddrs string) (st
 	}
 	return buffer.String(), nil
 }
+
+func CheckYurtHubItself(ns, name string) bool {
+	if ns == constants.YurthubNamespace &&
+		(name == constants.YurthubYurtStaticSetName || name == constants.YurthubCloudYurtStaticSetName) {
+		return true
+	}
+	return false
+}

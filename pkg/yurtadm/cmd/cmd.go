@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/renew"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/staticpods"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/token"
 )
 
@@ -50,6 +51,7 @@ func NewYurtadmCommand() *cobra.Command {
 	cmds.AddCommand(token.NewCmdToken(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(docs.NewDocsCmd(cmds))
 	cmds.AddCommand(renew.NewCmdRenew(os.Stdin, os.Stdout, os.Stderr))
+	cmds.AddCommand(staticpods.NewCmdStaticPods(os.Stdin, os.Stdout, os.Stderr))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
