@@ -235,6 +235,10 @@ type testData struct {
 	joinNodeData *joindata.NodeRegistration
 }
 
+func (j *testData) CfgPath() string {
+	return ""
+}
+
 func (j *testData) ServerAddr() string {
 	return ""
 }

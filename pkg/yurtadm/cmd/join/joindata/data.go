@@ -31,6 +31,7 @@ type NodeRegistration struct {
 }
 
 type YurtJoinData interface {
+	CfgPath() string
 	ServerAddr() string
 	JoinToken() string
 	PauseImage() string

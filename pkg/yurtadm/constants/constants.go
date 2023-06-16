@@ -92,7 +92,9 @@ const (
 	Organizations = "organizations"
 	// PauseImage flag sets the pause image for worker node.
 	PauseImage = "pause-image"
-	// TokenStr flags sets both the discovery-token and the tls-bootstrap-token when those values are not provided
+	// CfgPath flag sets the path to a JoinConfiguration file.
+	CfgPath = "config"
+	// TokenStr flag sets both the discovery-token and the tls-bootstrap-token when those values are not provided
 	TokenStr = "token"
 	// TokenDiscoveryCAHash flag instruct kubeadm to validate that the root CA public key matches this hash (for token-based discovery)
 	TokenDiscoveryCAHash = "discovery-token-ca-cert-hash"
