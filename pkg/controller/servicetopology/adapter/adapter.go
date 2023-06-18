@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
@@ -33,7 +32,6 @@ import (
 
 type Adapter interface {
 	GetEnqueueKeysBySvc(svc *corev1.Service) []string
-	GetEnqueueKeysByNodePool(svcTopologyTypes map[string]string, allNpNodes sets.String) []string
 	UpdateTriggerAnnotations(namespace, name string) error
 }
 
