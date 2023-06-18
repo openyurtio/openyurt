@@ -139,7 +139,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(options, sharedFactory, yurtSharedFactory, workingMode, tenantNs)
-	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
+	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, proxiedClient, serializerManager, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err

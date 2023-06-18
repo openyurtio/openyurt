@@ -24,14 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 func TestName(t *testing.T) {
@@ -81,57 +78,37 @@ func TestSetNodeName(t *testing.T) {
 	}
 }
 
-func TestSetWorkingMode(t *testing.T) {
-	nif := &nodePortIsolationFilter{}
-	if err := nif.SetWorkingMode(hubutil.WorkingMode("cloud")); err != nil {
-		t.Errorf("expect nil, but got %v", err)
-	}
-
-	if nif.workingMode != hubutil.WorkingModeCloud {
-		t.Errorf("expect working mode: cloud, but got %s", nif.workingMode)
-	}
-}
-
-func TestSetSharedInformerFactory(t *testing.T) {
+func TestSetKubeClient(t *testing.T) {
 	client := &fake.Clientset{}
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	nif := &nodePortIsolationFilter{
-		workingMode: "cloud",
-	}
-	if err := nif.SetSharedInformerFactory(informerFactory); err != nil {
-		t.Errorf("expect nil, but got %v", err)
-	}
-}
-
-func TestSetStorageWrapper(t *testing.T) {
-	nif := &nodePortIsolationFilter{
-		workingMode: "edge",
-		nodeName:    "foo",
-	}
-	storageManager, err := disk.NewDiskStorage("/tmp/nif-filter")
-	if err != nil {
-		t.Fatalf("could not create storage manager, %v", err)
-	}
-	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
-
-	if err := nif.SetStorageWrapper(storageWrapper); err != nil {
+	nif := &nodePortIsolationFilter{}
+	if err := nif.SetKubeClient(client); err != nil {
 		t.Errorf("expect nil, but got %v", err)
 	}
 }
 
 func TestFilter(t *testing.T) {
 	nodePoolName := "foo"
-	node := &corev1.Node{
+	nodeFoo := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
+			Annotations: map[string]string{
+				apps.LabelDesiredNodePool: nodePoolName,
+			},
+		},
+	}
+	nodeBar := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "bar",
 		},
 	}
 	testcases := map[string]struct {
-		isOrphanNodes bool
-		responseObj   runtime.Object
-		expectObj     runtime.Object
+		poolName    string
+		nodeName    string
+		responseObj runtime.Object
+		expectObj   runtime.Object
 	}{
 		"enable NodePort service listening on nodes in foo and bar NodePool.": {
+			poolName: nodePoolName,
 			responseObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -188,6 +165,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"enable NodePort service listening on nodes of all NodePools": {
+			nodeName: "foo",
 			responseObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -244,6 +222,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"disable NodePort service listening on nodes of all NodePools": {
+			poolName: nodePoolName,
 			responseObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -277,6 +256,7 @@ func TestFilter(t *testing.T) {
 			expectObj: &corev1.ServiceList{},
 		},
 		"disable NodePort service listening only on nodes in foo NodePool": {
+			poolName: nodePoolName,
 			responseObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -320,6 +300,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"disable nodeport service": {
+			poolName: nodePoolName,
 			responseObj: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
@@ -336,6 +317,7 @@ func TestFilter(t *testing.T) {
 			expectObj: nil,
 		},
 		"duplicated node pool configuration": {
+			nodeName: "foo",
 			responseObj: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
@@ -364,6 +346,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"disable NodePort service listening on nodes of foo NodePool": {
+			poolName: nodePoolName,
 			responseObj: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
@@ -380,7 +363,7 @@ func TestFilter(t *testing.T) {
 			expectObj: nil,
 		},
 		"enable nodeport service on orphan nodes": {
-			isOrphanNodes: true,
+			nodeName: "bar",
 			responseObj: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
@@ -409,6 +392,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"disable NodePort service listening if no value configured": {
+			poolName: nodePoolName,
 			responseObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -442,6 +426,7 @@ func TestFilter(t *testing.T) {
 			expectObj: &corev1.ServiceList{},
 		},
 		"skip podList": {
+			poolName: nodePoolName,
 			responseObj: &corev1.PodList{
 				Items: []corev1.Pod{
 					{
@@ -486,17 +471,16 @@ func TestFilter(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			nif := &nodePortIsolationFilter{}
-			if !tc.isOrphanNodes {
-				nif.nodePoolName = nodePoolName
-			} else {
-				nif.nodeName = "foo"
-				nif.nodeGetter = func(name string) (*corev1.Node, error) {
-					return node, nil
-				}
+			if len(tc.poolName) != 0 {
+				nif.nodePoolName = tc.poolName
 			}
-			nif.nodeSynced = func() bool {
-				return true
+
+			if len(tc.nodeName) != 0 {
+				nif.nodeName = tc.nodeName
+				client := fake.NewSimpleClientset(nodeFoo, nodeBar)
+				nif.client = client
 			}
+
 			newObj := nif.Filter(tc.responseObj, stopCh)
 			if tc.expectObj == nil {
 				if !util.IsNil(newObj) {
