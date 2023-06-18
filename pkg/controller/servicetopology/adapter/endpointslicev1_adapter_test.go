@@ -26,77 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-func TestEndpointSliceAdapterGetEnqueueKeysByNodePool(t *testing.T) {
-	svcName := "svc1"
-	svcNamespace := "default"
-	svcKey := fmt.Sprintf("%s/%s", svcNamespace, svcName)
-	nodeName1 := "node1"
-	nodeName2 := "node2"
-	tcases := map[string]struct {
-		kubeClient       kubernetes.Interface
-		client           client.Client
-		nodepoolNodes    sets.String
-		svcTopologyTypes map[string]string
-		expectResult     []string
-	}{
-		"service topology type: kubernetes.io/hostname": {
-			kubeClient: fake.NewSimpleClientset(
-				getEndpointSlice(svcNamespace, svcName, nodeName1),
-			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
-			nodepoolNodes: sets.NewString(nodeName1),
-			svcTopologyTypes: map[string]string{
-				svcKey: "kubernetes.io/hostname",
-			},
-			expectResult: nil,
-		},
-		"service topology type: kubernetes.io/zone, don't contain nodepool nodes": {
-			kubeClient: fake.NewSimpleClientset(
-				getEndpointSlice(svcNamespace, svcName, nodeName1),
-			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
-			nodepoolNodes: sets.NewString(nodeName2),
-			svcTopologyTypes: map[string]string{
-				svcKey: "kubernetes.io/zone",
-			},
-			expectResult: nil,
-		},
-		"service topology type: kubernetes.io/zone, contain nodepool nodes": {
-			kubeClient: fake.NewSimpleClientset(
-				getEndpointSlice(svcNamespace, svcName, nodeName1),
-			),
-			client:        fakeclient.NewClientBuilder().WithObjects(getEndpointSlice(svcNamespace, svcName, nodeName1)).Build(),
-			nodepoolNodes: sets.NewString(nodeName1),
-			svcTopologyTypes: map[string]string{
-				svcKey: "kubernetes.io/zone",
-			},
-			expectResult: []string{
-				getCacheKey(getEndpointSlice(svcNamespace, svcName, nodeName1)),
-			},
-		},
-	}
-
-	for k, tt := range tcases {
-		t.Logf("current test case is %s", k)
-
-		stopper := make(chan struct{})
-		defer close(stopper)
-
-		adapter := NewEndpointsV1Adapter(tt.kubeClient, tt.client)
-		keys := adapter.GetEnqueueKeysByNodePool(tt.svcTopologyTypes, tt.nodepoolNodes)
-		if !reflect.DeepEqual(keys, tt.expectResult) {
-			t.Errorf("expect enqueue keys %v, but got %v", tt.expectResult, keys)
-		}
-
-	}
-}
 
 func TestEndpointSliceV1AdapterUpdateTriggerAnnotations(t *testing.T) {
 	svcName := "svc1"

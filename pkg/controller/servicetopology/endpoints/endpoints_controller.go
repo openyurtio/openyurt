@@ -22,10 +22,8 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,10 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	common "github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
@@ -72,18 +68,17 @@ var _ reconcile.Reconciler = &ReconcileServicetopologyEndpoints{}
 // ReconcileServicetopologyEndpoints reconciles a endpoints object
 type ReconcileServicetopologyEndpoints struct {
 	client.Client
-	scheme           *runtime.Scheme
-	recorder         record.EventRecorder
 	endpointsAdapter adapter.Adapter
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileServicetopologyEndpoints{
-		Client:   utilclient.NewClientFromManager(mgr, common.ControllerName),
-		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.ControllerName),
-	}
+	return &ReconcileServicetopologyEndpoints{}
+}
+
+func (r *ReconcileServicetopologyEndpoints) InjectClient(c client.Client) error {
+	r.Client = c
+	return nil
 }
 
 func (r *ReconcileServicetopologyEndpoints) InjectConfig(cfg *rest.Config) error {
@@ -107,14 +102,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to Service
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsForService{
 		endpointsAdapter: r.(*ReconcileServicetopologyEndpoints).endpointsAdapter,
-	}); err != nil {
-		return err
-	}
-
-	// Watch for changes to NodePool
-	if err := c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &EnqueueEndpointsForNodePool{
-		endpointsAdapter: r.(*ReconcileServicetopologyEndpoints).endpointsAdapter,
-		client:           r.(*ReconcileServicetopologyEndpoints).Client,
 	}); err != nil {
 		return err
 	}
