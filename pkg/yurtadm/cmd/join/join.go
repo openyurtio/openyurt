@@ -38,6 +38,7 @@ import (
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
@@ -59,6 +60,7 @@ type joinOptions struct {
 	kubernetesResourceServer string
 	yurthubServer            string
 	reuseCNIBin              bool
+	staticPods               string
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -180,6 +182,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.reuseCNIBin, yurtconstants.ReuseCNIBin, false,
 		"Whether to reuse local CNI binaries or to download new ones",
 	)
+	flagSet.StringVar(
+		&joinOptions.staticPods, yurtconstants.StaticPods, joinOptions.staticPods,
+		"Set the specified static pods on this node want to install",
+	)
 }
 
 func newJoinerWithJoinData(o *joinData, in io.Reader, out io.Writer, outErr io.Writer) *nodeJoiner {
@@ -230,6 +236,8 @@ type joinData struct {
 	yurthubServer            string
 	reuseCNIBin              bool
 	namespace                string
+	staticPodTemplateList    []string
+	staticPodManifestList    []string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -351,6 +359,39 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		// add nodePool label for node by kubelet
 		data.nodeLabels[nodepoolv1alpha1.LabelDesiredNodePool] = opt.nodePoolName
 	}
+
+	// check static pods has value and yurtstaticset is already exist
+	if len(opt.staticPods) != 0 {
+		// check format and split data
+		yssList := strings.Split(opt.staticPods, ",")
+		if len(yssList) < 1 {
+			return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+		}
+
+		templateList := make([]string, len(yssList))
+		manifestList := make([]string, len(yssList))
+		for i, yss := range yssList {
+			info := strings.Split(yss, "/")
+			if len(info) != 2 {
+				return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+			}
+
+			// yurthub is system static pod, can not operate
+			if yurthub.CheckYurtHubItself(info[0], info[1]) {
+				return nil, errors.Errorf("static-pods (%s) value is invalid, can not operate yurt-hub static pod", opt.staticPods)
+			}
+
+			// get static pod template
+			manifest, staticPodTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, info[0], util.WithConfigMapPrefix(info[1]))
+			if err != nil {
+				return nil, errors.Errorf("when --static-podsis specified, the specified yurtstaticset and configmap should be exist.")
+			}
+			templateList[i] = staticPodTemplate
+			manifestList[i] = manifest
+		}
+		data.staticPodTemplateList = templateList
+		data.staticPodManifestList = manifestList
+	}
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr
@@ -359,7 +400,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
 	}
 
-	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
+	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
 		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
 		yurthubManifest = yurtconstants.YurthubStaticPodManifest
@@ -453,4 +494,12 @@ func (j *joinData) ReuseCNIBin() bool {
 
 func (j *joinData) Namespace() string {
 	return j.namespace
+}
+
+func (j *joinData) StaticPodTemplateList() []string {
+	return j.staticPodTemplateList
+}
+
+func (j *joinData) StaticPodManifestList() []string {
+	return j.staticPodManifestList
 }

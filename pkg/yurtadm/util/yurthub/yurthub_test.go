@@ -307,6 +307,14 @@ func (j *testData) Namespace() string {
 	return ""
 }
 
+func (j *testData) StaticPodTemplateList() []string {
+	return nil
+}
+
+func (j *testData) StaticPodManifestList() []string {
+	return nil
+}
+
 func TestAddYurthubStaticYaml(t *testing.T) {
 	xdata := testData{
 		joinNodeData: &joindata.NodeRegistration{
@@ -334,6 +342,35 @@ func TestAddYurthubStaticYaml(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := AddYurthubStaticYaml(&tt.data, tt.podManifestPath); (err != nil) != tt.wantErr {
 				t.Errorf("AddYurthubStaticYaml() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckYurtHubItself(t *testing.T) {
+	tests := []struct {
+		testName string
+		ns       string
+		name     string
+		want     bool
+	}{
+		{
+			testName: "test1",
+			ns:       "kube-system",
+			name:     "yurt-hub",
+			want:     true,
+		},
+		{
+			testName: "test2",
+			ns:       "cattle-system",
+			name:     "yurt-hub",
+			want:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CheckYurtHubItself(tt.ns, tt.name); got != tt.want {
+				t.Errorf("CheckYurtHubItself() = %v, want %v", got, tt.want)
 			}
 		})
 	}

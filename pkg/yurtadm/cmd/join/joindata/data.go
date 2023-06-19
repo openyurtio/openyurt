@@ -49,4 +49,6 @@ type YurtJoinData interface {
 	KubernetesResourceServer() string
 	ReuseCNIBin() bool
 	Namespace() string
+	StaticPodTemplateList() []string
+	StaticPodManifestList() []string
 }
