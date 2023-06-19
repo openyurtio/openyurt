@@ -42,6 +42,7 @@ import (
 )
 
 type joinOptions struct {
+	cfgPath                  string
 	token                    string
 	nodeType                 string
 	nodeName                 string
@@ -112,6 +113,9 @@ func NewCmdJoin(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
 
 // addJoinConfigFlags adds join flags bound to the config to the specified flagset
 func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
+	flagSet.StringVar(
+		&joinOptions.cfgPath, yurtconstants.CfgPath, "", "Path to a joinConfiguration file.",
+	)
 	flagSet.StringVar(
 		&joinOptions.token, yurtconstants.TokenStr, "",
 		"Use this token for both discovery-token and tls-bootstrap-token when those values are not provided.",
@@ -207,6 +211,7 @@ func (nodeJoiner *nodeJoiner) Run() error {
 }
 
 type joinData struct {
+	cfgPath                  string
 	joinNodeData             *joindata.NodeRegistration
 	apiServerEndpoint        string
 	token                    string
@@ -271,6 +276,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	}
 
 	data := &joinData{
+		cfgPath:               opt.cfgPath,
 		apiServerEndpoint:     apiServerEndpoint,
 		token:                 opt.token,
 		tlsBootstrapCfg:       nil,
@@ -364,6 +370,11 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	data.yurthubManifest = yurthubManifest
 
 	return data, nil
+}
+
+// CfgPath returns path to a joinConfiguration file.
+func (j *joinData) CfgPath() string {
+	return j.cfgPath
 }
 
 // ServerAddr returns the public address of kube-apiserver.
