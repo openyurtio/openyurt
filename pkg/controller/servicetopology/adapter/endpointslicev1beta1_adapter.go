@@ -24,21 +24,18 @@ import (
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewEndpointsV1Beta1Adapter(kubeClient kubernetes.Interface, client client.Client) Adapter {
+func NewEndpointsV1Beta1Adapter(client client.Client) Adapter {
 	return &endpointslicev1beta1{
-		kubeClient: kubeClient,
-		client:     client,
+		client: client,
 	}
 }
 
 type endpointslicev1beta1 struct {
-	kubeClient kubernetes.Interface
-	client     client.Client
+	client client.Client
 }
 
 func (s *endpointslicev1beta1) GetEnqueueKeysBySvc(svc *corev1.Service) []string {
@@ -58,6 +55,15 @@ func (s *endpointslicev1beta1) GetEnqueueKeysBySvc(svc *corev1.Service) []string
 
 func (s *endpointslicev1beta1) UpdateTriggerAnnotations(namespace, name string) error {
 	patch := getUpdateTriggerPatch()
-	_, err := s.kubeClient.DiscoveryV1beta1().EndpointSlices(namespace).Patch(context.Background(), name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	err := s.client.Patch(
+		context.Background(),
+		&discoveryv1beta1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+		},
+		client.RawPatch(types.StrategicMergePatchType, patch), &client.PatchOptions{},
+	)
 	return err
 }

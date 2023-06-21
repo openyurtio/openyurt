@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/types"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -35,17 +35,16 @@ func TestEndpointSliceV1AdapterUpdateTriggerAnnotations(t *testing.T) {
 	svcNamespace := "default"
 	epSlice := getEndpointSlice(svcNamespace, svcName, "node1")
 
-	kubeClient := fake.NewSimpleClientset(epSlice)
 	c := fakeclient.NewClientBuilder().WithObjects(epSlice).Build()
 	stopper := make(chan struct{})
 	defer close(stopper)
-	adapter := NewEndpointsV1Adapter(kubeClient, c)
+	adapter := NewEndpointsV1Adapter(c)
 	err := adapter.UpdateTriggerAnnotations(epSlice.Namespace, epSlice.Name)
 	if err != nil {
 		t.Errorf("update endpointsSlice trigger annotations failed")
 	}
-
-	newEpSlice, err := kubeClient.DiscoveryV1().EndpointSlices(epSlice.Namespace).Get(context.TODO(), epSlice.Name, metav1.GetOptions{})
+	newEpSlice := &discoveryv1.EndpointSlice{}
+	err = c.Get(context.TODO(), types.NamespacedName{Namespace: epSlice.Namespace, Name: epSlice.Name}, newEpSlice)
 	if err != nil || epSlice.Annotations["openyurt.io/update-trigger"] == newEpSlice.Annotations["openyurt.io/update-trigger"] {
 		t.Errorf("update endpoints trigger annotations failed")
 	}
@@ -65,9 +64,8 @@ func TestEndpointSliceV1AdapterGetEnqueueKeysBySvc(t *testing.T) {
 
 	stopper := make(chan struct{})
 	defer close(stopper)
-	kubeClient := fake.NewSimpleClientset(epSlice)
 	c := fakeclient.NewClientBuilder().WithObjects(epSlice).Build()
-	adapter := NewEndpointsV1Adapter(kubeClient, c)
+	adapter := NewEndpointsV1Adapter(c)
 
 	keys := adapter.GetEnqueueKeysBySvc(svc)
 	if !reflect.DeepEqual(keys, expectResult) {

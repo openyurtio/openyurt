@@ -25,8 +25,6 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,9 +62,9 @@ func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	}
 
 	if r.isSupportEndpointslicev1 {
-		r.endpointsliceAdapter = adapter.NewEndpointsV1Adapter(r.kubeClient, r.Client)
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Adapter(r.Client)
 	} else {
-		r.endpointsliceAdapter = adapter.NewEndpointsV1Beta1Adapter(r.kubeClient, r.Client)
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Beta1Adapter(r.Client)
 	}
 
 	// Watch for changes to Service
@@ -85,19 +83,8 @@ var _ reconcile.Reconciler = &ReconcileServiceTopologyEndpointSlice{}
 // ReconcileServiceTopologyEndpointSlice reconciles a Example object
 type ReconcileServiceTopologyEndpointSlice struct {
 	client.Client
-	kubeClient               kubernetes.Interface
 	endpointsliceAdapter     adapter.Adapter
 	isSupportEndpointslicev1 bool
-}
-
-func (r *ReconcileServiceTopologyEndpointSlice) InjectConfig(cfg *rest.Config) error {
-	c, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf(Format("failed to create kube client, %v", err))
-		return err
-	}
-	r.kubeClient = c
-	return nil
 }
 
 func (r *ReconcileServiceTopologyEndpointSlice) InjectMapper(mapper meta.RESTMapper) error {
