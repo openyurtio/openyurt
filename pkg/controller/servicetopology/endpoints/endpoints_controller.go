@@ -22,8 +22,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,16 +76,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 
 func (r *ReconcileServicetopologyEndpoints) InjectClient(c client.Client) error {
 	r.Client = c
-	return nil
-}
-
-func (r *ReconcileServicetopologyEndpoints) InjectConfig(cfg *rest.Config) error {
-	c, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf(Format("failed to create kube client, %v", err))
-		return err
-	}
-	r.endpointsAdapter = adapter.NewEndpointsAdapter(c, r.Client)
+	r.endpointsAdapter = adapter.NewEndpointsAdapter(c)
 	return nil
 }
 

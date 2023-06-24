@@ -24,7 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -32,18 +32,17 @@ import (
 func TestEndpointAdapterUpdateTriggerAnnotations(t *testing.T) {
 	ep := getEndpoints("default", "svc1", "node1")
 
-	kubeClient := fake.NewSimpleClientset(ep)
 	stopper := make(chan struct{})
 	defer close(stopper)
 	c := fakeclient.NewClientBuilder().WithObjects(ep).Build()
 
-	adapter := NewEndpointsAdapter(kubeClient, c)
+	adapter := NewEndpointsAdapter(c)
 	err := adapter.UpdateTriggerAnnotations(ep.Namespace, ep.Name)
 	if err != nil {
 		t.Errorf("update endpoints trigger annotations failed")
 	}
-
-	newEp, err := kubeClient.CoreV1().Endpoints(ep.Namespace).Get(context.TODO(), ep.Name, metav1.GetOptions{})
+	newEp := &corev1.Endpoints{}
+	err = c.Get(context.TODO(), types.NamespacedName{Namespace: ep.Namespace, Name: ep.Name}, newEp)
 	if err != nil || ep.Annotations["openyurt.io/update-trigger"] == newEp.Annotations["openyurt.io/update-trigger"] {
 		t.Errorf("update endpoints trigger annotations failed")
 	}
@@ -60,11 +59,10 @@ func TestEndpointAdapterGetEnqueueKeysBySvc(t *testing.T) {
 
 	ep := getEndpoints("default", "svc1", "node1")
 
-	kubeClient := fake.NewSimpleClientset(ep)
 	stopper := make(chan struct{})
 	defer close(stopper)
 	c := fakeclient.NewClientBuilder().WithObjects(ep).Build()
-	adapter := NewEndpointsAdapter(kubeClient, c)
+	adapter := NewEndpointsAdapter(c)
 
 	keys := adapter.GetEnqueueKeysBySvc(svc)
 	if !reflect.DeepEqual(keys, expectResult) {
