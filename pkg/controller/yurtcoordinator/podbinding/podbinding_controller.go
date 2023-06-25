@@ -21,9 +21,7 @@ import (
 	"flag"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -64,7 +62,6 @@ var (
 
 type ReconcilePodBinding struct {
 	client.Client
-	podBindingClient kubernetes.Interface
 }
 
 // Add creates a PodBingding controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -90,18 +87,24 @@ func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Reque
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	klog.V(4).Infof("node request: %s\n", node.Name)
-	r.processNode(ctx, node)
+
+	if err := r.processNode(node); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcilePodBinding) processNode(ctx context.Context, node *corev1.Node) {
+func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
 	// if node has autonomy annotation, we need to see if pods on this node except DaemonSet/Static ones need a treat
-	pods := r.getPodsAssignedToNode(ctx, node.Name)
+	pods, err := r.getPodsAssignedToNode(node.Name)
+	if err != nil {
+		return err
+	}
 
 	for i := range pods {
 		pod := &pods[i]
-		klog.V(5).Infof("pod %d on node %s: %s\n", i, node.Name, pod.Name)
+		klog.V(5).Infof("pod %d on node %s: %s", i, node.Name, pod.Name)
 		// skip DaemonSet pods and static pod
 		if isDaemonSetPodOrStaticPod(pod) {
 			continue
@@ -114,25 +117,29 @@ func (r *ReconcilePodBinding) processNode(ctx context.Context, node *corev1.Node
 
 		// pod binding takes precedence against node autonomy
 		if isPodBoundenToNode(node) {
-			if err := r.configureTolerationForPod(pod, nil); err != nil {
-				klog.Errorf("failed to configure toleration of pod, %v", err)
-			}
+			return r.configureTolerationForPod(pod, nil)
 		} else {
 			tolerationSeconds := int64(defaultTolerationSeconds)
-			if err := r.configureTolerationForPod(pod, &tolerationSeconds); err != nil {
-				klog.Errorf("failed to configure toleration of pod, %v", err)
-			}
+			return r.configureTolerationForPod(pod, &tolerationSeconds)
 		}
 	}
+	return nil
 }
 
-func (r *ReconcilePodBinding) getPodsAssignedToNode(ctx context.Context, name string) []corev1.Pod {
-	pods, err := r.podBindingClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{FieldSelector: "spec.nodeName=" + name})
+func (r *ReconcilePodBinding) getPodsAssignedToNode(name string) ([]corev1.Pod, error) {
+	listOptions := &client.ListOptions{
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"spec.nodeName": name,
+		}),
+	}
+
+	podList := &corev1.PodList{}
+	err := r.List(context.TODO(), podList, listOptions)
 	if err != nil {
 		klog.Errorf("failed to get podList for node(%s), %v", name, err)
-		return nil
+		return nil, err
 	}
-	return pods.Items
+	return podList.Items, nil
 }
 
 func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerationSeconds *int64) error {
@@ -143,33 +150,14 @@ func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerat
 	toleratesNodeUnreachable := addOrUpdateTolerationInPodSpec(&pod.Spec, &unreachableToleration)
 
 	if toleratesNodeNotReady || toleratesNodeUnreachable {
-		if tolerationSeconds == nil {
-			klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=0", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable)
-		} else {
-			klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds)
-		}
-		_, err := r.podBindingClient.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		klog.V(4).Infof("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds)
+		err := r.Update(context.TODO(), pod, &client.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err)
 			return err
 		}
 	}
 
-	return nil
-}
-
-func (r *ReconcilePodBinding) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
-
-func (r *ReconcilePodBinding) InjectConfig(cfg *rest.Config) error {
-	clientSet, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
-		return err
-	}
-	r.podBindingClient = clientSet
 	return nil
 }
 
