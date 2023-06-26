@@ -70,7 +70,7 @@ type genericFilterInitializer struct {
 func New(factory informers.SharedInformerFactory,
 	yurtFactory yurtinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
-	nodeName, nodePoolName, masterServiceHost, masterServicePort string) *genericFilterInitializer {
+	nodeName, nodePoolName, masterServiceHost, masterServicePort string) filter.Initializer {
 	return &genericFilterInitializer{
 		factory:           factory,
 		yurtFactory:       yurtFactory,

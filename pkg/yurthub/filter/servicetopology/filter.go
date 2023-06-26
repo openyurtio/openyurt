@@ -51,12 +51,12 @@ var (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.ServiceTopologyFilterName, func() (filter.ObjectFilter, error) {
-		return NewFilter(), nil
+		return NewServiceTopologyFilter()
 	})
 }
 
-func NewFilter() *serviceTopologyFilter {
-	return &serviceTopologyFilter{}
+func NewServiceTopologyFilter() (filter.ObjectFilter, error) {
+	return &serviceTopologyFilter{}, nil
 }
 
 type serviceTopologyFilter struct {

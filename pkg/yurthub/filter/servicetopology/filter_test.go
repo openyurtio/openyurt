@@ -38,14 +38,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	stf := &serviceTopologyFilter{}
+	stf, _ := NewServiceTopologyFilter()
 	if stf.Name() != filter.ServiceTopologyFilterName {
 		t.Errorf("expect %s, but got %s", filter.ServiceTopologyFilterName, stf.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	stf := &serviceTopologyFilter{}
+	stf, _ := NewServiceTopologyFilter()
 	rvs := stf.SupportedResourceAndVerbs()
 	if len(rvs) != 2 {
 		t.Errorf("supported not two resources, %v", rvs)

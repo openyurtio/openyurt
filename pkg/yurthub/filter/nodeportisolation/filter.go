@@ -39,7 +39,7 @@ const (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.NodePortIsolationName, func() (filter.ObjectFilter, error) {
-		return &nodePortIsolationFilter{}, nil
+		return NewNodePortIsolationFilter()
 	})
 }
 
@@ -47,6 +47,10 @@ type nodePortIsolationFilter struct {
 	nodePoolName string
 	nodeName     string
 	client       kubernetes.Interface
+}
+
+func NewNodePortIsolationFilter() (filter.ObjectFilter, error) {
+	return &nodePortIsolationFilter{}, nil
 }
 
 func (nif *nodePortIsolationFilter) Name() string {

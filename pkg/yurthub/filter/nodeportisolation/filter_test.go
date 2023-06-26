@@ -32,14 +32,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	nif := &nodePortIsolationFilter{}
+	nif, _ := NewNodePortIsolationFilter()
 	if nif.Name() != filter.NodePortIsolationName {
 		t.Errorf("expect %s, but got %s", filter.NodePortIsolationName, nif.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	nif := &nodePortIsolationFilter{}
+	nif, _ := NewNodePortIsolationFilter()
 	rvs := nif.SupportedResourceAndVerbs()
 	if len(rvs) != 1 {
 		t.Errorf("supported more than one resources, %v", rvs)
