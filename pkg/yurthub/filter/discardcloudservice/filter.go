@@ -36,11 +36,15 @@ var (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.ObjectFilter, error) {
-		return &discardCloudServiceFilter{}, nil
+		return NewDiscardCloudServiceFilter()
 	})
 }
 
 type discardCloudServiceFilter struct{}
+
+func NewDiscardCloudServiceFilter() (filter.ObjectFilter, error) {
+	return &discardCloudServiceFilter{}, nil
+}
 
 func (sf *discardCloudServiceFilter) Name() string {
 	return filter.DiscardCloudServiceFilterName

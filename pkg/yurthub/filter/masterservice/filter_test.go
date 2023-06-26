@@ -30,14 +30,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	msf := &masterServiceFilter{}
+	msf, _ := NewMasterServiceFilter()
 	if msf.Name() != filter.MasterServiceFilterName {
 		t.Errorf("expect %s, but got %s", filter.MasterServiceFilterName, msf.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	msf := masterServiceFilter{}
+	msf, _ := NewMasterServiceFilter()
 	rvs := msf.SupportedResourceAndVerbs()
 	if len(rvs) != 1 {
 		t.Errorf("supported more than one resources, %v", rvs)
