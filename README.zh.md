@@ -48,7 +48,7 @@ OpenYurt 遵循经典的云边一体化架构。
 - **[YurtHub](https://openyurt.io/zh/docs/next/core-concepts/yurthub/)**：YurtHub 以静态 pod 模式在工作节点上运行，它作为节点的 Sidecar 处理所有来自工作节点上的组件(如 Kubelet, Kubeproxy 等)到 kube-apiserver 的请求。
 - **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**：包括所有云边协同场景下的Controllers和Webhooks。
 - **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: 它用于处理 OpenYurt 中的云边，边边间的跨公网通信。 主要在不同物理区域的 pod 之间提供第 3 层网络连接，就像在一个 vanilla Kubernetes 集群中一样。
-- **Pool-Coordinator**：每个边缘 NodePool 中会自动部署一个 Pool-Coordinator 实例，它联合 YurtHub 为节点池提供心跳代理、云边缘流量复用等能力。
+- **Yurt-Coordinator**：每个边缘 NodePool 中会自动部署一个 Yurt-Coordinator 实例，它联合 YurtHub 为节点池提供心跳代理、云边缘流量复用等能力。
 
 此外，OpenYurt 还包括用于集成和定制的辅助控制器。
 

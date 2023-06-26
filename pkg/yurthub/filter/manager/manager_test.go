@@ -30,11 +30,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
@@ -42,19 +40,8 @@ import (
 func TestFindResponseFilter(t *testing.T) {
 	fakeClient := &fake.Clientset{}
 	fakeYurtClient := &yurtfake.Clientset{}
-	sharedFactory, yurtSharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
-		yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
 	serializerManager := serializer.NewSerializerManager()
-	storageManager, err := disk.NewDiskStorage("/tmp/filter_manager")
-	if err != nil {
-		t.Fatalf("could not create storage manager, %v", err)
-	}
-	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
 	apiserverAddr := "127.0.0.1:6443"
-	stopper := make(chan struct{})
-	defer close(stopper)
-	sharedFactory.Start(stopper)
-	yurtSharedFactory.Start(stopper)
 
 	testcases := map[string]struct {
 		enableResourceFilter    bool
@@ -67,7 +54,7 @@ func TestFindResponseFilter(t *testing.T) {
 		path                    string
 		mgrIsNil                bool
 		isFound                 bool
-		names                   []string
+		names                   sets.String
 	}{
 		"disable resource filter": {
 			enableResourceFilter: false,
@@ -81,9 +68,9 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/services",
 			isFound:                true,
-			names:                  []string{"masterservice"},
+			names:                  sets.NewString("masterservice"),
 		},
-		"get discard cloud service filter": {
+		"get discard cloud service and node port isolation filter": {
 			enableResourceFilter:   true,
 			accessServerThroughHub: true,
 			enableDummyIf:          true,
@@ -91,7 +78,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/services",
 			isFound:                true,
-			names:                  []string{"discardcloudservice"},
+			names:                  sets.NewString("discardcloudservice", "nodeportisolation"),
 		},
 		"get service topology filter": {
 			enableResourceFilter:   true,
@@ -101,7 +88,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                   "GET",
 			path:                   "/api/v1/endpoints",
 			isFound:                true,
-			names:                  []string{"servicetopology"},
+			names:                  sets.NewString("servicetopology"),
 		},
 		"disable service topology filter": {
 			enableResourceFilter:    true,
@@ -120,7 +107,8 @@ func TestFindResponseFilter(t *testing.T) {
 			userAgent:              "kube-proxy",
 			verb:                   "GET",
 			path:                   "/api/v1/services",
-			isFound:                false,
+			isFound:                true,
+			names:                  sets.NewString("nodeportisolation"),
 		},
 	}
 
@@ -140,13 +128,18 @@ func TestFindResponseFilter(t *testing.T) {
 			}
 			options.DisabledResourceFilters = append(options.DisabledResourceFilters, tt.disabledResourceFilters...)
 
-			mgr, _ := NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, apiserverAddr)
-			if tt.mgrIsNil && mgr != nil {
-				t.Errorf("expect manager is nil, but got not nil: %v", mgr)
-			} else {
-				// mgr is nil, complete this test case
+			sharedFactory, yurtSharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
+				yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
+			stopper := make(chan struct{})
+			defer close(stopper)
+
+			mgr, _ := NewFilterManager(options, sharedFactory, yurtSharedFactory, fakeClient, serializerManager, apiserverAddr)
+			if tt.mgrIsNil && mgr == nil {
 				return
 			}
+
+			sharedFactory.Start(stopper)
+			yurtSharedFactory.Start(stopper)
 
 			req, err := http.NewRequest(tt.verb, tt.path, nil)
 			if err != nil {
@@ -168,20 +161,13 @@ func TestFindResponseFilter(t *testing.T) {
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
-			if isFound != tt.isFound {
-				t.Errorf("expect isFound %v, but got %v", tt.isFound, isFound)
+			if !tt.isFound && isFound == tt.isFound {
 				return
 			}
 
 			names := strings.Split(responseFilter.Name(), ",")
-			if len(tt.names) != len(names) {
-				t.Errorf("expect filter names %v, but got %v", tt.names, names)
-			}
-
-			for i := range tt.names {
-				if tt.names[i] != names[i] {
-					t.Errorf("expect filter names %v, but got %v", tt.names, names)
-				}
+			if !tt.names.Equal(sets.NewString(names...)) {
+				t.Errorf("expect filter names %v, but got %v", tt.names.List(), names)
 			}
 		})
 	}

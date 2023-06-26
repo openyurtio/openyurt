@@ -1,0 +1,228 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-coordinator-apiserver
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    openyurt.io/topologyKeys: openyurt.io/nodepool
+  labels:
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: {{ .Values.apiserverSecurePort }}
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "yurt-coordinator.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yurt-coordinator-etcd
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    openyurt.io/topologyKeys: openyurt.io/nodepool
+  labels:
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2379
+      targetPort: {{ .Values.etcdPort }}
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "yurt-coordinator.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppDaemon
+metadata:
+  name: yurt-coordinator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "yurt-coordinator.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "yurt-coordinator.selectorLabels" . | nindent 6 }}
+  nodepoolSelector:
+    matchLabels:
+      openyurt.io/node-pool-type: "edge"
+  workloadTemplate:
+    deploymentTemplate:
+      metadata:
+        labels:
+          {{- include "yurt-coordinator.labels" . | nindent 10 }}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            {{- include "yurt-coordinator.selectorLabels" . | nindent 12 }}
+        template:
+          metadata:
+            labels:
+              {{- include "yurt-coordinator.labels" . | nindent 14 }}
+          spec:
+            containers:
+              - command:
+                  - kube-apiserver
+                  - --bind-address=0.0.0.0
+                  - --allow-privileged=true
+                  - --anonymous-auth=true
+                  - --authorization-mode=Node,RBAC
+                  - --client-ca-file=/etc/kubernetes/pki/ca.crt
+                  - --enable-admission-plugins=NodeRestriction
+                  - --enable-bootstrap-token-auth=true
+                  - --disable-admission-plugins=ServiceAccount
+                  - --etcd-cafile=/etc/kubernetes/pki/ca.crt
+                  - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+                  - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+                  - --etcd-servers=https://127.0.0.1:{{ .Values.etcdPort }}
+                  - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+                  - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+                  - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+                  - --secure-port={{ .Values.apiserverSecurePort }}
+                  - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+                  - --service-account-key-file=/etc/kubernetes/pki/sa.pub
+                  - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
+                  - --service-cluster-ip-range={{ .Values.serviceClusterIPRange }}
+                  - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+                  - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+                image: "{{ .Values.apiserverImage.registry }}/{{ .Values.apiserverImage.repository }}:{{ .Values.apiserverImage.tag }}"
+                imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  failureThreshold: 8
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /livez
+                    port: {{ .Values.apiserverSecurePort }}
+                    scheme: HTTPS
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                name: kube-apiserver
+                readinessProbe:
+                  failureThreshold: 3
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /readyz
+                    port: {{ .Values.apiserverSecurePort }}
+                    scheme: HTTPS
+                  periodSeconds: 1
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                {{- if .Values.apiserverResources }}
+                resources:
+                  {{- toYaml .Values.apiserverResources | nindent 18 }}
+                {{- end }}
+                startupProbe:
+                  failureThreshold: 24
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /livez
+                    port: {{ .Values.apiserverSecurePort }}
+                    scheme: HTTPS
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+                volumeMounts:
+                  - mountPath: /etc/kubernetes/pki
+                    name: yurt-coordinator-certs
+                    readOnly: true
+              - command:
+                  - etcd
+                  - --advertise-client-urls=https://0.0.0.0:{{ .Values.etcdPort }}
+                  - --listen-client-urls=https://0.0.0.0:{{ .Values.etcdPort }}
+                  - --cert-file=/etc/kubernetes/pki/etcd-server.crt
+                  - --client-cert-auth=true
+                  - --max-txn-ops=102400
+                  - --data-dir=/var/lib/etcd
+                  - --max-request-bytes=100000000
+                  - --key-file=/etc/kubernetes/pki/etcd-server.key
+                  - --listen-metrics-urls=http://0.0.0.0:{{ .Values.etcdMetricPort }}
+                  - --snapshot-count=10000
+                  - --trusted-ca-file=/etc/kubernetes/pki/ca.crt
+                image: "{{ .Values.etcdImage.registry }}/{{ .Values.etcdImage.repository }}:{{ .Values.etcdImage.tag }}"
+                imagePullPolicy: IfNotPresent
+                name: etcd
+                {{- if .Values.etcdResources}}
+                resources:
+                  {{- toYaml .Values.etcdResources | nindent 18 }}
+                {{- end }}
+                startupProbe:
+                  failureThreshold: 24
+                  httpGet:
+                    host: 127.0.0.1
+                    path: /health
+                    port: {{ .Values.etcdMetricPort }}
+                    scheme: HTTP
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  successThreshold: 1
+                  timeoutSeconds: 15
+                volumeMounts:
+                  - mountPath: /var/lib/etcd
+                    name: etcd-data
+                  - mountPath: /etc/kubernetes/pki
+                    name: yurt-coordinator-certs
+                    readOnly: true
+            dnsPolicy: ClusterFirst
+            {{- if .Values.imagePullSecrets }}
+            imagePullSecrets:
+            {{ toYaml .Values.imagePullSecrets | nindent 14 }}
+            {{- end }}
+            enableServiceLinks: true
+            hostNetwork: true
+            preemptionPolicy: PreemptLowerPriority
+            priority: 2000001000
+            priorityClassName: system-node-critical
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+            terminationGracePeriodSeconds: 30
+            volumes:
+              - emptyDir:
+                  medium: Memory
+                name: etcd-data
+              - projected:
+                  defaultMode: 420
+                  sources:
+                    - secret:
+                        name: yurt-coordinator-dynamic-certs
+                    - secret:
+                        name: yurt-coordinator-static-certs
+                name: yurt-coordinator-certs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openyurt:yurt-coordinator:node-lease-proxy-client 
+rules:
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openyurt:yurt-coordinator:node-lease-proxy-client
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openyurt:yurt-coordinator:node-lease-proxy-client
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: openyurt:yurt-coordinator:node-lease-proxy-client

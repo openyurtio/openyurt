@@ -23,9 +23,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
@@ -47,8 +47,8 @@ type Manager struct {
 func NewFilterManager(options *options.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
+	proxiedClient kubernetes.Interface,
 	serializerManager *serializer.SerializerManager,
-	storageWrapper cachemanager.StorageWrapper,
 	apiserverAddr string) (*Manager, error) {
 	if !options.EnableResourceFilter {
 		return nil, nil
@@ -70,7 +70,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, proxiedClient, options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +114,13 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 func createObjectFilters(filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
 	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	storageWrapper cachemanager.StorageWrapper,
-	workingMode util.WorkingMode,
+	proxiedClient kubernetes.Interface,
 	nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
+	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, proxiedClient, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	initializerChain := filter.Initializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)

@@ -25,9 +25,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/controller/nodepool"
-	poolcoordinatorcert "github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/cert"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/delegatelease"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/podbinding"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/gateway"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/service"
@@ -37,6 +35,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/util"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
+	yurtcoordinatorcert "github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/cert"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/delegatelease"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/podbinding"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 )
 
@@ -57,11 +58,12 @@ func init() {
 	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
 	controllerAddFuncs[raven.ControllerName] = []AddControllerFn{gateway.Add, service.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
-	controllerAddFuncs[poolcoordinatorcert.ControllerName] = []AddControllerFn{poolcoordinatorcert.Add}
+	controllerAddFuncs[yurtcoordinatorcert.ControllerName] = []AddControllerFn{yurtcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}
 	controllerAddFuncs[yurtstaticset.ControllerName] = []AddControllerFn{yurtstaticset.Add}
 	controllerAddFuncs[yurtappset.ControllerName] = []AddControllerFn{yurtappset.Add}
 	controllerAddFuncs[yurtappdaemon.ControllerName] = []AddControllerFn{yurtappdaemon.Add}
+	controllerAddFuncs[platformadmin.ControllerName] = []AddControllerFn{platformadmin.Add}
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi

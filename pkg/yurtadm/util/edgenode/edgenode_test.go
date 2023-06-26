@@ -95,3 +95,77 @@ func Test_GetHostName(t *testing.T) {
 		})
 	}
 }
+
+func TestDeployStaticYaml(t *testing.T) {
+	tests := []struct {
+		name            string
+		manifestList    []string
+		templateList    []string
+		podManifestPath string
+		wantErr         bool
+	}{
+		{
+			name:            "test1",
+			manifestList:    []string{"nginx"},
+			templateList:    []string{"xxxxxx"},
+			podManifestPath: "/tmp",
+			wantErr:         false,
+		},
+		{
+			name:            "test2",
+			manifestList:    []string{"nginx"},
+			templateList:    []string{"xxxxxx"},
+			podManifestPath: "/etc/kubernetes/?",
+			wantErr:         true,
+		},
+		{
+			name:            "test3",
+			manifestList:    []string{"nginx"},
+			templateList:    []string{"xxxxxx"},
+			podManifestPath: "/root",
+			wantErr:         true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := DeployStaticYaml(tt.manifestList, tt.templateList, tt.podManifestPath); (err != nil) != tt.wantErr {
+				t.Errorf("DeployStaticYaml() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRemoveStaticYaml(t *testing.T) {
+	tests := []struct {
+		name            string
+		manifestList    []string
+		podManifestPath string
+		wantErr         bool
+	}{
+		{
+			name:            "test1",
+			manifestList:    []string{"nginx"},
+			podManifestPath: "/tmp",
+			wantErr:         false,
+		},
+		{
+			name:            "test2",
+			manifestList:    []string{"nginx"},
+			podManifestPath: "/etc/kubernetes/?",
+			wantErr:         true,
+		},
+		{
+			name:            "test3",
+			manifestList:    []string{"nginx"},
+			podManifestPath: "/root",
+			wantErr:         true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := RemoveStaticYaml(tt.manifestList, tt.podManifestPath); (err != nil) != tt.wantErr {
+				t.Errorf("RemoveStaticYaml() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
