@@ -35,7 +35,6 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
 )
 
 func init() {
@@ -82,9 +81,7 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePodBinding{
-		Client: utilclient.NewClientFromManager(mgr, ControllerName),
-	}
+	return &ReconcilePodBinding{}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -97,6 +94,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
 
 	klog.V(4).Info(Format("registering the field indexers of podbinding controller"))
 	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
@@ -110,6 +110,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		klog.Errorf(Format("failed to register field indexers for podbinding controller, %v", err))
 	}
 	return err
+}
+
+func (r *ReconcilePodBinding) InjectClient(c client.Client) error {
+	r.Client = c
+	return nil
 }
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed

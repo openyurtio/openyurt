@@ -28,11 +28,14 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 )
 
 var (
-	TestNodesName = []string{"node1", "node2", "node3"}
+	TestNodesName = []string{"node1", "node2", "node3", "node4"}
 	TestPodsName  = []string{"pod1", "pod2", "pod3", "pod4"}
 )
 
@@ -218,6 +221,17 @@ func TestConfigureTolerationForPod(t *testing.T) {
 			tolerationSeconds: &second,
 			wantErr:           true,
 		},
+		{
+			name: "test6",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod5",
+					Namespace: metav1.NamespaceDefault,
+				},
+			},
+			tolerationSeconds: nil,
+			wantErr:           true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -386,6 +400,29 @@ func TestIsPodBoundenToNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isPodBoundenToNode(tt.node); got != tt.want {
 				t.Errorf("isPodBoundenToNode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_newReconciler(t *testing.T) {
+	tests := []struct {
+		name string
+		in0  *appconfig.CompletedConfig
+		mgr  manager.Manager
+		want reconcile.Reconciler
+	}{
+		{
+			name: "test1",
+			in0:  nil,
+			mgr:  nil,
+			want: &ReconcilePodBinding{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := newReconciler(tt.in0, tt.mgr); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newReconciler() = %v, want %v", got, tt.want)
 			}
 		})
 	}
