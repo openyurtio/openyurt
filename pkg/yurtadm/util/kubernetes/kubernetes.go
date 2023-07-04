@@ -167,7 +167,7 @@ func CheckAndInstallKubernetesCni(reuseCNIBin bool) error {
 		klog.V(1).Infof("Skip download cni, use already exist file: %s", savePath)
 	}
 
-	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
+	if err := os.MkdirAll(constants.KubeCniDir, 0755); err != nil {
 		return err
 	}
 	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
@@ -264,7 +264,7 @@ func SetKubeletUnitConfig() error {
 		}
 	}
 
-	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0640); err != nil {
 		return err
 	}
 
