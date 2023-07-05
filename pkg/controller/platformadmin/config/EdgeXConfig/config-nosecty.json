@@ -3466,15 +3466,7 @@
                                         "emptyDir": {}
                                     },
                                     {
-                                        "name": "kuiper-etc",
-                                        "emptyDir": {}
-                                    },
-                                    {
                                         "name": "kuiper-log",
-                                        "emptyDir": {}
-                                    },
-                                    {
-                                        "name": "kuiper-plugins",
                                         "emptyDir": {}
                                     }
                                 ],
@@ -3549,16 +3541,8 @@
                                                 "mountPath": "/kuiper/data"
                                             },
                                             {
-                                                "name": "kuiper-etc",
-                                                "mountPath": "/kuiper/etc"
-                                            },
-                                            {
                                                 "name": "kuiper-log",
                                                 "mountPath": "/kuiper/log"
-                                            },
-                                            {
-                                                "name": "kuiper-plugins",
-                                                "mountPath": "/kuiper/plugins"
                                             }
                                         ],
                                         "imagePullPolicy": "IfNotPresent"
