@@ -85,8 +85,8 @@ type Gateway struct {
     Status GatewayStatus `json:"status,omitempty"`
 }
 
-// ProxyConfig is the configuration for raven l7 proxy
-type GatewayProxyConfig struct {
+// ProxyConfiguration is the configuration for raven l7 proxy
+type ProxyConfiguration struct {
     // Replicas is the number of gateway active endpoints that enabled proxy
     Replicas int `json:"Replicas,omitempty"`
     // ProxyHTTPPort is the proxy http port of the cross-domain request
@@ -99,8 +99,8 @@ type GatewayProxyConfig struct {
     ProxyServerPort string `json:"proxyServerPort,omitempty"`
 }
 
-// TunnelConfig is the configuration for raven l3 tunnel
-type GatewayTunnelConfig struct {
+// TunnelConfiguration is the configuration for raven l3 tunnel
+type TunnelConfiguration struct {
     // Replicas is the number of gateway active endpoints that enabled tunnel
     Replicas int `json:"Replicas,omitempty"`
     // VPNServerPort is the tunnel service port of the exposed gateway
@@ -113,13 +113,13 @@ type GatewaySpec struct {
     // The nodes in the same gateway should share same layer 3 network.
     NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
     // ProxyConfig determine the l7 proxy configuration
-    ProxyConfig GatewayProxyConfig `json:"proxyConfig,omitempty"`
+    ProxyConfig ProxyConfiguration `json:"proxyConfig,omitempty"`
 	// TunnelConfig determine the l3 tunnel configuration
-    TunnelConfig GatewayTunnelConfig `json:"tunnelConfig,omitempty"`
+    TunnelConfig TunnelConfiguration `json:"tunnelConfig,omitempty"`
     // Endpoints are a list of available Endpoint.
     Endpoints []Endpoint `json:"endpoints,omitempty"`
     // ExposeType determines how the Gateway is exposed.
-    ExposeType ExposeType `json:"exposeType,omitempty"`
+    ExposeType string `json:"exposeType,omitempty"`
 }
 
 // Endpoint stores all essential data for establishing the VPN tunnel and Proxy
@@ -161,32 +161,29 @@ metadata:
 data:
   enable-l7-proxy: true
   enable-l3-tunnel: false
+  enable-dns-mode: normal/enhance
 
 ```
-### Gateway Controller/Webhook
-1. GatewayController need watch node and gateway spec
-2. Select nodes to provide tunnel or proxy service based on Spec.Endpoints
-3. Update the configuration of each ActiveEndpoint according to the global configmap raven-cfg, Spec.ProxyConfig, and Spec.TunnelConfig
-4. Traverse the nodes in the local network domain and update the node information to the Status of the Gateway
+### GatewayPickup Controller/Webhook
+1. Select nodes to provide tunnel or proxy service based on Spec.Endpoints
+2. Update the configuration of each ActiveEndpoint according to the global configmap raven-cfg, Spec.ProxyConfig, and Spec.TunnelConfig
+3. Traverse the nodes in the local network domain and update the node information to the Status of the Gateway
 
-### CrossDomainProxyService Controller
-1. Watch Gateway.Status, obtain the ActiveEndpoints configuration
-2. If Gateway Spec.ExposedType == LoadBalancer and L3 Tunnel is enabled, manage an LB Service: x-raven-tunnel-svc -${GatewayName}$
-3. If Gateway Spec.ExposedType == LoadBalancer and L7 Proxy is enabled, manage an LB Service: x-raven-proxy-svc -${GatewayName}$
-4. Create/Update/Delete Endpoints by Gateway.Status
-5. Each service is labeled ```raven.openyurt.io/gateway=${GatewayName}```
+### GatewayPublicService Controller
+1. If Gateway Spec.ExposedType == LoadBalancer and L3 Tunnel is enabled, manage an LB Service: x-raven-tunnel-svc -${GatewayName}$
+2. If Gateway Spec.ExposedType == LoadBalancer and L7 Proxy is enabled, manage an LB Service: x-raven-proxy-svc -${GatewayName}$
+3. Create/Update/Delete Endpoints by Gateway.Status
+4. Each service is labeled ```raven.openyurt.io/gateway=${GatewayName}```
 
-### IntraDomainProxyService Controller
-1. Watch Gateway.Status, obtain the ActiveEndpoints configuration
-2. Manage a Cluster Service : x-raven-internal-svc for all Gateway that Spec.ExposedType != ""
-3. Create/Update/Delete Endpoints for x-raven-internal-svc
+### GatewayInternalService Controller
+1. Manage a Cluster Service : x-raven-internal-svc for all Gateway that Spec.ExposedType != ""
+2. Create/Update/Delete Endpoints for x-raven-internal-svc
 
 <img src = "../img/networking/img-7.png" width="800">
 
 ### DNS Controller
-1. DNSController need watch gateway and service x-raven-internal-svc
-2. Update the configmap edge-tunnel-nodes to record dns for coredns
-3. All requests that using NodeName+Port are forwarded to x-raven-internal-svc
+1. Update the configmap edge-tunnel-nodes to record dns for coredns
+2. All requests that using NodeName+Port are forwarded to x-raven-internal-svc
 
 ### CertManager
 1. A certificate is generated for each ProxyServer and approved by the csrapprover
