@@ -11,36 +11,37 @@ status:
 
 # Proposal about YurtAppConfigBinding
 - [Proposal about YurtAppConfigBinding](#proposal-about-yurtappconfigbinding)
-  - [Glossary](#glossary)
-  - [Summary](#summary)
-  - [Motivation](#motivation)
-    - [Goals](#goals)
-    - [Non-Goals/Future Work](#non-goalsfuture-work)
-  - [Proposal](#proposal)
-    - [Inspiration](#inspiration)
-    - [YurtAppConfigBinding API](#yurtappconfigbinding-api)
-    - [Architecture](#architecture)
-    - [Deployment Mutating Webhook](#deployment-mutating-webhook)
-      - [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
-    - [YurtAppConfigBinding Validating Webhook](#yurtappconfigbinding-validating-webhook)
-    - [YurtAppConfigBinding Controller](#yurtappconfigbinding-controller)
-  - [Implementation History](#implementation-history)
+	- [Glossary](#glossary)
+		- [YurtAppConfigBinding](#yurtappconfigbinding)
+	- [Summary](#summary)
+	- [Motivation](#motivation)
+		- [Goals](#goals)
+		- [Non-Goals/Future Work](#non-goalsfuture-work)
+	- [Proposal](#proposal)
+		- [Inspiration](#inspiration)
+		- [YurtAppConfigBinding API](#yurtappconfigbinding-api)
+		- [Architecture](#architecture)
+		- [Deployment Mutating Webhook](#deployment-mutating-webhook)
+			- [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
+		- [YurtAppConfigBinding Validating Webhook](#yurtappconfigbinding-validating-webhook)
+		- [YurtAppConfigBinding Controller](#yurtappconfigbinding-controller)
+	- [Implementation History](#implementation-history)
 
 ## Glossary
-A YurtAppConfigBinding ensures that all when creating deployment/statefulset 
+### YurtAppConfigBinding
+YurtAppConfigBinding is a new CRD used to personalize the configuration rendering of the workloads managed by YurtAppSet/YurtAppDaemon. It provides an simple and straightforward way to configure every field of the workload under each nodepool. 
 ## Summary
-Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the configuration is always different in each region. We expect to render different configurations for each geographical workload easily and support rendering for YurtAppset and YurtAppDaemon, including replicas, images, configmap, secret, pvc, etc. 
+Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the configuration is always different in each region. The workloads(deployment/statefulset) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigBinding which also supports multiple resources. 
 ## Motivation
-The workload(deployment/statefulset) of nodepools in different regions can be rendered through simple configuration. 
+YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-friendly and scalable, although it can be used for workload configuration by patch field. We expect to render different configurations for each workload easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is required to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources. 
 ### Goals
 - Define the API of YurtAppConfigBinding
 - Provide YurtAppConfigBinding controller
 - Provide Deployment mutating webhook
 - Provide YurtAppConfigBinding validating webhook
 ### Non-Goals/Future Work
-- StatefulSet webhook
+- Optimize YurtAppSet(about patch)
 ## Proposal
-
 ### Inspiration
 Reference to the design of clusterrole and clusterrolebinding. 
 
