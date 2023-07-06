@@ -32,7 +32,7 @@ status:
 ### YurtAppConfigBinding
 YurtAppConfigBinding is a new CRD used to personalize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides an simple and straightforward way to configure every field of the workload under each nodepool. 
 ## Summary
-Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the configuration is always different in each region. The workloads(deployment/statefulset) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigBinding which also supports multiple resources. 
+Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the configuration is always different in each region. The workloads(Deployment/StatefulSet) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigBinding which also supports multiple resources. 
 ## Motivation
 YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-friendly and scalable, although it can be used for workload configuration by patch field. Therefore, we expect to render different configurations for each workload easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is essential to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources. 
 ### Goals
@@ -41,10 +41,11 @@ YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-frie
 - Provide Deployment mutating webhook
 - Provide YurtAppConfigBinding validating webhook
 ### Non-Goals/Future Work
+- StatefulSet mutating webhook
 - Optimize YurtAppSet(about patch)
 ## Proposal
 ### Inspiration
-Reference to the design of clusterrole and clusterrolebinding. 
+Reference to the design of ClusterRole and ClusterRoleBinding. 
 
 1. Considering the simplicity of personalized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes. 
 2. In order to inject item into the workloads, we should create a new CRD, which works as below. 
@@ -126,15 +127,15 @@ The whole architecture is shown below.
 
 ### Deployment Mutating Webhook
 #### Prerequisites for webhook (Resolving circular dependency)
-Since yurtmanager is deployed as a deployment, the deployment webhook and yurt manager create a circular dependency. 
+Since YurtManager is deployed as a Deployment, the Deployment webhook and YurtManager create a circular dependency. 
 
 Solution
-1. Change yurtmanager deployment method, like static pod
-2. Yurtmanager is in charge of managing the webhook, we can modify the internal implementation of yurtmanager
+1. Change YurtManager deploying method, like static pod
+2. YurtManager is in charge of managing the webhook, we can modify the internal implementation of YurtManager
 3. Controller is responsible for both creating and updating  However, there will be a period of unavailability(wrong configuration information)
 4. FailurePolicy set to ignore(difficult to detect in the case of malfunction)
 #### Workflow of mutating webhook
-1. If the intercepted deployment's ownerReferences field is empty, filter it directly
+1. If the intercepted Deployment's ownerReferences field is empty, filter it directly
 2. Find the corresponding YurtAppConfigBinding resource by ownerReferences, if not, filter directly
 3. Find the items involved, get the corresponding configuration, and inject them into workloads
 ### YurtAppConfigBinding Validating Webhook
@@ -142,12 +143,10 @@ Solution
 2. verify that replicas and upgradeStrategy are selected only once
 ### YurtAppConfigBinding Controller
 1. Get update events by watching the YurtAppConfigBinding resource
-2. Trigger the deployment mutating webhook by modifying an annotation or label
+2. Trigger the Deployment mutating webhook by modifying an annotation or label
 ## Implementation History
 - [ ] : YurtAppConfigBinding API CRD
 - [ ] : Deployment Mutating Webhook
 - [ ] : YurtAppConfigBinding controller
 - [ ] : Resolve circular dependency
 - [ ] : YurtAppConfigBinding validating webhook
-
-
