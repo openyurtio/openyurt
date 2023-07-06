@@ -161,7 +161,6 @@ metadata:
 data:
   enable-l7-proxy: true
   enable-l3-tunnel: false
-  enable-dns-mode: normal/enhance
 
 ```
 ### GatewayPickup Controller/Webhook
