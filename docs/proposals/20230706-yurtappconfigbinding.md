@@ -122,7 +122,7 @@ type YurtAppConfigBinding struct {
 ```
 ### Architecture
 The whole architecture is shown below. 
-<img src = "../img/yurtappconfigbinding/architecture.png" width="800">
+<img src = "../img/yurtappconfigbinding/Architecture.png" width="800">
 
 ### Deployment Mutating Webhook
 #### Prerequisites for webhook (Resolving circular dependency)
