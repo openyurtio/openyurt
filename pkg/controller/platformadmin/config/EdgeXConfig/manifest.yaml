@@ -1,9 +1,10 @@
-updated: "false"
-count: 5
-latestVersion: levski
+updated: false
+count: 6
+latestVersion: minnesota
 versions:
-- levski
-- jakarta
 - kamakura
+- jakarta
+- levski
+- minnesota
 - ireland
 - hanoi
