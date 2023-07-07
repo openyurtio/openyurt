@@ -96,15 +96,25 @@ type ConfigMapReplacement struct {
 	ConfigMapTarget string `json:"configMapTarget"`
 }
 
+type SecretReplacement struct {
+	// ContainerName represents name of the container.
+	ContainerName string `json:"containerName"`
+	// SecretSource represents volume name.
+	SecretSource string `json:"secretClaim"`
+	// SecretTarget represents the Secret corresponding to the volume above.
+	SecretTarget string `json:"secretTarget"`
+}
+
 // Replacement represents configuration to be injected.
 // Only one of its members may be specified.
 type Replacement struct {
 	Image                 *ImageReplacement                 `json:"image"`
-	ConfigMap             *ConfigMapReplacement             `configMap:"configMap"`
+	ConfigMap             *ConfigMapReplacement             `json:"configMap"`
+	Secret                *SecretReplacement                `json:"secret"`
 	Env                   *EnvReplacement                   `json:"env"`
 	PersistentVolumeClaim *PersistentVolumeClaimReplacement `json:"persistentVolumeClaim"`
-	Replicas              *int                       `json:"replicas"`
-	UpgradeStrategy       *string                    `json:"upgradeStrategy"`
+	Replicas              *int                              `json:"replicas"`
+	UpgradeStrategy       *string                           `json:"upgradeStrategy"`
 }
 
 type Subject struct {
