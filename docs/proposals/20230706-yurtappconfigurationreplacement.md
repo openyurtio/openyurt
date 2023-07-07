@@ -131,7 +131,7 @@ type YurtAppConfigurationReplacement struct {
 	// Standard object's metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Describe the object to which this binding belongs
+	// Describe the object to which replacements belongs
 	Subject Subject `json:"subject"`
 	// Describe detailed configuration to be injected of the subject above.
 	Replacements []Replacement `json:"replacements"`
