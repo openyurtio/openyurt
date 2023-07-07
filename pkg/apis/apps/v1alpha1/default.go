@@ -227,6 +227,10 @@ func SetDefaultsYurtStaticSet(obj *YurtStaticSet) {
 	if podSpec != nil {
 		SetDefaultPodSpec(podSpec)
 	}
+
+	// use YurtStaticSet name and namespace to replace name and namespace in template metadata
+	obj.Spec.Template.Name = obj.Name
+	obj.Spec.Template.Namespace = obj.Namespace
 }
 
 // SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
