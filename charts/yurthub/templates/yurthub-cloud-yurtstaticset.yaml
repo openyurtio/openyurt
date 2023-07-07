@@ -9,6 +9,7 @@ spec:
   staticPodManifest: yurthub
   template:
     metadata:
+      name: yurt-hub-cloud
       labels:
         k8s-app: yurt-hub-cloud
     spec:
