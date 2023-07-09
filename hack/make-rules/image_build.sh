@@ -25,6 +25,7 @@ readonly IMAGE_TARGETS=(
     yurt-node-servant
     yurthub
     yurt-manager
+    yurt-iot-carrier
 )
 
 http_proxy=${http_proxy:-}

@@ -374,6 +374,84 @@ rules:
   - list
   - watch
 - apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceprofiles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceprofiles/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceprofiles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - devices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - devices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - devices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - device.openyurt.io
+  resources:
+  - deviceservices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - discovery.k8s.io
   resources:
   - endpointslices

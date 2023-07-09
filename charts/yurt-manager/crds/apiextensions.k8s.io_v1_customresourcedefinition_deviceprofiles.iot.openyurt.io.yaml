@@ -1,0 +1,172 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: deviceprofiles.iot.openyurt.io
+spec:
+  group: iot.openyurt.io
+  names:
+    kind: DeviceProfile
+    listKind: DeviceProfileList
+    plural: deviceprofiles
+    shortNames:
+    - dp
+    singular: deviceprofile
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The nodepool of deviceProfile
+      jsonPath: .spec.nodePool
+      name: NODEPOOL
+      type: string
+    - description: The synced status of deviceProfile
+      jsonPath: .status.synced
+      name: SYNCED
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DeviceProfile represents the attributes and operational capabilities
+          of a device. It is a template for which there can be multiple matching devices
+          within a given system. NOTE This struct is derived from edgex/go-mod-core-contracts/models/deviceprofile.go
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DeviceProfileSpec defines the desired state of DeviceProfile
+            properties:
+              description:
+                type: string
+              deviceCommands:
+                items:
+                  properties:
+                    isHidden:
+                      type: boolean
+                    name:
+                      type: string
+                    readWrite:
+                      type: string
+                    resourceOperations:
+                      items:
+                        properties:
+                          defaultValue:
+                            type: string
+                          deviceResource:
+                            type: string
+                          mappings:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        required:
+                        - defaultValue
+                        type: object
+                      type: array
+                  required:
+                  - isHidden
+                  - name
+                  - readWrite
+                  - resourceOperations
+                  type: object
+                type: array
+              deviceResources:
+                items:
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    description:
+                      type: string
+                    isHidden:
+                      type: boolean
+                    name:
+                      type: string
+                    properties:
+                      properties:
+                        assertion:
+                          type: string
+                        base:
+                          type: string
+                        defaultValue:
+                          type: string
+                        mask:
+                          type: string
+                        maximum:
+                          type: string
+                        mediaType:
+                          type: string
+                        minimum:
+                          type: string
+                        offset:
+                          type: string
+                        readWrite:
+                          type: string
+                        scale:
+                          type: string
+                        shift:
+                          type: string
+                        units:
+                          type: string
+                        valueType:
+                          type: string
+                      type: object
+                    tag:
+                      type: string
+                  required:
+                  - description
+                  - isHidden
+                  - name
+                  - properties
+                  type: object
+                type: array
+              labels:
+                description: Labels used to search for groups of profiles on EdgeX
+                  Foundry
+                items:
+                  type: string
+                type: array
+              manufacturer:
+                description: Manufacturer of the device
+                type: string
+              model:
+                description: Model of the device
+                type: string
+              nodePool:
+                description: NodePool specifies which nodePool the deviceProfile belongs
+                  to
+                type: string
+            type: object
+          status:
+            description: DeviceProfileStatus defines the observed state of DeviceProfile
+            properties:
+              id:
+                type: string
+              synced:
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
