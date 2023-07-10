@@ -28,10 +28,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -55,6 +57,11 @@ func init() {
 	flag.IntVar(&concurrentReconciles, "platformadmin-workers", concurrentReconciles, "Max concurrent workers for PlatformAdmin controller.")
 }
 
+func Format(format string, args ...interface{}) string {
+	s := fmt.Sprintf(format, args...)
+	return fmt.Sprintf("%s: %s", ControllerName, s)
+}
+
 var (
 	concurrentReconciles = 3
 	controllerKind       = iotv1alpha2.SchemeGroupVersion.WithKind("PlatformAdmin")
@@ -66,24 +73,47 @@ const (
 	LabelConfigmap  = "Configmap"
 	LabelService    = "Service"
 	LabelDeployment = "Deployment"
+	LabelFramework  = "Framework"
 
 	AnnotationServiceTopologyKey           = "openyurt.io/topologyKeys"
 	AnnotationServiceTopologyValueNodePool = "openyurt.io/nodepool"
 
-	ConfigMapName = "common-variables"
+	ConfigMapName      = "common-variables"
+	FrameworkName      = "platformadmin-framework"
+	FrameworkFinalizer = "kubernetes.io/platformadmin-framework"
 )
 
-func Format(format string, args ...interface{}) string {
-	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+// PlatformAdminFramework is the framework of platformadmin,
+// it contains all configs of configmaps, services and yurtappsets.
+// PlatformAdmin will customize the configuration based on this structure.
+type PlatformAdminFramework struct {
+	runtime.TypeMeta `json:",inline"`
+
+	name       string
+	security   bool
+	Components []*config.Component `yaml:"components,omitempty" json:"components,omitempty"`
+	ConfigMaps []corev1.ConfigMap  `yaml:"configMaps,omitempty" json:"configMaps,omitempty"`
 }
 
-// ReconcilePlatformAdmin reconciles a PlatformAdmin object
+// A function written to implement the yaml serializer interface, which is not actually useful
+func (p *PlatformAdminFramework) DeepCopyObject() runtime.Object {
+	copy := p.DeepCopy()
+	return &copy
+}
+
+// A function written to implement the yaml serializer interface, which is not actually useful
+func (p *PlatformAdminFramework) DeepCopy() PlatformAdminFramework {
+	newObj := *p
+	return newObj
+}
+
+// ReconcilePlatformAdmin reconciles a PlatformAdmin object.
 type ReconcilePlatformAdmin struct {
 	client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	Configration config.PlatformAdminControllerConfiguration
+	scheme         *runtime.Scheme
+	recorder       record.EventRecorder
+	yamlSerializer *kjson.Serializer
+	Configration   config.PlatformAdminControllerConfiguration
 }
 
 var _ reconcile.Reconciler = &ReconcilePlatformAdmin{}
@@ -102,10 +132,11 @@ func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcilePlatformAdmin{
-		Client:       utilclient.NewClientFromManager(mgr, ControllerName),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(ControllerName),
-		Configration: c.ComponentConfig.PlatformAdminController,
+		Client:         utilclient.NewClientFromManager(mgr, ControllerName),
+		scheme:         mgr.GetScheme(),
+		recorder:       mgr.GetEventRecorderFor(ControllerName),
+		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
+		Configration:   c.ComponentConfig.PlatformAdminController,
 	}
 }
 
@@ -149,9 +180,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	klog.V(4).Info("registering the field indexers of platformadmin controller")
+	klog.V(4).Infof(Format("registering the field indexers of platformadmin controller"))
 	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		klog.Errorf("failed to register field indexers for platformadmin controller, %v", err)
+		klog.Errorf(Format("failed to register field indexers for platformadmin controller, %v", err))
 		return nil
 	}
 
@@ -212,12 +243,12 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin) (reconcile.Result, error) {
 	klog.V(4).Infof(Format("ReconcileDelete PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	yas := &appsv1alpha1.YurtAppSet{}
-	var desiredComponents []*config.Component
-	if platformAdmin.Spec.Security {
-		desiredComponents = r.Configration.SecurityComponents[platformAdmin.Spec.Version]
-	} else {
-		desiredComponents = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
+
+	platformAdminFramework, err := r.syncFramework(ctx, platformAdmin)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
 	}
+	desiredComponents := platformAdminFramework.Components
 
 	additionalComponents, err := annotationToComponent(platformAdmin.Annotations)
 	if err != nil {
@@ -264,9 +295,19 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	klog.V(4).Infof(Format("ReconcileNormal PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	controllerutil.AddFinalizer(platformAdmin, iotv1alpha2.PlatformAdminFinalizer)
 
-	platformAdmin.Status.Initialized = true
+	platformAdminStatus.Initialized = true
+
+	// Note that this configmap is different from the one below, which is used to customize the edgex framework
+	// Sync configmap of edgex confiruation during initialization
+	// This framework pointer is needed to synchronize user-modified edgex configurations
+	platformAdminFramework, err := r.syncFramework(ctx, platformAdmin)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
+	}
+
+	// Reconcile configmap of edgex confiruation
 	klog.V(4).Infof(Format("ReconcileConfigmap PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
-	if ok, err := r.reconcileConfigmap(ctx, platformAdmin, platformAdminStatus); !ok {
+	if ok, err := r.reconcileConfigmap(ctx, platformAdmin, platformAdminStatus, platformAdminFramework); !ok {
 		if err != nil {
 			util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1alpha2.ConfigmapAvailableCondition, corev1.ConditionFalse, iotv1alpha2.ConfigmapProvisioningFailedReason, err.Error()))
 			return reconcile.Result{}, errors.Wrapf(err,
@@ -277,8 +318,9 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	}
 	util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1alpha2.ConfigmapAvailableCondition, corev1.ConditionTrue, "", ""))
 
+	// Reconcile component of edgex confiruation
 	klog.V(4).Infof(Format("ReconcileComponent PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
-	if ok, err := r.reconcileComponent(ctx, platformAdmin, platformAdminStatus); !ok {
+	if ok, err := r.reconcileComponent(ctx, platformAdmin, platformAdminStatus, platformAdminFramework); !ok {
 		if err != nil {
 			util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1alpha2.ComponentAvailableCondition, corev1.ConditionFalse, iotv1alpha2.ComponentProvisioningReason, err.Error()))
 			return reconcile.Result{}, errors.Wrapf(err,
@@ -289,6 +331,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	}
 	util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1alpha2.ComponentAvailableCondition, corev1.ConditionTrue, "", ""))
 
+	// Update the metadata of PlatformAdmin
 	platformAdminStatus.Ready = true
 	if err := r.Client.Update(ctx, platformAdmin); err != nil {
 		klog.Errorf(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
@@ -298,22 +341,17 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, _ *iotv1alpha2.PlatformAdminStatus) (bool, error) {
+func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, _ *iotv1alpha2.PlatformAdminStatus, platformAdminFramework *PlatformAdminFramework) (bool, error) {
 	var configmaps []corev1.ConfigMap
 	needConfigMaps := make(map[string]struct{})
+	configmaps = platformAdminFramework.ConfigMaps
 
-	if platformAdmin.Spec.Security {
-		configmaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
-	} else {
-		configmaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
-	}
 	for _, configmap := range configmaps {
-		// Supplement runtime information
 		configmap.Namespace = platformAdmin.Namespace
-		configmap.Labels = make(map[string]string)
-		configmap.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelConfigmap
-
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, &configmap, func() error {
+			// Supplement runtime information
+			configmap.Labels = make(map[string]string)
+			configmap.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelConfigmap
 			return controllerutil.SetOwnerReference(platformAdmin, &configmap, (r.Scheme()))
 		})
 		if err != nil {
@@ -335,16 +373,12 @@ func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platfor
 	return true, nil
 }
 
-func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminStatus *iotv1alpha2.PlatformAdminStatus) (bool, error) {
+func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminStatus *iotv1alpha2.PlatformAdminStatus, platformAdminFramework *PlatformAdminFramework) (bool, error) {
 	var desireComponents []*config.Component
 	needComponents := make(map[string]struct{})
 	var readyComponent int32 = 0
 
-	if platformAdmin.Spec.Security {
-		desireComponents = r.Configration.SecurityComponents[platformAdmin.Spec.Version]
-	} else {
-		desireComponents = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
-	}
+	desireComponents = platformAdminFramework.Components
 
 	additionalComponents, err := annotationToComponent(platformAdmin.Annotations)
 	if err != nil {
@@ -465,16 +499,16 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 			Name:        component.Name,
 			Namespace:   platformAdmin.Namespace,
 		},
-		Spec: *component.Service,
 	}
-	service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
-	service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
 
 	_, err := controllerutil.CreateOrUpdate(
 		ctx,
 		r.Client,
 		service,
 		func() error {
+			service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
+			service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
+			service.Spec = *component.Service
 			return controllerutil.SetOwnerReference(platformAdmin, service, r.Scheme())
 		},
 	)
@@ -486,6 +520,13 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 }
 
 func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*appsv1alpha1.YurtAppSet, error) {
+	// It is possible that the component does not need deployment.
+	// Therefore, you need to be careful when calling this function.
+	// It is still possible for deployment to be nil when there is no error!
+	if component.Deployment == nil {
+		return nil, nil
+	}
+
 	yas := &appsv1alpha1.YurtAppSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
@@ -599,4 +640,116 @@ func annotationToComponent(annotation map[string]string) ([]*config.Component, e
 	}
 
 	return components, nil
+}
+
+func (r *ReconcilePlatformAdmin) syncFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin) (*PlatformAdminFramework, error) {
+	klog.V(6).Infof(Format("Synchronize the customize framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+
+	// Try to get the configmap that represents the framework
+	platformAdminFramework := &PlatformAdminFramework{
+		// The configmap that represents framework is named with the framework prefix and the version name
+		name: FrameworkName,
+	}
+
+	// Check if the configmap that represents framework is found
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: platformAdmin.Namespace, Name: platformAdminFramework.name}, cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the configmap that represents framework is not found,
+			// need to create it by standard configuration
+			err = r.initFramework(ctx, platformAdmin, platformAdminFramework)
+			if err != nil {
+				klog.Errorf(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+				return nil, err
+			}
+			return platformAdminFramework, nil
+		}
+		klog.Errorf(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		return nil, err
+	}
+
+	// For better serialization, the serialization method of the Kubernetes runtime library is used
+	err := runtime.DecodeInto(r.yamlSerializer, []byte(cm.Data["framework"]), platformAdminFramework)
+	if err != nil {
+		klog.Errorf(Format("Decode framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		return nil, err
+	}
+
+	// If PlatformAdmin is about to be deleted, remove Finalizer from the framework.
+	// If not deleted, the owner reference is synchronized.
+	if platformAdmin.DeletionTimestamp != nil {
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+			// During the deletion phase, ensure that data in the framework is read before deletion
+			// The following code removes the finalizer, allowing the framework to be deleted (since we read out its data above).
+			controllerutil.RemoveFinalizer(cm, FrameworkFinalizer)
+			return nil
+		})
+		if err != nil {
+			klog.Errorf(Format("Failed to remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+			return nil, err
+		}
+	} else {
+		hasOwnerReference := false
+		for _, ref := range cm.ObjectMeta.OwnerReferences {
+			if ref.Kind == platformAdmin.Kind && ref.Name == platformAdmin.Name {
+				hasOwnerReference = true
+			}
+		}
+		if !hasOwnerReference {
+			_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+				return controllerutil.SetOwnerReference(platformAdmin, cm, r.scheme)
+			})
+			if err != nil {
+				klog.Errorf(Format("Failed to add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+				return nil, err
+			}
+		}
+	}
+
+	return platformAdminFramework, nil
+}
+
+// initFramework initializes the framework information for PlatformAdmin
+func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) error {
+	klog.V(6).Infof(Format("Initializes the standard framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+
+	// Use standard configurations to build the framework
+	platformAdminFramework.security = platformAdmin.Spec.Security
+	if platformAdminFramework.security {
+		platformAdminFramework.ConfigMaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.Components = r.Configration.SecurityComponents[platformAdmin.Spec.Version]
+	} else {
+		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.Components = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
+	}
+
+	// For better serialization, the serialization method of the Kubernetes runtime library is used
+	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
+	if err != nil {
+		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		return err
+	}
+
+	// Create the configmap that represents framework
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      platformAdminFramework.name,
+			Namespace: platformAdmin.Namespace,
+		},
+	}
+	cm.Labels = make(map[string]string)
+	cm.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelFramework
+	cm.Data = make(map[string]string)
+	cm.Data["framework"] = string(data)
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		// We need to control the deletion time of the framework,
+		// because we must ensure that its data is read before deleting it.
+		controllerutil.AddFinalizer(cm, FrameworkFinalizer)
+		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
+	})
+	if err != nil {
+		klog.Errorf(Format("Failed to create or update framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		return err
+	}
+	return nil
 }
