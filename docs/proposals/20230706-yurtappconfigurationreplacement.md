@@ -214,7 +214,7 @@ subject:
 replacements:
 - pools:
     beijing
-	hangzhou
+    hangzhou
   items:
   - image:
       containerName: nginx
@@ -269,7 +269,7 @@ subject:
 replacements:
 - pools:
     beijing
-	hangzhou
+    hangzhou
   items:
   - image:
       containerName: nginx
