@@ -66,21 +66,27 @@ Considering that there are multiple Deployment/StatefulSet per nodepool, as show
 ```go
 // ImageItem specifies the corresponding container and the claimed image
 type ImageItem struct {
+	// ContainerName represents name of the container 
+	// in which the Image will be replaced
 	ContainerName string `json:"containerName"`
-	// ImageClaim represents the image name which is used by container above.
+	// ImageClaim represents the claimed image name 
+	// which is injected into the container above
 	ImageClaim string `json:"imageClaim"`
 }
 
-// EnvItem specifies the corresponding containerName and the claimed env
+// EnvItem specifies the corresponding container and the claimed env
 type EnvItem struct {
+	// ContainerName represents name of the container 
+	// in which the env will be replaced
 	ContainerName string `json:"containerName"`
-	// EnvClaim represents the detailed enviroment variables that container contains.
+	// EnvClaim represents the detailed enviroment variables container contains
 	EnvClaim map[string]string `json:"envClaim"`
 }
 
-// PersistentVolumeClaimItem specifies the corresponding containerName and the claimed pvc
+// PersistentVolumeClaimItem specifies the corresponding container and the claimed pvc
 type PersistentVolumeClaimItem struct {
-	// ConatinerName
+	// ContainerName represents name of the container 
+	// in which the PersistentVolumeClaim will be replaced
 	ContainerName string `json:"containerName"`
 	// PVCSource represents volume name
 	PVCSource string `json:"pvcSource"`
@@ -90,7 +96,8 @@ type PersistentVolumeClaimItem struct {
 
 // ConfigMapItem specifies the corresponding containerName and the claimed configMap
 type ConfigMapItem struct {
-	// ContainerName represents name of the container
+	// ContainerName represents name of the container 
+	// in which the ConfigMap will be replaced
 	ContainerName string `json:"containerName"`
 	// ConfigMapSource represents volume name
 	ConfigMapSource string `json:"configMapClaim"`
@@ -99,7 +106,8 @@ type ConfigMapItem struct {
 }
 
 type SecretItem struct {
-	// ContainerName represents name of the container.
+	// ContainerName represents name of the container 
+	// in which the Secret will be replaced
 	ContainerName string `json:"containerName"`
 	// SecretSource represents volume name.
 	SecretSource string `json:"secretClaim"`
@@ -107,10 +115,7 @@ type SecretItem struct {
 	SecretTarget string `json:"secretTarget"`
 }
 
-type Replacement struct {
-	Pools []string `json:"pools"`
-	Items []Item   `json:"items"`
-}
+
 
 // Item represents configuration to be injected.
 // Only one of its members may be specified.
@@ -122,6 +127,11 @@ type Item struct {
 	PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
 	Replicas              *int                       `json:"replicas"`
 	UpgradeStrategy       *string                    `json:"upgradeStrategy"`
+}
+// Replacement describe a set of nodepools and their shared or identical configurations
+type Replacement struct {
+	Pools []string `json:"pools"`
+	Items []Item   `json:"items"`
 }
 
 type Subject struct {
