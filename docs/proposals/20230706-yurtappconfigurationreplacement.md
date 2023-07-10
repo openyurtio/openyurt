@@ -2,6 +2,7 @@
 title: Proposal about YurtAppConfigurationReplacement
 authors:
   - "@vie-serendipity"
+  - "@rambohe-ch"
 reviewers:
   - ""
 creation-date:
