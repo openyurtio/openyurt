@@ -29,6 +29,7 @@ status:
 			- [YurtAppConfigurationReplacement Controller](#yurtappconfigurationreplacement-controller)
 				- [Task 1](#task-1)
 				- [Task 2](#task-2)
+			- [Extra features](#extra-features)
 		- [User Stories](#user-stories)
 			- [Story 1](#story-1)
 			- [Story 2](#story-2)
@@ -36,9 +37,9 @@ status:
 
 ## Glossary
 ### YurtAppConfigurationReplacement
-YurtAppConfigurationReplacement is a new CRD used to personalize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides an simple and straightforward way to configure every field of the workload under each nodepool. 
+YurtAppConfigurationReplacement is a new CRD used to customize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides an simple and straightforward way to configure every field of the workload under each nodepool. 
 ## Summary
-Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the configuration is always different in each region. The workloads(Deployment/StatefulSet) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigurationReplacement which also supports multiple resources. 
+Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the workload configuration is always different in each region. The workloads(Deployment/StatefulSet) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigurationReplacement which also supports multiple resources(YurtAppSet/YurtAppDaemon).
 ## Motivation
 YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-friendly and scalable, although it can be used for workload configuration by patch field. Therefore, we expect to render different configurations for each workload easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is essential to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources. 
 ### Goals
@@ -53,50 +54,51 @@ YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-frie
 ### Inspiration
 Reference to the design of ClusterRole and ClusterRoleBinding. 
 
-1. Considering the simplicity of personalized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Replacement. The design of Replacement refers to the design of VolumeSource in kubernetes. 
-2. In order to inject Replacement into the workloads, we should create a new CRD, which works as below. 
-<img src = "../img/yurtappconfigurationreplacement/Inspiration.png" width="600">
+1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes. 
+2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of replacements. Each replacement replace a set of configuration for matching nodepools. 
+<img src = "../img/yurtappconfigurationreplacement/inspiration.png" width="600">
 
 ### YurtAppConfigurationReplacement API
-1. YurtAppConfigurationReplacement needs to be bound to YurtAppSet/YurtAppDaemon.
+1. YurtAppConfigurationReplacement needs to be bound to YurtAppSet/YurtAppDaemon. 
 Considering that there are multiple Deployment/StatefulSet per nodepool, as shown below, it must be bound to YurtAppSet/YurtAppDaemon for injection. We use subject field to bind it to YurtAppSet/YurtAppDaemon. 
-
-
-1. YurtAppConfigurationReplacement is only responsible for injection of an Replacement, which means for each node pool that we want to personalize, we need to create a new YurtAppConfigurationReplacement resource. 
+2. YurtAppConfigurationReplacement is responsible for injection of Replacement. We only need to create a new YurtAppConfigurationReplacement resource for all nodepools under a YurtAppSet/YurtAppDaemon resource. 
 
 ```go
-// ImageReplacement specifies the corresponding container and the claimed image.
-type ImageReplacement struct {
+// ImageItem specifies the corresponding container and the claimed image
+type ImageItem struct {
 	ContainerName string `json:"containerName"`
 	// ImageClaim represents the image name which is used by container above.
 	ImageClaim string `json:"imageClaim"`
 }
 
-// EnvReplacement specifies the corresponding container and Env
-type EnvReplacement struct {
+// EnvItem specifies the corresponding containerName and the claimed env
+type EnvItem struct {
 	ContainerName string `json:"containerName"`
 	// EnvClaim represents the detailed enviroment variables that container contains.
 	EnvClaim map[string]string `json:"envClaim"`
 }
 
-type PersistentVolumeClaimReplacement struct {
+// PersistentVolumeClaimItem specifies the corresponding containerName and the claimed pvc
+type PersistentVolumeClaimItem struct {
+	// ConatinerName
 	ContainerName string `json:"containerName"`
-	// PVCSource represents volume name.
-	PVCSource     string `json:"pvcSource"`
-	// PVCTarget represents the PVC corresponding to the volume above.
-	PVCTarget     string `json:"pvcTarget"`
+	// PVCSource represents volume name
+	PVCSource string `json:"pvcSource"`
+	// PVCTarget represents the PVC corresponding to the volume above
+	PVCTarget string `json:"pvcTarget"`
 }
 
-type ConfigMapReplacement struct {
-	// ContainerName represents name of the container.
+// ConfigMapItem specifies the corresponding containerName and the claimed configMap
+type ConfigMapItem struct {
+	// ContainerName represents name of the container
 	ContainerName string `json:"containerName"`
-	// ConfigMapSource represents volume name.
+	// ConfigMapSource represents volume name
 	ConfigMapSource string `json:"configMapClaim"`
-	// ConfigMapTarget represents the ConfigMap corresponding to the volume above.
+	// ConfigMapTarget represents the ConfigMap corresponding to the volume above
 	ConfigMapTarget string `json:"configMapTarget"`
 }
 
-type SecretReplacement struct {
+type SecretItem struct {
 	// ContainerName represents name of the container.
 	ContainerName string `json:"containerName"`
 	// SecretSource represents volume name.
@@ -105,24 +107,28 @@ type SecretReplacement struct {
 	SecretTarget string `json:"secretTarget"`
 }
 
-// Replacement represents configuration to be injected.
-// Only one of its members may be specified.
 type Replacement struct {
-	Image                 *ImageReplacement                 `json:"image"`
-	ConfigMap             *ConfigMapReplacement             `json:"configMap"`
-	Secret                *SecretReplacement                `json:"secret"`
-	Env                   *EnvReplacement                   `json:"env"`
-	PersistentVolumeClaim *PersistentVolumeClaimReplacement `json:"persistentVolumeClaim"`
-	Replicas              *int                              `json:"replicas"`
-	UpgradeStrategy       *string                           `json:"upgradeStrategy"`
+	Pools []string `json:"pools"`
+	Items []Item   `json:"items"`
+}
+
+// Item represents configuration to be injected.
+// Only one of its members may be specified.
+type Item struct {
+	Image                 *ImageItem                 `json:"image"`
+	ConfigMap             *ConfigMapItem             `json:"configMap"`
+	Secret                *SecretItem                `json:"secret"`
+	Env                   *EnvItem                   `json:"env"`
+	PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
+	Replicas              *int                       `json:"replicas"`
+	UpgradeStrategy       *string                    `json:"upgradeStrategy"`
 }
 
 type Subject struct {
 	metav1.TypeMeta `json:",inline"`
 	// Name is the name of YurtAppSet or YurtAppDaemon
-	Name string `json:"name"`
-	// Pools represent names of nodepool that replacements will be injected into.
-	Pools []string `json:"pools"`
+	NameSpace string `json:"nameSpace"`
+	Name      string `json:"name"`
 }
 
 type YurtAppConfigurationReplacement struct {
@@ -131,15 +137,16 @@ type YurtAppConfigurationReplacement struct {
 	// Standard object's metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Describe the object to which replacements belongs
+	// Describe the object this replacement belongs
 	Subject Subject `json:"subject"`
-	// Describe detailed configuration to be injected of the subject above.
+
+	// Describe detailed multi-region configuration of the subject above
 	Replacements []Replacement `json:"replacements"`
 }
 ```
 ### Architecture
 The whole architecture is shown below. 
-<img src = "../img/yurtappconfigurationreplacement/Architecture.png" width="800">
+<img src = "../img/yurtappconfigurationreplacement/architecture.png" width="800">
 
 ### Implementation Details
 #### Deployment Mutating Webhook
@@ -148,28 +155,42 @@ Since YurtManager is deployed as a Deployment, the Deployment webhook and YurtMa
 
 Solutions:
 1. Change YurtManager deploying method, like static pod
-2. YurtManager is in charge of managing the webhook, we can modify the internal implementation of YurtManager
-3. Controller is responsible for both creating and updating  However, there will be a period of unavailability(wrong configuration information)
-4. FailurePolicy set to ignore(difficult to detect in the case of malfunction)
+2. Controller is responsible for both creating and updating. However, there will be a period of unavailability(wrong configuration information)
+3. Webhook's failurePolicy set to ignore(difficult to detect in the case of malfunction)
+4. YurtManager is in charge of managing the webhook, we can modify the internal implementation of YurtManager(Recommended)
 ##### Workflow of mutating webhook
 1. If the intercepted Deployment's ownerReferences field is empty, filter it directly
 2. Find the corresponding YurtAppConfigurationReplacement resource by ownerReferences, if not, filter directly
-3. Find the replacements involved, get the corresponding configuration, and inject them into workloads
+3. Find the replacements involved, get the corresponding configuration, and inject them into workloads. Note that injection is implemented by recalculating the final configuration according to the YurtAppSet workload template and the watching YurtAppConfigurationReplacement
 #### YurtAppConfigurationReplacement Validating Webhook
-1. Verify that only one field of replacement is selected
-2. verify that replicas and upgradeStrategy are selected only once
+1. Verify that only one field of item is selected
+2. Verify that replicas and upgradeStrategy are selected only once in a replacement
 #### YurtAppConfigurationReplacement Controller
 ##### Task 1
 1. Get update events by watching the YurtAppConfigurationReplacement resource
 2. Trigger the Deployment mutating webhook by modifying an annotation or label
 ##### Task 2
-1. Get delete events by watching the YurtAppConfigurationReplacement resource
+1. Get delete events(delete members of pools) by watching the YurtAppConfigurationReplacement resource
 2. Render the configuration according to the YurtAppSet workload template and the watching YurtAppConfigurationReplacement
+#### Extra features
+Here is a scenario. Ten nodepools only need to be configured differently for configMap, it is not user-friendly to write ten replacements by using current scheme. 
+We add a new function like wildcard to simplify the usage. We can name all the configMap as configMap-{{nodepool}} so that we can inject the configMap into nodepool in the suffix. 
+```yaml
+replacements:
+- pools:
+    *
+  items:
+  - configMap:
+      containerName: abc
+      configMapSource: source
+      configMapTarget: configMap-*
+```
+In this way, we only need to write one replacement. Secret and pvc are similar. Through this feature, it will be easier to customize multi-region configuration.
 ### User Stories
 #### Story 1
-Use YurtAppSet with YurtAppConfigurationReplacement for personalized configuration of each region. Create YurtAppConfigurationReplacement first and then create YurtAppSet. If update is needed, modify YurtAppConfigurationReplacement resource directly. 
+Use YurtAppSet with YurtAppConfigurationReplacement for customized configuration of each region. Create YurtAppConfigurationReplacement first and then create YurtAppSet. If update is needed, modify YurtAppConfigurationReplacement resource directly. 
 #### Story 2
-Use YurtAppDaemon with YurtAppConfigurationReplacement for personalized configuration of each region. The usage is similar as YurtAppSet. 
+Use YurtAppDaemon with YurtAppConfigurationReplacement for customized configuration of each region. The usage is similar as YurtAppSet. 
 ## Implementation History
 - [ ] : YurtAppConfigurationReplacement API CRD
 - [ ] : Deployment Mutating Webhook
