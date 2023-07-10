@@ -30,10 +30,12 @@ status:
 			- [YurtAppConfigurationReplacement Controller](#yurtappconfigurationreplacement-controller)
 				- [Task 1](#task-1)
 				- [Task 2](#task-2)
-			- [Extra features](#extra-features)
+			- [Advanced features](#advanced-features)
 		- [User Stories](#user-stories)
-			- [Story 1](#story-1)
-			- [Story 2](#story-2)
+			- [Story 1 (General)](#story-1-general)
+			- [Story 2 (Specific)](#story-2-specific)
+			- [Story 3 (Specific)](#story-3-specific)
+			- [Story 4 (Specific)](#story-4-specific)
 	- [Implementation History](#implementation-history)
 
 ## Glossary
@@ -86,33 +88,30 @@ type EnvItem struct {
 
 // PersistentVolumeClaimItem specifies the corresponding container and the claimed pvc
 type PersistentVolumeClaimItem struct {
-	// ContainerName represents name of the container 
-	// in which the PersistentVolumeClaim will be replaced
-	ContainerName string `json:"containerName"`
-	// PVCSource represents volume name
+	// PVCSource represents pvcClaim name.
 	PVCSource string `json:"pvcSource"`
-	// PVCTarget represents the PVC corresponding to the volume above
+	// PVCTarget represents the PVC corresponding to the volume above.
+	// PVCTarget supprot advanced features like wildcard. 
+	// By naming pvc as pvcName-{{nodepool}}, all pvc can be injected at once.
 	PVCTarget string `json:"pvcTarget"`
 }
 
 // ConfigMapItem specifies the corresponding containerName and the claimed configMap
 type ConfigMapItem struct {
-	// ContainerName represents name of the container 
-	// in which the ConfigMap will be replaced
-	ContainerName string `json:"containerName"`
-	// ConfigMapSource represents volume name
-	ConfigMapSource string `json:"configMapClaim"`
-	// ConfigMapTarget represents the ConfigMap corresponding to the volume above
+	// ConfigMapSource represents configMap name
+	ConfigMapSource string `json:"configMapSource"`
+	// ConfigMapTarget represents the ConfigMap corresponding to the volume above. 
+	// ConfigMapTarget supprot advanced features like wildcard. 
+	// By naming configMap as configMapName-{{nodepool}}, all configMap can be injected at once.
 	ConfigMapTarget string `json:"configMapTarget"`
 }
 
 type SecretItem struct {
-	// ContainerName represents name of the container 
-	// in which the Secret will be replaced
-	ContainerName string `json:"containerName"`
-	// SecretSource represents volume name.
-	SecretSource string `json:"secretClaim"`
+	// SecretSource represents secret name.
+	SecretSource string `json:"secretSource"`
 	// SecretTarget represents the Secret corresponding to the volume above.
+	// SecretTarget supprot advanced features like wildcard. 
+	// By naming secret as secretName-{{nodepool}}, all secret can be injected at once.
 	SecretTarget string `json:"secretTarget"`
 }
 
@@ -137,8 +136,9 @@ type Replacement struct {
 
 type Subject struct {
 	metav1.TypeMeta `json:",inline"`
-	// Name is the name of YurtAppSet or YurtAppDaemon
+	// NameSpace is the namespace of YurtAppSet or YurtAppDaemon
 	NameSpace string `json:"nameSpace"`
+	// Name is the name of YurtAppSet or YurtAppDaemon
 	Name      string `json:"name"`
 }
 
@@ -172,7 +172,11 @@ Solutions:
 ##### Workflow of mutating webhook
 1. If the intercepted Deployment's ownerReferences field is empty, filter it directly
 2. Find the corresponding YurtAppConfigurationReplacement resource by ownerReferences, if not, filter directly
-3. Find the replacements involved, get the corresponding configuration, and inject them into workloads. Note that injection is implemented by recalculating the final configuration according to the YurtAppSet workload template and the watching YurtAppConfigurationReplacement
+3. Find the replacements involved, get the corresponding configuration, and inject them into workloads. 
+
+Attention Points:
+1. Note that injection is implemented by recalculating the final configuration according to the YurtAppSet workload template and the watching YurtAppConfigurationReplacement
+2. The latter configuration always relpace the former. So the last configuration will really work
 #### YurtAppConfigurationReplacement Validating Webhook
 1. Verify that only one field of item is selected
 2. Verify that replicas and upgradeStrategy are selected only once in a replacement
@@ -183,25 +187,106 @@ Solutions:
 ##### Task 2
 1. Get delete events(delete members of pools) by watching the YurtAppConfigurationReplacement resource
 2. Render the configuration according to the YurtAppSet workload template and the watching YurtAppConfigurationReplacement
-#### Extra features
+#### Advanced features
 Here is a scenario. Ten nodepools only need to be configured differently for configMap, it is not user-friendly to write ten replacements by using current scheme. 
-We add a new function like wildcard to simplify the usage. We can name all the configMap as configMap-{{nodepool}} so that we can inject the configMap into nodepool in the suffix. 
+We add a new feature like wildcard to simplify the usage. We can name all the configMap as configMap-{{nodepool}} so that we can inject the configMap into nodepool in the suffix. 
 ```yaml
 replacements:
 - pools:
     *
   items:
   - configMap:
-      containerName: abc
-      configMapSource: source
-      configMapTarget: configMap-*
+      configMapSource: configMap-demo
+      configMapTarget: configMapName-{{nodepool}}
 ```
 In this way, we only need to write one replacement. Secret and pvc are similar. Through this feature, it will be easier to customize multi-region configuration.
 ### User Stories
-#### Story 1
-Use YurtAppSet with YurtAppConfigurationReplacement for customized configuration of each region. Create YurtAppConfigurationReplacement first and then create YurtAppSet. If update is needed, modify YurtAppConfigurationReplacement resource directly. 
-#### Story 2
-Use YurtAppDaemon with YurtAppConfigurationReplacement for customized configuration of each region. The usage is similar as YurtAppSet. 
+#### Story 1 (General)
+Use YurtAppSet with YurtAppConfigurationReplacement for customized configuration of each region. Create YurtAppConfigurationReplacement first and then create YurtAppSet. If update is needed, modify YurtAppConfigurationReplacement resource directly. For YurtAppDaemon, the usage is similar. 
+#### Story 2 (Specific)
+For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. We can configure it as follows:
+```yaml
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppConfigurationReplacement
+metadata:
+  name: demo1
+subject:
+  apiVersion: apps.openyurt.io/v1alpha1
+  kind: YurtAppSet
+  nameSpace: default
+  name: yurtappset-demo
+replacements:
+- pools:
+    beijing
+	hangzhou
+  items:
+  - image:
+      containerName: nginx
+	  imageClaim: nginx:1.14.2
+  - configMap:
+      configMapSource: configMap-demo1
+      configMapTarget: configMap-demo2
+  - replicas: 3
+- pools:
+    shanghai
+  items:
+  - image:
+      containerName: nginx
+	  imageClaim: nginx:1.13.2
+  - configMap:
+      configMapSource: configMap-demo1
+      configMapTarget: configMap-demo3
+  - replicas: 5
+```
+#### Story 3 (Specific)
+If all nodepools differ only in configMap, we can configure as follows:
+```yaml
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppConfigurationReplacement
+metadata:
+  name: demo1
+subject:
+  apiVersion: apps.openyurt.io/v1alpha1
+  kind: YurtAppSet
+  nameSpace: default
+  name: yurtappset-demo
+replacements:
+- pools:
+    *
+  items:
+  - configMap:
+      configMapSource: configMap-demo1
+      configMapTarget: prefixName-{{nodepool}}
+```
+#### Story 4 (Specific)
+Beijing and Hangzhou have most of the same configuration, only the replicas are different. We can configure their identical parts first. Because in our configuration resource, the later configuration will always replace the former. So we can add different configuration of beijing to the end. 
+```yaml
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppConfigurationReplacement
+metadata:
+  name: demo1
+subject:
+  apiVersion: apps.openyurt.io/v1alpha1
+  kind: YurtAppSet
+  nameSpace: default
+  name: yurtappset-demo
+replacements:
+- pools:
+    beijing
+	hangzhou
+  items:
+  - image:
+      containerName: nginx
+	  imageClaim: nginx:1.14.2
+  - configMap:
+      configMapSource: configMap-demo1
+      configMapTarget: configMap-demo2
+  - replicas: 3
+- pools:
+    beijing
+  items:
+  - replicas: 5
+```
 ## Implementation History
 - [ ] : YurtAppConfigurationReplacement API CRD
 - [ ] : Deployment Mutating Webhook
