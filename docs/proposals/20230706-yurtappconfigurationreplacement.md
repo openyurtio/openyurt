@@ -222,7 +222,7 @@ replacements:
   items:
   - image:
       containerName: nginx
-	  imageClaim: nginx:1.14.2
+      imageClaim: nginx:1.14.2
   - configMap:
       configMapSource: configMap-demo1
       configMapTarget: configMap-demo2
@@ -232,7 +232,7 @@ replacements:
   items:
   - image:
       containerName: nginx
-	  imageClaim: nginx:1.13.2
+      imageClaim: nginx:1.13.2
   - configMap:
       configMapSource: configMap-demo1
       configMapTarget: configMap-demo3
@@ -277,7 +277,7 @@ replacements:
   items:
   - image:
       containerName: nginx
-	  imageClaim: nginx:1.14.2
+      imageClaim: nginx:1.14.2
   - configMap:
       configMapSource: configMap-demo1
       configMapTarget: configMap-demo2
