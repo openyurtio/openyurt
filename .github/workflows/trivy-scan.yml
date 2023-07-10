@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [ yurthub,  node-servant, yurt-manager ]
+        target: [ yurthub,  node-servant, yurt-manager, yurt-iot-carrier ]
     steps:
       - uses: actions/checkout@v3
         with:
