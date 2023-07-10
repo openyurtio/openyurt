@@ -204,7 +204,7 @@ In this way, we only need to write one replacement. Secret and pvc are similar. 
 #### Story 1 (General)
 Use YurtAppSet with YurtAppConfigurationReplacement for customized configuration of each region. Create YurtAppConfigurationReplacement first and then create YurtAppSet. If update is needed, modify YurtAppConfigurationReplacement resource directly. For YurtAppDaemon, the usage is similar. 
 #### Story 2 (Specific)
-For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. We can configure it as follows:
+For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. They have different image version, replicas, and configMap. We can configure it as follows:
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigurationReplacement
