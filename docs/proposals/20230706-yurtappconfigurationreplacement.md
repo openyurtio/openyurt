@@ -59,7 +59,7 @@ Reference to the design of ClusterRole and ClusterRoleBinding.
 
 1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes. 
 2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of replacements. Each replacement replace a set of configuration for matching nodepools. 
-<img src = "../img/yurtappconfigurationreplacement/inspiration.png" width="600">
+<img src = "../img/yurtappconfigurationreplacement/Inspiration.png" width="600">
 
 ### YurtAppConfigurationReplacement API
 1. YurtAppConfigurationReplacement needs to be bound to YurtAppSet/YurtAppDaemon. 
@@ -157,7 +157,7 @@ type YurtAppConfigurationReplacement struct {
 ```
 ### Architecture
 The whole architecture is shown below. 
-<img src = "../img/yurtappconfigurationreplacement/architecture.png" width="800">
+<img src = "../img/yurtappconfigurationreplacement/Architecture.png" width="800">
 
 ### Implementation Details
 #### Deployment Mutating Webhook
