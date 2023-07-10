@@ -26,15 +26,15 @@ import (
 	"strings"
 	"time"
 
-	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-
 	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos"
 	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
 	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/publicsuffix"
 	"k8s.io/klog/v2"
+
+	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
 )
 
 type EdgexDeviceClient struct {

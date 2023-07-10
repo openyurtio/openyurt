@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DeviceProfileFinalizer = "v1alpha1.deviceProfile.finalizer"
+	DeviceProfileFinalizer = "iot.deviceProfile.finalizer"
 )
 
 type DeviceResource struct {
@@ -83,12 +83,14 @@ type DeviceProfileStatus struct {
 	Synced bool   `json:"synced,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=dp
-//+kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of deviceProfile"
-//+kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of deviceProfile"
-//+kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +genclient
+// +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=dp
+// +kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of deviceProfile"
+// +kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of deviceProfile"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // DeviceProfile represents the attributes and operational capabilities of a device.
 // It is a template for which there can be multiple matching devices within a given system.

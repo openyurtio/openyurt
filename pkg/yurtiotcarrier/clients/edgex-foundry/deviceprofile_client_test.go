@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-
 	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
 )
 
 const (

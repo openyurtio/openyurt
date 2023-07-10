@@ -22,20 +22,10 @@ import (
 )
 
 const (
-	DeviceServiceFinalizer = "v1alpha1.deviceService.finalizer"
-	// DeviceServiceSyncedCondition indicates that the deviceService exists in both OpenYurt and edge platform
-	DeviceServiceSyncedCondition DeviceServiceConditionType = "DeviceServiceSynced"
-	// DeviceServiceManagingCondition indicates that the deviceService is being managed by cloud and its field are being reconciled
-	DeviceServiceManagingCondition DeviceServiceConditionType = "DeviceServiceManaging"
-
-	DeviceServiceManagingReason = "This deviceService is not managed by openyurt"
-
-	DeviceServiceCreateSyncedReason = "Failed to add DeviceService to EdgeX"
-
-	DeviceServiceUpdateStatusSyncedReason = "Failed to update DeviceService status"
+	DeviceServiceFinalizer = "iot.deviceService.finalizer"
 )
 
-// DeviceServiceConditionType indicates valid conditions type of a Device.
+// DeviceServiceConditionType indicates valid conditions type of a Device Service.
 type DeviceServiceConditionType string
 
 // DeviceServiceSpec defines the desired state of DeviceService
@@ -90,13 +80,15 @@ type DeviceServiceCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=dsvc
-//+kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of deviceService"
-//+kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of deviceService"
-//+kubebuilder:printcolumn:name="MANAGED",type="boolean",priority=1,JSONPath=".spec.managed",description="The managed status of deviceService"
-//+kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +genclient
+// +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=dsvc
+// +kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of deviceService"
+// +kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of deviceService"
+// +kubebuilder:printcolumn:name="MANAGED",type="boolean",priority=1,JSONPath=".spec.managed",description="The managed status of deviceService"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // DeviceService is the Schema for the deviceservices API
 type DeviceService struct {

@@ -21,18 +21,16 @@ import (
 	"strings"
 	"time"
 
-	edgeCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-	efCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
-
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
-
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
-	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	edgeCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
+	efCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
 )
 
 type DeviceSyncer struct {

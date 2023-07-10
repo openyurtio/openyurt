@@ -25,6 +25,7 @@ readonly YURT_ALL_TARGETS=(
     yurt-node-servant
     yurthub
     yurt-manager
+    yurt-iot-carrier
 )
 
 # clean old binaries at GOOS and GOARCH

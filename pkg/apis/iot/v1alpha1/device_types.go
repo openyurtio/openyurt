@@ -22,19 +22,7 @@ import (
 )
 
 const (
-	DeviceFinalizer = "v1alpha1.device.finalizer"
-	// DeviceSyncedCondition indicates that the device exists in both OpenYurt and edge platform
-	DeviceSyncedCondition DeviceConditionType = "DeviceSynced"
-	// DeviceManagingCondition indicates that the device is being managed by cloud and its properties are being reconciled
-	DeviceManagingCondition DeviceConditionType = "DeviceManaging"
-
-	DeviceManagingReason = "This device is not managed by openyurt"
-
-	DeviceCreateSyncedReason = "Failed to create device on edge platform"
-
-	DeviceVistedCoreMetadataSyncedReason = "Failed to visit the EdgeX core-metadata-service"
-
-	DeviceUpdateStateReason = "Failed to update AdminState or OperatingState of device on edge platform"
+	DeviceFinalizer = "iot.device.finalizer"
 )
 
 // DeviceConditionType indicates valid conditions type of a Device.
@@ -142,13 +130,15 @@ type DeviceCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=dev
-//+kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of device"
-//+kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of device"
-//+kubebuilder:printcolumn:name="MANAGED",type="boolean",priority=1,JSONPath=".spec.managed",description="The managed status of device"
-//+kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +genclient
+// +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=dev
+// +kubebuilder:printcolumn:name="NODEPOOL",type="string",JSONPath=".spec.nodePool",description="The nodepool of device"
+// +kubebuilder:printcolumn:name="SYNCED",type="boolean",JSONPath=".status.synced",description="The synced status of device"
+// +kubebuilder:printcolumn:name="MANAGED",type="boolean",priority=1,JSONPath=".spec.managed",description="The managed status of device"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Device is the Schema for the devices API
 type Device struct {

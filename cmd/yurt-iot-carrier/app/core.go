@@ -21,27 +21,36 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers"
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+func init() {
+	_ = clientgoscheme.AddToScheme(scheme)
+
+	_ = apis.AddToScheme(clientgoscheme.Scheme)
+	_ = apis.AddToScheme(scheme)
+
+	// +kubebuilder:scaffold:scheme
+}
 
 func NewCmdYurtIotCarrier(stopCh <-chan struct{}) *cobra.Command {
 	yurtDeviceControllerOptions := options.NewYurtIotCarrierOptions()

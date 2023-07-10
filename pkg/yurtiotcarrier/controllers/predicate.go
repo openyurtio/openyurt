@@ -17,10 +17,11 @@ limitations under the License.
 package controllers
 
 import (
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
 )
 
 func genFirstUpdateFilter(objKind string) predicate.Predicate {

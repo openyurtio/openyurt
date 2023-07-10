@@ -19,9 +19,10 @@ package util
 import (
 	"testing"
 
-	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
+
+	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 )
 
 func TestGetNodePool(t *testing.T) {

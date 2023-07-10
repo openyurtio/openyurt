@@ -20,9 +20,9 @@ import (
 	"context"
 	"sync"
 
-	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 )
 
 const (

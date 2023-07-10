@@ -22,7 +22,7 @@ import (
 
 func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
 
-	version := "v1.3.0-6a8902b"
+	version := "v0.2"
 	ns := platformAdmin.Namespace
 
 	return version, ns, nil

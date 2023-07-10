@@ -21,21 +21,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
-	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
-	util "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
 	corev1 "k8s.io/api/core/v1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
+	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
+	util "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
 )
 
 // DeviceServiceReconciler reconciles a DeviceService object

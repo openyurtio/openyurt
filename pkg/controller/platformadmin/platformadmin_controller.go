@@ -258,6 +258,10 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 	desiredComponents = append(desiredComponents, additionalComponents...)
 
 	yurtIotCarrier, err := NewYurtIoTCarrierComponent(platformAdmin)
+	if err != nil {
+		klog.Errorf(Format("yurtIoTCarrierComponent error %v", err))
+		return reconcile.Result{}, err
+	}
 	desiredComponents = append(desiredComponents, yurtIotCarrier)
 	//TODO: handle PlatformAdmin.Spec.Components
 
@@ -389,6 +393,9 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 	desireComponents = append(desireComponents, additionalComponents...)
 
 	yurtIotCarrier, err := NewYurtIoTCarrierComponent(platformAdmin)
+	if err != nil {
+		return false, err
+	}
 	desireComponents = append(desireComponents, yurtIotCarrier)
 	//TODO: handle PlatformAdmin.Spec.Components
 
@@ -802,12 +809,9 @@ func NewYurtIoTCarrierComponent(platformAdmin *iotv1alpha2.PlatformAdmin) (*conf
 							map[string]interface{}{
 								"args": []interface{}{
 									"--health-probe-bind-address=:8081",
-									"--metrics-bind-address=127.0.0.1:80",
+									"--metrics-bind-address=127.0.0.1:8080",
 									"--leader-elect=false",
 								},
-								// "command": []interface{}{
-								// 	"./yurt-iot-carrier",
-								// },
 								"image":           fmt.Sprintf("leoabyss/yurt-iot-carrier:%s", ver),
 								"imagePullPolicy": "IfNotPresent",
 								"livenessProbe": map[string]interface{}{
