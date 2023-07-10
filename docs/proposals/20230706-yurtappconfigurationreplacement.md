@@ -115,8 +115,6 @@ type SecretItem struct {
 	SecretTarget string `json:"secretTarget"`
 }
 
-
-
 // Item represents configuration to be injected.
 // Only one of its members may be specified.
 type Item struct {
@@ -128,6 +126,7 @@ type Item struct {
 	Replicas              *int                       `json:"replicas"`
 	UpgradeStrategy       *string                    `json:"upgradeStrategy"`
 }
+
 // Replacement describe a set of nodepools and their shared or identical configurations
 type Replacement struct {
 	Pools []string `json:"pools"`
@@ -144,13 +143,10 @@ type Subject struct {
 
 type YurtAppConfigurationReplacement struct {
 	metav1.TypeMeta `json:",inline"`
-
 	// Standard object's metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
 	// Describe the object this replacement belongs
 	Subject Subject `json:"subject"`
-
 	// Describe detailed multi-region configuration of the subject above
 	Replacements []Replacement `json:"replacements"`
 }
