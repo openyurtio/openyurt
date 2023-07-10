@@ -259,7 +259,7 @@ replacements:
       configMapTarget: prefixName-{{nodepool}}
 ```
 #### Story 4 (Specific)
-Beijing and Hangzhou have most of the same configuration, only the replicas are different. We can configure their identical parts first. Because in our configuration resource, the later configuration will always replace the former. So we can add different configuration of beijing to the end. 
+Beijing and Hangzhou have most of the same configuration, only the replicas are different. We can configure their identical parts first. Because in our configuration resource, the latter configuration will always replace the former. So we can add different configuration of beijing to the end. 
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigurationReplacement
