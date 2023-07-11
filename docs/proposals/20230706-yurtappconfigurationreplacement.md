@@ -69,84 +69,84 @@ Considering that there are multiple Deployment/StatefulSet per nodepool, as show
 ```go
 // ImageItem specifies the corresponding container and the claimed image
 type ImageItem struct {
-	// ContainerName represents name of the container
-	// in which the Image will be replaced
-	ContainerName string `json:"containerName"`
-	// ImageClaim represents the claimed image name
-	// which is injected into the container above
-	ImageClaim string `json:"imageClaim"`
+    // ContainerName represents name of the container
+    // in which the Image will be replaced
+    ContainerName string `json:"containerName"`
+    // ImageClaim represents the claimed image name
+    // which is injected into the container above
+    ImageClaim string `json:"imageClaim"`
 }
 
 // EnvItem specifies the corresponding container and the claimed env
 type EnvItem struct {
-	// ContainerName represents name of the container
-	// in which the env will be replaced
-	ContainerName string `json:"containerName"`
-	// EnvClaim represents the detailed environment variables container contains
-	EnvClaim map[string]string `json:"envClaim"`
+    // ContainerName represents name of the container
+    // in which the env will be replaced
+    ContainerName string `json:"containerName"`
+    // EnvClaim represents the detailed environment variables container contains
+    EnvClaim map[string]string `json:"envClaim"`
 }
 
 // PersistentVolumeClaimItem specifies the corresponding container and the claimed pvc
 type PersistentVolumeClaimItem struct {
-	// PVCSource represents pvcClaim name.
-	PVCSource string `json:"pvcSource"`
-	// PVCTarget represents the PVC corresponding to the volume above.
-	// PVCTarget supprot advanced features like wildcard.
-	// By naming pvc as pvcName-{{nodepool}}, all pvc can be injected at once.
-	PVCTarget string `json:"pvcTarget"`
+    // PVCSource represents pvcClaim name.
+    PVCSource string `json:"pvcSource"`
+    // PVCTarget represents the PVC corresponding to the volume above.
+    // PVCTarget supprot advanced features like wildcard.
+    // By naming pvc as pvcName-{{nodepool}}, all pvc can be injected at once.
+    PVCTarget string `json:"pvcTarget"`
 }
 
 // ConfigMapItem specifies the corresponding containerName and the claimed configMap
 type ConfigMapItem struct {
-	// ConfigMapSource represents configMap name
-	ConfigMapSource string `json:"configMapSource"`
-	// ConfigMapTarget represents the ConfigMap corresponding to the volume above.
-	// ConfigMapTarget supprot advanced features like wildcard.
-	// By naming configMap as configMapName-{{nodepool}}, all configMap can be injected at once.
-	ConfigMapTarget string `json:"configMapTarget"`
+    // ConfigMapSource represents configMap name
+    ConfigMapSource string `json:"configMapSource"`
+    // ConfigMapTarget represents the ConfigMap corresponding to the volume above.
+    // ConfigMapTarget supprot advanced features like wildcard.
+    // By naming configMap as configMapName-{{nodepool}}, all configMap can be injected at once.
+    ConfigMapTarget string `json:"configMapTarget"`
 }
 
 type SecretItem struct {
-	// SecretSource represents secret name.
-	SecretSource string `json:"secretSource"`
-	// SecretTarget represents the Secret corresponding to the volume above.
-	// SecretTarget supprot advanced features like wildcard.
-	// By naming secret as secretName-{{nodepool}}, all secret can be injected at once.
-	SecretTarget string `json:"secretTarget"`
+    // SecretSource represents secret name.
+    SecretSource string `json:"secretSource"`
+    // SecretTarget represents the Secret corresponding to the volume above.
+    // SecretTarget supprot advanced features like wildcard.
+    // By naming secret as secretName-{{nodepool}}, all secret can be injected at once.
+    SecretTarget string `json:"secretTarget"`
 }
 
 // Item represents configuration to be injected.
 // Only one of its members may be specified.
 type Item struct {
-	Image                 *ImageItem                 `json:"image"`
-	ConfigMap             *ConfigMapItem             `json:"configMap"`
-	Secret                *SecretItem                `json:"secret"`
-	Env                   *EnvItem                   `json:"env"`
-	PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
-	Replicas              *int                       `json:"replicas"`
-	UpgradeStrategy       *string                    `json:"upgradeStrategy"`
+    Image                 *ImageItem                 `json:"image"`
+    ConfigMap             *ConfigMapItem             `json:"configMap"`
+    Secret                *SecretItem                `json:"secret"`
+    Env                   *EnvItem                   `json:"env"`
+    PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
+    Replicas              *int                       `json:"replicas"`
+    UpgradeStrategy       *string                    `json:"upgradeStrategy"`
 }
 
 // Replacement describe a set of nodepools and their shared or identical configurations
 type Replacement struct {
-	Pools []string `json:"pools"`
-	Items []Item   `json:"items"`
+    Pools []string `json:"pools"`
+    Items []Item   `json:"items"`
 }
 
 type Subject struct {
-	metav1.TypeMeta `json:",inline"`
-	// Name is the name of YurtAppSet or YurtAppDaemon
-	Name      string `json:"name"`
+    metav1.TypeMeta `json:",inline"`
+    // Name is the name of YurtAppSet or YurtAppDaemon
+    Name      string `json:"name"`
 }
 
 type YurtAppConfigurationReplacement struct {
     metav1.TypeMeta `json:",inline"`
     // Standard object's metadata
     metav1.ObjectMeta `json:"metadata,omitempty"`
-	// Describe the object this replacement belongs
-	Subject Subject `json:"subject"`
-	// Describe detailed multi-region configuration of the subject above
-	Replacements []Replacement `json:"replacements"`
+    // Describe the object this replacement belongs
+    Subject Subject `json:"subject"`
+    // Describe detailed multi-region configuration of the subject above
+    Replacements []Replacement `json:"replacements"`
 }
 ```
 ### Architecture
