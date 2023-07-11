@@ -781,90 +781,89 @@ func NewYurtIoTCarrierComponent(platformAdmin *iotv1alpha2.PlatformAdmin) (*conf
 	}
 	// YurtIoTCarrier doesn't need a service yet
 	yurtIoTCarrierConfig := map[string]interface{}{
-		"deploymentTemplate": map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"creationTimestamp": nil,
-				"labels": map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"creationTimestamp": nil,
+			"labels": map[string]interface{}{
+				"app": "yurt-iot-carrier",
+			},
+			"namespace": ns,
+		},
+		"spec": map[string]interface{}{
+			"selector": map[string]interface{}{
+				"matchLabels": map[string]interface{}{
 					"app": "yurt-iot-carrier",
 				},
-				"Namespace": ns,
 			},
-			"spec": map[string]interface{}{
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"app": "yurt-iot-carrier",
+			"strategy": map[string]interface{}{},
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"creationTimestamp": nil,
+					"labels": map[string]interface{}{
+						"app":           "yurt-iot-carrier",
+						"control-plane": "edgex-controller-manager",
 					},
 				},
-				"strategy": map[string]interface{}{},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"creationTimestamp": nil,
-						"labels": map[string]interface{}{
-							"app":           "yurt-iot-carrier",
-							"control-plane": "edgex-controller-manager",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"args": []interface{}{
-									"--health-probe-bind-address=:8081",
-									"--metrics-bind-address=127.0.0.1:8080",
-									"--leader-elect=false",
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"args": []interface{}{
+								"--health-probe-bind-address=:8081",
+								"--metrics-bind-address=127.0.0.1:8080",
+								"--leader-elect=false",
+								fmt.Sprintf("--namespace=%s", ns),
+							},
+							"image":           fmt.Sprintf("leoabyss/yurt-iot-carrier:%s", ver),
+							"imagePullPolicy": "IfNotPresent",
+							"livenessProbe": map[string]interface{}{
+								"failureThreshold": 3,
+								"httpGet": map[string]interface{}{
+									"path":   "/healthz",
+									"port":   8081,
+									"scheme": "HTTP",
 								},
-								"image":           fmt.Sprintf("leoabyss/yurt-iot-carrier:%s", ver),
-								"imagePullPolicy": "IfNotPresent",
-								"livenessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path":   "/healthz",
-										"port":   8081,
-										"scheme": "HTTP",
-									},
-									"initialDelaySeconds": 15,
-									"periodSeconds":       20,
-									"successThreshold":    1,
-									"timeoutSeconds":      1,
+								"initialDelaySeconds": 15,
+								"periodSeconds":       20,
+								"successThreshold":    1,
+								"timeoutSeconds":      1,
+							},
+							"name": "yurt-iot-carrier",
+							"readinessProbe": map[string]interface{}{
+								"failureThreshold": 3,
+								"httpGet": map[string]interface{}{
+									"path":   "/readyz",
+									"port":   8081,
+									"scheme": "HTTP",
 								},
-								"name": "yurt-iot-carrier",
-								"readinessProbe": map[string]interface{}{
-									"failureThreshold": 3,
-									"httpGet": map[string]interface{}{
-										"path":   "/readyz",
-										"port":   8081,
-										"scheme": "HTTP",
-									},
-									"initialDelaySeconds": 5,
-									"periodSeconds":       10,
-									"successThreshold":    1,
-									"timeoutSeconds":      1,
+								"initialDelaySeconds": 5,
+								"periodSeconds":       10,
+								"successThreshold":    1,
+								"timeoutSeconds":      1,
+							},
+							"resources": map[string]interface{}{
+								"limits": map[string]interface{}{
+									"cpu":    "100m",
+									"memory": "512Mi",
 								},
-								"resources": map[string]interface{}{
-									"limits": map[string]interface{}{
-										"cpu":    "100m",
-										"memory": "512Mi",
-									},
-									"requests": map[string]interface{}{
-										"cpu":    "100m",
-										"memory": "512Mi",
-									},
-								},
-								"securityContext": map[string]interface{}{
-									"allowPrivilegeEscalation": false,
+								"requests": map[string]interface{}{
+									"cpu":    "100m",
+									"memory": "512Mi",
 								},
 							},
+							"securityContext": map[string]interface{}{
+								"allowPrivilegeEscalation": false,
+							},
 						},
-						"dnsPolicy":     "ClusterFirst",
-						"restartPolicy": "Always",
-						"securityContext": map[string]interface{}{
-							"runAsUser": 65532,
-						},
+					},
+					"dnsPolicy":     "ClusterFirst",
+					"restartPolicy": "Always",
+					"securityContext": map[string]interface{}{
+						"runAsUser": 65532,
 					},
 				},
 			},
 		},
 	}
-	yurtIoTCarrierConfigBytes, err := json.Marshal(yurtIoTCarrierConfig["deploymentTemplate"])
+	yurtIoTCarrierConfigBytes, err := json.Marshal(yurtIoTCarrierConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -874,7 +873,7 @@ func NewYurtIoTCarrierComponent(platformAdmin *iotv1alpha2.PlatformAdmin) (*conf
 		return nil, err
 	}
 
-	yurtIotCarrierComponent.Name = "yurt-iot-carrier"
+	yurtIotCarrierComponent.Name = util.IotCtrlName
 	yurtIotCarrierComponent.Deployment = &yurtIoTCarrierDeployment.Spec
 	yurtIotCarrierComponent.Service = nil
 

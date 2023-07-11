@@ -43,9 +43,9 @@ type DeviceProfileReconciler struct {
 	NodePool   string
 }
 
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=deviceprofiles,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=deviceprofiles/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=deviceprofiles/finalizers,verbs=update
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=deviceprofiles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=deviceprofiles/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=deviceprofiles/finalizers,verbs=update
 
 // Reconcile make changes to a deviceprofile object in EdgeX based on it in Kubernetes
 func (r *DeviceProfileReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

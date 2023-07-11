@@ -46,9 +46,9 @@ type DeviceReconciler struct {
 	NodePool string
 }
 
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=devices,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=devices/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=device.openyurt.io,resources=devices/finalizers,verbs=update
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=devices,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=devices/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=iot.openyurt.io,resources=devices/finalizers,verbs=update
 
 func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var d iotv1alpha1.Device

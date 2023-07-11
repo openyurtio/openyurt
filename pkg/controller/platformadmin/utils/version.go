@@ -20,6 +20,8 @@ import (
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 )
 
+const IotCtrlName = "yurt-iot-carrier"
+
 func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
 
 	version := "v0.2"

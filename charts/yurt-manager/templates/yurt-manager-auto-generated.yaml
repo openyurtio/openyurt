@@ -374,7 +374,16 @@ rules:
   - list
   - watch
 - apiGroups:
-  - device.openyurt.io
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - iot.openyurt.io
   resources:
   - deviceprofiles
   verbs:
@@ -386,13 +395,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - deviceprofiles/finalizers
   verbs:
   - update
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - deviceprofiles/status
   verbs:
@@ -400,7 +409,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - devices
   verbs:
@@ -412,13 +421,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - devices/finalizers
   verbs:
   - update
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - devices/status
   verbs:
@@ -426,7 +435,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - deviceservices
   verbs:
@@ -438,28 +447,19 @@ rules:
   - update
   - watch
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - deviceservices/finalizers
   verbs:
   - update
 - apiGroups:
-  - device.openyurt.io
+  - iot.openyurt.io
   resources:
   - deviceservices/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
 - apiGroups:
   - iot.openyurt.io
   resources:
