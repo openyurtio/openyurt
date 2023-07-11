@@ -82,7 +82,7 @@ type EnvItem struct {
 	// ContainerName represents name of the container 
 	// in which the env will be replaced
 	ContainerName string `json:"containerName"`
-	// EnvClaim represents the detailed enviroment variables container contains
+	// EnvClaim represents the detailed environment variables container contains
 	EnvClaim map[string]string `json:"envClaim"`
 }
 
