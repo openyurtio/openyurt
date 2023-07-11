@@ -192,6 +192,7 @@ EOF
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappdaemons.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappdaemons.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappsets.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappsets.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_gateways.raven.openyurt.io.yaml ${crd_dir}/raven.openyurt.io_gateways.yaml
+   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_platformadmins.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_platformadmins.yaml
 
     # rbac dir
     local rbac_kustomization_resources=""
