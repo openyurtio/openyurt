@@ -12,31 +12,31 @@ status:
 
 # Proposal for Multi-region workloads configuration rendering engine
 - [Proposal for Multi-region workloads configuration rendering engine](#proposal-for-multi-region-workloads-configuration-rendering-engine)
-	- [Glossary](#glossary)
-		- [YurtAppConfigurationReplacement](#yurtappconfigurationreplacement)
-	- [Summary](#summary)
-	- [Motivation](#motivation)
-		- [Goals](#goals)
-		- [Non-Goals/Future Work](#non-goalsfuture-work)
-	- [Proposal](#proposal)
-		- [Inspiration](#inspiration)
-		- [YurtAppConfigurationReplacement API](#yurtappconfigurationreplacement-api)
-		- [Architecture](#architecture)
-		- [Implementation Details](#implementation-details)
-			- [Deployment Mutating Webhook](#deployment-mutating-webhook)
-				- [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
-				- [Workflow of mutating webhook](#workflow-of-mutating-webhook)
-			- [YurtAppConfigurationReplacement Validating Webhook](#yurtappconfigurationreplacement-validating-webhook)
-			- [YurtAppConfigurationReplacement Controller](#yurtappconfigurationreplacement-controller)
-				- [Task 1](#task-1)
-				- [Task 2](#task-2)
-			- [Advanced features](#advanced-features)
-		- [User Stories](#user-stories)
-			- [Story 1 (General)](#story-1-general)
-			- [Story 2 (Specific)](#story-2-specific)
-			- [Story 3 (Specific)](#story-3-specific)
-			- [Story 4 (Specific)](#story-4-specific)
-	- [Implementation History](#implementation-history)
+  - [Glossary](#glossary)
+    - [YurtAppConfigurationReplacement](#yurtappconfigurationreplacement)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+    - [Non-Goals/Future Work](#non-goalsfuture-work)
+  - [Proposal](#proposal)
+    - [Inspiration](#inspiration)
+    - [YurtAppConfigurationReplacement API](#yurtappconfigurationreplacement-api)
+    - [Architecture](#architecture)
+    - [Implementation Details](#implementation-details)
+      - [Deployment Mutating Webhook](#deployment-mutating-webhook)
+        - [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
+        - [Workflow of mutating webhook](#workflow-of-mutating-webhook)
+      - [YurtAppConfigurationReplacement Validating Webhook](#yurtappconfigurationreplacement-validating-webhook)
+      - [YurtAppConfigurationReplacement Controller](#yurtappconfigurationreplacement-controller)
+        - [Task 1](#task-1)
+        - [Task 2](#task-2)
+      - [Advanced features](#advanced-features)
+    - [User Stories](#user-stories)
+      - [Story 1 (General)](#story-1-general)
+      - [Story 2 (Specific)](#story-2-specific)
+      - [Story 3 (Specific)](#story-3-specific)
+      - [Story 4 (Specific)](#story-4-specific)
+  - [Implementation History](#implementation-history)
 
 ## Glossary
 ### YurtAppConfigurationReplacement
@@ -69,17 +69,17 @@ Considering that there are multiple Deployment/StatefulSet per nodepool, as show
 ```go
 // ImageItem specifies the corresponding container and the claimed image
 type ImageItem struct {
-	// ContainerName represents name of the container 
+	// ContainerName represents name of the container
 	// in which the Image will be replaced
 	ContainerName string `json:"containerName"`
-	// ImageClaim represents the claimed image name 
+	// ImageClaim represents the claimed image name
 	// which is injected into the container above
 	ImageClaim string `json:"imageClaim"`
 }
 
 // EnvItem specifies the corresponding container and the claimed env
 type EnvItem struct {
-	// ContainerName represents name of the container 
+	// ContainerName represents name of the container
 	// in which the env will be replaced
 	ContainerName string `json:"containerName"`
 	// EnvClaim represents the detailed environment variables container contains
@@ -140,9 +140,9 @@ type Subject struct {
 }
 
 type YurtAppConfigurationReplacement struct {
-	metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+    metav1.TypeMeta `json:",inline"`
+    // Standard object's metadata
+    metav1.ObjectMeta `json:"metadata,omitempty"`
 	// Describe the object this replacement belongs
 	Subject Subject `json:"subject"`
 	// Describe detailed multi-region configuration of the subject above
