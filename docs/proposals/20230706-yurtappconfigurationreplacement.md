@@ -136,7 +136,7 @@ type Replacement struct {
 type Subject struct {
 	metav1.TypeMeta `json:",inline"`
 	// NameSpace is the namespace of YurtAppSet or YurtAppDaemon
-	NameSpace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 	// Name is the name of YurtAppSet or YurtAppDaemon
 	Name      string `json:"name"`
 }
