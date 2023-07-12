@@ -43,7 +43,6 @@ require (
 	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	sigs.k8s.io/apiserver-network-proxy v0.0.15
 	sigs.k8s.io/controller-runtime v0.10.3
-	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -158,6 +157,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.22 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
