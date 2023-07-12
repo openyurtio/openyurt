@@ -346,12 +346,12 @@ func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platfor
 	needConfigMaps := make(map[string]struct{})
 	configmaps = platformAdminFramework.ConfigMaps
 
-	for _, configmap := range configmaps {
+	for i, configmap := range configmaps {
 		configmap.Namespace = platformAdmin.Namespace
+		configmap.Labels = make(map[string]string)
+		configmap.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelConfigmap
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, &configmap, func() error {
-			// Supplement runtime information
-			configmap.Labels = make(map[string]string)
-			configmap.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelConfigmap
+			configmap.Data = platformAdminFramework.ConfigMaps[i].Data
 			return controllerutil.SetOwnerReference(platformAdmin, &configmap, (r.Scheme()))
 		})
 		if err != nil {
@@ -393,7 +393,6 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 		platformAdminStatus.UnreadyComponentNum = int32(len(desireComponents)) - readyComponent
 	}()
 
-NextC:
 	for _, desireComponent := range desireComponents {
 		readyService := false
 		readyDeployment := false
@@ -404,7 +403,13 @@ NextC:
 		}
 		readyService = true
 
-		yas := &appsv1alpha1.YurtAppSet{}
+		yas := &appsv1alpha1.YurtAppSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      desireComponent.Name,
+				Namespace: platformAdmin.Namespace,
+			},
+		}
+
 		err := r.Get(
 			ctx,
 			types.NamespacedName{
@@ -422,6 +427,9 @@ NextC:
 		} else {
 			oldYas := yas.DeepCopy()
 
+			// Refresh the YurtAppSet according to the user-defined configuration
+			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desireComponent.Deployment
+
 			if _, ok := yas.Status.PoolReplicas[platformAdmin.Spec.PoolName]; ok {
 				if yas.Status.ReadyReplicas == yas.Status.Replicas {
 					readyDeployment = true
@@ -429,7 +437,6 @@ NextC:
 						readyComponent++
 					}
 				}
-				continue NextC
 			}
 			pool := appsv1alpha1.Pool{
 				Name:     platformAdmin.Spec.PoolName,
@@ -500,19 +507,18 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 			Namespace:   platformAdmin.Namespace,
 		},
 	}
+	service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
+	service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
 
 	_, err := controllerutil.CreateOrUpdate(
 		ctx,
 		r.Client,
 		service,
 		func() error {
-			service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
-			service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
 			service.Spec = *component.Service
 			return controllerutil.SetOwnerReference(platformAdmin, service, r.Scheme())
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -741,6 +747,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	cm.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelFramework
 	cm.Data = make(map[string]string)
 	cm.Data["framework"] = string(data)
+	// Creates configmap on behalf of the framework, which is called only once upon creation
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
 		// We need to control the deletion time of the framework,
 		// because we must ensure that its data is read before deleting it.
