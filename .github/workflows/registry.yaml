@@ -1,4 +1,4 @@
-name: Release
+name: Release Images
 
 on:
   push:
@@ -15,7 +15,7 @@ env:
 jobs:
   docker-push:
     if: github.repository == 'openyurtio/openyurt'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -41,7 +41,7 @@ jobs:
         run: make docker-push TARGET_PLATFORMS=linux/amd64,linux/arm64,linux/arm/v7 IMAGE_TAG=${{ steps.get_version.outputs.VERSION }}
   docker-push-ali-registry:
     if: github.repository == 'openyurtio/openyurt'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
