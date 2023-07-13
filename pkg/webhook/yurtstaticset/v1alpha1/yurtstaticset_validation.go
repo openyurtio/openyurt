@@ -31,6 +31,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
+const (
+	YurtStaticSetKind = "YurtStaticSet"
+)
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtStaticSetHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	sp, ok := obj.(*v1alpha1.YurtStaticSet)
@@ -74,7 +78,7 @@ func validate(obj *v1alpha1.YurtStaticSet) error {
 	if err := k8s_api_v1.Convert_v1_PodTemplateSpec_To_core_PodTemplateSpec(&obj.Spec.Template, outPodTemplateSpec, nil); err != nil {
 		allErrs = append(allErrs, field.Required(field.NewPath("template"),
 			"template filed should be corev1.PodTemplateSpec type"))
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtStaticSet").GroupKind(), obj.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtStaticSetKind).GroupKind(), obj.Name, allErrs)
 	}
 
 	if e := k8s_validation.ValidatePodTemplateSpec(outPodTemplateSpec, field.NewPath("template"),
@@ -87,7 +91,7 @@ func validate(obj *v1alpha1.YurtStaticSet) error {
 	}
 
 	if len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtStaticSet").GroupKind(), obj.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtStaticSetKind).GroupKind(), obj.Name, allErrs)
 	}
 
 	klog.Infof("Validate YurtStaticSet %s successfully ...", klog.KObj(obj))
