@@ -70,8 +70,6 @@ type Controller struct {
 }
 
 func New(handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller, error) {
-	webhookutil.SetNamespace(cc.ComponentConfig.Generic.WorkingNamespace)
-
 	c := &Controller{
 		kubeClient:  extclient.GetGenericClientWithName("webhook-controller").KubeClient,
 		handlers:    handlers,

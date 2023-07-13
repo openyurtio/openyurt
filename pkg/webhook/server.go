@@ -34,6 +34,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
+	v1node "github.com/openyurtio/openyurt/pkg/webhook/node/v1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha1"
@@ -82,6 +83,7 @@ func init() {
 	addControllerWebhook(platformadmin.ControllerName, &v1alpha2platformadmin.PlatformAdminHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
+	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}
 }
 
 // Note !!! @kadisi
@@ -107,6 +109,9 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 
 		return nil
 	}
+
+	// set up webhook namespace
+	util.SetNamespace(c.ComponentConfig.Generic.WorkingNamespace)
 
 	// set up independent webhooks
 	for name, s := range independentWebhooks {
