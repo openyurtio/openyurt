@@ -26,6 +26,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
+const YurtAppSetKind = "YurtAppSet"
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	appset, ok := obj.(*v1alpha1.YurtAppSet)
@@ -34,7 +36,7 @@ func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtim
 	}
 
 	if allErrs := validateYurtAppSet(webhook.Client, appset); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppSet").GroupKind(), appset.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), appset.Name, allErrs)
 	}
 
 	return nil
@@ -55,7 +57,7 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 	updateErrorList := ValidateYurtAppSetUpdate(newAppSet, oldAppSet)
 
 	if allErrs := append(validationErrorList, updateErrorList...); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppSet").GroupKind(), newAppSet.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), newAppSet.Name, allErrs)
 	}
 
 	return nil
