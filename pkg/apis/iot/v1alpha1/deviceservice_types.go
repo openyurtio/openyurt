@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	DeviceServiceFinalizer = "iot.deviceService.finalizer"
+	DeviceServiceFinalizer = "iot.openyurt.io/deviceservice"
 )
 
 // DeviceServiceConditionType indicates valid conditions type of a Device Service.

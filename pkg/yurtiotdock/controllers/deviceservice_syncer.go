@@ -25,11 +25,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	iotcli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
+	iotcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
+	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
 type DeviceServiceSyncer struct {
@@ -42,7 +42,7 @@ type DeviceServiceSyncer struct {
 	Namespace        string
 }
 
-func NewDeviceServiceSyncer(client client.Client, opts *options.YurtIotCarrierOptions) (DeviceServiceSyncer, error) {
+func NewDeviceServiceSyncer(client client.Client, opts *options.YurtIoTDockOptions) (DeviceServiceSyncer, error) {
 	return DeviceServiceSyncer{
 		syncPeriod:       time.Duration(opts.EdgeSyncPeriod) * time.Second,
 		deviceServiceCli: edgexCli.NewEdgexDeviceServiceClient(opts.CoreMetadataAddr),

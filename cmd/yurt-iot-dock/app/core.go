@@ -32,10 +32,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
 var (
@@ -52,28 +52,28 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func NewCmdYurtIotCarrier(stopCh <-chan struct{}) *cobra.Command {
-	yurtDeviceControllerOptions := options.NewYurtIotCarrierOptions()
+func NewCmdYurtIoTDock(stopCh <-chan struct{}) *cobra.Command {
+	yurtIoTDockOptions := options.NewYurtIoTDockOptions()
 	cmd := &cobra.Command{
-		Use:   "yurt-iot-carrier",
-		Short: "Launch yurt-iot-carrier",
-		Long:  "Launch yurt-iot-carrier",
+		Use:   "yurt-iot-dock",
+		Short: "Launch yurt-iot-dock",
+		Long:  "Launch yurt-iot-dock",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
-			if err := options.ValidateOptions(yurtDeviceControllerOptions); err != nil {
+			if err := options.ValidateOptions(yurtIoTDockOptions); err != nil {
 				klog.Fatalf("validate options: %v", err)
 			}
-			Run(yurtDeviceControllerOptions, stopCh)
+			Run(yurtIoTDockOptions, stopCh)
 		},
 	}
 
-	yurtDeviceControllerOptions.AddFlags(cmd.Flags())
+	yurtIoTDockOptions.AddFlags(cmd.Flags())
 	return cmd
 }
 
-func Run(opts *options.YurtIotCarrierOptions, stopCh <-chan struct{}) {
+func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	ctrl.SetLogger(klogr.New())
 	cfg := ctrl.GetConfigOrDie()
 
@@ -82,7 +82,7 @@ func Run(opts *options.YurtIotCarrierOptions, stopCh <-chan struct{}) {
 		MetricsBindAddress:     opts.MetricsAddr,
 		HealthProbeBindAddress: opts.ProbeAddr,
 		LeaderElection:         opts.EnableLeaderElection,
-		LeaderElectionID:       "yurt-iot-carrier",
+		LeaderElectionID:       "yurt-iot-dock",
 		Namespace:              opts.Namespace,
 	})
 	if err != nil {
@@ -104,11 +104,11 @@ func Run(opts *options.YurtIotCarrierOptions, stopCh <-chan struct{}) {
 		os.Exit(1)
 	}
 
-	// get nodepool where device-controller run
+	// get nodepool where yurt-iot-dock run
 	if opts.Nodepool == "" {
 		opts.Nodepool, err = util.GetNodePool(mgr.GetConfig())
 		if err != nil {
-			setupLog.Error(err, "failed to get the nodepool where device-controller run")
+			setupLog.Error(err, "failed to get the nodepool where yurt-iot-dock run")
 			os.Exit(1)
 		}
 	}
@@ -187,7 +187,7 @@ func Run(opts *options.YurtIotCarrierOptions, stopCh <-chan struct{}) {
 	}
 }
 
-func preflightCheck(mgr ctrl.Manager, opts *options.YurtIotCarrierOptions) error {
+func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	client, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
 		return err

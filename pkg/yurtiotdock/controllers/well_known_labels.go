@@ -17,5 +17,5 @@ limitations under the License.
 package controllers
 
 const (
-	EdgeXObjectName = "device-controller/edgex-object.name"
+	EdgeXObjectName = "yurt-iot-dock/edgex-object.name"
 )

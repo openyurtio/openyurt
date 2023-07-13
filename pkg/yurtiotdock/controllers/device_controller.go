@@ -30,11 +30,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
-	util "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
+	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	util "github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
 // DeviceReconciler reconciles a Device object
@@ -107,7 +107,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIotCarrierOptions) error {
+func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	r.deviceCli = edgexCli.NewEdgexDeviceClient(opts.CoreMetadataAddr, opts.CoreCommandAddr)
 	r.NodePool = opts.Nodepool
 

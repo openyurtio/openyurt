@@ -56,7 +56,7 @@ readonly REQUIRED_IMAGES=(
     openyurt/node-servant
     openyurt/yurt-manager
     openyurt/yurthub
-    openyurt/yurt-iot-carrier
+    openyurt/yurt-iot-dock
 )
 
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)

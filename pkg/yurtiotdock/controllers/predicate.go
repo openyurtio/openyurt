@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
+	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 )
 
 func genFirstUpdateFilter(objKind string) predicate.Predicate {

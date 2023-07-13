@@ -27,7 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app"
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	klog.InitFlags(nil)
 	defer klog.Flush()
 
-	cmd := app.NewCmdYurtIotCarrier(wait.NeverStop)
+	cmd := app.NewCmdYurtIoTDock(wait.NeverStop)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {
 		panic(err)

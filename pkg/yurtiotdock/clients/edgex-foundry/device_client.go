@@ -34,7 +34,7 @@ import (
 	"k8s.io/klog/v2"
 
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 )
 
 type EdgexDeviceClient struct {

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DeviceProfileFinalizer = "iot.deviceProfile.finalizer"
+	DeviceProfileFinalizer = "iot.openyurt.io/deviceprofile"
 )
 
 type DeviceResource struct {

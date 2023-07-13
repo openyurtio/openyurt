@@ -34,7 +34,7 @@ const (
 	PODNAMESPACE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
 
-// GetNodePool get nodepool where device-controller run
+// GetNodePool get nodepool where yurt-iot-dock run
 func GetNodePool(cfg *rest.Config) (string, error) {
 	var nodePool string
 	client, err := kubernetes.NewForConfig(cfg)

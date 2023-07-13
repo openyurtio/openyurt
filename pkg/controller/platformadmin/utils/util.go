@@ -17,10 +17,17 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
 )
 
 // NewPlatformAdminCondition creates a new PlatformAdmin condition.
@@ -69,4 +76,82 @@ func filterOutCondition(conditions []iotv1alpha2.PlatformAdminCondition, condTyp
 		newConditions = append(newConditions, c)
 	}
 	return newConditions
+}
+
+func NewYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin) (*config.Component, error) {
+	var yurtIotDockComponent config.Component
+
+	ver, ns, err := defaultVersion(platformAdmin)
+	if err != nil {
+		return nil, err
+	}
+
+	yurtIotDockComponent.Name = IotDockName
+	yurtIotDockComponent.Deployment = &appsv1.DeploymentSpec{
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"app":           "yurt-iot-dock",
+					"control-plane": "edgex-controller-manager",
+				},
+				Namespace: ns,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            "yurt-iot-dock",
+						Image:           fmt.Sprintf("leoabyss/yurt-iot-dock:%s", ver),
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Args: []string{
+							"--health-probe-bind-address=:8081",
+							"--metrics-bind-address=127.0.0.1:8080",
+							"--leader-elect=false",
+							fmt.Sprintf("--namespace=%s", ns),
+						},
+						LivenessProbe: &corev1.Probe{
+							InitialDelaySeconds: 15,
+							PeriodSeconds:       20,
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/healthz",
+									Port: intstr.FromInt(8081),
+								},
+							},
+						},
+						ReadinessProbe: &corev1.Probe{
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       10,
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/readyz",
+									Port: intstr.FromInt(8081),
+								},
+							},
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("512m"),
+								corev1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("1024m"),
+								corev1.ResourceMemory: resource.MustParse("512Mi"),
+							},
+						},
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: pointer.Bool(false),
+						},
+					},
+				},
+				TerminationGracePeriodSeconds: pointer.Int64(10),
+				SecurityContext: &corev1.PodSecurityContext{
+					RunAsUser: pointer.Int64(65532),
+				},
+			},
+		},
+	}
+	// YurtIoTDock doesn't need a service yet
+	yurtIotDockComponent.Service = nil
+
+	return &yurtIotDockComponent, nil
 }

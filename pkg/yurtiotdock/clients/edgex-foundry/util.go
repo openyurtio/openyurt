@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	EdgeXObjectName     = "device-controller/edgex-object.name"
+	EdgeXObjectName     = "yurt-iot-dock/edgex-object.name"
 	DeviceServicePath   = "/api/v2/deviceservice"
 	DeviceProfilePath   = "/api/v2/deviceprofile"
 	DevicePath          = "/api/v2/device"

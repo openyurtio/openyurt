@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	DeviceFinalizer = "iot.device.finalizer"
+	DeviceFinalizer = "iot.openyurt.io/device"
 )
 
 // DeviceConditionType indicates valid conditions type of a Device.

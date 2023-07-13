@@ -23,8 +23,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// YurtIotCarrierOptions is the main settings for the yurt-iot-carrier
-type YurtIotCarrierOptions struct {
+// YurtIoTDockOptions is the main settings for the yurt-iot-dock
+type YurtIoTDockOptions struct {
 	MetricsAddr          string
 	ProbeAddr            string
 	EnableLeaderElection bool
@@ -36,8 +36,8 @@ type YurtIotCarrierOptions struct {
 	EdgeSyncPeriod       uint
 }
 
-func NewYurtIotCarrierOptions() *YurtIotCarrierOptions {
-	return &YurtIotCarrierOptions{
+func NewYurtIoTDockOptions() *YurtIoTDockOptions {
+	return &YurtIoTDockOptions{
 		MetricsAddr:          ":8080",
 		ProbeAddr:            ":8080",
 		EnableLeaderElection: false,
@@ -50,14 +50,14 @@ func NewYurtIotCarrierOptions() *YurtIotCarrierOptions {
 	}
 }
 
-func ValidateOptions(options *YurtIotCarrierOptions) error {
+func ValidateOptions(options *YurtIoTDockOptions) error {
 	if err := ValidateEdgePlatformAddress(options); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (o *YurtIotCarrierOptions) AddFlags(fs *pflag.FlagSet) {
+func (o *YurtIoTDockOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.MetricsAddr, "metrics-bind-address", o.MetricsAddr, "The address the metric endpoint binds to.")
 	fs.StringVar(&o.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&o.EnableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+"Enabling this will ensure there is only one active controller manager.")
@@ -69,7 +69,7 @@ func (o *YurtIotCarrierOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.UintVar(&o.EdgeSyncPeriod, "edge-sync-period", 5, "The period of the device management platform synchronizing the device status to the cloud.(in seconds,not less than 5 seconds)")
 }
 
-func ValidateEdgePlatformAddress(options *YurtIotCarrierOptions) error {
+func ValidateEdgePlatformAddress(options *YurtIoTDockOptions) error {
 	addrs := []string{options.CoreDataAddr, options.CoreMetadataAddr, options.CoreCommandAddr}
 	for _, addr := range addrs {
 		if addr != "" {

@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	devcli "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
+	devcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 )
 
 type EdgexDeviceProfile struct {

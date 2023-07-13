@@ -28,11 +28,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/cmd/yurt-iot-carrier/app/options"
+	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients"
-	edgexclis "github.com/openyurtio/openyurt/pkg/yurtiotcarrier/clients/edgex-foundry"
-	"github.com/openyurtio/openyurt/pkg/yurtiotcarrier/controllers/util"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
+	edgexclis "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
 // DeviceProfileReconciler reconciles a DeviceProfile object
@@ -85,7 +85,7 @@ func (r *DeviceProfileReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIotCarrierOptions) error {
+func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	r.edgeClient = edgexclis.NewEdgexDeviceProfile(opts.CoreMetadataAddr)
 	r.NodePool = opts.Nodepool
 

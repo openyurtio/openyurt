@@ -20,11 +20,11 @@ import (
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 )
 
-const IotCtrlName = "yurt-iot-carrier"
+const IotDockName = "yurt-iot-dock"
 
-func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
+func defaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
 
-	version := "v0.2"
+	version := "v0.3"
 	ns := platformAdmin.Namespace
 
 	return version, ns, nil
