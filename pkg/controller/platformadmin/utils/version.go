@@ -22,10 +22,8 @@ import (
 
 const IotDockName = "yurt-iot-dock"
 
-func defaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
-
+func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
 	version := "v0.3"
 	ns := platformAdmin.Namespace
-
 	return version, ns, nil
 }

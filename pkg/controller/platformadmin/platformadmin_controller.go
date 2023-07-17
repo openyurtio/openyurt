@@ -257,12 +257,6 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 	}
 	desiredComponents = append(desiredComponents, additionalComponents...)
 
-	yurtIotDock, err := util.NewYurtIoTDockComponent(platformAdmin)
-	if err != nil {
-		klog.Errorf(Format("yurtIoTDockComponent error %v", err))
-		return reconcile.Result{}, err
-	}
-	desiredComponents = append(desiredComponents, yurtIotDock)
 	//TODO: handle PlatformAdmin.Spec.Components
 
 	for _, dc := range desiredComponents {
@@ -392,11 +386,6 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 	}
 	desireComponents = append(desireComponents, additionalComponents...)
 
-	yurtIotDock, err := util.NewYurtIoTDockComponent(platformAdmin)
-	if err != nil {
-		return false, err
-	}
-	desireComponents = append(desireComponents, yurtIotDock)
 	//TODO: handle PlatformAdmin.Spec.Components
 
 	defer func() {
@@ -739,6 +728,12 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
 		platformAdminFramework.Components = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
 	}
+
+	yurtIotDock, err := NewYurtIoTDockComponent(platformAdmin, platformAdminFramework)
+	if err != nil {
+		return err
+	}
+	platformAdminFramework.Components = append(platformAdminFramework.Components, yurtIotDock)
 
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
