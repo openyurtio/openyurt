@@ -43,15 +43,18 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 		util.GenerateValidatePath(gvk),
 		builder.WebhookManagedBy(mgr).
 			For(&v1.Pod{}).
+			WithDefaulter(webhook).
 			WithValidator(webhook).
 			Complete()
 }
 
 // +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-pod,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=pods,verbs=delete,versions=v1,name=validate.core.v1.pod.openyurt.io
+// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=pods/status,verbs=update,versions=v1,name=mutate.core.v1.pod.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for PodHandler.
 type PodHandler struct {
 	Client client.Client
 }
 
+var _ builder.CustomDefaulter = &PodHandler{}
 var _ builder.CustomValidator = &PodHandler{}

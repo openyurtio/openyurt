@@ -29,20 +29,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
 	podutil "github.com/openyurtio/openyurt/pkg/controller/util/pod"
+	"github.com/openyurtio/openyurt/pkg/controller/yurtcoordinator/constant"
 )
 
 var (
 	TestPodsName   = []string{"pod1", "pod2", "pod3", "pod4", "pod5", "pod6", "pod7", "pod8", "pod9"}
 	TestNodesName  = []string{"node1"}
 	TestNodesName2 = []string{"node1", "node2"}
-	TestFailedPods = sets.NewString("pod3", "pod4", "pod5", "pod6", "pod7", "pod8", "pod9")
+	TestFailedPods = sets.NewString("pod2", "pod3", "pod4", "pod5", "pod6", "pod7", "pod8", "pod9")
 )
 
 func preparePods() []client.Object {
@@ -66,9 +67,9 @@ func preparePods() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod2",
 				Namespace: metav1.NamespaceDefault,
-				Annotations: map[string]string{
-					constant.PodBindingAnnotation: "true",
-				},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node2",
 			},
 			Status: corev1.PodStatus{
 				Conditions: []corev1.PodCondition{{
@@ -137,20 +138,23 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node1",
 				Labels: map[string]string{
-					labelCurrentNodePool: "nodePool1",
+					apps.LabelCurrentNodePool: "nodePool1",
 				},
 			},
 		},
 		&corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node2",
+				Annotations: map[string]string{
+					constant.PodBindingAnnotation: "true",
+				},
 			},
 		},
 		&corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node3",
 				Labels: map[string]string{
-					labelCurrentNodePool: "nodePool3",
+					apps.LabelCurrentNodePool: "nodePool3",
 				},
 			},
 		},
@@ -158,7 +162,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node4",
 				Labels: map[string]string{
-					labelCurrentNodePool: "nodePool2",
+					apps.LabelCurrentNodePool: "nodePool2",
 				},
 			},
 		},
@@ -206,7 +210,7 @@ func TestReconcile(t *testing.T) {
 		t.Fatal("Fail to add kubernetes clint-go custom resource")
 	}
 
-	c := fakeclint.NewClientBuilder().WithScheme(scheme).WithObjects(pods...).WithObjects(nodes...).WithObjects(nodePools...).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pods...).WithObjects(nodes...).WithObjects(nodePools...).Build()
 
 	for i := range TestPodsName {
 		var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestPodsName[i]}}
@@ -368,6 +372,126 @@ func TestNodePoolUpdate(t *testing.T) {
 	}
 }
 
+func TestMarkPodReady(t *testing.T) {
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: metav1.NamespaceDefault,
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionFalse,
+				},
+			},
+		},
+	}
+	clientSet1 := fakeclient.NewClientBuilder().Build()
+	clientSet2 := fakeclient.NewClientBuilder().WithObjects(pod).Build()
+
+	tests := []struct {
+		name       string
+		kubeClient client.Client
+		pod        *corev1.Pod
+		want       reconcile.Result
+		wantErr    bool
+	}{
+		{
+			name:       "pod1",
+			kubeClient: clientSet1,
+			pod:        pod,
+			want:       reconcile.Result{},
+			wantErr:    false,
+		},
+		{
+			name:       "pod2",
+			kubeClient: clientSet2,
+			pod:        pod,
+			want:       reconcile.Result{Requeue: true},
+			wantErr:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "pod2" {
+				newPod := tt.pod.DeepCopy()
+				newPod.Status.PodIP = "1.1.1.1"
+				tt.kubeClient.Status().Update(context.TODO(), newPod)
+			}
+
+			got, err := MarkPodReady(tt.kubeClient, tt.pod)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarkPodReady() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("MarkPodReady() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNodePoolCreate(t *testing.T) {
+	tests := []struct {
+		name  string
+		event event.CreateEvent
+		want  bool
+	}{
+		{
+			name: "test1",
+			event: event.CreateEvent{
+				Object: &appsv1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "nodePool1",
+					},
+					Status: appsv1beta1.NodePoolStatus{
+						ReadyNodeNum:   1,
+						UnreadyNodeNum: 0,
+						Nodes:          TestNodesName,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test2",
+			event: event.CreateEvent{
+				Object: &appsv1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "nodePool2",
+					},
+					Status: appsv1beta1.NodePoolStatus{
+						ReadyNodeNum:   0,
+						UnreadyNodeNum: 1,
+						Nodes:          TestNodesName,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "test3",
+			event: event.CreateEvent{
+				Object: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := nodePoolCreate(tt.event); got != tt.want {
+				t.Errorf("nodePoolCreate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPodUpdate(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -483,67 +607,6 @@ func TestPodUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := podUpdate(tt.event); got != tt.want {
 				t.Errorf("podUpdate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMarkPodReady(t *testing.T) {
-	pod := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1",
-			Namespace: metav1.NamespaceDefault,
-		},
-		Status: corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionFalse,
-				},
-			},
-		},
-	}
-	clientSet1 := fakeclint.NewClientBuilder().Build()
-	clientSet2 := fakeclint.NewClientBuilder().WithObjects(pod).Build()
-
-	tests := []struct {
-		name       string
-		kubeClient client.Client
-		pod        *corev1.Pod
-		want       reconcile.Result
-		wantErr    bool
-	}{
-		{
-			name:       "pod1",
-			kubeClient: clientSet1,
-			pod:        pod,
-			want:       reconcile.Result{},
-			wantErr:    false,
-		},
-		{
-			name:       "pod2",
-			kubeClient: clientSet2,
-			pod:        pod,
-			want:       reconcile.Result{Requeue: true},
-			wantErr:    true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "pod2" {
-				newPod := tt.pod.DeepCopy()
-				newPod.Status.PodIP = "1.1.1.1"
-				tt.kubeClient.Status().Update(context.TODO(), newPod)
-			}
-
-			got, err := MarkPodReady(tt.kubeClient, tt.pod)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MarkPodReady() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarkPodReady() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

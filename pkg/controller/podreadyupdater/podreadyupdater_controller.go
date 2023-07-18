@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,8 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/controller/poolcoordinator/constant"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 	podutil "github.com/openyurtio/openyurt/pkg/controller/util/pod"
 	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
@@ -53,12 +52,11 @@ func init() {
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = appsv1.SchemeGroupVersion.WithKind("Pod")
+	controllerKind       = corev1.SchemeGroupVersion.WithKind("Pod")
 )
 
 const (
-	ControllerName       = "podReadyUpdater"
-	labelCurrentNodePool = "apps.openyurt.io/nodepool"
+	ControllerName = "podReadyUpdater"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -125,7 +123,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// only watch pods changes may leave out some pods, because nodepool status may not update as quick as pod
 	nodePoolPredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
-			return false
+			return nodePoolCreate(evt)
 		},
 		DeleteFunc: func(evt event.DeleteEvent) bool {
 			return false
@@ -165,7 +163,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 		}
 
-		klog.V(2).Infof("syncNodePoolHandler need to update ready status of pod, number: %+v", len(requests))
+		klog.V(2).Infof(Format("syncNodePoolHandler need to update ready status of pod, number: %+v", len(requests)))
 		return requests
 	}
 
@@ -194,8 +192,28 @@ func podUpdate(evt event.UpdateEvent) bool {
 	}
 
 	// pod Ready Condition from True to False
-	if podutil.IsPodReadyConditionTrue(oldPod.Status) && !podutil.IsPodReadyConditionTrue(newPod.Status) {
-		klog.V(2).Infof("podReadyUpdaterController enqueue pod update event for %v", newPod.Name)
+	// if pod have ready condition and condition is False
+	oldCondition := podutil.GetPodReadyCondition(oldPod.Status)
+	newCondition := podutil.GetPodReadyCondition(newPod.Status)
+	if oldCondition == nil || newCondition == nil {
+		return false
+	}
+	if oldCondition.Status == corev1.ConditionTrue && newCondition.Status == corev1.ConditionFalse {
+		klog.V(2).Infof(Format("podReadyUpdaterController enqueue pod update event for %v", newPod.Name))
+		return true
+	}
+	return false
+}
+
+// nodePoolCreate filter events: nodePool disconnect with cloud
+func nodePoolCreate(evt event.CreateEvent) bool {
+	nodePool, ok := evt.Object.(*appsv1beta1.NodePool)
+	if !ok {
+		return false
+	}
+
+	if nodePool.Status.UnreadyNodeNum == int32(len(nodePool.Status.Nodes)) {
+		klog.V(2).Infof(Format("podReadyUpdaterController enqueue nodepool create event for %v", nodePool.Name))
 		return true
 	}
 	return false
@@ -216,7 +234,7 @@ func nodePoolUpdate(evt event.UpdateEvent) bool {
 		return false
 	}
 	if newNodePool.Status.UnreadyNodeNum == int32(len(newNodePool.Status.Nodes)) {
-		klog.V(2).Infof("podReadyUpdaterController enqueue nodepool update event for %v", newNodePool.Name)
+		klog.V(2).Infof(Format("podReadyUpdaterController enqueue nodepool update event for %v", newNodePool.Name))
 		return true
 	}
 	return false
@@ -243,7 +261,7 @@ func (r *ReconcilePodReadyUpdater) Reconcile(_ context.Context, request reconcil
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		klog.Errorf("Fail to get Pod %v, %v", request.NamespacedName, err)
+		klog.Errorf(Format("Fail to get Pod %v, %v", request.NamespacedName, err))
 		return reconcile.Result{}, err
 	}
 
@@ -251,12 +269,6 @@ func (r *ReconcilePodReadyUpdater) Reconcile(_ context.Context, request reconcil
 		return reconcile.Result{}, nil
 	}
 
-	// if pod has binding annotation, deal it.
-	if instance.Annotations != nil && instance.Annotations[constant.PodBindingAnnotation] == "true" {
-		return MarkPodReady(r.Client, instance)
-	}
-
-	// if nodepool is disconnect with cloud, we need to keep pod Ready Condition for True
 	if len(instance.Spec.NodeName) == 0 {
 		return reconcile.Result{}, nil
 	}
@@ -266,7 +278,9 @@ func (r *ReconcilePodReadyUpdater) Reconcile(_ context.Context, request reconcil
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	nodePoolName := node.Labels[labelCurrentNodePool]
+
+	// if nodepool is disconnect with cloud, we need to keep pod Ready Condition for True
+	nodePoolName := node.Labels[apps.LabelCurrentNodePool]
 	if len(nodePoolName) == 0 {
 		return reconcile.Result{}, nil
 	}
@@ -293,7 +307,7 @@ func MarkPodReady(kubeClient client.Client, pod *corev1.Pod) (reconcile.Result, 
 			if !nodeutil.UpdatePodCondition(&newPod.Status, &cond) {
 				break
 			}
-			klog.V(2).Infof("Updating ready status of pod %v to true", newPod.Name)
+			klog.V(2).Infof(Format("Updating ready status of pod %v to true", newPod.Name))
 			err := kubeClient.Status().Update(context.TODO(), newPod)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -301,7 +315,7 @@ func MarkPodReady(kubeClient client.Client, pod *corev1.Pod) (reconcile.Result, 
 					// There is nothing left to do with this pod.
 					break
 				}
-				klog.Warningf("Failed to update status for pod %s: %v", newPod.Name, err)
+				klog.Warningf(Format("Failed to update status for pod %s: %v", newPod.Name, err))
 				return reconcile.Result{Requeue: true}, err
 			}
 			break
