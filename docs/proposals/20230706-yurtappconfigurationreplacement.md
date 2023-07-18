@@ -36,6 +36,7 @@ status:
       - [Story 2 (Specific)](#story-2-specific)
       - [Story 3 (Specific)](#story-3-specific)
       - [Story 4 (Specific)](#story-4-specific)
+      - [Story 5 (Specific)](#story-5-specific)
   - [Implementation History](#implementation-history)
 
 ## Glossary
@@ -58,9 +59,12 @@ YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-frie
 Reference to the design of ClusterRole and ClusterRoleBinding.
 
 1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
-2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of replacements. Each replacement replace a set of configuration for matching nodepools.
+2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of items and patches. Items replace a set of configuration for matching nodepools.
 <img src = "../img/yurtappconfigurationreplacement/Inspiration.png" width="600">
-
+3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convent a patch struct into an API interface call. 
+   ```shell
+   kubectl patch deployment xxx --type='json' --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"tomcat"}]'
+   ```
 ### YurtAppConfigurationReplacement API
 1. YurtAppConfigurationReplacement needs to be bound to YurtAppSet/YurtAppDaemon.
 Considering that there are multiple Deployment/StatefulSet per nodepool, as shown below, it must be bound to YurtAppSet/YurtAppDaemon for injection. We use subject field to bind it to YurtAppSet/YurtAppDaemon.
@@ -69,86 +73,111 @@ Considering that there are multiple Deployment/StatefulSet per nodepool, as show
 ```go
 // ImageItem specifies the corresponding container and the claimed image
 type ImageItem struct {
-    // ContainerName represents name of the container
-    // in which the Image will be replaced
-    ContainerName string `json:"containerName"`
-    // ImageClaim represents the claimed image name
-    // which is injected into the container above
-    ImageClaim string `json:"imageClaim"`
+  // ContainerName represents name of the container
+  // in which the Image will be replaced
+  ContainerName string `json:"containerName"`
+  // ImageClaim represents the claimed image name
+  //which is injected into the container above
+  ImageClaim string `json:"imageClaim"`
 }
 
 // EnvItem specifies the corresponding container and the claimed env
 type EnvItem struct {
-    // ContainerName represents name of the container
-    // in which the env will be replaced
-    ContainerName string `json:"containerName"`
-    // EnvClaim represents the detailed environment variables container contains
-    EnvClaim map[string]string `json:"envClaim"`
+  // ContainerName represents name of the container
+  // in which the env will be replaced
+  ContainerName string `json:"containerName"`
+  // EnvClaim represents the detailed environment variables container contains
+  EnvClaim map[string]string `json:"envClaim"`
 }
 
 // PersistentVolumeClaimItem specifies the corresponding container and the claimed pvc
 type PersistentVolumeClaimItem struct {
-    // PVCSource represents pvcClaim name.
-    PVCSource string `json:"pvcSource"`
-    // PVCTarget represents the PVC corresponding to the volume above.
-    // PVCTarget supprot advanced features like wildcard.
-    // By naming pvc as pvcName-{{nodepool}}, all pvc can be injected at once.
-    PVCTarget string `json:"pvcTarget"`
+  // PVCSource represents pvcClaim name.
+  PVCSource string `json:"pvcSource"`
+  // PVCTarget represents the PVC corresponding to the volume above.
+  // PVCTarget supprot advanced features like wildcard.
+  // By naming pvc as pvcName-{{nodepool}}, all pvc can be injected at once.
+  PVCTarget string `json:"pvcTarget"`
 }
 
 // ConfigMapItem specifies the corresponding containerName and the claimed configMap
 type ConfigMapItem struct {
-    // ConfigMapSource represents configMap name
-    ConfigMapSource string `json:"configMapSource"`
-    // ConfigMapTarget represents the ConfigMap corresponding to the volume above.
-    // ConfigMapTarget supprot advanced features like wildcard.
-    // By naming configMap as configMapName-{{nodepool}}, all configMap can be injected at once.
-    ConfigMapTarget string `json:"configMapTarget"`
+  // ConfigMapSource represents configMap name
+  ConfigMapSource string `json:"configMapSource"`
+  // ConfigMapTarget represents the ConfigMap corresponding to the volume above.
+  // ConfigMapTarget supprot advanced features like wildcard.
+  // By naming configMap as configMapName-{{nodepool}}, all configMap can be injected at once.
+  ConfigMapTarget string `json:"configMapTarget"`
 }
 
 type SecretItem struct {
-    // SecretSource represents secret name.
-    SecretSource string `json:"secretSource"`
-    // SecretTarget represents the Secret corresponding to the volume above.
-    // SecretTarget supprot advanced features like wildcard.
-    // By naming secret as secretName-{{nodepool}}, all secret can be injected at once.
-    SecretTarget string `json:"secretTarget"`
+  // SecretSource represents secret name.
+  SecretSource string `json:"secretSource"`
+  // SecretTarget represents the Secret corresponding to the volume above.
+  // SecretTarget supprot advanced features like wildcard.
+  // By naming secret as secretName-{{nodepool}}, all secret can be injected at once.
+  SecretTarget string `json:"secretTarget"`
 }
 
 // Item represents configuration to be injected.
 // Only one of its members may be specified.
 type Item struct {
-    Image                 *ImageItem                 `json:"image"`
-    ConfigMap             *ConfigMapItem             `json:"configMap"`
-    Secret                *SecretItem                `json:"secret"`
-    Env                   *EnvItem                   `json:"env"`
-    PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
-    Replicas              *int                       `json:"replicas"`
-    UpgradeStrategy       *string                    `json:"upgradeStrategy"`
+  Image                 *ImageItem                 `json:"image"`
+  ConfigMap             *ConfigMapItem             `json:"configMap"`
+  Secret                *SecretItem                `json:"secret"`
+  Env                   *EnvItem                   `json:"env"`
+  PersistentVolumeClaim *PersistentVolumeClaimItem `json:"persistentVolumeClaim"`
+  Replicas              *int32                     `json:"replicas"`
+  UpgradeStrategy       *string                    `json:"upgradeStrategy"`
 }
 
-// Replacement describe a set of nodepools and their shared or identical configurations
-type Replacement struct {
-    Pools []string `json:"pools"`
-    Items []Item   `json:"items"`
+type Operation string
+
+const (
+  ADD     Operation = "add"
+  REMOVE  Operation = "remove"
+  REPLACE Operation = "replace"
+  // MOVE Operation = "move"
+  // COPY Operation = "copy"
+  // TEST Operation = "test"
+)
+
+type Patch struct {
+  // type represents the operation
+  Type Operation `json:"type"`
+  // Indicates the patch for the template
+  // +kubebuilder:pruning:PreserveUnknownFields
+  Extensions *runtime.RawExtension `json:"extensions"`
+}
+
+// Entry describe a set of nodepools and their shared or identical configurations
+type Entry struct {
+  Pools   []string `json:"pools"`
+  // +optional
+  Items   []Item   `json:"items"`
+  // Convert Patch struct into json patch operation  
+  // +optional
+  Patches []Patch  `json:"patches"`
 }
 
 type Subject struct {
-    metav1.TypeMeta `json:",inline"`
-    // Name is the name of YurtAppSet or YurtAppDaemon
-    Name      string `json:"name"`
+  metav1.TypeMeta `json:",inline"`
+  // Name is the name of YurtAppSet or YurtAppDaemon
+  Name string `json:"name"`
 }
 
 type YurtAppConfigurationReplacement struct {
-    metav1.TypeMeta `json:",inline"`
-    // Standard object's metadata
-    metav1.ObjectMeta `json:"metadata,omitempty"`
-    // Describe the object this replacement belongs
-    Subject Subject `json:"subject"`
-    // Describe detailed multi-region configuration of the subject above
-    Replacements []Replacement `json:"replacements"`
+  metav1.TypeMeta `json:",inline"`
+  // Standard object's metadata
+  metav1.ObjectMeta `json:"metadata,omitempty"`
+  // Describe the object this replacement belongs
+  Subject Subject `json:"subject"`
+  // Describe detailed multi-region configuration of the subject above
+  Entries []Entry `json:"entries"`
 }
 ```
+
+
 ### Architecture
 The whole architecture is shown below.
 <img src = "../img/yurtappconfigurationreplacement/Architecture.png" width="800">
@@ -162,7 +191,7 @@ Solutions:
 1. Change YurtManager deploying method, like static pod
 2. Controller is responsible for both creating and updating. However, there will be a period of unavailability(wrong configuration information)
 3. Webhook's failurePolicy set to ignore(difficult to detect in the case of malfunction)
-4. YurtManager is in charge of managing the webhook, we can modify the internal implementation of YurtManager(Recommended)
+4. YurtManager is in charge of managing the webohok, we can modify the internal implementation of YurtManager(Recommended)
 ##### Workflow of mutating webhook
 1. If the intercepted Deployment's ownerReferences field is empty, filter it directly
 2. Find the corresponding YurtAppConfigurationReplacement resource by ownerReferences, if not, filter directly
@@ -284,6 +313,37 @@ replacements:
   items:
   - replicas: 5
 ```
+#### Story 5 (Specific)
+Utilize patches to add a new container to workloads. 
+```yaml
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppConfigurationReplacement
+metadata:
+  namespace: default
+  name: demo1
+subject:
+  apiVersion: apps.openyurt.io/v1alpha1
+  kind: YurtAppSet
+  nameSpace: default
+  name: yurtappset-demo
+entries:
+- pools:
+    beijing
+    hangzhou
+  items:
+  - image:
+      containerName: nginx
+      imageClaim: nginx:1.14.2
+  patches:
+  - type: add
+    extensions:
+      spec:
+        template:
+          spec:
+            restartPolicy: OnFailure
+```
+
+
 ## Implementation History
 - [ ] : YurtAppConfigurationReplacement API CRD
 - [ ] : Deployment Mutating Webhook
