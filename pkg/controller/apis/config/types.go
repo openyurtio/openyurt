@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
+	platformadminconfig "github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
 	gatewayconfig "github.com/openyurtio/openyurt/pkg/controller/raven/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/controller/yurtappset/config"
@@ -44,6 +45,9 @@ type YurtManagerConfiguration struct {
 
 	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
 	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
+
+	// PlatformAdminControllerConfiguration holds configuration for PlatformAdminController related features.
+	PlatformAdminController platformadminconfig.PlatformAdminControllerConfiguration
 }
 
 type GenericConfiguration struct {

@@ -49,6 +49,7 @@ spec:
         cpu: 150m
         memory: 150Mi
       limits:
+        cpu: 2
         memory: 300Mi
     securityContext:
       capabilities:

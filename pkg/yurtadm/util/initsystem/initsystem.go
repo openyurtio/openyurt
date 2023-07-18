@@ -19,6 +19,12 @@ package initsystem
 
 // InitSystem is the interface that describe behaviors of an init system
 type InitSystem interface {
+	// ServiceIsEnabled ensures the service is enabled to start on each boot.
+	ServiceIsEnabled(service string) bool
+
+	// ServiceEnable tries to enable a specific service
+	ServiceEnable(service string) error
+
 	// ServiceIsActive ensures the service is running, or attempting to run. (crash looping in the case of kubelet)
 	ServiceIsActive(service string) bool
 }

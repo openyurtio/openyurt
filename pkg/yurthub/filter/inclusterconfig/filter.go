@@ -38,11 +38,15 @@ const (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.InClusterConfigFilterName, func() (filter.ObjectFilter, error) {
-		return &inClusterConfigFilter{}, nil
+		return NewInClusterConfigFilter()
 	})
 }
 
 type inClusterConfigFilter struct{}
+
+func NewInClusterConfigFilter() (filter.ObjectFilter, error) {
+	return &inClusterConfigFilter{}, nil
+}
 
 func (iccf *inClusterConfigFilter) Name() string {
 	return filter.InClusterConfigFilterName

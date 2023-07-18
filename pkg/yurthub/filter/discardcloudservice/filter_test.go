@@ -30,14 +30,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	dcsf := &discardCloudServiceFilter{}
+	dcsf, _ := NewDiscardCloudServiceFilter()
 	if dcsf.Name() != filter.DiscardCloudServiceFilterName {
 		t.Errorf("expect %s, but got %s", filter.DiscardCloudServiceFilterName, dcsf.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	dcsf := &discardCloudServiceFilter{}
+	dcsf, _ := NewDiscardCloudServiceFilter()
 	rvs := dcsf.SupportedResourceAndVerbs()
 	if len(rvs) != 1 {
 		t.Errorf("supported more than one resources, %v", rvs)
@@ -322,7 +322,7 @@ func TestFilter(t *testing.T) {
 	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			dcsf := &discardCloudServiceFilter{}
+			dcsf, _ := NewDiscardCloudServiceFilter()
 
 			newObj := dcsf.Filter(tt.responseObj, stopCh)
 			if tt.expectObj == nil {

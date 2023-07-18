@@ -22,12 +22,17 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
+	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -89,7 +94,11 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 	c.Handle("/metrics", promhttp.Handler())
 
 	// register handler for ota upgrade
-	c.Handle("/pods", ota.GetPods(cfg.StorageWrapper)).Methods("GET")
+	if cfg.WorkingMode == util.WorkingModeEdge {
+		c.Handle("/pods", ota.GetPods(cfg.StorageWrapper)).Methods("GET")
+	} else {
+		c.Handle("/pods", getPodList(cfg.SharedFactory, cfg.NodeName)).Methods("GET")
+	}
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
 		ota.HealthyCheck(rest, cfg.NodeName, ota.UpdatePod)).Methods("POST")
 }
@@ -110,5 +119,29 @@ func readyz(certificateMgr certificate.YurtCertificateManager) http.Handler {
 		} else {
 			http.Error(w, "certificates are not ready", http.StatusInternalServerError)
 		}
+	})
+}
+
+func getPodList(sharedFactory informers.SharedInformerFactory, nodeName string) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		podLister := sharedFactory.Core().V1().Pods().Lister()
+		podList, err := podLister.List(labels.Everything())
+		if err != nil {
+			klog.Errorf("get pods key failed, %v", err)
+			otautil.WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
+			return
+		}
+		pl := new(corev1.PodList)
+		for i := range podList {
+			pl.Items = append(pl.Items, *podList[i])
+		}
+
+		data, err := otautil.EncodePods(pl)
+		if err != nil {
+			klog.Errorf("Encode pod list failed, %v", err)
+			otautil.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+		}
+		otautil.WriteJSONResponse(w, data)
 	})
 }

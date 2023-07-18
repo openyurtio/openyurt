@@ -17,23 +17,21 @@ limitations under the License.
 package servicetopology
 
 import (
-	"fmt"
+	"context"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 	appslisters "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/listers/apps/v1alpha1"
@@ -53,14 +51,12 @@ var (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.ServiceTopologyFilterName, func() (filter.ObjectFilter, error) {
-		return NewFilter(), nil
+		return NewServiceTopologyFilter()
 	})
 }
 
-func NewFilter() *serviceTopologyFilter {
-	return &serviceTopologyFilter{
-		workingMode: util.WorkingModeEdge,
-	}
+func NewServiceTopologyFilter() (filter.ObjectFilter, error) {
+	return &serviceTopologyFilter{}, nil
 }
 
 type serviceTopologyFilter struct {
@@ -68,10 +64,9 @@ type serviceTopologyFilter struct {
 	serviceSynced  cache.InformerSynced
 	nodePoolLister appslisters.NodePoolLister
 	nodePoolSynced cache.InformerSynced
-	nodeGetter     filter.NodeGetter
-	nodeSynced     cache.InformerSynced
+	nodePoolName   string
 	nodeName       string
-	workingMode    util.WorkingMode
+	client         kubernetes.Interface
 }
 
 func (stf *serviceTopologyFilter) Name() string {
@@ -85,20 +80,9 @@ func (stf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.St
 	}
 }
 
-func (stf *serviceTopologyFilter) SetWorkingMode(mode util.WorkingMode) error {
-	stf.workingMode = mode
-	return nil
-}
-
 func (stf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
 	stf.serviceLister = factory.Core().V1().Services().Lister()
 	stf.serviceSynced = factory.Core().V1().Services().Informer().HasSynced
-
-	if stf.workingMode == util.WorkingModeCloud {
-		klog.Infof("prepare list/watch to sync node(%s) for cloud working mode", stf.nodeName)
-		stf.nodeSynced = factory.Core().V1().Nodes().Informer().HasSynced
-		stf.nodeGetter = factory.Core().V1().Nodes().Lister().Get
-	}
 
 	return nil
 }
@@ -116,76 +100,32 @@ func (stf *serviceTopologyFilter) SetNodeName(nodeName string) error {
 	return nil
 }
 
-// TODO: should use disk storage as parameter instead of StorageWrapper
-// we can internally construct a new StorageWrapper with passed-in disk storage
-func (stf *serviceTopologyFilter) SetStorageWrapper(s cachemanager.StorageWrapper) error {
-	if s.Name() != disk.StorageName {
-		return fmt.Errorf("serviceTopologyFilter can only support disk storage currently, cannot use %s", s.Name())
-	}
-
-	if len(stf.nodeName) == 0 {
-		return fmt.Errorf("node name for serviceTopologyFilter is not ready")
-	}
-
-	// hub agent will list/watch node from kube-apiserver when hub agent work as cloud mode
-	if stf.workingMode == util.WorkingModeCloud {
-		return nil
-	}
-	klog.Infof("prepare local disk storage to sync node(%s) for edge working mode", stf.nodeName)
-
-	nodeKey, err := s.KeyFunc(storage.KeyBuildInfo{
-		Component: "kubelet",
-		Name:      stf.nodeName,
-		Resources: "nodes",
-		Group:     "",
-		Version:   "v1",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get node key for %s, %v", stf.nodeName, err)
-	}
-	stf.nodeSynced = func() bool {
-		obj, err := s.Get(nodeKey)
-		if err != nil || obj == nil {
-			return false
-		}
-
-		if _, ok := obj.(*v1.Node); !ok {
-			return false
-		}
-
-		return true
-	}
-
-	stf.nodeGetter = func(name string) (*v1.Node, error) {
-		key, err := s.KeyFunc(storage.KeyBuildInfo{
-			Component: "kubelet",
-			Name:      name,
-			Resources: "nodes",
-			Group:     "",
-			Version:   "v1",
-		})
-		if err != nil {
-			return nil, fmt.Errorf("nodeGetter failed to get node key for %s, %v", name, err)
-		}
-		obj, err := s.Get(key)
-		if err != nil {
-			return nil, err
-		} else if obj == nil {
-			return nil, fmt.Errorf("node(%s) is not ready", name)
-		}
-
-		if node, ok := obj.(*v1.Node); ok {
-			return node, nil
-		}
-
-		return nil, fmt.Errorf("node(%s) is not found", name)
-	}
-
+func (stf *serviceTopologyFilter) SetNodePoolName(poolName string) error {
+	stf.nodePoolName = poolName
 	return nil
 }
 
+func (stf *serviceTopologyFilter) SetKubeClient(client kubernetes.Interface) error {
+	stf.client = client
+	return nil
+}
+
+func (stf *serviceTopologyFilter) resolveNodePoolName() string {
+	if len(stf.nodePoolName) != 0 {
+		return stf.nodePoolName
+	}
+
+	node, err := stf.client.CoreV1().Nodes().Get(context.Background(), stf.nodeName, metav1.GetOptions{})
+	if err != nil {
+		klog.Warningf("failed to get node(%s) in serviceTopologyFilter filter, %v", stf.nodeName, err)
+		return stf.nodePoolName
+	}
+	stf.nodePoolName = node.Labels[nodepoolv1alpha1.LabelDesiredNodePool]
+	return stf.nodePoolName
+}
+
 func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
-	if ok := cache.WaitForCacheSync(stopCh, stf.nodeSynced, stf.serviceSynced, stf.nodePoolSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, stf.serviceSynced, stf.nodePoolSynced); !ok {
 		return obj
 	}
 
@@ -282,14 +222,8 @@ func (stf *serviceTopologyFilter) nodeTopologyHandler(obj runtime.Object) runtim
 }
 
 func (stf *serviceTopologyFilter) nodePoolTopologyHandler(obj runtime.Object) runtime.Object {
-	currentNode, err := stf.nodeGetter(stf.nodeName)
-	if err != nil {
-		klog.Warningf("skip serviceTopologyFilterHandler, failed to get current node %s, err: %v", stf.nodeName, err)
-		return obj
-	}
-
-	nodePoolName, ok := currentNode.Labels[nodepoolv1alpha1.LabelCurrentNodePool]
-	if !ok || len(nodePoolName) == 0 {
+	nodePoolName := stf.resolveNodePoolName()
+	if len(nodePoolName) == 0 {
 		klog.Infof("node(%s) is not added into node pool, so fall into node topology", stf.nodeName)
 		return stf.nodeTopologyHandler(obj)
 	}

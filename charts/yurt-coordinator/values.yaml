@@ -1,0 +1,27 @@
+# Default values for yurt-coordinator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+apiserverSecurePort: 10270
+apiserverImage:
+  registry: registry.k8s.io
+  repository: kube-apiserver
+  tag: v1.22.0
+apiserverResources:
+  requests:
+    cpu: 250m
+serviceClusterIPRange: 10.96.0.0/12
+etcdPort: 12379
+etcdMetricPort: 12381
+etcdImage:
+  registry: registry.k8s.io
+  repository: etcd
+  tag: 3.5.0-0
+etcdResources:
+  limits:
+    cpu: 200m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi

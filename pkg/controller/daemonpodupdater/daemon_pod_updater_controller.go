@@ -174,8 +174,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// 2. Watch for deletion of pods. The reason we watch is that we don't want a daemon set to delete
 	// more pods until all the effects (expectations) of a daemon set's delete have been observed.
+	updater := r.(*ReconcileDaemonpodupdater)
 	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.Funcs{
-		DeleteFunc: r.(*ReconcileDaemonpodupdater).deletePod,
+		DeleteFunc: updater.deletePod,
 	}); err != nil {
 		return err
 	}

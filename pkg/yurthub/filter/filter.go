@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -274,15 +275,11 @@ func CreateFilterChain(objFilters []ObjectFilter) ObjectFilter {
 }
 
 func (chain filterChain) Name() string {
-	var name string
+	var names []string
 	for i := range chain {
-		if len(name) == 0 {
-			name = chain[i].Name()
-		} else {
-			name = "," + chain[i].Name()
-		}
+		names = append(names, chain[i].Name())
 	}
-	return name
+	return strings.Join(names, ",")
 }
 
 func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.String {

@@ -11,8 +11,6 @@ spec:
     metadata:
       labels:
         k8s-app: yurt-hub
-      name: yurt-hub
-      namespace: {{ .Release.Namespace }}
     spec:
       volumes:
         - name: hub-dir
@@ -43,6 +41,9 @@ spec:
             - --namespace={{ .Release.Namespace }}
             {{- if .Values.organizations }}
             - --hub-cert-organizations={{ .Values.organizations }}
+            {{- end }}
+            {{- if .nodePoolName }}
+            - --nodepool-name={{ .Values.nodePoolName }}
             {{- end }}
           livenessProbe:
             httpGet:

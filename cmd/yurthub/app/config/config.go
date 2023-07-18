@@ -139,7 +139,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(options, sharedFactory, yurtSharedFactory, workingMode, tenantNs)
-	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, serializerManager, storageWrapper, us[0].Host)
+	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, proxiedClient, serializerManager, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -170,7 +170,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubNamespace:          options.YurtHubNamespace,
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
-		CoordinatorPKIDir:         filepath.Join(options.RootDir, "poolcoordinator"),
+		CoordinatorPKIDir:         filepath.Join(options.RootDir, "yurtcoordinator"),
 		EnableCoordinator:         options.EnableCoordinator,
 		CoordinatorServerURL:      coordinatorServerURL,
 		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
@@ -302,12 +302,20 @@ func registerInformers(options *options.YurtHubOptions,
 
 	if tenantNs != "" {
 		newSecretInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-
 			return coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
 		}
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
 
+	if workingMode == util.WorkingModeCloud {
+		newPodInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+			listOptions := func(ops *metav1.ListOptions) {
+				ops.FieldSelector = fields.Set{"spec.nodeName": options.NodeName}.String()
+			}
+			return coreinformers.NewFilteredPodInformer(client, "", resyncPeriod, nil, listOptions)
+		}
+		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
+	}
 }
 
 // isServiceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.

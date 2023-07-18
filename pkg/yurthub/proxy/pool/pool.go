@@ -40,24 +40,24 @@ const (
 	watchCheckInterval = 5 * time.Second
 )
 
-// PoolCoordinatorProxy is responsible for handling requests when remote servers are unhealthy
-type PoolCoordinatorProxy struct {
-	poolCoordinatorProxy *util.RemoteProxy
+// YurtCoordinatorProxy is responsible for handling requests when remote servers are unhealthy
+type YurtCoordinatorProxy struct {
+	yurtCoordinatorProxy *util.RemoteProxy
 	localCacheMgr        cachemanager.CacheManager
 	filterMgr            *manager.Manager
 	isCoordinatorReady   func() bool
 	stopCh               <-chan struct{}
 }
 
-func NewPoolCoordinatorProxy(
+func NewYurtCoordinatorProxy(
 	localCacheMgr cachemanager.CacheManager,
 	transportMgrGetter func() transport.Interface,
 	coordinatorServerURLGetter func() *url.URL,
 	filterMgr *manager.Manager,
 	isCoordinatorReady func() bool,
-	stopCh <-chan struct{}) (*PoolCoordinatorProxy, error) {
+	stopCh <-chan struct{}) (*YurtCoordinatorProxy, error) {
 
-	pp := &PoolCoordinatorProxy{
+	pp := &YurtCoordinatorProxy{
 		localCacheMgr:      localCacheMgr,
 		isCoordinatorReady: isCoordinatorReady,
 		filterMgr:          filterMgr,
@@ -86,12 +86,12 @@ func NewPoolCoordinatorProxy(
 					transportMgr,
 					stopCh)
 				if err != nil {
-					klog.Errorf("failed to create remote proxy for pool-coordinator, %v", err)
+					klog.Errorf("failed to create remote proxy for yurt-coordinator, %v", err)
 					return
 				}
 
-				pp.poolCoordinatorProxy = proxy
-				klog.Infof("create remote proxy for pool-coordinator success, coordinatorServerURL: %s", coordinatorServerURL.String())
+				pp.yurtCoordinatorProxy = proxy
+				klog.Infof("create remote proxy for yurt-coordinator success, coordinatorServerURL: %s", coordinatorServerURL.String())
 				return
 			}
 		}
@@ -100,16 +100,16 @@ func NewPoolCoordinatorProxy(
 	return pp, nil
 }
 
-// ServeHTTP of PoolCoordinatorProxy is able to handle read-only request, including
+// ServeHTTP of YurtCoordinatorProxy is able to handle read-only request, including
 // watch, list, get. Other verbs that will write data to the cache are not supported
 // currently.
-func (pp *PoolCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (pp *YurtCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var err error
 	ctx := req.Context()
 	reqInfo, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok || reqInfo == nil {
-		klog.Errorf("pool-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req), reqInfo)
-		util.Err(errors.NewBadRequest(fmt.Sprintf("pool-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
+		klog.Errorf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req), reqInfo)
+		util.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
 		return
 	}
 	req.Header.Del("Authorization") // delete token with cloud apiServer RBAC and use yurthub authorization
@@ -122,41 +122,41 @@ func (pp *PoolCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 		case "watch":
 			err = pp.poolWatch(rw, req)
 		default:
-			err = fmt.Errorf("unsupported verb for pool coordinator proxy: %s", reqInfo.Verb)
+			err = fmt.Errorf("unsupported verb for yurt coordinator proxy: %s", reqInfo.Verb)
 		}
 		if err != nil {
-			klog.Errorf("could not proxy to pool-coordinator for %s, %v", hubutil.ReqString(req), err)
+			klog.Errorf("could not proxy to yurt-coordinator for %s, %v", hubutil.ReqString(req), err)
 			util.Err(errors.NewBadRequest(err.Error()), rw, req)
 		}
 	} else {
-		klog.Errorf("pool-coordinator does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
-		util.Err(errors.NewBadRequest(fmt.Sprintf("pool-coordinator does not support request(%s)", hubutil.ReqString(req))), rw, req)
+		klog.Errorf("yurt-coordinator does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
+		util.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator does not support request(%s)", hubutil.ReqString(req))), rw, req)
 	}
 }
 
-func (pp *PoolCoordinatorProxy) poolPost(rw http.ResponseWriter, req *http.Request) error {
+func (pp *YurtCoordinatorProxy) poolPost(rw http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	klog.V(4).Infof("pool handle post, req=%s, reqInfo=%s", hubutil.ReqString(req), hubutil.ReqInfoString(info))
-	if (util.IsSubjectAccessReviewCreateGetRequest(req) || util.IsEventCreateRequest(req)) && pp.poolCoordinatorProxy != nil {
+	if (util.IsSubjectAccessReviewCreateGetRequest(req) || util.IsEventCreateRequest(req)) && pp.yurtCoordinatorProxy != nil {
 		// kubelet needs to create subjectaccessreviews for auth
-		pp.poolCoordinatorProxy.ServeHTTP(rw, req)
+		pp.yurtCoordinatorProxy.ServeHTTP(rw, req)
 		return nil
 	}
 
 	return fmt.Errorf("unsupported post request")
 }
 
-func (pp *PoolCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Request) error {
-	if (util.IsPoolScopedResouceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req)) && pp.poolCoordinatorProxy != nil {
-		pp.poolCoordinatorProxy.ServeHTTP(rw, req)
+func (pp *YurtCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Request) error {
+	if (util.IsPoolScopedResouceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req)) && pp.yurtCoordinatorProxy != nil {
+		pp.yurtCoordinatorProxy.ServeHTTP(rw, req)
 		return nil
 	}
 	return fmt.Errorf("unsupported query request")
 }
 
-func (pp *PoolCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Request) error {
-	if util.IsPoolScopedResouceListWatchRequest(req) && pp.poolCoordinatorProxy != nil {
+func (pp *YurtCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Request) error {
+	if util.IsPoolScopedResouceListWatchRequest(req) && pp.yurtCoordinatorProxy != nil {
 		clientReqCtx := req.Context()
 		poolServeCtx, poolServeCancel := context.WithCancel(clientReqCtx)
 
@@ -167,27 +167,27 @@ func (pp *PoolCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Requ
 				select {
 				case <-t.C:
 					if !pp.isCoordinatorReady() {
-						klog.Infof("notified the pool coordinator is not ready for handling request, cancel watch %s", hubutil.ReqString(req))
+						klog.Infof("notified the yurt coordinator is not ready for handling request, cancel watch %s", hubutil.ReqString(req))
 						util.ReListWatchReq(rw, req)
 						poolServeCancel()
 						return
 					}
 				case <-clientReqCtx.Done():
-					klog.Infof("notified client canceled the watch request %s, stop proxy it to pool coordinator", hubutil.ReqString(req))
+					klog.Infof("notified client canceled the watch request %s, stop proxy it to yurt coordinator", hubutil.ReqString(req))
 					return
 				}
 			}
 		}()
 
 		newReq := req.Clone(poolServeCtx)
-		pp.poolCoordinatorProxy.ServeHTTP(rw, newReq)
-		klog.Infof("watch %s to pool coordinator exited", hubutil.ReqString(req))
+		pp.yurtCoordinatorProxy.ServeHTTP(rw, newReq)
+		klog.Infof("watch %s to yurt coordinator exited", hubutil.ReqString(req))
 		return nil
 	}
 	return fmt.Errorf("unsupported watch request")
 }
 
-func (pp *PoolCoordinatorProxy) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
+func (pp *YurtCoordinatorProxy) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 	klog.Errorf("remote proxy error handler: %s, %v", hubutil.ReqString(req), err)
 	ctx := req.Context()
 	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
@@ -201,7 +201,7 @@ func (pp *PoolCoordinatorProxy) errorHandler(rw http.ResponseWriter, req *http.R
 	rw.WriteHeader(http.StatusBadGateway)
 }
 
-func (pp *PoolCoordinatorProxy) modifyResponse(resp *http.Response) error {
+func (pp *YurtCoordinatorProxy) modifyResponse(resp *http.Response) error {
 	if resp == nil || resp.Request == nil {
 		klog.Info("no request info in response, skip cache response")
 		return nil
@@ -261,7 +261,7 @@ func (pp *PoolCoordinatorProxy) modifyResponse(resp *http.Response) error {
 	return nil
 }
 
-func (pp *PoolCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Response) {
+func (pp *YurtCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Response) {
 	if pp.localCacheMgr.CanCacheFor(req) {
 		ctx := req.Context()
 		req = req.WithContext(ctx)

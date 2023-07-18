@@ -33,11 +33,11 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 const (
@@ -133,7 +133,7 @@ type loadBalancer struct {
 	algo              loadBalancerAlgo
 	localCacheMgr     cachemanager.CacheManager
 	filterManager     *manager.Manager
-	coordinatorGetter func() poolcoordinator.Coordinator
+	coordinatorGetter func() yurtcoordinator.Coordinator
 	workingMode       hubutil.WorkingMode
 	stopCh            <-chan struct{}
 }
@@ -144,7 +144,7 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinatorGetter func() poolcoordinator.Coordinator,
+	coordinatorGetter func() yurtcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterManager *manager.Manager,
 	workingMode hubutil.WorkingMode,
@@ -198,11 +198,11 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	// If pool-scoped resource request is from leader-yurthub, it should always be sent to the cloud APIServer.
 	// Thus we do not need to start a check routine for it. But for other requests, we need to periodically check
-	// the pool-coordinator status, and switch the traffic to pool-coordinator if it is ready.
+	// the yurt-coordinator status, and switch the traffic to yurt-coordinator if it is ready.
 	if util.IsPoolScopedResouceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
-		// We get here possibly because the pool-coordinator is not ready.
-		// We should cancel the watch request when pool-coordinator becomes ready.
-		klog.Infof("pool-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
+		// We get here possibly because the yurt-coordinator is not ready.
+		// We should cancel the watch request when yurt-coordinator becomes ready.
+		klog.Infof("yurt-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
 		clientReqCtx := req.Context()
 		cloudServeCtx, cloudServeCancel := context.WithCancel(clientReqCtx)
 
@@ -217,13 +217,13 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 						continue
 					}
 					if _, isReady := coordinator.IsReady(); isReady {
-						klog.Infof("notified the pool coordinator is ready, cancel the req %s making it handled by pool coordinator", hubutil.ReqString(req))
+						klog.Infof("notified the yurt coordinator is ready, cancel the req %s making it handled by yurt coordinator", hubutil.ReqString(req))
 						util.ReListWatchReq(rw, req)
 						cloudServeCancel()
 						return
 					}
 				case <-clientReqCtx.Done():
-					klog.Infof("watch req %s is canceled by client, when pool coordinator is not ready", hubutil.ReqString(req))
+					klog.Infof("watch req %s is canceled by client, when yurt coordinator is not ready", hubutil.ReqString(req))
 					return
 				}
 			}
@@ -356,9 +356,9 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 			if !isLeaderHubUserAgent(ctx) {
 				if isRequestOfNodeAndPod(ctx) {
 					// Currently, for request that does not come from "leader-yurthub",
-					// we only cache pod and node resources to pool-coordinator.
+					// we only cache pod and node resources to yurt-coordinator.
 					// Note: We do not allow the non-leader yurthub to cache pool-scoped resources
-					// into pool-coordinator to ensure that only one yurthub can update pool-scoped
+					// into yurt-coordinator to ensure that only one yurthub can update pool-scoped
 					// cache to avoid inconsistency of data.
 					lb.cacheToLocalAndPool(req, resp, poolCacheManager)
 				} else {
@@ -376,7 +376,7 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 			return
 		}
 
-		// When pool-coordinator is not healthy or not be enabled, we can
+		// When yurt-coordinator is not healthy or not be enabled, we can
 		// only cache the response at local.
 		lb.cacheToLocal(req, resp)
 	}

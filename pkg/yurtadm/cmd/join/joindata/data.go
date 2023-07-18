@@ -24,12 +24,14 @@ import (
 
 type NodeRegistration struct {
 	Name          string
+	NodePoolName  string
 	CRISocket     string
 	WorkingMode   string
 	Organizations string
 }
 
 type YurtJoinData interface {
+	CfgPath() string
 	ServerAddr() string
 	JoinToken() string
 	PauseImage() string
@@ -47,4 +49,6 @@ type YurtJoinData interface {
 	KubernetesResourceServer() string
 	ReuseCNIBin() bool
 	Namespace() string
+	StaticPodTemplateList() []string
+	StaticPodManifestList() []string
 }

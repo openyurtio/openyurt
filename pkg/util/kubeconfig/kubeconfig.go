@@ -24,6 +24,8 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
 )
 
 // CreateBasic creates a basic, general KubeConfig object that then can be extended
@@ -124,4 +126,19 @@ func GetAuthInfoFromKubeConfig(config *clientcmdapi.Config) *clientcmdapi.AuthIn
 		return config.AuthInfos[config.Contexts[config.CurrentContext].AuthInfo]
 	}
 	return nil
+}
+
+// ToYurtClientSet converts a KubeConfig object to a yurtClient
+func ToYurtClientSet(config *clientcmdapi.Config) (yurtclientset.Interface, error) {
+	overrides := clientcmd.ConfigOverrides{Timeout: "10s"}
+	clientConfig, err := clientcmd.NewDefaultClientConfig(*config, &overrides).ClientConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create yurt client configuration from kubeconfig")
+	}
+
+	client, err := yurtclientset.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create yurt client")
+	}
+	return client, nil
 }

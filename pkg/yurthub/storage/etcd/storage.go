@@ -32,14 +32,14 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/resources"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/utils"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/resources"
 )
 
 const (
-	StorageName                   = "pool-coordinator"
+	StorageName                   = "yurt-coordinator"
 	defaultTimeout                = 5 * time.Second
 	defaultHealthCheckPeriod      = 10 * time.Second
 	defaultDialTimeout            = 10 * time.Second
@@ -83,11 +83,11 @@ type etcdStorage struct {
 	// 2. special resources: which are only used by this nodes
 	// In local cache, we do not need to bother to distinguish these two kinds.
 	// For special resources, this node absolutely can create/update/delete them.
-	// For common resources, thanks to list/watch we can ensure that resources in pool-coordinator
+	// For common resources, thanks to list/watch we can ensure that resources in yurt-coordinator
 	// are finally consistent with the cloud, though there maybe a little jitter.
 	localComponentKeyCache *componentKeyCache
 	// For etcd storage, we do not need to cache cluster info, because
-	// we can get it form apiserver in pool-coordinator.
+	// we can get it form apiserver in yurt-coordinator.
 	doNothingAboutClusterInfo
 }
 
@@ -141,6 +141,9 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 		poolScopedResourcesGetter: resources.GetPoolScopeResources,
 	}
 	if err := cache.Recover(); err != nil {
+		if err := client.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close etcd client, %v", err)
+		}
 		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
 	}
 	s.localComponentKeyCache = cache
@@ -182,6 +185,9 @@ func (s *etcdStorage) clientLifeCycleManagement() {
 	for {
 		select {
 		case <-s.ctx.Done():
+			if err := s.client.Close(); err != nil {
+				klog.Errorf("failed to close etcd client, %v", err)
+			}
 			klog.Info("etcdstorage lifecycle routine exited")
 			return
 		default:

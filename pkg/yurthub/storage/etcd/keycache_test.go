@@ -28,13 +28,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
-	mvccpb "go.etcd.io/etcd/api/v3/mvccpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	etcdmock "github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd/mock"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 var (

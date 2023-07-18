@@ -30,8 +30,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/renew"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/staticpods"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/token"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/yurtinit"
 )
 
 // NewYurtadmCommand creates a new yurtadm command
@@ -46,12 +46,12 @@ func NewYurtadmCommand() *cobra.Command {
 	setVersion(cmds)
 	// add kubeconfig to persistent flags
 	cmds.PersistentFlags().String("kubeconfig", "", "The path to the kubeconfig file")
-	cmds.AddCommand(yurtinit.NewCmdInit())
 	cmds.AddCommand(join.NewCmdJoin(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(reset.NewCmdReset(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(token.NewCmdToken(os.Stdin, os.Stdout, os.Stderr))
 	cmds.AddCommand(docs.NewDocsCmd(cmds))
 	cmds.AddCommand(renew.NewCmdRenew(os.Stdin, os.Stdout, os.Stderr))
+	cmds.AddCommand(staticpods.NewCmdStaticPods(os.Stdin, os.Stdout, os.Stderr))
 
 	klog.InitFlags(nil)
 	// goflag.Parse()
