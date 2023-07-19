@@ -49,6 +49,7 @@ func TestNewYurtHubOptions(t *testing.T) {
 		HeartbeatTimeoutSeconds:   2,
 		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
+		BootstrapMode:             "token",
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
 		EnableDummyIf:             true,

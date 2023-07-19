@@ -20,12 +20,12 @@ import (
 	"testing"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token/testdata"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 )
 
 func TestComplete(t *testing.T) {
 	options := options.NewYurtHubOptions()
-	client, err := testdata.CreateCertFakeClient("../../../../pkg/yurthub/certificate/token/testdata")
+	client, err := testdata.CreateCertFakeClient("../../../../pkg/yurthub/certificate/testdata")
 	if err != nil {
 		t.Errorf("failed to create cert fake client, %v", err)
 		return

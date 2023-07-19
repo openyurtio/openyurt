@@ -44,10 +44,9 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
+	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
@@ -178,9 +177,20 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		LeaderElection:            options.LeaderElection,
 	}
 
-	certMgr, err := createCertManager(options, us)
+	certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
 	if err != nil {
 		return nil, err
+	}
+	certMgr.Start()
+	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
+		isReady := certMgr.Ready()
+		if isReady {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
 	}
 	cfg.CertManager = certMgr
 
@@ -230,7 +240,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	return us, nil
 }
 
-// createSharedInformers create sharedInformers from the given proxyAddr.
+// createClientAndSharedInformers create kubeclient and sharedInformers from the given proxyAddr.
 func createClientAndSharedInformers(proxyAddr string, enableNodePool bool) (kubernetes.Interface, informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var yurtClient yurtclientset.Interface
@@ -339,45 +349,6 @@ func isServiceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
 	}
 
 	return true
-}
-
-func createCertManager(options *options.YurtHubOptions, remoteServers []*url.URL) (certificate.YurtCertificateManager, error) {
-	// use dummy ip and bind ip as cert IP SANs
-	certIPs := ipUtils.RemoveDupIPs([]net.IP{
-		net.ParseIP(options.HubAgentDummyIfIP),
-		net.ParseIP(options.YurtHubHost),
-		net.ParseIP(options.YurtHubProxyHost),
-	})
-
-	cfg := &token.CertificateManagerConfiguration{
-		RootDir:                  options.RootDir,
-		NodeName:                 options.NodeName,
-		JoinToken:                options.JoinToken,
-		BootstrapFile:            options.BootstrapFile,
-		CaCertHashes:             options.CACertHashes,
-		YurtHubCertOrganizations: options.YurtHubCertOrganizations,
-		CertIPs:                  certIPs,
-		RemoteServers:            remoteServers,
-		Client:                   options.ClientForTest,
-	}
-	certManager, err := token.NewYurtHubCertManager(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cert manager for yurthub, %v", err)
-	}
-
-	certManager.Start()
-	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
-		isReady := certManager.Ready()
-		if isReady {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
-	}
-
-	return certManager, nil
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {

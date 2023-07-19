@@ -18,17 +18,13 @@ package token
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
-
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token/testdata"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 )
 
 func Test_removeDirContents(t *testing.T) {
@@ -78,31 +74,29 @@ func TestGetHubConfFile(t *testing.T) {
 	nodeName := "foo"
 	u, _ := url.Parse("http://127.0.0.1")
 	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
 	testcases := map[string]struct {
-		rootDir string
+		workDir string
 		path    string
 	}{
 		"use default root dir": {
-			rootDir: "",
+			workDir: filepath.Join("/var/lib", projectinfo.GetHubName()),
 			path:    filepath.Join("/var/lib", projectinfo.GetHubName(), fmt.Sprintf("%s.conf", projectinfo.GetHubName())),
 		},
 		"define root dir": {
-			rootDir: "/tmp",
+			workDir: "/tmp",
 			path:    filepath.Join("/tmp", fmt.Sprintf("%s.conf", projectinfo.GetHubName())),
 		},
 	}
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			cfg := &CertificateManagerConfiguration{
+			cfg := &ClientCertificateManagerConfiguration{
 				NodeName:      nodeName,
 				RemoteServers: remoteServers,
-				CertIPs:       certIPs,
-				RootDir:       tc.rootDir,
+				WorkDir:       tc.workDir,
 			}
 
-			mgr, err := NewYurtHubCertManager(cfg)
+			mgr, err := NewYurtHubClientCertManager(cfg)
 			if err != nil {
 				t.Errorf("failed to new cert manager, %v", err)
 			}
@@ -118,31 +112,29 @@ func TestGetCaFile(t *testing.T) {
 	nodeName := "foo"
 	u, _ := url.Parse("http://127.0.0.1")
 	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
 	testcases := map[string]struct {
-		rootDir string
+		workDir string
 		path    string
 	}{
 		"use default root dir": {
-			rootDir: "",
+			workDir: filepath.Join("/var/lib", projectinfo.GetHubName()),
 			path:    filepath.Join("/var/lib", projectinfo.GetHubName(), "pki", "ca.crt"),
 		},
 		"define root dir": {
-			rootDir: "/tmp",
+			workDir: "/tmp",
 			path:    filepath.Join("/tmp", "pki", "ca.crt"),
 		},
 	}
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			cfg := &CertificateManagerConfiguration{
+			cfg := &ClientCertificateManagerConfiguration{
 				NodeName:      nodeName,
 				RemoteServers: remoteServers,
-				CertIPs:       certIPs,
-				RootDir:       tc.rootDir,
+				WorkDir:       tc.workDir,
 			}
 
-			mgr, err := NewYurtHubCertManager(cfg)
+			mgr, err := NewYurtHubClientCertManager(cfg)
 			if err != nil {
 				t.Errorf("failed to new cert manager, %v", err)
 			}
@@ -154,56 +146,12 @@ func TestGetCaFile(t *testing.T) {
 	}
 }
 
-func TestGetHubServerCertFile(t *testing.T) {
-	nodeName := "foo"
-	u, _ := url.Parse("http://127.0.0.1")
-	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
-	testcases := map[string]struct {
-		rootDir string
-		path    string
-	}{
-		"use default root dir": {
-			rootDir: "",
-			path:    filepath.Join("/var/lib", projectinfo.GetHubName(), "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
-		},
-		"define root dir": {
-			rootDir: "/tmp",
-			path:    filepath.Join("/tmp", "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
-		},
-	}
-
-	for k, tc := range testcases {
-		t.Run(k, func(t *testing.T) {
-			cfg := &CertificateManagerConfiguration{
-				NodeName:      nodeName,
-				RemoteServers: remoteServers,
-				CertIPs:       certIPs,
-				RootDir:       tc.rootDir,
-			}
-
-			mgr, err := NewYurtHubCertManager(cfg)
-			if err != nil {
-				t.Errorf("failed to new cert manager, %v", err)
-			}
-
-			if mgr.GetHubServerCertFile() != tc.path {
-				t.Errorf("expect hub server cert file %s, but got %s", tc.path, mgr.GetHubServerCertFile())
-			}
-		})
-	}
-}
-
-var (
-	joinToken = "123456.abcdef1234567890"
-	rootDir   = "/tmp/token/cert"
-)
-
 func TestUpdateBootstrapConf(t *testing.T) {
+	joinToken := "123456.abcdef1234567890"
+	workDir := "/tmp/token/cert"
 	nodeName := "foo"
 	u, _ := url.Parse("http://127.0.0.1")
 	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
 	testcases := map[string]struct {
 		joinToken string
 		err       error
@@ -216,17 +164,16 @@ func TestUpdateBootstrapConf(t *testing.T) {
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			client, err := testdata.CreateCertFakeClient("./testdata")
+			client, err := testdata.CreateCertFakeClient("../testdata")
 			if err != nil {
 				t.Errorf("failed to create cert fake client, %v", err)
 				return
 			}
 
-			mgr, err := NewYurtHubCertManager(&CertificateManagerConfiguration{
+			mgr, err := NewYurtHubClientCertManager(&ClientCertificateManagerConfiguration{
 				NodeName:      nodeName,
 				RemoteServers: remoteServers,
-				CertIPs:       certIPs,
-				RootDir:       rootDir,
+				WorkDir:       workDir,
 				JoinToken:     tc.joinToken,
 				Client:        client,
 			})
@@ -242,69 +189,5 @@ func TestUpdateBootstrapConf(t *testing.T) {
 			mgr.Stop()
 		})
 	}
-	os.RemoveAll(rootDir)
-}
-
-func TestReady(t *testing.T) {
-	nodeName := "foo"
-	u, _ := url.Parse("http://127.0.0.1")
-	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
-
-	client, err := testdata.CreateCertFakeClient("./testdata")
-	if err != nil {
-		t.Errorf("failed to create cert fake client, %v", err)
-		return
-	}
-
-	mgr, err := NewYurtHubCertManager(&CertificateManagerConfiguration{
-		NodeName:                 nodeName,
-		RemoteServers:            remoteServers,
-		CertIPs:                  certIPs,
-		RootDir:                  rootDir,
-		JoinToken:                joinToken,
-		YurtHubCertOrganizations: []string{"yurthub:tenant:foo"},
-		Client:                   client,
-	})
-	if err != nil {
-		t.Errorf("failed to new yurt cert manager, %v", err)
-		return
-	}
-	mgr.Start()
-
-	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
-		if mgr.Ready() {
-			return true, nil
-		}
-		return false, nil
-	})
-
-	if err != nil {
-		t.Errorf("certificates are not ready, %v", err)
-	}
-
-	mgr.Stop()
-
-	// reuse the config and ca file
-	t.Logf("go to check the reuse of config and ca file")
-	newMgr, err := NewYurtHubCertManager(&CertificateManagerConfiguration{
-		NodeName:                 nodeName,
-		RemoteServers:            remoteServers,
-		CertIPs:                  certIPs,
-		RootDir:                  rootDir,
-		JoinToken:                joinToken,
-		YurtHubCertOrganizations: []string{"yurthub:tenant:foo"},
-		Client:                   client,
-	})
-	if err != nil {
-		t.Errorf("failed to new another yurt cert manager, %v", err)
-		return
-	}
-	newMgr.Start()
-	if !newMgr.Ready() {
-		t.Errorf("certificates can not be reused")
-	}
-	newMgr.Stop()
-
-	os.RemoveAll(rootDir)
+	os.RemoveAll(workDir)
 }

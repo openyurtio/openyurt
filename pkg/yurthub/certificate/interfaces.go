@@ -22,14 +22,25 @@ import (
 
 // YurtCertificateManager is responsible for managing node certificate for yurthub
 type YurtCertificateManager interface {
-	Start()
-	Stop()
+	YurtClientCertificateManager
+	YurtServerCertificateManager
 	// Ready should be called after yurt certificate manager started by Start.
 	Ready() bool
+}
+
+// YurtClientCertificateManager is responsible for managing node client certificates for yurthub
+type YurtClientCertificateManager interface {
+	Start()
+	Stop()
 	UpdateBootstrapConf(joinToken string) error
 	GetHubConfFile() string
 	GetCaFile() string
 	GetAPIServerClientCert() *tls.Certificate
+}
+
+type YurtServerCertificateManager interface {
+	Start()
+	Stop()
 	GetHubServerCert() *tls.Certificate
 	GetHubServerCertFile() string
 }
