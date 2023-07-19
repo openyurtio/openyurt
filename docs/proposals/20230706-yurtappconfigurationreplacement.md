@@ -61,7 +61,7 @@ Reference to the design of ClusterRole and ClusterRoleBinding.
 1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
 2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of items and patches. Items replace a set of configuration for matching nodepools.
 <img src = "../img/yurtappconfigurationreplacement/Inspiration.png" width="600">
-3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convent a patch struct into an API interface call. 
+3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convent a patch struct into an API interface call.
    ```shell
    kubectl patch deployment xxx --type='json' --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"tomcat"}]'
    ```
@@ -155,7 +155,7 @@ type Entry struct {
   Pools   []string `json:"pools"`
   // +optional
   Items   []Item   `json:"items"`
-  // Convert Patch struct into json patch operation  
+  // Convert Patch struct into json patch operation
   // +optional
   Patches []Patch  `json:"patches"`
 }
@@ -176,8 +176,6 @@ type YurtAppConfigurationReplacement struct {
   Entries []Entry `json:"entries"`
 }
 ```
-
-
 ### Architecture
 The whole architecture is shown below.
 <img src = "../img/yurtappconfigurationreplacement/Architecture.png" width="800">
@@ -314,7 +312,7 @@ replacements:
   - replicas: 5
 ```
 #### Story 5 (Specific)
-Utilize patches to add a new container to workloads. 
+Utilize patches to add a new container to workloads.
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigurationReplacement
@@ -342,8 +340,6 @@ entries:
           spec:
             restartPolicy: OnFailure
 ```
-
-
 ## Implementation History
 - [ ] : YurtAppConfigurationReplacement API CRD
 - [ ] : Deployment Mutating Webhook
