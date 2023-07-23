@@ -47,7 +47,7 @@ func Test_ListProfile(t *testing.T) {
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v2/deviceprofile/all?limit=-1",
 		httpmock.NewStringResponder(200, DeviceProfileListMetaData))
-	profiles, err := profileClient.List(context.TODO(), clients.ListOptions{})
+	profiles, err := profileClient.List(context.TODO(), clients.ListOptions{Namespace: "default"})
 	assert.Nil(t, err)
 
 	assert.Equal(t, 5, len(profiles))
@@ -60,7 +60,7 @@ func Test_GetProfile(T *testing.T) {
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v2/deviceprofile/name/Random-Boolean-Device",
 		httpmock.NewStringResponder(200, DeviceProfileMetaData))
 
-	_, err := profileClient.Get(context.TODO(), "Random-Boolean-Device", clients.GetOptions{})
+	_, err := profileClient.Get(context.TODO(), "Random-Boolean-Device", clients.GetOptions{Namespace: "default"})
 	assert.Nil(T, err)
 }
 
@@ -76,7 +76,7 @@ func Test_CreateProfile(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceProfileMetaData), &resp)
 	assert.Nil(t, err)
 
-	profile := toKubeDeviceProfile(&resp.Profile)
+	profile := toKubeDeviceProfile(&resp.Profile, "default")
 	profile.Name = "test-Random-Boolean-Device"
 
 	_, err = profileClient.Create(context.TODO(), &profile, clients.CreateOptions{})

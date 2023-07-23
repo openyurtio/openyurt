@@ -43,7 +43,8 @@ type DeviceReconciler struct {
 	Scheme    *runtime.Scheme
 	deviceCli clients.DeviceInterface
 	// which nodePool deviceController is deployed in
-	NodePool string
+	NodePool  string
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=iot.openyurt.io,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -110,6 +111,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	r.deviceCli = edgexCli.NewEdgexDeviceClient(opts.CoreMetadataAddr, opts.CoreCommandAddr)
 	r.NodePool = opts.Nodepool
+	r.Namespace = opts.Namespace
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iotv1alpha1.Device{}).
@@ -157,7 +159,7 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 	newDeviceStatus := d.Status.DeepCopy()
 	klog.V(4).Infof("Checking if device already exist on the edge platform: %s", d.GetName())
 	// Checking if device already exist on the edge platform
-	edgeDevice, err := r.deviceCli.Get(context.TODO(), edgeDeviceName, clients.GetOptions{})
+	edgeDevice, err := r.deviceCli.Get(context.TODO(), edgeDeviceName, clients.GetOptions{Namespace: r.Namespace})
 	if err == nil {
 		// a. If object exists, the status of the device on OpenYurt is updated
 		klog.V(4).Infof("Device already exists on edge platform: %s", d.GetName())

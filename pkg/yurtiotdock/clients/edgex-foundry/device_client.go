@@ -148,7 +148,7 @@ func (efc *EdgexDeviceClient) Get(ctx context.Context, deviceName string, option
 	if err != nil {
 		return nil, err
 	}
-	device := toKubeDevice(dResp.Device)
+	device := toKubeDevice(dResp.Device, options.Namespace)
 	return &device, err
 }
 
@@ -166,7 +166,7 @@ func (efc *EdgexDeviceClient) List(ctx context.Context, options clients.ListOpti
 	}
 	var res []iotv1alpha1.Device
 	for _, dp := range mdResp.Devices {
-		res = append(res, toKubeDevice(dp))
+		res = append(res, toKubeDevice(dp, options.Namespace))
 	}
 	return res, nil
 }

@@ -53,23 +53,23 @@ func NewYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformA
 	yurtIotDockComponent.Deployment = &appsv1.DeploymentSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				"app":           "yurt-iot-dock",
-				"control-plane": "platformadmin-controller",
+				"app":           utils.IotDockName,
+				"control-plane": utils.IotDockControlPlane,
 			},
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"app":           "yurt-iot-dock",
-					"control-plane": "platformadmin-controller",
+					"app":           utils.IotDockName,
+					"control-plane": utils.IotDockControlPlane,
 				},
 				Namespace: ns,
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:            "yurt-iot-dock",
-						Image:           fmt.Sprintf("leoabyss/yurt-iot-dock:%s", ver),
+						Name:            utils.IotDockName,
+						Image:           fmt.Sprintf("%s:%s", utils.IotDockImage, ver),
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						Args: []string{
 							"--health-probe-bind-address=:8081",

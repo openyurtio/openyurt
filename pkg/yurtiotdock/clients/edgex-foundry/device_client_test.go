@@ -54,7 +54,7 @@ func Test_Get(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v2/device/name/Random-Float-Device",
 		httpmock.NewStringResponder(200, DeviceMetadata))
 
-	device, err := deviceClient.Get(context.TODO(), "Random-Float-Device", clients.GetOptions{})
+	device, err := deviceClient.Get(context.TODO(), "Random-Float-Device", clients.GetOptions{Namespace: "default"})
 	assert.Nil(t, err)
 
 	assert.Equal(t, "Random-Float-Device", device.Spec.Profile)
@@ -68,7 +68,7 @@ func Test_List(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v2/device/all?limit=-1",
 		httpmock.NewStringResponder(200, DeviceListMetadata))
 
-	devices, err := deviceClient.List(context.TODO(), clients.ListOptions{})
+	devices, err := deviceClient.List(context.TODO(), clients.ListOptions{Namespace: "default"})
 	assert.Nil(t, err)
 
 	assert.Equal(t, len(devices), 5)
@@ -86,7 +86,7 @@ func Test_Create(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceMetadata), &resp)
 	assert.Nil(t, err)
 
-	device := toKubeDevice(resp.Device)
+	device := toKubeDevice(resp.Device, "default")
 	device.Name = "test-Random-Float-Device"
 
 	create, err := deviceClient.Create(context.TODO(), &device, clients.CreateOptions{})
@@ -133,7 +133,7 @@ func Test_GetPropertyState(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceMetadata), &resp)
 	assert.Nil(t, err)
 
-	device := toKubeDevice(resp.Device)
+	device := toKubeDevice(resp.Device, "default")
 
 	_, err = deviceClient.GetPropertyState(context.TODO(), "Float32", &device, clients.GetOptions{})
 	assert.Nil(t, err)
@@ -151,7 +151,7 @@ func Test_ListPropertiesState(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceMetadata), &resp)
 	assert.Nil(t, err)
 
-	device := toKubeDevice(resp.Device)
+	device := toKubeDevice(resp.Device, "default")
 
 	_, _, err = deviceClient.ListPropertiesState(context.TODO(), &device, clients.ListOptions{})
 	assert.Nil(t, err)
@@ -169,7 +169,7 @@ func Test_UpdateDevice(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceMetadata), &resp)
 	assert.Nil(t, err)
 
-	device := toKubeDevice(resp.Device)
+	device := toKubeDevice(resp.Device, "default")
 	device.Spec.AdminState = "LOCKED"
 
 	_, err = deviceClient.Update(context.TODO(), &device, clients.UpdateOptions{})
@@ -189,7 +189,7 @@ func Test_UpdatePropertyState(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceMetadata), &resp)
 	assert.Nil(t, err)
 
-	device := toKubeDevice(resp.Device)
+	device := toKubeDevice(resp.Device, "default")
 	device.Spec.DeviceProperties = map[string]iotv1alpha1.DesiredPropertyState{
 		"Float32": {
 			Name:         "Float32",

@@ -113,7 +113,7 @@ func (ds *DeviceSyncer) getAllDevices() (map[string]iotv1alpha1.Device, map[stri
 	edgeDevice := map[string]iotv1alpha1.Device{}
 	kubeDevice := map[string]iotv1alpha1.Device{}
 	// 1. list devices on edge platform
-	eDevs, err := ds.deviceCli.List(context.TODO(), edgeCli.ListOptions{})
+	eDevs, err := ds.deviceCli.List(context.TODO(), edgeCli.ListOptions{Namespace: ds.Namespace})
 	if err != nil {
 		klog.V(4).ErrorS(err, "fail to list the devices object on the Edge Platform")
 		return edgeDevice, kubeDevice, err

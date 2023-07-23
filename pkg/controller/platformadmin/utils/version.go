@@ -21,9 +21,11 @@ import (
 )
 
 const IotDockName = "yurt-iot-dock"
+const IotDockImage = "openyurt/yurt-iot-dock"
+const IotDockControlPlane = "platformadmin-controller"
 
 func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
-	version := "v0.3"
+	version := "latest"
 	ns := platformAdmin.Namespace
 	return version, ns, nil
 }

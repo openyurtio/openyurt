@@ -42,6 +42,7 @@ type DeviceServiceReconciler struct {
 	Scheme           *runtime.Scheme
 	deviceServiceCli clients.DeviceServiceInterface
 	NodePool         string
+	Namespace        string
 }
 
 //+kubebuilder:rbac:groups=iot.openyurt.io,resources=deviceservices,verbs=get;list;watch;create;update;patch;delete
@@ -108,6 +109,7 @@ func (r *DeviceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *DeviceServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	r.deviceServiceCli = edgexCli.NewEdgexDeviceServiceClient(opts.CoreMetadataAddr)
 	r.NodePool = opts.Nodepool
+	r.Namespace = opts.Namespace
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iotv1alpha1.DeviceService{}).
@@ -161,7 +163,7 @@ func (r *DeviceServiceReconciler) reconcileCreateDeviceService(ctx context.Conte
 	edgeDeviceServiceName := util.GetEdgeDeviceServiceName(ds, EdgeXObjectName)
 	klog.V(4).Infof("Checking if deviceService already exist on the edge platform: %s", ds.GetName())
 	// Checking if deviceService already exist on the edge platform
-	if edgeDs, err := r.deviceServiceCli.Get(context.TODO(), edgeDeviceServiceName, clients.GetOptions{}); err != nil {
+	if edgeDs, err := r.deviceServiceCli.Get(context.TODO(), edgeDeviceServiceName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
 			klog.V(4).ErrorS(err, "fail to visit the edge platform")
 			return nil

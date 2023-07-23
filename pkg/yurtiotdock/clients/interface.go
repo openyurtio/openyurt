@@ -36,7 +36,11 @@ type UpdateOptions struct{}
 
 // GetOptions defines additional options when getting an object
 // Additional general field definitions can be added
-type GetOptions struct{}
+type GetOptions struct {
+	// Namespace represents the namespace to list for, or empty for
+	// non-namespaced objects, or to list across all namespaces.
+	Namespace string
+}
 
 // ListOptions defines additional options when listing an object
 type ListOptions struct {
@@ -48,6 +52,9 @@ type ListOptions struct {
 	// Defaults to everything.
 	// +optional
 	FieldSelector map[string]string
+	// Namespace represents the namespace to list for, or empty for
+	// non-namespaced objects, or to list across all namespaces.
+	Namespace string
 }
 
 // DeviceInterface defines the interfaces which used to create, delete, update, get and list Device objects on edge-side platform

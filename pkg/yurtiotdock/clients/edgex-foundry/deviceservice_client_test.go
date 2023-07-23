@@ -49,7 +49,7 @@ func Test_GetService(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v2/deviceservice/name/device-virtual",
 		httpmock.NewStringResponder(200, DeviceServiceMetaData))
 
-	_, err := serviceClient.Get(context.TODO(), "device-virtual", clients.GetOptions{})
+	_, err := serviceClient.Get(context.TODO(), "device-virtual", clients.GetOptions{Namespace: "default"})
 	assert.Nil(t, err)
 }
 
@@ -77,7 +77,7 @@ func Test_CreateService(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceServiceMetaData), &resp)
 	assert.Nil(t, err)
 
-	service := toKubeDeviceService(resp.Service)
+	service := toKubeDeviceService(resp.Service, "default")
 	service.Name = "test-device-virtual"
 
 	_, err = serviceClient.Create(context.TODO(), &service, clients.CreateOptions{})
@@ -114,7 +114,7 @@ func Test_UpdateService(t *testing.T) {
 	err := json.Unmarshal([]byte(DeviceServiceMetaData), &resp)
 	assert.Nil(t, err)
 
-	service := toKubeDeviceService(resp.Service)
+	service := toKubeDeviceService(resp.Service, "default")
 	_, err = serviceClient.Update(context.TODO(), &service, clients.UpdateOptions{})
 	assert.Nil(t, err)
 

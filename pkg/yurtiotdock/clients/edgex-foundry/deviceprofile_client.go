@@ -65,7 +65,7 @@ func (cdc *EdgexDeviceProfile) List(ctx context.Context, opts devcli.ListOptions
 	}
 	var deviceProfiles []v1alpha1.DeviceProfile
 	for _, dp := range mdpResp.Profiles {
-		deviceProfiles = append(deviceProfiles, toKubeDeviceProfile(&dp))
+		deviceProfiles = append(deviceProfiles, toKubeDeviceProfile(&dp, opts.Namespace))
 	}
 	return deviceProfiles, nil
 }
@@ -84,7 +84,7 @@ func (cdc *EdgexDeviceProfile) Get(ctx context.Context, name string, opts devcli
 	if err = json.Unmarshal(resp.Body(), &dpResp); err != nil {
 		return nil, err
 	}
-	kubedp := toKubeDeviceProfile(&dpResp.Profile)
+	kubedp := toKubeDeviceProfile(&dpResp.Profile, opts.Namespace)
 	return &kubedp, nil
 }
 

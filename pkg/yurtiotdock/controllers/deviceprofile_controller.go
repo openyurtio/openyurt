@@ -41,6 +41,7 @@ type DeviceProfileReconciler struct {
 	Scheme     *runtime.Scheme
 	edgeClient clients.DeviceProfileInterface
 	NodePool   string
+	Namespace  string
 }
 
 //+kubebuilder:rbac:groups=iot.openyurt.io,resources=deviceprofiles,verbs=get;list;watch;create;update;patch;delete
@@ -88,6 +89,7 @@ func (r *DeviceProfileReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	r.edgeClient = edgexclis.NewEdgexDeviceProfile(opts.CoreMetadataAddr)
 	r.NodePool = opts.Nodepool
+	r.Namespace = opts.Namespace
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iotv1alpha1.DeviceProfile{}).
@@ -137,7 +139,7 @@ func (r *DeviceProfileReconciler) reconcileDeleteDeviceProfile(ctx context.Conte
 
 func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Context, dp *iotv1alpha1.DeviceProfile, actualName string) error {
 	klog.V(4).Infof("Checking if deviceProfile already exist on the edge platform: %s", dp.GetName())
-	if edgeDp, err := r.edgeClient.Get(context.TODO(), actualName, clients.GetOptions{}); err != nil {
+	if edgeDp, err := r.edgeClient.Get(context.TODO(), actualName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
 			klog.V(4).ErrorS(err, "fail to visit the edge platform")
 			return nil

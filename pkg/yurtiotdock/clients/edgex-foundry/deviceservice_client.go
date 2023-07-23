@@ -139,7 +139,7 @@ func (eds *EdgexDeviceServiceClient) Get(ctx context.Context, name string, optio
 	if err != nil {
 		return nil, err
 	}
-	ds := toKubeDeviceService(dsResp.Service)
+	ds := toKubeDeviceService(dsResp.Service, options.Namespace)
 	return &ds, nil
 }
 
@@ -160,7 +160,7 @@ func (eds *EdgexDeviceServiceClient) List(ctx context.Context, options edgeCli.L
 	}
 	var res []v1alpha1.DeviceService
 	for _, ds := range mdsResponse.Services {
-		res = append(res, toKubeDeviceService(ds))
+		res = append(res, toKubeDeviceService(ds, options.Namespace))
 	}
 	return res, nil
 }
