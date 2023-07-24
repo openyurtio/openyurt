@@ -14,21 +14,21 @@ status: provisional
 
 ## Table of Contents
 
-* [Improve yurthub caching ability](#Improve yurthub caching ability)
-  * [Table of Contents](#table-of-contents)
-  * [Summary](#summary)
-  * [Motivation](#motivation)
-    * [Goals](#goals)
-  * [Proposal](#proposal)
-    * [Problem Solutions](#problem-solutions)
-      * [Architecture Improvements](#architecture-improvements)
-      * [Deployment Program](#deployment-program)
-      * [Disk Storage Adjustment](#disk-storage-adjustment)
-    * [HF Resource Caching](#HF-resource-caching)
-    * [Interface Definition Implementation](#interface-definition-implementation)
-    * [Analysis of impact of changes](#analysis-of-impact-of-changes)
-    * [Comparison of before and after changes](#comparison-of-before-and-after-changes)
-  * [Implementation History](#implementation-history)
+- [Improve yurthub caching ability](#Improve yurthub caching ability)
+  - [Table of Contents](#table-of-contents)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+  - [Proposal](#proposal)
+    - [Problem Solutions](#problem-solutions)
+      - [Architecture Improvements](#architecture-improvements)
+      - [Deployment Program](#deployment-program)
+      - [Disk Storage Adjustment](#disk-storage-adjustment)
+    - [HF Resource Caching](#HF-resource-caching)
+    - [Interface Definition Implementation](#interface-definition-implementation)
+    - [Analysis of impact of changes](#analysis-of-impact-of-changes)
+    - [Comparison of before and after changes](#comparison-of-before-and-after-changes)
+  - [Implementation History](#implementation-history)
 
 <!-- Created by https://github.com/ekalinin/github-markdown-toc -->
 ## Motivation
@@ -66,7 +66,6 @@ If the same component, such as kubelet, has multiple modules, each module needs 
 - Sorting out the original architecture logic, identifying problems and proposing solutions
 - Optimized architectural design, weakened YurtHub cloud-side two patterns code design
 
-
 ## Proposal
 
 ### Problem Solutions
@@ -80,9 +79,9 @@ If the same component, such as kubelet, has multiple modules, each module needs 
 The above 1~3 problems (inconsistency of cloud-side data query, reading and writing conflict anomalies in the calling interface, and inconsistency of external calling methods) are solved by adjusting the architectural scheme as follows：
 
 - Regardless of the cloud-side model, the CacheManager needs to be started to ensure the logical unity of data operations, which are retrieved from the CacheManager (StorageWrapper).
-- If the CacheManager cannot be queried here, then according to the two cloud-side scenarios, the side side query the local data from the StorageManager interface to return (and update it to the StorageWrapper at the same time), and the cloud mode connects to the APiServer to query the
-- After the data of each component accessing the requested ApiServer is returned through LoadBalance, it is necessary to asynchronously update the Cache, local storage, and the Cache.
-- Asynchronous operation, according to the different types of resources, concurrent requests will be executed serially, the use of goroutine to write disk operations, to ensure that the data will eventually be processed and will not be lost, ** each resource is written sequentially using a concurrent program ** can not be processed without locking, and at the same time to provide a function that allows only read, directly from the Map to read the relevant content to the data read at that time shall prevail, the same does not need to lock
+- If the CacheManager cannot be queried, then according to the two cloud-edge scenarios, the edge side query the local data from the StorageManager interface to return (and update it to the StorageWrapper at the same time), and the cloud mode connects to the APiServer to query the data
+- After the data of each component accessing the requested ApiServer is returned through LoadBalance, it is necessary to asynchronously update the Cache, and the local storage.
+- Asynchronous operation, according to the different types of resources, concurrent requests will be executed serially, the use of goroutine to write disk operations, to ensure that the data will eventually be processed and will not be lost, **each resource is written sequentially using a concurrent program** can not be processed without locking, and at the same time to provide a function that allows only read, directly from the Map to read the relevant content to the data read at that time shall prevail, the same does not need to lock
 - Between CacheManager and StorageWrapper, the write data is communicated through channels. After CacheManager receives the data information returned from the reverse proxy, it **drops the data to the channel where the corresponding resource is located for processing**, which is equivalent to the fact that StorageWrapper needs to start multiple concurrent programs to get data from each resource channel and update the Cache and call the Storage interface to update the disk in real time. In other words, StorageWrapper needs to start several concurrent processes to get data from each resource channel and update the Cache and call the Storage interface to update the disk in real time; at the same time, StorageWrapper only provides read-only function interfaces, such as Get/List, etc., which are convenient for querying the Cache data.
 - As the local storage data directory is: component/resource/namespace, according to the resource to write operations, even if there are more than one concurrent coprocessing, there will be no write conflict operation, so there is no need to lock processing, but also to improve the efficiency of writing disk
 
@@ -94,9 +93,8 @@ The above 1~3 problems (inconsistency of cloud-side data query, reading and writ
 
 Problem 5 (list data storage conflict problem) is solved by adjusting the program interface as follows：
 
-- Regarding list data storage, in the case of not changing the storage path, the use of concatenated storage, that is, the same resource for a variety of list results to seek a concatenation, and then stored, need to be processed, such as data query, and then based on the contents of the selector or the path, the program to do a good job of filtering and then return to the
-- Regarding each re-list operation, you need to use the same list conditions to get the data from the local area, and then compare it with the data returned from the cloud: 1. if the cloud has it, but the side doesn't have it, create it; 2. if the cloud doesn't have it, but the side has it, delete it; 3. if the cloud and the side both have it, update it.
-
+- Regarding list data storage, in the case of not changing the storage path, the use of concatenated storage, that is, the same resource for a variety of list results to seek a concatenation, and then stored, need to be processed, such as data query, and then based on the contents of the selector or the path, the program to do a good job of filtering and then return to the client
+- Regarding each re-list request, you need to use the same list conditions to get the data from the local area, and then compare it with the data returned from the cloud: 1. if the cloud has it, but the side doesn't have it, create it; 2. if the cloud doesn't have it, but the side has it, delete it; 3. if the cloud and the side both have it, update it.
 
 ### HF Resource Caching
 
@@ -104,9 +102,8 @@ Considering the resource limitations of the edge device, the caching function in
 
 | component    | verb | resource  |
 | ------- | ---- | ----- |
-| kubelet | list | pods  |
+| kubelet | get | leases  |
 |         | get  | nodes |
-
 
 ### Interface Definition Implementation
 
@@ -119,27 +116,27 @@ Considering the resource limitations of the edge device, the caching function in
 type Store interface {
 	// Name will return the name of this store.
 	Name() string
-	
+
 	// Get will get the content of key from the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If this key does not exist in this store, ErrStorageNotFound will be returned.
 	Get(key Key) ([]byte, error)
-	
+
 	// List will retrieve all contents whose keys have the prefix of rootKey.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
 	// If the key exists in the store but no other keys having it as prefix, an empty slice
 	// of content will be returned.
 	List(key Key) ([][]byte, error)
-	
+
 	// Create will create content of key in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	// If content is empty, either nil or []byte{}, ErrKeyHasNoContent will be returned.
 	// If this key has already existed in this store, ErrKeyExists will be returned.
 	Create(key Key, content []byte) error
-	
+
 	// Update will try to update key in store with passed-in contents. Only when
 	// the rv of passed-in contents is fresher than what is in the store, the Update will happen.
 	// The content of key after Update is completed will be returned.
@@ -148,25 +145,18 @@ type Store interface {
 	// If the key does not exist in the store, ErrStorageNotFound will be returned.
 	// If rv is staler than what is in the store, ErrUpdateConflict will be returned.
 	Update(key Key, contents []byte, rv uint64) ([]byte, error)
-	
+
 	// Delete will delete the content of key in the store.
 	// The key must indicate a specific resource.
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	Delete(key Key) error
-    
+
     // KeyFunc will generate the key used by this store.
 	// info contains necessary info to generate the key for the object. How to use this info
 	// to generate the key depends on the implementation of storage.
 	KeyFunc(info KeyBuildInfo) (Key, error)
-    
-    // ListKey will retrieve all keys whose have the prefix of rootKey.
-    // The key must indicate a specific component.
-    // If key is empty, ErrKeyIsEmpty will be returned.
-    ListKey(key Key) ([]Key, error)
 }
 ```
-
-
 
 #### storageWrapper
 
@@ -212,7 +202,7 @@ func (sw *storageWrapper) readObject(key storage.Key, verb, mode string) ([][]by
 		err                 error
 		isInMemoryCacheMiss bool
 	)
-    
+
     if verb == "listResourceKeysOfComponent" && mode == "edge" {
 		return sw.store.ListKey(key)
 	}
@@ -387,8 +377,6 @@ func (sw *storageWrapper) channelFunc(resource string, stop <-chan struct{}) {
 }
 ```
 
-
-
 #### CacheManager
 
 ##### Structure Definition
@@ -413,9 +401,9 @@ type CacheManager interface {
     QueryCache(req *http.Request) (runtime.Object, error)
     CanCacheFor(req *http.Request) bool
     DeleteKindFor(gvr schema.GroupVersionResource) error
-    
+
     KeyFunc(info storage.KeyBuildInfo) (storage.Key, error)
-    
+
     // write
     Create(key storage.Key, obj runtime.Object)
     Delete(key storage.Key)
@@ -423,7 +411,7 @@ type CacheManager interface {
     ReplaceComponentList(key storage.Key, obj runtime.Object)
     DeleteComponentResources(key storage.Key)
     SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
-	
+
     // read
     Get(key storage.Key) (runtime.Object, error)
     List(key storage.Key) ([]runtime.Object, error)
@@ -523,8 +511,6 @@ func (cm *cacheManager) ListResourceKeysOfComponent(key storage.Key) ([]storage.
 }
 ```
 
-
-
 ### Analysis of impact of changes
 
 This change mainly focuses on optimizing the local cache module, so the impact of the change is limited to modules that interact with local storage.
@@ -536,8 +522,6 @@ This change mainly focuses on optimizing the local cache module, so the impact o
 | YurtHub deployment        | Do not show the specified operation mode in the entry parameter, you need to make a judgment based on the node pool information to ensure that the cloud edge mode is functioning properly |
 
 This optimization change will not modify the directory structure and data format of the local disk storage data, so there will be no additional impact on the upgrade.
-
-
 
 ### Comparison of before and after changes
 
