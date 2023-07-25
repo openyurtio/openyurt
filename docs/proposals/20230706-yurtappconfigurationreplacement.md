@@ -34,9 +34,10 @@ status:
     - [User Stories](#user-stories)
       - [Story 1 (General)](#story-1-general)
       - [Story 2 (Specific)](#story-2-specific)
-      - [Story 3 (Specific)](#story-3-specific)
-      - [Story 4 (Specific)](#story-4-specific)
-      - [Story 5 (Specific)](#story-5-specific)
+      - [Story 3 (Advanced feature)](#story-3-advanced-feature)
+      - [Story 4 (Gray Release)](#story-4-gray-release)
+      - [Story 5 (Specify Registry)](#story-5-specify-registry)
+      - [Story 6 (Customize hostPath)](#story-6-customize-hostpath)
   - [Implementation History](#implementation-history)
 
 ## Glossary
@@ -45,15 +46,13 @@ YurtAppConfigurationReplacement is a new CRD used to customize the configuration
 ## Summary
 Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the workload configuration is always different in each region. We design a multi-region workloads configuration rendering engine by introducing YurtAppConfigurationReplacement CRD, relevant controller, and webhooks. The workloads(Deployment/StatefulSet) of nodepools in different regions can be rendered through simple configuration by using YurtAppConfigurationReplacement which also supports multiple resources(YurtAppSet/YurtAppDaemon).
 ## Motivation
-YurtAppDaemon is proposed for homogeneous workloads. Yurtappset is not user-friendly and scalable, although it can be used for workload configuration by patch field. Therefore, we expect a rendering engine to configure workloads in different regions easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is essential to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources.
+YurtAppSet is proposed for homogeneous workloads. YurtAppSet is not user-friendly and scalable, although it can be used for workload configuration by patch field. Therefore, we expect a rendering engine to configure workloads in different regions easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is essential to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources.
 ### Goals
-- Define the API of YurtAppConfigurationReplacement
-- Provide YurtAppConfigurationReplacement controller
-- Provide Deployment mutating webhook
-- Provide YurtAppConfigurationReplacement validating webhook
+- Customize the workloads in different regions
+- Implement GrayRelease through this
+- Specify the registry of the image to adapt the edge network
 ### Non-Goals/Future Work
-- StatefulSet mutating webhook
-- Optimize YurtAppSet(about patch)
+- Optimize YurtAppSet(about patch and replicas)
 ## Proposal
 ### Inspiration
 Reference to the design of ClusterRole and ClusterRoleBinding.
@@ -134,16 +133,16 @@ type Item struct {
 type Operation string
 
 const (
-  ADD     Operation = "add"
-  REMOVE  Operation = "remove"
-  REPLACE Operation = "replace"
-  // MOVE Operation = "move"
-  // COPY Operation = "copy"
-  // TEST Operation = "test"
+  Default Operation = "default"  // strategic merge patch
+  ADD     Operation = "add"      // json patch
+  REMOVE  Operation = "remove"   // json patch
+  REPLACE Operation = "replace"  // json patch
 )
 
 type Patch struct {
   // type represents the operation
+  // default is strategic merge patch
+  // +optional
   Type Operation `json:"type"`
   // Indicates the patch for the template
   // +kubebuilder:pruning:PreserveUnknownFields
@@ -260,7 +259,7 @@ replacements:
       configMapTarget: configMap-demo3
   - replicas: 5
 ```
-#### Story 3 (Specific)
+#### Story 3 (Advanced feature)
 If all nodepools differ only in configMap, we can configure as follows:
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
@@ -281,8 +280,8 @@ replacements:
       configMapSource: configMap-demo1
       configMapTarget: prefixName-{{nodepool}}
 ```
-#### Story 4 (Specific)
-Beijing and Hangzhou have most of the same configuration, only the replicas are different. We can configure their identical parts first. Because in our configuration resource, the latter configuration will always replace the former. So we can add different configuration of beijing to the end.
+#### Story 4 (Gray Release)
+Do Gray Release in hangzhou.
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigurationReplacement
@@ -296,23 +295,35 @@ subject:
   name: yurtappset-demo
 replacements:
 - pools:
-    beijing
     hangzhou
   items:
   - image:
-      containerName: nginx
-      imageClaim: nginx:1.14.2
-  - configMap:
-      configMapSource: configMap-demo1
-      configMapTarget: configMap-demo2
-  - replicas: 3
-- pools:
-    beijing
-  items:
-  - replicas: 5
+      containerName: demo
+      imageClaim: xxx:latest
 ```
-#### Story 5 (Specific)
-Utilize patches to add a new container to workloads.
+#### Story 5 (Specify Registry)
+Specify detailed registry to solve the problem of edge network unreachability.
+```yaml
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtAppConfigurationReplacement
+metadata:
+  namespace: default
+  name: demo1
+subject:
+  apiVersion: apps.openyurt.io/v1alpha1
+  kind: YurtAppSet
+  nameSpace: default
+  name: yurtappset-demo
+replacements:
+- pools:
+    hangzhou
+  items:
+  - image:
+      containerName: demo
+      imageClaim: <registry_ip>:<registry_port>/<image_name>:<image_tag>
+```
+#### Story 6 (Customize hostPath)
+Use different hostPath in different regions. 
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigurationReplacement
@@ -327,18 +338,35 @@ subject:
 entries:
 - pools:
     beijing
-    hangzhou
   items:
   - image:
       containerName: nginx
       imageClaim: nginx:1.14.2
+- pools:
+    hangzhou
   patches:
   - type: add
-    extensions:
+    patch:
       spec:
         template:
           spec:
-            restartPolicy: OnFailure
+            volumes:
+              - name: test-volume
+                hostPath:
+                  path: /data
+                  type: Directory
+- pools:
+    hangzhou
+  patches:
+  - patch:
+      spec:
+        template:
+          spec:
+            volumes:
+              - name: test-volume
+                hostPath:
+                  path: /var/lib/docker
+                  type: Directory
 ```
 ## Implementation History
 - [ ] : YurtAppConfigurationReplacement API CRD
