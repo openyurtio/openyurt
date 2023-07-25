@@ -151,7 +151,7 @@ type Store interface {
 	// If key is empty, ErrKeyIsEmpty will be returned.
 	Delete(key Key) error
 
-    // KeyFunc will generate the key used by this store.
+	// KeyFunc will generate the key used by this store.
 	// info contains necessary info to generate the key for the object. How to use this info
 	// to generate the key depends on the implementation of storage.
 	KeyFunc(info KeyBuildInfo) (Key, error)
@@ -164,7 +164,7 @@ type Store interface {
 
 ```go
 type storageWrapper struct {
-    mode              string                          // Yurthub mode
+	mode              string                          // Yurthub mode
 	store             storage.Store                   // Data Storage Interface
 	backendSerializer runtime.Serializer              // Serialized data processing
 	workQueueMap      map[string]chan keyOperatorInfo // Channels that need to update their data are handled individually by resource type
@@ -204,7 +204,7 @@ func (sw *storageWrapper) channelFunc(resource string, stop <-chan struct{}) {}
 ```go
 // The producer of the data channel, called by a write operation in the CacheManager, simply drops the data into the Channel
 func (sw *storageWrapper) addToWorkQueue(keyOperatorInfo keyOperatorInfo) {
-    resource := keyOperatorInfo.key.GetResource()
+	resource := keyOperatorInfo.key.GetResource()
 	sw.workQueueMap[resource] <- keyOperatorInfo
 }
 ```
@@ -288,7 +288,7 @@ func (sw *storageWrapper) replaceComponentList(key storage.Key, obj runtime.Obje
 
 	// Sends data to the channel according to the type of operation
 	for k, _ := range delete {
-        sw.delete(k)
+		sw.delete(k)
 	}
 	for k, v := range create {
 		sw.Create(k, v)
@@ -296,7 +296,7 @@ func (sw *storageWrapper) replaceComponentList(key storage.Key, obj runtime.Obje
 	for k, v := range update {
 		sw.Update(k, v, v.rv)
 	}
-    return nil
+	return nil
 }
 ```
 
@@ -364,9 +364,6 @@ func (sw *storageWrapper) channelFunc(resource string, stop <-chan struct{}) {
 		select {
 		case info := <-sw.workQueueMap[resource]:
 			err := sw.dealStorageInfo(info)
-			if err != nil {
-				sw.addToWorkQueue(info)
-			}
 		case <-stop:
 			return
 		}
