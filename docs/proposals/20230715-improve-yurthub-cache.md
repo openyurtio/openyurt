@@ -164,10 +164,10 @@ type Store interface {
 
 ```go
 type storageWrapper struct {
+    mode              string                          // Yurthub mode
 	store             storage.Store                   // Data Storage Interface
 	backendSerializer runtime.Serializer              // Serialized data processing
 	workQueueMap      map[string]chan keyOperatorInfo // Channels that need to update their data are handled individually by resource type
-	inMemoryCache     map[string]runtime.Object       // Information about the data stored in memory
 }
 
 type keyOperatorInfo struct {
@@ -181,72 +181,22 @@ type keyOperatorInfo struct {
 ##### Method Definition
 
 ```go
-func (sw *storageWrapper) name() string {}
-func (sw *storageWrapper) keyFunc(info storage.KeyBuildInfo) (storage.Key, error) {}
-func (sw *storageWrapper) readObject(key storage.Key, verb string) ([][]byte, error) {}
-func (sw *storageWrapper) addToWorkQueue(keyOperatorInfo KeyOperatorInfo) {}
-func (sw *storageWrapper) dealStorageInfo(keyOperatorInfo keyOperatorInfo) error {}
+func (sw *storageWrapper) addToWorkQueue(keyOperatorInfo keyOperatorInfo) {}
+func (sw *storageWrapper) create(key storage.Key, obj runtime.Object) {}
+func (sw *storageWrapper) delete(key storage.Key) {}
+func (sw *storageWrapper) update(key storage.Key, obj runtime.Object, rv uint64) {}
 func (sw *storageWrapper) replaceComponentList(key storage.Key, obj runtime.Object) error {}
 func (sw *storageWrapper) deleteComponentResources(key storage.Key) error {}
+func (sw *storageWrapper) get(key storage.Key) (runtime.Object, error) {}
+func (sw *storageWrapper) list(key storage.Key) ([]runtime.Object, error) {}
+func (sw *storageWrapper) keyFunc(info storage.KeyBuildInfo) (storage.Key, error) {}
+func (sw *storageWrapper) getStorage() storage.Store {}
+func (sw *storageWrapper) saveClusterInfo(clusterInfoType, path string, content []byte) error {}
+func (sw *storageWrapper) getClusterInfo(clusterInfoType, path string) ([]byte, error) {}
+func (sw *storageWrapper) addToWorkQueue(keyOperatorInfo KeyOperatorInfo) {}
+func (sw *storageWrapper) dealStorageInfo(keyOperatorInfo keyOperatorInfo) error {}
 func (sw *storageWrapper) register(resource string, stop <-chan struct{}) {}
 func (sw *storageWrapper) channelFunc(resource string, stop <-chan struct{}) {}
-```
-
-##### readObject
-
-```go
-// Get the object resource information, if it is in the cache, get it from the cache, if it is not in the cache, the cloud node connects to the apiserver to query it, and the edge node queries it from the local disk.
-func (sw *storageWrapper) readObject(key storage.Key, verb, mode string) ([][]byte, error) {
-	var (
-		obj                 runtime.Object
-		err                 error
-		isInMemoryCacheMiss bool
-	)
-
-    if verb == "listResourceKeysOfComponent" && mode == "edge" {
-		return sw.store.ListKey(key)
-	}
-
-	// query in-memory cache first
-	isInMemoryCache := isInMemoryCache(key)
-	if isInMemoryCache {
-		if obj, err = sw.queryInMemeryCache(key.Key()); err != nil {
-			if err == ErrInMemoryCacheMiss {
-				isInMemoryCacheMiss = true
-				klog.Infof("in-memory cache miss when handling request %s, fall back to storage query", key.Key())
-			} else {
-				klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", key.Key(), err)
-			}
-		} else {
-			klog.Infof("in-memory cache hit when handling request %s", key.Key())
-			return obj, nil
-		}
-	}
-
-	// fall back to normal query
-	if mode == "cloud" {
-		// query for apiserver if mode is cloud
-		// get the obj and return
-	} else {
-		// query for local storage if mode is edge
-		if verb == "get" {
-			obj, err = sw.store.Get(key)
-		} else {
-			obj, err = sw.store.List(key)
-		}
-		if err != nil {
-			klog.Errorf("failed to %s obj %s from storage, %v", verb, key.Key(), err)
-			return nil, err
-		}
-	}
-
-	// reset the in-memory cache when mode is edge
-	if isInMemoryCacheMiss {
-		sw.inMemoryCache[key.Key()] = obj
-		klog.Infof("use obj from backend storage to update in-memory cache of key %s", key.Key())
-	}
-	return obj, nil
-}
 ```
 
 ##### addToWorkQueue
@@ -259,36 +209,69 @@ func (sw *storageWrapper) addToWorkQueue(keyOperatorInfo keyOperatorInfo) {
 }
 ```
 
-##### dealStorageInfo
+##### create
 
 ```go
-// Consumers of the data channel, depending on the type of operation on the data, store it to the cache before calling the local storage interface for data write operations to the local disk
-func (sw *storageWrapper) dealStorageInfo(keyOperatorInfo keyOperatorInfo) error {
-	var buf bytes.Buffer
-	if keyOperatorInfo.object != nil {
-		if err := sw.backendSerializer.Encode(keyOperatorInfo.object, &buf); err != nil {
-			klog.Errorf("failed to encode object in %s for %s, %v", keyOperatorInfo.verb, keyOperatorInfo.key.Key(), err)
-			return err
-		}
+func (sw *storageWrapper) create(key storage.Key, obj runtime.Object) {
+	sw.addToWorkQueue(keyOperatorInfo{
+		key:    key,
+		object: obj,
+		verb:   "create",
+	})
+}
+```
+
+##### delete
+
+```go
+func (sw *storageWrapper) delete(key storage.Key) {
+	sw.addToWorkQueue(keyOperatorInfo{
+		key:  key,
+		verb: "delete",
+	})
+}
+```
+
+##### update
+
+```go
+func (sw *storageWrapper) update(key storage.Key, obj runtime.Object, rv uint64) {
+	sw.addToWorkQueue(keyOperatorInfo{
+		key:             key,
+		object:          obj,
+		verb:            "update",
+		resourceVersion: rv,
+	})
+}
+```
+
+##### get
+
+```go
+func (sw *storageWrapper) get(key storage.Key) (runtime.Object, error) {
+	if sw.mode == "cloud" {
+		// query for apiserver if mode is cloud
+		// get the obj and return
+		return obj, err
 	}
 
-	// update for cache
+	// query for local storage if mode is edge
+	return sw.store.Get(key)
+}
+```
 
-	// update for storage
-	switch keyOperatorInfo.verb {
-	case "create":
-		return sw.store.Create(keyOperatorInfo.key, buf.Bytes())
-	case "update":
-		return sw.store.Update(keyOperatorInfo.key, buf.Bytes(), keyOperatorInfo.resourceVersion)
-	case "delete":
-		return sw.store.Delete(keyOperatorInfo.key)
-	case "deleteComponent":
-		return sw.deleteComponentResources(keyOperatorInfo.key)
-	case "replaceComponent":
-		return sw.replaceComponentList(keyOperatorInfo.key, keyOperatorInfo.object)
-	default:
-		return nil
+##### list
+
+```go
+func (sw *storageWrapper) list(key storage.Key) ([]runtime.Object, error) {
+	if sw.mode == "cloud" {
+		// query for apiserver if mode is cloud
+		// get the obj and return
+		return obj, err
 	}
+
+	// query for local storage if mode is edge
+	return sw.store.List(key)
 }
 ```
 
@@ -298,51 +281,65 @@ func (sw *storageWrapper) dealStorageInfo(keyOperatorInfo keyOperatorInfo) error
 // re-list data processing logic, need to ensure idempotency of interfaces
 func (sw *storageWrapper) replaceComponentList(key storage.Key, obj runtime.Object) error {
 	// First, based on the key information, List the local data.
-	oldData, err := sw.readObject(key, "list", "edge")
+	oldData, err := sw.list(key)
 
 	// Old local data is compared with the data to be updated
 	delete, create, update := sw.compareData(oldData, obj)
 
 	// Sends data to the channel according to the type of operation
 	for k, _ := range delete {
-		err := sw.store.Delete(k)
-		if err != ErrKeyIsEmpty {
-			return err
-		}
+        sw.delete(k)
 	}
 	for k, v := range create {
-		err := sw.store.Create(k, v)
-		if err != ErrKeyExists {
-			return err
-		}
+		sw.Create(k, v)
 	}
 	for k, v := range update {
-		err := sw.store.Update(k, v, v.rv)
-		if err != ErrStorageNotFound && err != ErrUpdateConflict {
-			return err
-		}
+		sw.Update(k, v, v.rv)
 	}
-	return nil
+    return nil
 }
 ```
 
 ##### deleteComponentResources
 
 ```go
-// Clean up the data stored by a component to ensure the idempotence of the interface
 func (sw *storageWrapper) deleteComponentResources(key storage.Key) error {
-	keys, err := sw.store.ListKey(key)
+	keys, err := sw.list(key)
 	if err != ErrKeyIsEmpty {
 		return err
 	}
 
 	for k := range keys {
-		err := sw.store.Delete(k)
-		if err != ErrKeyIsEmpty {
+		sw.delete(k)
+	}
+	return nil
+}
+```
+
+##### dealStorageInfo
+
+```go
+// Consumers of the data channel, depending on the type of operation on the data, store it the local storage interface for data write operations to the local disk
+func (sw *storageWrapper) dealStorageInfo(keyOperatorInfo keyOperatorInfo) error {
+	var buf bytes.Buffer
+	if keyOperatorInfo.object != nil {
+		if err := sw.backendSerializer.Encode(keyOperatorInfo.object, &buf); err != nil {
+			klog.Errorf("failed to encode object in %s for %s, %v", keyOperatorInfo.verb, keyOperatorInfo.key.Key(), err)
 			return err
 		}
 	}
-	return nil
+
+	// update for storage
+	switch keyOperatorInfo.verb {
+	case "create":
+		return sw.store.Create(keyOperatorInfo.key, buf.Bytes())
+	case "update":
+		return sw.store.Update(keyOperatorInfo.key, buf.Bytes(), keyOperatorInfo.resourceVersion)
+	case "delete":
+		return sw.store.Delete(keyOperatorInfo.key)
+	default:
+		return nil
+	}
 }
 ```
 
@@ -379,18 +376,6 @@ func (sw *storageWrapper) channelFunc(resource string, stop <-chan struct{}) {
 
 #### CacheManager
 
-##### Structure Definition
-
-```go
-type cacheManager struct {
-	mode              string                        // yurthub cloud-side operating mode
-	storage           StorageWrapper                // StorageWrapper interface
-	serializerManager *serializer.SerializerManager // Serialization manager to parse the returned data information
-	restMapperManager *hubmeta.RESTMapperManager    // Processing operations on resources for custom CRDs
-	cacheAgents       *CacheAgent                   // Used to store information about components that need to be cached locally
-}
-```
-
 ##### Interface Definition
 
 ```go
@@ -401,114 +386,11 @@ type CacheManager interface {
     QueryCache(req *http.Request) (runtime.Object, error)
     CanCacheFor(req *http.Request) bool
     DeleteKindFor(gvr schema.GroupVersionResource) error
-
-    KeyFunc(info storage.KeyBuildInfo) (storage.Key, error)
-
-    // write
-    Create(key storage.Key, obj runtime.Object)
-    Delete(key storage.Key)
-    Update(key storage.Key, obj runtime.Object, rv uint64)
-    ReplaceComponentList(key storage.Key, obj runtime.Object)
-    DeleteComponentResources(key storage.Key)
-    SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
-
-    // read
-    Get(key storage.Key) (runtime.Object, error)
-    List(key storage.Key) ([]runtime.Object, error)
-    ListResourceKeysOfComponent(key storage.Key) ([]storage.Key, error)
-    GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
 }
-```
 
-##### Create
-
-```go
-// Creating storage objects based on Key values
-func (cm *cacheManager) Create(key storage.Key, obj runtime.Object) {
-	cm.storage.addToWorkQueue(keyOperatorInfo{
-		key:    key,
-		object: obj,
-		verb:   "create",
-	})
-}
-```
-
-##### Delete
-
-```go
-// Deleting a Stored Object by Key Value
-func (cm *cacheManager) Delete(key storage.Key) {
-	cm.storage.addToWorkQueue(keyOperatorInfo{
-		key:  key,
-		verb: "delete",
-	})
-}
-```
-
-##### Update
-
-```go
-// Updating a stored object based on a Key value
-func (cm *cacheManager) Update(key storage.Key, obj runtime.Object, rv uint64) {
-	cm.storage.addToWorkQueue(keyOperatorInfo{
-		key:             key,
-		object:          obj,
-		verb:            "update",
-		resourceVersion: rv,
-	})
-}
-```
-
-##### ReplaceComponentList
-
-```go
-// Replaces the local storage of the component where the Key value is located with the obj object.
-func (cm *cacheManager) ReplaceComponentList(key storage.Key, obj runtime.Object) {
-	cm.storage.addToWorkQueue(keyOperatorInfo{
-		key:    key, // The key information here is the information of the corresponding component, not the key information specific to a resource.
-		object: obj, // Here the obj is the result of a List of specific resources, not a single resource object
-		verb:   "replaceComponent",
-	})
-}
-```
-
-##### DeleteComponentResources
-
-```go
-// Delete the local storage of the component where the Key value is located
-func (cm *cacheManager) DeleteComponentResources(key storage.Key) {
-	cm.storage.addToWorkQueue(keyOperatorInfo{
-		key:  key, // The key information here is the information of the corresponding component, not the key information specific to a resource.
-		verb: "deleteComponent",
-	})
-}
-```
-
-##### Get
-
-```go
-// Get the specified resource object
-func (cm *cacheManager) Get(key storage.Key) (runtime.Object, error) {
-	return cm.storage.readObject(key, "get", cm.mode)
-}
-```
-
-##### List
-
-```go
-// Get a list of specified resource objects
-func (cm *cacheManager) List(key storage.Key) (runtime.Object, error) {
-	return cm.storage.readObject(key, "list", cm.mode)
-}
-```
-
-##### ListResourceKeysOfComponent
-
-```go
-// Get the Key list of the corresponding resource
-func (cm *cacheManager) ListResourceKeysOfComponent(key storage.Key) ([]storage.Key, error) {
-	return cm.storage.readObject(key, "listResourceKeysOfComponent", cm.mode)
-}
+CreateReqWithContext(verb, path string) *http.Request
+SaveClusterInfo(clusterInfoType, path string, content []byte) error
+GetClusterInfo(clusterInfoType, path string) ([]byte, error)
 ```
 
 ### Analysis of impact of changes
