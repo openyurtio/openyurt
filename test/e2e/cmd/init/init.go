@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"path/filepath"
 	"strings"
@@ -374,6 +375,26 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 }
 
 func (ki *Initializer) configureAddons() error {
+	err := wait.PollImmediate(10*time.Second, 4*time.Minute, func() (bool, error) {
+		labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "yurt-manager"}}
+		yurtManagerPods, err := ki.kubeClient.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(&labelSelector),
+		})
+		if err != nil {
+			klog.Errorf("failed to list yurt-manager pod, %v", err)
+			return false, nil
+		}
+		for _, pod := range yurtManagerPods.Items {
+			if !pod.Status.ContainerStatuses[0].Ready {
+				klog.Info("container is not ready in yurtmanager pod")
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
 	if err := ki.configureCoreDnsAddon(); err != nil {
 		return err
 	}
