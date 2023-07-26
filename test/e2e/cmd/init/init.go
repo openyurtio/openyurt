@@ -382,7 +382,7 @@ func (ki *Initializer) configureAddons() error {
 		})
 		if err != nil {
 			klog.Errorf("failed to list yurt-manager pod, %v", err)
-			return false, nil
+			return false, err
 		}
 		for _, pod := range yurtManagerPods.Items {
 			if !pod.Status.ContainerStatuses[0].Ready {
