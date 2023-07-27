@@ -291,6 +291,7 @@ func (c *ClusterConverter) deployYurtManager() error {
 			for i := range podList.Items[0].Status.Conditions {
 				if podList.Items[0].Status.Conditions[i].Type == corev1.PodReady &&
 					podList.Items[0].Status.Conditions[i].Status == corev1.ConditionTrue {
+					klog.Info("yurt manager's container and pod are both ready")
 					return true, nil
 				}
 			}
