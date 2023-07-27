@@ -284,6 +284,9 @@ func (c *ClusterConverter) deployYurtManager() error {
 		}
 
 		if podList.Items[0].Status.Phase == corev1.PodRunning {
+			if podList.Items[0].Status.ContainerStatuses[0].Ready == false {
+				return false, nil
+			}
 			for i := range podList.Items[0].Status.Conditions {
 				if podList.Items[0].Status.Conditions[i].Type == corev1.PodReady &&
 					podList.Items[0].Status.Conditions[i].Status == corev1.ConditionTrue {
