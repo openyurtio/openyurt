@@ -194,7 +194,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("initialize webhook")
-	if err := webhook.Initialize(ctx, c); err != nil {
+	if err := webhook.Initialize(ctx, c, mgr.GetConfig()); err != nil {
 		setupLog.Error(err, "unable to initialize webhook")
 		os.Exit(1)
 	}

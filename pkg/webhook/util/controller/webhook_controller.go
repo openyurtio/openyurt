@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -24,6 +25,11 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apiextensionslister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,6 +37,7 @@ import (
 	admissionregistrationinformers "k8s.io/client-go/informers/admissionregistration/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -59,17 +66,20 @@ func Inited() chan struct{} {
 }
 
 type Controller struct {
-	kubeClient clientset.Interface
-	handlers   map[string]struct{}
+	kubeClient       clientset.Interface
+	extensionsLister apiextensionslister.CustomResourceDefinitionLister
+	extensionsClient apiextensionsclientset.Interface
+	handlers         map[string]struct{}
 
-	informerFactory informers.SharedInformerFactory
-	synced          []cache.InformerSynced
+	informerFactory           informers.SharedInformerFactory
+	extensionsInformerFactory apiextensionsinformers.SharedInformerFactory
+	synced                    []cache.InformerSynced
 
 	queue       workqueue.RateLimitingInterface
 	webhookPort int
 }
 
-func New(handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller, error) {
+func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest.Config) (*Controller, error) {
 	c := &Controller{
 		kubeClient:  extclient.GetGenericClientWithName("webhook-controller").KubeClient,
 		handlers:    handlers,
@@ -81,6 +91,32 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller,
 
 	secretInformer := coreinformers.New(c.informerFactory, webhookutil.GetNamespace(), nil).Secrets()
 	admissionRegistrationInformer := admissionregistrationinformers.New(c.informerFactory, v1.NamespaceAll, nil)
+
+	extensionsClient, err := apiextensionsclientset.NewForConfig(restCfg)
+	if err != nil {
+		return nil, err
+	}
+	apiExtensionsInformerFactory := apiextensionsinformers.NewSharedInformerFactory(extensionsClient, 0)
+	c.extensionsInformerFactory = apiExtensionsInformerFactory
+	crdInformer := apiExtensionsInformerFactory.Apiextensions().V1().CustomResourceDefinitions()
+	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+			if crdHasWebhookConversion(crd) {
+				klog.Infof("CRD %s with conversion added", crd.Name)
+				c.queue.Add(crd.Name)
+			}
+		},
+		UpdateFunc: func(old, new interface{}) {
+			crd := new.(*apiextensionsv1.CustomResourceDefinition)
+			if crdHasWebhookConversion(crd) {
+				klog.Infof("CRD %s with conversion updated", crd.Name)
+				c.queue.Add(crd.Name)
+			}
+		},
+	})
+	c.extensionsClient = extensionsClient
+	c.extensionsLister = crdInformer.Lister()
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -137,6 +173,7 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig) (*Controller,
 		secretInformer.Informer().HasSynced,
 		admissionRegistrationInformer.MutatingWebhookConfigurations().Informer().HasSynced,
 		admissionRegistrationInformer.ValidatingWebhookConfigurations().Informer().HasSynced,
+		crdInformer.Informer().HasSynced,
 	}
 
 	return c, nil
@@ -150,6 +187,7 @@ func (c *Controller) Start(ctx context.Context) {
 	defer klog.Infof("Shutting down webhook-controller")
 
 	c.informerFactory.Start(ctx.Done())
+	c.extensionsInformerFactory.Start(ctx.Done())
 	if !cache.WaitForNamedCacheSync("webhook-controller", ctx.Done(), c.synced...) {
 		klog.Errorf("Wait For Cache sync webhook-controller faild")
 		return
@@ -171,7 +209,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 	defer c.queue.Done(key)
 
-	err := c.sync()
+	err := c.sync(key.(string))
 	if err == nil {
 		c.queue.AddAfter(key, defaultResyncPeriod)
 		c.queue.Forget(key)
@@ -184,7 +222,7 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Controller) sync() error {
+func (c *Controller) sync(key string) error {
 	klog.V(5).Infof("Starting to sync webhook certs and configurations")
 	defer func() {
 		klog.V(5).Infof("Finished to sync webhook certs and configurations")
@@ -225,8 +263,51 @@ func (c *Controller) sync() error {
 		return fmt.Errorf("failed to ensure configuration: %v", err)
 	}
 
+	if len(key) != 0 {
+		crd, err := c.extensionsLister.Get(key)
+		if err != nil {
+			klog.Errorf("failed to get crd(%s), %v", key, err)
+			return err
+		}
+
+		if err := ensureCRDConversionCA(c.extensionsClient, crd, certs.CACert); err != nil {
+			klog.Errorf("failed to ensure conversion configuration for crd(%s), %v", crd.Name, err)
+			return err
+		}
+	}
+
 	onceInit.Do(func() {
 		close(uninit)
 	})
 	return nil
+}
+
+func crdHasWebhookConversion(crd *apiextensionsv1.CustomResourceDefinition) bool {
+	conversion := crd.Spec.Conversion
+	if conversion == nil {
+		return false
+	}
+
+	if conversion.Strategy == apiextensionsv1.WebhookConverter {
+		return true
+	}
+
+	return false
+}
+
+func ensureCRDConversionCA(client apiextensionsclientset.Interface, crd *apiextensionsv1.CustomResourceDefinition, newCABundle []byte) error {
+	if crd.Spec.Conversion == nil ||
+		crd.Spec.Conversion.Webhook == nil ||
+		crd.Spec.Conversion.Webhook.ClientConfig == nil {
+		return nil
+	}
+
+	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, newCABundle) {
+		return nil
+	}
+
+	crd.Spec.Conversion.Webhook.ClientConfig.CABundle = newCABundle
+	// update crd
+	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
+	return err
 }

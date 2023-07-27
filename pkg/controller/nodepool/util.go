@@ -17,174 +17,44 @@ limitations under the License.
 package nodepool
 
 import (
-	"context"
 	"encoding/json"
 	"reflect"
 	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
 )
 
-var timeSleep = time.Sleep
-
-// createNodePool creates an nodepool, it will retry 5 times if it fails
-func createNodePool(c client.Client, name string,
-	poolType appsv1beta1.NodePoolType) bool {
-	for i := 0; i < 5; i++ {
-		np := appsv1beta1.NodePool{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
-			},
-			Spec: appsv1beta1.NodePoolSpec{
-				Type: poolType,
-			},
-		}
-		err := c.Create(context.TODO(), &np)
-		if err == nil {
-			klog.V(4).Infof("the default nodepool(%s) is created", name)
-			return true
-		}
-		if apierrors.IsAlreadyExists(err) {
-			klog.V(4).Infof("the default nodepool(%s) already exist", name)
-			return false
-		}
-		klog.Errorf("fail to create the node pool(%s): %s", name, err)
-		timeSleep(2 * time.Second)
-	}
-	klog.V(4).Info("fail to create the default nodepool after trying for 5 times")
-	return false
-}
-
-// createDefaultNodePool creates the default NodePool if not exist
-func createDefaultNodePool(client client.Client) {
-	createNodePool(client,
-		apps.DefaultEdgeNodePoolName, appsv1beta1.Edge)
-	createNodePool(client,
-		apps.DefaultCloudNodePoolName, appsv1beta1.Cloud)
-}
-
 // conciliatePoolRelatedAttrs will update the node's attributes that related to
 // the nodepool
-func concilateNode(node *corev1.Node, nodePool appsv1beta1.NodePool) (attrUpdated bool, err error) {
+func conciliateNode(node *corev1.Node, nodePool *appsv1beta1.NodePool) (bool, error) {
 	// update node attr
-	npra := NodePoolRelatedAttributes{
+	newNpra := &NodePoolRelatedAttributes{
 		Labels:      nodePool.Spec.Labels,
 		Annotations: nodePool.Spec.Annotations,
 		Taints:      nodePool.Spec.Taints,
 	}
 
-	if preAttrs, exist := node.Annotations[apps.AnnotationPrevAttrs]; !exist {
-		node.Labels = mergeMap(node.Labels, npra.Labels)
-		node.Annotations = mergeMap(node.Annotations, npra.Annotations)
-		for _, npt := range npra.Taints {
-			for i, nt := range node.Spec.Taints {
-				if npt.Effect == nt.Effect && npt.Key == nt.Key {
-					node.Spec.Taints = append(node.Spec.Taints[:i], node.Spec.Taints[i+1:]...)
-					break
-				}
-			}
-			node.Spec.Taints = append(node.Spec.Taints, npt)
-		}
-		if err := cachePrevPoolAttrs(node, npra); err != nil {
-			return attrUpdated, err
-		}
-		attrUpdated = true
-	} else {
-		var preNpra NodePoolRelatedAttributes
-		if err := json.Unmarshal([]byte(preAttrs), &preNpra); err != nil {
-			return attrUpdated, err
-		}
-		if !reflect.DeepEqual(preNpra, npra) {
-			// pool related attributes will be updated
-			conciliateLabels(node, preNpra.Labels, npra.Labels)
-			conciliateAnnotations(node, preNpra.Annotations, npra.Annotations)
-			conciliateTaints(node, preNpra.Taints, npra.Taints)
-			if err := cachePrevPoolAttrs(node, npra); err != nil {
-				return attrUpdated, err
-			}
-			attrUpdated = true
-		}
+	oldNpra, err := decodePoolAttrs(node)
+	if err != nil {
+		return false, err
 	}
 
-	// update ownerLabel
-	if node.Labels[apps.LabelCurrentNodePool] != nodePool.GetName() {
-		if len(node.Labels) == 0 {
-			node.Labels = make(map[string]string)
+	if !areNodePoolRelatedAttributesEqual(oldNpra, newNpra) {
+		//klog.Infof("oldNpra: %#+v, \n newNpra: %#+v", oldNpra, newNpra)
+		conciliateLabels(node, oldNpra.Labels, newNpra.Labels)
+		conciliateAnnotations(node, oldNpra.Annotations, newNpra.Annotations)
+		conciliateTaints(node, oldNpra.Taints, newNpra.Taints)
+		if err := encodePoolAttrs(node, newNpra); err != nil {
+			return false, err
 		}
-		node.Labels[apps.LabelCurrentNodePool] = nodePool.GetName()
-		attrUpdated = true
-	}
-	return attrUpdated, nil
-}
-
-// getRemovedNodes calculates removed nodes from current nodes and desired nodes
-func getRemovedNodes(currentNodeList *corev1.NodeList, desiredNodeList *corev1.NodeList) []corev1.Node {
-	var removedNodes []corev1.Node
-	for _, mNode := range currentNodeList.Items {
-		var found bool
-		for _, dNode := range desiredNodeList.Items {
-			if mNode.GetName() == dNode.GetName() {
-				found = true
-				break
-			}
-		}
-		if !found {
-			removedNodes = append(removedNodes, mNode)
-		}
-	}
-	return removedNodes
-}
-
-// removePoolRelatedAttrs removes attributes(label/annotation/taint) that
-// relate to nodepool
-func removePoolRelatedAttrs(node *corev1.Node) error {
-	var npra NodePoolRelatedAttributes
-
-	if _, exist := node.Annotations[apps.AnnotationPrevAttrs]; !exist {
-		return nil
+		return true, nil
 	}
 
-	if err := json.Unmarshal(
-		[]byte(node.Annotations[apps.AnnotationPrevAttrs]),
-		&npra); err != nil {
-		return err
-	}
-
-	for lk, lv := range npra.Labels {
-		if node.Labels[lk] == lv {
-			delete(node.Labels, lk)
-		}
-	}
-
-	for ak, av := range npra.Annotations {
-		if node.Annotations[ak] == av {
-			delete(node.Annotations, ak)
-		}
-	}
-
-	for _, t := range npra.Taints {
-		if i, exist := containTaint(t, node.Spec.Taints); exist {
-			node.Spec.Taints = append(
-				node.Spec.Taints[:i],
-				node.Spec.Taints[i+1:]...)
-		}
-	}
-	delete(node.Annotations, apps.AnnotationPrevAttrs)
-	delete(node.Labels, apps.LabelCurrentNodePool)
-
-	return nil
+	return false, nil
 }
 
 // conciliateLabels will update the node's label that related to the nodepool
@@ -219,17 +89,18 @@ func conciliateAnnotations(node *corev1.Node, oldAnnos, newAnnos map[string]stri
 // conciliateLabels will update the node's taint that related to the nodepool
 func conciliateTaints(node *corev1.Node, oldTaints, newTaints []corev1.Taint) {
 
-	// 1. remove taints from the node if they have been removed from the
-	// node pool
+	// 1. remove old taints from the node
 	for _, oldTaint := range oldTaints {
 		if _, exist := containTaint(oldTaint, node.Spec.Taints); exist {
 			node.Spec.Taints = removeTaint(oldTaint, node.Spec.Taints)
 		}
 	}
 
-	// 2. update the node taints based on the latest node pool taints
+	// 2. add new node taints based on the latest node pool taints
 	for _, nt := range newTaints {
-		node.Spec.Taints = append(node.Spec.Taints, nt)
+		if _, exist := containTaint(nt, node.Spec.Taints); !exist {
+			node.Spec.Taints = append(node.Spec.Taints, nt)
+		}
 	}
 }
 
@@ -253,7 +124,7 @@ func conciliateNodePoolStatus(
 	// update the node list on demand
 	sort.Strings(nodes)
 	sort.Strings(nodePool.Status.Nodes)
-	if !reflect.DeepEqual(nodes, nodePool.Status.Nodes) {
+	if !(len(nodes) == 0 && len(nodePool.Status.Nodes) == 0 || reflect.DeepEqual(nodes, nodePool.Status.Nodes)) {
 		nodePool.Status.Nodes = nodes
 		needUpdate = true
 	}
@@ -301,10 +172,10 @@ func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 	return taints
 }
 
-// cachePrevPoolAttrs caches the nodepool-related attributes to the
+// encodePoolAttrs caches the nodepool-related attributes to the
 // node's annotation
-func cachePrevPoolAttrs(node *corev1.Node,
-	npra NodePoolRelatedAttributes) error {
+func encodePoolAttrs(node *corev1.Node,
+	npra *NodePoolRelatedAttributes) error {
 	npraJson, err := json.Marshal(npra)
 	if err != nil {
 		return err
@@ -316,10 +187,29 @@ func cachePrevPoolAttrs(node *corev1.Node,
 	return nil
 }
 
-// addNodePoolToWorkQueue adds the nodepool the reconciler's workqueue
-func addNodePoolToWorkQueue(npName string,
-	q workqueue.RateLimitingInterface) {
-	q.Add(reconcile.Request{
-		NamespacedName: types.NamespacedName{Name: npName},
-	})
+// decodePoolAttrs resolves nodepool attributes from node annotation
+func decodePoolAttrs(node *corev1.Node) (*NodePoolRelatedAttributes, error) {
+	var oldNpra NodePoolRelatedAttributes
+	if preAttrs, exist := node.Annotations[apps.AnnotationPrevAttrs]; !exist {
+		return &oldNpra, nil
+	} else {
+		if err := json.Unmarshal([]byte(preAttrs), &oldNpra); err != nil {
+			return &oldNpra, err
+		}
+
+		return &oldNpra, nil
+	}
+}
+
+// areNodePoolRelatedAttributesEqual is used for checking NodePoolRelatedAttributes is equal
+func areNodePoolRelatedAttributesEqual(a, b *NodePoolRelatedAttributes) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	isLabelsEqual := (len(a.Labels) == 0 && len(b.Labels) == 0) || reflect.DeepEqual(a.Labels, b.Labels)
+	isAnnotationsEqual := (len(a.Annotations) == 0 && len(b.Annotations) == 0) || reflect.DeepEqual(a.Annotations, b.Annotations)
+	isTaintsEqual := (len(a.Taints) == 0 && len(b.Taints) == 0) || reflect.DeepEqual(a.Taints, b.Taints)
+
+	return isLabelsEqual && isAnnotationsEqual && isTaintsEqual
 }

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -35,7 +36,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/webhook/node/v1"
-	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
 	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha1"
 	v1alpha2platformadmin "github.com/openyurtio/openyurt/pkg/webhook/platformadmin/v1alpha2"
@@ -74,7 +74,6 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 
 func init() {
 	addControllerWebhook(raven.ControllerName, &v1beta1gateway.GatewayHandler{})
-	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
@@ -146,8 +145,8 @@ type GateFunc func() (enabled bool)
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
 
-func Initialize(ctx context.Context, cc *config.CompletedConfig) error {
-	c, err := webhookcontroller.New(WebhookHandlerPath, cc)
+func Initialize(ctx context.Context, cc *config.CompletedConfig, restCfg *rest.Config) error {
+	c, err := webhookcontroller.New(WebhookHandlerPath, cc, restCfg)
 	if err != nil {
 		return err
 	}

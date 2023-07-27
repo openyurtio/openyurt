@@ -29,7 +29,7 @@ type NodePoolControllerOptions struct {
 func NewNodePoolControllerOptions() *NodePoolControllerOptions {
 	return &NodePoolControllerOptions{
 		&config.NodePoolControllerConfiguration{
-			CreateDefaultPool: false,
+			EnableSyncNodePoolConfigurations: true,
 		},
 	}
 }
@@ -40,7 +40,7 @@ func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
-	fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
+	fs.BoolVar(&n.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", n.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
 }
 
 // ApplyTo fills up nodepool config with options.
@@ -48,7 +48,7 @@ func (o *NodePoolControllerOptions) ApplyTo(cfg *config.NodePoolControllerConfig
 	if o == nil {
 		return nil
 	}
-	cfg.CreateDefaultPool = o.CreateDefaultPool
+	cfg.EnableSyncNodePoolConfigurations = o.EnableSyncNodePoolConfigurations
 
 	return nil
 }

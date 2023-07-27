@@ -40,17 +40,12 @@ const (
 	// LabelCurrentNodePool indicates which nodepool the node is currently
 	// belonging to
 	LabelCurrentNodePool = "apps.openyurt.io/nodepool"
-	NodePoolLabel        = "apps.openyurt.io/nodepool"
 
 	AnnotationPrevAttrs = "nodepool.openyurt.io/previous-attributes"
 
-	// DefaultCloudNodePoolName defines the name of the default cloud nodepool
-	DefaultCloudNodePoolName = "default-nodepool"
+	NodePoolLabel            = "apps.openyurt.io/nodepool"
+	NodePoolTypeLabel        = "nodepool.openyurt.io/type"
+	NodePoolHostNetworkLabel = "nodepool.openyurt.io/hostnetwork"
 
-	// DefaultEdgeNodePoolName defines the name of the default edge nodepool
-	DefaultEdgeNodePoolName = "default-edge-nodepool"
-
-	// ServiceTopologyKey is the toplogy key that will be attached to node,
-	// the value will be the name of the nodepool
-	ServiceTopologyKey = "topology.kubernetes.io/zone"
+	NodePoolChangedEvent = "NodePoolChanged"
 )

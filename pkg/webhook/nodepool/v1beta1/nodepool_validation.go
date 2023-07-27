@@ -100,6 +100,11 @@ func validateNodePoolSpec(spec *appsv1beta1.NodePoolSpec) field.ErrorList {
 	if allErrs := validateNodePoolSpecAnnotations(spec.Annotations); allErrs != nil {
 		return allErrs
 	}
+
+	// NodePool type should be Edge or Cloud
+	if spec.Type != appsv1beta1.Edge && spec.Type != appsv1beta1.Cloud {
+		return []*field.Error{field.Invalid(field.NewPath("spec").Child("type"), spec.Type, "pool type should be Edge or Cloud")}
+	}
 	return nil
 }
 
@@ -111,8 +116,13 @@ func validateNodePoolSpecUpdate(spec, oldSpec *appsv1beta1.NodePoolSpec) field.E
 
 	if spec.Type != oldSpec.Type {
 		return field.ErrorList([]*field.Error{
-			field.Invalid(field.NewPath("spec").Child("type"),
-				spec.Annotations, "pool type can't be changed")})
+			field.Invalid(field.NewPath("spec").Child("type"), spec.Type, "pool type can't be changed")})
+	}
+
+	if spec.HostNetwork != oldSpec.HostNetwork {
+		return field.ErrorList([]*field.Error{
+			field.Invalid(field.NewPath("spec").Child("hostNetwork"), spec.HostNetwork, "pool hostNetwork can't be changed"),
+		})
 	}
 	return nil
 }
@@ -122,14 +132,7 @@ func validateNodePoolSpecUpdate(spec, oldSpec *appsv1beta1.NodePoolSpec) field.E
 func validateNodePoolDeletion(cli client.Client, np *appsv1beta1.NodePool) field.ErrorList {
 	nodes := corev1.NodeList{}
 
-	if np.Name == apps.DefaultCloudNodePoolName || np.Name == apps.DefaultEdgeNodePoolName {
-		return field.ErrorList([]*field.Error{
-			field.Forbidden(field.NewPath("metadata").Child("name"),
-				fmt.Sprintf("default nodepool %s forbidden to delete", np.Name))})
-	}
-
-	if err := cli.List(context.TODO(), &nodes,
-		client.MatchingLabels(np.Spec.Selector.MatchLabels)); err != nil {
+	if err := cli.List(context.TODO(), &nodes, client.MatchingLabels(map[string]string{apps.NodePoolLabel: np.Name})); err != nil {
 		return field.ErrorList([]*field.Error{
 			field.Forbidden(field.NewPath("metadata").Child("name"),
 				"fail to get nodes associated to the pool")})
