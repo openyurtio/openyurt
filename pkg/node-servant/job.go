@@ -46,12 +46,6 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 	case "revert":
 		servantJobTemplate = RevertServantJobTemplate
 		jobBaseName = RevertJobNameBase
-	case "preflight-convert":
-		servantJobTemplate = ConvertPreflightJobTemplate
-		jobBaseName = ConvertPreflightJobNameBase
-	case "config-control-plane":
-		servantJobTemplate = ConfigControlPlaneJobTemplate
-		jobBaseName = ConfigControlPlaneJobNameBase
 	}
 
 	tmplCtx["jobName"] = jobBaseName + "-" + nodeName
@@ -95,10 +89,6 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 	case "revert":
 		keysMustHave := []string{"node_servant_image"}
 		return checkKeys(keysMustHave, tmplCtx)
-	case "preflight-convert", "config-control-plane":
-		keysMustHave := []string{"node_servant_image"}
-		return checkKeys(keysMustHave, tmplCtx)
-
 	default:
 		return fmt.Errorf("action invalied: %s ", action)
 	}
