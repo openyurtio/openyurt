@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,7 +33,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
-	"github.com/openyurtio/openyurt/pkg/util/templates"
+	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -46,6 +45,8 @@ const (
 	fileMode                 = 0666
 	DefaultRootDir           = "/var/lib"
 	DefaultCaPath            = "/etc/kubernetes/pki/ca.crt"
+	yurthubYurtStaticSetName = "yurthub"
+	defaultConfigmapPath     = "/data"
 )
 
 type yurtHubOperator struct {
@@ -77,20 +78,8 @@ func (op *yurtHubOperator) Install() error {
 
 	// 1. put yurt-hub yaml into /etc/kubernetes/manifests
 	klog.Infof("setting up yurthub on node")
-	// 1-1. replace variables in yaml file
-	klog.Infof("setting up yurthub apiServer addr")
-	yurthubTemplate, err := templates.SubsituteTemplate(constants.YurthubTemplate, map[string]string{
-		"yurthubBindingAddr":   constants.DefaultYurtHubServerAddr,
-		"kubernetesServerAddr": op.apiServerAddr,
-		"image":                op.yurthubImage,
-		"bootstrapFile":        constants.YurtHubBootstrapConfig,
-		"workingMode":          string(op.workingMode),
-		"enableDummyIf":        strconv.FormatBool(op.enableDummyIf),
-		"enableNodePool":       strconv.FormatBool(op.enableNodePool),
-	})
-	if err != nil {
-		return err
-	}
+	// 1-1. get configmap data path
+	configMapDataPath := filepath.Join(defaultConfigmapPath, yurthubYurtStaticSetName)
 
 	// 1-2. create /var/lib/yurthub/bootstrap-hub.conf
 	if err := enutil.EnsureDir(constants.YurtHubWorkdir); err != nil {
@@ -106,10 +95,24 @@ func (op *yurtHubOperator) Install() error {
 	if err := enutil.EnsureDir(podManifestPath); err != nil {
 		return err
 	}
-	if err := os.WriteFile(getYurthubYaml(podManifestPath), []byte(yurthubTemplate), fileMode); err != nil {
+	content, err := os.ReadFile(configMapDataPath)
+	if err != nil {
+		return fmt.Errorf("failed to read source file %s: %w", configMapDataPath, err)
+	}
+	klog.Infof("yurt-hub.yaml apiServerAddr: %+v", op.apiServerAddr)
+	yssYurtHub, err := tmplutil.SubsituteTemplate(string(content), map[string]string{
+		"kubernetesServerAddr": op.apiServerAddr,
+	})
+	if err != nil {
 		return err
 	}
+	if err = os.WriteFile(getYurthubYaml(podManifestPath), []byte(yssYurtHub), fileMode); err != nil {
+		return err
+	}
+
 	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)
+	klog.Infof("yurt-hub.yaml: %+v", configMapDataPath)
+	klog.Infof("yurt-hub.yaml content: %+v", string(content))
 
 	// 2. wait yurthub pod to be ready
 	return hubHealthcheck(op.yurthubHealthCheckTimeout)
