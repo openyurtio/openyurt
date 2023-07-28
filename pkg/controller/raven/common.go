@@ -17,9 +17,10 @@ limitations under the License.
 package raven
 
 var (
-	ConcurrentReconciles = 3
+	ConcurrentReconciles = 1
 )
 
 const (
-	ControllerName = "gateway"
+	ControllerName              = "gateway"
+	GatewayPickupControllerName = "raven-gateway-pickup"
 )

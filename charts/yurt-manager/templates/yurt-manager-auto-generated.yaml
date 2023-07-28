@@ -491,8 +491,11 @@ rules:
   resources:
   - gateways
   verbs:
+  - create
+  - delete
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - raven.openyurt.io
