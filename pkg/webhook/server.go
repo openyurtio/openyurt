@@ -33,7 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappdaemon"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset"
-	v1alpha1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1alpha1"
+	v1beta1gateway "github.com/openyurtio/openyurt/pkg/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/webhook/node/v1"
 	v1alpha1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1alpha1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/webhook/nodepool/v1beta1"
@@ -73,7 +73,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook(raven.ControllerName, &v1alpha1gateway.GatewayHandler{})
+	addControllerWebhook(raven.ControllerName, &v1beta1gateway.GatewayHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1alpha1nodepool.NodePoolHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})

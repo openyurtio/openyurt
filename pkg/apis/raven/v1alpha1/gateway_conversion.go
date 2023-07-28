@@ -16,6 +16,13 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	"github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
+)
+
 /*
 Implementing the hub method is pretty easy -- we just have to add an empty
 method called Hub() to serve as a
@@ -31,15 +38,86 @@ method called Hub() to serve as a
 // NOTE !!!!!!! @kadisi
 // If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
 
-// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
-//func (src *Gateway) ConvertTo(dstRaw conversion.Hub) error {
-//	return nil
-//}
+func (src *Gateway) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1beta1.Gateway)
+	dst.ObjectMeta = src.ObjectMeta
+	if src.Spec.NodeSelector != nil {
+		dst.Spec.NodeSelector = src.Spec.NodeSelector
+	}
+	dst.Spec.ExposeType = string(src.Spec.ExposeType)
+	dst.Spec.TunnelConfig.Replicas = 1
+	dst.Spec.ProxyConfig.Replicas = 1
+	for _, eps := range src.Spec.Endpoints {
+		dst.Spec.Endpoints = append(dst.Spec.Endpoints, v1beta1.Endpoint{
+			NodeName: eps.NodeName,
+			PublicIP: eps.PublicIP,
+			UnderNAT: eps.UnderNAT,
+			Config:   eps.Config,
+			Type:     v1beta1.Tunnel,
+			Port:     v1beta1.DefaultTunnelServerExposedPort,
+		})
+	}
+	for _, node := range src.Status.Nodes {
+		dst.Status.Nodes = append(dst.Status.Nodes, v1beta1.NodeInfo{
+			NodeName:  node.NodeName,
+			PrivateIP: node.PrivateIP,
+			Subnets:   node.Subnets,
+		})
+	}
+	if src.Status.ActiveEndpoint != nil {
+		dst.Status.ActiveEndpoints = []*v1beta1.Endpoint{
+			{
+				NodeName: src.Status.ActiveEndpoint.NodeName,
+				PublicIP: src.Status.ActiveEndpoint.PublicIP,
+				UnderNAT: src.Status.ActiveEndpoint.UnderNAT,
+				Config:   src.Status.ActiveEndpoint.Config,
+				Type:     v1beta1.Tunnel,
+				Port:     v1beta1.DefaultTunnelServerExposedPort,
+			},
+		}
+	}
+
+	klog.Infof("convert from v1alpha1  to v1beta1 for %s", dst.Name)
+	return nil
+}
 
 // NOTE !!!!!!! @kadisi
 // If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
 
-// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
-//func (dst *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
-//	return nil
-//}
+func (dst *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1beta1.Gateway)
+	dst.ObjectMeta = src.ObjectMeta
+	dst.Spec.NodeSelector = src.Spec.NodeSelector
+	dst.Spec.ExposeType = ExposeType(src.Spec.ExposeType)
+	for _, eps := range src.Spec.Endpoints {
+		dst.Spec.Endpoints = append(dst.Spec.Endpoints, Endpoint{
+			NodeName: eps.NodeName,
+			PublicIP: eps.PublicIP,
+			UnderNAT: eps.UnderNAT,
+			Config:   eps.Config,
+		})
+	}
+	for _, node := range src.Status.Nodes {
+		dst.Status.Nodes = append(dst.Status.Nodes, NodeInfo{
+			NodeName:  node.NodeName,
+			PrivateIP: node.PrivateIP,
+			Subnets:   node.Subnets,
+		})
+	}
+	if src.Status.ActiveEndpoints == nil {
+		klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
+		return nil
+	}
+	if len(src.Status.ActiveEndpoints) < 1 {
+		dst.Status.ActiveEndpoint = nil
+	} else {
+		dst.Status.ActiveEndpoint = &Endpoint{
+			NodeName: src.Status.ActiveEndpoints[0].NodeName,
+			PublicIP: src.Status.ActiveEndpoints[0].PublicIP,
+			UnderNAT: src.Status.ActiveEndpoints[0].UnderNAT,
+			Config:   src.Status.ActiveEndpoints[0].Config,
+		}
+	}
+	klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
+	return nil
+}

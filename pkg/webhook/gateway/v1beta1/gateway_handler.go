@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
@@ -31,18 +31,21 @@ func (webhook *GatewayHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string
 	// init
 	webhook.Client = mgr.GetClient()
 
-	gvk, err := apiutil.GVKForObject(&v1alpha1.Gateway{}, mgr.GetScheme())
+	gvk, err := apiutil.GVKForObject(&v1beta1.Gateway{}, mgr.GetScheme())
 	if err != nil {
 		return "", "", err
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
 		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.Gateway{}).
+			For(&v1beta1.Gateway{}).
 			WithDefaulter(webhook).
 			WithValidator(webhook).
 			Complete()
 }
+
+// +kubebuilder:webhook:path=/validate-raven-openyurt-io-v1beta1-gateway,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1beta1,name=validate.gateway.v1beta1.raven.openyurt.io
+// +kubebuilder:webhook:path=/mutate-raven-openyurt-io-v1beta1-gateway,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=raven.openyurt.io,resources=gateways,verbs=create;update,versions=v1beta1,name=mutate.gateway.v1beta1.raven.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type GatewayHandler struct {

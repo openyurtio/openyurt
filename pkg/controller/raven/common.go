@@ -21,5 +21,5 @@ var (
 )
 
 const (
-	ControllerName = "ravenl3"
+	ControllerName = "gateway"
 )

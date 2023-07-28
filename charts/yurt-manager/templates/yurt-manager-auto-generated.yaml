@@ -444,14 +444,14 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-raven-openyurt-io-v1alpha1-gateway
+      path: /mutate-raven-openyurt-io-v1beta1-gateway
   failurePolicy: Fail
-  name: mutate.raven.v1alpha1.gateway.openyurt.io
+  name: mutate.gateway.v1beta1.raven.openyurt.io
   rules:
   - apiGroups:
     - raven.openyurt.io
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -574,14 +574,14 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-raven-openyurt-io-v1alpha1-gateway
+      path: /validate-raven-openyurt-io-v1beta1-gateway
   failurePolicy: Fail
-  name: validate.raven.v1alpha1.gateway.openyurt.io
+  name: validate.gateway.v1beta1.raven.openyurt.io
   rules:
   - apiGroups:
     - raven.openyurt.io
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
