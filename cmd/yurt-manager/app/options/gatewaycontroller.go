@@ -19,21 +19,21 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/raven/config"
+	"github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup/config"
 )
 
-type GatewayControllerOptions struct {
-	*config.GatewayControllerConfiguration
+type GatewayPickupControllerOptions struct {
+	*config.GatewayPickupControllerConfiguration
 }
 
-func NewGatewayControllerOptions() *GatewayControllerOptions {
-	return &GatewayControllerOptions{
-		&config.GatewayControllerConfiguration{},
+func NewGatewayPickupControllerOptions() *GatewayPickupControllerOptions {
+	return &GatewayPickupControllerOptions{
+		&config.GatewayPickupControllerConfiguration{},
 	}
 }
 
 // AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
-func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
+func (g *GatewayPickupControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if g == nil {
 		return
 	}
@@ -41,7 +41,7 @@ func (g *GatewayControllerOptions) AddFlags(fs *pflag.FlagSet) {
 }
 
 // ApplyTo fills up nodepool config with options.
-func (g *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfiguration) error {
+func (g *GatewayPickupControllerOptions) ApplyTo(cfg *config.GatewayPickupControllerConfiguration) error {
 	if g == nil {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (g *GatewayControllerOptions) ApplyTo(cfg *config.GatewayControllerConfigur
 }
 
 // Validate checks validation of GatewayControllerOptions.
-func (g *GatewayControllerOptions) Validate() []error {
+func (g *GatewayPickupControllerOptions) Validate() []error {
 	if g == nil {
 		return nil
 	}

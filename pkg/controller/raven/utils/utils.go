@@ -17,14 +17,28 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"net"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+)
+
+const (
+	WorkingNamespace  = "kube-system"
+	RavenGlobalConfig = "raven-cfg"
+
+	RavenEnableProxy  = "EnableL7Proxy"
+	RavenEnableTunnel = "EnableL3Tunnel"
+
+	ProxyServerPort = "ProxyServerPort"
+	VPNServerPort   = "VPNServerPort"
 )
 
 // GetNodeInternalIP returns internal ip of the given `node`.
@@ -51,4 +65,22 @@ func AddGatewayToWorkQueue(gwName string,
 			NamespacedName: types.NamespacedName{Name: gwName},
 		})
 	}
+}
+
+func CheckServer(ctx context.Context, client client.Client) (enableProxy, enableTunnel bool) {
+	var cm corev1.ConfigMap
+	enableTunnel = false
+	enableProxy = false
+	err := client.Get(ctx, types.NamespacedName{Namespace: WorkingNamespace, Name: RavenGlobalConfig}, &cm)
+	if err != nil {
+		return enableProxy, enableTunnel
+	}
+	if val, ok := cm.Data[RavenEnableProxy]; ok && strings.ToLower(val) == "true" {
+		enableProxy = true
+	}
+	if val, ok := cm.Data[RavenEnableTunnel]; ok && strings.ToLower(val) == "true" {
+		enableTunnel = true
+	}
+	return enableProxy, enableTunnel
+
 }
