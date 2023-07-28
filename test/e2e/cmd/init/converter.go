@@ -286,13 +286,18 @@ func (c *ClusterConverter) deployYurtManager() error {
 		if podList.Items[0].Status.Phase == corev1.PodRunning {
 			for i := range podList.Items[0].Status.Conditions {
 				if podList.Items[0].Status.Conditions[i].Type == corev1.PodReady &&
-					podList.Items[0].Status.Conditions[i].Status == corev1.ConditionTrue {
-					return true, nil
+					podList.Items[0].Status.Conditions[i].Status != corev1.ConditionTrue {
+					klog.Infof("pod(%s/%s): %#v", podList.Items[0].Namespace, podList.Items[0].Name, podList.Items[0])
+					return false, nil
+				}
+				if podList.Items[0].Status.Conditions[i].Type == corev1.ContainersReady &&
+					podList.Items[0].Status.Conditions[i].Status != corev1.ConditionTrue {
+					klog.Info("yurt manager's container is not ready")
+					return false, nil
 				}
 			}
 		}
-		klog.Infof("pod(%s/%s): %#v", podList.Items[0].Namespace, podList.Items[0].Name, podList.Items[0])
-		return false, nil
+		return true, nil
 	})
 }
 
