@@ -220,6 +220,18 @@ entries:
       configMapTarget: configMapName-{{nodepool}}
 ```
 In this way, we only need to write one entry. Secret and pvc are similar. Through this feature, it will be easier to customize multi-region configuration.
+### Comparison with multicluster and multicloud management system
+Multicluster and multicloud management systems, such as Open Cluster Management(OCM), mainly focus unified management of multiple clusters. It provides ManifestWork and Placement.
+ManifestWork provides the ability to send workloads down to the target cluster.
+Placement is used to dynamically select a set of managedClusters in one or multiple ManagedClusterSet so that higher level users can either replicate Kubernetes resources to the member clusters or run their advanced workload i.e. multi-cluster scheduling.
+
+Advantages:
+1. OCM uses ManifestWorkReplicaSet(aggregator of Manifestwork and Placement) for this, focusing more on schedule's strategy, predicates and priority. 
+2. OCM provides much information on status and supports fine-grained field values tracking.
+
+Disadvantages:
+1. For workloads with different configurations, it requires multiple Manifestwork to deploy.
+2. It does not work with current components, including yurtapp, yurtappdaemon.
 ### User Stories
 #### Story 1 (General)
 Use YurtAppSet with YurtAppConfigRender for customized configuration of each region. Create YurtAppConfigRender first and then create YurtAppSet. If update is needed, modify Yu  resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppConfigRender and our rendering engine will inject all configurations into target workloads.
