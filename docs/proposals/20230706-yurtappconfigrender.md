@@ -226,7 +226,7 @@ ManifestWork provides the ability to send workloads down to the target cluster.
 Placement is used to dynamically select a set of managedClusters in one or multiple ManagedClusterSet so that higher level users can either replicate Kubernetes resources to the member clusters or run their advanced workload i.e. multi-cluster scheduling.
 
 Advantages:
-1. OCM uses ManifestWorkReplicaSet(aggregator of Manifestwork and Placement) for this, focusing more on schedule's strategy, predicates and priority. 
+1. OCM uses ManifestWorkReplicaSet(aggregator of Manifestwork and Placement) for this, focusing more on schedule's strategy, predicates and priority.
 2. OCM provides much information on status and supports fine-grained field values tracking.
 
 Disadvantages:
@@ -335,7 +335,7 @@ entries:
       imageClaim: <registry_ip>:<registry_port>/<image_name>:<image_tag>
 ```
 #### Story 6 (Customize hostPath)
-Use different hostPath in different regions. 
+Use different hostPath in different regions.
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppConfigRender
