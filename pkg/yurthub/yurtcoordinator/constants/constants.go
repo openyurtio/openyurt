@@ -17,6 +17,9 @@ limitations under the License.
 package constants
 
 import (
+	v1rbac "k8s.io/api/rbac/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
@@ -24,6 +27,27 @@ var (
 	UploadResourcesKeyBuildInfo = map[storage.KeyBuildInfo]struct{}{
 		{Component: "kubelet", Resources: "pods", Group: "", Version: "v1"}:  {},
 		{Component: "kubelet", Resources: "nodes", Group: "", Version: "v1"}: {},
+	}
+	CoordinatorAPIServerClusterRoleBinding = v1rbac.ClusterRoleBinding{
+		TypeMeta: v1meta.TypeMeta{
+			Kind:       "ClusterRoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: v1meta.ObjectMeta{
+			Name: "openyurt:yurt-coordinator:apiserver",
+		},
+		Subjects: []v1rbac.Subject{
+			{
+				Kind:     "User",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     "openyurt:yurt-coordinator:apiserver",
+			},
+		},
+		RoleRef: v1rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "system:kubelet-api-admin",
+		},
 	}
 )
 

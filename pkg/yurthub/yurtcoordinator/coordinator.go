@@ -122,6 +122,9 @@ type coordinator struct {
 	// node lease contains DelegateHeartBeat label, it will triger the eventhandler which will
 	// use cloud client to send it to cloud APIServer.
 	delegateNodeLeaseManager *coordinatorLeaseInformerManager
+	// rbacManager takes the responsibility to inject rbac rules into coordinator.
+	// Each time when this yurthub becomes the leader, it will try to inject rbac rules.
+	rbacManager *coordinatorRBACManager
 }
 
 func NewCoordinator(
@@ -181,6 +184,11 @@ func NewCoordinator(
 		},
 	}
 
+	rbacManager := &coordinatorRBACManager{
+		ctx:               ctx,
+		coordinatorClient: coordinatorClient,
+	}
+
 	delegateNodeLeaseManager := &coordinatorLeaseInformerManager{
 		ctx:               ctx,
 		coordinatorClient: coordinatorClient,
@@ -207,6 +215,7 @@ func NewCoordinator(
 		getEtcdStore:      coordinator.getEtcdStore,
 	}
 
+	coordinator.rbacManager = rbacManager
 	coordinator.poolCacheSyncedDetector = poolCacheSyncedDetector
 	coordinator.delegateNodeLeaseManager = delegateNodeLeaseManager
 	coordinator.poolCacheSyncManager = poolScopedCacheSyncManager
@@ -229,6 +238,7 @@ func (coordinator *coordinator) Run() {
 
 		select {
 		case <-coordinator.ctx.Done():
+			coordinator.rbacManager.EnsureStop()
 			coordinator.poolCacheSyncManager.EnsureStop()
 			coordinator.delegateNodeLeaseManager.EnsureStop()
 			coordinator.poolCacheSyncedDetector.EnsureStop()
@@ -272,6 +282,7 @@ func (coordinator *coordinator) Run() {
 
 			switch electorStatusInfo.electorStatus {
 			case PendingHub:
+				coordinator.rbacManager.EnsureStop()
 				coordinator.poolCacheSyncManager.EnsureStop()
 				coordinator.delegateNodeLeaseManager.EnsureStop()
 				coordinator.poolCacheSyncedDetector.EnsureStop()
@@ -281,6 +292,7 @@ func (coordinator *coordinator) Run() {
 				etcdStorage = nil
 				poolCacheManager = nil
 			case LeaderHub:
+				coordinator.rbacManager.EnsureStart()
 				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
@@ -326,6 +338,7 @@ func (coordinator *coordinator) Run() {
 					}
 				}
 			case FollowerHub:
+				coordinator.rbacManager.EnsureStop()
 				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
@@ -743,6 +756,78 @@ func (p *poolCacheSyncedDetector) detectPoolCacheSynced(obj interface{}) {
 	if time.Now().Before(renewTime.Add(p.staleTimeout)) {
 		// The lease is updated before pool cache being considered as stale.
 		p.updateNotifyCh <- struct{}{}
+	}
+}
+
+// coordinatorRBACManager is used to create RBAC for coordinator enabling it to have
+// enough permission to access the kubelet server which is useful when handling logs/exec
+// requests.
+type coordinatorRBACManager struct {
+	ctx               context.Context
+	cancel            func()
+	injectSucceed     bool
+	coordinatorClient kubernetes.Interface
+	isRunning         bool
+}
+
+func (c *coordinatorRBACManager) EnsureStart() {
+	if !c.isRunning {
+		ctx, cancel := context.WithCancel(c.ctx)
+		c.cancel = cancel
+		c.isRunning = true
+		go func() {
+			c.injectRetryOnErr(ctx)
+			// injectRetryOnErr will keep running until the context is canceled or the inject succeed.
+			// If injectRetryOnErr returns, we should update the running status.
+			c.isRunning = false
+		}()
+	}
+}
+
+func (c *coordinatorRBACManager) EnsureStop() {
+	if c.isRunning {
+		c.cancel()
+		c.isRunning = false
+	}
+}
+
+func (c *coordinatorRBACManager) injectOnce(ctx context.Context) {
+	clusterRoleBinding := &constants.CoordinatorAPIServerClusterRoleBinding
+	if _, err := c.coordinatorClient.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			klog.Errorf("failed to create ClusterRoleBinding %s in coordinator, %v", clusterRoleBinding.Name, err)
+			// return immediately to retry in the next time
+			return
+		} else {
+			klog.Infof("ClusterRoleBinding %s already exists in coordinator, skip creating", clusterRoleBinding.Name)
+		}
+	}
+
+	c.injectSucceed = true
+}
+
+func (c *coordinatorRBACManager) injectRetryOnErr(ctx context.Context) {
+	c.injectOnce(ctx)
+	if c.injectSucceed {
+		klog.Infof("inject coordinator rbac succeed")
+		return
+	}
+
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if !c.injectSucceed {
+				c.injectOnce(ctx)
+			} else {
+				klog.Infof("inject coordinator rbac succeed")
+				return
+			}
+		}
 	}
 }
 
