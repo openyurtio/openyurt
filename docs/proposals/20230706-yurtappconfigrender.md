@@ -38,6 +38,9 @@ status:
       - [Story 4 (Gray Release)](#story-4-gray-release)
       - [Story 5 (Specify Registry)](#story-5-specify-registry)
       - [Story 6 (Customize hostPath)](#story-6-customize-hostpath)
+    - [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
+      - [Open Cluster Management](#open-cluster-management)
+      - [KubeVela](#kubevela)
   - [Implementation History](#implementation-history)
 
 ## Glossary
@@ -220,18 +223,7 @@ entries:
       configMapTarget: configMapName-{{nodepool}}
 ```
 In this way, we only need to write one entry. Secret and pvc are similar. Through this feature, it will be easier to customize multi-region configuration.
-### Comparison with multicluster and multicloud management system
-Multicluster and multicloud management systems, such as Open Cluster Management(OCM), mainly focus unified management of multiple clusters. It provides ManifestWork and Placement.
-ManifestWork provides the ability to send workloads down to the target cluster.
-Placement is used to dynamically select a set of managedClusters in one or multiple ManagedClusterSet so that higher level users can either replicate Kubernetes resources to the member clusters or run their advanced workload i.e. multi-cluster scheduling.
 
-Advantages:
-1. OCM uses ManifestWorkReplicaSet(aggregator of Manifestwork and Placement) for this, focusing more on schedule's strategy, predicates and priority.
-2. OCM provides much information on status and supports fine-grained field values tracking.
-
-Disadvantages:
-1. For workloads with different configurations, it requires multiple Manifestwork to deploy.
-2. It does not work with current components, including yurtapp, yurtappdaemon.
 ### User Stories
 #### Story 1 (General)
 Use YurtAppSet with YurtAppConfigRender for customized configuration of each region. Create YurtAppConfigRender first and then create YurtAppSet. If update is needed, modify Yu  resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppConfigRender and our rendering engine will inject all configurations into target workloads.
@@ -380,6 +372,30 @@ entries:
                   path: /var/lib/docker
                   type: Directory
 ```
+
+### Comparison with existing open source projects
+#### Open Cluster Management
+Multicluster and multicloud management systems, such as Open Cluster Management(OCM), mainly focus unified management of multiple clusters. It provides ManifestWork and Placement.
+ManifestWork provides the ability to send workloads down to the target cluster.
+Placement is used to dynamically select a set of managedClusters in one or multiple ManagedClusterSet so that higher level users can either replicate Kubernetes resources to the member clusters or run their advanced workload i.e. multi-cluster scheduling.
+
+Advantages:
+1. OCM uses ManifestWorkReplicaSet(aggregator of Manifestwork and Placement) for this, focusing more on schedule's strategy, predicates and priority.
+2. OCM provides much information on status and supports fine-grained field values tracking.
+
+Disadvantages:
+1. For workloads with different configurations, it requires multiple Manifestwork to deploy.
+2. It does not work with current components, including yurtapp, yurtappdaemon.
+#### KubeVela
+KubeVela is a modern software delivery platform that makes deploying and operating applications across today's hybrid, multi-cloud environments easier, faster and more reliable.
+
+Advantages:
++ kubevela can achieve the distribution and deployment of workloads,
+Utilizing component replication function and json-patch trait, users and operators can realize the customized configuration of nodepools.
+
+Disadvantages:
++ It cannot accomplish dynamic deployment for each new nodepool, while yurtappdaemon can make it.
+
 ## Implementation History
 - [ ] : YurtAppConfigRender API CRD
 - [ ] : Deployment Mutating Webhook
