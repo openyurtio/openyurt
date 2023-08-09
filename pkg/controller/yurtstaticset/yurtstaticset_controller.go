@@ -283,12 +283,18 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// Fetch the YurtStaticSet instance
 	instance := &appsv1alpha1.YurtStaticSet{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+		// if the yurtStaticSet does not exist, delete the specified configmap if exist.
+		if kerr.IsNotFound(err) {
+			return reconcile.Result{}, r.deleteConfigMap(request.Name, request.Namespace)
+		}
 		klog.Errorf("Fail to get YurtStaticSet %v, %v", request.NamespacedName, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if instance.DeletionTimestamp != nil {
-		return reconcile.Result{}, nil
+		// handle the deletion event
+		// delete the configMap which is created by yurtStaticSet
+		return reconcile.Result{}, r.deleteConfigMap(request.Name, request.Namespace)
 	}
 
 	var (
@@ -540,4 +546,21 @@ func (r *ReconcileYurtStaticSet) updateYurtStaticSetStatus(instance *appsv1alpha
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// deleteConfigMap delete the configMap if YurtStaticSet is deleting
+func (r *ReconcileYurtStaticSet) deleteConfigMap(name, namespace string) error {
+	cmName := util.WithConfigMapPrefix(name)
+	configMap := &corev1.ConfigMap{}
+	if err := r.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: namespace}, configMap); err != nil {
+		if kerr.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if err := r.Delete(context.TODO(), configMap, &client.DeleteOptions{}); err != nil {
+		return err
+	}
+	klog.Infof(Format("Delete ConfigMap %s from YurtStaticSet %s", configMap.Name, name))
+	return nil
 }

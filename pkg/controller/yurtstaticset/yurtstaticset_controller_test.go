@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -113,7 +113,7 @@ func TestReconcile(t *testing.T) {
 
 	for _, s := range strategy {
 		instance.Spec.UpgradeStrategy = s
-		c := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
 
 		var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestStaticPodName}}
 		rsp := ReconcileYurtStaticSet{
@@ -156,4 +156,65 @@ func Test_nodeTurnReady(t *testing.T) {
 			t.Errorf("nodeTurnReady() = %v, want true", got)
 		}
 	})
+}
+
+func TestReconcileYurtStaticSetDeleteConfigMap(t *testing.T) {
+	staticPods := prepareStaticPods()
+	instance := &appsv1alpha1.YurtStaticSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      TestStaticPodName,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: appsv1alpha1.YurtStaticSetSpec{
+			StaticPodManifest: "nginx",
+			Template:          corev1.PodTemplateSpec{},
+		},
+	}
+	cmList := []client.Object{
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "yurt-static-set-nginx",
+				Namespace: metav1.NamespaceDefault,
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add yurt custom resource")
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add kubernetes clint-go custom resource")
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(cmList...).Build()
+
+	tests := []struct {
+		name      string
+		yssName   string
+		namespace string
+		wantErr   bool
+	}{
+		{
+			name:      "test1",
+			yssName:   TestStaticPodName,
+			namespace: metav1.NamespaceDefault,
+			wantErr:   false,
+		},
+		{
+			name:      "test2",
+			yssName:   TestStaticPodName,
+			namespace: metav1.NamespaceDefault,
+			wantErr:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &ReconcileYurtStaticSet{
+				Client: c,
+			}
+			if err := r.deleteConfigMap(tt.yssName, tt.namespace); (err != nil) != tt.wantErr {
+				t.Errorf("deleteConfigMap() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
