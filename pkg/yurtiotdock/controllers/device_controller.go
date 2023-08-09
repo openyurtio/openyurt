@@ -29,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
@@ -292,4 +293,28 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 		}
 	}
 	return newDeviceStatus, failedPropertyNames
+}
+
+func DeleteDevicesOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
+	var deviceList iotv1alpha1.DeviceList
+	if err := cli.List(ctx, &deviceList, client.InNamespace(opts.Namespace)); err != nil {
+		return err
+	}
+	klog.V(4).Infof("DeviceList, successfully get the list")
+
+	for _, device := range deviceList.Items {
+		controllerutil.RemoveFinalizer(&device, iotv1alpha1.DeviceFinalizer)
+		if err := cli.Update(ctx, &device); err != nil {
+			klog.Errorf("DeviceName: %s, update device err:%v", device.GetName(), err)
+			continue
+		}
+
+		if err := cli.Delete(ctx, &device); err != nil {
+			klog.Errorf("DeviceName: %s, update device err:%v", device.GetName(), err)
+			continue
+		}
+	}
+	klog.V(4).Infof("DeviceList, successfully delete the list")
+
+	return nil
 }

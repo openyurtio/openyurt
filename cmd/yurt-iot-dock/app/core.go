@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -30,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
@@ -181,10 +184,54 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 
 	setupLog.Info("[run controllers] Starting manager, acting on " + fmt.Sprintf("[NodePool: %s, Namespace: %s]", opts.Nodepool, opts.Namespace))
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(SetupSignalHandler(mgr.GetClient(), opts)); err != nil {
 		setupLog.Error(err, "failed to running manager")
 		os.Exit(1)
 	}
+}
+
+func deleteCRsOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
+	setupLog.Info("[deleteCRsOnControllerShutdown] start delete device crd")
+	if err := controllers.DeleteDevicesOnControllerShutdown(ctx, cli, opts); err != nil {
+		setupLog.Error(err, "failed to shutdown device cr")
+		return err
+	}
+
+	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceprofile crd")
+	if err := controllers.DeleteDeviceProfilesOnControllerShutdown(ctx, cli, opts); err != nil {
+		setupLog.Error(err, "failed to shutdown deviceprofile cr")
+		return err
+	}
+
+	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceservice crd")
+	if err := controllers.DeleteDeviceServicesOnControllerShutdown(ctx, cli, opts); err != nil {
+		setupLog.Error(err, "failed to shutdown deviceservice cr")
+		return err
+	}
+
+	return nil
+}
+
+var onlyOneSignalHandler = make(chan struct{})
+var shutdownSignals = []os.Signal{syscall.SIGTERM}
+
+func SetupSignalHandler(client client.Client, opts *options.YurtIoTDockOptions) context.Context {
+	close(onlyOneSignalHandler) // panics when called twice
+
+	ctx, cancel := context.WithCancel(context.Background())
+	setupLog.Info("[SetupSignalHandler] shutdown controller with crd")
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, shutdownSignals...)
+	go func() {
+		<-c
+		setupLog.Info("[SetupSignalHandler] shutdown signal concur")
+		deleteCRsOnControllerShutdown(ctx, client, opts)
+		cancel()
+		<-c
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return ctx
 }
 
 func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
