@@ -385,6 +385,84 @@ rules:
 - apiGroups:
   - iot.openyurt.io
   resources:
+  - deviceprofiles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - deviceprofiles/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - deviceprofiles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - devices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - devices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - devices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - deviceservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - deviceservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
+  - deviceservices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - iot.openyurt.io
+  resources:
   - platformadmins
   verbs:
   - create

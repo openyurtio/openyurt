@@ -1,0 +1,8 @@
+# multi-arch image building for yurt-iot-dock
+
+FROM --platform=${TARGETPLATFORM} alpine:3.17
+ARG TARGETOS TARGETARCH MIRROR_REPO
+RUN if [ ! -z "${MIRROR_REPO+x}" ]; then sed -i "s/dl-cdn.alpinelinux.org/${MIRROR_REPO}/g" /etc/apk/repositories; fi && \
+    apk add ca-certificates bash libc6-compat iptables ip6tables && update-ca-certificates && rm /var/cache/apk/*
+COPY ./_output/local/bin/${TARGETOS}/${TARGETARCH}/yurt-iot-dock /usr/local/bin/yurt-iot-dock
+ENTRYPOINT ["/usr/local/bin/yurt-iot-dock"]

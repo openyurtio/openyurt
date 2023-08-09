@@ -729,6 +729,12 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		platformAdminFramework.Components = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
 	}
 
+	yurtIotDock, err := NewYurtIoTDockComponent(platformAdmin, platformAdminFramework)
+	if err != nil {
+		return err
+	}
+	platformAdminFramework.Components = append(platformAdminFramework.Components, yurtIotDock)
+
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
