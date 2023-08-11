@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -23,17 +23,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 )
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *GatewayHandler) Default(ctx context.Context, obj runtime.Object) error {
-	gw, ok := obj.(*v1alpha1.Gateway)
+	gw, ok := obj.(*v1beta1.Gateway)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
 	}
 
-	v1alpha1.SetDefaultsGateway(gw)
+	v1beta1.SetDefaultsGateway(gw)
 
 	return nil
 }

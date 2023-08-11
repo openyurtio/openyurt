@@ -159,6 +159,201 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Gateway is the Schema for the gateways API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: GatewaySpec defines the desired state of Gateway
+            properties:
+              endpoints:
+                description: Endpoints are a list of available Endpoint.
+                items:
+                  description: Endpoint stores all essential data for establishing
+                    the VPN tunnel and Proxy
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      description: Config is a map to record config for the raven
+                        agent of node
+                      type: object
+                    nodeName:
+                      description: NodeName is the Node hosting this endpoint.
+                      type: string
+                    port:
+                      description: Port is the exposed port of the node
+                      type: integer
+                    publicIP:
+                      description: PublicIP is the exposed IP of the node
+                      type: string
+                    type:
+                      description: Type is the service type of the node, proxy or
+                        tunnel
+                      type: string
+                    underNAT:
+                      description: UnderNAT indicates whether node is under NAT
+                      type: boolean
+                  required:
+                  - nodeName
+                  - type
+                  type: object
+                type: array
+              exposeType:
+                description: ExposeType determines how the Gateway is exposed.
+                type: string
+              nodeSelector:
+                description: NodeSelector is a label query over nodes that managed
+                  by the gateway. The nodes in the same gateway should share same
+                  layer 3 network.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              proxyConfig:
+                description: ProxyConfig determine the l7 proxy configuration
+                properties:
+                  Replicas:
+                    description: Replicas is the number of gateway active endpoints
+                      that enabled proxy
+                    type: integer
+                  proxyHTTPPort:
+                    description: ProxyHTTPPort is the proxy http port of the cross-domain
+                      request
+                    type: string
+                  proxyHTTPSPort:
+                    description: ProxyHTTPSPort is the proxy https port of the cross-domain
+                      request
+                    type: string
+                required:
+                - Replicas
+                type: object
+              tunnelConfig:
+                description: TunnelConfig determine the l3 tunnel configuration
+                properties:
+                  Replicas:
+                    description: Replicas is the number of gateway active endpoints
+                      that enabled tunnel
+                    type: integer
+                required:
+                - Replicas
+                type: object
+            type: object
+          status:
+            description: GatewayStatus defines the observed state of Gateway
+            properties:
+              activeEndpoints:
+                description: ActiveEndpoints is the reference of the active endpoint.
+                items:
+                  description: Endpoint stores all essential data for establishing
+                    the VPN tunnel and Proxy
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      description: Config is a map to record config for the raven
+                        agent of node
+                      type: object
+                    nodeName:
+                      description: NodeName is the Node hosting this endpoint.
+                      type: string
+                    port:
+                      description: Port is the exposed port of the node
+                      type: integer
+                    publicIP:
+                      description: PublicIP is the exposed IP of the node
+                      type: string
+                    type:
+                      description: Type is the service type of the node, proxy or
+                        tunnel
+                      type: string
+                    underNAT:
+                      description: UnderNAT indicates whether node is under NAT
+                      type: boolean
+                  required:
+                  - nodeName
+                  - type
+                  type: object
+                type: array
+              nodes:
+                description: Nodes contains all information of nodes managed by Gateway.
+                items:
+                  description: NodeInfo stores information of node managed by Gateway.
+                  properties:
+                    nodeName:
+                      description: NodeName is the Node host name.
+                      type: string
+                    privateIP:
+                      description: PrivateIP is the node private ip address
+                      type: string
+                    subnets:
+                      description: Subnets is the pod ip range of the node
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - nodeName
+                  - privateIP
+                  - subnets
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}
