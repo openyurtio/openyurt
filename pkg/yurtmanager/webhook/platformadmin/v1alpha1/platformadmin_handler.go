@@ -25,16 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
+	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
+	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 )
-
-type Manifest struct {
-	Updated       string   `yaml:"updated"`
-	Count         int      `yaml:"count"`
-	LatestVersion string   `yaml:"latestVersion"`
-	Versions      []string `yaml:"versions"`
-}
 
 // SetupWebhookWithManager sets up Cluster webhooks.
 func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
@@ -50,8 +44,8 @@ func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 		return "", "", err
 	}
 
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
+	return webhookutil.GenerateMutatePath(gvk),
+		webhookutil.GenerateValidatePath(gvk),
 		ctrl.NewWebhookManagedBy(mgr).
 			For(&v1alpha1.PlatformAdmin{}).
 			WithDefaulter(webhook).
@@ -60,7 +54,7 @@ func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 }
 
 func (webhook *PlatformAdminHandler) initManifest() error {
-	webhook.Manifests = &Manifest{}
+	webhook.Manifests = &util.Manifest{}
 
 	manifestContent, err := config.EdgeXFS.ReadFile(config.ManifestPath)
 	if err != nil {
@@ -79,7 +73,7 @@ func (webhook *PlatformAdminHandler) initManifest() error {
 // Cluster implements a validating and defaulting webhook for Cluster.
 type PlatformAdminHandler struct {
 	Client    client.Client
-	Manifests *Manifest
+	Manifests *util.Manifest
 }
 
 var _ webhook.CustomDefaulter = &PlatformAdminHandler{}

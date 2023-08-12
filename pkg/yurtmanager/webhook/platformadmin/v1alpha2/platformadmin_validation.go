@@ -94,13 +94,13 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 
 	// Verify that it is a supported platformadmin version
 	for _, version := range webhook.Manifests.Versions {
-		if platformAdmin.Spec.Version == version {
+		if platformAdmin.Spec.Version == version.Name {
 			return nil
 		}
 	}
 
 	return field.ErrorList{
-		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(webhook.Manifests.Versions, ",")),
+		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(util.ExtractVersionsName(webhook.Manifests), ",")),
 	}
 }
 
