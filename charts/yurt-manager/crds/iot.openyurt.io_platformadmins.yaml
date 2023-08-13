@@ -8421,8 +8421,6 @@ spec:
                 items:
                   description: Component defines the components of EdgeX
                   properties:
-                    image:
-                      type: string
                     name:
                       type: string
                   required:

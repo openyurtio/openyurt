@@ -28,7 +28,8 @@ import (
 
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
-	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
+	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
+	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -100,7 +101,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 	}
 
 	return field.ErrorList{
-		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(util.ExtractVersionsName(webhook.Manifests), ",")),
+		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(config.ExtractVersionsName(webhook.Manifests).List(), ",")),
 	}
 }
 

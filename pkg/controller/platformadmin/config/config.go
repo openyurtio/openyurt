@@ -24,9 +24,17 @@ import (
 	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
+)
 
-	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
+var (
+	//go:embed EdgeXConfig
+	EdgeXFS      embed.FS
+	folder       = "EdgeXConfig/"
+	ManifestPath = filepath.Join(folder, "manifest.yaml")
+	securityFile = filepath.Join(folder, "config.json")
+	nosectyFile  = filepath.Join(folder, "config-nosecty.json")
 )
 
 type EdgeXConfig struct {
@@ -45,18 +53,42 @@ type Component struct {
 	Deployment *appsv1.DeploymentSpec `yaml:"deployment,omitempty" json:"deployment,omitempty"`
 }
 
-var (
-	//go:embed EdgeXConfig
-	EdgeXFS      embed.FS
-	folder       = "EdgeXConfig/"
-	ManifestPath = filepath.Join(folder, "manifest.yaml")
-	securityFile = filepath.Join(folder, "config.json")
-	nosectyFile  = filepath.Join(folder, "config-nosecty.json")
-)
+type Manifest struct {
+	Updated       string            `yaml:"updated"`
+	Count         int               `yaml:"count"`
+	LatestVersion string            `yaml:"latestVersion"`
+	Versions      []ManifestVersion `yaml:"versions"`
+}
+
+type ManifestVersion struct {
+	Name               string   `yaml:"name"`
+	RequiredComponents []string `yaml:"requiredComponents"`
+}
+
+func ExtractVersionsName(manifest *Manifest) sets.String {
+	versionsNameSet := sets.NewString()
+	for _, version := range manifest.Versions {
+		versionsNameSet.Insert(version.Name)
+	}
+	return versionsNameSet
+}
+
+func ExtractRequiredComponentsName(manifest *Manifest, versionName string) sets.String {
+	requiredComponentSet := sets.NewString()
+	for _, version := range manifest.Versions {
+		if version.Name == versionName {
+			for _, c := range version.RequiredComponents {
+				requiredComponentSet.Insert(c)
+			}
+			break
+		}
+	}
+	return requiredComponentSet
+}
 
 // PlatformAdminControllerConfiguration contains elements describing PlatformAdminController.
 type PlatformAdminControllerConfiguration struct {
-	Manifest           util.Manifest
+	Manifest           Manifest
 	SecurityComponents map[string][]*Component
 	NoSectyComponents  map[string][]*Component
 	SecurityConfigMaps map[string][]corev1.ConfigMap
@@ -68,7 +100,7 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		edgexconfig        = EdgeXConfig{}
 		edgexnosectyconfig = EdgeXConfig{}
 		conf               = PlatformAdminControllerConfiguration{
-			Manifest:           util.Manifest{},
+			Manifest:           Manifest{},
 			SecurityComponents: make(map[string][]*Component),
 			NoSectyComponents:  make(map[string][]*Component),
 			SecurityConfigMaps: make(map[string][]corev1.ConfigMap),

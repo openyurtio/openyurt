@@ -40,9 +40,6 @@ type PlatformAdminConditionSeverity string
 // Component defines the components of EdgeX
 type Component struct {
 	Name string `json:"name"`
-
-	// +optional
-	Image string `json:"image,omitempty"`
 }
 
 // PlatformAdminSpec defines the desired state of PlatformAdmin

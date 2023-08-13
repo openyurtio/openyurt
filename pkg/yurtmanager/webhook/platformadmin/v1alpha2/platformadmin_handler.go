@@ -26,7 +26,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
-	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
 	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 )
 
@@ -54,7 +53,7 @@ func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 }
 
 func (webhook *PlatformAdminHandler) initManifest() error {
-	webhook.Manifests = &util.Manifest{}
+	webhook.Manifests = &config.Manifest{}
 
 	manifestContent, err := config.EdgeXFS.ReadFile(config.ManifestPath)
 	if err != nil {
@@ -76,7 +75,7 @@ func (webhook *PlatformAdminHandler) initManifest() error {
 // Cluster implements a validating and defaulting webhook for Cluster.
 type PlatformAdminHandler struct {
 	Client    client.Client
-	Manifests *util.Manifest
+	Manifests *config.Manifest
 }
 
 var _ webhook.CustomDefaulter = &PlatformAdminHandler{}
