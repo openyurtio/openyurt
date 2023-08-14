@@ -183,8 +183,6 @@ func TestWriteKubeconfigToDisk(t *testing.T) {
 					newFile,
 				)
 			}
-			client, err := ToYurtClientSet(c)
-			t.Log(client, err)
 		})
 	}
 }

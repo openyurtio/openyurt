@@ -24,6 +24,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -33,21 +35,22 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/nodeportisolation"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
-	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 func TestNew(t *testing.T) {
 	fakeClient := &fake.Clientset{}
-	fakeYurtClient := &yurtfake.Clientset{}
 	sharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour)
-	yurtSharedFactory := yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
+
+	scheme := runtime.NewScheme()
+	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	nodePoolFactory := dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
+
 	nodeName := "foo"
 	nodePoolName := "foo-pool"
 	masterServiceHost := "127.0.0.1"
 	masterServicePort := "8080"
 
-	obj := New(sharedFactory, yurtSharedFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
+	obj := New(sharedFactory, nodePoolFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
 	_, ok := obj.(filter.Initializer)
 	if !ok {
 		t.Errorf("expect a filter Initializer object, but got %v", reflect.TypeOf(obj))
@@ -85,15 +88,17 @@ func TestInitialize(t *testing.T) {
 		},
 	}
 	fakeClient := &fake.Clientset{}
-	fakeYurtClient := &yurtfake.Clientset{}
 	sharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour)
-	yurtSharedFactory := yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
+
+	scheme := runtime.NewScheme()
+	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	nodePoolFactory := dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
 	nodeName := "foo"
 	nodePoolName := "foo-pool"
 	masterServiceHost := "127.0.0.1"
 	masterServicePort := "8080"
 
-	obj := New(sharedFactory, yurtSharedFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
+	obj := New(sharedFactory, nodePoolFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {

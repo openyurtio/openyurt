@@ -40,6 +40,7 @@ const (
 	// LabelCurrentNodePool indicates which nodepool the node is currently
 	// belonging to
 	LabelCurrentNodePool = "apps.openyurt.io/nodepool"
+	NodePoolLabel        = "apps.openyurt.io/nodepool"
 
 	AnnotationPrevAttrs = "nodepool.openyurt.io/previous-attributes"
 

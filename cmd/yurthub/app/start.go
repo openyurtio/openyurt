@@ -176,7 +176,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	// Start the informer factory if all informers have been registered
 	cfg.SharedFactory.Start(ctx.Done())
-	cfg.YurtSharedFactory.Start(ctx.Done())
+	cfg.NodePoolInformerFactory.Start(ctx.Done())
 
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
 	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(

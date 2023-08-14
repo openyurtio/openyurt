@@ -30,6 +30,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
@@ -39,7 +40,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
-	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
 )
 
 type joinOptions struct {
@@ -345,19 +345,13 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 
 	// check whether specified nodePool exists
 	if len(opt.nodePoolName) != 0 {
-		yurtClient, err := kubeconfigutil.ToYurtClientSet(cfg)
-		if err != nil {
-			klog.Errorf("failed to create yurt client, %v", err)
-			return nil, err
-		}
-
-		np, err := apiclient.GetNodePoolInfoWithRetry(yurtClient, opt.nodePoolName)
+		np, err := apiclient.GetNodePoolInfoWithRetry(cfg, opt.nodePoolName)
 		if err != nil || np == nil {
 			// the specified nodePool not exist, return
 			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
 		}
 		// add nodePool label for node by kubelet
-		data.nodeLabels[nodepoolv1alpha1.LabelDesiredNodePool] = opt.nodePoolName
+		data.nodeLabels[apps.NodePoolLabel] = opt.nodePoolName
 	}
 
 	// check static pods has value and yurtstaticset is already exist
