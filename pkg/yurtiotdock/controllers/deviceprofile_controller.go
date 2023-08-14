@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
@@ -162,4 +163,28 @@ func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Conte
 	dp.Status.EdgeId = createDp.Status.EdgeId
 	dp.Status.Synced = true
 	return r.Status().Update(ctx, dp)
+}
+
+func DeleteDeviceProfilesOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
+	var deviceProfileList iotv1alpha1.DeviceProfileList
+	if err := cli.List(ctx, &deviceProfileList, client.InNamespace(opts.Namespace)); err != nil {
+		return err
+	}
+	klog.V(4).Infof("DeviceProfileList, successfully get the list")
+
+	for _, deviceProfile := range deviceProfileList.Items {
+		controllerutil.RemoveFinalizer(&deviceProfile, iotv1alpha1.DeviceProfileFinalizer)
+		if err := cli.Update(ctx, &deviceProfile); err != nil {
+			klog.Errorf("deviceProfileName: %s, update deviceProfile err:%v", deviceProfile.GetName(), err)
+			continue
+		}
+
+		if err := cli.Delete(ctx, &deviceProfile); err != nil {
+			klog.Errorf("deviceProfileName: %s, update deviceProfile err:%v", deviceProfile.GetName(), err)
+			continue
+		}
+	}
+	klog.V(4).Infof("DeviceProfileList, successfully delete the list")
+
+	return nil
 }

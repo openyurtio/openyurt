@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
@@ -216,5 +217,29 @@ func (r *DeviceServiceReconciler) reconcileUpdateDeviceService(ctx context.Conte
 		return err
 	}
 	util.SetDeviceServiceCondition(deviceServiceStatus, util.NewDeviceServiceCondition(iotv1alpha1.DeviceServiceManagingCondition, corev1.ConditionTrue, "", ""))
+	return nil
+}
+
+func DeleteDeviceServicesOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
+	var deviceServiceList iotv1alpha1.DeviceServiceList
+	if err := cli.List(ctx, &deviceServiceList, client.InNamespace(opts.Namespace)); err != nil {
+		return err
+	}
+	klog.V(4).Infof("DeviceServiceList, successfully get the list")
+
+	for _, deviceService := range deviceServiceList.Items {
+		controllerutil.RemoveFinalizer(&deviceService, iotv1alpha1.DeviceServiceFinalizer)
+		if err := cli.Update(ctx, &deviceService); err != nil {
+			klog.Errorf("DeviceServiceName: %s, update deviceservice err:%v", deviceService.GetName(), err)
+			continue
+		}
+
+		if err := cli.Delete(ctx, &deviceService); err != nil {
+			klog.Errorf("DeviceServiceName: %s, update deviceservice err:%v", deviceService.GetName(), err)
+			continue
+		}
+	}
+	klog.V(4).Infof("DeviceServiceList, successfully get the list")
+
 	return nil
 }
