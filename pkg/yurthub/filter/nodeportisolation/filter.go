@@ -130,7 +130,7 @@ func (nif *nodePortIsolationFilter) resolveNodePoolName() string {
 		klog.Warningf("skip isolateNodePortService filter, failed to get node(%s), %v", nif.nodeName, err)
 		return nif.nodePoolName
 	}
-	nif.nodePoolName = node.Labels[apps.LabelDesiredNodePool]
+	nif.nodePoolName = node.Labels[apps.NodePoolLabel]
 	return nif.nodePoolName
 }
 

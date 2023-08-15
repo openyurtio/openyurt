@@ -23,23 +23,27 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
-	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 func TestFindResponseFilter(t *testing.T) {
 	fakeClient := &fake.Clientset{}
-	fakeYurtClient := &yurtfake.Clientset{}
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 	serializerManager := serializer.NewSerializerManager()
 	apiserverAddr := "127.0.0.1:6443"
 
@@ -128,18 +132,19 @@ func TestFindResponseFilter(t *testing.T) {
 			}
 			options.DisabledResourceFilters = append(options.DisabledResourceFilters, tt.disabledResourceFilters...)
 
-			sharedFactory, yurtSharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
-				yurtinformers.NewSharedInformerFactory(fakeYurtClient, 24*time.Hour)
+			sharedFactory, nodePoolFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
+				dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
+
 			stopper := make(chan struct{})
 			defer close(stopper)
 
-			mgr, _ := NewFilterManager(options, sharedFactory, yurtSharedFactory, fakeClient, serializerManager, apiserverAddr)
+			mgr, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, apiserverAddr)
 			if tt.mgrIsNil && mgr == nil {
 				return
 			}
 
 			sharedFactory.Start(stopper)
-			yurtSharedFactory.Start(stopper)
+			nodePoolFactory.Start(stopper)
 
 			req, err := http.NewRequest(tt.verb, tt.path, nil)
 			if err != nil {
