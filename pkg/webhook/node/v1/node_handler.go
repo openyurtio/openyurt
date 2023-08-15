@@ -30,7 +30,7 @@ const (
 	WebhookName = "node"
 )
 
-// SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
+// SetupWebhookWithManager sets up Cluster webhooks. mutate path, validate path, error
 func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
 	webhook.Client = mgr.GetClient()
@@ -43,15 +43,18 @@ func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, s
 		util.GenerateValidatePath(gvk),
 		builder.WebhookManagedBy(mgr).
 			For(&v1.Node{}).
+			WithDefaulter(webhook).
 			WithValidator(webhook).
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io
+// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io
+// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-node,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=create;update,versions=v1,name=mutate.core.v1.node.openyurt.io
 
-// Cluster implements a validating and defaulting webhook for Cluster.
+// NodeHandler implements a validating and defaulting webhook for Cluster.
 type NodeHandler struct {
 	Client client.Client
 }
 
+var _ builder.CustomDefaulter = &NodeHandler{}
 var _ builder.CustomValidator = &NodeHandler{}

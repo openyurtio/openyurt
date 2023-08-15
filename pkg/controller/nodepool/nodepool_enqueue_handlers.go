@@ -17,17 +17,24 @@ limitations under the License.
 package nodepool
 
 import (
+	"fmt"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 )
 
-type EnqueueNodePoolForNode struct{}
+type EnqueueNodePoolForNode struct {
+	EnableSyncNodePoolConfigurations bool
+	Recorder                         record.EventRecorder
+}
 
 // Create implements EventHandler
 func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
@@ -39,7 +46,7 @@ func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
 	}
 	klog.V(5).Infof(Format("will enqueue nodepool as node(%s) has been created",
 		node.GetName()))
-	if np, exist := node.Labels[apps.LabelDesiredNodePool]; exist {
+	if np := node.Labels[apps.NodePoolLabel]; len(np) != 0 {
 		addNodePoolToWorkQueue(np, q)
 		return
 	}
@@ -61,59 +68,44 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 			evt.ObjectOld.GetName()))
 		return
 	}
-	klog.V(5).Infof(Format("Will enqueue nodepool as node(%s) has been updated",
-		newNode.GetName()))
-	newNp := newNode.Labels[apps.LabelDesiredNodePool]
-	oldNp := oldNode.Labels[apps.LabelCurrentNodePool]
 
+	newNp := newNode.Labels[apps.NodePoolLabel]
+	oldNp := oldNode.Labels[apps.NodePoolLabel]
+
+	// check the NodePoolLabel of node
 	if len(oldNp) == 0 && len(newNp) == 0 {
-		klog.V(4).Infof(Format("node(%s) does not belong to any nodepool", newNode.GetName()))
 		return
-	}
-
-	if newNp != oldNp {
-		if newNp == "" {
-			// remove node from old pool
-			klog.V(5).Infof(Format("Will enqueue old pool(%s) for node(%s)",
-				oldNp, newNode.GetName()))
-			addNodePoolToWorkQueue(oldNp, q)
-			return
-		}
-
-		if oldNp == "" {
-			// add node to the new Pool
-			klog.V(5).Infof(Format("Will enqueue new pool(%s) for node(%s)",
-				newNp, newNode.GetName()))
-			addNodePoolToWorkQueue(newNp, q)
-			return
-		}
-		klog.V(5).Infof(Format("Will enqueue both new pool(%s) and"+
-			" old pool(%s) for node(%s)",
-			newNp, oldNp, newNode.GetName()))
-		addNodePoolToWorkQueue(oldNp, q)
+	} else if len(oldNp) == 0 {
+		// add node to the new Pool
+		klog.V(4).Infof(Format("node(%s) is added into pool(%s)", newNode.Name, newNp))
 		addNodePoolToWorkQueue(newNp, q)
 		return
+	} else if oldNp != newNp {
+		klog.Warningf("It is not allowed to change the NodePoolLabel of node, but pool of node(%s) is changed from %s to %s", newNode.Name, oldNp, newNp)
+		// emit a warning event
+		e.Recorder.Event(newNode.DeepCopy(), corev1.EventTypeWarning, apps.NodePoolChangedEvent,
+			fmt.Sprintf("It is not allowed to change the NodePoolLabel of node, but nodepool of node(%s) is changed from %s to %s", newNode.Name, oldNp, newNp))
+		return
 	}
 
+	// check node ready status
 	if isNodeReady(*newNode) != isNodeReady(*oldNode) {
-		// if the newNode and oldNode status are different
-		klog.V(5).Infof(Format("Node phase has been changed,"+
+		klog.V(4).Infof(Format("Node ready status has been changed,"+
 			" will enqueue pool(%s) for node(%s)", newNp, newNode.GetName()))
 		addNodePoolToWorkQueue(newNp, q)
 		return
 	}
 
-	if !reflect.DeepEqual(newNode.Labels, oldNode.Labels) ||
-		!reflect.DeepEqual(newNode.Annotations, oldNode.Annotations) ||
-		!reflect.DeepEqual(newNode.Spec.Taints, oldNode.Spec.Taints) {
-		// if node's labels, annotations or taints are updated
-		// TODO only consider the pool realted attributes
-		klog.V(5).Infof(Format("Nodepool related attributes has been changed,"+
-			" will enqueue pool(%s) for node(%s)",
-			newNp, newNode.GetName()))
-		addNodePoolToWorkQueue(newNp, q)
+	// check node's labels, annotations or taints are updated or not
+	if e.EnableSyncNodePoolConfigurations {
+		if !reflect.DeepEqual(newNode.Labels, oldNode.Labels) ||
+			!reflect.DeepEqual(newNode.Annotations, oldNode.Annotations) ||
+			!reflect.DeepEqual(newNode.Spec.Taints, oldNode.Spec.Taints) {
+			// TODO only consider the pool related attributes
+			klog.V(5).Infof(Format("NodePool related attributes has been changed,will enqueue pool(%s) for node(%s)", newNp, newNode.Name))
+			addNodePoolToWorkQueue(newNp, q)
+		}
 	}
-
 }
 
 // Delete implements EventHandler
@@ -125,13 +117,13 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 		return
 	}
 
-	np := node.Labels[apps.LabelCurrentNodePool]
-	if np == "" {
-		klog.V(5).Infof(Format("Node(%s) doesn't belong to any pool", node.GetName()))
+	np := node.Labels[apps.NodePoolLabel]
+	if len(np) == 0 {
+		klog.V(4).Infof(Format("A orphan node(%s) is removed", node.Name))
 		return
 	}
 	// enqueue the nodepool that the node belongs to
-	klog.V(5).Infof(Format("Will enqueue pool(%s) as node(%s) has been deleted",
+	klog.V(4).Infof(Format("Will enqueue pool(%s) as node(%s) has been deleted",
 		np, node.GetName()))
 	addNodePoolToWorkQueue(np, q)
 }
@@ -139,4 +131,12 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 // Generic implements EventHandler
 func (e *EnqueueNodePoolForNode) Generic(evt event.GenericEvent,
 	q workqueue.RateLimitingInterface) {
+}
+
+// addNodePoolToWorkQueue adds the nodepool the reconciler's workqueue
+func addNodePoolToWorkQueue(npName string,
+	q workqueue.RateLimitingInterface) {
+	q.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: npName},
+	})
 }

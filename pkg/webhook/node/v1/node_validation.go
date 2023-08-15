@@ -58,21 +58,31 @@ func (webhook *NodeHandler) ValidateDelete(_ context.Context, obj runtime.Object
 }
 
 func validateNodeUpdate(newNode, oldNode *v1.Node, req admission.Request) field.ErrorList {
-	oldNp := oldNode.Labels[apps.LabelDesiredNodePool]
-	newNp := newNode.Labels[apps.LabelDesiredNodePool]
+	oldNp := oldNode.Labels[apps.NodePoolLabel]
+	newNp := newNode.Labels[apps.NodePoolLabel]
+	oldNpType := oldNode.Labels[apps.NodePoolTypeLabel]
+	newNpType := newNode.Labels[apps.NodePoolTypeLabel]
+	oldNpHostNetwork := oldNode.Labels[apps.NodePoolHostNetworkLabel]
+	newNpHostNetwork := newNode.Labels[apps.NodePoolHostNetworkLabel]
 
-	if len(oldNp) == 0 {
-		return nil
+	var errList field.ErrorList
+	// it is not allowed to change NodePoolLabel if it has been set
+	if len(oldNp) != 0 && oldNp != newNp {
+		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolLabel), "apps.openyurt.io/nodepool can not be changed"))
 	}
 
-	// can not change LabelDesiredNodePool if it has been set
-	if oldNp != newNp {
-		return field.ErrorList([]*field.Error{
-			field.Forbidden(
-				field.NewPath("metadata").Child("labels").Child(apps.LabelDesiredNodePool),
-				"apps.openyurt.io/desired-nodepool can not be changed"),
-		})
+	// it is not allowed to change NodePoolTypeLabel if it has been set
+	if len(oldNpType) != 0 && oldNpType != newNpType {
+		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolTypeLabel), "nodepool.openyurt.io/type can not be changed"))
 	}
 
+	// it is not allowed to change NodePoolHostNetworkLabel if it has been set
+	if len(oldNpHostNetwork) != 0 && oldNpHostNetwork != newNpHostNetwork {
+		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolHostNetworkLabel), "nodepool.openyurt.io/hostnetwork can not be changed"))
+	}
+
+	if len(errList) != 0 {
+		return errList
+	}
 	return nil
 }

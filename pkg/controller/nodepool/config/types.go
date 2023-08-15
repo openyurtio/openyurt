@@ -18,5 +18,5 @@ package config
 
 // NodePoolControllerConfiguration contains elements describing NodePoolController.
 type NodePoolControllerConfiguration struct {
-	CreateDefaultPool bool
+	EnableSyncNodePoolConfigurations bool
 }

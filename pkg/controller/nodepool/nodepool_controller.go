@@ -18,11 +18,10 @@ package nodepool
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,14 +35,12 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	nodepoolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
+	poolconfig "github.com/openyurtio/openyurt/pkg/controller/nodepool/config"
 )
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = appsv1beta1.SchemeGroupVersion.WithKind("NodePool")
+	controllerResource   = appsv1beta1.SchemeGroupVersion.WithResource("nodepools")
 )
 
 const (
@@ -58,9 +55,19 @@ func Format(format string, args ...interface{}) string {
 // ReconcileNodePool reconciles a NodePool object
 type ReconcileNodePool struct {
 	client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	Configration nodepoolconfig.NodePoolControllerConfiguration
+	mapper   meta.RESTMapper
+	recorder record.EventRecorder
+	cfg      poolconfig.NodePoolControllerConfiguration
+}
+
+func (r *ReconcileNodePool) InjectClient(c client.Client) error {
+	r.Client = c
+	return nil
+}
+
+func (r *ReconcileNodePool) InjectMapper(mapper meta.RESTMapper) error {
+	r.mapper = mapper
+	return nil
 }
 
 var _ reconcile.Reconciler = &ReconcileNodePool{}
@@ -68,13 +75,42 @@ var _ reconcile.Reconciler = &ReconcileNodePool{}
 // Add creates a new NodePool Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		klog.Errorf(Format("DiscoverGVK error"))
-		return nil
+	klog.Infof("nodepool-controller add controller %s", controllerResource.String())
+	r := &ReconcileNodePool{
+		cfg:      c.ComponentConfig.NodePoolController,
+		recorder: mgr.GetEventRecorderFor(ControllerName),
 	}
 
-	klog.Infof("nodepool-controller add controller %s", controllerKind.String())
-	return add(mgr, newReconciler(c, mgr))
+	// Create a new controller
+	ctrl, err := controller.New(ControllerName, mgr, controller.Options{
+		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.mapper.KindFor(controllerResource); err != nil {
+		klog.Infof("resource %s doesn't exist", controllerResource.String())
+		return err
+	}
+
+	// Watch for changes to NodePool
+	err = ctrl.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to Node
+	err = ctrl.Watch(&source.Kind{Type: &corev1.Node{}}, &EnqueueNodePoolForNode{
+		EnableSyncNodePoolConfigurations: r.cfg.EnableSyncNodePoolConfigurations,
+		Recorder:                         r.recorder,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 type NodePoolRelatedAttributes struct {
@@ -83,56 +119,9 @@ type NodePoolRelatedAttributes struct {
 	Taints      []corev1.Taint    `json:"taints,omitempty"`
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileNodePool{
-		Client:       utilclient.NewClientFromManager(mgr, ControllerName),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(ControllerName),
-		Configration: c.ComponentConfig.NodePoolController,
-	}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to NodePool
-	err = c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to Node
-	err = c.Watch(&source.Kind{
-		Type: &corev1.Node{}},
-		&EnqueueNodePoolForNode{})
-	if err != nil {
-		return err
-	}
-
-	npr, ok := r.(*ReconcileNodePool)
-	if !ok {
-		return errors.New(Format("fail to assert interface to NodePoolReconciler"))
-	}
-
-	if npr.Configration.CreateDefaultPool {
-		// register a node controller with the underlying informer of the manager
-		go createDefaultNodePool(mgr.GetClient())
-	}
-	return nil
-}
-
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a NodePool object and makes changes based on the state read
 // and what is in the NodePool.Spec
@@ -141,51 +130,30 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile NodePool %s/%s", req.Namespace, req.Name))
+	klog.Infof(Format("Reconcile NodePool %s", req.Name))
 
 	var nodePool appsv1beta1.NodePool
 	// try to reconcile the NodePool object
 	if err := r.Get(ctx, req.NamespacedName, &nodePool); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	klog.Infof(Format("NodePool %++v", nodePool))
-
-	var desiredNodeList corev1.NodeList
-	if err := r.List(ctx, &desiredNodeList, client.MatchingLabels(map[string]string{
-		apps.LabelDesiredNodePool: nodePool.GetName(),
-	})); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
+	klog.V(5).Infof("NodePool %s: %#+v", nodePool.Name, nodePool)
 
 	var currentNodeList corev1.NodeList
 	if err := r.List(ctx, &currentNodeList, client.MatchingLabels(map[string]string{
-		apps.LabelCurrentNodePool: nodePool.GetName(),
+		apps.NodePoolLabel: nodePool.GetName(),
 	})); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// 1. handle the event of removing node out of the pool
-	// nodes in currentNodeList but not in the desiredNodeList, will be
-	// removed from the pool
-	removedNodes := getRemovedNodes(&currentNodeList, &desiredNodeList)
-	for _, rNode := range removedNodes {
-		if err := removePoolRelatedAttrs(&rNode); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.Update(ctx, &rNode); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// 2. handle the event of adding node to the pool and the event of
-	// updating node pool attributes
 	var (
 		readyNode    int32
 		notReadyNode int32
 		nodes        []string
 	)
 
-	for _, node := range desiredNodeList.Items {
+	// sync nodepool configurations to nodes
+	for _, node := range currentNodeList.Items {
 		// prepare nodepool status
 		nodes = append(nodes, node.GetName())
 		if isNodeReady(node) {
@@ -194,23 +162,28 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 			notReadyNode += 1
 		}
 
-		// update node status according to nodepool
-		updated, err := concilateNode(&node, nodePool)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if updated {
-			if err := r.Update(ctx, &node); err != nil {
-				klog.Errorf(Format("Update Node %s error %v", node.Name, err))
+		// sync nodepool configurations into node
+		if r.cfg.EnableSyncNodePoolConfigurations {
+			updated, err := conciliateNode(&node, &nodePool)
+			if err != nil {
 				return ctrl.Result{}, err
+			}
+			if updated {
+				if err := r.Update(ctx, &node); err != nil {
+					klog.Errorf(Format("Update Node %s error %v", node.Name, err))
+					return ctrl.Result{}, err
+				}
 			}
 		}
 	}
 
-	// 3. always update the node pool status if necessary
+	// always update the node pool status if necessary
 	needUpdate := conciliateNodePoolStatus(readyNode, notReadyNode, nodes, &nodePool)
 	if needUpdate {
+		klog.V(5).Infof("nodepool(%s): (%#+v) will be updated", nodePool.Name, nodePool)
 		return ctrl.Result{}, r.Status().Update(ctx, &nodePool)
+	} else {
+		klog.V(5).Infof("nodepool(%#+v) don't need to be updated, ready=%d, notReady=%d, nodes=%v", nodePool, readyNode, notReadyNode, nodes)
 	}
 	return ctrl.Result{}, nil
 }

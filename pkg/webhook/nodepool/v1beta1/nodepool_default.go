@@ -19,13 +19,10 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -36,15 +33,17 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
 	}
 
-	np.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{apps.LabelCurrentNodePool: np.Name},
+	// specify default type as Edge
+	if len(np.Spec.Type) == 0 {
+		np.Spec.Type = v1beta1.Edge
 	}
 
-	// add NodePool.Spec.Type to NodePool labels
-	if np.Labels == nil {
-		np.Labels = make(map[string]string)
+	// init node pool status
+	np.Status = v1beta1.NodePoolStatus{
+		ReadyNodeNum:   0,
+		UnreadyNodeNum: 0,
+		Nodes:          make([]string, 0),
 	}
-	np.Labels[apps.NodePoolTypeLabelKey] = strings.ToLower(string(np.Spec.Type))
 
 	return nil
 }

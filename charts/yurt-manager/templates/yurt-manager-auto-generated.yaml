@@ -126,8 +126,6 @@ rules:
   resources:
   - nodepools
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
@@ -542,6 +540,27 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /mutate-core-openyurt-io-v1-node
+  failurePolicy: Fail
+  name: mutate.core.v1.node.openyurt.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - nodes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /mutate-apps-openyurt-io-v1beta1-nodepool
   failurePolicy: Fail
   name: m.v1beta1.nodepool.kb.io
@@ -552,7 +571,6 @@ webhooks:
     - v1beta1
     operations:
     - CREATE
-    - UPDATE
     resources:
     - nodepools
   sideEffects: None
@@ -668,7 +686,6 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
@@ -688,6 +705,7 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: yurt-manager-webhook-service

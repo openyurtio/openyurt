@@ -44,8 +44,8 @@ func (webhook *NodePoolHandler) SetupWebhookWithManager(mgr ctrl.Manager) (strin
 			Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-apps-openyurt-io-v1beta1-nodepool,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,versions=v1beta1,name=v.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-nodepool,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create;update,versions=v1beta1,name=m.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta1-nodepool,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create;update;delete,versions=v1beta1,name=v.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-nodepool,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create,versions=v1beta1,name=m.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
 
 // NodePoolHandler implements a validating and defaulting webhook for Cluster.
 type NodePoolHandler struct {
