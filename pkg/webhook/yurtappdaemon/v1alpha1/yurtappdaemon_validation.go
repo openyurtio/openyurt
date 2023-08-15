@@ -39,6 +39,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
+const (
+	YurtAppDaemonKind = "YurtAppDaemon"
+)
+
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
@@ -47,7 +51,7 @@ func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj run
 	}
 
 	if allErrs := validateYurtAppDaemon(webhook.Client, daemon); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), daemon.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), daemon.Name, allErrs)
 	}
 
 	return nil
@@ -67,7 +71,7 @@ func (webhook *YurtAppDaemonHandler) ValidateUpdate(ctx context.Context, oldObj,
 	validationErrorList := validateYurtAppDaemon(webhook.Client, newDaemon)
 	updateErrorList := ValidateYurtAppDaemonUpdate(newDaemon, oldDaemon)
 	if allErrs := append(validationErrorList, updateErrorList...); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind("YurtAppDaemon").GroupKind(), newDaemon.Name, allErrs)
+		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), newDaemon.Name, allErrs)
 	}
 	return nil
 }
