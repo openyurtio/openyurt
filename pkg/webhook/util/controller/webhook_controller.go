@@ -43,7 +43,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	extclient "github.com/openyurtio/openyurt/pkg/client"
 	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/configuration"
 	"github.com/openyurtio/openyurt/pkg/webhook/util/generator"
@@ -80,8 +79,12 @@ type Controller struct {
 }
 
 func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest.Config) (*Controller, error) {
+	kubeClient, err := clientset.NewForConfig(restCfg)
+	if err != nil {
+		return nil, err
+	}
 	c := &Controller{
-		kubeClient:  extclient.GetGenericClientWithName("webhook-controller").KubeClient,
+		kubeClient:  kubeClient,
 		handlers:    handlers,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhook-controller"),
 		webhookPort: cc.ComponentConfig.Generic.WebhookPort,

@@ -49,8 +49,6 @@ import (
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
 	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
@@ -64,7 +62,7 @@ func Format(format string, args ...interface{}) string {
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = iotv1alpha2.SchemeGroupVersion.WithKind("PlatformAdmin")
+	controllerResource   = iotv1alpha2.SchemeGroupVersion.WithResource("platformadmins")
 )
 
 const (
@@ -121,18 +119,19 @@ var _ reconcile.Reconciler = &ReconcilePlatformAdmin{}
 // Add creates a new PlatformAdmin Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		return nil
+	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
+		klog.Infof("resource %s doesn't exist", controllerResource.String())
+		return err
 	}
 
-	klog.Infof("platformadmin-controller add controller %s", controllerKind.String())
+	klog.Infof("platformadmin-controller add controller %s", controllerResource.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcilePlatformAdmin{
-		Client:         utilclient.NewClientFromManager(mgr, ControllerName),
+		Client:         mgr.GetClient(),
 		scheme:         mgr.GetScheme(),
 		recorder:       mgr.GetEventRecorderFor(ControllerName),
 		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),

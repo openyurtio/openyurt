@@ -50,8 +50,6 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	k8sutil "github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater/kubernetes"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
@@ -103,9 +101,6 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new Daemonpodupdater Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		return nil
-	}
 	klog.Infof("daemonupdater-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
@@ -123,7 +118,7 @@ type ReconcileDaemonpodupdater struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDaemonpodupdater{
-		Client:       utilclient.NewClientFromManager(mgr, ControllerName),
+		Client:       mgr.GetClient(),
 		expectations: k8sutil.NewControllerExpectations(),
 		recorder:     mgr.GetEventRecorderFor(ControllerName),
 	}
