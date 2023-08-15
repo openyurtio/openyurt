@@ -33,8 +33,8 @@ import (
 
 func TestName(t *testing.T) {
 	nif, _ := NewNodePortIsolationFilter()
-	if nif.Name() != filter.NodePortIsolationName {
-		t.Errorf("expect %s, but got %s", filter.NodePortIsolationName, nif.Name())
+	if nif.Name() != filter.NodePortIsolationFilterName {
+		t.Errorf("expect %s, but got %s", filter.NodePortIsolationFilterName, nif.Name())
 	}
 }
 

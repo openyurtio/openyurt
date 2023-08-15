@@ -38,7 +38,7 @@ const (
 
 // Register registers a filter
 func Register(filters *filter.Filters) {
-	filters.Register(filter.NodePortIsolationName, func() (filter.ObjectFilter, error) {
+	filters.Register(filter.NodePortIsolationFilterName, func() (filter.ObjectFilter, error) {
 		return NewNodePortIsolationFilter()
 	})
 }
@@ -54,7 +54,7 @@ func NewNodePortIsolationFilter() (filter.ObjectFilter, error) {
 }
 
 func (nif *nodePortIsolationFilter) Name() string {
-	return filter.NodePortIsolationName
+	return filter.NodePortIsolationFilterName
 }
 
 func (nif *nodePortIsolationFilter) SupportedResourceAndVerbs() map[string]sets.String {

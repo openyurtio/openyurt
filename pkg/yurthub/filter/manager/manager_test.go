@@ -114,6 +114,24 @@ func TestFindResponseFilter(t *testing.T) {
 			isFound:                true,
 			names:                  sets.NewString("nodeportisolation"),
 		},
+		"get hostnetwork propagation filter": {
+			enableResourceFilter:   true,
+			accessServerThroughHub: true,
+			userAgent:              "kubelet",
+			verb:                   "GET",
+			path:                   "/api/v1/pods",
+			isFound:                true,
+			names:                  sets.NewString("hostnetworkpropagation"),
+		},
+		"could not get hostnetwork propagation filter in cloud mode": {
+			enableResourceFilter:   true,
+			accessServerThroughHub: true,
+			workingMode:            "cloud",
+			userAgent:              "kubelet",
+			verb:                   "GET",
+			path:                   "/api/v1/pods",
+			isFound:                false,
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
