@@ -53,7 +53,8 @@ const (
 	maxRetries    = 15
 	minSyncPeriod = 30
 
-	dnatPortPrefix = "dnat-"
+	dnatPortPrefix    = "dnat-"
+	dnsControllerName = "tunnel-dns-controller"
 )
 
 var (
@@ -141,7 +142,7 @@ func (dnsctl *coreDNSRecordController) Run(stopCh <-chan struct{}) {
 	if err != nil {
 		klog.Fatalf("failed to get hostname, %v", err)
 	}
-	rl, err := resourcelock.New("leases", metav1.NamespaceSystem, "tunnel-dns-controller",
+	rl, err := resourcelock.New("leases", metav1.NamespaceSystem, dnsControllerName,
 		dnsctl.kubeClient.CoreV1(),
 		dnsctl.kubeClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
@@ -165,7 +166,7 @@ func (dnsctl *coreDNSRecordController) Run(stopCh <-chan struct{}) {
 			},
 		},
 		WatchDog: electionChecker,
-		Name:     "tunnel-dns-controller",
+		Name:     dnsControllerName,
 	})
 	panic("unreachable")
 }
@@ -177,7 +178,7 @@ func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
 	klog.Infof("starting tunnel dns controller")
 	defer klog.Infof("shutting down tunnel dns controller")
 
-	if !cache.WaitForNamedCacheSync("tunnel-dns-controller", stopCh,
+	if !cache.WaitForNamedCacheSync(dnsControllerName, stopCh,
 		dnsctl.nodeListerSynced, dnsctl.svcInformerSynced, dnsctl.cmInformerSynced) {
 		return
 	}
