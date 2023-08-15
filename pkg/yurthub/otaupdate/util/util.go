@@ -27,8 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 )
 
 // Derived from kubelet encodePods

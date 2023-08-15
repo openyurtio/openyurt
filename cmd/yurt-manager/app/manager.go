@@ -37,11 +37,11 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/controller"
-	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/webhook"
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/util/profile"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
 var (

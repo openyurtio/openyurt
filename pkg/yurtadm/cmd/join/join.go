@@ -31,7 +31,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
@@ -40,6 +39,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
 type joinOptions struct {
