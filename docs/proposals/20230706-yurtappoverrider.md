@@ -31,14 +31,12 @@ status:
       * [YurtAppOverrider Controller](#yurtappoverrider-controller)
         * [Task 1](#task-1)
         * [Task 2](#task-2)
-      * [Advanced features](#advanced-features)
     * [User Stories](#user-stories)
       * [Story 1 (General)](#story-1-general)
       * [Story 2 (Specific)](#story-2-specific)
-      * [Story 3 (Advanced feature)](#story-3-advanced-feature)
-      * [Story 4 (Gray Release)](#story-4-gray-release)
-      * [Story 5 (Specify Registry)](#story-5-specify-registry)
-      * [Story 6 (Customize hostPath)](#story-6-customize-hostpath)
+      * [Story 3 (Gray Release)](#story-3-gray-release)
+      * [Story 4 (Specify Registry)](#story-4-specify-registry)
+      * [Story 5 (Customize hostPath)](#story-5-customize-hostpath)
     * [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
       * [Open Cluster Management](#open-cluster-management)
       * [KubeVela](#kubevela)
@@ -46,7 +44,7 @@ status:
 <!-- TOC -->
 ## Glossary
 ### YurtAppOverrider
-YurtAppOverrider is a new CRD used to customize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides an simple and straightforward way to configure every field of the workload under each nodepool. It is fundamental component of multi-region workloads configuration rendering engine.
+YurtAppOverrider is a new CRD used to customize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides a simple and straightforward way to configure every field of the workload under each nodepool. It is fundamental component of multi-region workloads configuration rendering engine.
 ## Summary
 Due to the objective existence of heterogeneous environments such as resource configurations and network topologies in each geographic region, the workload configuration is always different in each region. We design a multi-region workloads configuration rendering engine by introducing YurtAppOverrider CRD, relevant controller, and webhooks. The workloads(Deployment/StatefulSet) of nodepools in different regions can be rendered through simple configuration by using YurtAppOverrider which also supports multiple resources(YurtAppSet/YurtAppDaemon).
 ## Motivation
@@ -64,7 +62,7 @@ Reference to the design of ClusterRole and ClusterRoleBinding.
 1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
 2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of items and patches. Items replace a set of configuration for matching nodepools.
 <img src = "../img/yurtappoverrider/Inspiration.png" width="600">
-3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convent a patch struct into an API interface call.
+3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convert a patch struct into an API interface call.
    ```shell
    kubectl patch deployment xxx --type='json' --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"tomcat"}]'
    ```
@@ -149,7 +147,6 @@ type YurtAppOverrider struct {
 ### Architecture
 The whole architecture is shown below.
 <img src = "../img/yurtappoverrider/Architecture.png" width="800">
-
 ### Implementation Details
 #### Deployment Mutating Webhook
 ##### Prerequisites for webhook (Resolving circular dependency)
@@ -170,7 +167,7 @@ Attention Points:
 2. The latter configuration always relpace the former. So the last configuration will really work
 #### YurtAppOverrider Validating Webhook
 1. Verify that only one field of item is selected
-2. Verify that replicas and upgradeStrategy are selected only once in a entry
+2. Verify that replicas and upgradeStrategy are selected only once in an entry
 #### YurtAppOverrider Controller
 ##### Task 1
 1. Get update events by watching the YurtAppOverrider resource
@@ -313,11 +310,11 @@ Disadvantages:
 KubeVela is a modern software delivery platform that makes deploying and operating applications across today's hybrid, multi-cloud environments easier, faster and more reliable.
 
 Advantages:
-+ kubevela can achieve the distribution and deployment of workloads,
+- kubevela can achieve the distribution and deployment of workloads,
 Utilizing component replication function and json-patch trait, users and operators can realize the customized configuration of nodepools.
 
 Disadvantages:
-+ It cannot accomplish dynamic deployment for each new nodepool, while yurtappdaemon can make it.
+- It cannot accomplish dynamic deployment for each new nodepool, while yurtappdaemon can make it.
 
 ## Implementation History
 - [ ] : YurtAppOverrider API CRD
