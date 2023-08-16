@@ -291,7 +291,6 @@ entries:
           path: /
           type: Directory
 ```
-
 ### Comparison with existing open source projects
 #### Open Cluster Management
 Multicluster and multicloud management systems, such as Open Cluster Management(OCM), mainly focus unified management of multiple clusters. It provides ManifestWork and Placement.
@@ -314,7 +313,6 @@ Utilizing component replication function and json-patch trait, users and operato
 
 Disadvantages:
 - It cannot accomplish dynamic deployment for each new nodepool, while yurtappdaemon can make it.
-
 ## Implementation History
 - [ ] YurtAppOverrider API CRD
 - [ ] Deployment Mutating Webhook
