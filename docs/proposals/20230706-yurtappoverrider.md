@@ -50,11 +50,12 @@ Due to the objective existence of heterogeneous environments such as resource co
 ## Motivation
 YurtAppSet is proposed for homogeneous workloads. YurtAppSet is not user-friendly and scalable, although it can be used for workload configuration by patch field. Therefore, we expect a rendering engine to configure workloads in different regions easily, including replicas, images, configmap, secret, pvc, etc. In addition, it is essential to support rendering of existing resources, like YurtAppSet and YurtAppDaemon, and future resources.
 ### Goals
-- Customize the workloads in different regions
-- Implement GrayRelease through this
-- Specify the registry of the image to adapt the edge network
+1. Customize the workloads in different regions
+2. Implement GrayRelease through this
+3. Specify the registry of the image to adapt the edge network
 ### Non-Goals/Future Work
-- Optimize YurtAppSet(about status, patch, and replicas)
+1. Optimize YurtAppSet(about status, patch, and replicas)
+2. Optimize YurtAppDaemon(about status)
 ## Proposal
 ### Inspiration
 Reference to the design of ClusterRole and ClusterRoleBinding.
