@@ -175,7 +175,6 @@ Attention Points:
 ##### Task 2
 1. Get delete events(delete members of pools) by watching the YurtAppOverrider resource
 2. Render the configuration according to the YurtAppSet workload template and the watching YurtAppOverrider
-
 ### User Stories
 #### Story 1 (General)
 Use YurtAppSet with YurtAppOverrider for customized configuration of each region. Create YurtAppOverrider first and then create YurtAppSet. If update is needed, modify Yu  resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppOverrider and our rendering engine will inject all configurations into target workloads.
@@ -317,8 +316,8 @@ Disadvantages:
 - It cannot accomplish dynamic deployment for each new nodepool, while yurtappdaemon can make it.
 
 ## Implementation History
-- [ ] : YurtAppOverrider API CRD
-- [ ] : Deployment Mutating Webhook
-- [ ] : YurtAppOverrider controller
-- [ ] : Resolve circular dependency
-- [ ] : YurtAppOverrider validating webhook
+- [ ] YurtAppOverrider API CRD
+- [ ] Deployment Mutating Webhook
+- [ ] YurtAppOverrider controller
+- [ ] Resolve circular dependency
+- [ ] YurtAppOverrider validating webhook
