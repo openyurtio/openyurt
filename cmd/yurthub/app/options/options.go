@@ -31,6 +31,7 @@ import (
 	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -106,7 +107,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HeartbeatTimeoutSeconds:   2,
 		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
-		BootstrapMode:             "token",
+		BootstrapMode:             certificate.TokenBoostrapMode,
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
 		EnableDummyIf:             true,
@@ -148,8 +149,10 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
-		return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+	if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
+		if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
+			return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+		}
 	}
 
 	if !util.IsSupportedLBMode(options.LBMode) {
