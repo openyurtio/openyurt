@@ -60,10 +60,11 @@ YurtAppSet is proposed for homogeneous workloads. YurtAppSet is not user-friendl
 ### Inspiration
 Reference to the design of ClusterRole and ClusterRoleBinding.
 
-1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared. They are essentially either some existing resources, such as ConfigMap, Secret, etc., or some custom fields such as Replicas, Env, etc. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
-2. In order to inject item into the workloads, we should create a new CRD named YurtAppConfigurationReplacemnet, which consist of items and patches. Items replace a set of configuration for matching nodepools.
+1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared, including image, replicas, and upgrade strategy. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
+2. In order to inject item into the workloads, we should create a new CRD named YurtAppOverrider, which consist of items and patches. Items replace a set of configuration for matching nodepools.
 <img src = "../img/yurtappoverrider/Inspiration.png" width="600">
 3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convert a patch struct into an API interface call.
+
    ```shell
    kubectl patch deployment xxx --type='json' --patch='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"tomcat"}]'
    ```
@@ -135,7 +136,8 @@ type Subject struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=yacr
-// +kubebuilder:printcolumn:name="Subject",type="string",JSONPath=".subject.kind",description="The subject kind of this overrider."
+// +kubebuilder:printcolumn:name="Subject_Kind",type="string",JSONPath=".subject.kind",description="The subject kind of this overrider."
+// +kubebuilder:printcolumn:name="Subject_Name",type="string",JSONPath=".subject.Name",description="The subject name of this overrider."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 
 type YurtAppOverrider struct {
@@ -180,7 +182,7 @@ Attention Points:
 #### Story 1 (General)
 Use YurtAppSet with YurtAppOverrider for customized configuration of each region. Create YurtAppOverrider first and then create YurtAppSet. If update is needed, modify Yu  resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppOverrider and our rendering engine will inject all configurations into target workloads.
 #### Story 2 (Specific)
-For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. They have different image version, replicas, and configMap. We can configure it as follows:
+For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. They have different image version, replicas. We can configure it as follows:
 ```yaml
 apiVersion: apps.openyurt.io/v1alpha1
 kind: YurtAppOverrider
@@ -281,16 +283,26 @@ entries:
       hostPath:
         path: /var/lib/docker
         type: Directory
+  - operator: replace
+    path: /spec/template/spec/containers/0/volumeMounts/-
+    value:
+      name: shared-dir
+      mountPath: /var/lib/docker
 - pools:
-    hangzhou
+    beijing
   patches:
-    - operator: add
-      path: /spec/template/spec/volumes/-
-      value:
-        name: test-volume
-        hostPath:
-          path: /
-          type: Directory
+  - operator: add
+    path: /spec/template/spec/volumes/-
+    value:
+      name: test-volume
+      hostPath:
+        path: /data/logs
+        type: Directory
+  - operator: replace
+    path: /spec/template/spec/containers/0/volumeMounts/-
+    value:
+      name: shared-dir
+      mountPath: /data/logs
 ```
 ### Comparison with existing open source projects
 #### Open Cluster Management
@@ -309,7 +321,7 @@ Disadvantages:
 KubeVela is a modern software delivery platform that makes deploying and operating applications across today's hybrid, multi-cloud environments easier, faster and more reliable.
 
 Advantages:
-- kubevela can achieve the distribution and deployment of workloads,
+- KubeVela can achieve the distribution and deployment of workloads,
 Utilizing component replication function and json-patch trait, users and operators can realize the customized configuration of nodepools.
 
 Disadvantages:
