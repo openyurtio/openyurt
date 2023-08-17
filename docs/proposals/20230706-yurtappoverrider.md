@@ -93,12 +93,12 @@ type Item struct {
     Replicas *int32 `json:"replicas,omitempty"`
 }
 
-type Operator string
+type Operation string
 
 const (
-    ADD     Operator = "add"     // json patch
-    REMOVE  Operator = "remove"  // json patch
-    REPLACE Operator = "replace" // json patch
+    ADD     Operation = "add"     // json patch
+    REMOVE  Operation = "remove"  // json patch
+    REPLACE Operation = "replace" // json patch
 )
 
 type Patch struct {
@@ -106,7 +106,7 @@ type Patch struct {
     Path string `json:"path"`
     // type represents the operation
     // +kubebuilder:validation:Enum=add;remove;replace
-    Operator Operator `json:"operator"`
+    Operation Operation `json:"operation"`
     // Indicates the patch for the template
     // +optional
     Value apiextensionsv1.JSON `json:"value,omitempty"`
@@ -168,7 +168,7 @@ Attention Points:
 2. The latter configuration always relpace the former. So the last configuration will really work
 #### YurtAppOverrider Validating Webhook
 1. Verify that only one YurtAppOverrider can be bound to YurtAppSet/YurtAppDaemon
-2. Verify that value is empty when operator is REMOVE
+2. Verify that value is empty when operation is REMOVE
 #### YurtAppOverrider Controller
 ##### Task 1
 1. Get update events by watching the YurtAppOverrider resource
@@ -178,7 +178,7 @@ Attention Points:
 2. Render the configuration according to the YurtAppSet workload template and the watching YurtAppOverrider
 ### User Stories
 #### Story 1 (General)
-Use YurtAppSet with YurtAppOverrider for customized configuration of each region. Create YurtAppOverrider first and then create YurtAppSet. If update is needed, modify Yu  resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppOverrider and our rendering engine will inject all configurations into target workloads.
+Use YurtAppSet with YurtAppOverrider for customized configuration of each region. Create YurtAppOverrider first and then create YurtAppSet. If update is needed, modify YurtAppSet resource directly. For YurtAppDaemon, the usage is similar. Users only need to do some  configurations in YurtAppOverrider and our rendering engine will inject all configurations into target workloads.
 #### Story 2 (Specific)
 For example, if there are three locations, Beijing and Hangzhou have the similar configuration, and Shanghai is not the same. They have different image version, replicas. We can configure it as follows:
 ```yaml
@@ -274,14 +274,14 @@ entries:
 - pools:
     hangzhou
   patches:
-  - operator: add
+  - operation: add
     path: /spec/template/spec/volumes/-
     value:
       name: test-volume
       hostPath:
         path: /var/lib/docker
         type: Directory
-  - operator: replace
+  - operation: replace
     path: /spec/template/spec/containers/0/volumeMounts/-
     value:
       name: shared-dir
@@ -289,14 +289,14 @@ entries:
 - pools:
     beijing
   patches:
-  - operator: add
+  - operation: add
     path: /spec/template/spec/volumes/-
     value:
       name: test-volume
       hostPath:
         path: /data/logs
         type: Directory
-  - operator: replace
+  - operation: replace
     path: /spec/template/spec/containers/0/volumeMounts/-
     value:
       name: shared-dir
