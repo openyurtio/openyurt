@@ -18,28 +18,53 @@ package profile
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/gorilla/mux"
 )
 
-func fakeServer(h http.Handler) error {
-	err := http.ListenAndServe(":9090", h)
-	return err
+// TestInstall checks Install function correctly sets up routes
+func TestInstall(t *testing.T) {
+	router := mux.NewRouter()
+	Install(router)
+
+	// Define the routes we expect to exist and their expected handlers
+	expectedRoutes := map[string]string{
+		"/debug/pprof/profile": "profile",
+		"/debug/pprof/symbol":  "symbol",
+		"/debug/pprof/trace":   "trace",
+	}
+
+	// For each route, make a request and check the handler that's called
+	for route := range expectedRoutes {
+		req, err := http.NewRequest("GET", route, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("handler(%s) returned wrong status code: got %v want %v", route, rr.Code, http.StatusOK)
+		}
+	}
 }
 
-func TestInstall(t *testing.T) {
-	t.Run("TestInstall", func(t *testing.T) {
-		m := mux.NewRouter()
-		Install(m)
-		go fakeServer(m)
-		r, err := http.Get("http://localhost:9090/debug/pprof/")
-		if err != nil {
-			t.Errorf("failed to send request to fake server, %v", err)
-		}
+// TestRedirectTo checks redirect to the desired location
+func TestRedirectTo(t *testing.T) {
+	destination := "/destination"
+	redirect := redirectTo(destination)
 
-		if r.StatusCode != http.StatusOK {
-			t.Error(err)
-		}
-	})
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+
+	redirect(rr, req)
+
+	if location := rr.Header().Get("Location"); location != destination {
+		t.Errorf("expected redirect to %s, got %s", destination, location)
+	}
 }

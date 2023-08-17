@@ -37,7 +37,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
-	extclient "github.com/openyurtio/openyurt/pkg/client"
 	"github.com/openyurtio/openyurt/pkg/controller"
 	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -151,15 +150,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	ctx := ctrl.SetupSignalHandler()
 	cfg := ctrl.GetConfigOrDie()
-
 	setRestConfig(cfg, c)
-
-	setupLog.Info("new clientset registry")
-	err := extclient.NewRegistry(cfg)
-	if err != nil {
-		setupLog.Error(err, "unable to init yurt-manager clientset and informer")
-		os.Exit(1)
-	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                     scheme,

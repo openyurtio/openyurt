@@ -43,7 +43,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/controller/yurtappset/adapter"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
@@ -52,7 +51,7 @@ func init() {
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = unitv1alpha1.SchemeGroupVersion.WithKind("YurtAppSet")
+	controllerResource   = unitv1alpha1.SchemeGroupVersion.WithResource("yurtappsets")
 )
 
 const (
@@ -75,19 +74,17 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new YurtAppSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *config.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		klog.Errorf(Format("DiscoverGVK error"))
-		return nil
+	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
+		klog.Infof("resource %s doesn't exist", controllerResource.String())
+		return err
 	}
 
-	klog.Infof("yurtappset-controller add controller %s", controllerKind.String())
+	klog.Infof("yurtappset-controller add controller %s", controllerResource.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	klog.Infof("yurtappset-controller newReconciler %s", controllerKind.String())
-
 	return &ReconcileYurtAppSet{
 		Client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),

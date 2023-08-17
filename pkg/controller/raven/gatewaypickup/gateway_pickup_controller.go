@@ -46,12 +46,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/controller/raven/gatewaypickup/config"
 	"github.com/openyurtio/openyurt/pkg/controller/raven/utils"
 	nodeutil "github.com/openyurtio/openyurt/pkg/controller/util/node"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 var (
-	controllerKind = ravenv1beta1.SchemeGroupVersion.WithKind("Gateway")
+	controllerResource = ravenv1beta1.SchemeGroupVersion.WithResource("gateways")
 )
 
 func Format(format string, args ...interface{}) string {
@@ -68,10 +66,11 @@ const (
 // Add creates a new Gateway Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		return nil
+	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
+		klog.Infof("resource %s doesn't exist", controllerResource.String())
+		return err
 	}
-	klog.Infof("raven-gateway-controller add controller %s", controllerKind.String())
+	klog.Infof("raven-gateway-controller add controller %s", controllerResource.String())
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -88,7 +87,7 @@ type ReconcileGateway struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileGateway{
-		Client:       utilclient.NewClientFromManager(mgr, common.GatewayPickupControllerName),
+		Client:       mgr.GetClient(),
 		scheme:       mgr.GetScheme(),
 		recorder:     mgr.GetEventRecorderFor(common.GatewayPickupControllerName),
 		Configration: c.ComponentConfig.GatewayPickupController,
@@ -117,7 +116,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &EnqueueGatewayForRavenConfig{client: utilclient.NewClientFromManager(mgr, "raven-config")}, predicate.NewPredicateFuncs(
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &EnqueueGatewayForRavenConfig{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {

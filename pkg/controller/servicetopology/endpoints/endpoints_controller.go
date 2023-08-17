@@ -33,7 +33,6 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	common "github.com/openyurtio/openyurt/pkg/controller/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/controller/servicetopology/adapter"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
 )
 
 func init() {
@@ -53,10 +52,6 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new Servicetopology endpoints Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		return nil
-	}
-
 	klog.Infof("servicetopology-endpoints-controller add controller %s", controllerKind.String())
 	return add(mgr, newReconciler(c, mgr))
 }
