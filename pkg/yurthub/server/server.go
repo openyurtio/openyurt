@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/profile"
+	"github.com/openyurtio/openyurt/pkg/util/profile"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"

@@ -28,12 +28,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 )
 
 const (
