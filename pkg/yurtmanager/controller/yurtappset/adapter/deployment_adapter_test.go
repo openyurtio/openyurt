@@ -27,6 +27,7 @@ import (
 	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -59,7 +60,7 @@ func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 						DeploymentTemplate: &appsv1alpha1.DeploymentTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: map[string]string{
-									appsv1alpha1.AnnotationPatchKey: "annotation-v",
+									apps.AnnotationPatchKey: "annotation-v",
 								},
 								Labels: map[string]string{
 									"name": "foo",
@@ -113,29 +114,29 @@ func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Labels: map[string]string{
-						"name": "foo",
-						appsv1alpha1.ControllerRevisionHashLabelKey: "1",
-						appsv1alpha1.PoolNameLabelKey:               "hangzhou",
+						"name":                              "foo",
+						apps.ControllerRevisionHashLabelKey: "1",
+						apps.PoolNameLabelKey:               "hangzhou",
 					},
 					Annotations: map[string]string{
-						appsv1alpha1.AnnotationPatchKey: "",
+						apps.AnnotationPatchKey: "",
 					},
 					GenerateName: "foo-hangzhou-",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							"name":                        "foo",
-							appsv1alpha1.PoolNameLabelKey: "hangzhou",
+							"name":                "foo",
+							apps.PoolNameLabelKey: "hangzhou",
 						},
 					},
 					Replicas: &one,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"name": "foo",
-								appsv1alpha1.ControllerRevisionHashLabelKey: "1",
-								appsv1alpha1.PoolNameLabelKey:               "hangzhou",
+								"name":                              "foo",
+								apps.ControllerRevisionHashLabelKey: "1",
+								apps.PoolNameLabelKey:               "hangzhou",
 							},
 						},
 						Spec: corev1.PodSpec{

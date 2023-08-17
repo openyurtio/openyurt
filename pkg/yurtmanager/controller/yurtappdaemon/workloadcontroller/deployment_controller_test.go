@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -129,7 +130,7 @@ func TestApplyTemplate(t *testing.T) {
 								},
 								Selector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										v1alpha1.PoolNameLabelKey: "a",
+										apps.PoolNameLabelKey: "a",
 									},
 								},
 							},

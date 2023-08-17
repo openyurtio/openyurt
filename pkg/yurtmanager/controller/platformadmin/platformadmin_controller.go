@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
@@ -443,7 +444,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			}
 			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 				corev1.NodeSelectorRequirement{
-					Key:      appsv1alpha1.LabelCurrentNodePool,
+					Key:      apps.NodePoolLabel,
 					Operator: corev1.NodeSelectorOpIn,
 					Values:   []string{platformAdmin.Spec.PoolName},
 				})
@@ -561,7 +562,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	}
 	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 		corev1.NodeSelectorRequirement{
-			Key:      appsv1alpha1.LabelCurrentNodePool,
+			Key:      apps.NodePoolLabel,
 			Operator: corev1.NodeSelectorOpIn,
 			Values:   []string{platformAdmin.Spec.PoolName},
 		})

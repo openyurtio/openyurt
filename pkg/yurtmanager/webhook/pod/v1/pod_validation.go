@@ -30,13 +30,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/constant"
 )
 
 const (
-	LabelCurrentNodePool = "apps.openyurt.io/nodepool"
-	UserNodeController   = "system:serviceaccount:kube-system:node-controller"
+	UserNodeController = "system:serviceaccount:kube-system:node-controller"
 
 	NodeLeaseDurationSeconds                 = 40
 	DefaultPoolReadyNodeNumberRatioThreshold = 0.35
@@ -83,7 +83,7 @@ func validatePodDeletion(cli client.Client, pod *v1.Pod, req admission.Request) 
 	// only validate pod which in nodePool
 	var nodePoolName string
 	if node.Labels != nil {
-		if name, ok := node.Labels[LabelCurrentNodePool]; ok {
+		if name, ok := node.Labels[apps.NodePoolLabel]; ok {
 			nodePoolName = name
 		}
 	}

@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/refmanager"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
@@ -168,7 +169,7 @@ func (m *PoolControl) convertToPool(set metav1.Object) (*Pool, error) {
 			ReplicasInfo:       specReplicas,
 		},
 	}
-	if data, ok := set.GetAnnotations()[alpha1.AnnotationPatchKey]; ok {
+	if data, ok := set.GetAnnotations()[apps.AnnotationPatchKey]; ok {
 		pool.Status.PatchInfo = data
 	}
 	return pool, nil

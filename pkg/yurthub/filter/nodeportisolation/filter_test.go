@@ -92,7 +92,7 @@ func TestFilter(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
 			Annotations: map[string]string{
-				apps.LabelDesiredNodePool: nodePoolName,
+				apps.NodePoolLabel: nodePoolName,
 			},
 		},
 	}
