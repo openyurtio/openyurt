@@ -26,6 +26,7 @@ versions:
   - edgex-core-consul
   - edgex-core-metadata
   - edgex-redis
+  - edgex-core-common-config-bootstrapper
 - name: ireland
   requiredComponents: 
   - edgex-core-command
