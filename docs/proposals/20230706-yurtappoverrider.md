@@ -60,7 +60,7 @@ YurtAppSet is proposed for homogeneous workloads. YurtAppSet is not user-friendl
 ### Inspiration
 Reference to the design of ClusterRole and ClusterRoleBinding.
 
-1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared, including image, replicas, and upgrade strategy. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
+1. Considering the simplicity of customized rendering configuration, an incremental-like approach is used to implement injection, i.e., only the parts that need to be modified need to be declared, including image and replicas. Therefore, it is reasonable to abstract these configurable fields into an Item. The design of Item refers to the design of VolumeSource in kubernetes.
 2. In order to inject item into the workloads, we should create a new CRD named YurtAppOverrider, which consist of items and patches. Items replace a set of configuration for matching nodepools.
 <img src = "../img/yurtappoverrider/Inspiration.png" width="600">
 3. Patch supports more advanced add, delete and replace operations, similar to kubectl's json patch. We can convert a patch struct into an API interface call.
@@ -91,8 +91,6 @@ type Item struct {
     Image *ImageItem `json:"image,omitempty"`
     // +optional
     Replicas *int32 `json:"replicas,omitempty"`
-    // +optional
-    UpgradeStrategy *string `json:"upgradeStrategy,omitempty"`
 }
 
 type Operator string
@@ -169,8 +167,8 @@ Attention Points:
 1. Note that injection is implemented by recalculating the final configuration according to the YurtAppSet workload template and the watching YurtAppOverrider
 2. The latter configuration always relpace the former. So the last configuration will really work
 #### YurtAppOverrider Validating Webhook
-1. Verify that only one field of item is selected
-2. Verify that replicas and upgradeStrategy are selected only once in an entry
+1. Verify that only one YurtAppOverrider can be bound to YurtAppSet/YurtAppDaemon
+2. Verify that value is empty when operator is REMOVE
 #### YurtAppOverrider Controller
 ##### Task 1
 1. Get update events by watching the YurtAppOverrider resource
