@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 )
 
 const (
@@ -70,7 +70,7 @@ func TestCreateNodeSelectorByNodepoolName(t *testing.T) {
 			"normal",
 			"a",
 			map[string]string{
-				v1alpha1.LabelCurrentNodePool: "a",
+				apps.NodePoolLabel: "a",
 			},
 		},
 	}

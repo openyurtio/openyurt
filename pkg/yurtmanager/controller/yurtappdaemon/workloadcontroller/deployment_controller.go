@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/refmanager"
 )
@@ -67,8 +68,8 @@ func (d *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alph
 	for k, v := range yad.Spec.Selector.MatchLabels {
 		set.Labels[k] = v
 	}
-	set.Labels[v1alpha1.ControllerRevisionHashLabelKey] = revision
-	set.Labels[v1alpha1.PoolNameLabelKey] = nodepool.GetName()
+	set.Labels[apps.ControllerRevisionHashLabelKey] = revision
+	set.Labels[apps.PoolNameLabelKey] = nodepool.GetName()
 
 	if set.Annotations == nil {
 		set.Annotations = map[string]string{}
@@ -76,13 +77,13 @@ func (d *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alph
 	for k, v := range yad.Spec.WorkloadTemplate.DeploymentTemplate.Annotations {
 		set.Annotations[k] = v
 	}
-	set.Annotations[v1alpha1.AnnotationRefNodePool] = nodepool.GetName()
+	set.Annotations[apps.AnnotationRefNodePool] = nodepool.GetName()
 
 	set.Namespace = yad.GetNamespace()
 	set.GenerateName = getWorkloadPrefix(yad.GetName(), nodepool.GetName())
 
 	set.Spec = *yad.Spec.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
-	set.Spec.Selector.MatchLabels[v1alpha1.PoolNameLabelKey] = nodepool.GetName()
+	set.Spec.Selector.MatchLabels[apps.PoolNameLabelKey] = nodepool.GetName()
 
 	// set RequiredDuringSchedulingIgnoredDuringExecution nil
 	if set.Spec.Template.Spec.Affinity != nil && set.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
@@ -92,8 +93,8 @@ func (d *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alph
 	if set.Spec.Template.Labels == nil {
 		set.Spec.Template.Labels = map[string]string{}
 	}
-	set.Spec.Template.Labels[v1alpha1.PoolNameLabelKey] = nodepool.GetName()
-	set.Spec.Template.Labels[v1alpha1.ControllerRevisionHashLabelKey] = revision
+	set.Spec.Template.Labels[apps.PoolNameLabelKey] = nodepool.GetName()
+	set.Spec.Template.Labels[apps.ControllerRevisionHashLabelKey] = revision
 
 	// use nodeSelector
 	set.Spec.Template.Spec.NodeSelector = CreateNodeSelectorByNodepoolName(nodepool.GetName())

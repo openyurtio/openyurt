@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -39,13 +40,13 @@ type YurtAppSetPatches struct {
 }
 
 func getPoolNameFrom(metaObj metav1.Object) (string, error) {
-	name, exist := metaObj.GetLabels()[unitv1alpha1.PoolNameLabelKey]
+	name, exist := metaObj.GetLabels()[apps.PoolNameLabelKey]
 	if !exist {
-		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: no label %s found", metaObj.GetNamespace(), metaObj.GetName(), unitv1alpha1.PoolNameLabelKey)
+		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: no label %s found", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
 	}
 
 	if len(name) == 0 {
-		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: label %s has an empty value", metaObj.GetNamespace(), metaObj.GetName(), unitv1alpha1.PoolNameLabelKey)
+		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: label %s has an empty value", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
 	}
 
 	return name, nil

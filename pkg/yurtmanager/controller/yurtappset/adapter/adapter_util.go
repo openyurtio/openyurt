@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -94,7 +95,7 @@ func getRevision(objMeta metav1.Object) string {
 	if objMeta.GetLabels() == nil {
 		return ""
 	}
-	return objMeta.GetLabels()[appsv1alpha1.ControllerRevisionHashLabelKey]
+	return objMeta.GetLabels()[apps.ControllerRevisionHashLabelKey]
 }
 
 // getCurrentPartition calculates current partition by counting the pods not having the updated revision
@@ -139,7 +140,7 @@ func PoolHasPatch(poolConfig *appsv1alpha1.Pool, set metav1.Object) bool {
 	if poolConfig.Patch == nil {
 		// If No Patches, Must Set patches annotation to ""
 		if anno := set.GetAnnotations(); anno != nil {
-			anno[appsv1alpha1.AnnotationPatchKey] = ""
+			anno[apps.AnnotationPatchKey] = ""
 		}
 		return false
 	}
@@ -154,10 +155,10 @@ func CreateNewPatchedObject(patchInfo *runtime.RawExtension, set metav1.Object, 
 
 	if anno := newPatched.GetAnnotations(); anno == nil {
 		newPatched.SetAnnotations(map[string]string{
-			appsv1alpha1.AnnotationPatchKey: string(patchInfo.Raw),
+			apps.AnnotationPatchKey: string(patchInfo.Raw),
 		})
 	} else {
-		anno[appsv1alpha1.AnnotationPatchKey] = string(patchInfo.Raw)
+		anno[apps.AnnotationPatchKey] = string(patchInfo.Raw)
 	}
 	return nil
 }

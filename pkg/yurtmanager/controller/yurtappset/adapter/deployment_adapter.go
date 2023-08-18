@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -100,9 +101,9 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	for k, v := range yas.Spec.Selector.MatchLabels {
 		set.Labels[k] = v
 	}
-	set.Labels[alpha1.ControllerRevisionHashLabelKey] = revision
+	set.Labels[apps.ControllerRevisionHashLabelKey] = revision
 	// record the pool name as a label
-	set.Labels[alpha1.PoolNameLabelKey] = poolName
+	set.Labels[apps.PoolNameLabelKey] = poolName
 
 	if set.Annotations == nil {
 		set.Annotations = map[string]string{}
@@ -114,7 +115,7 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	set.GenerateName = getPoolPrefix(yas.Name, poolName)
 
 	selectors := yas.Spec.Selector.DeepCopy()
-	selectors.MatchLabels[alpha1.PoolNameLabelKey] = poolName
+	selectors.MatchLabels[apps.PoolNameLabelKey] = poolName
 
 	if err := controllerutil.SetControllerReference(yas, set, a.Scheme); err != nil {
 		return err
@@ -128,8 +129,8 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	if set.Spec.Template.Labels == nil {
 		set.Spec.Template.Labels = map[string]string{}
 	}
-	set.Spec.Template.Labels[alpha1.PoolNameLabelKey] = poolName
-	set.Spec.Template.Labels[alpha1.ControllerRevisionHashLabelKey] = revision
+	set.Spec.Template.Labels[apps.PoolNameLabelKey] = poolName
+	set.Spec.Template.Labels[apps.ControllerRevisionHashLabelKey] = revision
 
 	set.Spec.RevisionHistoryLimit = yas.Spec.RevisionHistoryLimit
 	set.Spec.MinReadySeconds = yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.MinReadySeconds
@@ -166,5 +167,5 @@ func (a *DeploymentAdapter) PostUpdate(yas *alpha1.YurtAppSet, obj runtime.Objec
 // IsExpected checks the pool is the expected revision or not.
 // The revision label can tell the current pool revision.
 func (a *DeploymentAdapter) IsExpected(obj metav1.Object, revision string) bool {
-	return obj.GetLabels()[alpha1.ControllerRevisionHashLabelKey] != revision
+	return obj.GetLabels()[apps.ControllerRevisionHashLabelKey] != revision
 }

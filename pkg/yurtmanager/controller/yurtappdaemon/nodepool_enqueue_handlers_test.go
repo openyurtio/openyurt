@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
@@ -91,7 +92,7 @@ func TestCreate(t *testing.T) {
 						Namespace: "kube-system",
 						Name:      "kube-proxy",
 						Annotations: map[string]string{
-							appsv1alpha1.AnnotationRefNodePool: "a",
+							apps.AnnotationRefNodePool: "a",
 						},
 					},
 					Spec: v1.PodSpec{},
@@ -144,7 +145,7 @@ func TestUpdate(t *testing.T) {
 						Namespace: "kube-system",
 						Name:      "kube-proxy",
 						Annotations: map[string]string{
-							appsv1alpha1.AnnotationRefNodePool: "a",
+							apps.AnnotationRefNodePool: "a",
 						},
 					},
 					Spec: v1.PodSpec{},
@@ -154,7 +155,7 @@ func TestUpdate(t *testing.T) {
 						Namespace: "kube-system",
 						Name:      "kube-proxy",
 						Annotations: map[string]string{
-							appsv1alpha1.AnnotationRefNodePool: "a",
+							apps.AnnotationRefNodePool: "a",
 						},
 					},
 					Spec: v1.PodSpec{},
@@ -206,7 +207,7 @@ func TestDelete(t *testing.T) {
 						Namespace: "kube-system",
 						Name:      "kube-proxy",
 						Annotations: map[string]string{
-							appsv1alpha1.AnnotationRefNodePool: "a",
+							apps.AnnotationRefNodePool: "a",
 						},
 					},
 					Spec: v1.PodSpec{},
@@ -260,7 +261,7 @@ func TestGeneric(t *testing.T) {
 						Namespace: "kube-system",
 						Name:      "kube-proxy",
 						Annotations: map[string]string{
-							appsv1alpha1.AnnotationRefNodePool: "a",
+							apps.AnnotationRefNodePool: "a",
 						},
 					},
 					Spec: v1.PodSpec{},
