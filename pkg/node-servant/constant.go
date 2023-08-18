@@ -42,6 +42,10 @@ spec:
         hostPath:
           path: /
           type: Directory
+      - name: configmap
+        configMap:
+          defaultMode: 420
+          name: {{.configmap_name}}
       containers:
       - name: node-servant-servant
         image: {{.node_servant_image}}
@@ -56,6 +60,8 @@ spec:
         volumeMounts:
         - mountPath: /openyurt
           name: host-root
+        - mountPath: /openyurt/data
+          name: configmap
         env:
         - name: NODE_NAME
           valueFrom:
