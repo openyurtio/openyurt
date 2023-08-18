@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
-	webhookutil "github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
 // SetupWebhookWithManager sets up Cluster webhooks.

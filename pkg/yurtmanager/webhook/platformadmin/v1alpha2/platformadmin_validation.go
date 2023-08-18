@@ -28,8 +28,8 @@ import (
 
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
-	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
-	util "github.com/openyurtio/openyurt/pkg/controller/platformadmin/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
+	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
