@@ -112,7 +112,7 @@ func (op *yurtHubOperator) Install() error {
 
 	klog.Infof("create the %s/yurt-hub.yaml", podManifestPath)
 	klog.Infof("yurt-hub.yaml: %+v", configMapDataPath)
-	klog.Infof("yurt-hub.yaml content: %+v", string(content))
+	klog.Infof("yurt-hub.yaml content: %+v", yssYurtHub)
 
 	// 2. wait yurthub pod to be ready
 	return hubHealthcheck(op.yurthubHealthCheckTimeout)

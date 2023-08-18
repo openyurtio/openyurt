@@ -225,7 +225,7 @@ spec:
             - --bind-address=127.0.0.1
             - --server-addr={{.kubernetesServerAddr}}
             - --node-name=$(NODE_NAME)
-            - --bootstrap-file="/var/lib/yurthub/bootstrap-hub.conf"
+            - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
             - --working-mode=cloud
             - --namespace="kube-system"
           livenessProbe:
@@ -291,7 +291,7 @@ spec:
             - --bind-address=127.0.0.1
             - --server-addr={{.kubernetesServerAddr}}
             - --node-name=$(NODE_NAME)
-            - --bootstrap-file="/var/lib/yurthub/bootstrap-hub.conf"
+            - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
             - --working-mode=edge
             - --namespace="kube-system"
           livenessProbe:
