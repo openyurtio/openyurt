@@ -31,6 +31,7 @@ import (
 	utilnet "k8s.io/utils/net"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -62,6 +63,7 @@ type YurtHubOptions struct {
 	HeartbeatIntervalSeconds  int
 	MaxRequestInFlight        int
 	JoinToken                 string
+	BootstrapMode             string
 	BootstrapFile             string
 	RootDir                   string
 	Version                   bool
@@ -105,6 +107,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HeartbeatTimeoutSeconds:   2,
 		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
+		BootstrapMode:             certificate.TokenBoostrapMode,
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
 		EnableDummyIf:             true,
@@ -146,8 +149,10 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
-		return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+	if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
+		if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
+			return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+		}
 	}
 
 	if !util.IsSupportedLBMode(options.LBMode) {
@@ -189,6 +194,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.MaxRequestInFlight, "max-requests-in-flight", o.MaxRequestInFlight, "the maximum number of parallel requests.")
 	fs.StringVar(&o.JoinToken, "join-token", o.JoinToken, "the Join token for bootstrapping hub agent.")
 	fs.MarkDeprecated("join-token", "It is planned to be removed from OpenYurt in the version v1.5. Please use --bootstrap-file to bootstrap hub agent.")
+	fs.StringVar(&o.BootstrapMode, "bootstrap-mode", o.BootstrapMode, "the mode for bootstrapping hub agent(token, kubeletcertificate).")
 	fs.StringVar(&o.BootstrapFile, "bootstrap-file", o.BootstrapFile, "the bootstrap file for bootstrapping hub agent.")
 	fs.StringVar(&o.RootDir, "root-dir", o.RootDir, "directory path for managing hub agent files(pki, cache etc).")
 	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")

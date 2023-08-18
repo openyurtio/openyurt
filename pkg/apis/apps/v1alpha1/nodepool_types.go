@@ -73,12 +73,11 @@ type NodePoolStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,path=nodepools,shortName=np,categories=all
 // +kubebuilder:subresource:status
-// +kubebuilder:deprecatedversion:warning="apps.openyurt.io/v1alpha1 NodePool is deprecated in v1.0.0+, unavailable in v1.2.0+; use apps.openyurt.io/v1beta1 NodePool"
+// +kubebuilder:deprecatedversion:warning="apps.openyurt.io/v1alpha1 NodePool is deprecated in v1.0.0+; use apps.openyurt.io/v1beta1 NodePool"
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of nodepool"
 // +kubebuilder:printcolumn:name="ReadyNodes",type="integer",JSONPath=".status.readyNodeNum",description="The number of ready nodes in the pool"
 // +kubebuilder:printcolumn:name="NotReadyNodes",type="integer",JSONPath=".status.unreadyNodeNum"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:storageversion
 
 // NodePool is the Schema for the nodepools API
 type NodePool struct {

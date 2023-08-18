@@ -28,15 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	apiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	componentbaseconfig "k8s.io/component-base/config"
@@ -44,22 +44,15 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	yurtcorev1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
-	yurtclientset "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned"
-	"github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
-	yurtv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions/apps/v1alpha1"
 )
 
 // YurtHubConfiguration represents configuration of yurthub
@@ -78,7 +71,7 @@ type YurtHubConfiguration struct {
 	SerializerManager               *serializer.SerializerManager
 	RESTMapperManager               *meta.RESTMapperManager
 	SharedFactory                   informers.SharedInformerFactory
-	YurtSharedFactory               yurtinformers.SharedInformerFactory
+	NodePoolInformerFactory         dynamicinformer.DynamicSharedInformerFactory
 	WorkingMode                     util.WorkingMode
 	KubeletHealthGracePeriod        time.Duration
 	FilterManager                   *manager.Manager
@@ -133,13 +126,13 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 
 	workingMode := util.WorkingMode(options.WorkingMode)
-	proxiedClient, sharedFactory, yurtSharedFactory, err := createClientAndSharedInformers(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.EnableNodePool)
+	proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformers(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.NodePoolName)
 	if err != nil {
 		return nil, err
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
-	registerInformers(options, sharedFactory, yurtSharedFactory, workingMode, tenantNs)
-	filterManager, err := manager.NewFilterManager(options, sharedFactory, yurtSharedFactory, proxiedClient, serializerManager, us[0].Host)
+	registerInformers(options, sharedFactory, workingMode, tenantNs)
+	filterManager, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager, us[0].Host)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -161,7 +154,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		SerializerManager:         serializerManager,
 		RESTMapperManager:         restMapperManager,
 		SharedFactory:             sharedFactory,
-		YurtSharedFactory:         yurtSharedFactory,
+		NodePoolInformerFactory:   dynamicSharedFactory,
 		KubeletHealthGracePeriod:  options.KubeletHealthGracePeriod,
 		FilterManager:             filterManager,
 		MinRequestTimeout:         options.MinRequestTimeout,
@@ -178,9 +171,20 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		LeaderElection:            options.LeaderElection,
 	}
 
-	certMgr, err := createCertManager(options, us)
+	certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
 	if err != nil {
 		return nil, err
+	}
+	certMgr.Start()
+	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
+		isReady := certMgr.Ready()
+		if isReady {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
 	}
 	cfg.CertManager = certMgr
 
@@ -230,10 +234,9 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	return us, nil
 }
 
-// createSharedInformers create sharedInformers from the given proxyAddr.
-func createClientAndSharedInformers(proxyAddr string, enableNodePool bool) (kubernetes.Interface, informers.SharedInformerFactory, yurtinformers.SharedInformerFactory, error) {
+// createClientAndSharedInformers create kubeclient and sharedInformers from the given proxyAddr.
+func createClientAndSharedInformers(proxyAddr string, nodePoolName string) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
 	var kubeConfig *rest.Config
-	var yurtClient yurtclientset.Interface
 	var err error
 	kubeConfig, err = clientcmd.BuildConfigFromFlags(proxyAddr, "")
 	if err != nil {
@@ -245,53 +248,27 @@ func createClientAndSharedInformers(proxyAddr string, enableNodePool bool) (kube
 		return nil, nil, nil, err
 	}
 
-	fakeYurtClient := &fake.Clientset{}
-	fakeWatch := watch.NewFake()
-	fakeYurtClient.AddWatchReactor("nodepools", core.DefaultWatchReactor(fakeWatch, nil))
-	// init yurtClient by fake client
-	yurtClient = fakeYurtClient
-	if enableNodePool {
-		yurtClient, err = yurtclientset.NewForConfig(kubeConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
+	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	return client, informers.NewSharedInformerFactory(client, 24*time.Hour),
-		yurtinformers.NewSharedInformerFactory(yurtClient, 24*time.Hour), nil
+	dynamicInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 24*time.Hour)
+	if len(nodePoolName) != 0 {
+		dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 24*time.Hour, metav1.NamespaceAll, func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.Set{"metadata.name": nodePoolName}.String()
+		})
+	}
+
+	return client, informers.NewSharedInformerFactory(client, 24*time.Hour), dynamicInformerFactory, nil
 }
 
-// registerInformers reconstruct node/nodePool/configmap informers
+// registerInformers reconstruct configmap/secret/pod informers
 func registerInformers(options *options.YurtHubOptions,
 	informerFactory informers.SharedInformerFactory,
-	yurtInformerFactory yurtinformers.SharedInformerFactory,
 	workingMode util.WorkingMode,
 	tenantNs string) {
-	// skip construct node/nodePool informers if service topology filter disabled
-	serviceTopologyFilterEnabled := isServiceTopologyFilterEnabled(options)
-	if serviceTopologyFilterEnabled {
-		if workingMode == util.WorkingModeCloud {
-			newNodeInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-				tweakListOptions := func(ops *metav1.ListOptions) {
-					ops.FieldSelector = fields.Set{"metadata.name": options.NodeName}.String()
-				}
-				return coreinformers.NewFilteredNodeInformer(client, resyncPeriod, nil, tweakListOptions)
-			}
-			informerFactory.InformerFor(&corev1.Node{}, newNodeInformer)
-		}
-
-		if len(options.NodePoolName) != 0 {
-			newNodePoolInformer := func(client yurtclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-				tweakListOptions := func(ops *metav1.ListOptions) {
-					ops.FieldSelector = fields.Set{"metadata.name": options.NodePoolName}.String()
-				}
-				return yurtv1alpha1.NewFilteredNodePoolInformer(client, resyncPeriod, nil, tweakListOptions)
-			}
-
-			yurtInformerFactory.InformerFor(&yurtcorev1alpha1.NodePool{}, newNodePoolInformer)
-		}
-	}
-
+	// configmap informer is used by Yurthub filter approver
 	newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
@@ -300,6 +277,7 @@ func registerInformers(options *options.YurtHubOptions,
 	}
 	informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
 
+	// secret informer is used by Tenant manager, this feature is not enabled in general.
 	if tenantNs != "" {
 		newSecretInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 			return coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
@@ -307,6 +285,7 @@ func registerInformers(options *options.YurtHubOptions,
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
 
+	// pod informer is used by OTA updater on cloud working mode
 	if workingMode == util.WorkingModeCloud {
 		newPodInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 			listOptions := func(ops *metav1.ListOptions) {
@@ -316,68 +295,6 @@ func registerInformers(options *options.YurtHubOptions,
 		}
 		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
 	}
-}
-
-// isServiceTopologyFilterEnabled is used to verify the service topology filter should be enabled or not.
-func isServiceTopologyFilterEnabled(options *options.YurtHubOptions) bool {
-	if !options.EnableResourceFilter {
-		return false
-	}
-
-	for _, filterName := range options.DisabledResourceFilters {
-		if filterName == filter.ServiceTopologyFilterName {
-			return false
-		}
-	}
-
-	if options.WorkingMode == string(util.WorkingModeCloud) {
-		for i := range filter.DisabledInCloudMode {
-			if filter.DisabledInCloudMode[i] == filter.ServiceTopologyFilterName {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func createCertManager(options *options.YurtHubOptions, remoteServers []*url.URL) (certificate.YurtCertificateManager, error) {
-	// use dummy ip and bind ip as cert IP SANs
-	certIPs := ipUtils.RemoveDupIPs([]net.IP{
-		net.ParseIP(options.HubAgentDummyIfIP),
-		net.ParseIP(options.YurtHubHost),
-		net.ParseIP(options.YurtHubProxyHost),
-	})
-
-	cfg := &token.CertificateManagerConfiguration{
-		RootDir:                  options.RootDir,
-		NodeName:                 options.NodeName,
-		JoinToken:                options.JoinToken,
-		BootstrapFile:            options.BootstrapFile,
-		CaCertHashes:             options.CACertHashes,
-		YurtHubCertOrganizations: options.YurtHubCertOrganizations,
-		CertIPs:                  certIPs,
-		RemoteServers:            remoteServers,
-		Client:                   options.ClientForTest,
-	}
-	certManager, err := token.NewYurtHubCertManager(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cert manager for yurthub, %v", err)
-	}
-
-	certManager.Start()
-	err = wait.PollImmediate(5*time.Second, 4*time.Minute, func() (bool, error) {
-		isReady := certManager.Ready()
-		if isReady {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
-	}
-
-	return certManager, nil
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
