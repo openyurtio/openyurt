@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/constant"
 )
@@ -37,6 +37,10 @@ func (webhook *PodHandler) Default(ctx context.Context, obj runtime.Object, req 
 	po, ok := obj.(*v1.Pod)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Pod but got a %T", obj))
+	}
+
+	if !userIsNodeController(req) {
+		return nil
 	}
 
 	// if pod have ready condition and condition is False
@@ -57,13 +61,11 @@ func (webhook *PodHandler) Default(ctx context.Context, obj runtime.Object, req 
 	if err := webhook.Client.Get(context.TODO(), client.ObjectKey{Name: nodeName}, &node); err != nil {
 		return nil
 	}
-	if node.Annotations != nil && node.Annotations[constant.PodBindingAnnotation] == "true" {
+	if node.Annotations != nil &&
+		(node.Annotations[constant.PodBindingAnnotation] == "true" || node.Annotations[projectinfo.GetAutonomyAnnotation()] == "true") {
 		// update pod ready condition to True
 		podReadyCondition.Status = v1.ConditionTrue
 		klog.V(2).Infof("PodWebhook: Updating ready condition of pod %v to true", po.Name)
-		if !nodeutil.UpdatePodCondition(&po.Status, podReadyCondition) {
-			return nil
-		}
 	}
 
 	return nil

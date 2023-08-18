@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +39,6 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
@@ -149,7 +147,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 			for i := range podList.Items {
 				// if pod Ready Condition is already True, skip.
-				if podutil.IsPodReadyConditionTrue(podList.Items[i].Status) {
+				condition := podutil.GetPodReadyCondition(podList.Items[i].Status)
+				if condition == nil || condition.Status == corev1.ConditionTrue {
 					continue
 				}
 				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -300,13 +299,13 @@ func MarkPodReady(kubeClient client.Client, pod *corev1.Pod) (reconcile.Result, 
 	for _, cond := range newPod.Status.Conditions {
 		if cond.Type == corev1.PodReady && cond.Status != corev1.ConditionTrue {
 			cond.Status = corev1.ConditionTrue
-			if !nodeutil.UpdatePodCondition(&newPod.Status, &cond) {
+			if !podutil.UpdatePodCondition(&newPod.Status, &cond) {
 				break
 			}
 			klog.V(2).Infof(Format("Updating ready status of pod %v to true", newPod.Name))
 			err := kubeClient.Status().Update(context.TODO(), newPod)
 			if err != nil {
-				if apierrors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
 					// NotFound error means that pod was already deleted.
 					// There is nothing left to do with this pod.
 					break

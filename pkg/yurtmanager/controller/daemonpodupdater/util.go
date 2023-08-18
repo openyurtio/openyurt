@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
-	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
@@ -128,7 +127,7 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 		Type:   PodNeedUpgrade,
 		Status: status,
 	}
-	if change := util.UpdatePodCondition(&pod.Status, cond); change {
+	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
 
 		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
 			return err

@@ -126,6 +126,8 @@ rules:
   resources:
   - nodepools
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
@@ -776,7 +778,7 @@ webhooks:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
       path: /validate-core-openyurt-io-v1-pod
-  failurePolicy: Fail
+  failurePolicy: Ignore
   name: validate.core.v1.pod.openyurt.io
   rules:
   - apiGroups:
