@@ -19,7 +19,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -29,8 +28,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token/testdata"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 )
 
 var (
@@ -40,20 +40,17 @@ var (
 func TestUpdateTokenHandler(t *testing.T) {
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
-	client, err := testdata.CreateCertFakeClient("../certificate/token/testdata")
+	client, err := testdata.CreateCertFakeClient("../certificate/testdata")
 	if err != nil {
 		t.Errorf("failed to create cert fake client, %v", err)
 		return
 	}
-	certManager, err := token.NewYurtHubCertManager(&token.CertificateManagerConfiguration{
+	certManager, err := manager.NewYurtHubCertManager(&options.YurtHubOptions{
 		NodeName:      "foo",
-		RemoteServers: remoteServers,
-		CertIPs:       certIPs,
 		RootDir:       testDir,
 		JoinToken:     "123456.abcdef1234567890",
-		Client:        client,
-	})
+		ClientForTest: client,
+	}, remoteServers)
 	if err != nil {
 		t.Errorf("failed to create certManager, %v", err)
 		return
@@ -63,7 +60,7 @@ func TestUpdateTokenHandler(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
-		if certManager.Ready() {
+		if certManager.GetAPIServerClientCert() != nil {
 			return true, nil
 		}
 		return false, nil

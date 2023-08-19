@@ -1,0 +1,88 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-iot-dock
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - get
+  - apiGroups:
+      - iot.openyurt.io
+    resources:
+      - devices
+      - deviceservices
+      - deviceprofiles
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - iot.openyurt.io
+    resources:
+      - devices/status
+      - deviceprofiles/status
+      - deviceservices/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - iot.openyurt.io
+    resources:
+      - devices/finalizers
+      - deviceprofiles/finalizers
+      - deviceservices/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - apps.openyurt.io
+    resources:
+      - nodepools
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-iot-dock
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-iot-dock
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:authenticated

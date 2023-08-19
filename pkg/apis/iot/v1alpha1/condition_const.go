@@ -35,4 +35,30 @@ const (
 	DeploymentProvisioningReason = "DeploymentProvisioning"
 
 	DeploymentProvisioningFailedReason = "DeploymentProvisioningFailed"
+
+	// DeviceSyncedCondition indicates that the device exists in both OpenYurt and edge platform
+	DeviceSyncedCondition DeviceConditionType = "DeviceSynced"
+
+	DeviceManagingReason = "This device is not managed by openyurt"
+
+	DeviceCreateSyncedReason = "Failed to create device on edge platform"
+
+	// DeviceManagingCondition indicates that the device is being managed by cloud and its properties are being reconciled
+	DeviceManagingCondition DeviceConditionType = "DeviceManaging"
+
+	DeviceVistedCoreMetadataSyncedReason = "Failed to visit the EdgeX core-metadata-service"
+
+	DeviceUpdateStateReason = "Failed to update AdminState or OperatingState of device on edge platform"
+
+	// DeviceServiceSyncedCondition indicates that the deviceService exists in both OpenYurt and edge platform
+	DeviceServiceSyncedCondition DeviceServiceConditionType = "DeviceServiceSynced"
+
+	DeviceServiceManagingReason = "This deviceService is not managed by openyurt"
+
+	// DeviceServiceManagingCondition indicates that the deviceService is being managed by cloud and its field are being reconciled
+	DeviceServiceManagingCondition DeviceServiceConditionType = "DeviceServiceManaging"
+
+	DeviceServiceCreateSyncedReason = "Failed to add DeviceService to EdgeX"
+
+	DeviceServiceUpdateStatusSyncedReason = "Failed to update DeviceService status"
 )

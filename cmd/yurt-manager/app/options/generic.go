@@ -21,8 +21,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/apis/config"
 	"github.com/openyurtio/openyurt/pkg/features"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/apis/config"
 )
 
 const enableAll = "*"

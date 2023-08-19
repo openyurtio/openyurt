@@ -37,12 +37,11 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
-	extclient "github.com/openyurtio/openyurt/pkg/client"
-	"github.com/openyurtio/openyurt/pkg/controller"
-	"github.com/openyurtio/openyurt/pkg/profile"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/webhook"
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/util/profile"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
 var (
@@ -151,15 +150,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	ctx := ctrl.SetupSignalHandler()
 	cfg := ctrl.GetConfigOrDie()
-
 	setRestConfig(cfg, c)
-
-	setupLog.Info("new clientset registry")
-	err := extclient.NewRegistry(cfg)
-	if err != nil {
-		setupLog.Error(err, "unable to init yurt-manager clientset and informer")
-		os.Exit(1)
-	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                     scheme,
@@ -194,7 +185,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("initialize webhook")
-	if err := webhook.Initialize(ctx, c); err != nil {
+	if err := webhook.Initialize(ctx, c, mgr.GetConfig()); err != nil {
 		setupLog.Error(err, "unable to initialize webhook")
 		os.Exit(1)
 	}

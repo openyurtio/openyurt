@@ -52,8 +52,8 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 		newNode := originNode.DeepCopy()
 		if newNode.Labels != nil {
 			for k := range newNode.Labels {
-				if k == apps.LabelDesiredNodePool {
-					delete(newNode.Labels, apps.LabelDesiredNodePool)
+				if k == apps.NodePoolLabel {
+					delete(newNode.Labels, apps.NodePoolLabel)
 					labelDeleted = true
 				}
 			}
@@ -103,7 +103,7 @@ func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNod
 			continue
 		}
 
-		nodeLabels[apps.LabelDesiredNodePool] = nodeToPoolMap[originNode.Name]
+		nodeLabels[apps.NodePoolLabel] = nodeToPoolMap[originNode.Name]
 		newNode.Labels = nodeLabels
 		if err := k8sClient.Patch(ctx, newNode, client.MergeFrom(&originNode)); err != nil {
 			return err

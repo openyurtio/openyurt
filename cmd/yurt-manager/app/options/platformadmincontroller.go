@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/controller/platformadmin/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 )
 
 type PlatformAdminControllerOptions struct {

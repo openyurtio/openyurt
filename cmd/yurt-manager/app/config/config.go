@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/controller/apis/config"
+	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/apis/config"
 )
 
 // Config is the main context object for the controller manager.

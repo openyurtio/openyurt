@@ -62,6 +62,9 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 KUBECTL_VERSION ?= v1.22.3
 KUBECTL ?= $(LOCALBIN)/kubectl
 
+YQ_VERSION := 4.13.2
+YQ := $(shell command -v $(LOCALBIN)/yq 2> /dev/null)
+
 .PHONY: clean all build test
 
 all: test build
@@ -72,8 +75,8 @@ build:
 
 # Run test
 test:
-	go test -v -short ./pkg/... ./cmd/... -coverprofile cover.out
-	go test -v  -coverpkg=./pkg/yurttunnel/...  -coverprofile=yurttunnel-cover.out ./test/integration/yurttunnel_test.go
+	go test -v ./pkg/... ./cmd/... -coverprofile cover.out
+	go test -v -coverpkg=./pkg/yurttunnel/...  -coverprofile=yurttunnel-cover.out ./test/integration/yurttunnel_test.go
 
 clean:
 	-rm -Rf _output
@@ -171,12 +174,14 @@ docker-push-yurt-tunnel-server: docker-buildx-builder
 docker-push-yurt-tunnel-agent: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
 
+docker-push-yurt-iot-dock: docker-buildx-builder
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-iot-dock . -t ${IMAGE_REPO}/yurt-iot-dock:${GIT_VERSION}
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
 
-manifests: kustomize kubectl generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: kustomize kubectl yq generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	rm -rf $(BUILD_KUSTOMIZE)
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./pkg/..." output:crd:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/crd output:rbac:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/rbac output:webhook:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/webhook
 	hack/make-rules/kustomize_to_chart.sh --crd $(BUILD_KUSTOMIZE)/auto_generate/crd  --webhook $(BUILD_KUSTOMIZE)/auto_generate/webhook --rbac $(BUILD_KUSTOMIZE)/auto_generate/rbac --output $(BUILD_KUSTOMIZE)/kustomize --chartDir charts/yurt-manager
@@ -217,6 +222,16 @@ $(KUSTOMIZE): $(LOCALBIN)
 	fi
 	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
+.PHONY: yq
+yq:
+ifndef YQ
+	@echo "Installing yq..."
+	test -s $(LOCALBIN)/yq || curl -k -L https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_$(shell go env GOOS)_$(shell go env GOARCH) -o $(LOCALBIN)/yq
+	chmod +x $(LOCALBIN)/yq
+else
+	@echo "yq is already installed"
+endif
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
@@ -230,7 +245,6 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
-
 
 fmt:
 	go fmt ./...
