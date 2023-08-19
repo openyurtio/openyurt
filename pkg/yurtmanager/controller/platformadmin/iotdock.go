@@ -76,6 +76,7 @@ func newYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformA
 							"--metrics-bind-address=127.0.0.1:8080",
 							"--leader-elect=false",
 							fmt.Sprintf("--namespace=%s", ns),
+							fmt.Sprintf("--version=%s", platformAdmin.Spec.Version),
 						},
 						LivenessProbe: &corev1.Probe{
 							InitialDelaySeconds: 15,

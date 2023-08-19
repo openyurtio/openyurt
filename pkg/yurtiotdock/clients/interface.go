@@ -91,3 +91,10 @@ type DeviceProfileInterface interface {
 	Get(ctx context.Context, name string, options GetOptions) (*iotv1alpha1.DeviceProfile, error)
 	List(ctx context.Context, options ListOptions) ([]iotv1alpha1.DeviceProfile, error)
 }
+
+// IoTDock defines the interfaces which used to create deviceclient, deviceprofileclient, deviceserviceclient
+type IoTDock interface {
+	CreateDeviceClient() (DeviceInterface, error)
+	CreateDeviceProfileClient() (DeviceProfileInterface, error)
+	CreateDeviceServiceClient() (DeviceServiceInterface, error)
+}

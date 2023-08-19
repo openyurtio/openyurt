@@ -37,6 +37,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
+	edgexclients "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
@@ -116,15 +117,17 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		}
 	}
 
+	edgexdock := edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+
 	// setup the DeviceProfile Reconciler and Syncer
 	if err = (&controllers.DeviceProfileReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts); err != nil {
+	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceProfile")
 		os.Exit(1)
 	}
-	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts)
+	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, edgexdock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceProfile")
 		os.Exit(1)
@@ -139,11 +142,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts); err != nil {
+	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
 	}
-	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts)
+	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts, edgexdock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "controller", "Device")
 		os.Exit(1)
@@ -158,11 +161,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceServiceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts); err != nil {
+	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceService")
 		os.Exit(1)
 	}
-	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts)
+	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, edgexdock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceService")
 		os.Exit(1)

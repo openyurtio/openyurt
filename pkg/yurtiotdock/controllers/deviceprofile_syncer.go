@@ -29,7 +29,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	devcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
-	edgexclis "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	edgexobj "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
@@ -45,10 +45,14 @@ type DeviceProfileSyncer struct {
 }
 
 // NewDeviceProfileSyncer initialize a New DeviceProfileSyncer
-func NewDeviceProfileSyncer(client client.Client, opts *options.YurtIoTDockOptions) (DeviceProfileSyncer, error) {
+func NewDeviceProfileSyncer(client client.Client, opts *options.YurtIoTDockOptions, edgexdock *edgexobj.EdgexDock) (DeviceProfileSyncer, error) {
+	edgeclient, err := edgexdock.CreateDeviceProfileClient()
+	if err != nil {
+		return DeviceProfileSyncer{}, err
+	}
 	return DeviceProfileSyncer{
 		syncPeriod: time.Duration(opts.EdgeSyncPeriod) * time.Second,
-		edgeClient: edgexclis.NewEdgexDeviceProfile(opts.CoreMetadataAddr),
+		edgeClient: edgeclient,
 		Client:     client,
 		NodePool:   opts.Nodepool,
 		Namespace:  opts.Namespace,
