@@ -31,6 +31,7 @@ import (
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
@@ -244,7 +245,7 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 	klog.V(4).Infof(Format("ReconcileDelete PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	yas := &appsv1alpha1.YurtAppSet{}
 
-	platformAdminFramework, err := r.syncFramework(ctx, platformAdmin)
+	platformAdminFramework, err := r.readFramework(ctx, platformAdmin)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
 	}
@@ -300,7 +301,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	// Note that this configmap is different from the one below, which is used to customize the edgex framework
 	// Sync configmap of edgex confiruation during initialization
 	// This framework pointer is needed to synchronize user-modified edgex configurations
-	platformAdminFramework, err := r.syncFramework(ctx, platformAdmin)
+	platformAdminFramework, err := r.readFramework(ctx, platformAdmin)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
 	}
@@ -374,38 +375,48 @@ func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platfor
 }
 
 func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminStatus *iotv1alpha2.PlatformAdminStatus, platformAdminFramework *PlatformAdminFramework) (bool, error) {
-	var desireComponents []*config.Component
-	needComponents := make(map[string]struct{})
-	var readyComponent int32 = 0
+	var (
+		readyComponent int32 = 0
+		needComponents       = make(map[string]struct{})
+	)
 
-	desireComponents = platformAdminFramework.Components
-
+	// TODO: The additional deployment and service of component is no longer supported in v1beta1.
 	additionalComponents, err := annotationToComponent(platformAdmin.Annotations)
 	if err != nil {
 		return false, err
 	}
-	desireComponents = append(desireComponents, additionalComponents...)
 
-	//TODO: handle PlatformAdmin.Spec.Components
+	// Users can configure components in the framework,
+	// or they can choose to configure optional components directly in spec,
+	// which combines the two approaches and tells the controller if the framework needs to be updated.
+	needWriteFramework := r.calculateDesiredComponents(platformAdmin, platformAdminFramework, additionalComponents)
 
 	defer func() {
 		platformAdminStatus.ReadyComponentNum = readyComponent
-		platformAdminStatus.UnreadyComponentNum = int32(len(desireComponents)) - readyComponent
+		platformAdminStatus.UnreadyComponentNum = int32(len(platformAdminFramework.Components)) - readyComponent
 	}()
 
-	for _, desireComponent := range desireComponents {
+	// The component in spec that does not exist in the framework, so the framework needs to be updated.
+	if needWriteFramework {
+		if err := r.writeFramework(ctx, platformAdmin, platformAdminFramework); err != nil {
+			return false, err
+		}
+	}
+
+	// Update the yurtappsets based on the desired components
+	for _, desiredComponent := range platformAdminFramework.Components {
 		readyService := false
 		readyDeployment := false
-		needComponents[desireComponent.Name] = struct{}{}
+		needComponents[desiredComponent.Name] = struct{}{}
 
-		if _, err := r.handleService(ctx, platformAdmin, desireComponent); err != nil {
+		if _, err := r.handleService(ctx, platformAdmin, desiredComponent); err != nil {
 			return false, err
 		}
 		readyService = true
 
 		yas := &appsv1alpha1.YurtAppSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      desireComponent.Name,
+				Name:      desiredComponent.Name,
 				Namespace: platformAdmin.Namespace,
 			},
 		}
@@ -414,13 +425,13 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			ctx,
 			types.NamespacedName{
 				Namespace: platformAdmin.Namespace,
-				Name:      desireComponent.Name},
+				Name:      desiredComponent.Name},
 			yas)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return false, err
 			}
-			_, err = r.handleYurtAppSet(ctx, platformAdmin, desireComponent)
+			_, err = r.handleYurtAppSet(ctx, platformAdmin, desiredComponent)
 			if err != nil {
 				return false, err
 			}
@@ -428,7 +439,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			oldYas := yas.DeepCopy()
 
 			// Refresh the YurtAppSet according to the user-defined configuration
-			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desireComponent.Deployment
+			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
 
 			if _, ok := yas.Status.PoolReplicas[platformAdmin.Spec.PoolName]; ok {
 				if yas.Status.ReadyReplicas == yas.Status.Replicas {
@@ -488,7 +499,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 		}
 	}
 
-	return readyComponent == int32(len(desireComponents)), nil
+	return readyComponent == int32(len(platformAdminFramework.Components)), nil
 }
 
 func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*corev1.Service, error) {
@@ -648,7 +659,7 @@ func annotationToComponent(annotation map[string]string) ([]*config.Component, e
 	return components, nil
 }
 
-func (r *ReconcilePlatformAdmin) syncFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin) (*PlatformAdminFramework, error) {
+func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin) (*PlatformAdminFramework, error) {
 	klog.V(6).Infof(Format("Synchronize the customize framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 
 	// Try to get the configmap that represents the framework
@@ -715,6 +726,43 @@ func (r *ReconcilePlatformAdmin) syncFramework(ctx context.Context, platformAdmi
 	return platformAdminFramework, nil
 }
 
+func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) error {
+	// For better serialization, the serialization method of the Kubernetes runtime library is used
+	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
+	if err != nil {
+		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		return err
+	}
+
+	// Check if the configmap that represents framework is found
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: platformAdmin.Namespace, Name: platformAdminFramework.name}, cm); err != nil {
+		if apierrors.IsNotFound(err) {
+			// If the configmap that represents framework is not found,
+			// need to create it by standard configuration
+			err = r.initFramework(ctx, platformAdmin, platformAdminFramework)
+			if err != nil {
+				klog.Errorf(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+				return err
+			}
+			return nil
+		}
+		klog.Errorf(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		return err
+	}
+
+	// Creates configmap on behalf of the framework, which is called only once upon creation
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		cm.Data["framework"] = string(data)
+		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
+	})
+	if err != nil {
+		klog.Errorf(Format("Failed to write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		return err
+	}
+	return nil
+}
+
 // initFramework initializes the framework information for PlatformAdmin
 func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) error {
 	klog.V(6).Infof(Format("Initializes the standard framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
@@ -723,13 +771,13 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	platformAdminFramework.security = platformAdmin.Spec.Security
 	if platformAdminFramework.security {
 		platformAdminFramework.ConfigMaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
-		platformAdminFramework.Components = r.Configration.SecurityComponents[platformAdmin.Spec.Version]
+		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	} else {
 		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
-		platformAdminFramework.Components = r.Configration.NoSectyComponents[platformAdmin.Spec.Version]
+		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
 
-	yurtIotDock, err := NewYurtIoTDockComponent(platformAdmin, platformAdminFramework)
+	yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
 	if err != nil {
 		return err
 	}
@@ -761,8 +809,65 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("Failed to create or update framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("Failed to init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil
+}
+
+// calculateDesiredComponents calculates the components that need to be added and determines whether the framework needs to be rewritten
+func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework, additionalComponents []*config.Component) bool {
+	needWriteFramework := false
+	desiredComponents := []*config.Component{}
+
+	// Find all the required components from spec and manifest
+	requiredComponentSet := config.ExtractRequiredComponentsName(&r.Configration.Manifest, platformAdmin.Spec.Version)
+	for _, component := range platformAdmin.Spec.Components {
+		requiredComponentSet.Insert(component.Name)
+	}
+
+	// Find all existing components and filter removed components
+	frameworkComponentSet := sets.NewString()
+	for _, component := range platformAdminFramework.Components {
+		if requiredComponentSet.Has(component.Name) {
+			frameworkComponentSet.Insert(component.Name)
+			desiredComponents = append(desiredComponents, component)
+		} else {
+			needWriteFramework = true
+		}
+	}
+
+	// Calculate all the components that need to be added or removed and determine whether need to rewrite the framework
+	addedComponentSet := sets.NewString()
+	for _, componentName := range requiredComponentSet.List() {
+		if !frameworkComponentSet.Has(componentName) {
+			addedComponentSet.Insert(componentName)
+			needWriteFramework = true
+		}
+	}
+
+	// If a component needs to be added,
+	// check whether the corresponding template exists in the standard configuration library
+	if platformAdmin.Spec.Security {
+		for _, component := range r.Configration.SecurityComponents[platformAdmin.Spec.Version] {
+			if addedComponentSet.Has(component.Name) {
+				desiredComponents = append(desiredComponents, component)
+			}
+		}
+	} else {
+		for _, component := range r.Configration.NoSectyComponents[platformAdmin.Spec.Version] {
+			if addedComponentSet.Has(component.Name) {
+				desiredComponents = append(desiredComponents, component)
+			}
+		}
+	}
+
+	// TODO: In order to be compatible with v1alpha1, we need to add the component from annotation translation here
+	if additionalComponents != nil {
+		desiredComponents = append(desiredComponents, additionalComponents...)
+	}
+
+	platformAdminFramework.Components = desiredComponents
+
+	return needWriteFramework
 }

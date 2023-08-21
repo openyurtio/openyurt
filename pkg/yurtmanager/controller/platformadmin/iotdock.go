@@ -31,8 +31,8 @@ import (
 	utils "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
 
-// NewYurtIoTDockComponent initialize the configuration of yurt-iot-dock component
-func NewYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) (*config.Component, error) {
+// newYurtIoTDockComponent initialize the configuration of yurt-iot-dock component
+func newYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) (*config.Component, error) {
 	var yurtIotDockComponent config.Component
 
 	// If the configuration of the yurt-iot-dock component that customized in the platformAdminFramework

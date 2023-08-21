@@ -28,6 +28,7 @@ import (
 
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
 
@@ -94,13 +95,13 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 
 	// Verify that it is a supported platformadmin version
 	for _, version := range webhook.Manifests.Versions {
-		if platformAdmin.Spec.Version == version {
+		if platformAdmin.Spec.Version == version.Name {
 			return nil
 		}
 	}
 
 	return field.ErrorList{
-		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(webhook.Manifests.Versions, ",")),
+		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(config.ExtractVersionsName(webhook.Manifests).List(), ",")),
 	}
 }
 

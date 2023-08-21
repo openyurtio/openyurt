@@ -21,9 +21,20 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
+)
+
+var (
+	//go:embed EdgeXConfig
+	EdgeXFS      embed.FS
+	folder       = "EdgeXConfig/"
+	ManifestPath = filepath.Join(folder, "manifest.yaml")
+	securityFile = filepath.Join(folder, "config.json")
+	nosectyFile  = filepath.Join(folder, "config-nosecty.json")
 )
 
 type EdgeXConfig struct {
@@ -42,20 +53,42 @@ type Component struct {
 	Deployment *appsv1.DeploymentSpec `yaml:"deployment,omitempty" json:"deployment,omitempty"`
 }
 
-var (
-	//go:embed EdgeXConfig
-	EdgeXFS      embed.FS
-	ManifestPath = filepath.Join(folder, "manifest.yaml")
-)
+type Manifest struct {
+	Updated       string            `yaml:"updated"`
+	Count         int               `yaml:"count"`
+	LatestVersion string            `yaml:"latestVersion"`
+	Versions      []ManifestVersion `yaml:"versions"`
+}
 
-var (
-	folder       = "EdgeXConfig/"
-	securityFile = filepath.Join(folder, "config.json")
-	nosectyFile  = filepath.Join(folder, "config-nosecty.json")
-)
+type ManifestVersion struct {
+	Name               string   `yaml:"name"`
+	RequiredComponents []string `yaml:"requiredComponents"`
+}
+
+func ExtractVersionsName(manifest *Manifest) sets.String {
+	versionsNameSet := sets.NewString()
+	for _, version := range manifest.Versions {
+		versionsNameSet.Insert(version.Name)
+	}
+	return versionsNameSet
+}
+
+func ExtractRequiredComponentsName(manifest *Manifest, versionName string) sets.String {
+	requiredComponentSet := sets.NewString()
+	for _, version := range manifest.Versions {
+		if version.Name == versionName {
+			for _, c := range version.RequiredComponents {
+				requiredComponentSet.Insert(c)
+			}
+			break
+		}
+	}
+	return requiredComponentSet
+}
 
 // PlatformAdminControllerConfiguration contains elements describing PlatformAdminController.
 type PlatformAdminControllerConfiguration struct {
+	Manifest           Manifest
 	SecurityComponents map[string][]*Component
 	NoSectyComponents  map[string][]*Component
 	SecurityConfigMaps map[string][]corev1.ConfigMap
@@ -67,6 +100,7 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		edgexconfig        = EdgeXConfig{}
 		edgexnosectyconfig = EdgeXConfig{}
 		conf               = PlatformAdminControllerConfiguration{
+			Manifest:           Manifest{},
 			SecurityComponents: make(map[string][]*Component),
 			NoSectyComponents:  make(map[string][]*Component),
 			SecurityConfigMaps: make(map[string][]corev1.ConfigMap),
@@ -74,6 +108,12 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		}
 	)
 
+	// Read the EdgeX configuration file
+	manifestContent, err := EdgeXFS.ReadFile(ManifestPath)
+	if err != nil {
+		klog.Errorf("File to open the embed EdgeX manifest file: %v", err)
+		return nil
+	}
 	securityContent, err := EdgeXFS.ReadFile(securityFile)
 	if err != nil {
 		klog.Errorf("Fail to open the embed EdgeX security config: %v", err)
@@ -85,6 +125,11 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		return nil
 	}
 
+	// Unmarshal the EdgeX configuration file
+	if err := yaml.Unmarshal(manifestContent, &conf.Manifest); err != nil {
+		klog.Errorf("Error manifest EdgeX configuration file: %v", err)
+		return nil
+	}
 	if err = json.Unmarshal(securityContent, &edgexconfig); err != nil {
 		klog.Errorf("Fail to unmarshal the embed EdgeX security config: %v", err)
 		return nil
