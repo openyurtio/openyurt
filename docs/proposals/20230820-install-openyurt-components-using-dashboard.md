@@ -65,7 +65,7 @@ Helm V3. Because Helm V3 removes the Tiller component and interacts directly wit
   - `HELM_CACHE_HOME` is set to `/openyurt/helm/cache`.
 - The cluster configuration file used is the same as that of the dashboard, located in `/openyurt/config/kubeconfig.conf`.
 
-##### Implimented commands
+##### Implemented commands
 
 - Which commands need to be implemented:
   - helm repo add
