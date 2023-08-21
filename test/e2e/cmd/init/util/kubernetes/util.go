@@ -75,6 +75,20 @@ func processCreateErr(kind string, name string, err error) error {
 	return nil
 }
 
+// CreateSecretFromYaml creates the Secret from the yaml template.
+func CreateSecretFromYaml(cliSet kubeclientset.Interface, ns, saTmpl string) error {
+	obj, err := YamlToObject([]byte(saTmpl))
+	if err != nil {
+		return err
+	}
+	se, ok := obj.(*corev1.Secret)
+	if !ok {
+		return fmt.Errorf("fail to assert secret: %w", err)
+	}
+	_, err = cliSet.CoreV1().Secrets(ns).Create(context.Background(), se, metav1.CreateOptions{})
+	return processCreateErr("secret", se.Name, err)
+}
+
 // CreateServiceAccountFromYaml creates the ServiceAccount from the yaml template.
 func CreateServiceAccountFromYaml(cliSet kubeclientset.Interface, ns, saTmpl string) error {
 	obj, err := YamlToObject([]byte(saTmpl))
@@ -115,6 +129,20 @@ func CreateClusterRoleBindingFromYaml(cliSet kubeclientset.Interface, crbTmpl st
 	}
 	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
 	return processCreateErr("clusterrolebinding", crb.Name, err)
+}
+
+// CreateRoleBindingFromYaml creates the RoleBinding from the yaml template.
+func CreateRoleBindingFromYaml(cliSet kubeclientset.Interface, crbTmpl string) error {
+	obj, err := YamlToObject([]byte(crbTmpl))
+	if err != nil {
+		return err
+	}
+	rb, ok := obj.(*rbacv1.RoleBinding)
+	if !ok {
+		return fmt.Errorf("fail to assert rolebinding: %w", err)
+	}
+	_, err = cliSet.RbacV1().RoleBindings("kube-system").Create(context.Background(), rb, metav1.CreateOptions{})
+	return processCreateErr("rolebinding", rb.Name, err)
 }
 
 // CreateConfigMapFromYaml creates the ConfigMap from the yaml template.

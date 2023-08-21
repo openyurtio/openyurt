@@ -24,11 +24,6 @@ func (e notFoundError) Error() string {
 	return e.err.Error()
 }
 
-func isNotFound(err error) bool {
-	_, ok := err.(notFoundError)
-	return ok
-}
-
 type alreadyExistError struct {
 	err error
 }
@@ -37,7 +32,15 @@ func (e alreadyExistError) Error() string {
 	return e.err.Error()
 }
 
-func isAlreadyExists(err error) bool {
-	_, ok := err.(alreadyExistError)
+type notExistError struct {
+	err error
+}
+
+func (e notExistError) Error() string {
+	return e.err.Error()
+}
+
+func isNotExist(err error) bool {
+	_, ok := err.(notExistError)
 	return ok
 }

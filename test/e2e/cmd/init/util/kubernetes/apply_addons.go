@@ -84,6 +84,10 @@ func DeleteYurthubSetting(client kubeclientset.Interface) error {
 }
 
 func CreateYurtManager(client kubeclientset.Interface, yurtManagerImage string) error {
+	if err := CreateSecretFromYaml(client, SystemNamespace, constants.YurtManagerCertsSecret); err != nil {
+		return err
+	}
+
 	if err := CreateServiceAccountFromYaml(client,
 		SystemNamespace, constants.YurtManagerServiceAccount); err != nil {
 		return err
@@ -92,6 +96,12 @@ func CreateYurtManager(client kubeclientset.Interface, yurtManagerImage string) 
 	// bind the clusterrole
 	if err := CreateClusterRoleBindingFromYaml(client,
 		constants.YurtManagerClusterRoleBinding); err != nil {
+		return err
+	}
+
+	// bind the role
+	if err := CreateRoleBindingFromYaml(client,
+		constants.YurtManagerRoleBinding); err != nil {
 		return err
 	}
 

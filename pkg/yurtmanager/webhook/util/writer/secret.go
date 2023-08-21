@@ -19,6 +19,7 @@ package writer
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -129,13 +130,16 @@ func (s *secretCertWriter) overwrite(resourceVersion string) (*generator.Artifac
 
 func (s *secretCertWriter) read() (*generator.Artifacts, error) {
 	secret, err := s.Clientset.CoreV1().Secrets(s.Secret.Namespace).Get(context.TODO(), s.Secret.Name, metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		return nil, notFoundError{err}
-	}
 	if err != nil {
 		return nil, err
 	}
+
 	certs := secretToCerts(secret)
+	if secret.Data == nil || len(secret.Data[CAKeyName]) == 0 || len(secret.Data[CACertName]) == 0 ||
+		len(secret.Data[ServerCertName]) == 0 || len(secret.Data[ServerKeyName]) == 0 {
+		return certs, notExistError{fmt.Errorf("no certificate exists in secret %s", s.Secret.Name)}
+	}
+
 	if certs.CACert != nil && certs.CAKey != nil {
 		// Store the CA for next usage.
 		s.CertGenerator.SetCA(certs.CAKey, certs.CACert)
