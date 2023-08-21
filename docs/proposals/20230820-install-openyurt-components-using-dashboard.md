@@ -112,3 +112,7 @@ Version selection and configuration file editing are provided for a more flexibl
 ##### The first login screen for users
 
 When visit the page for the first time after installing the dashboard, a guide page will be displayed. Check the components and click Next to complete the installation of the component.
+
+<div align="center">
+  <img src = "../img/dashboard-login-page.png" width="800">
+</div>
