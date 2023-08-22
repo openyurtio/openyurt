@@ -33,9 +33,14 @@ const (
 	// in order to make kube-proxy to use InClusterConfig to access kube-apiserver.
 	InClusterConfigFilterName = "inclusterconfig"
 
-	// NodePortIsolationName filter is used to discard or keep NodePort service in specified NodePool
+	// NodePortIsolationFilterName filter is used to discard or keep NodePort service in specified NodePool
 	// in order to make NodePort will not be listened by kube-proxy component in specified NodePool.
-	NodePortIsolationName = "nodeportisolation"
+	NodePortIsolationFilterName = "nodeportisolation"
+
+	// HostNetworkPropagationFilterName filter is used to set pod.spec.HostNetwork to true when the
+	// hostNetwork field(nodePool.spec.HostNetwork) is true. this is equivalent to the nodepool
+	// propagating the hostNetwork configuration to the pods running in it.
+	HostNetworkPropagationFilterName = "hostnetworkpropagation"
 
 	// SkipDiscardServiceAnnotation is annotation used by LB service.
 	// If end users want to use specified LB service at the edge side,
@@ -45,14 +50,15 @@ const (
 
 var (
 	// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
-	DisabledInCloudMode = []string{DiscardCloudServiceFilterName}
+	DisabledInCloudMode = []string{DiscardCloudServiceFilterName, HostNetworkPropagationFilterName}
 
 	// SupportedComponentsForFilter is used for specifying which components are supported by filters as default setting.
 	SupportedComponentsForFilter = map[string]string{
-		MasterServiceFilterName:       "kubelet",
-		DiscardCloudServiceFilterName: "kube-proxy",
-		ServiceTopologyFilterName:     "kube-proxy, coredns, nginx-ingress-controller",
-		InClusterConfigFilterName:     "kubelet",
-		NodePortIsolationName:         "kube-proxy",
+		MasterServiceFilterName:          "kubelet",
+		DiscardCloudServiceFilterName:    "kube-proxy",
+		ServiceTopologyFilterName:        "kube-proxy, coredns, nginx-ingress-controller",
+		InClusterConfigFilterName:        "kubelet",
+		NodePortIsolationFilterName:      "kube-proxy",
+		HostNetworkPropagationFilterName: "kubelet",
 	}
 )

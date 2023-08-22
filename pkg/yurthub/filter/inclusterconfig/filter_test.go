@@ -30,14 +30,14 @@ import (
 )
 
 func TestName(t *testing.T) {
-	iccf := &inClusterConfigFilter{}
+	iccf, _ := NewInClusterConfigFilter()
 	if iccf.Name() != filter.InClusterConfigFilterName {
 		t.Errorf("expect %s, but got %s", filter.InClusterConfigFilterName, iccf.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	iccf := inClusterConfigFilter{}
+	iccf, _ := NewInClusterConfigFilter()
 	rvs := iccf.SupportedResourceAndVerbs()
 	if len(rvs) != 1 {
 		t.Errorf("supported more than one resources, %v", rvs)
@@ -55,7 +55,7 @@ func TestSupportedResourceAndVerbs(t *testing.T) {
 }
 
 func TestRuntimeObjectFilter(t *testing.T) {
-	iccf := inClusterConfigFilter{}
+	iccf, _ := NewInClusterConfigFilter()
 
 	testcases := map[string]struct {
 		responseObject runtime.Object

@@ -17,7 +17,6 @@ limitations under the License.
 package rest
 
 import (
-	"net"
 	"net/url"
 	"os"
 	"testing"
@@ -25,8 +24,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token/testdata"
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
@@ -39,22 +39,20 @@ func TestGetRestConfig(t *testing.T) {
 	servers := map[string]int{"https://10.10.10.113:6443": 2}
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
-	certIPs := []net.IP{net.ParseIP("127.0.0.1")}
 	fakeHealthyChecker := healthchecker.NewFakeChecker(false, servers)
 
-	client, err := testdata.CreateCertFakeClient("../../certificate/token/testdata")
+	client, err := testdata.CreateCertFakeClient("../../certificate/testdata")
 	if err != nil {
 		t.Errorf("failed to create cert fake client, %v", err)
 		return
 	}
-	certManager, err := token.NewYurtHubCertManager(&token.CertificateManagerConfiguration{
+	certManager, err := manager.NewYurtHubCertManager(&options.YurtHubOptions{
 		NodeName:      nodeName,
-		RemoteServers: remoteServers,
-		CertIPs:       certIPs,
 		RootDir:       testDir,
+		YurtHubHost:   "127.0.0.1",
 		JoinToken:     "123456.abcdef1234567890",
-		Client:        client,
-	})
+		ClientForTest: client,
+	}, remoteServers)
 	if err != nil {
 		t.Errorf("failed to create certManager, %v", err)
 		return

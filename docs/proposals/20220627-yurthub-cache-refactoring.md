@@ -45,7 +45,7 @@ Refactoring cache-related components in Yurthub. Decouple cache policy with spec
 
 ## 2. Motivation
 
-When implementing the feature of nodepool-governance-capability based on Pool-Coordinator, it's found that CacheManager is coupled with DiskStorage, depending deeply on features of file system. Thus, it's difficult to add a new storage of Pool-Coordinator. In addition, the responsibility of each cache-related component is not clear, making it difficult to maintain the code. For example, when querying cache for nodelease object, it will use the in-memory cache to speed up the query. However, the in-memory cache is implemented in the StorageWrapper, rather than in the CacheManager which should manage the cache policy.
+When implementing the feature of nodepool-governance-capability based on Yurt-Coordinator, it's found that CacheManager is coupled with DiskStorage, depending deeply on features of file system. Thus, it's difficult to add a new storage of Yurt-Coordinator. In addition, the responsibility of each cache-related component is not clear, making it difficult to maintain the code. For example, when querying cache for nodelease object, it will use the in-memory cache to speed up the query. However, the in-memory cache is implemented in the StorageWrapper, rather than in the CacheManager which should manage the cache policy.
 
 ## 3. Problems of Current Cache Structure
 
@@ -62,7 +62,7 @@ In the current implementation, when updating the object in the storage, CacheMan
 
 #### 3.1.2 key of object depends on the DiskStorage implementation
 
-Currently, the key of object used in CacheManager is generated through `util.KeyFunc`, in the format of `component/resources/namesapce/name` which can only be recognized by DiskStorage. In Pool-Coordinator, the key format should be `/registry/resources/namespace/name`, otherwise it cannot be recognized by the APIServer. It's obvious that `util.KeyFunc` is not generic for all storages.
+Currently, the key of object used in CacheManager is generated through `util.KeyFunc`, in the format of `component/resources/namesapce/name` which can only be recognized by DiskStorage. In Yurt-Coordinator, the key format should be `/registry/resources/namespace/name`, otherwise it cannot be recognized by the APIServer. It's obvious that `util.KeyFunc` is not generic for all storages.
 
 #### 3.1.3 storage recycling when deleting cache-agent depends on the DiskStorage implementation
 
@@ -70,7 +70,7 @@ When deleting a cache-agent, CacheManager should recycle the cache used by this 
 
 #### 3.1.4 the implementation of saving list objects depends on the DiskStorage implementation
 
-As described in [#265](https://github.com/openyurtio/openyurt/pull/265), each cache-agent can only have the cache of one type of list for one resource. Considering that if we update cache using items in list object one by one, it will result in some cache objects not being deleted. Thus, in `saveListObject`, it will replace all objects under the resource directory with the items in the response of the list request. It works well when the CacheManager uses DiskStorage, because cache for different components are stored at different directory, for example, service cache for kubelet is under `/etc/kubernetes/cache/kubelet/services`, service cache for kube-proxy is under `/etc/kubernetes/cache/kube-proxy/services`. Replacing the serivce cache of kubelet has no influence on service cache of kube-proxy. But when using Pool-Coordinator storage, services for all components are cached under `/registry/services`, if replacing all the entries under `/registry/services` with items in the response of list request from kubelet, the service cache for kube-proxy will be overwritten.
+As described in [#265](https://github.com/openyurtio/openyurt/pull/265), each cache-agent can only have the cache of one type of list for one resource. Considering that if we update cache using items in list object one by one, it will result in some cache objects not being deleted. Thus, in `saveListObject`, it will replace all objects under the resource directory with the items in the response of the list request. It works well when the CacheManager uses DiskStorage, because cache for different components are stored at different directory, for example, service cache for kubelet is under `/etc/kubernetes/cache/kubelet/services`, service cache for kube-proxy is under `/etc/kubernetes/cache/kube-proxy/services`. Replacing the serivce cache of kubelet has no influence on service cache of kube-proxy. But when using Yurt-Coordinator storage, services for all components are cached under `/registry/services`, if replacing all the entries under `/registry/services` with items in the response of list request from kubelet, the service cache for kube-proxy will be overwritten.
 
 ### 3.2 Definition of Store Interface is not explicit
 
@@ -80,13 +80,13 @@ In the implementation of Update of DiskStorage, it will also create the key if i
 
 #### 3.2.2 Definition of DeleteCollection is not explicit
 
-Currently, the implementation of DeleteCollection in DiskStorage is just delete the passed-in rootKey as a directory . The DeleteCollection function is used only when recycling cache of cache-agent. If the DeleteCollection is used to delete all keys with the prefix of rootKey, it cannot successfully recycling the cache of the cache-agent in the Pool-Coordinator storage, because the key is not has the component name as its prefix. If the DeleteCollection is used to recycling the cache of cache-agent, its parameter should not be rootKey. Only DiskStorage can recognize it as rootKey.
+Currently, the implementation of DeleteCollection in DiskStorage is just delete the passed-in rootKey as a directory . The DeleteCollection function is used only when recycling cache of cache-agent. If the DeleteCollection is used to delete all keys with the prefix of rootKey, it cannot successfully recycling the cache of the cache-agent in the Yurt-Coordinator storage, because the key is not has the component name as its prefix. If the DeleteCollection is used to recycling the cache of cache-agent, its parameter should not be rootKey. Only DiskStorage can recognize it as rootKey.
 
 ### 3.3 Responsibility of each cache-related component is not explicit
 
 #### 3.3.1 StorageWrapper should not care about in-memory cache
 
-Under the circumstance of edge autonomy, YurtHub will use the in-memory cache to speed up the process of specific requests from edge components, for example nodes request and leases request from kubelet. The implementation of this optimization is in StorageWrapper. Thus the StorageWrapper should know which component the request from. Considering that CacheManager only pass the key value as argument to StorageWrapper and not all key value has the information of component(such as key of Pool-Coordinator), the CacheManager should additionally expose the component details to the StorageWrapper, which will result in the coupling of CacheManager and StorageWrapper, and make both two components have the logic of cache policy.
+Under the circumstance of edge autonomy, YurtHub will use the in-memory cache to speed up the process of specific requests from edge components, for example nodes request and leases request from kubelet. The implementation of this optimization is in StorageWrapper. Thus the StorageWrapper should know which component the request from. Considering that CacheManager only pass the key value as argument to StorageWrapper and not all key value has the information of component(such as key of Yurt-Coordinator), the CacheManager should additionally expose the component details to the StorageWrapper, which will result in the coupling of CacheManager and StorageWrapper, and make both two components have the logic of cache policy.
 
 #### 3.3.2 CacheManager should not care about the key format
 
@@ -102,7 +102,7 @@ Some non-cache related components also use DiskStorage to read/write file from/t
 
 Currently, disk storage in yurthub uses the key format `component/resource/namespace/name`, and support caching resources for components kubelet, kube-proxy, coredns, flannel and yurthub. Users can manually set the cache agent as `*` in configmap `yurt-hub-cfg` to extend the capability to other components. There comes the problem that yurthub currently cannot distinguish resources with same name but in different versions and groups, such as `NetworkPolicy` in `networking.k8s.io` and in `crd.projectcalico.org` which are both used by calico and their keys have the same prefix `go-http-client/networkpolicies`. When calico starts to list/watch NetworkPolicy in `networking.k8s.io`, it may replace the cache of NetworkPolicy in `crd.projectcalico.org` which cause errors.
 
-Thus, we should enable yurthub, to be specific, disk storage, to distinguish resources with same name but different versions and groups. We can change the key format of disk storage as `component/resource.version.group/namespace/name` to solve the problem. And we should only make disk storage to use this key format without influence on the implementation of other storages, such as etcd for pool-coordinator.
+Thus, we should enable yurthub, to be specific, disk storage, to distinguish resources with same name but different versions and groups. We can change the key format of disk storage as `component/resource.version.group/namespace/name` to solve the problem. And we should only make disk storage to use this key format without influence on the implementation of other storages, such as etcd for yurt-coordinator.
 
 ### 4.2 Avoid Watch Request Flood When Yurthub offline
 
@@ -126,7 +126,7 @@ The **Policy layer** takes the responsibility of cache policy, including determi
 
 The **Serialization layer** takes the responsibility of serialization/unserialization of cached objects. The logic in this layer is related to Kubernetes APIMachinery. The byte formats it needs to concern include json, yaml and protobuf. The types of objects it needs to concern include kubernetes native resources and CRDs. Currently, the component in this layer is StorageWrapper.
 
-The **Storage Frontend** layer serves like a shim between the Serialization layer and Stroage Backend layer. It should provide interface to cache objects shielding the differences among different storages for the upper-layer. It also takes the responsibility of implementation of KeyFunc. Currently, the component in this layer is DiskStorage. We can add more storage in this layer later, such as Pool-Coordinator Storage.
+The **Storage Frontend** layer serves like a shim between the Serialization layer and Stroage Backend layer. It should provide interface to cache objects shielding the differences among different storages for the upper-layer. It also takes the responsibility of implementation of KeyFunc. Currently, the component in this layer is DiskStorage. We can add more storage in this layer later, such as Yurt-Coordinator Storage.
 
 The **Storage Backend layer** is the entity that interacts with the storage to complete the actual storage operation. It can be implemented by ourselves, such as FS Operator, or be provided by third-party, such as clientv3 pkg of etcd.
 

@@ -27,7 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/controller/daemonpodupdater"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 )
 
 // Derived from kubelet encodePods
@@ -52,7 +53,7 @@ func WriteJSONResponse(w http.ResponseWriter, data []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
 	w.WriteHeader(http.StatusOK)
 	n, err := w.Write(data)
 	if err != nil || n != len(data) {

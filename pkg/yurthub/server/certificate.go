@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 )
 
@@ -56,7 +57,7 @@ func updateTokenHandler(certificateMgr certificate.YurtCertificateManager) http.
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
 		fmt.Fprintf(w, "update bootstrap token successfully")
 		return
 	})

@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
@@ -175,4 +177,50 @@ func Exec(cmd *exec.Cmd) error {
 // GetPodManifestPath return podManifestPath, use default value of kubeadm/minikube/kind. etc.
 func GetPodManifestPath() string {
 	return constants.StaticPodPath // /etc/kubernetes/manifests
+}
+
+func DeployStaticYaml(manifestList, templateList []string, podManifestPath string) error {
+	klog.Info("Deploying user edge static yaml")
+	if _, err := os.Stat(podManifestPath); err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(podManifestPath, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
+			return err
+		}
+	}
+
+	for i, template := range templateList {
+		manifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(manifestList[i]))
+		klog.Infof("static pod template: %s\n%s", manifestFile, template)
+		if err := os.WriteFile(manifestFile, []byte(template), 0600); err != nil {
+			return err
+		}
+	}
+
+	klog.Info("Deploy user edge static yaml is ok")
+	return nil
+}
+
+func RemoveStaticYaml(manifestList []string, podManifestPath string) error {
+	klog.Info("Removing user edge static yaml")
+	if _, err := os.Stat(podManifestPath); err != nil {
+		if os.IsNotExist(err) {
+			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
+			return err
+		}
+	}
+
+	for _, manifest := range manifestList {
+		manifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(manifest))
+		if err := os.Remove(manifestFile); err != nil {
+			return err
+		}
+	}
+
+	klog.Info("Remove user edge static yaml is ok")
+	return nil
 }

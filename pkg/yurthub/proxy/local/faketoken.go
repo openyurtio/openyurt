@@ -31,6 +31,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -43,7 +44,7 @@ func WithFakeTokenInject(handler http.Handler, serializerManager *serializer.Ser
 		if info.Resource == "serviceaccounts" && info.Subresource == "token" {
 			klog.Infof("find serviceaccounts token request when cluster is unhealthy, try to write fake token to response.")
 			var buf bytes.Buffer
-			headerNStr := req.Header.Get("Content-Length")
+			headerNStr := req.Header.Get(yurtutil.HttpHeaderContentLength)
 			headerN, _ := strconv.Atoi(headerNStr)
 			n, err := buf.ReadFrom(req.Body)
 			if err != nil || (headerN != 0 && int(n) != headerN) {

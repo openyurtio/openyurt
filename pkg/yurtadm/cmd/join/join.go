@@ -30,19 +30,24 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
 type joinOptions struct {
+	cfgPath                  string
 	token                    string
 	nodeType                 string
 	nodeName                 string
+	nodePoolName             string
 	criSocket                string
 	organizations            string
 	pauseImage               string
@@ -55,6 +60,7 @@ type joinOptions struct {
 	kubernetesResourceServer string
 	yurthubServer            string
 	reuseCNIBin              bool
+	staticPods               string
 }
 
 // newJoinOptions returns a struct ready for being used for creating cmd join flags.
@@ -110,6 +116,9 @@ func NewCmdJoin(in io.Reader, out io.Writer, outErr io.Writer) *cobra.Command {
 // addJoinConfigFlags adds join flags bound to the config to the specified flagset
 func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
+		&joinOptions.cfgPath, yurtconstants.CfgPath, "", "Path to a joinConfiguration file.",
+	)
+	flagSet.StringVar(
 		&joinOptions.token, yurtconstants.TokenStr, "",
 		"Use this token for both discovery-token and tls-bootstrap-token when those values are not provided.",
 	)
@@ -124,6 +133,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.namespace, yurtconstants.Namespace, joinOptions.namespace,
 		`Specify the namespace of the yurthub staticpod configmap, if not specified, the namespace will be default.`,
+	)
+	flagSet.StringVar(
+		&joinOptions.nodePoolName, yurtconstants.NodePoolName, joinOptions.nodePoolName,
+		`Specify the nodePool name. if specified, that will add node into specified nodePool.`,
 	)
 	flagSet.StringVar(
 		&joinOptions.criSocket, yurtconstants.NodeCRISocket, joinOptions.criSocket,
@@ -169,6 +182,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		&joinOptions.reuseCNIBin, yurtconstants.ReuseCNIBin, false,
 		"Whether to reuse local CNI binaries or to download new ones",
 	)
+	flagSet.StringVar(
+		&joinOptions.staticPods, yurtconstants.StaticPods, joinOptions.staticPods,
+		"Set the specified static pods on this node want to install",
+	)
 }
 
 func newJoinerWithJoinData(o *joinData, in io.Reader, out io.Writer, outErr io.Writer) *nodeJoiner {
@@ -200,6 +217,7 @@ func (nodeJoiner *nodeJoiner) Run() error {
 }
 
 type joinData struct {
+	cfgPath                  string
 	joinNodeData             *joindata.NodeRegistration
 	apiServerEndpoint        string
 	token                    string
@@ -218,6 +236,8 @@ type joinData struct {
 	yurthubServer            string
 	reuseCNIBin              bool
 	namespace                string
+	staticPodTemplateList    []string
+	staticPodManifestList    []string
 }
 
 // newJoinData returns a new joinData struct to be used for the execution of the kubeadm join workflow.
@@ -264,6 +284,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	}
 
 	data := &joinData{
+		cfgPath:               opt.cfgPath,
 		apiServerEndpoint:     apiServerEndpoint,
 		token:                 opt.token,
 		tlsBootstrapCfg:       nil,
@@ -276,6 +297,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		nodeLabels:            make(map[string]string),
 		joinNodeData: &joindata.NodeRegistration{
 			Name:          name,
+			NodePoolName:  opt.nodePoolName,
 			WorkingMode:   opt.nodeType,
 			CRISocket:     opt.criSocket,
 			Organizations: opt.organizations,
@@ -320,6 +342,50 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, err
 	}
 	data.kubernetesVersion = k8sVersion
+
+	// check whether specified nodePool exists
+	if len(opt.nodePoolName) != 0 {
+		np, err := apiclient.GetNodePoolInfoWithRetry(cfg, opt.nodePoolName)
+		if err != nil || np == nil {
+			// the specified nodePool not exist, return
+			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
+		}
+		// add nodePool label for node by kubelet
+		data.nodeLabels[apps.NodePoolLabel] = opt.nodePoolName
+	}
+
+	// check static pods has value and yurtstaticset is already exist
+	if len(opt.staticPods) != 0 {
+		// check format and split data
+		yssList := strings.Split(opt.staticPods, ",")
+		if len(yssList) < 1 {
+			return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+		}
+
+		templateList := make([]string, len(yssList))
+		manifestList := make([]string, len(yssList))
+		for i, yss := range yssList {
+			info := strings.Split(yss, "/")
+			if len(info) != 2 {
+				return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+			}
+
+			// yurthub is system static pod, can not operate
+			if yurthub.CheckYurtHubItself(info[0], info[1]) {
+				return nil, errors.Errorf("static-pods (%s) value is invalid, can not operate yurt-hub static pod", opt.staticPods)
+			}
+
+			// get static pod template
+			manifest, staticPodTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, info[0], util.WithConfigMapPrefix(info[1]))
+			if err != nil {
+				return nil, errors.Errorf("when --static-podsis specified, the specified yurtstaticset and configmap should be exist.")
+			}
+			templateList[i] = staticPodTemplate
+			manifestList[i] = manifest
+		}
+		data.staticPodTemplateList = templateList
+		data.staticPodManifestList = manifestList
+	}
 	klog.Infof("node join data info: %#+v", *data)
 
 	// get the yurthub template from the staticpod cr
@@ -328,7 +394,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
 	}
 
-	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetYurthubTemplateFromStaticPod(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
+	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
 		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
 		yurthubManifest = yurtconstants.YurthubStaticPodManifest
@@ -339,6 +405,11 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	data.yurthubManifest = yurthubManifest
 
 	return data, nil
+}
+
+// CfgPath returns path to a joinConfiguration file.
+func (j *joinData) CfgPath() string {
+	return j.cfgPath
 }
 
 // ServerAddr returns the public address of kube-apiserver.
@@ -417,4 +488,12 @@ func (j *joinData) ReuseCNIBin() bool {
 
 func (j *joinData) Namespace() string {
 	return j.namespace
+}
+
+func (j *joinData) StaticPodTemplateList() []string {
+	return j.staticPodTemplateList
+}
+
+func (j *joinData) StaticPodManifestList() []string {
+	return j.staticPodManifestList
 }

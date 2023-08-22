@@ -36,13 +36,17 @@ const (
 // Register registers a filter
 func Register(filters *filter.Filters) {
 	filters.Register(filter.MasterServiceFilterName, func() (filter.ObjectFilter, error) {
-		return &masterServiceFilter{}, nil
+		return NewMasterServiceFilter()
 	})
 }
 
 type masterServiceFilter struct {
 	host string
 	port int32
+}
+
+func NewMasterServiceFilter() (filter.ObjectFilter, error) {
+	return &masterServiceFilter{}, nil
 }
 
 func (msf *masterServiceFilter) Name() string {

@@ -30,7 +30,7 @@ English | [简体中文](./README.zh.md)
 OpenYurt has been designed to meet various DevOps requirements against typical edge infrastructures.
 It provides consistent user experience for managing the edge applications as if they were running in the cloud infrastructure.
 It addresses specific challenges for cloud-edge orchestration in Kubernetes such as unreliable or disconnected cloud-edge networking,
-edge autonomy, edge device management, region-aware deployment and so on. OpenYurt preserves intact Kubernetes API compatibility,
+edge autonomy, edge device management, region-aware deployment, and so on. OpenYurt preserves intact Kubernetes API compatibility,
 is vendor agnostic, and more importantly, is **SIMPLE** to use.
 
 ## Architecture
@@ -47,10 +47,10 @@ multiple physical regions, which are referred to as `Pools` in OpenYurt.
 
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
 
-- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serve as a node sidecar to handle requests that comes from components(like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
+- **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serves as a node sidecar to handle requests that comes from components (like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
 - **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**: include all controllers and webhooks for edge.
 - **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt, and provides layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
-- **Pool-Coordinator**: One instance of Pool-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
+- **Yurt-Coordinator**: One instance of Yurt-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
 
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
 

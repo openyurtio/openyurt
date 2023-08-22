@@ -374,6 +374,7 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 }
 
 func (ki *Initializer) configureAddons() error {
+
 	if err := ki.configureCoreDnsAddon(); err != nil {
 		return err
 	}
