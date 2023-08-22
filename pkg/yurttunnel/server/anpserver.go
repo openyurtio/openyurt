@@ -110,7 +110,7 @@ func runProxier(handler http.Handler,
 		return errors.New("DOESN'T SUPPROT EGRESS SELECTOR YET")
 	}
 	// request will be sent from request interceptor on the same host,
-	// so we use UDS protocol to avoide sending request through kernel
+	// so we use UDS protocol to avoid sending request through kernel
 	// network stack.
 	go func() {
 		server := &http.Server{

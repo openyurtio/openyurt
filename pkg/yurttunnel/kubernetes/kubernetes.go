@@ -31,7 +31,7 @@ import (
 )
 
 // CreateClientSet creates a clientset based on the given kubeConfig. If the
-// kubeConfig is empty, it will creates the clientset based on the in-cluster
+// kubeConfig is empty, it will create the clientset based on the in-cluster
 // config
 func CreateClientSet(kubeConfig string) (*kubernetes.Clientset, error) {
 
