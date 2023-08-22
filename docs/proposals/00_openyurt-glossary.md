@@ -45,7 +45,7 @@ Controller Manager for OpenYurt like Kube Controller Manager for K8s, and includ
 
 ### YurtHub
 
-A reverse proxy and cache response on local disk. when cloud-edge network is normal, forward the requests from edge to cloud, and when cloud-edge network is disconnected, the local cache is returned to edge client.
+A reverse proxy and cache response on local disk. When cloud-edge network is normal, forward the requests from edge to cloud, and when cloud-edge network is disconnected, the local cache is returned to edge client.
 
 ### YurtTunnel
 
