@@ -32,7 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
-	edgexclis "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	edgexobj "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
@@ -87,8 +87,12 @@ func (r *DeviceProfileReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
-	r.edgeClient = edgexclis.NewEdgexDeviceProfile(opts.CoreMetadataAddr)
+func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions, edgexdock *edgexobj.EdgexDock) error {
+	deviceprofileclient, err := edgexdock.CreateDeviceProfileClient()
+	if err != nil {
+		return err
+	}
+	r.edgeClient = deviceprofileclient
 	r.NodePool = opts.Nodepool
 	r.Namespace = opts.Namespace
 

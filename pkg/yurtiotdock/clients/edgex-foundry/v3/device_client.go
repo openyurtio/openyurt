@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package edgex_foundry
+package v3
 
 import (
 	"context"
@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/publicsuffix"
 	"k8s.io/klog/v2"

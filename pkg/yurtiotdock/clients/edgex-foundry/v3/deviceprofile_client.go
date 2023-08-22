@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package edgex_foundry
+package v3
 
 import (
 	"context"
@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"k8s.io/klog/v2"
 

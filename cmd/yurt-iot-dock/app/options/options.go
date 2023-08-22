@@ -30,6 +30,7 @@ type YurtIoTDockOptions struct {
 	EnableLeaderElection bool
 	Nodepool             string
 	Namespace            string
+	Version              string
 	CoreDataAddr         string
 	CoreMetadataAddr     string
 	CoreCommandAddr      string
@@ -43,6 +44,7 @@ func NewYurtIoTDockOptions() *YurtIoTDockOptions {
 		EnableLeaderElection: false,
 		Nodepool:             "",
 		Namespace:            "default",
+		Version:              "",
 		CoreDataAddr:         "edgex-core-data:59880",
 		CoreMetadataAddr:     "edgex-core-metadata:59881",
 		CoreCommandAddr:      "edgex-core-command:59882",
@@ -63,6 +65,7 @@ func (o *YurtIoTDockOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+"Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&o.Nodepool, "nodepool", "", "The nodePool deviceController is deployed in.(just for debugging)")
 	fs.StringVar(&o.Namespace, "namespace", "default", "The cluster namespace for edge resources synchronization.")
+	fs.StringVar(&o.Version, "version", "", "The version of edge resources deploymenet.")
 	fs.StringVar(&o.CoreDataAddr, "core-data-address", "edgex-core-data:59880", "The address of edge core-data service.")
 	fs.StringVar(&o.CoreMetadataAddr, "core-metadata-address", "edgex-core-metadata:59881", "The address of edge core-metadata service.")
 	fs.StringVar(&o.CoreCommandAddr, "core-command-address", "edgex-core-command:59882", "The address of edge core-command service.")

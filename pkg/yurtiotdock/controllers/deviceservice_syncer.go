@@ -28,7 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
-	edgexCli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
+	edgexobj "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
@@ -42,10 +42,14 @@ type DeviceServiceSyncer struct {
 	Namespace        string
 }
 
-func NewDeviceServiceSyncer(client client.Client, opts *options.YurtIoTDockOptions) (DeviceServiceSyncer, error) {
+func NewDeviceServiceSyncer(client client.Client, opts *options.YurtIoTDockOptions, edgexdock *edgexobj.EdgexDock) (DeviceServiceSyncer, error) {
+	deviceserviceclient, err := edgexdock.CreateDeviceServiceClient()
+	if err != nil {
+		return DeviceServiceSyncer{}, err
+	}
 	return DeviceServiceSyncer{
 		syncPeriod:       time.Duration(opts.EdgeSyncPeriod) * time.Second,
-		deviceServiceCli: edgexCli.NewEdgexDeviceServiceClient(opts.CoreMetadataAddr),
+		deviceServiceCli: deviceserviceclient,
 		Client:           client,
 		NodePool:         opts.Nodepool,
 		Namespace:        opts.Namespace,
