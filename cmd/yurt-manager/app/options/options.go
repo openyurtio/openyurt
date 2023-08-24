@@ -92,6 +92,10 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {
 		return err
 	}
+	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayPickupController); err != nil {
+		return err
+	}
+
 	return nil
 }
 

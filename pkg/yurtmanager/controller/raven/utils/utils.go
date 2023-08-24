@@ -31,8 +31,13 @@ import (
 )
 
 const (
-	WorkingNamespace  = "kube-system"
-	RavenGlobalConfig = "raven-cfg"
+	WorkingNamespace               = "kube-system"
+	RavenGlobalConfig              = "raven-cfg"
+	GatewayProxyInternalService    = "x-raven-proxy-internal-svc"
+	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc-"
+	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc-"
+	RavenProxyNodesConfig          = "edge-tunnel-nodes"
+	ProxyNodesKey                  = "tunnel-nodes"
 
 	RavenEnableProxy  = "EnableL7Proxy"
 	RavenEnableTunnel = "EnableL3Tunnel"
@@ -79,5 +84,10 @@ func CheckServer(ctx context.Context, client client.Client) (enableProxy, enable
 		enableTunnel = true
 	}
 	return enableProxy, enableTunnel
+}
 
+func AddDNSConfigmapToWorkQueue(q workqueue.RateLimitingInterface) {
+	q.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: RavenProxyNodesConfig},
+	})
 }
