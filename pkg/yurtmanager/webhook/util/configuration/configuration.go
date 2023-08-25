@@ -31,6 +31,11 @@ import (
 	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
+var (
+	deploymentMutatingPath = "/mutate-apps-v1-deployment"
+	deploymentSideEffect   = admissionregistrationv1.SideEffectClassNone
+)
+
 func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte, webhookPort int) error {
 	mutatingConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), webhookutil.MutatingWebhookConfigurationName, metav1.GetOptions{})
 	if err != nil {
@@ -75,6 +80,39 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 
 		mutatingWHs = append(mutatingWHs, *wh)
 	}
+
+	// add additional deployment mutating webhook
+	wh := &admissionregistrationv1.MutatingWebhook{}
+	wh.AdmissionReviewVersions = []string{"v1"}
+	svc := &admissionregistrationv1.ServiceReference{
+		Namespace: webhookutil.GetNamespace(),
+		Name:      webhookutil.GetServiceName(),
+		Path:      &deploymentMutatingPath,
+	}
+	wh.ClientConfig = admissionregistrationv1.WebhookClientConfig{
+		Service:  svc,
+		CABundle: caBundle,
+	}
+	path, err := getPath(&wh.ClientConfig)
+	if err != nil {
+		return err
+	}
+	if _, ok := handlers[path]; !ok {
+		klog.V(4).Infof("Ignore webhook for %s in configuration", path)
+	}
+	if host := webhookutil.GetHost(); len(host) > 0 {
+		convertClientConfig(&wh.ClientConfig, host, webhookPort)
+	}
+	wh.Rules = []admissionregistrationv1.RuleWithOperations{{
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create, admissionregistrationv1.Update},
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"}}}}
+	wh.SideEffects = &deploymentSideEffect
+	wh.Name = "mutate.apps.v1.deployment"
+	mutatingWHs = append(mutatingWHs, *wh)
 	mutatingConfig.Webhooks = mutatingWHs
 
 	var validatingWHs []admissionregistrationv1.ValidatingWebhook
