@@ -21,8 +21,8 @@ var (
 )
 
 const (
-	ControllerName                   = "gateway"
 	GatewayPickupControllerName      = "raven-gateway-pickup"
 	GatewayInternalServiceController = "raven-gateway-internal-service"
+	GatewayPublicServiceController   = "raven-gateway-public-service"
 	GatewayDNSControllerName         = "raven-dns"
 )

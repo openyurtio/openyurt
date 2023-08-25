@@ -51,13 +51,8 @@ const (
 	ProxyServerInsecurePortKey = "proxy-internal-insecure-addr"
 	ProxyServerExposedPortKey  = "proxy-external-addr"
 	VPNServerExposedPortKey    = "tunnel-bind-addr"
-	RavenEnableProxy           = "EnableL7Proxy"
-	RavenEnableTunnel          = "EnableL3Tunnel"
-
-	KubeletSecurePort      = 10250
-	KubeletInsecurePort    = 10255
-	PrometheusSecurePort   = 9100
-	PrometheusInsecurePort = 9445
+	RavenEnableProxy           = "enable-l7-proxy"
+	RavenEnableTunnel          = "enable-l3-tunnel"
 )
 
 // GetNodeInternalIP returns internal ip of the given `node`.
