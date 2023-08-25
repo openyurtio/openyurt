@@ -28,6 +28,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/dns"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewayinternalservice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology"
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints"
@@ -56,8 +57,6 @@ func init() {
 	controllerAddFuncs[daemonpodupdater.ControllerName] = []AddControllerFn{daemonpodupdater.Add}
 	controllerAddFuncs[delegatelease.ControllerName] = []AddControllerFn{delegatelease.Add}
 	controllerAddFuncs[podbinding.ControllerName] = []AddControllerFn{podbinding.Add}
-	controllerAddFuncs[raven.GatewayPickupControllerName] = []AddControllerFn{gatewaypickup.Add}
-	controllerAddFuncs[raven.GatewayDNSControllerName] = []AddControllerFn{dns.Add}
 	controllerAddFuncs[nodepool.ControllerName] = []AddControllerFn{nodepool.Add}
 	controllerAddFuncs[yurtcoordinatorcert.ControllerName] = []AddControllerFn{yurtcoordinatorcert.Add}
 	controllerAddFuncs[servicetopology.ControllerName] = []AddControllerFn{servicetopologyendpoints.Add, servicetopologyendpointslice.Add}
@@ -65,6 +64,10 @@ func init() {
 	controllerAddFuncs[yurtappset.ControllerName] = []AddControllerFn{yurtappset.Add}
 	controllerAddFuncs[yurtappdaemon.ControllerName] = []AddControllerFn{yurtappdaemon.Add}
 	controllerAddFuncs[platformadmin.ControllerName] = []AddControllerFn{platformadmin.Add}
+
+	controllerAddFuncs[raven.GatewayPickupControllerName] = []AddControllerFn{gatewaypickup.Add}
+	controllerAddFuncs[raven.GatewayDNSControllerName] = []AddControllerFn{dns.Add}
+	controllerAddFuncs[raven.GatewayInternalServiceController] = []AddControllerFn{gatewayinternalservice.Add}
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi
