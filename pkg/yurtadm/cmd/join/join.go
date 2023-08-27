@@ -261,6 +261,10 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, errors.New("join token is empty, so unable to bootstrap worker node.")
 	}
 
+	if !yurtadmutil.IsValidBootstrapToken(opt.token) {
+		return nil, errors.Errorf("the bootstrap token %s was not of the form %s", opt.token, yurtconstants.BootstrapTokenPattern)
+	}
+
 	if opt.nodeType != yurtconstants.EdgeNode && opt.nodeType != yurtconstants.CloudNode {
 		return nil, errors.Errorf("node type(%s) is invalid, only \"edge and cloud\" are supported", opt.nodeType)
 	}
