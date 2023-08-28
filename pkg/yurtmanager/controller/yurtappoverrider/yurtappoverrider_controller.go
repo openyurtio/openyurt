@@ -38,6 +38,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
 )
 
 func init() {
@@ -182,7 +183,10 @@ func (r *ReconcileYurtAppOverrider) updatePools(yacr *appsv1alpha1.YurtAppOverri
 	for _, entry := range yacr.Entries {
 		pools = append(pools, entry.Pools...)
 	}
-
+	deploymentRenderHandler := v1alpha1.DeploymentRenderHandler{
+		Client: r.Client,
+		Scheme: r.scheme,
+	}
 	for _, pool := range pools {
 		deployments := v1.DeploymentList{}
 		listOptions := client.MatchingLabels{"apps.openyurt.io/pool-name": pool}
@@ -191,10 +195,7 @@ func (r *ReconcileYurtAppOverrider) updatePools(yacr *appsv1alpha1.YurtAppOverri
 			return err
 		}
 		for _, deployment := range deployments.Items {
-			//deployment.Annotations["apps.openyurt.io/resourceVersion"] = deployment.ResourceVersion
-			//deployment.Annotations["deployment-webhook"] = "pending"
-			err = r.Update(context.TODO(), &deployment)
-			if err != nil {
+			if err := deploymentRenderHandler.Default(context.TODO(), &deployment); err != nil {
 				return err
 			}
 		}

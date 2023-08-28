@@ -163,7 +163,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 					return err
 				}
 				klog.Info("Successfully update patches for deployment")
-				klog.Infof("name of deployment: %v", deployment.Name)
 			}
 		}
 	}
