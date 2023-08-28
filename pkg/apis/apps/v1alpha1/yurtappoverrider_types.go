@@ -87,6 +87,7 @@ type Subject struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=yacr
 // +kubebuilder:printcolumn:name="Subject",type="string",JSONPath=".subject.kind",description="The subject kind of this overrider."
+// +kubebuilder:printcolumn:name="Name",type="string",JSONPath=".subject.name",description="The subject name of this overrider."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 
 type YurtAppOverrider struct {

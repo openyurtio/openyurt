@@ -21,6 +21,10 @@ spec:
       jsonPath: .subject.kind
       name: Subject
       type: string
+    - description: The subject name of this overrider.
+      jsonPath: .subject.name
+      name: Name
+      type: string
     - description: CreationTimestamp is a timestamp representing the server time when
         this object was created. It is not guaranteed to be set in happens-before
         order across separate operations. Clients may not set this value. It is represented

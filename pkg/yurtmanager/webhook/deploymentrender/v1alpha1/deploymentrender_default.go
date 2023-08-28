@@ -73,7 +73,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	switch app.Kind {
 	case "YurtAppSet":
 		instance = &v1alpha1.YurtAppSet{}
-
 	case "YurtAppDaemon":
 		instance = &v1alpha1.YurtAppDaemon{}
 	default:
@@ -113,16 +112,16 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	}
 
 	// Get YurtAppOverrider resource of app(1 to 1)
-	var allConfigRenderList v1alpha1.YurtAppOverriderList
+	var allOverriderList v1alpha1.YurtAppOverriderList
 	//listOptions := client.MatchingFields{"spec.subject.kind": app.Kind, "spec.subject.name": app.Name, "spec.subject.APIVersion": app.APIVersion}
-	if err := webhook.Client.List(ctx, &allConfigRenderList, client.InNamespace(deployment.Namespace)); err != nil {
+	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(deployment.Namespace)); err != nil {
 		klog.Info("error in listing YurtAppOverrider")
 		return err
 	}
 	var overriderList = v1alpha1.YurtAppOverriderList{}
-	for _, configRender := range allConfigRenderList.Items {
-		if configRender.Subject.Kind == app.Kind && configRender.Subject.Name == app.Name && configRender.Subject.APIVersion == app.APIVersion {
-			overriderList.Items = append(overriderList.Items, configRender)
+	for _, overrider := range allOverriderList.Items {
+		if overrider.Subject.Kind == app.Kind && overrider.Subject.Name == app.Name && overrider.Subject.APIVersion == app.APIVersion {
+			overriderList.Items = append(overriderList.Items, overrider)
 		}
 	}
 	klog.Info("Successfully list YurtAppOverrider")
