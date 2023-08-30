@@ -169,10 +169,10 @@ var _ = Describe("YurtAppOverrider Test", func() {
 					},
 					Patches: []v1alpha1.Patch{
 						{
-							Operation: v1alpha1.Default,
+							Operation: v1alpha1.REPLACE,
 							Path:      "/spec/template/spec/containers/0/image",
 							Value: apiextensionsv1.JSON{
-								Raw: []byte("nginx-patch"),
+								Raw: []byte(`"nginx-patch"`),
 							},
 						},
 					},

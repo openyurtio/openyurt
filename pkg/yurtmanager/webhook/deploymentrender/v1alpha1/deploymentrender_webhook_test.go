@@ -148,7 +148,7 @@ var overrider1 = &v1alpha1.YurtAppOverrider{
 					Operation: v1alpha1.REPLACE,
 					Path:      "/spec/replicas",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte("3"),
+						Raw: []byte(`"3"`),
 					},
 				},
 			},

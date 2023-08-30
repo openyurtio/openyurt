@@ -76,7 +76,7 @@ func (webhook *YurtAppOverriderHandler) ValidateDelete(_ context.Context, obj ru
 	return nil
 }
 
-// YurtConfigRender and YurtAppSet are one-to-one relationship
+// YurtAppOverrider and YurtAppSet are one-to-one relationship
 func (webhook *YurtAppOverriderHandler) validateOneToOne(ctx context.Context, yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
 	app := yurtAppOverrider.Subject
 	var allOverriderList v1alpha1.YurtAppOverriderList
