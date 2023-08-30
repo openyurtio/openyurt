@@ -32,8 +32,9 @@ import (
 )
 
 var (
-	deploymentMutatingPath = "/mutate-apps-v1-deployment"
-	deploymentSideEffect   = admissionregistrationv1.SideEffectClassNone
+	deploymentMutatingPath  = "/mutate-apps-v1-deployment"
+	deploymentSideEffect    = admissionregistrationv1.SideEffectClassNone
+	deploymentFailurePolicy = admissionregistrationv1.Ignore
 )
 
 func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBundle []byte, webhookPort int) error {
@@ -89,6 +90,7 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 		Name:      webhookutil.GetServiceName(),
 		Path:      &deploymentMutatingPath,
 	}
+	wh.FailurePolicy = &deploymentFailurePolicy
 	wh.ClientConfig = admissionregistrationv1.WebhookClientConfig{
 		Service:  svc,
 		CABundle: caBundle,
