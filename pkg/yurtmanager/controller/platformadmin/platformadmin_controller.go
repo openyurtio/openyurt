@@ -777,12 +777,6 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
 
-	yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
-	if err != nil {
-		return err
-	}
-	platformAdminFramework.Components = append(platformAdminFramework.Components, yurtIotDock)
-
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
@@ -860,6 +854,16 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 				desiredComponents = append(desiredComponents, component)
 			}
 		}
+	}
+
+	// The yurt-iot-dock is maintained by openyurt and is not obtained through an auto-collector.
+	// Therefore, it needs to be handled separately
+	if addedComponentSet.Has(util.IotDockName) {
+		yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
+		if err != nil {
+			klog.Errorf(Format("newYurtIoTDockComponent error %v", err))
+		}
+		desiredComponents = append(desiredComponents, yurtIotDock)
 	}
 
 	// TODO: In order to be compatible with v1alpha1, we need to add the component from annotation translation here
