@@ -130,7 +130,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	for _, entry := range render.Entries {
 		pools := entry.Pools
 		for _, pool := range pools {
-			if pool == nodepool || pool == `"*"` {
+			if pool == nodepool || pool == "*" {
 				items := entry.Items
 				// Replace items
 				if err := replaceItems(deployment, items); err != nil {

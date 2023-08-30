@@ -100,7 +100,7 @@ func (webhook *YurtAppOverriderHandler) validateOneToOne(ctx context.Context, yu
 func (webhook *YurtAppOverriderHandler) validateStar(yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
 	for _, entry := range yurtAppOverrider.Entries {
 		for _, pool := range entry.Pools {
-			if pool == `"*"` && len(entry.Pools) > 1 {
+			if pool == "*" && len(entry.Pools) > 1 {
 				return fmt.Errorf("pool can't be '*' when other pools are set")
 			}
 		}
