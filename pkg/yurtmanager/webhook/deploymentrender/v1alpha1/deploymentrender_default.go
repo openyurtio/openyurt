@@ -51,14 +51,9 @@ func contain(kind string, resources []string) bool {
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime.Object) error {
-
 	deployment, ok := obj.(*v1.Deployment)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
-	}
-	if v, ok := deployment.Annotations[DeploymentMutatingWebhook]; ok && v == "mutated" {
-		delete(deployment.Annotations, DeploymentMutatingWebhook)
-		return nil
 	}
 	if deployment.OwnerReferences == nil {
 		return nil
@@ -135,7 +130,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	for _, entry := range render.Entries {
 		pools := entry.Pools
 		for _, pool := range pools {
-			if pool == nodepool || pool == "*" {
+			if pool == nodepool || pool == `"*"` {
 				items := entry.Items
 				// Replace items
 				if err := replaceItems(deployment, items); err != nil {
@@ -150,7 +145,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 						patches[i].Value = apiextensionsv1.JSON{Raw: []byte(newPatchString)}
 					}
 				}
-
 				// Implement injection
 				dataStruct := v1.Deployment{}
 				pc := PatchControl{
@@ -164,11 +158,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 				klog.Info("Successfully update patches for deployment")
 			}
 		}
-	}
-	deployment.Annotations[DeploymentMutatingWebhook] = "mutated"
-	if err := webhook.Client.Update(ctx, deployment); err != nil {
-		klog.Infof("error to update deployment: %v", err)
-		return err
 	}
 	klog.Info("Successfully render deployment")
 	return nil

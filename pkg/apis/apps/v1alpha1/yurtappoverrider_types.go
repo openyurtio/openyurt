@@ -46,7 +46,6 @@ type Item struct {
 type Operation string
 
 const (
-	Default Operation = "default" // strategic merge patch
 	ADD     Operation = "add"     // json patch
 	REMOVE  Operation = "remove"  // json patch
 	REPLACE Operation = "replace" // json patch
@@ -55,11 +54,10 @@ const (
 type Patch struct {
 	// Path represents the path in the json patch
 	Path string `json:"path"`
-	// type represents the operation
-	// default is strategic merge patch
+	// Operation represents the operation
 	// +kubebuilder:validation:Enum=add;remove;replace
 	Operation Operation `json:"operation"`
-	// Indicates the patch for the template
+	// Indicates the value of json patch
 	// +optional
 	Value apiextensionsv1.JSON `json:"value,omitempty"`
 }
@@ -84,8 +82,7 @@ type Subject struct {
 
 // +genclient
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=yacr
+// +kubebuilder:resource:shortName=yao
 // +kubebuilder:printcolumn:name="Subject",type="string",JSONPath=".subject.kind",description="The subject kind of this overrider."
 // +kubebuilder:printcolumn:name="Name",type="string",JSONPath=".subject.name",description="The subject name of this overrider."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
@@ -97,9 +94,8 @@ type YurtAppOverrider struct {
 	Entries           []Entry `json:"entries"`
 }
 
-//+kubebuilder:object:root=true
-
 // YurtAppOverriderList contains a list of YurtAppOverrider
+// +kubebuilder:object:root=true
 type YurtAppOverriderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

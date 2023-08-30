@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +39,6 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
 )
 
 func init() {
@@ -75,18 +75,18 @@ var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
 // ReconcileYurtAppOverrider reconciles a YurtAppOverrider object
 type ReconcileYurtAppOverrider struct {
 	client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	Configration config.YurtAppOverriderControllerConfiguration
+	scheme        *runtime.Scheme
+	recorder      record.EventRecorder
+	Configuration config.YurtAppOverriderControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppOverrider{
-		Client:       mgr.GetClient(),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(ControllerName),
-		Configration: c.ComponentConfig.YurtAppOverriderController,
+		Client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		recorder:      mgr.GetEventRecorderFor(ControllerName),
+		Configuration: c.ComponentConfig.YurtAppOverriderController,
 	}
 }
 
@@ -177,17 +177,36 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileYurtAppOverrider) updatePools(yacr *appsv1alpha1.YurtAppOverrider) error {
-
-	pools := []string(nil)
-	for _, entry := range yacr.Entries {
-		pools = append(pools, entry.Pools...)
+func (r *ReconcileYurtAppOverrider) updatePools(yao *appsv1alpha1.YurtAppOverrider) error {
+	pools := make(map[string]struct{})
+	for _, entry := range yao.Entries {
+		for _, pool := range entry.Pools {
+			pools[pool] = struct{}{}
+		}
 	}
-	deploymentRenderHandler := v1alpha1.DeploymentRenderHandler{
-		Client: r.Client,
-		Scheme: r.scheme,
+	if _, ok := pools["*"]; ok {
+		switch yao.Subject.Kind {
+		case "YurtAppSet":
+			instance := &appsv1alpha1.YurtAppSet{}
+			if err := r.Get(context.TODO(), types.NamespacedName{Namespace: yao.Namespace, Name: yao.Subject.Name}, instance); err != nil {
+				return err
+			}
+			for _, pool := range instance.Spec.Topology.Pools {
+				pools[pool.Name] = struct{}{}
+			}
+		case "YurtAppDaemon":
+			instance := &appsv1alpha1.YurtAppDaemon{}
+			if err := r.Get(context.TODO(), types.NamespacedName{Namespace: yao.Namespace, Name: yao.Subject.Name}, instance); err != nil {
+				return err
+			}
+			for _, pool := range instance.Status.NodePools {
+				pools[pool] = struct{}{}
+			}
+		default:
+			return errors.NewBadRequest("unknown subject kind")
+		}
 	}
-	for _, pool := range pools {
+	for pool := range pools {
 		deployments := v1.DeploymentList{}
 		listOptions := client.MatchingLabels{"apps.openyurt.io/pool-name": pool}
 		err := r.List(context.TODO(), &deployments, listOptions)
@@ -195,7 +214,7 @@ func (r *ReconcileYurtAppOverrider) updatePools(yacr *appsv1alpha1.YurtAppOverri
 			return err
 		}
 		for _, deployment := range deployments.Items {
-			if err := deploymentRenderHandler.Default(context.TODO(), &deployment); err != nil {
+			if err := r.Client.Update(context.TODO(), &deployment); err != nil {
 				return err
 			}
 		}
