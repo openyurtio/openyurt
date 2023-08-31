@@ -203,7 +203,7 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new YurtCoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileYurtCoordinatorCert{}
 
 	// Create a new controller

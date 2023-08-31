@@ -34,6 +34,7 @@ const (
 	GatewayInternalServiceController       = "gateway-internal-service-controller"
 	GatewayPublicServiceController         = "gateway-public-service"
 	GatewayDNSController                   = "gateway-dns-controller"
+	NodeLifeCycleController                = "node-life-cycle-controller"
 )
 
 func YurtManagerControllerAliases() map[string]string {
@@ -56,5 +57,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"gatewayinternalservice":        GatewayInternalServiceController,
 		"gatewaypublicservice":          GatewayPublicServiceController,
 		"gatewaydns":                    GatewayDNSController,
+		"nodelifecycle":                 NodeLifeCycleController,
 	}
 }

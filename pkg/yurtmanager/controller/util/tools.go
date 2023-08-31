@@ -19,9 +19,16 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/integer"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	controllerimpl "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/internal/controller"
 )
 
 // SlowStartBatch tries to call the provided function a total of 'count' times,
@@ -61,4 +68,43 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 		remaining -= batchSize
 	}
 	return successes, nil
+}
+
+func NewNoReconcileController(name string, mgr manager.Manager, options controller.Options) (*controllerimpl.Controller, error) {
+	if len(name) == 0 {
+		return nil, fmt.Errorf("must specify Name for Controller")
+	}
+
+	if options.Log == nil {
+		options.Log = mgr.GetLogger()
+	}
+
+	if options.CacheSyncTimeout == 0 {
+		options.CacheSyncTimeout = 2 * time.Minute
+	}
+
+	if options.RateLimiter == nil {
+		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
+	}
+
+	// Inject dependencies into Reconciler
+	if err := mgr.SetFields(options.Reconciler); err != nil {
+		return nil, err
+	}
+
+	// Create controller with dependencies set
+	c := &controllerimpl.Controller{
+		MakeQueue: func() workqueue.RateLimitingInterface {
+			return workqueue.NewNamedRateLimitingQueue(options.RateLimiter, name)
+		},
+		CacheSyncTimeout: options.CacheSyncTimeout,
+		SetFields:        mgr.SetFields,
+		Name:             name,
+		RecoverPanic:     options.RecoverPanic,
+	}
+
+	if err := mgr.Add(c); err != nil {
+		return c, err
+	}
+	return c, nil
 }

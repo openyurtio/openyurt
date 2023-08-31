@@ -47,9 +47,6 @@ func TestGetWorkloadPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := getWorkloadPrefix(tt.controllerName, tt.nodepoolName)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
@@ -77,9 +74,6 @@ func TestCreateNodeSelectorByNodepoolName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := CreateNodeSelectorByNodepoolName(tt.nodepool)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
@@ -116,9 +110,6 @@ func TestTaintsToTolerations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := TaintsToTolerations(tt.taints)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {

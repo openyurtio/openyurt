@@ -19,6 +19,7 @@ package config
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	componentbaseconfig "k8s.io/component-base/config"
+	"k8s.io/kube-controller-manager/config/v1alpha1"
 
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
@@ -53,6 +54,8 @@ type YurtManagerConfiguration struct {
 
 	// YurtAppOverriderControllerConfiguration holds configuration for YurtAppOverriderController related features.
 	YurtAppOverriderController yurtappoverriderconfig.YurtAppOverriderControllerConfiguration
+
+	NodeLifeCycleController v1alpha1.NodeLifecycleControllerConfiguration
 }
 
 type GenericConfiguration struct {
@@ -64,6 +67,7 @@ type GenericConfiguration struct {
 	RestConfigQPS    int
 	RestConfigBurst  int
 	WorkingNamespace string
+	Kubeconfig       string
 	// Controllers is the list of controllers to enable or disable
 	// '*' means "all enabled by default controllers"
 	// 'foo' means "enable 'foo'"

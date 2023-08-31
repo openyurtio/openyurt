@@ -13,7 +13,7 @@
 # limitations under the License.
 
 KUBERNETESVERSION ?=v1.22
-GOLANGCILINT_VERSION ?= v1.47.3
+GOLANGCILINT_VERSION ?= v1.54
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
 GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)

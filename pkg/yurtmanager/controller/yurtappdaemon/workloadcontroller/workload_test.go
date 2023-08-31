@@ -55,16 +55,12 @@ func TestGetRevision(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := wd.GetRevision()
-				t.Logf("get: %s", get)
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			get := wd.GetRevision()
+			t.Logf("get: %s", get)
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -98,16 +94,12 @@ func TestGetNodePoolName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := wd.GetNodePoolName()
-				t.Logf("get: %s", get)
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			get := wd.GetNodePoolName()
+			t.Logf("get: %s", get)
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -146,16 +138,12 @@ func TestGetToleration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := wd.GetToleration()
-				t.Logf("get: %s", get[0].Key)
-				if !reflect.DeepEqual(get[0].Key, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, string(get[0].Key))
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			get := wd.GetToleration()
+			t.Logf("get: %s", get[0].Key)
+			if !reflect.DeepEqual(get[0].Key, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, string(get[0].Key))
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -194,16 +182,12 @@ func TestGetNodeSelector(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := wd.GetNodeSelector()
-				t.Logf("get: %s", get)
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			get := wd.GetNodeSelector()
+			t.Logf("get: %s", get)
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -241,16 +225,12 @@ func TestGetKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := wd.GetKind()
-				t.Logf("get: %s", get)
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			get := wd.GetKind()
+			t.Logf("get: %s", get)
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }

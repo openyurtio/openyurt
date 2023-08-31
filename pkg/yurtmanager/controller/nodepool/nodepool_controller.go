@@ -71,7 +71,7 @@ var _ reconcile.Reconciler = &ReconcileNodePool{}
 
 // Add creates a new NodePool Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(c *config.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof("nodepool-controller add controller %s", controllerResource.String())
 	r := &ReconcileNodePool{
 		cfg:      c.ComponentConfig.NodePoolController,

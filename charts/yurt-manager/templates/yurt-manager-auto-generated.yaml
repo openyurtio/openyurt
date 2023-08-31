@@ -562,7 +562,7 @@ webhooks:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
       path: /mutate-core-openyurt-io-v1-node
-  failurePolicy: Fail
+  failurePolicy: Ignore
   name: mutate.core.v1.node.openyurt.io
   rules:
   - apiGroups:
@@ -733,7 +733,7 @@ webhooks:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
       path: /validate-core-openyurt-io-v1-node
-  failurePolicy: Fail
+  failurePolicy: Ignore
   name: validate.core.v1.node.openyurt.io
   rules:
   - apiGroups:
@@ -786,26 +786,6 @@ webhooks:
     - UPDATE
     resources:
     - platformadmins
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-core-openyurt-io-v1-pod
-  failurePolicy: Fail
-  name: validate.core.v1.pod.openyurt.io
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - DELETE
-    resources:
-    - pods
   sideEffects: None
 - admissionReviewVersions:
   - v1

@@ -103,16 +103,12 @@ func TestNewRevision(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				ed.newRevision(tt.ud, tt.revision, tt.collisionCount)
-				get := tt.expect
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			ed.newRevision(tt.ud, tt.revision, tt.collisionCount)
+			get := tt.expect
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -141,17 +137,12 @@ func TestNextRevision(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := nextRevision(tt.revisions)
+			get := nextRevision(tt.revisions)
 
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -170,17 +161,12 @@ func TestGetYurtAppDaemonPatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get, _ := getYurtAppDaemonPatch(tt.ud)
+			get, _ := getYurtAppDaemonPatch(tt.ud)
 
-				//if !reflect.DeepEqual(get, expect) {
-				//	t.Fatalf("\t%s\texpect %v, but get %v", failed, expect, get)
-				//}
-				t.Logf("\t%s\tget %v", succeed, get)
-
-			}
+			//if !reflect.DeepEqual(get, expect) {
+			//	t.Fatalf("\t%s\texpect %v, but get %v", failed, expect, get)
+			//}
+			t.Logf("\t%s\tget %v", succeed, get)
 		})
 	}
 }

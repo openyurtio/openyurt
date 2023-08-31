@@ -62,9 +62,6 @@ func TestGetTemplateType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := dc.GetTemplateType()
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
@@ -165,9 +162,6 @@ func TestApplyTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := dc.applyTemplate(tt.scheme, tt.yad, tt.nodepool, tt.revision, tt.set)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
@@ -215,9 +209,6 @@ func TestObjectKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			get := dc.ObjectKey(tt.load)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
@@ -323,9 +314,6 @@ func TestDeploymentControllor_CreateWorkload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			err := dc.CreateWorkload(tt.yad, tt.nodepool, "1")
 			t.Logf("expect: %v, get: %v", tt.expect, err)
 			if !reflect.DeepEqual(err, tt.expect) {
@@ -431,9 +419,6 @@ func TestDeploymentControllor_GetAllWorkloads(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			err := dc.CreateWorkload(tt.yad, tt.nodepool, "1")
 			if err != nil {
 				t.Logf("sucessed to create a yurtappdaemon")
@@ -546,9 +531,6 @@ func TestDeploymentControllor_DeleteWorkload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-
 			err := dc.CreateWorkload(tt.yad, tt.nodepool, "1")
 			if err != nil {
 				t.Logf("sucessed to create a yurtappdaemon")

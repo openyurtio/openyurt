@@ -67,17 +67,12 @@ func TestIsTolerationsAllTaints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := IsTolerationsAllTaints(tt.tolerations, tt.taints)
+			get := IsTolerationsAllTaints(tt.tolerations, tt.taints)
 
-				if !reflect.DeepEqual(get, tt.expect) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
+			if !reflect.DeepEqual(get, tt.expect) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -109,17 +104,12 @@ func TestNewYurtAppDaemonCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := NewYurtAppDaemonCondition(tt.condType, tt.status, tt.reason, tt.message)
+			get := NewYurtAppDaemonCondition(tt.condType, tt.status, tt.reason, tt.message)
 
-				if !reflect.DeepEqual(get.Type, tt.expect.Type) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, *get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
+			if !reflect.DeepEqual(get.Type, tt.expect.Type) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, *get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -149,17 +139,12 @@ func TestGetYurtAppDaemonCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := GetYurtAppDaemonCondition(tt.status, tt.condType)
+			get := GetYurtAppDaemonCondition(tt.status, tt.condType)
 
-				if !reflect.DeepEqual(get.Type, tt.expect.Type) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, *get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
+			if !reflect.DeepEqual(get.Type, tt.expect.Type) {
+				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, *get)
 			}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
 		})
 	}
 }
@@ -193,17 +178,12 @@ func TestSetYurtAppDaemonCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				SetYurtAppDaemonCondition(tt.status, tt.cond)
+			SetYurtAppDaemonCondition(tt.status, tt.cond)
 
-				//if !reflect.DeepEqual(get.Type, tt.expect.Type) {
-				//	t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, tt.expect)
-				//}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, tt.expect)
-
-			}
+			//if !reflect.DeepEqual(get.Type, tt.expect.Type) {
+			//	t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, tt.expect)
+			//}
+			t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, tt.expect)
 		})
 	}
 }
