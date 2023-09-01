@@ -25,7 +25,16 @@ const IotDockImage = "openyurt/yurt-iot-dock"
 const IotDockControlPlane = "platformadmin-controller"
 
 func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
-	version := "latest"
-	ns := platformAdmin.Namespace
-	return version, ns, nil
+	var (
+		ver string
+		ns  string
+	)
+
+	if platformAdmin.Spec.Version == "minnesota" {
+		ver = "latest"
+	} else {
+		ver = "v1.4.0"
+	}
+	ns = platformAdmin.Namespace
+	return ver, ns, nil
 }
