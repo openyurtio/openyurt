@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	poolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
@@ -43,13 +44,9 @@ var (
 	controllerResource   = appsv1beta1.SchemeGroupVersion.WithResource("nodepools")
 )
 
-const (
-	ControllerName = "nodepool"
-)
-
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.NodePoolController, s)
 }
 
 // ReconcileNodePool reconciles a NodePool object
@@ -78,11 +75,11 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof("nodepool-controller add controller %s", controllerResource.String())
 	r := &ReconcileNodePool{
 		cfg:      c.ComponentConfig.NodePoolController,
-		recorder: mgr.GetEventRecorderFor(ControllerName),
+		recorder: mgr.GetEventRecorderFor(names.NodePoolController),
 	}
 
 	// Create a new controller
-	ctrl, err := controller.New(ControllerName, mgr, controller.Options{
+	ctrl, err := controller.New(names.NodePoolController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

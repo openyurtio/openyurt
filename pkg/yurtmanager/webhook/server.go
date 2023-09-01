@@ -22,18 +22,14 @@ import (
 	"time"
 
 	"k8s.io/client-go/rest"
+	"k8s.io/controller-manager/app"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
-	ctrlutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta1"
@@ -73,13 +69,13 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook(raven.GatewayPickupControllerName, &v1beta1gateway.GatewayHandler{})
-	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
-	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
-	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
-	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
-	addControllerWebhook(platformadmin.ControllerName, &v1alpha1platformadmin.PlatformAdminHandler{})
-	addControllerWebhook(platformadmin.ControllerName, &v1alpha2platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(names.GatewayPickupController, &v1beta1gateway.GatewayHandler{})
+	addControllerWebhook(names.NodePoolController, &v1beta1nodepool.NodePoolHandler{})
+	addControllerWebhook(names.YurtStaticSetController, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
+	addControllerWebhook(names.YurtAppSetController, &v1alpha1yurtappset.YurtAppSetHandler{})
+	addControllerWebhook(names.YurtAppDaemonController, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
+	addControllerWebhook(names.PlatformAdminController, &v1alpha1platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}
@@ -125,7 +121,7 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 
 	// set up controller webhooks
 	for controllerName, list := range controllerWebhooks {
-		if !ctrlutil.IsControllerEnabled(controllerName, c.ComponentConfig.Generic.Controllers) {
+		if !app.IsControllerEnabled(controllerName, controller.ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}

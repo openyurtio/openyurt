@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/constant"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/utils"
@@ -44,10 +45,6 @@ import (
 func init() {
 	flag.IntVar(&concurrentReconciles, "delegatelease-controller", concurrentReconciles, "Max concurrent workers for delegatelease-controller controller.")
 }
-
-const (
-	ControllerName = "delegatelease"
-)
 
 var (
 	concurrentReconciles = 5
@@ -67,7 +64,7 @@ func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 		ldc:    utils.NewLeaseDelegatedCounter(),
 		delLdc: utils.NewLeaseDelegatedCounter(),
 	}
-	c, err := controller.New(ControllerName, mgr, controller.Options{
+	c, err := controller.New(names.DelegateLeaseController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {
