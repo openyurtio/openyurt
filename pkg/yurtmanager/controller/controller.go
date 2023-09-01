@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/dns"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewayinternalservice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypublicservice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology"
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints"
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice"
@@ -68,6 +69,7 @@ func init() {
 	controllerAddFuncs[raven.GatewayPickupControllerName] = []AddControllerFn{gatewaypickup.Add}
 	controllerAddFuncs[raven.GatewayDNSControllerName] = []AddControllerFn{dns.Add}
 	controllerAddFuncs[raven.GatewayInternalServiceController] = []AddControllerFn{gatewayinternalservice.Add}
+	controllerAddFuncs[raven.GatewayPublicServiceController] = []AddControllerFn{gatewaypublicservice.Add}
 }
 
 // If you want to add additional RBAC, enter it here !!! @kadisi

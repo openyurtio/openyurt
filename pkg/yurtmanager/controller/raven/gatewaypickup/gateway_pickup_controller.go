@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,6 +181,7 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	activeEp := r.electActiveEndpoint(nodeList, &gw)
 	r.recordEndpointEvent(&gw, gw.Status.ActiveEndpoints, activeEp)
 	gw.Status.ActiveEndpoints = activeEp
+	r.configEndpoints(ctx, &gw)
 	// 2. get nodeInfo list of nodes managed by the Gateway
 	var nodes []ravenv1beta1.NodeInfo
 	for _, v := range nodeList.Items {
@@ -362,4 +364,21 @@ func getActiveEndpointsInfo(eps []*ravenv1beta1.Endpoint) (map[string][]string, 
 		infos[ActiveEndpointsType] = append(infos[ActiveEndpointsType], ep.Type)
 	}
 	return infos, len(infos[ActiveEndpointsName])
+}
+
+func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1.Gateway) {
+	enableProxy, enableTunnel := utils.CheckServer(ctx, r.Client)
+	for idx, val := range gw.Status.ActiveEndpoints {
+		if gw.Status.ActiveEndpoints[idx].Config == nil {
+			gw.Status.ActiveEndpoints[idx].Config = make(map[string]string)
+		}
+		switch val.Type {
+		case ravenv1beta1.Proxy:
+			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableProxy] = strconv.FormatBool(enableProxy)
+		case ravenv1beta1.Tunnel:
+			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableTunnel] = strconv.FormatBool(enableTunnel)
+		default:
+		}
+	}
+	return
 }

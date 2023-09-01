@@ -73,7 +73,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 }
 
 func init() {
-	addControllerWebhook(raven.ControllerName, &v1beta1gateway.GatewayHandler{})
+	addControllerWebhook(raven.GatewayPickupControllerName, &v1beta1gateway.GatewayHandler{})
 	addControllerWebhook(nodepool.ControllerName, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(yurtstaticset.ControllerName, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(yurtappset.ControllerName, &v1alpha1yurtappset.YurtAppSetHandler{})
