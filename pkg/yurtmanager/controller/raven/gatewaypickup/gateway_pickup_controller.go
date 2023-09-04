@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
@@ -55,7 +56,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", common.GatewayPickupControllerName, s)
+	return fmt.Sprintf("%s: %s", names.GatewayPickupController, s)
 }
 
 const (
@@ -90,7 +91,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileGateway{
 		Client:       mgr.GetClient(),
 		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(common.GatewayPickupControllerName),
+		recorder:     mgr.GetEventRecorderFor(names.GatewayPickupController),
 		Configration: c.ComponentConfig.GatewayPickupController,
 	}
 }
@@ -98,7 +99,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add is used to add a new Controller to mgr
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(common.GatewayPickupControllerName, mgr, controller.Options{
+	c, err := controller.New(names.GatewayPickupController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {

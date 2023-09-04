@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/upgradeinfo"
@@ -58,8 +59,6 @@ var (
 )
 
 const (
-	ControllerName = "yurtstaticset"
-
 	StaticPodHashAnnotation = "openyurt.io/static-pod-hash"
 
 	hostPathVolumeName       = "hostpath"
@@ -120,7 +119,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.YurtStaticSetController, s)
 }
 
 // Add creates a new YurtStaticSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -150,7 +149,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileYurtStaticSet{
 		Client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
-		recorder:      mgr.GetEventRecorderFor(ControllerName),
+		recorder:      mgr.GetEventRecorderFor(names.YurtStaticSetController),
 		Configuration: c.ComponentConfig.YurtStaticSetController,
 	}
 }
@@ -158,7 +157,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtStaticSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

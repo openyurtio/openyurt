@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/adapter"
 )
 
@@ -46,7 +46,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s-endpoints: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.ServiceTopologyEndpointsController, s)
 }
 
 // Add creates a new Servicetopology endpoints Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -78,7 +78,7 @@ func (r *ReconcileServicetopologyEndpoints) InjectClient(c client.Client) error 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(fmt.Sprintf("%s-endpoints", common.ControllerName), mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.ServiceTopologyEndpointsController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

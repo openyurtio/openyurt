@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/workloadcontroller"
@@ -49,7 +50,6 @@ var (
 )
 
 const (
-	ControllerName            = "yurtappdaemon"
 	slowStartInitialBatchSize = 1
 
 	eventTypeRevisionProvision  = "RevisionProvision"
@@ -66,7 +66,7 @@ func init() {
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.YurtAppDaemonController, s)
 }
 
 // Add creates a new YurtAppDaemon Controller and adds it to the Manager with default RBAC.
@@ -85,7 +85,7 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtAppDaemonController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -118,10 +118,9 @@ type ReconcileYurtAppDaemon struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppDaemon{
-		Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-
-		recorder: mgr.GetEventRecorderFor(ControllerName),
+		Client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetEventRecorderFor(names.YurtAppDaemonController),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
 			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},

@@ -21,7 +21,7 @@ ports:
   webhook: 10273
 
 # format should be "foo,-bar,*"
-controllers: ""
+controllers: "*"
 
 # format should be "foo,*"
 disableIndependentWebhooks: ""

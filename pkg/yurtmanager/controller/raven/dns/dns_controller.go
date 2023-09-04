@@ -40,13 +40,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
 )
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", common.GatewayDNSControllerName, s)
+	return fmt.Sprintf("%s: %s", names.GatewayDNSController, s)
 }
 
 // Add creates a new Ravendns Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -68,14 +69,14 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDns{
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.GatewayDNSControllerName),
+		recorder: mgr.GetEventRecorderFor(names.GatewayDNSController),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(common.GatewayDNSControllerName, mgr, controller.Options{
+	c, err := controller.New(names.GatewayDNSController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {

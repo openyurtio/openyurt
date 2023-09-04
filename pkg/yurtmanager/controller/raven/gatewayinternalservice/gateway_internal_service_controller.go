@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
@@ -55,7 +56,7 @@ const (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", common.GatewayInternalServiceController, s)
+	return fmt.Sprintf("%s: %s", names.GatewayInternalServiceController, s)
 }
 
 // Add creates a new Service Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -79,7 +80,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileService{
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(common.GatewayInternalServiceController),
+		recorder: mgr.GetEventRecorderFor(names.GatewayInternalServiceController),
 		option:   utils.NewOption(),
 	}
 }
@@ -87,7 +88,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(common.GatewayInternalServiceController, mgr, controller.Options{
+	c, err := controller.New(names.GatewayInternalServiceController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {

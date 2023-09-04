@@ -100,6 +100,7 @@ spec:
             - --metrics-addr=:10271
             - --health-probe-addr=:10272
             - --webhook-port=10273
+            - --controllers=*
             - --logtostderr=true
             - --v=4
           command:

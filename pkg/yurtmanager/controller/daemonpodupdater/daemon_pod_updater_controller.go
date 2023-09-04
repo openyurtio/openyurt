@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	k8sutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
 )
 
@@ -64,8 +65,6 @@ var (
 )
 
 const (
-	ControllerName = "daemonpodupdater"
-
 	// UpdateAnnotation is the annotation key used in daemonset spec to indicate
 	// which update strategy is selected. Currently, "OTA" and "AdvancedRollingUpdate" are supported.
 	UpdateAnnotation = "apps.openyurt.io/update-strategy"
@@ -95,7 +94,7 @@ const (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.DaemonPodUpdaterController, s)
 }
 
 // Add creates a new Daemonpodupdater Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -120,7 +119,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileDaemonpodupdater{
 		Client:       mgr.GetClient(),
 		expectations: k8sutil.NewControllerExpectations(),
-		recorder:     mgr.GetEventRecorderFor(ControllerName),
+		recorder:     mgr.GetEventRecorderFor(names.DaemonPodUpdaterController),
 	}
 }
 
@@ -141,7 +140,7 @@ func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}

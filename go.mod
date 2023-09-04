@@ -42,6 +42,7 @@ require (
 	k8s.io/cluster-bootstrap v0.22.3
 	k8s.io/component-base v0.22.3
 	k8s.io/component-helpers v0.22.3
+	k8s.io/controller-manager v0.22.3
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kubectl v0.22.3
 	k8s.io/kubernetes v1.22.3
