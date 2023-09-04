@@ -83,14 +83,15 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 	}
 
 	// add additional deployment mutating webhook
-	wh := &admissionregistrationv1.MutatingWebhook{}
+	wh := &admissionregistrationv1.MutatingWebhook{
+		FailurePolicy: &deploymentFailurePolicy,
+	}
 	wh.AdmissionReviewVersions = []string{"v1"}
 	svc := &admissionregistrationv1.ServiceReference{
 		Namespace: webhookutil.GetNamespace(),
 		Name:      webhookutil.GetServiceName(),
 		Path:      &deploymentMutatingPath,
 	}
-	wh.FailurePolicy = &deploymentFailurePolicy
 	wh.ClientConfig = admissionregistrationv1.WebhookClientConfig{
 		Service:  svc,
 		CABundle: caBundle,

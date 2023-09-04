@@ -7,6 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/edgexfoundry/go-mod-core-contracts/v2 v2.3.0
 	github.com/edgexfoundry/go-mod-core-contracts/v3 v3.0.0
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.3.0
@@ -86,7 +87,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

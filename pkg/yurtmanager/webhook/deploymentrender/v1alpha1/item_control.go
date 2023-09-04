@@ -33,6 +33,11 @@ func replaceItems(deployment *v1.Deployment, items []v1alpha1.Item) error {
 					deployment.Spec.Template.Spec.Containers[i].Image = item.Image.ImageClaim
 				}
 			}
+			for i := range deployment.Spec.Template.Spec.InitContainers {
+				if deployment.Spec.Template.Spec.InitContainers[i].Name == item.Image.ContainerName {
+					deployment.Spec.Template.Spec.InitContainers[i].Image = item.Image.ImageClaim
+				}
+			}
 		}
 	}
 	return nil

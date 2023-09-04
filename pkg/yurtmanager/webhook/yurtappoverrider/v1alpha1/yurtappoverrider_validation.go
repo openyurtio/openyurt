@@ -36,10 +36,7 @@ func (webhook *YurtAppOverriderHandler) ValidateCreate(ctx context.Context, obj 
 	}
 
 	// validate
-	if err := webhook.validateOneToOne(ctx, overrider); err != nil {
-		return err
-	}
-	if err := webhook.validateStar(overrider); err != nil {
+	if err := webhook.validateOneToOneBinding(ctx, overrider); err != nil {
 		return err
 	}
 	return nil
@@ -57,10 +54,7 @@ func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldO
 	}
 
 	// validate
-	if err := webhook.validateOneToOne(ctx, newOverrider); err != nil {
-		return err
-	}
-	if err := webhook.validateStar(newOverrider); err != nil {
+	if err := webhook.validateOneToOneBinding(ctx, newOverrider); err != nil {
 		return err
 	}
 	return nil
@@ -68,42 +62,25 @@ func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldO
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppOverriderHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	_, ok := obj.(*v1alpha1.YurtAppOverrider)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
-	}
-	// validate
 	return nil
 }
 
 // YurtAppOverrider and YurtAppSet are one-to-one relationship
-func (webhook *YurtAppOverriderHandler) validateOneToOne(ctx context.Context, yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
+func (webhook *YurtAppOverriderHandler) validateOneToOneBinding(ctx context.Context, yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
 	app := yurtAppOverrider.Subject
 	var allOverriderList v1alpha1.YurtAppOverriderList
 	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(yurtAppOverrider.Namespace)); err != nil {
-		klog.Info("error in listing YurtAppOverrider")
+		klog.Infof("could not list YurtAppOverrider, %v", err)
 		return err
 	}
-	var overriderList = v1alpha1.YurtAppOverriderList{}
-	for _, overrider := range overriderList.Items {
-		if overrider.Subject.Kind == app.Kind && overrider.Name == app.Name && overrider.APIVersion == app.APIVersion {
-			overriderList.Items = append(overriderList.Items, overrider)
+	overriderList := make([]v1alpha1.YurtAppOverrider, 0)
+	for _, overrider := range allOverriderList.Items {
+		if overrider.Subject.Kind == app.Kind && overrider.Subject.Name == app.Name {
+			overriderList = append(overriderList, overrider)
 		}
 	}
-	if len(overriderList.Items) > 0 {
+	if len(overriderList) > 0 {
 		return fmt.Errorf("only one YurtAppOverrider can be bound into one YurtAppSet")
-	}
-	return nil
-}
-
-// Verify that * and other pools are not set at the same time
-func (webhook *YurtAppOverriderHandler) validateStar(yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
-	for _, entry := range yurtAppOverrider.Entries {
-		for _, pool := range entry.Pools {
-			if pool == "*" && len(entry.Pools) > 1 {
-				return fmt.Errorf("pool can't be '*' when other pools are set")
-			}
-		}
 	}
 	return nil
 }

@@ -78,7 +78,7 @@ var patchControl = PatchControl{
 			Operation: v1alpha1.ADD,
 			Path:      "/spec/replicas",
 			Value: apiextensionsv1.JSON{
-				Raw: []byte(`"5"`),
+				Raw: []byte("5"),
 			},
 		},
 	},

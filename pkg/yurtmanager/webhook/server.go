@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
 	ctrlutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset"
 	v1alpha1deploymentrender "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
@@ -44,6 +45,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappdaemon/v1alpha1"
+	v1alpha1yurtappoverrider "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappoverrider/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappset/v1alpha1"
 	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtstaticset/v1alpha1"
 )
@@ -81,6 +83,7 @@ func init() {
 	addControllerWebhook(yurtappdaemon.ControllerName, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 	addControllerWebhook(platformadmin.ControllerName, &v1alpha1platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(platformadmin.ControllerName, &v1alpha2platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(yurtappoverrider.ControllerName, &v1alpha1yurtappoverrider.YurtAppOverriderHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}

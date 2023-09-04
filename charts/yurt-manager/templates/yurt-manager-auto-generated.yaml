@@ -164,12 +164,8 @@ rules:
   resources:
   - yurtappoverriders
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - apps.openyurt.io
@@ -632,6 +628,27 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtappoverrider
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.yurtappoverrider.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappoverriders
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
@@ -670,27 +687,6 @@ webhooks:
     - UPDATE
     resources:
     - yurtstaticsets
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /mutate-apps-openyurt-io-v1alpha1-yurtappoverrider
-  failurePolicy: Fail
-  name: mutate.apps.v1alpha1.yurtappoverrider.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - yurtappoverriders
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -824,6 +820,27 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-apps-openyurt-io-v1alpha1-yurtappoverrider
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.yurtappoverrider.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappoverriders
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
@@ -862,25 +879,4 @@ webhooks:
     - UPDATE
     resources:
     - yurtstaticsets
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-apps-openyurt-io-v1alpha1-yurtappoverrider
-  failurePolicy: Fail
-  name: validate.apps.v1alpha1.yurtappoverrider.openyurt.io
-  rules:
-  - apiGroups:
-    - apps.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - yurtappoverriders
   sideEffects: None

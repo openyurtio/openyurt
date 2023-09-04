@@ -53,7 +53,7 @@ func contain(kind string, resources []string) bool {
 func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime.Object) error {
 	deployment, ok := obj.(*v1.Deployment)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a Deployment but got a %T", obj))
 	}
 	if deployment.OwnerReferences == nil {
 		return nil
@@ -79,7 +79,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	}, instance); err != nil {
 		return err
 	}
-	klog.Info("Successfully get the owner of deployment")
 	// Get nodepool of deployment
 	nodepool := deployment.Labels["apps.openyurt.io/pool-name"]
 
@@ -119,24 +118,25 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 			overriderList.Items = append(overriderList.Items, overrider)
 		}
 	}
-	klog.Info("Successfully list YurtAppOverrider")
 
 	if len(overriderList.Items) == 0 {
 		return nil
 	}
 	render := overriderList.Items[0]
 
-	klog.Info("start to render deployment")
 	for _, entry := range render.Entries {
 		pools := entry.Pools
 		for _, pool := range pools {
+			if pool[0] == '-' && pool[1:] == nodepool {
+				continue
+			}
 			if pool == nodepool || pool == "*" {
 				items := entry.Items
 				// Replace items
 				if err := replaceItems(deployment, items); err != nil {
+					klog.Info("fail to replace items for deployment: %v", err)
 					return err
 				}
-				klog.Info("Successfully replace items for deployment")
 				// json patch and strategic merge
 				patches := entry.Patches
 				for i, patch := range patches {
@@ -153,9 +153,9 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 					dataStruct:  dataStruct,
 				}
 				if err := pc.updatePatches(); err != nil {
+					klog.Infof("fail to update patches for deployment: %v", err)
 					return err
 				}
-				klog.Info("Successfully update patches for deployment")
 			}
 		}
 	}

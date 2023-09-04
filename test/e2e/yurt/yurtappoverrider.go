@@ -51,9 +51,10 @@ var _ = Describe("YurtAppOverrider Test", func() {
 				Name: namespaceName,
 			},
 		}
-		Eventually(func() error {
-			return k8sClient.Delete(ctx, &ns, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		}).WithTimeout(timeout).WithPolling(500 * time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
+		Eventually(
+			func() error {
+				return k8sClient.Delete(ctx, &ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
+			}).WithTimeout(timeout).WithPolling(500 * time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 		By("make sure namespace are removed")
 
 		res := &corev1.Namespace{}
