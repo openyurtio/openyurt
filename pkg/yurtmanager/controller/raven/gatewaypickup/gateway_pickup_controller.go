@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
@@ -54,7 +56,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", common.GatewayPickupControllerName, s)
+	return fmt.Sprintf("%s: %s", names.GatewayPickupController, s)
 }
 
 const (
@@ -89,7 +91,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileGateway{
 		Client:       mgr.GetClient(),
 		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(common.GatewayPickupControllerName),
+		recorder:     mgr.GetEventRecorderFor(names.GatewayPickupController),
 		Configration: c.ComponentConfig.GatewayPickupController,
 	}
 }
@@ -97,7 +99,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add is used to add a new Controller to mgr
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(common.GatewayPickupControllerName, mgr, controller.Options{
+	c, err := controller.New(names.GatewayPickupController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
 	})
 	if err != nil {
@@ -180,6 +182,7 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	activeEp := r.electActiveEndpoint(nodeList, &gw)
 	r.recordEndpointEvent(&gw, gw.Status.ActiveEndpoints, activeEp)
 	gw.Status.ActiveEndpoints = activeEp
+	r.configEndpoints(ctx, &gw)
 	// 2. get nodeInfo list of nodes managed by the Gateway
 	var nodes []ravenv1beta1.NodeInfo
 	for _, v := range nodeList.Items {
@@ -362,4 +365,21 @@ func getActiveEndpointsInfo(eps []*ravenv1beta1.Endpoint) (map[string][]string, 
 		infos[ActiveEndpointsType] = append(infos[ActiveEndpointsType], ep.Type)
 	}
 	return infos, len(infos[ActiveEndpointsName])
+}
+
+func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1.Gateway) {
+	enableProxy, enableTunnel := utils.CheckServer(ctx, r.Client)
+	for idx, val := range gw.Status.ActiveEndpoints {
+		if gw.Status.ActiveEndpoints[idx].Config == nil {
+			gw.Status.ActiveEndpoints[idx].Config = make(map[string]string)
+		}
+		switch val.Type {
+		case ravenv1beta1.Proxy:
+			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableProxy] = strconv.FormatBool(enableProxy)
+		case ravenv1beta1.Tunnel:
+			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableTunnel] = strconv.FormatBool(enableTunnel)
+		default:
+		}
+	}
+	return
 }

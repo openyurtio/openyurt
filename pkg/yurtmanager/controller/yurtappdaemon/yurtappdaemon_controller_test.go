@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/workloadcontroller"
@@ -125,7 +126,7 @@ func TestUpdateStatus(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -139,7 +140,7 @@ func TestUpdateStatus(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -196,7 +197,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -210,7 +211,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,

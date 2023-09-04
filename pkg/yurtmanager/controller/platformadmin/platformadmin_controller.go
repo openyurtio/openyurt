@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
@@ -59,7 +60,7 @@ func init() {
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.PlatformAdminController, s)
 }
 
 var (
@@ -68,8 +69,6 @@ var (
 )
 
 const (
-	ControllerName = "PlatformAdmin"
-
 	LabelConfigmap  = "Configmap"
 	LabelService    = "Service"
 	LabelDeployment = "Deployment"
@@ -135,7 +134,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcilePlatformAdmin{
 		Client:         mgr.GetClient(),
 		scheme:         mgr.GetScheme(),
-		recorder:       mgr.GetEventRecorderFor(ControllerName),
+		recorder:       mgr.GetEventRecorderFor(names.PlatformAdminController),
 		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
 		Configration:   c.ComponentConfig.PlatformAdminController,
 	}
@@ -144,7 +143,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{
+	c, err := controller.New(names.PlatformAdminController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {
@@ -777,12 +776,6 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
 
-	yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
-	if err != nil {
-		return err
-	}
-	platformAdminFramework.Components = append(platformAdminFramework.Components, yurtIotDock)
-
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
@@ -860,6 +853,16 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 				desiredComponents = append(desiredComponents, component)
 			}
 		}
+	}
+
+	// The yurt-iot-dock is maintained by openyurt and is not obtained through an auto-collector.
+	// Therefore, it needs to be handled separately
+	if addedComponentSet.Has(util.IotDockName) {
+		yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
+		if err != nil {
+			klog.Errorf(Format("newYurtIoTDockComponent error %v", err))
+		}
+		desiredComponents = append(desiredComponents, yurtIotDock)
 	}
 
 	// TODO: In order to be compatible with v1alpha1, we need to add the component from annotation translation here

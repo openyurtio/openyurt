@@ -19,9 +19,3 @@ package raven
 var (
 	ConcurrentReconciles = 1
 )
-
-const (
-	ControllerName              = "gateway"
-	GatewayPickupControllerName = "raven-gateway-pickup"
-	GatewayDNSControllerName    = "raven-dns"
-)

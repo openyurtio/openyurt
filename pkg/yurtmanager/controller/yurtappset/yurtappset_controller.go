@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
 )
@@ -55,8 +56,6 @@ var (
 )
 
 const (
-	ControllerName = "yurtappset"
-
 	eventTypeRevisionProvision  = "RevisionProvision"
 	eventTypeFindPools          = "FindPools"
 	eventTypeDupPoolsDelete     = "DeleteDuplicatedPools"
@@ -68,7 +67,7 @@ const (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.YurtAppSetController, s)
 }
 
 // Add creates a new YurtAppSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -89,7 +88,7 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 		Client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
 
-		recorder: mgr.GetEventRecorderFor(ControllerName),
+		recorder: mgr.GetEventRecorderFor(names.YurtAppSetController),
 		poolControls: map[unitv1alpha1.TemplateType]ControlInterface{
 			unitv1alpha1.StatefulSetTemplateType: &PoolControl{Client: mgr.GetClient(), scheme: mgr.GetScheme(),
 				adapter: &adapter.StatefulSetAdapter{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}},
@@ -102,7 +101,7 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtAppSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
