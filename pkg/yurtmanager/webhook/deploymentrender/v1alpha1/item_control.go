@@ -22,7 +22,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
-func replaceItems(deployment *v1.Deployment, items []v1alpha1.Item) error {
+func replaceItems(deployment *v1.Deployment, items []v1alpha1.Item) {
 	for _, item := range items {
 		switch {
 		case item.Replicas != nil:
@@ -40,5 +40,4 @@ func replaceItems(deployment *v1.Deployment, items []v1alpha1.Item) error {
 			}
 		}
 	}
-	return nil
 }

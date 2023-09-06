@@ -81,14 +81,83 @@ var defaultAppSet = &v1alpha1.YurtAppSet{
 	},
 }
 
+var defaultAppDaemon = &v1alpha1.YurtAppDaemon{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "yurtappdaemon",
+		Namespace: "default",
+	},
+	Spec: v1alpha1.YurtAppDaemonSpec{
+		Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}},
+		WorkloadTemplate: v1alpha1.WorkloadTemplate{
+			DeploymentTemplate: &v1alpha1.DeploymentTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "test"},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "nginx", Image: "nginx"},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 var defaultDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "test",
+		Name:      "test1",
 		Namespace: "default",
 		OwnerReferences: []metav1.OwnerReference{{
 			APIVersion: "apps.openyurt.io/v1alpha1",
 			Kind:       "YurtAppSet",
 			Name:       "yurtappset-patch",
+		}},
+		Labels: map[string]string{
+			"apps.openyurt.io/pool-name": "nodepool-test",
+		},
+	},
+	Status: appsv1.DeploymentStatus{},
+	Spec: appsv1.DeploymentSpec{
+		Replicas: &replica,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app": "test",
+			},
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"app": "test",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "nginx",
+						Image: "nginx",
+					},
+				},
+			},
+		},
+	},
+}
+
+var daemonDeployment = &appsv1.Deployment{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "test2",
+		Namespace: "default",
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: "apps.openyurt.io/v1alpha1",
+			Kind:       "YurtAppDaemon",
+			Name:       "yurtappdaemon",
 		}},
 		Labels: map[string]string{
 			"apps.openyurt.io/pool-name": "nodepool-test",
@@ -203,6 +272,25 @@ var overrider3 = &v1alpha1.YurtAppOverrider{
 	},
 }
 
+var overrider4 = &v1alpha1.YurtAppOverrider{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "demo",
+		Namespace: "default",
+	},
+	Subject: v1alpha1.Subject{
+		Name: "yurtappdaemon",
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "YurtAppDaemon",
+			APIVersion: "apps.openyurt.io/v1alpha1",
+		},
+	},
+	Entries: []v1alpha1.Entry{
+		{
+			Pools: []string{"*", "-nodepool-test"},
+		},
+	},
+}
+
 func TestDeploymentRenderHandler_Default(t *testing.T) {
 	tcases := []struct {
 		overrider *v1alpha1.YurtAppOverrider
@@ -210,6 +298,7 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 		{overrider1},
 		{overrider2},
 		{overrider3},
+		{overrider4},
 	}
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
@@ -223,10 +312,13 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 	for _, tcase := range tcases {
 		t.Run("", func(t *testing.T) {
 			webhook := &DeploymentRenderHandler{
-				Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(defaultAppSet, defaultDeployment, tcase.overrider).Build(),
+				Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(defaultAppSet, daemonDeployment, defaultDeployment, defaultAppDaemon, tcase.overrider).Build(),
 				Scheme: scheme,
 			}
 			if err := webhook.Default(context.TODO(), defaultDeployment); err != nil {
+				t.Fatal(err)
+			}
+			if err := webhook.Default(context.TODO(), daemonDeployment); err != nil {
 				t.Fatal(err)
 			}
 		})

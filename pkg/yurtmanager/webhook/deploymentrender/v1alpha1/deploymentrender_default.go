@@ -132,10 +132,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 			if pool == nodepool || pool == "*" {
 				items := entry.Items
 				// Replace items
-				if err := replaceItems(deployment, items); err != nil {
-					klog.Infof("fail to replace items for deployment: %v", err)
-					return err
-				}
+				replaceItems(deployment, items)
 				// json patch and strategic merge
 				patches := entry.Patches
 				for i, patch := range patches {

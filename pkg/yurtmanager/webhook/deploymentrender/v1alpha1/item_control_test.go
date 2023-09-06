@@ -100,7 +100,5 @@ func TestReplaceItems(t *testing.T) {
 			Replicas: &itemReplicas,
 		},
 	}
-	if err := replaceItems(testItemDeployment, items); err != nil {
-		t.Fatalf("Error: %v", err)
-	}
+	replaceItems(testItemDeployment, items)
 }
