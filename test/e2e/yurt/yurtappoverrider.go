@@ -218,6 +218,7 @@ var _ = Describe("YurtAppOverrider Test", func() {
 	BeforeEach(func() {
 		By("Start to run YurtAppOverrider test, prepare resources")
 		namespaceName = "yurtappoverrider-e2e-test" + "-" + rand.String(4)
+		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
 		createNameSpace()
 
 	})
