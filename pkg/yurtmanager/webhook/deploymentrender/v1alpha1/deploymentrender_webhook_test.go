@@ -184,12 +184,32 @@ var overrider2 = &v1alpha1.YurtAppOverrider{
 	},
 }
 
+var overrider3 = &v1alpha1.YurtAppOverrider{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "demo",
+		Namespace: "default",
+	},
+	Subject: v1alpha1.Subject{
+		Name: "demo",
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "test",
+			APIVersion: "apps.openyurt.io/v1alpha1",
+		},
+	},
+	Entries: []v1alpha1.Entry{
+		{
+			Pools: []string{"*"},
+		},
+	},
+}
+
 func TestDeploymentRenderHandler_Default(t *testing.T) {
 	tcases := []struct {
 		overrider *v1alpha1.YurtAppOverrider
 	}{
 		{overrider1},
 		{overrider2},
+		{overrider3},
 	}
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {

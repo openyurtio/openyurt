@@ -104,6 +104,9 @@ var _ = Describe("YurtAppOverrider Test", func() {
 				},
 				WorkloadTemplate: v1alpha1.WorkloadTemplate{
 					DeploymentTemplate: &v1alpha1.DeploymentTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "test"},
+						},
 						Spec: v1.DeploymentSpec{
 							Template: corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{

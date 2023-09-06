@@ -53,6 +53,12 @@ var testItemDeployment = &appsv1.Deployment{
 				},
 			},
 			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "initContainer",
+						Image: "initOld",
+					},
+				},
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
@@ -82,6 +88,12 @@ func TestReplaceItems(t *testing.T) {
 			Image: &v1alpha1.ImageItem{
 				ContainerName: "nginx",
 				ImageClaim:    "nginx",
+			},
+		},
+		{
+			Image: &v1alpha1.ImageItem{
+				ContainerName: "initOld",
+				ImageClaim:    "initNew",
 			},
 		},
 		{
