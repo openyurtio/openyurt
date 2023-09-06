@@ -44,11 +44,11 @@ func (webhook *YurtAppOverriderHandler) ValidateCreate(ctx context.Context, obj 
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	_, ok := newObj.(*v1alpha1.YurtAppOverrider)
+	_, ok := oldObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", newObj))
 	}
-	newOverrider, ok := oldObj.(*v1alpha1.YurtAppOverrider)
+	newOverrider, ok := newObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider} but got a %T", oldObj))
 	}
@@ -67,7 +67,7 @@ func (webhook *YurtAppOverriderHandler) ValidateDelete(_ context.Context, obj ru
 
 // YurtAppOverrider and YurtAppSet are one-to-one relationship
 func (webhook *YurtAppOverriderHandler) validateOneToOneBinding(ctx context.Context, yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
-	app := yurtAppOverrider.Subject
+	app := yurtAppOverrider
 	var allOverriderList v1alpha1.YurtAppOverriderList
 	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(yurtAppOverrider.Namespace)); err != nil {
 		klog.Infof("could not list YurtAppOverrider, %v", err)
@@ -75,7 +75,10 @@ func (webhook *YurtAppOverriderHandler) validateOneToOneBinding(ctx context.Cont
 	}
 	overriderList := make([]v1alpha1.YurtAppOverrider, 0)
 	for _, overrider := range allOverriderList.Items {
-		if overrider.Subject.Kind == app.Kind && overrider.Subject.Name == app.Name {
+		if overrider.Name == app.Name && overrider.Kind == app.Kind {
+			continue
+		}
+		if overrider.Subject.Kind == app.Subject.Kind && overrider.Subject.Name == app.Subject.Name {
 			overriderList = append(overriderList, overrider)
 		}
 	}

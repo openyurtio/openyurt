@@ -61,7 +61,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	if !contain(deployment.OwnerReferences[0].Kind, resources) {
 		return nil
 	}
-	klog.Info("start to validate deployment")
 	// Get YurtAppSet/YurtAppDaemon resource of this deployment
 	app := deployment.OwnerReferences[0]
 	var instance client.Object
@@ -109,7 +108,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	var allOverriderList v1alpha1.YurtAppOverriderList
 	//listOptions := client.MatchingFields{"spec.subject.kind": app.Kind, "spec.subject.name": app.Name, "spec.subject.APIVersion": app.APIVersion}
 	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(deployment.Namespace)); err != nil {
-		klog.Info("error in listing YurtAppOverrider")
+		klog.Infof("error in listing YurtAppOverrider: %v", err)
 		return err
 	}
 	var overriderList = v1alpha1.YurtAppOverriderList{}
@@ -134,7 +133,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 				items := entry.Items
 				// Replace items
 				if err := replaceItems(deployment, items); err != nil {
-					klog.Info("fail to replace items for deployment: %v", err)
+					klog.Infof("fail to replace items for deployment: %v", err)
 					return err
 				}
 				// json patch and strategic merge
@@ -159,6 +158,5 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 			}
 		}
 	}
-	klog.Info("Successfully render deployment")
 	return nil
 }
