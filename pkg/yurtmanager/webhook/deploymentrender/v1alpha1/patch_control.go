@@ -39,10 +39,10 @@ type overrider struct {
 }
 
 // implement json patch
-func (pc *PatchControl) jsonMergePatch(patches []v1alpha1.Patch) error {
+func (pc *PatchControl) jsonMergePatch() error {
 	// convert into json patch format
 	var patchOperations []overrider
-	for _, patch := range patches {
+	for _, patch := range pc.patches {
 		single := overrider{
 			Op:    string(patch.Operation),
 			Path:  patch.Path,
@@ -68,11 +68,4 @@ func (pc *PatchControl) jsonMergePatch(patches []v1alpha1.Patch) error {
 		return err
 	}
 	return json.Unmarshal(patchedData, &pc.patchObject)
-}
-
-func (pc *PatchControl) updatePatches() error {
-	if err := pc.jsonMergePatch(pc.patches); err != nil {
-		return err
-	}
-	return nil
 }

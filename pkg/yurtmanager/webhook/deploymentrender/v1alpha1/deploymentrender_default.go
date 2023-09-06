@@ -151,7 +151,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 					patchObject: deployment,
 					dataStruct:  dataStruct,
 				}
-				if err := pc.updatePatches(); err != nil {
+				if err := pc.jsonMergePatch(); err != nil {
 					klog.Infof("fail to update patches for deployment: %v", err)
 					return err
 				}

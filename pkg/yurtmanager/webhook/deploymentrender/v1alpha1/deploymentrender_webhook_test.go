@@ -25,7 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
@@ -231,5 +233,13 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestSetupWebhookWithManager(t *testing.T) {
+	handler := DeploymentRenderHandler{}
+	cfg, _ := config.GetConfig()
+	mgr, _ := manager.New(cfg, manager.Options{})
+	if _, _, err := handler.SetupWebhookWithManager(mgr); err != nil {
+		t.Fatalf("setup webhook with manager failed %s", err)
+	}
 }

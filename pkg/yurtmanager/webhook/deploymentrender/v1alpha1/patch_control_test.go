@@ -87,19 +87,8 @@ var patchControl = PatchControl{
 }
 
 func TestJsonMergePatch(t *testing.T) {
-	sample := v1alpha1.Patch{
-		Operation: v1alpha1.ADD,
-		Path:      "/spec/template/spec/containers/0/image",
-		Value:     apiextensionsv1.JSON{Raw: []byte(`"tomcat"`)},
-	}
-	if err := patchControl.jsonMergePatch([]v1alpha1.Patch{sample}); err != nil {
+	if err := patchControl.jsonMergePatch(); err != nil {
 		t.Fatalf("fail to call jsonMergePatch")
 	}
 	t.Logf("image:%v", testPatchDeployment.Spec.Template.Spec.Containers[0].Name)
-}
-
-func TestUpdatePatches(t *testing.T) {
-	if err := patchControl.updatePatches(); err != nil {
-		t.Fatalf("fail to call updatePatches: %v", err)
-	}
 }
