@@ -18,10 +18,12 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
@@ -211,6 +213,15 @@ func (dps *DeviceProfileSyncer) deleteDeviceProfiles(redundantKubeDeviceProfiles
 		if err := dps.Client.Delete(context.TODO(), kdp); err != nil {
 			klog.V(5).ErrorS(err, "fail to delete the DeviceProfile on Kubernetes: %s ",
 				"DeviceProfile", kdp.Name)
+			return err
+		}
+		patchData, _ := json.Marshal(map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"finalizers": []string{},
+			},
+		})
+		if err := dps.Client.Patch(context.TODO(), kdp, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+			klog.V(5).ErrorS(err, "fail to remove finalizer of DeviceProfile on Kubernetes", "DeviceProfile", kdp.Name)
 			return err
 		}
 	}
