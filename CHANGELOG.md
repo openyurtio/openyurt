@@ -37,13 +37,13 @@ LoadBalancer service, thus getting the nodepool isolation capability of the Node
 - improve image build efficiency by @Congrool in https://github.com/openyurtio/openyurt/pull/1191
 - support filter chain for filtering response data by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1189
 - fix: re-list when target change by @LaurenceLiZhixin in https://github.com/openyurtio/openyurt/pull/1195
-- fix: pool-coordinator cannot be rescheduled when its node fails (#1212) by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1218
+- fix: yurt-coordinator cannot be rescheduled when its node fails (#1212) by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1218
 - feat: merge yurtctl to e2e by @YTGhost in https://github.com/openyurtio/openyurt/pull/1219
 - support pass bootstrap-file to yurthub by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1333
 - add system proxy for docker run by @gnunu in https://github.com/openyurtio/openyurt/pull/1335
 - feat: add yurtadm renew certificate command by @YTGhost in https://github.com/openyurtio/openyurt/pull/1314
 - add a new way to create webhook by @JameKeal in https://github.com/openyurtio/openyurt/pull/1359
-- feat: support pool-coordinator component work in specified namespace by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1355
+- feat: support yurt-coordinator component work in specified namespace by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1355
 - feat: add nodepool e2e by @huiwq1990 in https://github.com/openyurtio/openyurt/pull/1365
 - feat: support yurt-manager work in specified namespace by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1367
 - support yurthub component work in specified namespace by @huweihuang in https://github.com/openyurtio/openyurt/pull/1366
@@ -54,11 +54,11 @@ LoadBalancer service, thus getting the nodepool isolation capability of the Node
 
 ### Fixes
 
-- fix handle poolcoordinator certificates in case of restarting by @batthebee in https://github.com/openyurtio/openyurt/pull/1187
+- fix handle yurtcoordinator certificates in case of restarting by @batthebee in https://github.com/openyurtio/openyurt/pull/1187
 - make rename replace old dir by @LaurenceLiZhixin in https://github.com/openyurtio/openyurt/pull/1237
 - yurtadm minor version compatibility of kubelet and kubeadm by @YTGhost in https://github.com/openyurtio/openyurt/pull/1244
 - delete specific iptables while testing kube-proxy by @y-ykcir in https://github.com/openyurtio/openyurt/pull/1268
-- fix yurthub dnsPolicy when using pool-coordinator by @JameKeal in https://github.com/openyurtio/openyurt/pull/1321
+- fix yurthub dnsPolicy when using yurt-coordinator by @JameKeal in https://github.com/openyurtio/openyurt/pull/1321
 - fix: yurt-controller-manager reboot cannot remove taint node.openyurt.io/unschedulable (#1233) by @AndyEWang in https://github.com/openyurtio/openyurt/pull/1337
 - fix daemonSet pod updater pointer error by @JameKeal in https://github.com/openyurtio/openyurt/pull/1340
 - bugfix for yurtappset by @theonefx in https://github.com/openyurtio/openyurt/pull/1391
@@ -104,7 +104,7 @@ giving feedback, helping users in community group, etc.
 The original edge autonomy feature can make the pods on nodes un-evicted even if node crashed by adding annotation to node,
 and this feature is recommended to use for scenarios that pods should bind to node without recreation.
 After improving edge autonomy capability, when the reason of node NotReady is cloud-edge network off, pods will not be evicted
-because leader yurthub will help these offline nodes to proxy their heartbeats to the cloud via pool-coordinator component,
+because leader yurthub will help these offline nodes to proxy their heartbeats to the cloud via yurt-coordinator component,
 and pods will be evicted and recreated on other ready node if node crashed.
 
 By the way, the original edge autonomy capability by annotating node (with node.beta.openyurt.io/autonomy) will be kept as it is,
@@ -113,9 +113,9 @@ enable the original edge autonomy capability for specified pod.
 
 **Reduce the control-plane traffic between cloud and edge**
 
-Based on the Pool-Coordinator in the nodePool, A leader Yurthub will be elected in the nodePool. Leader Yurthub will
-list/watch pool-scope data(like endpoints/endpointslices) from cloud and write into pool-coordinator. then all components(like kube-proxy/coredns)
-in the nodePool will get pool-scope data from pool-coordinator instead of cloud kube-apiserver, so large volume control-plane traffic
+Based on the Yurt-Coordinator in the nodePool, A leader Yurthub will be elected in the nodePool. Leader Yurthub will
+list/watch pool-scope data(like endpoints/endpointslices) from cloud and write into yurt-coordinator. then all components(like kube-proxy/coredns)
+in the nodePool will get pool-scope data from yurt-coordinator instead of cloud kube-apiserver, so large volume control-plane traffic
 will be reduced.
 
 **Use raven component to replace yurt-tunnel component**

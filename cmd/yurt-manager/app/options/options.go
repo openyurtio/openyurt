@@ -27,10 +27,11 @@ import (
 type YurtManagerOptions struct {
 	Generic                 *GenericOptions
 	NodePoolController      *NodePoolControllerOptions
-	GatewayController       *GatewayControllerOptions
+	GatewayPickupController *GatewayPickupControllerOptions
 	YurtStaticSetController *YurtStaticSetControllerOptions
 	YurtAppSetController    *YurtAppSetControllerOptions
 	YurtAppDaemonController *YurtAppDaemonControllerOptions
+	PlatformAdminController *PlatformAdminControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -39,41 +40,44 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 	s := YurtManagerOptions{
 		Generic:                 NewGenericOptions(),
 		NodePoolController:      NewNodePoolControllerOptions(),
-		GatewayController:       NewGatewayControllerOptions(),
+		GatewayPickupController: NewGatewayPickupControllerOptions(),
 		YurtStaticSetController: NewYurtStaticSetControllerOptions(),
 		YurtAppSetController:    NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
+		PlatformAdminController: NewPlatformAdminControllerOptions(),
 	}
 
 	return &s, nil
 }
 
-func (y *YurtManagerOptions) Flags() cliflag.NamedFlagSets {
+func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers []string) cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
-	y.Generic.AddFlags(fss.FlagSet("generic"))
+	y.Generic.AddFlags(fss.FlagSet("generic"), allControllers, disabledByDefaultControllers)
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
-	y.GatewayController.AddFlags(fss.FlagSet("gateway controller"))
+	y.GatewayPickupController.AddFlags(fss.FlagSet("gateway controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
+	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
 	// Please Add Other controller flags @kadisi
 
 	return fss
 }
 
 // Validate is used to validate the options and config before launching the yurt-manager
-func (y *YurtManagerOptions) Validate() error {
+func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases map[string]string) error {
 	var errs []error
-	errs = append(errs, y.Generic.Validate()...)
+	errs = append(errs, y.Generic.Validate(allControllers, controllerAliases)...)
 	errs = append(errs, y.NodePoolController.Validate()...)
-	errs = append(errs, y.GatewayController.Validate()...)
+	errs = append(errs, y.GatewayPickupController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
+	errs = append(errs, y.PlatformAdminController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
 // ApplyTo fills up yurt manager config with options.
-func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
-	if err := y.Generic.ApplyTo(&c.ComponentConfig.Generic); err != nil {
+func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[string]string) error {
+	if err := y.Generic.ApplyTo(&c.ComponentConfig.Generic, controllerAliases); err != nil {
 		return err
 	}
 	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
@@ -85,17 +89,24 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config) error {
 	if err := y.YurtAppDaemonController.ApplyTo(&c.ComponentConfig.YurtAppDaemonController); err != nil {
 		return err
 	}
+	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {
+		return err
+	}
+	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayPickupController); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // Config return a yurt-manager config objective
-func (y *YurtManagerOptions) Config() (*config.Config, error) {
-	if err := y.Validate(); err != nil {
+func (y *YurtManagerOptions) Config(allControllers []string, controllerAliases map[string]string) (*config.Config, error) {
+	if err := y.Validate(allControllers, controllerAliases); err != nil {
 		return nil, err
 	}
 
 	c := &config.Config{}
-	if err := y.ApplyTo(c); err != nil {
+	if err := y.ApplyTo(c, controllerAliases); err != nil {
 		return nil, err
 	}
 

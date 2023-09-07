@@ -17,12 +17,11 @@ limitations under the License.
 package initializer
 
 import (
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 // WantsSharedInformerFactory is an interface for setting SharedInformerFactory
@@ -30,9 +29,9 @@ type WantsSharedInformerFactory interface {
 	SetSharedInformerFactory(factory informers.SharedInformerFactory) error
 }
 
-// WantsYurtSharedInformerFactory is an interface for setting Yurt-App-Manager SharedInformerFactory
-type WantsYurtSharedInformerFactory interface {
-	SetYurtSharedInformerFactory(yurtFactory yurtinformers.SharedInformerFactory) error
+// WantsNodePoolInformerFactory is an interface for setting NodePool CRD SharedInformerFactory
+type WantsNodePoolInformerFactory interface {
+	SetNodePoolInformerFactory(factory dynamicinformer.DynamicSharedInformerFactory) error
 }
 
 // WantsNodeName is an interface for setting node name
@@ -45,59 +44,46 @@ type WantsNodePoolName interface {
 	SetNodePoolName(nodePoolName string) error
 }
 
-// WantsStorageWrapper is an interface for setting StorageWrapper
-type WantsStorageWrapper interface {
-	SetStorageWrapper(s cachemanager.StorageWrapper) error
-}
-
 // WantsMasterServiceAddr is an interface for setting mutated master service address
 type WantsMasterServiceAddr interface {
 	SetMasterServiceHost(host string) error
 	SetMasterServicePort(port string) error
 }
 
-// WantsWorkingMode is an interface for setting working mode
-type WantsWorkingMode interface {
-	SetWorkingMode(mode util.WorkingMode) error
+// WantsKubeClient is an interface for setting kube client
+type WantsKubeClient interface {
+	SetKubeClient(client kubernetes.Interface) error
 }
 
 // genericFilterInitializer is responsible for initializing generic filter
 type genericFilterInitializer struct {
 	factory           informers.SharedInformerFactory
-	yurtFactory       yurtinformers.SharedInformerFactory
-	storageWrapper    cachemanager.StorageWrapper
+	nodePoolFactory   dynamicinformer.DynamicSharedInformerFactory
 	nodeName          string
 	nodePoolName      string
 	masterServiceHost string
 	masterServicePort string
-	workingMode       util.WorkingMode
+	client            kubernetes.Interface
 }
 
 // New creates an filterInitializer object
 func New(factory informers.SharedInformerFactory,
-	yurtFactory yurtinformers.SharedInformerFactory,
-	sw cachemanager.StorageWrapper,
-	nodeName, nodePoolName, masterServiceHost, masterServicePort string,
-	workingMode util.WorkingMode) *genericFilterInitializer {
+	nodePoolFactory dynamicinformer.DynamicSharedInformerFactory,
+	kubeClient kubernetes.Interface,
+	nodeName, nodePoolName, masterServiceHost, masterServicePort string) filter.Initializer {
 	return &genericFilterInitializer{
 		factory:           factory,
-		yurtFactory:       yurtFactory,
-		storageWrapper:    sw,
+		nodePoolFactory:   nodePoolFactory,
 		nodeName:          nodeName,
+		nodePoolName:      nodePoolName,
 		masterServiceHost: masterServiceHost,
 		masterServicePort: masterServicePort,
-		workingMode:       workingMode,
+		client:            kubeClient,
 	}
 }
 
 // Initialize used for executing filter initialization
 func (fi *genericFilterInitializer) Initialize(ins filter.ObjectFilter) error {
-	if wants, ok := ins.(WantsWorkingMode); ok {
-		if err := wants.SetWorkingMode(fi.workingMode); err != nil {
-			return err
-		}
-	}
-
 	if wants, ok := ins.(WantsNodeName); ok {
 		if err := wants.SetNodeName(fi.nodeName); err != nil {
 			return err
@@ -126,14 +112,14 @@ func (fi *genericFilterInitializer) Initialize(ins filter.ObjectFilter) error {
 		}
 	}
 
-	if wants, ok := ins.(WantsYurtSharedInformerFactory); ok {
-		if err := wants.SetYurtSharedInformerFactory(fi.yurtFactory); err != nil {
+	if wants, ok := ins.(WantsNodePoolInformerFactory); ok {
+		if err := wants.SetNodePoolInformerFactory(fi.nodePoolFactory); err != nil {
 			return err
 		}
 	}
 
-	if wants, ok := ins.(WantsStorageWrapper); ok {
-		if err := wants.SetStorageWrapper(fi.storageWrapper); err != nil {
+	if wants, ok := ins.(WantsKubeClient); ok {
+		if err := wants.SetKubeClient(fi.client); err != nil {
 			return err
 		}
 	}

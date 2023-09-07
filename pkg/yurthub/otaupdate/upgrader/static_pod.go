@@ -29,10 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	spctrlutil "github.com/openyurtio/openyurt/pkg/controller/yurtstaticset/util"
 	upgrade "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade"
 	upgradeutil "github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
+	spctrlutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
 const OTA = "OTA"

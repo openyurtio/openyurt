@@ -29,7 +29,12 @@ import (
 
 // RunJoinNode executes the node join process.
 func RunJoinNode(data joindata.YurtJoinData, out io.Writer, outErr io.Writer) error {
-	kubeadmJoinConfigFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
+	var kubeadmJoinConfigFilePath string
+	if data.CfgPath() != "" {
+		kubeadmJoinConfigFilePath = data.CfgPath()
+	} else {
+		kubeadmJoinConfigFilePath = filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
+	}
 	kubeadmCmd := exec.Command("kubeadm", "join", fmt.Sprintf("--config=%s", kubeadmJoinConfigFilePath))
 	kubeadmCmd.Stdout = out
 	kubeadmCmd.Stderr = outErr

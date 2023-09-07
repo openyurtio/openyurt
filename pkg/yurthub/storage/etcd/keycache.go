@@ -26,9 +26,9 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 type storageKeySet map[storageKey]struct{}
@@ -99,7 +99,7 @@ func (c *componentKeyCache) Recover() error {
 		return fmt.Errorf("failed to get pool-scoped keys, %v", err)
 	}
 	// Overwrite the data we recovered from local disk, if any. Because we
-	// only respect to the resources stored in pool-coordinator to recover the
+	// only respect to the resources stored in yurt-coordinator to recover the
 	// pool-scoped keys.
 	c.cache[coordinatorconstants.DefaultPoolScopedUserAgent] = *poolScopedKeyset
 
@@ -108,9 +108,12 @@ func (c *componentKeyCache) Recover() error {
 
 func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
 	keys := &keyCache{m: make(map[schema.GroupVersionResource]storageKeySet)}
-	for _, gvr := range c.poolScopedResourcesGetter() {
+	getFunc := func(key string) (*clientv3.GetResponse, error) {
 		getCtx, cancel := context.WithTimeout(c.ctx, defaultTimeout)
 		defer cancel()
+		return c.etcdClient.Get(getCtx, key, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	}
+	for _, gvr := range c.poolScopedResourcesGetter() {
 		rootKey, err := c.keyFunc(storage.KeyBuildInfo{
 			Component: coordinatorconstants.DefaultPoolScopedUserAgent,
 			Group:     gvr.Group,
@@ -120,7 +123,7 @@ func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate keys for %s, %v", gvr.String(), err)
 		}
-		getResp, err := c.etcdClient.Get(getCtx, rootKey.Key(), clientv3.WithPrefix(), clientv3.WithKeysOnly())
+		getResp, err := getFunc(rootKey.Key())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get from etcd for %s, %v", gvr.String(), err)
 		}

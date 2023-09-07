@@ -19,7 +19,6 @@ package init
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,7 +39,9 @@ import (
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
+	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
 	"github.com/openyurtio/openyurt/test/e2e/cmd/init/lock"
 	kubeutil "github.com/openyurtio/openyurt/test/e2e/cmd/init/util/kubernetes"
 )
@@ -48,6 +49,8 @@ import (
 const (
 	// defaultYurthubHealthCheckTimeout defines the default timeout for yurthub health check phase
 	defaultYurthubHealthCheckTimeout = 2 * time.Minute
+	yssYurtHubCloudName              = "yurt-static-set-yurt-hub-cloud"
+	yssYurtHubName                   = "yurt-static-set-yurt-hub"
 )
 
 type ClusterConverter struct {
@@ -125,12 +128,43 @@ func (c *ClusterConverter) deployYurthub() error {
 		// The node-servant will detect the kubeadm_conf_path automatically
 		// It will be either "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
 		// or "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf".
-		"kubeadm_conf_path": "",
-		"working_mode":      string(util.WorkingModeEdge),
-		"enable_dummy_if":   strconv.FormatBool(c.EnableDummyIf),
+		"kubeadm_conf_path":    "",
+		"working_mode":         string(util.WorkingModeEdge),
+		"enable_dummy_if":      strconv.FormatBool(c.EnableDummyIf),
+		"kubernetesServerAddr": "{{.kubernetesServerAddr}}",
 	}
 	if c.YurthubHealthCheckTimeout != defaultYurthubHealthCheckTimeout {
 		convertCtx["yurthub_healthcheck_timeout"] = c.YurthubHealthCheckTimeout.String()
+	}
+
+	// create the yurthub-cloud and yurthub yss
+	tempDir, err := os.MkdirTemp(c.RootDir, "yurt-hub")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+	tempFile := filepath.Join(tempDir, "yurthub-cloud-yurtstaticset.yaml")
+	yssYurtHubCloud, err := tmplutil.SubsituteTemplate(constants.YurthubCloudYurtStaticSet, convertCtx)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tempFile, []byte(yssYurtHubCloud), 0644); err != nil {
+		return err
+	}
+	if err = c.ComponentsBuilder.InstallComponents(tempFile, false); err != nil {
+		return err
+	}
+
+	tempFile = filepath.Join(tempDir, "yurthub-yurtstaticset.yaml")
+	yssYurtHub, err := tmplutil.SubsituteTemplate(constants.YurthubYurtStaticSet, convertCtx)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(tempFile, []byte(yssYurtHub), 0644); err != nil {
+		return err
+	}
+	if err = c.ComponentsBuilder.InstallComponents(tempFile, false); err != nil {
+		return err
 	}
 
 	npExist, err := nodePoolResourceExists(c.ClientSet)
@@ -142,6 +176,7 @@ func (c *ClusterConverter) deployYurthub() error {
 
 	if len(c.EdgeNodes) != 0 {
 		convertCtx["working_mode"] = string(util.WorkingModeEdge)
+		convertCtx["configmap_name"] = yssYurtHubName
 		if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 			return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 		}, c.EdgeNodes, os.Stderr, false); err != nil {
@@ -176,6 +211,7 @@ func (c *ClusterConverter) deployYurthub() error {
 
 	// deploy yurt-hub and reset the kubelet service on cloud nodes
 	convertCtx["working_mode"] = string(util.WorkingModeCloud)
+	convertCtx["configmap_name"] = yssYurtHubCloudName
 	klog.Infof("convert context for cloud nodes(%q): %#+v", c.CloudNodes, convertCtx)
 	if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
 		return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
@@ -254,7 +290,10 @@ func (c *ClusterConverter) deployYurtManager() error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(renderedFile)
+
+	// get renderedFile parent dir
+	renderedFileDir := filepath.Dir(renderedFile)
+	defer os.RemoveAll(renderedFileDir)
 	if err := c.ComponentsBuilder.InstallComponents(renderedFile, false); err != nil {
 		return err
 	}
@@ -284,25 +323,30 @@ func (c *ClusterConverter) deployYurtManager() error {
 		if podList.Items[0].Status.Phase == corev1.PodRunning {
 			for i := range podList.Items[0].Status.Conditions {
 				if podList.Items[0].Status.Conditions[i].Type == corev1.PodReady &&
-					podList.Items[0].Status.Conditions[i].Status == corev1.ConditionTrue {
-					return true, nil
+					podList.Items[0].Status.Conditions[i].Status != corev1.ConditionTrue {
+					klog.Infof("pod(%s/%s): %#v", podList.Items[0].Namespace, podList.Items[0].Name, podList.Items[0])
+					return false, nil
+				}
+				if podList.Items[0].Status.Conditions[i].Type == corev1.ContainersReady &&
+					podList.Items[0].Status.Conditions[i].Status != corev1.ConditionTrue {
+					klog.Info("yurt manager's container is not ready")
+					return false, nil
 				}
 			}
 		}
-		klog.Infof("pod(%s/%s): %#v", podList.Items[0].Namespace, podList.Items[0].Name, podList.Items[0])
-		return false, nil
+		return true, nil
 	})
 }
 
 // generatedAutoGeneratedTempFile will replace {{ .Release.Namespace }} with ns in webhooks
 func generatedAutoGeneratedTempFile(root, ns string) (string, error) {
-	tempDir, err := ioutil.TempDir(root, "yurt-manager")
+	tempDir, err := os.MkdirTemp(root, "yurt-manager")
 	if err != nil {
 		return "", err
 	}
 
 	autoGeneratedYaml := filepath.Join(root, "charts/yurt-manager/templates/yurt-manager-auto-generated.yaml")
-	contents, err := ioutil.ReadFile(autoGeneratedYaml)
+	contents, err := os.ReadFile(autoGeneratedYaml)
 	if err != nil {
 		return "", err
 	}
@@ -317,5 +361,5 @@ func generatedAutoGeneratedTempFile(root, ns string) (string, error) {
 
 	tempFile := filepath.Join(tempDir, "yurt-manager-auto-generated.yaml")
 	klog.Infof("rendered yurt-manager-auto-generated.yaml file: \n%s\n", newContents)
-	return tempFile, ioutil.WriteFile(tempFile, []byte(newContents), 0644)
+	return tempFile, os.WriteFile(tempFile, []byte(newContents), 0644)
 }

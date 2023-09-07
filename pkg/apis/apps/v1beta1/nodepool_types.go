@@ -26,8 +26,6 @@ type NodePoolType string
 const (
 	Edge  NodePoolType = "Edge"
 	Cloud NodePoolType = "Cloud"
-
-	NodePoolTypeLabelKey = "openyurt.io/node-pool-type"
 )
 
 // NodePoolSpec defines the desired state of NodePool
@@ -36,9 +34,11 @@ type NodePoolSpec struct {
 	// +optional
 	Type NodePoolType `json:"type,omitempty"`
 
-	// A label query over nodes to consider for adding to the pool
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	// HostNetwork is used to specify that cni components(like flannel)
+	// will not be installed on the nodes of this NodePool.
+	// This means all pods on the nodes of this NodePool will use
+	// HostNetwork and share network namespace with host machine.
+	HostNetwork bool `json:"hostNetwork,omitempty"`
 
 	// If specified, the Labels will be added to all nodes.
 	// NOTE: existing labels with samy keys on the nodes will be overwritten.
@@ -80,6 +80,7 @@ type NodePoolStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +genclient:nonNamespaced
+// +kubebuilder:storageversion
 
 // NodePool is the Schema for the nodepools API
 type NodePool struct {

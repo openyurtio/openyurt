@@ -37,8 +37,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator"
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/poolcoordinator/constants"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/pool"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
@@ -46,6 +44,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator"
+	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 type yurtReverseProxy struct {
@@ -59,7 +59,7 @@ type yurtReverseProxy struct {
 	tenantMgr                     tenant.Interface
 	isCoordinatorReady            func() bool
 	workingMode                   hubutil.WorkingMode
-	enablePoolCoordinator         bool
+	enableYurtCoordinator         bool
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -70,7 +70,7 @@ func NewYurtReverseProxyHandler(
 	transportMgr transport.Interface,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
 	tenantMgr tenant.Interface,
-	coordinatorGetter func() poolcoordinator.Coordinator,
+	coordinatorGetter func() yurtcoordinator.Coordinator,
 	coordinatorTransportMgrGetter func() transport.Interface,
 	coordinatorHealthCheckerGetter func() healthchecker.HealthChecker,
 	coordinatorServerURLGetter func() *url.URL,
@@ -123,7 +123,7 @@ func NewYurtReverseProxyHandler(
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 
 		if yurtHubCfg.EnableCoordinator {
-			poolProxy, err = pool.NewPoolCoordinatorProxy(
+			poolProxy, err = pool.NewYurtCoordinatorProxy(
 				localCacheMgr,
 				coordinatorTransportMgrGetter,
 				coordinatorServerURLGetter,
@@ -145,7 +145,7 @@ func NewYurtReverseProxyHandler(
 		poolProxy:                     poolProxy,
 		maxRequestsInFlight:           yurtHubCfg.MaxRequestInFlight,
 		isCoordinatorReady:            isCoordinatorReady,
-		enablePoolCoordinator:         yurtHubCfg.EnableCoordinator,
+		enableYurtCoordinator:         yurtHubCfg.EnableCoordinator,
 		tenantMgr:                     tenantMgr,
 		workingMode:                   yurtHubCfg.WorkingMode,
 	}
@@ -167,7 +167,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler)
 
-	if p.enablePoolCoordinator {
+	if p.enableYurtCoordinator {
 		handler = util.WithIfPoolScopedResource(handler)
 	}
 
@@ -198,7 +198,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
 	default:
-		// For resource request that do not need to be handled by pool-coordinator,
+		// For resource request that do not need to be handled by yurt-coordinator,
 		// handling the request with cloud apiserver or local cache.
 		if p.cloudHealthChecker.IsHealthy() {
 			p.loadBalancer.ServeHTTP(rw, req)
@@ -223,7 +223,7 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Request) {
 	if p.cloudHealthChecker.IsHealthy() {
 		p.loadBalancer.ServeHTTP(rw, req)
-		// TODO: We should also consider create the event in pool-coordinator when the cloud is healthy.
+		// TODO: We should also consider create the event in yurt-coordinator when the cloud is healthy.
 	} else if p.isCoordinatorReady() && p.poolProxy != nil {
 		p.poolProxy.ServeHTTP(rw, req)
 	} else {
@@ -251,14 +251,14 @@ func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req 
 }
 
 func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
-	if isSubjectAccessReviewFromPoolCoordinator(req) {
-		// check if the logs/exec request is from APIServer or PoolCoordinator.
-		// We should avoid sending SubjectAccessReview to Pool-Coordinator if the logs/exec requests
+	if isSubjectAccessReviewFromYurtCoordinator(req) {
+		// check if the logs/exec request is from APIServer or YurtCoordinator.
+		// We should avoid sending SubjectAccessReview to Yurt-Coordinator if the logs/exec requests
 		// come from APIServer, which may fail for RBAC differences, vise versa.
 		if p.isCoordinatorReady() {
 			p.poolProxy.ServeHTTP(rw, req)
 		} else {
-			err := errors.New("request is from pool-coordinator but it's currently not healthy")
+			err := errors.New("request is from yurt-coordinator but it's currently not healthy")
 			klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
 			util.Err(err, rw, req)
 		}
@@ -273,7 +273,7 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 	}
 }
 
-func isSubjectAccessReviewFromPoolCoordinator(req *http.Request) bool {
+func isSubjectAccessReviewFromYurtCoordinator(req *http.Request) bool {
 	var buf bytes.Buffer
 	if n, err := buf.ReadFrom(req.Body); err != nil || n == 0 {
 		klog.Errorf("failed to read SubjectAccessReview from request %s, read %d bytes, %v", hubutil.ReqString(req), n, err)
@@ -299,12 +299,12 @@ func isSubjectAccessReviewFromPoolCoordinator(req *http.Request) bool {
 
 	sav := got.(*v1.SubjectAccessReview)
 	for _, g := range sav.Spec.Groups {
-		if g == "openyurt:pool-coordinator" {
+		if g == "openyurt:yurt-coordinator" {
 			return true
 		}
 	}
 
-	klog.V(4).Infof("SubjectAccessReview in request %s is not for pool-coordinator, whose group: %s, user: %s",
+	klog.V(4).Infof("SubjectAccessReview in request %s is not for yurt-coordinator, whose group: %s, user: %s",
 		hubutil.ReqString(req), strings.Join(sav.Spec.Groups, ";"), sav.Spec.User)
 	return false
 }

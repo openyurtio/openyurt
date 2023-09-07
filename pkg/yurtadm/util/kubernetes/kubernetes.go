@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
@@ -61,6 +63,9 @@ var (
 	PropagationPolicy = metav1.DeletePropagationBackground
 
 	ErrClusterVersionEmpty = errors.New("cluster version should not be empty")
+
+	// BootstrapTokenRegexp is a compiled regular expression of TokenRegexpString
+	BootstrapTokenRegexp = regexp.MustCompile(constants.BootstrapTokenPattern)
 )
 
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
@@ -178,7 +183,7 @@ func CheckAndInstallKubernetesCni(reuseCNIBin bool) error {
 		klog.V(1).Infof("Skip download cni, use already exist file: %s", savePath)
 	}
 
-	if err := os.MkdirAll(constants.KubeCniDir, 0600); err != nil {
+	if err := os.MkdirAll(constants.KubeCniDir, 0755); err != nil {
 		return err
 	}
 	if err := util.Untar(savePath, constants.KubeCniDir); err != nil {
@@ -270,6 +275,21 @@ func SetKubeletService() error {
 	return nil
 }
 
+// EnableKubeletService enable kubelet service
+func EnableKubeletService() error {
+	initSystem, err := initsystem.GetInitSystem()
+	if err != nil {
+		return err
+	}
+
+	if !initSystem.ServiceIsEnabled("kubelet") {
+		if err = initSystem.ServiceEnable("kubelet"); err != nil {
+			return fmt.Errorf("enable kubelet service failed")
+		}
+	}
+	return nil
+}
+
 // SetKubeletUnitConfig configure kubelet startup parameters.
 func SetKubeletUnitConfig() error {
 	kubeletUnitDir := filepath.Dir(constants.KubeletServiceConfPath)
@@ -285,7 +305,7 @@ func SetKubeletUnitConfig() error {
 		}
 	}
 
-	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0600); err != nil {
+	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0640); err != nil {
 		return err
 	}
 
@@ -489,14 +509,14 @@ func CheckKubeletStatus() error {
 	return nil
 }
 
-// GetYurthubTemplateFromStaticPod get yurthub template from static pod
-func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace, name string) (string, string, error) {
+// GetStaticPodTemplateFromConfigMap get static pod template from configmap
+func GetStaticPodTemplateFromConfigMap(client kubernetes.Interface, namespace, name string) (string, string, error) {
 	configMap, err := apiclient.GetConfigMapWithRetry(
 		client,
 		namespace,
 		name)
 	if err != nil {
-		return "", "", pkgerrors.Wrap(err, "failed to get configmap of yurthub yurtstaticset")
+		return "", "", pkgerrors.Errorf("failed to get configmap of %s/%s yurtstaticset, err: %+v", namespace, name, err)
 	}
 
 	if len(configMap.Data) == 1 {
@@ -506,4 +526,28 @@ func GetYurthubTemplateFromStaticPod(client kubernetes.Interface, namespace, nam
 	}
 
 	return "", "", fmt.Errorf("invalid manifest in configmap %s", name)
+}
+
+// GetDefaultClientSet return client set created by /etc/kubernetes/kubelet.conf
+func GetDefaultClientSet() (*kubernetes.Clientset, error) {
+	kubeConfig := filepath.Join(constants.KubeletConfigureDir, constants.KubeletKubeConfigFileName)
+	if _, err := os.Stat(kubeConfig); err != nil && os.IsNotExist(err) {
+		return nil, err
+	}
+
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("fail to create the clientset based on %s: %w", kubeConfig, err)
+	}
+	cliSet, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cliSet, nil
+}
+
+// IsValidBootstrapToken returns whether the given string is valid as a Bootstrap Token and
+// in other words satisfies the BootstrapTokenRegexp
+func IsValidBootstrapToken(token string) bool {
+	return BootstrapTokenRegexp.MatchString(token)
 }

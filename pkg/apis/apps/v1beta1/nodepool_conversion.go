@@ -16,46 +16,11 @@ limitations under the License.
 
 package v1beta1
 
-import (
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
+/*
+Implementing the hub method is pretty easy -- we just have to add an empty
+method called `Hub()` to serve as a
+[marker](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/conversion?tab=doc#Hub).
+*/
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-)
-
-func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1alpha1.NodePool)
-
-	dst.ObjectMeta = src.ObjectMeta
-
-	dst.Spec.Type = v1alpha1.NodePoolType(src.Spec.Type)
-	dst.Spec.Selector = src.Spec.Selector
-	dst.Spec.Annotations = src.Spec.Annotations
-	dst.Spec.Taints = src.Spec.Taints
-
-	dst.Status.ReadyNodeNum = src.Status.ReadyNodeNum
-	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
-	dst.Status.Nodes = src.Status.Nodes
-
-	klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
-
-	return nil
-}
-
-func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1alpha1.NodePool)
-
-	dst.ObjectMeta = src.ObjectMeta
-
-	dst.Spec.Type = NodePoolType(src.Spec.Type)
-	dst.Spec.Selector = src.Spec.Selector
-	dst.Spec.Annotations = src.Spec.Annotations
-	dst.Spec.Taints = src.Spec.Taints
-
-	dst.Status.ReadyNodeNum = src.Status.ReadyNodeNum
-	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
-	dst.Status.Nodes = src.Status.Nodes
-
-	klog.Infof("convert from v1alpha1 to v1beta1 for %s", dst.Name)
-	return nil
-}
+// Hub marks this type as a conversion hub.
+func (*NodePool) Hub() {}

@@ -100,6 +100,7 @@ spec:
             - --metrics-addr=:10271
             - --health-probe-addr=:10272
             - --webhook-port=10273
+            - --controllers=*
             - --logtostderr=true
             - --v=4
           command:
@@ -186,5 +187,138 @@ data:
   servicetopology: ""
   discardcloudservice: ""
   masterservice: ""
+`
+
+	YurthubCloudYurtStaticSet = `
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtStaticSet
+metadata:
+  name: yurt-hub-cloud
+  namespace: "kube-system"
+spec:
+  staticPodManifest: yurthub
+  template:
+    metadata:
+      labels:
+        k8s-app: yurt-hub-cloud
+    spec:
+      volumes:
+        - name: hub-dir
+          hostPath:
+            path: /var/lib/yurthub
+            type: DirectoryOrCreate
+        - name: kubernetes
+          hostPath:
+            path: /etc/kubernetes
+            type: Directory
+      containers:
+        - name: yurt-hub
+          image: {{.yurthub_image}}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: hub-dir
+              mountPath: /var/lib/yurthub
+            - name: kubernetes
+              mountPath: /etc/kubernetes
+          command:
+            - yurthub
+            - --v=2
+            - --bind-address=127.0.0.1
+            - --server-addr={{.kubernetesServerAddr}}
+            - --node-name=$(NODE_NAME)
+            - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
+            - --working-mode=cloud
+            - --namespace="kube-system"
+          livenessProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /v1/healthz
+              port: 10267
+            initialDelaySeconds: 300
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 150m
+              memory: 150Mi
+            limits:
+              memory: 300Mi
+          securityContext:
+            capabilities:
+              add: [ "NET_ADMIN", "NET_RAW" ]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      priority: 2000001000
+`
+	YurthubYurtStaticSet = `
+apiVersion: apps.openyurt.io/v1alpha1
+kind: YurtStaticSet
+metadata:
+  name: yurt-hub
+  namespace: "kube-system"
+spec:
+  staticPodManifest: yurthub
+  template:
+    metadata:
+      labels:
+        k8s-app: yurt-hub
+    spec:
+      volumes:
+        - name: hub-dir
+          hostPath:
+            path: /var/lib/yurthub
+            type: DirectoryOrCreate
+        - name: kubernetes
+          hostPath:
+            path: /etc/kubernetes
+            type: Directory
+      containers:
+        - name: yurt-hub
+          image: {{.yurthub_image}}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: hub-dir
+              mountPath: /var/lib/yurthub
+            - name: kubernetes
+              mountPath: /etc/kubernetes
+          command:
+            - yurthub
+            - --v=2
+            - --bind-address=127.0.0.1
+            - --server-addr={{.kubernetesServerAddr}}
+            - --node-name=$(NODE_NAME)
+            - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
+            - --working-mode=edge
+            - --namespace="kube-system"
+          livenessProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /v1/healthz
+              port: 10267
+            initialDelaySeconds: 300
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 150m
+              memory: 150Mi
+            limits:
+              memory: 300Mi
+          securityContext:
+            capabilities:
+              add: [ "NET_ADMIN", "NET_RAW" ]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      priority: 2000001000
 `
 )

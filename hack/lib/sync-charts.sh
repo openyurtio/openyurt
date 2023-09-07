@@ -28,14 +28,14 @@ git config --global user.email "openyurt-bot@openyurt.io"
 git config --global user.name "openyurt-bot"
 git clone --single-branch --depth 1 git@github.com:openyurtio/openyurt-helm.git openyurt-helm
 
-echo "clear openyurt-helm charts/pool-coordinator"
+echo "clear openyurt-helm charts/yurt-coordinator"
 
-if [ -d "openyurt-helm/charts/pool-coordinator" ]
+if [ -d "openyurt-helm/charts/yurt-coordinator" ]
 then
-    echo "charts pool-coordinator exists, remove it"
-    rm -r openyurt-helm/charts/pool-coordinator/*
+    echo "charts yurt-coordinator exists, remove it"
+    rm -r openyurt-helm/charts/yurt-coordinator/*
 else
-    mkdir -p openyurt-helm/charts/pool-coordinator
+    mkdir -p openyurt-helm/charts/yurt-coordinator
 fi
 
 echo "clear openyurt-helm charts/yurt-manager"
@@ -60,7 +60,7 @@ fi
 
 echo "copy folder openyurt/charts to openyurt-helm/charts"
 
-cp -R openyurt/charts/pool-coordinator/* openyurt-helm/charts/pool-coordinator/
+cp -R openyurt/charts/yurt-coordinator/* openyurt-helm/charts/yurt-coordinator/
 cp -R openyurt/charts/yurt-manager/* openyurt-helm/charts/yurt-manager/
 cp -R openyurt/charts/yurthub/* openyurt-helm/charts/yurthub/
 

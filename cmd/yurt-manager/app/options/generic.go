@@ -18,14 +18,14 @@ package options
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/openyurtio/openyurt/pkg/controller/apis/config"
 	"github.com/openyurtio/openyurt/pkg/features"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/apis/config"
 )
-
-const enableAll = "*"
 
 type GenericOptions struct {
 	*config.GenericConfiguration
@@ -43,14 +43,13 @@ func NewGenericOptions() *GenericOptions {
 			RestConfigQPS:           30,
 			RestConfigBurst:         50,
 			WorkingNamespace:        "kube-system",
-			Controllers:             []string{enableAll},
 			DisabledWebhooks:        []string{},
 		},
 	}
 }
 
 // Validate checks validation of GenericOptions.
-func (o *GenericOptions) Validate() []error {
+func (o *GenericOptions) Validate(allControllers []string, controllerAliases map[string]string) []error {
 	if o == nil {
 		return nil
 	}
@@ -59,11 +58,26 @@ func (o *GenericOptions) Validate() []error {
 	if o.WebhookPort == 0 {
 		errs = append(errs, fmt.Errorf("webhook server can not be switched off with 0"))
 	}
+
+	allControllersSet := sets.NewString(allControllers...)
+	for _, initialName := range o.Controllers {
+		if initialName == "*" {
+			continue
+		}
+		initialNameWithoutPrefix := strings.TrimPrefix(initialName, "-")
+		controllerName := initialNameWithoutPrefix
+		if canonicalName, ok := controllerAliases[controllerName]; ok {
+			controllerName = canonicalName
+		}
+		if !allControllersSet.Has(controllerName) {
+			errs = append(errs, fmt.Errorf("%q is not in the list of known controllers", initialNameWithoutPrefix))
+		}
+	}
 	return errs
 }
 
 // ApplyTo fills up generic config with options.
-func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
+func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration, controllerAliases map[string]string) error {
 	if o == nil {
 		return nil
 	}
@@ -77,14 +91,26 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration) error {
 	cfg.RestConfigQPS = o.RestConfigQPS
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
-	cfg.Controllers = o.Controllers
+
+	cfg.Controllers = make([]string, len(o.Controllers))
+	for i, initialName := range o.Controllers {
+		initialNameWithoutPrefix := strings.TrimPrefix(initialName, "-")
+		controllerName := initialNameWithoutPrefix
+		if canonicalName, ok := controllerAliases[controllerName]; ok {
+			controllerName = canonicalName
+		}
+		if strings.HasPrefix(initialName, "-") {
+			controllerName = fmt.Sprintf("-%s", controllerName)
+		}
+		cfg.Controllers[i] = controllerName
+	}
 	cfg.DisabledWebhooks = o.DisabledWebhooks
 
 	return nil
 }
 
 // AddFlags adds flags related to generic for yurt-manager to the specified FlagSet.
-func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
+func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, allControllers, disabledByDefaultControllers []string) {
 	if o == nil {
 		return
 	}
@@ -94,14 +120,14 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr, "The address the healthz/readyz endpoint binds to.")
 	fs.IntVar(&o.WebhookPort, "webhook-port", o.WebhookPort, "The port on which to serve HTTPS for webhook server. It can't be switched off with 0")
 	fs.BoolVar(&o.EnableLeaderElection, "enable-leader-election", o.EnableLeaderElection, "Whether you need to enable leader election.")
-
 	fs.IntVar(&o.RestConfigQPS, "rest-config-qps", o.RestConfigQPS, "rest-config-qps.")
 	fs.IntVar(&o.RestConfigBurst, "rest-config-burst", o.RestConfigBurst, "rest-config-burst.")
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")
-	fs.StringSliceVar(&o.Controllers, "controllers", o.Controllers, "A list of controllers to enable. "+
-		"'*' enables all on-by-default controllers, 'foo' enables the controller named 'foo', '-foo' disables the controller named 'foo'.")
+	fs.StringSliceVar(&o.Controllers, "controllers", o.Controllers, fmt.Sprintf("A list of controllers to enable. '*' enables all on-by-default controllers, 'foo' enables the controller "+
+		"named 'foo', '-foo' disables the controller named 'foo'.\nAll controllers: %s\nDisabled-by-default controllers: %s",
+		strings.Join(allControllers, ", "), strings.Join(disabledByDefaultControllers, ", ")))
 	fs.StringSliceVar(&o.DisabledWebhooks, "disable-independent-webhooks", o.DisabledWebhooks, "A list of webhooks to disable. "+
-		"'*' disables all webhooks, 'foo' disables the webhook named 'foo'.")
+		"'*' disables all independent webhooks, 'foo' disables the independent webhook named 'foo'.")
 
 	features.DefaultMutableFeatureGate.AddFlag(fs)
 }

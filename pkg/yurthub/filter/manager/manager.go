@@ -22,12 +22,14 @@ import (
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/hostnetworkpropagation"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
@@ -35,7 +37,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 type Manager struct {
@@ -46,9 +47,9 @@ type Manager struct {
 
 func NewFilterManager(options *options.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
-	yurtSharedFactory yurtinformers.SharedInformerFactory,
+	nodePoolFactory dynamicinformer.DynamicSharedInformerFactory,
+	proxiedClient kubernetes.Interface,
 	serializerManager *serializer.SerializerManager,
-	storageWrapper cachemanager.StorageWrapper,
 	apiserverAddr string) (*Manager, error) {
 	if !options.EnableResourceFilter {
 		return nil, nil
@@ -70,7 +71,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	objFilters, err := createObjectFilters(filters, sharedFactory, yurtSharedFactory, storageWrapper, util.WorkingMode(options.WorkingMode), options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(filters, sharedFactory, nodePoolFactory, proxiedClient, options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -113,15 +114,14 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 // createObjectFilters return all object filters that initializations completed.
 func createObjectFilters(filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
-	yurtSharedFactory yurtinformers.SharedInformerFactory,
-	storageWrapper cachemanager.StorageWrapper,
-	workingMode util.WorkingMode,
+	nodePoolFactory dynamicinformer.DynamicSharedInformerFactory,
+	proxiedClient kubernetes.Interface,
 	nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, yurtSharedFactory, storageWrapper, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort, workingMode)
+	genericInitializer := initializer.New(sharedFactory, nodePoolFactory, proxiedClient, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
 	initializerChain := filter.Initializers{}
 	initializerChain = append(initializerChain, genericInitializer)
 	return filters.NewFromFilters(initializerChain)
@@ -135,4 +135,5 @@ func registerAllFilters(filters *filter.Filters) {
 	discardcloudservice.Register(filters)
 	inclusterconfig.Register(filters)
 	nodeportisolation.Register(filters)
+	hostnetworkpropagation.Register(filters)
 }

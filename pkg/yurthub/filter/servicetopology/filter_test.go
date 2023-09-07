@@ -17,7 +17,6 @@ limitations under the License.
 package servicetopology
 
 import (
-	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -27,26 +26,29 @@ import (
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
-	nodepoolv1alpha1 "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/apis/apps/v1alpha1"
-	yurtfake "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/clientset/versioned/fake"
-	yurtinformers "github.com/openyurtio/yurt-app-manager-api/pkg/yurtappmanager/client/informers/externalversions"
 )
 
 func TestName(t *testing.T) {
-	stf := &serviceTopologyFilter{}
+	stf, _ := NewServiceTopologyFilter()
 	if stf.Name() != filter.ServiceTopologyFilterName {
 		t.Errorf("expect %s, but got %s", filter.ServiceTopologyFilterName, stf.Name())
 	}
 }
 
 func TestSupportedResourceAndVerbs(t *testing.T) {
-	stf := &serviceTopologyFilter{}
+	stf, _ := NewServiceTopologyFilter()
 	rvs := stf.SupportedResourceAndVerbs()
 	if len(rvs) != 2 {
 		t.Errorf("supported not two resources, %v", rvs)
@@ -64,17 +66,25 @@ func TestSupportedResourceAndVerbs(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "apps.openyurt.io", Version: "v1beta1", Resource: "nodepools"}: "NodePoolList",
+	}
 	currentNodeName := "node1"
 	nodeName2 := "node2"
 	nodeName3 := "node3"
 
 	testcases := map[string]struct {
+		poolName       string
+		nodeName       string
 		responseObject runtime.Object
 		kubeClient     *k8sfake.Clientset
-		yurtClient     *yurtfake.Clientset
+		yurtClient     *fake.FakeDynamicClient
 		expectObject   runtime.Object
 	}{
 		"v1beta1.EndpointSliceList: topologyKeys is kubernetes.io/hostname": {
+			poolName: "hangzhou",
 			responseObject: &discoveryV1beta1.EndpointSliceList{
 				Items: []discoveryV1beta1.EndpointSlice{
 					{
@@ -127,7 +137,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -135,7 +145,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -143,7 +153,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -157,29 +167,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -219,6 +229,7 @@ func TestFilter(t *testing.T) {
 			},
 		},
 		"v1beta1.EndpointSliceList: topologyKeys is openyurt.io/nodepool": {
+			poolName: "hangzhou",
 			responseObject: &discoveryV1beta1.EndpointSliceList{
 				Items: []discoveryV1beta1.EndpointSlice{
 					{
@@ -271,7 +282,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -279,7 +290,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -287,7 +298,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -301,29 +312,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -423,7 +434,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -431,7 +442,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -439,7 +450,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -453,29 +464,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -575,7 +586,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -583,7 +594,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -591,7 +602,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -603,29 +614,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -739,7 +750,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -747,7 +758,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -761,28 +772,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -874,7 +885,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -882,7 +893,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -890,7 +901,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -904,29 +915,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1000,7 +1011,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1008,7 +1019,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1016,7 +1027,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1030,29 +1041,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
@@ -1123,7 +1134,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1131,7 +1142,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1139,7 +1150,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1153,29 +1164,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
@@ -1272,7 +1283,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1280,7 +1291,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1288,7 +1299,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1302,29 +1313,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1404,7 +1415,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1412,7 +1423,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1420,7 +1431,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1434,29 +1445,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1542,7 +1553,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1550,7 +1561,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1558,7 +1569,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1572,29 +1583,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1680,7 +1691,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1688,7 +1699,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1696,7 +1707,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1708,29 +1719,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1828,7 +1839,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1836,7 +1847,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1850,28 +1861,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -1939,7 +1950,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -1947,7 +1958,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1955,7 +1966,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -1969,28 +1980,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -2045,7 +2056,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2053,7 +2064,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2061,7 +2072,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2075,28 +2086,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -2160,7 +2171,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2168,7 +2179,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2176,7 +2187,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2190,29 +2201,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2290,7 +2301,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2298,7 +2309,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2306,7 +2317,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2320,29 +2331,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2424,7 +2435,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2432,7 +2443,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2440,7 +2451,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2454,29 +2465,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2558,7 +2569,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2566,7 +2577,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2574,7 +2585,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2586,29 +2597,29 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2700,7 +2711,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2708,7 +2719,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2722,28 +2733,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node3",
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2813,7 +2824,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2821,7 +2832,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2829,7 +2840,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2843,28 +2854,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -2921,7 +2932,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -2929,7 +2940,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2937,7 +2948,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -2951,28 +2962,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -3029,7 +3040,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -3037,7 +3048,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -3045,7 +3056,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -3059,28 +3070,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -3129,7 +3140,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "hangzhou",
+							apps.NodePoolLabel: "hangzhou",
 						},
 					},
 				},
@@ -3137,7 +3148,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -3145,7 +3156,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							nodepoolv1alpha1.LabelCurrentNodePool: "shanghai",
+							apps.NodePoolLabel: "shanghai",
 						},
 					},
 				},
@@ -3159,28 +3170,28 @@ func TestFilter(t *testing.T) {
 					},
 				},
 			),
-			yurtClient: yurtfake.NewSimpleClientset(
-				&nodepoolv1alpha1.NodePool{
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							currentNodeName,
 						},
 					},
 				},
-				&nodepoolv1alpha1.NodePool{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: nodepoolv1alpha1.NodePoolSpec{
-						Type: nodepoolv1alpha1.Edge,
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
 					},
-					Status: nodepoolv1alpha1.NodePoolStatus{
+					Status: v1beta1.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 							"node3",
@@ -3210,8 +3221,9 @@ func TestFilter(t *testing.T) {
 			factory.Start(stopper)
 			factory.WaitForCacheSync(stopper)
 
-			yurtFactory := yurtinformers.NewSharedInformerFactory(tt.yurtClient, 24*time.Hour)
-			nodePoolInformer := yurtFactory.Apps().V1alpha1().NodePools()
+			gvr := v1beta1.GroupVersion.WithResource("nodepools")
+			yurtFactory := dynamicinformer.NewDynamicSharedInformerFactory(tt.yurtClient, 24*time.Hour)
+			nodePoolInformer := yurtFactory.ForResource(gvr)
 			nodePoolLister := nodePoolInformer.Lister()
 			nodePoolSynced := nodePoolInformer.Informer().HasSynced
 
@@ -3220,24 +3232,22 @@ func TestFilter(t *testing.T) {
 			yurtFactory.Start(stopper2)
 			yurtFactory.WaitForCacheSync(stopper2)
 
-			nodeGetter := func(name string) (*corev1.Node, error) {
-				return tt.kubeClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
-			}
-
-			nodeSynced := func() bool {
-				return true
-			}
-
 			stopCh := make(<-chan struct{})
 			stf := &serviceTopologyFilter{
 				nodeName:       currentNodeName,
 				serviceLister:  serviceLister,
 				nodePoolLister: nodePoolLister,
-				nodeGetter:     nodeGetter,
 				serviceSynced:  serviceSynced,
 				nodePoolSynced: nodePoolSynced,
-				nodeSynced:     nodeSynced,
+				client:         tt.kubeClient,
 			}
+
+			if len(tt.poolName) != 0 {
+				stf.nodePoolName = tt.poolName
+			} else {
+				stf.nodeName = currentNodeName
+			}
+
 			newObj := stf.Filter(tt.responseObject, stopCh)
 			if util.IsNil(newObj) {
 				t.Errorf("empty object is returned")

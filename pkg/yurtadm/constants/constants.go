@@ -57,6 +57,8 @@ const (
 	KubeletHostname        = "--hostname-override=[^\"\\s]*"
 	KubeletEnvironmentFile = "EnvironmentFile=.*"
 
+	BootstrapTokenPattern = `\A([a-z0-9]{6})\.([a-z0-9]{16})\z`
+
 	DaemonReload      = "systemctl daemon-reload"
 	RestartKubeletSvc = "systemctl restart kubelet"
 
@@ -84,13 +86,17 @@ const (
 	NodeLabels = "node-labels"
 	// NodeName flag sets the node name.
 	NodeName = "node-name"
+	// NodePoolName flag sets the nodePool name.
+	NodePoolName = "nodepool-name"
 	// NodeType flag sets the type of worker node to edge or cloud.
 	NodeType = "node-type"
 	// Organizations flag sets the extra organizations of hub agent client certificate.
 	Organizations = "organizations"
 	// PauseImage flag sets the pause image for worker node.
 	PauseImage = "pause-image"
-	// TokenStr flags sets both the discovery-token and the tls-bootstrap-token when those values are not provided
+	// CfgPath flag sets the path to a JoinConfiguration file.
+	CfgPath = "config"
+	// TokenStr flag sets both the discovery-token and the tls-bootstrap-token when those values are not provided
 	TokenStr = "token"
 	// TokenDiscoveryCAHash flag instruct kubeadm to validate that the root CA public key matches this hash (for token-based discovery)
 	TokenDiscoveryCAHash = "discovery-token-ca-cert-hash"
@@ -106,7 +112,10 @@ const (
 	ServerAddr = "server-addr"
 	// ReuseCNIBin flag sets whether to reuse local CNI binaries or not.
 	ReuseCNIBin = "reuse-cni-bin"
+	// StaticPods flag set the specified static pods on this node want to install
+	StaticPods = "static-pods"
 
+	DefaultServerAddr            = "https://127.0.0.1:6443"
 	ServerHealthzServer          = "127.0.0.1:10267"
 	ServerHealthzURLPath         = "/v1/healthz"
 	ServerReadyzURLPath          = "/v1/readyz"
@@ -232,6 +241,9 @@ spec:
       {{end}}
       {{if .organizations }}
     - --hub-cert-organizations={{.organizations}}
+      {{end}}
+      {{if .nodePoolName }}
+    - --nodepool-name={{.nodePoolName}}
       {{end}}
     livenessProbe:
       httpGet:
