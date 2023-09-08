@@ -187,7 +187,6 @@ replace (
 	k8s.io/controller-manager => k8s.io/controller-manager v0.24.9
 	k8s.io/cri-api => k8s.io/cri-api v0.24.9
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.24.9
-	k8s.io/klog/v2 => k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.9
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.24.9
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.24.9
