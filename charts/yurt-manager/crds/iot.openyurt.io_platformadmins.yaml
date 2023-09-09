@@ -604,10 +604,7 @@ spec:
                                                       and null or empty namespaces
                                                       list means "this pod's namespace".
                                                       An empty selector ({}) matches
-                                                      all namespaces. This field is
-                                                      beta-level and is only honored
-                                                      when PodAffinityNamespaceSelector
-                                                      feature is enabled.
+                                                      all namespaces.
                                                     properties:
                                                       matchExpressions:
                                                         description: matchExpressions
@@ -684,7 +681,7 @@ spec:
                                                       by namespaceSelector. null or
                                                       empty namespaces list and null
                                                       namespaceSelector means "this
-                                                      pod's namespace"
+                                                      pod's namespace".
                                                     items:
                                                       type: string
                                                     type: array
@@ -813,9 +810,7 @@ spec:
                                                   and null or empty namespaces list
                                                   means "this pod's namespace". An
                                                   empty selector ({}) matches all
-                                                  namespaces. This field is beta-level
-                                                  and is only honored when PodAffinityNamespaceSelector
-                                                  feature is enabled.
+                                                  namespaces.
                                                 properties:
                                                   matchExpressions:
                                                     description: matchExpressions
@@ -883,7 +878,7 @@ spec:
                                                   selected by namespaceSelector. null
                                                   or empty namespaces list and null
                                                   namespaceSelector means "this pod's
-                                                  namespace"
+                                                  namespace".
                                                 items:
                                                   type: string
                                                 type: array
@@ -1018,10 +1013,7 @@ spec:
                                                       and null or empty namespaces
                                                       list means "this pod's namespace".
                                                       An empty selector ({}) matches
-                                                      all namespaces. This field is
-                                                      beta-level and is only honored
-                                                      when PodAffinityNamespaceSelector
-                                                      feature is enabled.
+                                                      all namespaces.
                                                     properties:
                                                       matchExpressions:
                                                         description: matchExpressions
@@ -1098,7 +1090,7 @@ spec:
                                                       by namespaceSelector. null or
                                                       empty namespaces list and null
                                                       namespaceSelector means "this
-                                                      pod's namespace"
+                                                      pod's namespace".
                                                     items:
                                                       type: string
                                                     type: array
@@ -1227,9 +1219,7 @@ spec:
                                                   and null or empty namespaces list
                                                   means "this pod's namespace". An
                                                   empty selector ({}) matches all
-                                                  namespaces. This field is beta-level
-                                                  and is only honored when PodAffinityNamespaceSelector
-                                                  feature is enabled.
+                                                  namespaces.
                                                 properties:
                                                   matchExpressions:
                                                     description: matchExpressions
@@ -1297,7 +1287,7 @@ spec:
                                                   selected by namespaceSelector. null
                                                   or empty namespaces list and null
                                                   namespaceSelector means "this pod's
-                                                  namespace"
+                                                  namespace".
                                                 items:
                                                   type: string
                                                 type: array
@@ -1335,7 +1325,7 @@ spec:
                                     properties:
                                       args:
                                         description: 'Arguments to the entrypoint.
-                                          The docker image''s CMD is used if this
+                                          The container image''s CMD is used if this
                                           is not provided. Variable references $(VAR_NAME)
                                           are expanded using the container''s environment.
                                           If a variable cannot be resolved, the reference
@@ -1352,7 +1342,7 @@ spec:
                                         type: array
                                       command:
                                         description: 'Entrypoint array. Not executed
-                                          within a shell. The docker image''s ENTRYPOINT
+                                          within a shell. The container image''s ENTRYPOINT
                                           is used if this is not provided. Variable
                                           references $(VAR_NAME) are expanded using
                                           the container''s environment. If a variable
@@ -1552,7 +1542,7 @@ spec:
                                           type: object
                                         type: array
                                       image:
-                                        description: 'Docker image name. More info:
+                                        description: 'Container image name. More info:
                                           https://kubernetes.io/docs/concepts/containers/images
                                           This field is optional to allow higher level
                                           config management to default or override
@@ -1581,9 +1571,8 @@ spec:
                                               info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks'
                                             properties:
                                               exec:
-                                                description: One and only one of the
-                                                  following should be specified. Exec
-                                                  specifies the action to take.
+                                                description: Exec specifies the action
+                                                  to take.
                                                 properties:
                                                   command:
                                                     description: Command is the command
