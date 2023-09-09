@@ -23,7 +23,6 @@ make manifests
 
 if [ ! -z "$(git diff ${YURT_ROOT}/charts)" ]; then
     echo "diff"
-    cat ${YURT_ROOT}/charts/yurt-manager/crds/iot.openyurt.io_platformadmins.yaml
     git diff ${YURT_ROOT}/charts
     echo "Verify manifests error, please run make manifests"
     exit -1
