@@ -1647,11 +1647,12 @@ spec:
                                                 - port
                                                 type: object
                                               tcpSocket:
-                                                description: 'TCPSocket specifies
-                                                  an action involving a TCP port.
-                                                  TCP hooks not yet supported TODO:
-                                                  implement a realistic TCP lifecycle
-                                                  hook'
+                                                description: Deprecated. TCPSocket
+                                                  is NOT supported as a LifecycleHandler
+                                                  and kept for the backward compatibility.
+                                                  There are no validation of this
+                                                  field and lifecycle hooks will fail
+                                                  in runtime when tcp handler is specified.
                                                 properties:
                                                   host:
                                                     description: 'Optional: Host name
@@ -1679,22 +1680,20 @@ spec:
                                               such as liveness/startup probe failure,
                                               preemption, resource contention, etc.
                                               The handler is not called if the container
-                                              crashes or exits. The reason for termination
-                                              is passed to the handler. The Pod''s
-                                              termination grace period countdown begins
-                                              before the PreStop hooked is executed.
-                                              Regardless of the outcome of the handler,
-                                              the container will eventually terminate
-                                              within the Pod''s termination grace
-                                              period. Other management of the container
-                                              blocks until the hook completes or until
-                                              the termination grace period is reached.
-                                              More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks'
+                                              crashes or exits. The Pod''s termination
+                                              grace period countdown begins before
+                                              the PreStop hook is executed. Regardless
+                                              of the outcome of the handler, the container
+                                              will eventually terminate within the
+                                              Pod''s termination grace period (unless
+                                              delayed by finalizers). Other management
+                                              of the container blocks until the hook
+                                              completes or until the termination grace
+                                              period is reached. More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks'
                                             properties:
                                               exec:
-                                                description: One and only one of the
-                                                  following should be specified. Exec
-                                                  specifies the action to take.
+                                                description: Exec specifies the action
+                                                  to take.
                                                 properties:
                                                   command:
                                                     description: Command is the command
@@ -1769,11 +1768,12 @@ spec:
                                                 - port
                                                 type: object
                                               tcpSocket:
-                                                description: 'TCPSocket specifies
-                                                  an action involving a TCP port.
-                                                  TCP hooks not yet supported TODO:
-                                                  implement a realistic TCP lifecycle
-                                                  hook'
+                                                description: Deprecated. TCPSocket
+                                                  is NOT supported as a LifecycleHandler
+                                                  and kept for the backward compatibility.
+                                                  There are no validation of this
+                                                  field and lifecycle hooks will fail
+                                                  in runtime when tcp handler is specified.
                                                 properties:
                                                   host:
                                                     description: 'Optional: Host name
@@ -1802,9 +1802,8 @@ spec:
                                           info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                         properties:
                                           exec:
-                                            description: One and only one of the following
-                                              should be specified. Exec specifies
-                                              the action to take.
+                                            description: Exec specifies the action
+                                              to take.
                                             properties:
                                               command:
                                                 description: Command is the command
@@ -1829,6 +1828,28 @@ spec:
                                               3. Minimum value is 1.
                                             format: int32
                                             type: integer
+                                          grpc:
+                                            description: GRPC specifies an action
+                                              involving a GRPC port. This is a beta
+                                              field and requires enabling GRPCContainerProbe
+                                              feature gate.
+                                            properties:
+                                              port:
+                                                description: Port number of the gRPC
+                                                  service. Number must be in the range
+                                                  1 to 65535.
+                                                format: int32
+                                                type: integer
+                                              service:
+                                                description: "Service is the name
+                                                  of the service to place in the gRPC
+                                                  HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+                                                  \n If this is not specified, the
+                                                  default behavior is defined by gRPC."
+                                                type: string
+                                            required:
+                                            - port
+                                            type: object
                                           httpGet:
                                             description: HTTPGet specifies the http
                                               request to perform.
@@ -1902,10 +1923,8 @@ spec:
                                             format: int32
                                             type: integer
                                           tcpSocket:
-                                            description: 'TCPSocket specifies an action
-                                              involving a TCP port. TCP hooks not
-                                              yet supported TODO: implement a realistic
-                                              TCP lifecycle hook'
+                                            description: TCPSocket specifies an action
+                                              involving a TCP port.
                                             properties:
                                               host:
                                                 description: 'Optional: Host name
@@ -2024,9 +2043,8 @@ spec:
                                           Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                                         properties:
                                           exec:
-                                            description: One and only one of the following
-                                              should be specified. Exec specifies
-                                              the action to take.
+                                            description: Exec specifies the action
+                                              to take.
                                             properties:
                                               command:
                                                 description: Command is the command
@@ -2051,6 +2069,28 @@ spec:
                                               3. Minimum value is 1.
                                             format: int32
                                             type: integer
+                                          grpc:
+                                            description: GRPC specifies an action
+                                              involving a GRPC port. This is a beta
+                                              field and requires enabling GRPCContainerProbe
+                                              feature gate.
+                                            properties:
+                                              port:
+                                                description: Port number of the gRPC
+                                                  service. Number must be in the range
+                                                  1 to 65535.
+                                                format: int32
+                                                type: integer
+                                              service:
+                                                description: "Service is the name
+                                                  of the service to place in the gRPC
+                                                  HealthCheckRequest (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+                                                  \n If this is not specified, the
+                                                  default behavior is defined by gRPC."
+                                                type: string
+                                            required:
+                                            - port
+                                            type: object
                                           httpGet:
                                             description: HTTPGet specifies the http
                                               request to perform.
