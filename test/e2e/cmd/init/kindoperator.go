@@ -35,7 +35,7 @@ var (
 	kindInstallCmd    = "go install sigs.k8s.io/kind@%s"
 
 	defaultKubeConfigPath = "${HOME}/.kube/config"
-	defaultKindVersion    = "v0.12.0"
+	defaultKindVersion    = "v0.13.0"
 )
 
 type KindOperator struct {
