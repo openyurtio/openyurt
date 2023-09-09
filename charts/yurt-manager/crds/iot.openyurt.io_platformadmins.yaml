@@ -8704,20 +8704,20 @@ spec:
     served: false
     storage: false
     subresources:
-      status: { }
+      status: {}
   - additionalPrinterColumns:
     - description: The platformadmin ready status
-        jsonPath: .status.ready
-        name: READY
-        type: boolean
+      jsonPath: .status.ready
+      name: READY
+      type: boolean
     - description: The Ready Component.
-        jsonPath: .status.readyComponentNum
-        name: ReadyComponentNum
-        type: integer
+      jsonPath: .status.readyComponentNum
+      name: ReadyComponentNum
+      type: integer
     - description: The Unready Component.
-        jsonPath: .status.unreadyComponentNum
-        name: UnreadyComponentNum
-        type: integer
+      jsonPath: .status.unreadyComponentNum
+      name: UnreadyComponentNum
+      type: integer
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -8803,10 +8803,10 @@ spec:
     served: true
     storage: true
     subresources:
-      status: { }
+      status: {}
 status:
   acceptedNames:
     kind: ""
     plural: ""
-  conditions: [ ]
-  storedVersions: [ ]
+  conditions: []
+  storedVersions: []
