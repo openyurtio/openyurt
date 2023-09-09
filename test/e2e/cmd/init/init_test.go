@@ -37,7 +37,7 @@ func TestAddFlags(t *testing.T) {
 		"--cluster-name=test-openyurt",
 		"--cloud-nodes=worker3",
 		"--openyurt-version=v1.0.1",
-		"--kubernetes-version=v1.22.7",
+		"--kubernetes-version=v1.24.9",
 		"--use-local-images=true",
 		"--kube-config=/home/root/.kube/config",
 		"--ignore-error=true",
@@ -56,7 +56,7 @@ func TestAddFlags(t *testing.T) {
 		ClusterName:       "test-openyurt",
 		CloudNodes:        "worker3",
 		OpenYurtVersion:   "v1.0.1",
-		KubernetesVersion: "v1.22.7",
+		KubernetesVersion: "v1.24.9",
 		UseLocalImages:    true,
 		KubeConfig:        "/home/root/.kube/config",
 		IgnoreError:       true,
@@ -235,7 +235,7 @@ func TestKindOptions_Validate(t *testing.T) {
 	}{
 		{
 			0,
-			"v1.22",
+			"v1.24",
 			"v0.6.0",
 			false,
 			true,
@@ -251,7 +251,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		},
 		{
 			3,
-			"v1.22",
+			"v1.24",
 			"v0.0.0",
 			false,
 			true,
@@ -268,28 +268,28 @@ func TestKindOptions_Validate(t *testing.T) {
 	}{
 		{
 			2,
-			"v1.22",
+			"v1.24",
 			"v0.6.0",
 			false,
 			false,
 		},
 		{
 			2,
-			"v1.22",
+			"v1.24",
 			"v0.6.0",
 			true,
 			false,
 		},
 		{
 			1,
-			"v1.22",
+			"v1.24",
 			"v0.100.0",
 			true,
 			false,
 		},
 		{
 			1,
-			"v1.22",
+			"v1.24",
 			"v0.100.0",
 			false,
 			true,
@@ -433,7 +433,7 @@ func TestKindOptions_Config(t *testing.T) {
 		KubeConfig:        home + "/.kube/config",
 		NodesNum:          2,
 		ClusterName:       "openyurt",
-		KubernetesVersion: "v1.22",
+		KubernetesVersion: "v1.24",
 		NodeImage:         "",
 		UseLocalImage:     false,
 		YurtHubImage:      "openyurt/yurthub:latest",
@@ -462,7 +462,7 @@ func TestInitializer_PrepareKindNodeImage(t *testing.T) {
 		},
 		{
 			command: "kind v0.25.0 go1.17.7 darwin/arm64",
-			want:    "failed to get node image by kind version= v0.25.0 and kubernetes version= v1.22",
+			want:    "failed to get node image by kind version= v0.25.0 and kubernetes version= v1.24",
 		},
 	}
 

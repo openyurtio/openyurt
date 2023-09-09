@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-KUBERNETESVERSION ?=v1.22
+KUBERNETESVERSION ?=v1.24
 GOLANGCILINT_VERSION ?= v1.47.3
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
@@ -59,7 +59,7 @@ KUSTOMIZE_VERSION ?= v4.5.7
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 
-KUBECTL_VERSION ?= v1.22.3
+KUBECTL_VERSION ?= v1.24.9
 KUBECTL ?= $(LOCALBIN)/kubectl
 
 YQ_VERSION := 4.13.2
@@ -209,7 +209,7 @@ $(KUBECTL): $(LOCALBIN)
 		echo "$(LOCALBIN)/kubectl version is not expected $(KUBECTL_VERSION). Removing it before installing."; \
 		rm -rf $(LOCALBIN)/kubectl; \
 	fi
-	test -s $(LOCALBIN)/kubectl || curl https://storage.googleapis.com/kubernetes-release/release/v1.22.3/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
+	test -s $(LOCALBIN)/kubectl || curl https://storage.googleapis.com/kubernetes-release/release/v1.24.9/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
 	chmod +x $(KUBECTL)
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
