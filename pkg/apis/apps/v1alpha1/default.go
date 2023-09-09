@@ -127,14 +127,14 @@ func SetDefaultPodSpec(in *corev1.PodSpec) {
 		v1.SetDefaults_ResourceList(&a.Resources.Requests)
 		if a.LivenessProbe != nil {
 			v1.SetDefaults_Probe(a.LivenessProbe)
-			if a.LivenessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.Handler.HTTPGet)
+			if a.LivenessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.ReadinessProbe != nil {
 			v1.SetDefaults_Probe(a.ReadinessProbe)
-			if a.ReadinessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.Handler.HTTPGet)
+			if a.ReadinessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.Lifecycle != nil {
@@ -173,14 +173,14 @@ func SetDefaultPodSpec(in *corev1.PodSpec) {
 		v1.SetDefaults_ResourceList(&a.Resources.Requests)
 		if a.LivenessProbe != nil {
 			v1.SetDefaults_Probe(a.LivenessProbe)
-			if a.LivenessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.Handler.HTTPGet)
+			if a.LivenessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.ReadinessProbe != nil {
 			v1.SetDefaults_Probe(a.ReadinessProbe)
-			if a.ReadinessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.Handler.HTTPGet)
+			if a.ReadinessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.Lifecycle != nil {

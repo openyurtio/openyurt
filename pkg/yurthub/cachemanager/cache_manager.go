@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -38,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/endpoints/handlers"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -174,10 +172,10 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		klog.Errorf("failed to create ListObj for gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
 		return nil, err
 	}
-	if err := setListObjSelfLink(listObj, req); err != nil {
-		klog.Errorf("failed to set selfLink for ListObj of gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
-		return nil, err
-	}
+	//if err := setListObjSelfLink(listObj, req); err != nil {
+	//	klog.Errorf("failed to set selfLink for ListObj of gvk %s for req: %s, %v", listGvk.String(), util.ReqString(req), err)
+	//	return nil, err
+	//}
 
 	objs, err := cm.storage.List(key)
 	if err == storage.ErrStorageNotFound && isListRequestWithNameFieldSelector(req) {
@@ -335,32 +333,32 @@ func generateEmptyListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object,
 	return listObj, nil
 }
 
-func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
-	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
-	clusterScoped := true
-	if info.Namespace != "" {
-		clusterScoped = false
-	}
-
-	prefix := "/" + path.Join(info.APIGroup, info.APIVersion)
-	namer := handlers.ContextBasedNaming{
-		SelfLinker:         runtime.SelfLinker(meta.NewAccessor()),
-		SelfLinkPathPrefix: path.Join(prefix, info.Resource) + "/",
-		SelfLinkPathSuffix: "",
-		ClusterScoped:      clusterScoped,
-	}
-
-	uri, err := namer.GenerateListLink(req)
-	if err != nil {
-		return err
-	}
-	if err := namer.SetSelfLink(listObj, uri); err != nil {
-		klog.Infof("Unable to set self link on object: %v", err)
-	}
-
-	return nil
-}
+//func setListObjSelfLink(listObj runtime.Object, req *http.Request) error {
+//	ctx := req.Context()
+//	info, _ := apirequest.RequestInfoFrom(ctx)
+//	clusterScoped := true
+//	if info.Namespace != "" {
+//		clusterScoped = false
+//	}
+//
+//	prefix := "/" + path.Join(info.APIGroup, info.APIVersion)
+//	namer := handlers.ContextBasedNaming{
+//		SelfLinker:         runtime.SelfLinker(meta.NewAccessor()),
+//		SelfLinkPathPrefix: path.Join(prefix, info.Resource) + "/",
+//		SelfLinkPathSuffix: "",
+//		ClusterScoped:      clusterScoped,
+//	}
+//
+//	uri, err := namer.GenerateListLink(req)
+//	if err != nil {
+//		return err
+//	}
+//	if err := namer.SetSelfLink(listObj, uri); err != nil {
+//		klog.Infof("Unable to set self link on object: %v", err)
+//	}
+//
+//	return nil
+//}
 
 func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, stopCh <-chan struct{}) error {
 	delObjCnt := 0
