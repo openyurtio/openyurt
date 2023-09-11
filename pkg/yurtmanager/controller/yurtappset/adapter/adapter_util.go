@@ -84,9 +84,7 @@ func attachTolerations(podSpec *corev1.PodSpec, poolConfig *appsv1alpha1.Pool) {
 		podSpec.Tolerations = []corev1.Toleration{}
 	}
 
-	for _, toleration := range poolConfig.Tolerations {
-		podSpec.Tolerations = append(podSpec.Tolerations, toleration)
-	}
+	podSpec.Tolerations = append(podSpec.Tolerations, poolConfig.Tolerations...)
 
 	return
 }
