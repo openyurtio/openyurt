@@ -17,6 +17,7 @@ limitations under the License.
 package daemonpodupdater
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -219,6 +220,58 @@ func TestGetTargetNodeName(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("GetTargetNodeName() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetPodUpgradeCondition(t *testing.T) {
+	pod1 := newPod("pod1", "", nil, nil)
+	pod1.Status = corev1.PodStatus{
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   PodNeedUpgrade,
+				Status: corev1.ConditionTrue,
+			},
+		},
+	}
+
+	pod2 := pod1.DeepCopy()
+	pod2.Status = corev1.PodStatus{
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   PodNeedUpgrade,
+				Status: corev1.ConditionFalse,
+			},
+		},
+	}
+
+	tests := []struct {
+		name   string
+		status corev1.PodStatus
+		want   *corev1.PodCondition
+	}{
+		{
+			name:   "pod1",
+			status: pod1.Status,
+			want: &corev1.PodCondition{
+				Type:   PodNeedUpgrade,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		{
+			name:   "pod2",
+			status: pod2.Status,
+			want: &corev1.PodCondition{
+				Type:   PodNeedUpgrade,
+				Status: corev1.ConditionFalse,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetPodUpgradeCondition(tt.status); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetPodUpgradeCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}
