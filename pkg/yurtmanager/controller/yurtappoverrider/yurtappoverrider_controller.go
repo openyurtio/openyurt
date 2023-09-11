@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
@@ -91,7 +95,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
+	r.(*ReconcileYurtAppOverrider).Check(mgr)
 	// Watch for changes to YurtAppOverrider
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppOverrider{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -146,4 +150,16 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileYurtAppOverrider) Check(mgr manager.Manager) {
+	go wait.Until(func() {
+		overriderList := &appsv1alpha1.YurtAppOverriderList{}
+		if err := r.List(context.TODO(), overriderList); err != nil {
+			klog.Errorf("failed to list yurtappoverriders:%+v", err)
+		}
+		for _, overrider := range overriderList.Items {
+			mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
+		}
+	}, 5*time.Minute, nil)
 }

@@ -165,17 +165,27 @@ type YurtAppSetStatus struct {
 
 	// Records the topology detail information of the replicas of each pool.
 	// +optional
-	PoolReplicas map[string]int32 `json:"poolReplicas,omitempty"`
+	//PoolReplicas map[string]int32 `json:"poolReplicas,omitempty"`
+	PoolStatus []WorkloadStatus `json:"poolReplicas,omitempty"`
 
+	// OverriderRef string `json:"overriderRef,omitempty"`
 	// The number of ready replicas.
 	// +optional
-	ReadyReplicas int32 `json:"readyReplicas"`
-
-	// Replicas is the most recently observed number of replicas.
-	Replicas int32 `json:"replicas"`
+	//ReadyReplicas int32 `json:"readyReplicas"`
+	//
+	//// Replicas is the most recently observed number of replicas.
+	//Replicas int32 `json:"replicas"`
 
 	// TemplateType indicates the type of PoolTemplate
 	TemplateType TemplateType `json:"templateType"`
+}
+
+type WorkloadStatus struct {
+	ReadyReplicas int32 `json:"readyReplicas"`
+	Replicas      int32 `json:"replicas"`
+	//Image          string `json:"image"`
+	Pool string `json:"pool"`
+	//DeploymentName string `json:"deploymentName"`
 }
 
 // YurtAppSetCondition describes current state of a YurtAppSet.
