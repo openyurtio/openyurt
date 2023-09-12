@@ -541,7 +541,6 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - DELETE
     resources:
     - deployments
   sideEffects: None
@@ -857,6 +856,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - yurtappoverriders
   sideEffects: None
