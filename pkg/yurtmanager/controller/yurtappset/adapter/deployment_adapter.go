@@ -19,6 +19,8 @@ package adapter
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +68,18 @@ func (a *DeploymentAdapter) GetDetails(obj metav1.Object) (ReplicasInfo, error) 
 		ReadyReplicas: set.Status.ReadyReplicas,
 	}
 	return replicasInfo, nil
+}
+
+// GetAvailableStatus returns the available condition status of the workload
+func (a *DeploymentAdapter) GetAvailableStatus(obj metav1.Object) (conditionStatus corev1.ConditionStatus, err error) {
+	set := obj.(*appsv1.Deployment)
+
+	for _, condition := range set.Status.Conditions {
+		if condition.Type == appsv1.DeploymentAvailable {
+			return condition.Status, nil
+		}
+	}
+	return corev1.ConditionUnknown, nil
 }
 
 // GetPoolFailure returns the failure information of the pool.

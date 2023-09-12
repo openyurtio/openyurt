@@ -137,6 +137,7 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, err
 	}
 
+	// spec
 	for _, deployment := range deployments.Items {
 		if deployment.OwnerReferences[0].Kind == instance.Subject.Kind && deployment.OwnerReferences[0].Name == instance.Subject.Name {
 			if deployment.Annotations == nil {

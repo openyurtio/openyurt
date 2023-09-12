@@ -23,7 +23,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -688,11 +688,11 @@ func (in *YurtAppSetStatus) DeepCopyInto(out *YurtAppSetStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.PoolReplicas != nil {
-		in, out := &in.PoolReplicas, &out.PoolReplicas
-		*out = make(map[string]int32, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+	if in.WorkloadSummaries != nil {
+		in, out := &in.WorkloadSummaries, &out.WorkloadSummaries
+		*out = make([]WorkloadSummary, len(*in))
+		for i, val := range *in {
+			(*out)[i] = val
 		}
 	}
 }

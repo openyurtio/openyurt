@@ -300,11 +300,16 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 	}
 
 	// sync from status
-	newStatus.PoolReplicas = make(map[string]int32)
+	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
 	newStatus.ReadyReplicas = 0
 	newStatus.Replicas = 0
 	for _, pool := range nameToPool {
-		newStatus.PoolReplicas[pool.Name] = pool.Status.Replicas
+		newStatus.WorkloadSummaries = append(newStatus.WorkloadSummaries, unitv1alpha1.WorkloadSummary{
+			AvailableCondition: pool.Status.AvailableCondition,
+			Replicas:           pool.Status.Replicas,
+			ReadyReplicas:      pool.Status.ReadyReplicas,
+			DeploymentName:     pool.Spec.PoolRef.GetName(),
+		})
 		newStatus.Replicas += pool.Status.Replicas
 		newStatus.ReadyReplicas += pool.Status.ReadyReplicas
 	}
@@ -348,7 +353,7 @@ func (r *ReconcileYurtAppSet) updateYurtAppSet(yas *unitv1alpha1.YurtAppSet, old
 		oldStatus.Replicas == newStatus.Replicas &&
 		oldStatus.ReadyReplicas == newStatus.ReadyReplicas &&
 		yas.Generation == newStatus.ObservedGeneration &&
-		reflect.DeepEqual(oldStatus.PoolReplicas, newStatus.PoolReplicas) &&
+		reflect.DeepEqual(oldStatus.WorkloadSummaries, newStatus.WorkloadSummaries) &&
 		reflect.DeepEqual(oldStatus.Conditions, newStatus.Conditions) {
 		return yas, nil
 	}
