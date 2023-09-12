@@ -45,7 +45,7 @@ func (webhook *DeploymentRenderHandler) SetupWebhookWithManager(mgr ctrl.Manager
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=ignore,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=mutate.apps.v1.deployment,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=ignore,groups=apps,resources=deployments,verbs=create;update;delete,versions=v1,name=mutate.apps.v1.deployment,sideEffects=None,admissionReviewVersions=v1
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type DeploymentRenderHandler struct {
