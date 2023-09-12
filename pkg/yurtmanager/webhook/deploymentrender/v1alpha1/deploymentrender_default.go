@@ -32,10 +32,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
 )
 
-const (
-	DeploymentMutatingWebhook = "deployment-webhook"
-)
-
 var (
 	resources = []string{"YurtAppSet", "YurtAppDaemon"}
 )
@@ -87,6 +83,9 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		var replicas int32
 		yas := instance.(*v1alpha1.YurtAppSet)
 		revision := yas.Status.CurrentRevision
+		if yas.Spec.WorkloadTemplate.DeploymentTemplate != nil && yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas != nil {
+			replicas = *yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas
+		}
 		deploymentAdapter := adapter.DeploymentAdapter{
 			Client: webhook.Client,
 			Scheme: webhook.Scheme,
@@ -111,40 +110,37 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		klog.Infof("error in listing YurtAppOverrider: %v", err)
 		return err
 	}
-	var overriderList = v1alpha1.YurtAppOverriderList{}
+	var overriders = make([]v1alpha1.YurtAppOverrider, 0)
 	for _, overrider := range allOverriderList.Items {
 		if overrider.Subject.Kind == app.Kind && overrider.Subject.Name == app.Name && overrider.Subject.APIVersion == app.APIVersion {
-			overriderList.Items = append(overriderList.Items, overrider)
+			overriders = append(overriders, overrider)
 		}
 	}
 
-	if len(overriderList.Items) == 0 {
+	if len(overriders) == 0 {
 		return nil
 	}
-	render := overriderList.Items[0]
+	render := overriders[0]
 
 	for _, entry := range render.Entries {
-		pools := entry.Pools
-		for _, pool := range pools {
+		for _, pool := range entry.Pools {
 			if pool[0] == '-' && pool[1:] == nodepool {
 				continue
 			}
 			if pool == nodepool || pool == "*" {
-				items := entry.Items
 				// Replace items
-				replaceItems(deployment, items)
-				// json patch and strategic merge
-				patches := entry.Patches
-				for i, patch := range patches {
+				replaceItems(deployment, entry.Items)
+				// json patch
+				for i, patch := range entry.Patches {
 					if strings.Contains(string(patch.Value.Raw), "{{nodepool}}") {
 						newPatchString := strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool}}", nodepool)
-						patches[i].Value = apiextensionsv1.JSON{Raw: []byte(newPatchString)}
+						entry.Patches[i].Value = apiextensionsv1.JSON{Raw: []byte(newPatchString)}
 					}
 				}
 				// Implement injection
 				dataStruct := v1.Deployment{}
 				pc := PatchControl{
-					patches:     patches,
+					patches:     entry.Patches,
 					patchObject: deployment,
 					dataStruct:  dataStruct,
 				}
@@ -152,6 +148,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 					klog.Infof("fail to update patches for deployment: %v", err)
 					return err
 				}
+				break
 			}
 		}
 	}

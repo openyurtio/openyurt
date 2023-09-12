@@ -44,7 +44,7 @@ func (webhook *YurtAppOverriderHandler) ValidateCreate(ctx context.Context, obj 
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	_, ok := oldObj.(*v1alpha1.YurtAppOverrider)
+	oldOverrider, ok := oldObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", newObj))
 	}
@@ -52,7 +52,12 @@ func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldO
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider} but got a %T", oldObj))
 	}
-
+	if oldOverrider.Namespace != newOverrider.Namespace || newOverrider.Name != oldOverrider.Name {
+		return fmt.Errorf("unable to change metadata after %s is created", oldOverrider.Name)
+	}
+	if newOverrider.Subject.Kind != oldOverrider.Subject.Kind || newOverrider.Subject.Name != oldOverrider.Subject.Name {
+		return fmt.Errorf("unable to modify subject after %s is created", oldOverrider.Name)
+	}
 	// validate
 	if err := webhook.validateOneToOneBinding(ctx, newOverrider); err != nil {
 		return err
@@ -61,29 +66,46 @@ func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldO
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtAppOverriderHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+func (webhook *YurtAppOverriderHandler) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	overrider, ok := obj.(*v1alpha1.YurtAppOverrider)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
+	}
+	switch overrider.Subject.Kind {
+	case "YurtAppSet":
+		appSet := &v1alpha1.YurtAppSet{}
+		err := webhook.Client.Get(ctx, client.ObjectKey{Name: overrider.Subject.Name, Namespace: overrider.Namespace}, appSet)
+		if err == nil {
+			return fmt.Errorf("namespace: %s, unable to delete YurtAppOverrider when subject resource exists: %s", overrider.Namespace, appSet.Name)
+		}
+	case "YurtAppDaemon":
+		appDaemon := &v1alpha1.YurtAppDaemon{}
+		err := webhook.Client.Get(ctx, client.ObjectKey{Name: overrider.Subject.Name, Namespace: overrider.Namespace}, appDaemon)
+		if err == nil {
+			return fmt.Errorf("namespace: %s, unable to delete YurtAppOverrider when subject resource exists: %s", overrider.Namespace, appDaemon.Name)
+		}
+	}
 	return nil
 }
 
 // YurtAppOverrider and YurtAppSet are one-to-one relationship
-func (webhook *YurtAppOverriderHandler) validateOneToOneBinding(ctx context.Context, yurtAppOverrider *v1alpha1.YurtAppOverrider) error {
-	app := yurtAppOverrider
+func (webhook *YurtAppOverriderHandler) validateOneToOneBinding(ctx context.Context, app *v1alpha1.YurtAppOverrider) error {
 	var allOverriderList v1alpha1.YurtAppOverriderList
-	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(yurtAppOverrider.Namespace)); err != nil {
+	if err := webhook.Client.List(ctx, &allOverriderList, client.InNamespace(app.Namespace)); err != nil {
 		klog.Infof("could not list YurtAppOverrider, %v", err)
 		return err
 	}
-	overriderList := make([]v1alpha1.YurtAppOverrider, 0)
+	duplicatedOverriders := make([]v1alpha1.YurtAppOverrider, 0)
 	for _, overrider := range allOverriderList.Items {
-		if overrider.Name == app.Name && overrider.Kind == app.Kind {
+		if overrider.Name == app.Name {
 			continue
 		}
 		if overrider.Subject.Kind == app.Subject.Kind && overrider.Subject.Name == app.Subject.Name {
-			overriderList = append(overriderList, overrider)
+			duplicatedOverriders = append(duplicatedOverriders, overrider)
 		}
 	}
-	if len(overriderList) > 0 {
-		return fmt.Errorf("only one YurtAppOverrider can be bound into one YurtAppSet")
+	if len(duplicatedOverriders) > 0 {
+		return fmt.Errorf("unable to bind multiple yurtappoverriders to one subject resource %s in namespace %s, %s already exists", app.Subject.Name, app.Namespace, app.Name)
 	}
 	return nil
 }

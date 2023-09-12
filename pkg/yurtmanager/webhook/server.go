@@ -79,10 +79,10 @@ func init() {
 	addControllerWebhook(names.PlatformAdminController, &v1alpha1platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1yurtappoverrider.YurtAppOverriderHandler{})
+	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1deploymentrender.DeploymentRenderHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}
-	independentWebhooks[v1alpha1deploymentrender.WebhookName] = &v1alpha1deploymentrender.DeploymentRenderHandler{}
 }
 
 // Note !!! @kadisi

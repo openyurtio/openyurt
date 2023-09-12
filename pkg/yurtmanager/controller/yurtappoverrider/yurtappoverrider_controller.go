@@ -103,6 +103,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;update
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppOverrider object and makes changes based on the state read
 // and what is in the YurtAppOverrider.Spec
