@@ -23,6 +23,7 @@ import (
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	gatewaypickupconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
+	yurtappoverriderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 )
@@ -48,6 +49,9 @@ type YurtManagerConfiguration struct {
 
 	// PlatformAdminControllerConfiguration holds configuration for PlatformAdminController related features.
 	PlatformAdminController platformadminconfig.PlatformAdminControllerConfiguration
+
+	// YurtAppOverriderControllerConfiguration holds configuration for YurtAppOverriderController related features.
+	YurtAppOverriderController yurtappoverriderconfig.YurtAppOverriderControllerConfiguration
 }
 
 type GenericConfiguration struct {

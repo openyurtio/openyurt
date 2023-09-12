@@ -25,26 +25,28 @@ import (
 
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
-	Generic                 *GenericOptions
-	NodePoolController      *NodePoolControllerOptions
-	GatewayPickupController *GatewayPickupControllerOptions
-	YurtStaticSetController *YurtStaticSetControllerOptions
-	YurtAppSetController    *YurtAppSetControllerOptions
-	YurtAppDaemonController *YurtAppDaemonControllerOptions
-	PlatformAdminController *PlatformAdminControllerOptions
+	Generic                    *GenericOptions
+	NodePoolController         *NodePoolControllerOptions
+	GatewayPickupController    *GatewayPickupControllerOptions
+	YurtStaticSetController    *YurtStaticSetControllerOptions
+	YurtAppSetController       *YurtAppSetControllerOptions
+	YurtAppDaemonController    *YurtAppDaemonControllerOptions
+	PlatformAdminController    *PlatformAdminControllerOptions
+	YurtAppOverriderController *YurtAppOverriderControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
 func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 
 	s := YurtManagerOptions{
-		Generic:                 NewGenericOptions(),
-		NodePoolController:      NewNodePoolControllerOptions(),
-		GatewayPickupController: NewGatewayPickupControllerOptions(),
-		YurtStaticSetController: NewYurtStaticSetControllerOptions(),
-		YurtAppSetController:    NewYurtAppSetControllerOptions(),
-		YurtAppDaemonController: NewYurtAppDaemonControllerOptions(),
-		PlatformAdminController: NewPlatformAdminControllerOptions(),
+		Generic:                    NewGenericOptions(),
+		NodePoolController:         NewNodePoolControllerOptions(),
+		GatewayPickupController:    NewGatewayPickupControllerOptions(),
+		YurtStaticSetController:    NewYurtStaticSetControllerOptions(),
+		YurtAppSetController:       NewYurtAppSetControllerOptions(),
+		YurtAppDaemonController:    NewYurtAppDaemonControllerOptions(),
+		PlatformAdminController:    NewPlatformAdminControllerOptions(),
+		YurtAppOverriderController: NewYurtAppOverriderControllerOptions(),
 	}
 
 	return &s, nil
@@ -58,6 +60,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
+	y.YurtAppOverriderController.AddFlags(fss.FlagSet("yurtappoverrider controller"))
 	// Please Add Other controller flags @kadisi
 
 	return fss
@@ -72,6 +75,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
+	errs = append(errs, y.YurtAppOverriderController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -92,10 +96,12 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {
 		return err
 	}
+	if err := y.YurtAppOverriderController.ApplyTo(&c.ComponentConfig.YurtAppOverriderController); err != nil {
+		return err
+	}
 	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayPickupController); err != nil {
 		return err
 	}
-
 	return nil
 }
 

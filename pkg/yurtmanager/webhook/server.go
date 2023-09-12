@@ -30,6 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
+	v1alpha1deploymentrender "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta1"
@@ -39,6 +40,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappdaemon/v1alpha1"
+	v1alpha1yurtappoverrider "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappoverrider/v1alpha1"
 	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappset/v1alpha1"
 	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtstaticset/v1alpha1"
 )
@@ -76,6 +78,8 @@ func init() {
 	addControllerWebhook(names.YurtAppDaemonController, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 	addControllerWebhook(names.PlatformAdminController, &v1alpha1platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1yurtappoverrider.YurtAppOverriderHandler{})
+	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1deploymentrender.DeploymentRenderHandler{})
 
 	independentWebhooks[v1pod.WebhookName] = &v1pod.PodHandler{}
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}

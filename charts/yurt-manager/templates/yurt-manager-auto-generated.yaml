@@ -162,6 +162,14 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
+  - yurtappoverriders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
   - yurtappsets
   verbs:
   - create
@@ -518,6 +526,26 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-apps-v1-deployment
+  failurePolicy: Ignore
+  name: mutate.apps.v1.deployment
+  rules:
+  - apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - deployments
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   - v1beta1
   clientConfig:
     service:
@@ -617,6 +645,27 @@ webhooks:
     - UPDATE
     resources:
     - yurtappdaemons
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-apps-openyurt-io-v1alpha1-yurtappoverrider
+  failurePolicy: Fail
+  name: mutate.apps.v1alpha1.yurtappoverrider.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - yurtappoverriders
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -788,6 +837,28 @@ webhooks:
     - UPDATE
     resources:
     - yurtappdaemons
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-apps-openyurt-io-v1alpha1-yurtappoverrider
+  failurePolicy: Fail
+  name: validate.apps.v1alpha1.yurtappoverrider.openyurt.io
+  rules:
+  - apiGroups:
+    - apps.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - yurtappoverriders
   sideEffects: None
 - admissionReviewVersions:
   - v1
