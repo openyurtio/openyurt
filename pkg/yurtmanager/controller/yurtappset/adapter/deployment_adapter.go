@@ -71,9 +71,8 @@ func (a *DeploymentAdapter) GetDetails(obj metav1.Object) (ReplicasInfo, error) 
 
 // GetAvailableStatus returns the available condition status of the workload
 func (a *DeploymentAdapter) GetAvailableStatus(obj metav1.Object) (conditionStatus corev1.ConditionStatus, err error) {
-	set := obj.(*appsv1.Deployment)
-
-	for _, condition := range set.Status.Conditions {
+	dp := obj.(*appsv1.Deployment)
+	for _, condition := range dp.Status.Conditions {
 		if condition.Type == appsv1.DeploymentAvailable {
 			return condition.Status, nil
 		}

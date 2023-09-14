@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"time"
 
@@ -76,18 +77,18 @@ var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
 // ReconcileYurtAppOverrider reconciles a YurtAppOverrider object
 type ReconcileYurtAppOverrider struct {
 	client.Client
-	Configuration  config.YurtAppOverriderControllerConfiguration
-	CacheOverrider *appsv1alpha1.YurtAppOverrider
-	recorder       record.EventRecorder
+	Configuration     config.YurtAppOverriderControllerConfiguration
+	CacheOverriderMap map[string]*appsv1alpha1.YurtAppOverrider
+	recorder          record.EventRecorder
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppOverrider{
-		Client:         mgr.GetClient(),
-		Configuration:  c.ComponentConfig.YurtAppOverriderController,
-		CacheOverrider: &appsv1alpha1.YurtAppOverrider{},
-		recorder:       mgr.GetEventRecorderFor(names.YurtAppOverriderController),
+		Client:            mgr.GetClient(),
+		Configuration:     c.ComponentConfig.YurtAppOverriderController,
+		CacheOverriderMap: make(map[string]*appsv1alpha1.YurtAppOverrider),
+		recorder:          mgr.GetEventRecorderFor(names.YurtAppOverriderController),
 	}
 }
 
@@ -106,7 +107,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			klog.Errorf("failed to list yurtappoverriders:%+v", err)
 		}
 		for _, overrider := range overriderList.Items {
-			mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
+			_, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{
+				Namespace: overrider.Namespace,
+				Name:      overrider.Name,
+			}})
+			if err != nil {
+				klog.Errorf("unable to execute Reconcile for %s: %v", overrider.Name, err)
+			}
 		}
 	}, 5*time.Minute, nil)
 
@@ -146,9 +153,14 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	if reflect.DeepEqual(r.CacheOverrider.Entries, instance.Entries) {
-		return reconcile.Result{}, nil
+	if cacheOverrider, ok := r.CacheOverriderMap[instance.Name]; ok {
+		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
+			return reconcile.Result{}, nil
+		}
+	} else {
+		r.CacheOverriderMap[instance.Name] = instance.DeepCopy()
 	}
+
 	switch instance.Subject.Kind {
 	case "YurtAppSet":
 		appSet := &appsv1alpha1.YurtAppSet{}
@@ -169,7 +181,6 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	default:
 		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
 	}
-	instance.DeepCopyInto(r.CacheOverrider)
 	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
 		return reconcile.Result{}, err

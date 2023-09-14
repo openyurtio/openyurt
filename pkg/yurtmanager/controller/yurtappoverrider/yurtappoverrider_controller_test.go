@@ -123,8 +123,8 @@ func TestReconcile(t *testing.T) {
 		return
 	}
 	reconciler := ReconcileYurtAppOverrider{
-		Client:         fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(daemonDeployment, overrider, yurtAppDaemon).Build(),
-		CacheOverrider: &v1alpha1.YurtAppOverrider{},
+		Client:            fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(daemonDeployment, overrider, yurtAppDaemon).Build(),
+		CacheOverriderMap: make(map[string]*v1alpha1.YurtAppOverrider),
 	}
 	_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 		NamespacedName: types.NamespacedName{
