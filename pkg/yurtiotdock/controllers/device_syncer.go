@@ -18,10 +18,12 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
@@ -196,6 +198,15 @@ func (ds *DeviceSyncer) deleteDevices(redundantKubeDevices map[string]*iotv1alph
 		if err := ds.Client.Delete(context.TODO(), kd); err != nil {
 			klog.V(5).ErrorS(err, "fail to delete the device on OpenYurt",
 				"DeviceName", kd.Name)
+			return err
+		}
+		patchData, _ := json.Marshal(map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"finalizers": []string{},
+			},
+		})
+		if err := ds.Client.Patch(context.TODO(), kd, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+			klog.V(5).ErrorS(err, "fail to remove finalizer of Device on Kubernetes", "Device", kd.Name)
 			return err
 		}
 	}
