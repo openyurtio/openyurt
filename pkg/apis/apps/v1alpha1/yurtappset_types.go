@@ -184,7 +184,7 @@ type WorkloadSummary struct {
 	AvailableCondition corev1.ConditionStatus `json:"availableCondition"`
 	Replicas           int32                  `json:"replicas"`
 	ReadyReplicas      int32                  `json:"readyReplicas"`
-	DeploymentName     string                 `json:"deploymentName"`
+	WorkloadName       string                 `json:"workloadName"`
 }
 
 // YurtAppSetCondition describes current state of a YurtAppSet.
@@ -212,6 +212,7 @@ type YurtAppSetCondition struct {
 // +kubebuilder:printcolumn:name="READY",type="integer",JSONPath=".status.readyReplicas",description="The number of pods ready."
 // +kubebuilder:printcolumn:name="WorkloadTemplate",type="string",JSONPath=".status.templateType",description="The WorkloadTemplate Type."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
+// +kubebuilder:printcolumn:name="OverriderRef",type="string",JSONPath=".status.overriderRef",description="The name of overrider bound to this yurtappset"
 
 // YurtAppSet is the Schema for the yurtAppSets API
 type YurtAppSet struct {

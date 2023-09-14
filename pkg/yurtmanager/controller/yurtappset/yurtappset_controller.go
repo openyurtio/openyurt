@@ -299,6 +299,17 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 		newStatus.CurrentRevision = currentRevision.Name
 	}
 
+	// update OverriderRef
+	overriderList := v1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), overriders); err != nil {
+		poolFailure = fmt.Sprintf("failed to list yurtappoverrider: %v", err)
+	}
+	for _, overrider := range overriderList.Items {
+		if overrider.Subject.Kind == "YurtAppSet" && overrider.Subject.Name == instance.Name {
+			newStatus.OverriderRef = overrider.Name
+			break
+		}
+	}
 	// sync from status
 	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
 	newStatus.ReadyReplicas = 0
@@ -308,7 +319,7 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 			AvailableCondition: pool.Status.AvailableCondition,
 			Replicas:           pool.Status.Replicas,
 			ReadyReplicas:      pool.Status.ReadyReplicas,
-			DeploymentName:     pool.Spec.PoolRef.GetName(),
+			WorkloadName:       pool.Spec.PoolRef.GetName(),
 		})
 		newStatus.Replicas += pool.Status.Replicas
 		newStatus.ReadyReplicas += pool.Status.ReadyReplicas

@@ -75,14 +75,18 @@ var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
 // ReconcileYurtAppOverrider reconciles a YurtAppOverrider object
 type ReconcileYurtAppOverrider struct {
 	client.Client
-	Configuration config.YurtAppOverriderControllerConfiguration
+	Configuration  config.YurtAppOverriderControllerConfiguration
+	CacheOverrider appsv1alpha1.YurtAppOverrider
+	recorder       record.EventRecorder
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppOverrider{
-		Client:        mgr.GetClient(),
-		Configuration: c.ComponentConfig.YurtAppOverriderController,
+		Client:         mgr.GetClient(),
+		Configuration:  c.ComponentConfig.YurtAppOverriderController,
+		CacheOverrider: appsv1alpha1.YurtAppOverrider{},
+		recorder:       mgr.GetEventRecorderFor(names.YurtAppOverriderController),
 	}
 }
 
@@ -95,7 +99,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	r.(*ReconcileYurtAppOverrider).Check(mgr)
+	go wait.Until(r.(*ReconcileYurtAppOverrider).Check(), 5*time.Minute, nil)
 	// Watch for changes to YurtAppOverrider
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppOverrider{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -131,13 +135,31 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	deployments := v1.DeploymentList{}
+	if reflect.DeepEqual(r.CacheOverrider.Spec, instance.Spec) {
+		return reconcile.Result{}, nil
+	}
+	switch instance.Subject.Kind {
+	case "YurtAppSet":
+		appSet := &appsv1alpha1.YurtAppSet{}
+		r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appSet)
+		if appSet.Spec.WorkloadTemplate.StatefulSetTemplateSpec != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appSet.Name))
+		}
+	case "YurtAppDaemon":
+		appDaemon := &appsv1alpha1.YurtAppDaemon{}
+		r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appDaemon)
+		if appDaemon.Spec.WorkloadTemplate.StatefulSetTemplateSpec != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appDaemon.Name))
+		}
+	default:
+		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
+	}
 
+	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// spec
 	for _, deployment := range deployments.Items {
 		if deployment.OwnerReferences[0].Kind == instance.Subject.Kind && deployment.OwnerReferences[0].Name == instance.Subject.Name {
 			if deployment.Annotations == nil {
@@ -154,13 +176,11 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 }
 
 func (r *ReconcileYurtAppOverrider) Check(mgr manager.Manager) {
-	go wait.Until(func() {
-		overriderList := &appsv1alpha1.YurtAppOverriderList{}
-		if err := r.List(context.TODO(), overriderList); err != nil {
-			klog.Errorf("failed to list yurtappoverriders:%+v", err)
-		}
-		for _, overrider := range overriderList.Items {
-			mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
-		}
-	}, 5*time.Minute, nil)
+	overriderList := &appsv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), overriderList); err != nil {
+		klog.Errorf("failed to list yurtappoverriders:%+v", err)
+	}
+	for _, overrider := range overriderList.Items {
+		mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
+	}
 }
