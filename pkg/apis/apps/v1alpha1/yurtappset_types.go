@@ -163,7 +163,7 @@ type YurtAppSetStatus struct {
 	// +optional
 	Conditions []YurtAppSetCondition `json:"conditions,omitempty"`
 
-	// Records the topology detail information of the replicas of each pool.
+	// Records the topology detailed information of each workload.
 	// +optional
 	WorkloadSummaries []WorkloadSummary `json:"workloadSummary,omitempty"`
 

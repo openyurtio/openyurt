@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
@@ -351,7 +352,9 @@ func TestManageWorkloads(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
 				rc.manageWorkloads(st.instance, st.currentNodepoolToWorkload, st.allNameToNodePools, st.expectedRevision, st.templateType)
 				get := st.expect
 				if !reflect.DeepEqual(get, st.expect) {

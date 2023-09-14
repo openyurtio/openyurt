@@ -77,7 +77,7 @@ var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
 type ReconcileYurtAppOverrider struct {
 	client.Client
 	Configuration  config.YurtAppOverriderControllerConfiguration
-	CacheOverrider appsv1alpha1.YurtAppOverrider
+	CacheOverrider *appsv1alpha1.YurtAppOverrider
 	recorder       record.EventRecorder
 }
 
@@ -86,7 +86,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileYurtAppOverrider{
 		Client:         mgr.GetClient(),
 		Configuration:  c.ComponentConfig.YurtAppOverriderController,
-		CacheOverrider: appsv1alpha1.YurtAppOverrider{},
+		CacheOverrider: &appsv1alpha1.YurtAppOverrider{},
 		recorder:       mgr.GetEventRecorderFor(names.YurtAppOverriderController),
 	}
 }
@@ -169,7 +169,7 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	default:
 		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
 	}
-
+	instance.DeepCopyInto(r.CacheOverrider)
 	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
 		return reconcile.Result{}, err
