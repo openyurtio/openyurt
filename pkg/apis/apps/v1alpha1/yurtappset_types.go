@@ -165,7 +165,6 @@ type YurtAppSetStatus struct {
 
 	// Records the topology detail information of the replicas of each pool.
 	// +optional
-	//PoolReplicas map[string]int32 `json:"poolReplicas,omitempty"`
 	WorkloadSummaries []WorkloadSummary `json:"workloadSummary,omitempty"`
 
 	OverriderRef string `json:"overriderRef,omitempty"`
