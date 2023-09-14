@@ -347,8 +347,7 @@ spec:
                 description: TemplateType indicates the type of PoolTemplate
                 type: string
               workloadSummary:
-                description: Records the topology detail information of the replicas
-                  of each pool. PoolReplicas map[string]int32 `json:"poolReplicas,omitempty"`
+                description: Records the topology detailed information of each workload.
                 items:
                   properties:
                     availableCondition:
