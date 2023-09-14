@@ -280,8 +280,8 @@ func (r *ReconcileYurtAppDaemon) manageWorkloads(instance *unitv1alpha1.YurtAppD
 	newStatus.NodePools = nps
 
 	// update OverriderRef
-	overriderList := v1alpha1.YurtAppOverriderList{}
-	if err := r.List(context.TODO(), overriders); err != nil {
+	overriderList := unitv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), &overriderList); err != nil {
 		return newStatus, fmt.Errorf("fail to list yurtappoverrider: %v", err)
 	}
 	for _, overrider := range overriderList.Items {

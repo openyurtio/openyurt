@@ -20,6 +20,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
+	"reflect"
 	"time"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
@@ -99,7 +102,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	go wait.Until(r.(*ReconcileYurtAppOverrider).Check(), 5*time.Minute, nil)
+	go wait.Until(func() {
+		overriderList := &appsv1alpha1.YurtAppOverriderList{}
+		if err := r.(*ReconcileYurtAppOverrider).Client.List(context.TODO(), overriderList); err != nil {
+			klog.Errorf("failed to list yurtappoverriders:%+v", err)
+		}
+		for _, overrider := range overriderList.Items {
+			mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
+		}
+	}, 5*time.Minute, nil)
 	// Watch for changes to YurtAppOverrider
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppOverrider{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -135,21 +146,25 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	if reflect.DeepEqual(r.CacheOverrider.Spec, instance.Spec) {
+	if reflect.DeepEqual(r.CacheOverrider.Entries, instance.Entries) {
 		return reconcile.Result{}, nil
 	}
 	switch instance.Subject.Kind {
 	case "YurtAppSet":
 		appSet := &appsv1alpha1.YurtAppSet{}
-		r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appSet)
-		if appSet.Spec.WorkloadTemplate.StatefulSetTemplateSpec != nil {
-			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appSet.Name))
+		if err := r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appSet); err != nil {
+			return reconcile.Result{}, err
+		}
+		if appSet.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appSet.Name), "It is not supported to overrider statefulset now")
 		}
 	case "YurtAppDaemon":
 		appDaemon := &appsv1alpha1.YurtAppDaemon{}
-		r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appDaemon)
-		if appDaemon.Spec.WorkloadTemplate.StatefulSetTemplateSpec != nil {
-			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appDaemon.Name))
+		if err := r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appDaemon); err != nil {
+			return reconcile.Result{}, err
+		}
+		if appDaemon.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appDaemon.Name), "It is not supported to overrider statefulset now")
 		}
 	default:
 		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
@@ -173,14 +188,4 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileYurtAppOverrider) Check(mgr manager.Manager) {
-	overriderList := &appsv1alpha1.YurtAppOverriderList{}
-	if err := r.List(context.TODO(), overriderList); err != nil {
-		klog.Errorf("failed to list yurtappoverriders:%+v", err)
-	}
-	for _, overrider := range overriderList.Items {
-		mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
-	}
 }

@@ -300,9 +300,11 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 	}
 
 	// update OverriderRef
-	overriderList := v1alpha1.YurtAppOverriderList{}
-	if err := r.List(context.TODO(), overriders); err != nil {
-		poolFailure = fmt.Sprintf("failed to list yurtappoverrider: %v", err)
+	var poolFailure *string
+	overriderList := unitv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), &overriderList); err != nil {
+		message := fmt.Sprintf("fail to list yurtappoverrider: %v", err)
+		poolFailure = &message
 	}
 	for _, overrider := range overriderList.Items {
 		if overrider.Subject.Kind == "YurtAppSet" && overrider.Subject.Name == instance.Name {
@@ -327,7 +329,6 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 
 	newStatus.TemplateType = getPoolTemplateType(instance)
 
-	var poolFailure *string
 	for _, pool := range nameToPool {
 		failureMessage := control.GetPoolFailure(pool)
 		if failureMessage != nil {
