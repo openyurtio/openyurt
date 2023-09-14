@@ -44,7 +44,6 @@ func (webhook *YurtAppOverriderHandler) ValidateCreate(ctx context.Context, obj 
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-
 	oldOverrider, ok := oldObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", newObj))
@@ -53,7 +52,6 @@ func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldO
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider} but got a %T", oldObj))
 	}
-
 	if oldOverrider.Namespace != newOverrider.Namespace || newOverrider.Name != oldOverrider.Name {
 		return fmt.Errorf("unable to change metadata after %s is created", oldOverrider.Name)
 	}

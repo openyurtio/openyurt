@@ -83,7 +83,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		var replicas int32
 		yas := instance.(*v1alpha1.YurtAppSet)
 		revision := yas.Status.CurrentRevision
-
 		if yas.Spec.WorkloadTemplate.DeploymentTemplate != nil && yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas != nil {
 			replicas = *yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas
 		}
@@ -111,7 +110,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		klog.Infof("error in listing YurtAppOverrider: %v", err)
 		return err
 	}
-
 	var overriders = make([]v1alpha1.YurtAppOverrider, 0)
 	for _, overrider := range allOverriderList.Items {
 		if overrider.Subject.Kind == app.Kind && overrider.Subject.Name == app.Name && overrider.Subject.APIVersion == app.APIVersion {
@@ -130,7 +128,6 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 				continue
 			}
 			if pool == nodepool || pool == "*" {
-
 				// Replace items
 				replaceItems(deployment, entry.Items)
 				// json patch
