@@ -32,6 +32,10 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
+    - description: The name of overrider bound to this yurtappset
+      jsonPath: .status.overriderRef
+      name: OverriderRef
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -329,13 +333,8 @@ spec:
                   which is updated on mutation by the API Server.
                 format: int64
                 type: integer
-              poolReplicas:
-                additionalProperties:
-                  format: int32
-                  type: integer
-                description: Records the topology detail information of the replicas
-                  of each pool.
-                type: object
+              overriderRef:
+                type: string
               readyReplicas:
                 description: The number of ready replicas.
                 format: int32
@@ -347,6 +346,28 @@ spec:
               templateType:
                 description: TemplateType indicates the type of PoolTemplate
                 type: string
+              workloadSummary:
+                description: Records the topology detail information of the replicas
+                  of each pool. PoolReplicas map[string]int32 `json:"poolReplicas,omitempty"`
+                items:
+                  properties:
+                    availableCondition:
+                      type: string
+                    readyReplicas:
+                      format: int32
+                      type: integer
+                    replicas:
+                      format: int32
+                      type: integer
+                    workloadName:
+                      type: string
+                  required:
+                  - availableCondition
+                  - readyReplicas
+                  - replicas
+                  - workloadName
+                  type: object
+                type: array
             required:
             - currentRevision
             - replicas

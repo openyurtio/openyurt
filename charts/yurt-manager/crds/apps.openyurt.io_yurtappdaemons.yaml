@@ -30,6 +30,10 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
+    - description: The name of overrider bound to this yurtappdaemon
+      jsonPath: .status.overriderRef
+      name: OverriderRef
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -225,11 +229,14 @@ spec:
                   which is updated on mutation by the API Server.
                 format: int64
                 type: integer
+              overriderRef:
+                type: string
               templateType:
                 description: TemplateType indicates the type of PoolTemplate
                 type: string
             required:
             - currentRevision
+            - overriderRef
             - templateType
             type: object
         type: object

@@ -73,7 +73,7 @@ type YurtAppDaemonStatus struct {
 	// +optional
 	Conditions []YurtAppDaemonCondition `json:"conditions,omitempty"`
 
-	OverriderRef String `json:"overriderRef"`
+	OverriderRef string `json:"overriderRef"`
 
 	// TemplateType indicates the type of PoolTemplate
 	TemplateType TemplateType `json:"templateType"`
