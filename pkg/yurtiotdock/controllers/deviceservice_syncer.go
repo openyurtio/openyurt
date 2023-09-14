@@ -17,10 +17,12 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
@@ -195,6 +197,15 @@ func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices 
 		if err := ds.Client.Delete(context.TODO(), kds); err != nil {
 			klog.V(5).ErrorS(err, "fail to delete the DeviceService on Kubernetes",
 				"DeviceService", kds.Name)
+			return err
+		}
+		patchData, _ := json.Marshal(map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"finalizers": []string{},
+			},
+		})
+		if err := ds.Client.Patch(context.TODO(), kds, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+			klog.V(5).ErrorS(err, "fail to remove finalizer of DeviceService on Kubernetes", "DeviceService", kds.Name)
 			return err
 		}
 	}
