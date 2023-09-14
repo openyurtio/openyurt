@@ -450,6 +450,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 					poolName += str
 					poolName += "-"
 				}
+				poolName = poolName[:len(poolName)-1]
 				if poolName == platformAdmin.Spec.PoolName {
 					if yas.Status.ReadyReplicas == yas.Status.Replicas {
 						readyDeployment = true

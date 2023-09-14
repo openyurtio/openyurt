@@ -35,6 +35,25 @@ var (
 	replica int32 = 3
 )
 
+var yurtAppDaemon = &v1alpha1.YurtAppDaemon{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "yurtappdaemon",
+		Namespace: "default",
+	},
+	Spec: v1alpha1.YurtAppDaemonSpec{
+		NodePoolSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app": "test",
+			},
+		},
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app": "test",
+			},
+		},
+	},
+}
+
 var daemonDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "test",
@@ -104,7 +123,7 @@ func TestReconcile(t *testing.T) {
 		return
 	}
 	reconciler := ReconcileYurtAppOverrider{
-		Client:         fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(daemonDeployment, overrider).Build(),
+		Client:         fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(daemonDeployment, overrider, yurtAppDaemon).Build(),
 		CacheOverrider: &v1alpha1.YurtAppOverrider{},
 	}
 	_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
