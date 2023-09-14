@@ -27,10 +27,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
-const (
-	WebhookName = "deploymentrender"
-)
-
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *DeploymentRenderHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
@@ -48,6 +44,8 @@ func (webhook *DeploymentRenderHandler) SetupWebhookWithManager(mgr ctrl.Manager
 			WithDefaulter(webhook).
 			Complete()
 }
+
+// +kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=ignore,groups=apps,resources=deployments,verbs=create;update,versions=v1,name=mutate.apps.v1.deployment,sideEffects=None,admissionReviewVersions=v1
 
 // Cluster implements a validating and defaulting webhook for Cluster.
 type DeploymentRenderHandler struct {

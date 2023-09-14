@@ -43,6 +43,8 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/upgradeinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
@@ -221,7 +223,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return reqs
 		}
 
-		if !util.IsStaticPod(pod) {
+		if !podutil.IsStaticPod(pod) {
 			return reqs
 		}
 
@@ -252,8 +254,8 @@ func nodeTurnReady(evt event.UpdateEvent) bool {
 	oldNode := evt.ObjectOld.(*corev1.Node)
 	newNode := evt.ObjectNew.(*corev1.Node)
 
-	_, onc := util.GetNodeCondition(&oldNode.Status, corev1.NodeReady)
-	_, nnc := util.GetNodeCondition(&newNode.Status, corev1.NodeReady)
+	_, onc := nodeutil.GetNodeCondition(&oldNode.Status, corev1.NodeReady)
+	_, nnc := nodeutil.GetNodeCondition(&newNode.Status, corev1.NodeReady)
 
 	oldReady := (onc != nil) && ((onc.Status == corev1.ConditionFalse) || (onc.Status == corev1.ConditionUnknown))
 	newReady := (nnc != nil) && (nnc.Status == corev1.ConditionTrue)

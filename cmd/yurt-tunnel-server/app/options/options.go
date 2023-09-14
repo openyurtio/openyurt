@@ -127,9 +127,7 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	}
 
 	if o.CertDNSNames != "" {
-		for _, name := range strings.Split(o.CertDNSNames, ",") {
-			cfg.CertDNSNames = append(cfg.CertDNSNames, name)
-		}
+		cfg.CertDNSNames = append(cfg.CertDNSNames, strings.Split(o.CertDNSNames, ",")...)
 	}
 
 	if o.CertIPs != "" {

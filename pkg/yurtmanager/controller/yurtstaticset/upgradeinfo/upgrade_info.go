@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
@@ -81,7 +82,7 @@ func New(c client.Client, instance *appsv1alpha1.YurtStaticSet, workerPodName, h
 		}
 
 		// The name format of mirror static pod is `StaticPodName-NodeName`
-		if util.Hyphen(instance.Name, nodeName) == pod.Name && util.IsStaticPod(&pod) {
+		if util.Hyphen(instance.Name, nodeName) == pod.Name && podutil.IsStaticPod(&pod) {
 			// initialize static pod info
 			if err := initStaticPodInfo(instance, c, nodeName, hash, &podList.Items[i], infos); err != nil {
 				return nil, err

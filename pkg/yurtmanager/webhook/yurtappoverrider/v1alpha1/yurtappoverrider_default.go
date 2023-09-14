@@ -28,12 +28,9 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *YurtAppOverriderHandler) Default(ctx context.Context, obj runtime.Object) error {
-	np, ok := obj.(*v1alpha1.YurtAppOverrider)
+	_, ok := obj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
 	}
-
-	v1alpha1.SetDefaultsYurtAppOverrider(np)
-
 	return nil
 }

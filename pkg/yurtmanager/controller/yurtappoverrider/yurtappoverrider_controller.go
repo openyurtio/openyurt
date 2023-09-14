@@ -20,28 +20,24 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/record"
-	"reflect"
-	"time"
-
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
+	"time"
 )
 
 func init() {
@@ -111,6 +107,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			mgr.GetEventRecorderFor(names.YurtAppOverriderController).Event(overrider.DeepCopy(), "", "", "")
 		}
 	}, 5*time.Minute, nil)
+
 	// Watch for changes to YurtAppOverrider
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppOverrider{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -122,6 +119,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;update
+// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppOverrider object and makes changes based on the state read
 // and what is in the YurtAppOverrider.Spec

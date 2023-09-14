@@ -33,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 const (
@@ -113,23 +115,9 @@ func NodeReadyByName(c client.Client, nodeName string) (bool, error) {
 		return false, err
 	}
 
-	_, nc := GetNodeCondition(&node.Status, corev1.NodeReady)
+	_, nc := nodeutil.GetNodeCondition(&node.Status, corev1.NodeReady)
 
 	return nc != nil && nc.Status == corev1.ConditionTrue, nil
-}
-
-// GetNodeCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-func GetNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeConditionType) (int, *corev1.NodeCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	for i := range status.Conditions {
-		if status.Conditions[i].Type == conditionType {
-			return i, &status.Conditions[i]
-		}
-	}
-	return -1, nil
 }
 
 // SetPodUpgradeCondition set pod condition `PodNeedUpgrade` to the specified value
@@ -138,73 +126,11 @@ func SetPodUpgradeCondition(c client.Client, status corev1.ConditionStatus, pod 
 		Type:   PodNeedUpgrade,
 		Status: status,
 	}
-	if change := UpdatePodCondition(&pod.Status, cond); change {
+	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
 		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-// UpdatePodCondition updates existing pod condition or creates a new one. Sets LastTransitionTime to now if the
-// status has changed.
-// Returns true if pod condition has changed or has been added.
-func UpdatePodCondition(status *corev1.PodStatus, condition *corev1.PodCondition) bool {
-	condition.LastTransitionTime = metav1.Now()
-	// Try to find this pod condition.
-	conditionIndex, oldCondition := GetPodCondition(status, condition.Type)
-
-	if oldCondition == nil {
-		// We are adding new pod condition.
-		status.Conditions = append(status.Conditions, *condition)
-		return true
-	}
-	// We are updating an existing condition, so we need to check if it has changed.
-	if condition.Status == oldCondition.Status {
-		condition.LastTransitionTime = oldCondition.LastTransitionTime
-	}
-
-	isEqual := condition.Status == oldCondition.Status &&
-		condition.Reason == oldCondition.Reason &&
-		condition.Message == oldCondition.Message &&
-		condition.LastProbeTime.Equal(&oldCondition.LastProbeTime) &&
-		condition.LastTransitionTime.Equal(&oldCondition.LastTransitionTime)
-
-	status.Conditions[conditionIndex] = *condition
-	// Return true if one of the fields have changed.
-	return !isEqual
-}
-
-// GetPodCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-func GetPodCondition(status *corev1.PodStatus, conditionType corev1.PodConditionType) (int, *corev1.PodCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	return GetPodConditionFromList(status.Conditions, conditionType)
-}
-
-// GetPodConditionFromList extracts the provided condition from the given list of condition and
-// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
-func GetPodConditionFromList(conditions []corev1.PodCondition, conditionType corev1.PodConditionType) (int, *corev1.PodCondition) {
-	if conditions == nil {
-		return -1, nil
-	}
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return i, &conditions[i]
-		}
-	}
-	return -1, nil
-}
-
-// IsStaticPod judges whether a pod is static by its OwnerReference
-func IsStaticPod(pod *corev1.Pod) bool {
-	for _, ownerRef := range pod.GetOwnerReferences() {
-		if ownerRef.Kind == "Node" {
-			return true
-		}
-	}
-	return false
 }
