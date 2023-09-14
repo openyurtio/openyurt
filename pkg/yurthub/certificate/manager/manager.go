@@ -46,7 +46,7 @@ var (
 	apiServerClientCertNotReadyError = errors.New("APIServer client certificate")
 	caCertIsNotReadyError            = errors.New("ca.crt file")
 
-	DefaultRootDir = "/var/lib"
+	DefaultWorkDir = filepath.Join("/var/lib", projectinfo.GetHubName())
 )
 
 type yurtHubCertManager struct {
@@ -58,10 +58,12 @@ type yurtHubCertManager struct {
 func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url.URL) (hubCert.YurtCertificateManager, error) {
 	var clientCertManager hubCert.YurtClientCertificateManager
 	var err error
+	var workDir string
 
-	workDir := filepath.Join(options.RootDir, projectinfo.GetHubName())
 	if len(options.RootDir) == 0 {
-		workDir = filepath.Join(DefaultRootDir, projectinfo.GetHubName())
+		workDir = DefaultWorkDir
+	} else {
+		workDir = options.RootDir
 	}
 
 	if options.BootstrapMode == "kubeletcertificate" {
