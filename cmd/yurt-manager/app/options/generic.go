@@ -22,6 +22,9 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	componentbaseconfig "k8s.io/component-base/config"
+	"k8s.io/component-base/config/options"
 
 	"github.com/openyurtio/openyurt/pkg/features"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/apis/config"
@@ -34,16 +37,20 @@ type GenericOptions struct {
 func NewGenericOptions() *GenericOptions {
 	return &GenericOptions{
 		&config.GenericConfiguration{
-			Version:                 false,
-			MetricsAddr:             ":10271",
-			HealthProbeAddr:         ":10272",
-			WebhookPort:             10273,
-			EnableLeaderElection:    true,
-			LeaderElectionNamespace: "kube-system",
-			RestConfigQPS:           30,
-			RestConfigBurst:         50,
-			WorkingNamespace:        "kube-system",
-			DisabledWebhooks:        []string{},
+			Version:         false,
+			MetricsAddr:     ":10271",
+			HealthProbeAddr: ":10272",
+			WebhookPort:     10273,
+			LeaderElection: componentbaseconfig.LeaderElectionConfiguration{
+				LeaderElect:       true,
+				ResourceLock:      resourcelock.LeasesResourceLock,
+				ResourceName:      "yurt-manager",
+				ResourceNamespace: "kube-system",
+			},
+			RestConfigQPS:    30,
+			RestConfigBurst:  50,
+			WorkingNamespace: "kube-system",
+			DisabledWebhooks: []string{},
 		},
 	}
 }
@@ -86,8 +93,8 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration, controllerAli
 	cfg.MetricsAddr = o.MetricsAddr
 	cfg.HealthProbeAddr = o.HealthProbeAddr
 	cfg.WebhookPort = o.WebhookPort
-	cfg.EnableLeaderElection = o.EnableLeaderElection
-	cfg.LeaderElectionNamespace = o.WorkingNamespace
+	cfg.LeaderElection = o.LeaderElection
+	cfg.LeaderElection.ResourceNamespace = o.WorkingNamespace
 	cfg.RestConfigQPS = o.RestConfigQPS
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
@@ -119,7 +126,7 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, allControllers, disabledByD
 	fs.StringVar(&o.MetricsAddr, "metrics-addr", o.MetricsAddr, "The address the metric endpoint binds to.")
 	fs.StringVar(&o.HealthProbeAddr, "health-probe-addr", o.HealthProbeAddr, "The address the healthz/readyz endpoint binds to.")
 	fs.IntVar(&o.WebhookPort, "webhook-port", o.WebhookPort, "The port on which to serve HTTPS for webhook server. It can't be switched off with 0")
-	fs.BoolVar(&o.EnableLeaderElection, "enable-leader-election", o.EnableLeaderElection, "Whether you need to enable leader election.")
+	options.BindLeaderElectionFlags(&o.LeaderElection, fs)
 	fs.IntVar(&o.RestConfigQPS, "rest-config-qps", o.RestConfigQPS, "rest-config-qps.")
 	fs.IntVar(&o.RestConfigBurst, "rest-config-burst", o.RestConfigBurst, "rest-config-burst.")
 	fs.StringVar(&o.WorkingNamespace, "working-namespace", o.WorkingNamespace, "The namespace where the yurt-manager is working.")

@@ -26,6 +26,8 @@ controllers: "*"
 # format should be "foo,*"
 disableIndependentWebhooks: ""
 
+leaderElectResourceName: "cloud-yurt-manager"
+
 # resources of yurt-manager container
 resources:
   limits:
