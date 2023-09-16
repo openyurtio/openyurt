@@ -335,6 +335,13 @@ spec:
                 type: integer
               overriderRef:
                 type: string
+              poolReplicas:
+                additionalProperties:
+                  format: int32
+                  type: integer
+                description: Records the topology detail information of the replicas
+                  of each pool.
+                type: object
               readyReplicas:
                 description: The number of ready replicas.
                 format: int32
