@@ -26,8 +26,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,21 +99,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	go wait.Until(func() {
-		overriderList := &appsv1alpha1.YurtAppOverriderList{}
-		if err := r.(*ReconcileYurtAppOverrider).Client.List(context.TODO(), overriderList); err != nil {
-			klog.Errorf("failed to list yurtappoverriders:%+v", err)
-		}
-		for _, overrider := range overriderList.Items {
-			_, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{
-				Namespace: overrider.Namespace,
-				Name:      overrider.Name,
-			}})
-			if err != nil {
-				klog.Errorf("unable to execute Reconcile for %s: %v", overrider.Name, err)
-			}
-		}
-	}, 5*time.Minute, nil)
 
 	// Watch for changes to YurtAppOverrider
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppOverrider{}}, &handler.EnqueueRequestForObject{})

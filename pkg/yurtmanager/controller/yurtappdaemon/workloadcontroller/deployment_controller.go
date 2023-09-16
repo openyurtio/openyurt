@@ -19,6 +19,7 @@ package workloadcontroller
 import (
 	"context"
 	"errors"
+	corev1 "k8s.io/api/core/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,6 +186,13 @@ func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*
 	for i, o := range objs {
 		deploy := o.(*appsv1.Deployment)
 		spec := deploy.Spec
+		var availableCondition corev1.ConditionStatus
+		for _, condition := range deploy.Status.Conditions {
+			if condition.Type == appsv1.DeploymentAvailable {
+				availableCondition = condition.Status
+				break
+			}
+		}
 		w := &Workload{
 			Name:      o.GetName(),
 			Namespace: o.GetNamespace(),
@@ -193,6 +201,11 @@ func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*
 				Ref:          objs[i],
 				NodeSelector: spec.Template.Spec.NodeSelector,
 				Tolerations:  spec.Template.Spec.Tolerations,
+			},
+			Status: WorkloadStatus{
+				Replicas:           deploy.Status.Replicas,
+				ReadyReplicas:      deploy.Status.ReadyReplicas,
+				AvailableCondition: availableCondition,
 			},
 		}
 		workloads = append(workloads, w)

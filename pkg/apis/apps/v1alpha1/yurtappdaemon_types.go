@@ -75,6 +75,10 @@ type YurtAppDaemonStatus struct {
 
 	OverriderRef string `json:"overriderRef"`
 
+	// Records the topology detailed information of each workload.
+	// +optional
+	WorkloadSummaries []WorkloadSummary `json:"workloadSummary,omitempty"`
+
 	// TemplateType indicates the type of PoolTemplate
 	TemplateType TemplateType `json:"templateType"`
 

@@ -202,13 +202,13 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 		return reconcile.Result{}, err
 	}
 
-	return r.updateStatus(instance, newStatus, oldStatus, currentRevision, collisionCount, templateType)
+	return r.updateStatus(instance, newStatus, oldStatus, currentRevision, collisionCount, templateType, currentNPToWorkload)
 }
 
 func (r *ReconcileYurtAppDaemon) updateStatus(instance *unitv1alpha1.YurtAppDaemon, newStatus, oldStatus *unitv1alpha1.YurtAppDaemonStatus,
-	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType) (reconcile.Result, error) {
+	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType, currentNodepoolToWorkload map[string]*workloadcontroller.Workload) (reconcile.Result, error) {
 
-	newStatus = r.calculateStatus(instance, newStatus, currentRevision, collisionCount, templateType)
+	newStatus = r.calculateStatus(instance, newStatus, currentRevision, collisionCount, templateType, currentNodepoolToWorkload)
 	_, err := r.updateYurtAppDaemon(instance, oldStatus, newStatus)
 
 	return reconcile.Result{}, err
@@ -254,10 +254,33 @@ func (r *ReconcileYurtAppDaemon) updateYurtAppDaemon(yad *unitv1alpha1.YurtAppDa
 }
 
 func (r *ReconcileYurtAppDaemon) calculateStatus(instance *unitv1alpha1.YurtAppDaemon, newStatus *unitv1alpha1.YurtAppDaemonStatus,
-	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType) *unitv1alpha1.YurtAppDaemonStatus {
+	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType, currentNodepoolToWorkload map[string]*workloadcontroller.Workload) *unitv1alpha1.YurtAppDaemonStatus {
 
 	newStatus.CollisionCount = &collisionCount
 
+	var poolFailure *string
+	// update OverriderRef
+	overriderList := unitv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), &overriderList); err != nil {
+		message := fmt.Sprintf("fail to list yurtappoverrider: %v", err)
+		poolFailure = &message
+	}
+	for _, overrider := range overriderList.Items {
+		if overrider.Subject.Kind == "YurtAppDaemon" && overrider.Subject.Name == instance.Name {
+			newStatus.OverriderRef = overrider.Name
+			break
+		}
+	}
+
+	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
+	for _, workload := range currentNodepoolToWorkload {
+		newStatus.WorkloadSummaries = append(newStatus.WorkloadSummaries, unitv1alpha1.WorkloadSummary{
+			AvailableCondition: workload.Status.AvailableCondition,
+			Replicas:           workload.Status.Replicas,
+			ReadyReplicas:      workload.Status.ReadyReplicas,
+			WorkloadName:       workload.Name,
+		})
+	}
 	if newStatus.CurrentRevision == "" {
 		// init with current revision
 		newStatus.CurrentRevision = currentRevision.Name
@@ -265,6 +288,11 @@ func (r *ReconcileYurtAppDaemon) calculateStatus(instance *unitv1alpha1.YurtAppD
 
 	newStatus.TemplateType = templateType
 
+	if poolFailure == nil {
+		RemoveYurtAppDaemonCondition(newStatus, unitv1alpha1.WorkLoadFailure)
+	} else {
+		SetYurtAppDaemonCondition(newStatus, NewYurtAppDaemonCondition(unitv1alpha1.WorkLoadFailure, corev1.ConditionFalse, "Error", *poolFailure))
+	}
 	return newStatus
 }
 
@@ -278,18 +306,6 @@ func (r *ReconcileYurtAppDaemon) manageWorkloads(instance *unitv1alpha1.YurtAppD
 		nps = append(nps, np)
 	}
 	newStatus.NodePools = nps
-
-	// update OverriderRef
-	overriderList := unitv1alpha1.YurtAppOverriderList{}
-	if err := r.List(context.TODO(), &overriderList); err != nil {
-		return newStatus, fmt.Errorf("fail to list yurtappoverrider: %v", err)
-	}
-	for _, overrider := range overriderList.Items {
-		if overrider.Subject.Kind == "YurtAppDaemon" && overrider.Subject.Name == instance.Name {
-			newStatus.OverriderRef = overrider.Name
-			break
-		}
-	}
 
 	needDeleted, needUpdate, needCreate := r.classifyWorkloads(instance, currentNodepoolToWorkload, allNameToNodePools, expectedRevision)
 	provision, err := r.manageWorkloadsProvision(instance, allNameToNodePools, expectedRevision, templateType, needDeleted, needCreate)

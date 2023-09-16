@@ -40,6 +40,9 @@ type WorkloadSpec struct {
 
 // WorkloadStatus stores the observed state of the Workload.
 type WorkloadStatus struct {
+	Replicas           int32
+	ReadyReplicas      int32
+	AvailableCondition corev1.ConditionStatus
 }
 
 func (w *Workload) GetRevision() string {

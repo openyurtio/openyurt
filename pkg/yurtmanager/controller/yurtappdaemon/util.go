@@ -57,6 +57,11 @@ func GetYurtAppDaemonCondition(status unitv1alpha1.YurtAppDaemonStatus, condType
 	return nil
 }
 
+// RemoveYurtAppDaemonCondition removes the YurtAppDaemon condition with the provided type.
+func RemoveYurtAppDaemonCondition(status *unitv1alpha1.YurtAppDaemonStatus, condType unitv1alpha1.YurtAppDaemonConditionType) {
+	status.Conditions = filterOutCondition(status.Conditions, condType)
+}
+
 // SetYurtAppDaemonCondition updates the YurtAppDaemon to include the provided condition. If the condition that
 // we are about to add already exists and has the same status, reason and message then we are not going to update.
 func SetYurtAppDaemonCondition(status *unitv1alpha1.YurtAppDaemonStatus, condition *unitv1alpha1.YurtAppDaemonCondition) {
