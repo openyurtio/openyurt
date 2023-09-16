@@ -504,6 +504,11 @@ func (in *YurtAppDaemonStatus) DeepCopyInto(out *YurtAppDaemonStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.WorkloadSummaries != nil {
+		in, out := &in.WorkloadSummaries, &out.WorkloadSummaries
+		*out = make([]WorkloadSummary, len(*in))
+		copy(*out, *in)
+	}
 	if in.NodePools != nil {
 		in, out := &in.NodePools, &out.NodePools
 		*out = make([]string, len(*in))

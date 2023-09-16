@@ -234,6 +234,27 @@ spec:
               templateType:
                 description: TemplateType indicates the type of PoolTemplate
                 type: string
+              workloadSummary:
+                description: Records the topology detailed information of each workload.
+                items:
+                  properties:
+                    availableCondition:
+                      type: string
+                    readyReplicas:
+                      format: int32
+                      type: integer
+                    replicas:
+                      format: int32
+                      type: integer
+                    workloadName:
+                      type: string
+                  required:
+                  - availableCondition
+                  - readyReplicas
+                  - replicas
+                  - workloadName
+                  type: object
+                type: array
             required:
             - currentRevision
             - overriderRef
