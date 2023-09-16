@@ -153,14 +153,6 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	if cacheOverrider, ok := r.CacheOverriderMap[instance.Name]; ok {
-		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
-			return reconcile.Result{}, nil
-		}
-	} else {
-		r.CacheOverriderMap[instance.Name] = instance.DeepCopy()
-	}
-
 	switch instance.Subject.Kind {
 	case "YurtAppSet":
 		appSet := &appsv1alpha1.YurtAppSet{}
@@ -169,6 +161,7 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		}
 		if appSet.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
 			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appSet.Name), "It is not supported to overrider statefulset now")
+			return reconcile.Result{}, nil
 		}
 	case "YurtAppDaemon":
 		appDaemon := &appsv1alpha1.YurtAppDaemon{}
@@ -177,10 +170,20 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		}
 		if appDaemon.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
 			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appDaemon.Name), "It is not supported to overrider statefulset now")
+			return reconcile.Result{}, nil
 		}
 	default:
 		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
 	}
+
+	if cacheOverrider, ok := r.CacheOverriderMap[instance.Namespace+"-"+instance.Name]; ok {
+		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
+			return reconcile.Result{}, nil
+		}
+	} else {
+		r.CacheOverriderMap[instance.Namespace+"-"+instance.Name] = instance.DeepCopy()
+	}
+
 	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
 		return reconcile.Result{}, err
