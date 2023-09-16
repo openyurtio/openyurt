@@ -258,12 +258,10 @@ func (r *ReconcileYurtAppDaemon) calculateStatus(instance *unitv1alpha1.YurtAppD
 
 	newStatus.CollisionCount = &collisionCount
 
-	var poolFailure *string
-	// update OverriderRef
+	var workloadFailure string
 	overriderList := unitv1alpha1.YurtAppOverriderList{}
 	if err := r.List(context.TODO(), &overriderList); err != nil {
-		message := fmt.Sprintf("fail to list yurtappoverrider: %v", err)
-		poolFailure = &message
+		workloadFailure = fmt.Sprintf("unable to list yurtappoverrider: %v", err)
 	}
 	for _, overrider := range overriderList.Items {
 		if overrider.Subject.Kind == "YurtAppDaemon" && overrider.Subject.Name == instance.Name {
@@ -285,13 +283,12 @@ func (r *ReconcileYurtAppDaemon) calculateStatus(instance *unitv1alpha1.YurtAppD
 		// init with current revision
 		newStatus.CurrentRevision = currentRevision.Name
 	}
-
 	newStatus.TemplateType = templateType
 
-	if poolFailure == nil {
+	if workloadFailure == "" {
 		RemoveYurtAppDaemonCondition(newStatus, unitv1alpha1.WorkLoadFailure)
 	} else {
-		SetYurtAppDaemonCondition(newStatus, NewYurtAppDaemonCondition(unitv1alpha1.WorkLoadFailure, corev1.ConditionFalse, "Error", *poolFailure))
+		SetYurtAppDaemonCondition(newStatus, NewYurtAppDaemonCondition(unitv1alpha1.WorkLoadFailure, corev1.ConditionFalse, "Error", workloadFailure))
 	}
 	return newStatus
 }
