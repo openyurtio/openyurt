@@ -167,9 +167,11 @@ func TestUpdateStatus(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
 				get, _ := rc.updateStatus(
-					st.instance, st.newStatus, st.oldStatus, st.currentRevision, st.collisionCount, st.templateType)
+					st.instance, st.newStatus, st.oldStatus, st.currentRevision, st.collisionCount, st.templateType, make(map[string]*workloadcontroller.Workload))
 				if !reflect.DeepEqual(get, st.expect) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)
 				}
@@ -257,13 +259,14 @@ func TestCalculateStatus(t *testing.T) {
 	var cr appsv1.ControllerRevision
 	cr.Name = "a"
 	tests := []struct {
-		name            string
-		instance        *unitv1alpha1.YurtAppDaemon
-		newStatus       *unitv1alpha1.YurtAppDaemonStatus
-		currentRevision *appsv1.ControllerRevision
-		collisionCount  int32
-		templateType    unitv1alpha1.TemplateType
-		expect          unitv1alpha1.YurtAppDaemonStatus
+		name                      string
+		instance                  *unitv1alpha1.YurtAppDaemon
+		newStatus                 *unitv1alpha1.YurtAppDaemonStatus
+		currentNodepoolToWorkload map[string]*workloadcontroller.Workload
+		currentRevision           *appsv1.ControllerRevision
+		collisionCount            int32
+		templateType              unitv1alpha1.TemplateType
+		expect                    unitv1alpha1.YurtAppDaemonStatus
 	}{
 		{
 			"normal",
@@ -282,6 +285,7 @@ func TestCalculateStatus(t *testing.T) {
 					},
 				},
 			},
+			map[string]*workloadcontroller.Workload{},
 			&cr,
 			1,
 			"StatefulSet",
@@ -308,8 +312,10 @@ func TestCalculateStatus(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
-				get := rc.calculateStatus(st.instance, st.newStatus, st.currentRevision, st.collisionCount, st.templateType)
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
+				get := rc.calculateStatus(st.instance, st.newStatus, st.currentRevision, st.collisionCount, st.templateType, st.currentNodepoolToWorkload)
 				if !reflect.DeepEqual(get.CurrentRevision, st.expect.CurrentRevision) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect.CurrentRevision, get.CurrentRevision)
 				}
