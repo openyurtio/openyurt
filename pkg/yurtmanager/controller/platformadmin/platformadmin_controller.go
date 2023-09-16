@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -441,22 +440,11 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			// Refresh the YurtAppSet according to the user-defined configuration
 			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
 
-			for _, summary := range yas.Status.WorkloadSummaries {
-				poolName := ""
-				for i, str := range strings.Split(summary.WorkloadName, "-") {
-					if i == len(strings.Split(summary.WorkloadName, "-"))-1 {
-						break
-					}
-					poolName += str
-					poolName += "-"
-				}
-				poolName = poolName[:len(poolName)-1]
-				if poolName == platformAdmin.Spec.PoolName {
-					if yas.Status.ReadyReplicas == yas.Status.Replicas {
-						readyDeployment = true
-						if readyDeployment && readyService {
-							readyComponent++
-						}
+			if _, ok := yas.Status.PoolReplicas[platformAdmin.Spec.PoolName]; ok {
+				if yas.Status.ReadyReplicas == yas.Status.Replicas {
+					readyDeployment = true
+					if readyDeployment && readyService {
+						readyComponent++
 					}
 				}
 			}

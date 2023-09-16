@@ -262,7 +262,10 @@ func TestReconcileYurtAppSet_UpdateYurtAppSet(t *testing.T) {
 			Replicas:           two,
 			ReadyReplicas:      one,
 			ObservedGeneration: fifteen,
-			Conditions:         []appsv1alpha1.YurtAppSetCondition{},
+			PoolReplicas: map[string]int32{
+				"foo-pool": ten,
+			},
+			Conditions: []appsv1alpha1.YurtAppSetCondition{},
 		},
 		newStatus: &appsv1alpha1.YurtAppSetStatus{
 			CurrentRevision:    "v0.2.0",
@@ -270,7 +273,10 @@ func TestReconcileYurtAppSet_UpdateYurtAppSet(t *testing.T) {
 			Replicas:           two,
 			ReadyReplicas:      one,
 			ObservedGeneration: fifteen,
-			Conditions:         []appsv1alpha1.YurtAppSetCondition{},
+			PoolReplicas: map[string]int32{
+				"foo-pool": ten,
+			},
+			Conditions: []appsv1alpha1.YurtAppSetCondition{},
 		},
 	}
 

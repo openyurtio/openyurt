@@ -314,9 +314,11 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 	}
 	// sync from status
 	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
+	newStatus.PoolReplicas = make(map[string]int32)
 	newStatus.ReadyReplicas = 0
 	newStatus.Replicas = 0
 	for _, pool := range nameToPool {
+		newStatus.PoolReplicas[pool.Name] = pool.Status.Replicas
 		newStatus.WorkloadSummaries = append(newStatus.WorkloadSummaries, unitv1alpha1.WorkloadSummary{
 			AvailableCondition: pool.Status.AvailableCondition,
 			Replicas:           pool.Status.Replicas,
