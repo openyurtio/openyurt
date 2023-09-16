@@ -159,12 +159,12 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
 	}
 
-	if cacheOverrider, ok := r.CacheOverriderMap[instance.Namespace+"-"+instance.Name]; ok {
+	if cacheOverrider, ok := r.CacheOverriderMap[instance.Namespace+"/"+instance.Name]; ok {
 		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
 			return reconcile.Result{}, nil
 		}
 	} else {
-		r.CacheOverriderMap[instance.Namespace+"-"+instance.Name] = instance.DeepCopy()
+		r.CacheOverriderMap[instance.Namespace+"/"+instance.Name] = instance.DeepCopy()
 	}
 
 	deployments := v1.DeploymentList{}

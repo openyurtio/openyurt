@@ -73,7 +73,7 @@ type YurtAppDaemonStatus struct {
 	// +optional
 	Conditions []YurtAppDaemonCondition `json:"conditions,omitempty"`
 
-	OverriderRef string `json:"overriderRef"`
+	OverriderRef string `json:"overriderRef,omitempty"`
 
 	// Records the topology detailed information of each workload.
 	// +optional
