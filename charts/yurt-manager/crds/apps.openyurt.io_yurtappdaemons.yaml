@@ -257,7 +257,6 @@ spec:
                 type: array
             required:
             - currentRevision
-            - overriderRef
             - templateType
             type: object
         type: object
