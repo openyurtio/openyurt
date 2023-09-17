@@ -20,10 +20,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"reflect"
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -33,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 )
@@ -71,14 +75,18 @@ var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
 // ReconcileYurtAppOverrider reconciles a YurtAppOverrider object
 type ReconcileYurtAppOverrider struct {
 	client.Client
-	Configuration config.YurtAppOverriderControllerConfiguration
+	Configuration     config.YurtAppOverriderControllerConfiguration
+	CacheOverriderMap map[string]*appsv1alpha1.YurtAppOverrider
+	recorder          record.EventRecorder
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppOverrider{
-		Client:        mgr.GetClient(),
-		Configuration: c.ComponentConfig.YurtAppOverriderController,
+		Client:            mgr.GetClient(),
+		Configuration:     c.ComponentConfig.YurtAppOverriderController,
+		CacheOverriderMap: make(map[string]*appsv1alpha1.YurtAppOverrider),
+		recorder:          mgr.GetEventRecorderFor(names.YurtAppOverriderController),
 	}
 }
 
@@ -128,8 +136,38 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	deployments := v1.DeploymentList{}
+	switch instance.Subject.Kind {
+	case "YurtAppSet":
+		appSet := &appsv1alpha1.YurtAppSet{}
+		if err := r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appSet); err != nil {
+			return reconcile.Result{}, err
+		}
+		if appSet.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appSet.Name), "It is not supported to overrider statefulset now")
+			return reconcile.Result{}, nil
+		}
+	case "YurtAppDaemon":
+		appDaemon := &appsv1alpha1.YurtAppDaemon{}
+		if err := r.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: instance.Subject.Name}, appDaemon); err != nil {
+			return reconcile.Result{}, err
+		}
+		if appDaemon.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
+			r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("unable to override statefulset workload of %s", appDaemon.Name), "It is not supported to overrider statefulset now")
+			return reconcile.Result{}, nil
+		}
+	default:
+		return reconcile.Result{}, fmt.Errorf("unsupported kind: %s", instance.Subject.Kind)
+	}
 
+	if cacheOverrider, ok := r.CacheOverriderMap[instance.Namespace+"/"+instance.Name]; ok {
+		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
+			return reconcile.Result{}, nil
+		}
+	} else {
+		r.CacheOverriderMap[instance.Namespace+"/"+instance.Name] = instance.DeepCopy()
+	}
+
+	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
 		return reconcile.Result{}, err
 	}

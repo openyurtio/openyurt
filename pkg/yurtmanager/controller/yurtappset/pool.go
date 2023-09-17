@@ -18,6 +18,7 @@ limitations under the License.
 package yurtappset
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -41,7 +42,8 @@ type PoolSpec struct {
 type PoolStatus struct {
 	ObservedGeneration int64
 	adapter.ReplicasInfo
-	PatchInfo string
+	PatchInfo          string
+	AvailableCondition v1.ConditionStatus
 }
 
 // ResourceRef stores the Pool resource it represents.

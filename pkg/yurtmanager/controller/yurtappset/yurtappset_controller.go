@@ -299,19 +299,38 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 		newStatus.CurrentRevision = currentRevision.Name
 	}
 
+	// update OverriderRef
+	var poolFailure *string
+	overriderList := unitv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), &overriderList); err != nil {
+		message := fmt.Sprintf("fail to list yurtappoverrider: %v", err)
+		poolFailure = &message
+	}
+	for _, overrider := range overriderList.Items {
+		if overrider.Subject.Kind == "YurtAppSet" && overrider.Subject.Name == instance.Name {
+			newStatus.OverriderRef = overrider.Name
+			break
+		}
+	}
 	// sync from status
+	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
 	newStatus.PoolReplicas = make(map[string]int32)
 	newStatus.ReadyReplicas = 0
 	newStatus.Replicas = 0
 	for _, pool := range nameToPool {
 		newStatus.PoolReplicas[pool.Name] = pool.Status.Replicas
+		newStatus.WorkloadSummaries = append(newStatus.WorkloadSummaries, unitv1alpha1.WorkloadSummary{
+			AvailableCondition: pool.Status.AvailableCondition,
+			Replicas:           pool.Status.Replicas,
+			ReadyReplicas:      pool.Status.ReadyReplicas,
+			WorkloadName:       pool.Spec.PoolRef.GetName(),
+		})
 		newStatus.Replicas += pool.Status.Replicas
 		newStatus.ReadyReplicas += pool.Status.ReadyReplicas
 	}
 
 	newStatus.TemplateType = getPoolTemplateType(instance)
 
-	var poolFailure *string
 	for _, pool := range nameToPool {
 		failureMessage := control.GetPoolFailure(pool)
 		if failureMessage != nil {
@@ -348,7 +367,7 @@ func (r *ReconcileYurtAppSet) updateYurtAppSet(yas *unitv1alpha1.YurtAppSet, old
 		oldStatus.Replicas == newStatus.Replicas &&
 		oldStatus.ReadyReplicas == newStatus.ReadyReplicas &&
 		yas.Generation == newStatus.ObservedGeneration &&
-		reflect.DeepEqual(oldStatus.PoolReplicas, newStatus.PoolReplicas) &&
+		reflect.DeepEqual(oldStatus.WorkloadSummaries, newStatus.WorkloadSummaries) &&
 		reflect.DeepEqual(oldStatus.Conditions, newStatus.Conditions) {
 		return yas, nil
 	}
