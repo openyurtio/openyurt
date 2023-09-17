@@ -39,7 +39,7 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object, req
 	}
 
 	npName, ok := node.Labels[apps.NodePoolLabel]
-	if !ok {
+	if !ok || len(npName) == 0 {
 		return nil
 	}
 
