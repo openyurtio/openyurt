@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
 	"github.com/openyurtio/openyurt/pkg/util/ip"
 )
@@ -53,8 +54,6 @@ var (
 )
 
 const (
-	ControllerName = "yurtcoordinatorcert"
-
 	// tmp file directory for certmanager to write cert files
 	certDir = "/tmp"
 
@@ -199,7 +198,7 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.YurtCoordinatorCertController, s)
 }
 
 // Add creates a new YurtCoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -208,7 +207,7 @@ func Add(cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileYurtCoordinatorCert{}
 
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{
+	c, err := controller.New(names.YurtCoordinatorCertController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

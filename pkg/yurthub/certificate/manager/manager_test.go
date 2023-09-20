@@ -45,7 +45,7 @@ func TestGetHubServerCertFile(t *testing.T) {
 		},
 		"define root dir": {
 			rootDir: "/tmp",
-			path:    filepath.Join("/tmp", projectinfo.GetHubName(), "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
+			path:    filepath.Join("/tmp", "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
 		},
 	}
 

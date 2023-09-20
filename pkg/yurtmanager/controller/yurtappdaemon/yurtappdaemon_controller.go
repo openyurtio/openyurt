@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/workloadcontroller"
@@ -49,7 +50,6 @@ var (
 )
 
 const (
-	ControllerName            = "yurtappdaemon"
 	slowStartInitialBatchSize = 1
 
 	eventTypeRevisionProvision  = "RevisionProvision"
@@ -66,7 +66,7 @@ func init() {
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.YurtAppDaemonController, s)
 }
 
 // Add creates a new YurtAppDaemon Controller and adds it to the Manager with default RBAC.
@@ -85,7 +85,7 @@ func Add(c *config.CompletedConfig, mgr manager.Manager) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtAppDaemonController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -118,10 +118,9 @@ type ReconcileYurtAppDaemon struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppDaemon{
-		Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-
-		recorder: mgr.GetEventRecorderFor(ControllerName),
+		Client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetEventRecorderFor(names.YurtAppDaemonController),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
 			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
@@ -203,13 +202,13 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 		return reconcile.Result{}, err
 	}
 
-	return r.updateStatus(instance, newStatus, oldStatus, currentRevision, collisionCount, templateType)
+	return r.updateStatus(instance, newStatus, oldStatus, currentRevision, collisionCount, templateType, currentNPToWorkload)
 }
 
 func (r *ReconcileYurtAppDaemon) updateStatus(instance *unitv1alpha1.YurtAppDaemon, newStatus, oldStatus *unitv1alpha1.YurtAppDaemonStatus,
-	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType) (reconcile.Result, error) {
+	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType, currentNodepoolToWorkload map[string]*workloadcontroller.Workload) (reconcile.Result, error) {
 
-	newStatus = r.calculateStatus(instance, newStatus, currentRevision, collisionCount, templateType)
+	newStatus = r.calculateStatus(instance, newStatus, currentRevision, collisionCount, templateType, currentNodepoolToWorkload)
 	_, err := r.updateYurtAppDaemon(instance, oldStatus, newStatus)
 
 	return reconcile.Result{}, err
@@ -255,17 +254,42 @@ func (r *ReconcileYurtAppDaemon) updateYurtAppDaemon(yad *unitv1alpha1.YurtAppDa
 }
 
 func (r *ReconcileYurtAppDaemon) calculateStatus(instance *unitv1alpha1.YurtAppDaemon, newStatus *unitv1alpha1.YurtAppDaemonStatus,
-	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType) *unitv1alpha1.YurtAppDaemonStatus {
+	currentRevision *appsv1.ControllerRevision, collisionCount int32, templateType unitv1alpha1.TemplateType, currentNodepoolToWorkload map[string]*workloadcontroller.Workload) *unitv1alpha1.YurtAppDaemonStatus {
 
 	newStatus.CollisionCount = &collisionCount
 
+	var workloadFailure string
+	overriderList := unitv1alpha1.YurtAppOverriderList{}
+	if err := r.List(context.TODO(), &overriderList); err != nil {
+		workloadFailure = fmt.Sprintf("unable to list yurtappoverrider: %v", err)
+	}
+	for _, overrider := range overriderList.Items {
+		if overrider.Subject.Kind == "YurtAppDaemon" && overrider.Subject.Name == instance.Name {
+			newStatus.OverriderRef = overrider.Name
+			break
+		}
+	}
+
+	newStatus.WorkloadSummaries = make([]unitv1alpha1.WorkloadSummary, 0)
+	for _, workload := range currentNodepoolToWorkload {
+		newStatus.WorkloadSummaries = append(newStatus.WorkloadSummaries, unitv1alpha1.WorkloadSummary{
+			AvailableCondition: workload.Status.AvailableCondition,
+			Replicas:           workload.Status.Replicas,
+			ReadyReplicas:      workload.Status.ReadyReplicas,
+			WorkloadName:       workload.Name,
+		})
+	}
 	if newStatus.CurrentRevision == "" {
 		// init with current revision
 		newStatus.CurrentRevision = currentRevision.Name
 	}
-
 	newStatus.TemplateType = templateType
 
+	if workloadFailure == "" {
+		RemoveYurtAppDaemonCondition(newStatus, unitv1alpha1.WorkLoadFailure)
+	} else {
+		SetYurtAppDaemonCondition(newStatus, NewYurtAppDaemonCondition(unitv1alpha1.WorkLoadFailure, corev1.ConditionFalse, "Error", workloadFailure))
+	}
 	return newStatus
 }
 

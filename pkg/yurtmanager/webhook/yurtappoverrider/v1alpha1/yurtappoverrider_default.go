@@ -14,8 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package servicetopology
+package v1alpha1
 
-const (
-	ControllerName = "servicetopology"
+import (
+	"context"
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
+
+// Default satisfies the defaulting webhook interface.
+func (webhook *YurtAppOverriderHandler) Default(ctx context.Context, obj runtime.Object) error {
+	_, ok := obj.(*v1alpha1.YurtAppOverrider)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", obj))
+	}
+	return nil
+}

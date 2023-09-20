@@ -23,8 +23,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/workloadcontroller"
@@ -125,7 +127,7 @@ func TestUpdateStatus(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -139,7 +141,7 @@ func TestUpdateStatus(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -165,9 +167,11 @@ func TestUpdateStatus(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
 				get, _ := rc.updateStatus(
-					st.instance, st.newStatus, st.oldStatus, st.currentRevision, st.collisionCount, st.templateType)
+					st.instance, st.newStatus, st.oldStatus, st.currentRevision, st.collisionCount, st.templateType, make(map[string]*workloadcontroller.Workload))
 				if !reflect.DeepEqual(get, st.expect) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)
 				}
@@ -196,7 +200,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 			"equal",
 			yad,
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -210,7 +214,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 				},
 			},
 			&unitv1alpha1.YurtAppDaemonStatus{
-				CurrentRevision:    ControllerName,
+				CurrentRevision:    names.YurtAppDaemonController,
 				CollisionCount:     &int1,
 				TemplateType:       "StatefulSet",
 				ObservedGeneration: 1,
@@ -255,13 +259,14 @@ func TestCalculateStatus(t *testing.T) {
 	var cr appsv1.ControllerRevision
 	cr.Name = "a"
 	tests := []struct {
-		name            string
-		instance        *unitv1alpha1.YurtAppDaemon
-		newStatus       *unitv1alpha1.YurtAppDaemonStatus
-		currentRevision *appsv1.ControllerRevision
-		collisionCount  int32
-		templateType    unitv1alpha1.TemplateType
-		expect          unitv1alpha1.YurtAppDaemonStatus
+		name                      string
+		instance                  *unitv1alpha1.YurtAppDaemon
+		newStatus                 *unitv1alpha1.YurtAppDaemonStatus
+		currentNodepoolToWorkload map[string]*workloadcontroller.Workload
+		currentRevision           *appsv1.ControllerRevision
+		collisionCount            int32
+		templateType              unitv1alpha1.TemplateType
+		expect                    unitv1alpha1.YurtAppDaemonStatus
 	}{
 		{
 			"normal",
@@ -280,6 +285,7 @@ func TestCalculateStatus(t *testing.T) {
 					},
 				},
 			},
+			map[string]*workloadcontroller.Workload{},
 			&cr,
 			1,
 			"StatefulSet",
@@ -306,8 +312,10 @@ func TestCalculateStatus(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
-				get := rc.calculateStatus(st.instance, st.newStatus, st.currentRevision, st.collisionCount, st.templateType)
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
+				get := rc.calculateStatus(st.instance, st.newStatus, st.currentRevision, st.collisionCount, st.templateType, st.currentNodepoolToWorkload)
 				if !reflect.DeepEqual(get.CurrentRevision, st.expect.CurrentRevision) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect.CurrentRevision, get.CurrentRevision)
 				}
@@ -350,7 +358,9 @@ func TestManageWorkloads(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				rc := &ReconcileYurtAppDaemon{}
+				rc := &ReconcileYurtAppDaemon{
+					Client: fakeclient.NewClientBuilder().Build(),
+				}
 				rc.manageWorkloads(st.instance, st.currentNodepoolToWorkload, st.allNameToNodePools, st.expectedRevision, st.templateType)
 				get := st.expect
 				if !reflect.DeepEqual(get, st.expect) {

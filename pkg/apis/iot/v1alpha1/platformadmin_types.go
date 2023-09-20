@@ -110,6 +110,7 @@ type PlatformAdminCondition struct {
 // +kubebuilder:printcolumn:name="Deployment",type="integer",JSONPath=".status.deploymentReplicas",description="The Deployment Replica."
 // +kubebuilder:printcolumn:name="ReadyDeployment",type="integer",JSONPath=".status.deploymentReadyReplicas",description="The Ready Deployment Replica."
 // +kubebuilder:deprecatedversion:warning="iot.openyurt.io/v1alpha1 PlatformAdmin will be deprecated in future; use iot.openyurt.io/v1alpha2 PlatformAdmin; v1alpha1 PlatformAdmin.Spec.ServiceType only support ClusterIP"
+// +kubebuilder:unservedversion
 
 // PlatformAdmin is the Schema for the samples API
 type PlatformAdmin struct {

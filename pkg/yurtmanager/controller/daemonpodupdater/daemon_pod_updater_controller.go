@@ -49,7 +49,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	k8sutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 func init() {
@@ -64,17 +66,15 @@ var (
 )
 
 const (
-	ControllerName = "daemonpodupdater"
-
-	// UpdateAnnotation is the annotation key used in daemonset spec to indicate
+	// UpdateAnnotation is the annotation key used in DaemonSet spec to indicate
 	// which update strategy is selected. Currently, "OTA" and "AdvancedRollingUpdate" are supported.
 	UpdateAnnotation = "apps.openyurt.io/update-strategy"
 
-	// OTAUpdate set daemonset to over-the-air update mode.
+	// OTAUpdate set DaemonSet to over-the-air update mode.
 	// In daemonPodUpdater controller, we add PodNeedUpgrade condition to pods.
 	OTAUpdate = "OTA"
-	// AutoUpdate set daemonset to Auto update mode.
-	// In this mode, daemonset will keep updating even if there are not-ready nodes.
+	// AutoUpdate set DaemonSet to Auto update mode.
+	// In this mode, DaemonSet will keep updating even if there are not-ready nodes.
 	// For more details, see https://github.com/openyurtio/openyurt/pull/921.
 	AutoUpdate            = "Auto"
 	AdvancedRollingUpdate = "AdvancedRollingUpdate"
@@ -82,7 +82,7 @@ const (
 	// PodNeedUpgrade indicates whether the pod is able to upgrade.
 	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
 
-	// MaxUnavailableAnnotation is the annotation key added to daemonset to indicate
+	// MaxUnavailableAnnotation is the annotation key added to DaemonSet to indicate
 	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=AdvancedRollingUpdate".
 	// If this annotation is not explicitly stated, it will be set to the default value 1.
 	MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
@@ -95,7 +95,7 @@ const (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.DaemonPodUpdaterController, s)
 }
 
 // Add creates a new Daemonpodupdater Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
@@ -120,7 +120,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileDaemonpodupdater{
 		Client:       mgr.GetClient(),
 		expectations: k8sutil.NewControllerExpectations(),
-		recorder:     mgr.GetEventRecorderFor(ControllerName),
+		recorder:     mgr.GetEventRecorderFor(names.DaemonPodUpdaterController),
 	}
 }
 
@@ -141,7 +141,7 @@ func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// daemonsetUpdate filter events: daemonset update with customized annotation
+// daemonsetUpdate filter events: DaemonSet update with customized annotation
 func daemonsetUpdate(evt event.UpdateEvent) bool {
 	if _, ok := evt.ObjectOld.(*appsv1.DaemonSet); !ok {
 		return false
@@ -186,7 +186,7 @@ func daemonsetUpdate(evt event.UpdateEvent) bool {
 	oldDS := evt.ObjectOld.(*appsv1.DaemonSet)
 	newDS := evt.ObjectNew.(*appsv1.DaemonSet)
 
-	// Only handle daemonset meets prerequisites
+	// Only handle DaemonSet meets prerequisites
 	if !checkPrerequisites(newDS) {
 		return false
 	}
@@ -195,7 +195,7 @@ func daemonsetUpdate(evt event.UpdateEvent) bool {
 		return false
 	}
 
-	klog.V(5).Infof("Got daemonset udpate event: %v", newDS.Name)
+	klog.V(5).Infof("Got DaemonSet update event: %v", newDS.Name)
 	return true
 }
 
@@ -226,8 +226,8 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	// Only process daemonset that meets expectations
-	// Otherwise, wait native daemonset controller reconciling
+	// Only process DaemonSet that meets expectations
+	// Otherwise, wait native DaemonSet controller reconciling
 	if !r.expectations.SatisfiedExpectations(request.NamespacedName.String()) {
 		return reconcile.Result{}, nil
 	}
@@ -235,7 +235,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	// Recheck required annotation
 	v, ok := instance.Annotations[UpdateAnnotation]
 	if !ok {
-		klog.V(4).Infof("won't sync daemonset %q without annotation 'apps.openyurt.io/update-strategy'",
+		klog.V(4).Infof("won't sync DaemonSet %q without annotation 'apps.openyurt.io/update-strategy'",
 			request.NamespacedName)
 		return reconcile.Result{}, nil
 	}
@@ -267,7 +267,7 @@ func (r *ReconcileDaemonpodupdater) deletePod(evt event.DeleteEvent, _ workqueue
 		return
 	}
 
-	klog.V(5).Infof("Daemonset pod %s deleted.", pod.Name)
+	klog.V(5).Infof("DaemonSet pod %s deleted.", pod.Name)
 
 	controllerRef := metav1.GetControllerOf(pod)
 	if controllerRef == nil {
@@ -279,7 +279,7 @@ func (r *ReconcileDaemonpodupdater) deletePod(evt event.DeleteEvent, _ workqueue
 		return
 	}
 
-	// Only care daemonset meets prerequisites
+	// Only care DaemonSet meets prerequisites
 	if !checkPrerequisites(ds) {
 		return
 	}
@@ -292,8 +292,8 @@ func (r *ReconcileDaemonpodupdater) deletePod(evt event.DeleteEvent, _ workqueue
 	r.expectations.DeletionObserved(dsKey)
 }
 
-// otaUpdate compare every pod to its owner daemonset to check if pod is updatable
-// If pod is in line with the latest daemonset spec, set pod condition "PodNeedUpgrade" to "false"
+// otaUpdate compare every pod to its owner DaemonSet to check if pod is updatable
+// If pod is in line with the latest DaemonSet spec, set pod condition "PodNeedUpgrade" to "false"
 // while not, set pod condition "PodNeedUpgrade" to "true"
 func (r *ReconcileDaemonpodupdater) otaUpdate(ds *appsv1.DaemonSet) error {
 	pods, err := GetDaemonsetPods(r.Client, ds)
@@ -329,7 +329,7 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 
 	for nodeName, pods := range nodeToDaemonPods {
 		// Check if node is ready, ignore not-ready node
-		// this is a significant difference from the native daemonset controller
+		// this is a significant difference from the native DaemonSet controller
 		ready, err := NodeReadyByName(r.Client, nodeName)
 		if err != nil {
 			return fmt.Errorf("couldn't check node %q ready status, %v", nodeName, err)
@@ -351,14 +351,14 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 			numUnavailable++
 		case newPod != nil:
 			// This pod is up-to-date, check its availability
-			if !k8sutil.IsPodAvailable(newPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}) {
+			if !podutil.IsPodAvailable(newPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}) {
 				// An unavailable new pod is counted against maxUnavailable
 				numUnavailable++
 			}
 		default:
 			// This pod is old, it is an update candidate
 			switch {
-			case !k8sutil.IsPodAvailable(oldPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}):
+			case !podutil.IsPodAvailable(oldPod, ds.Spec.MinReadySeconds, metav1.Time{Time: time.Now()}):
 				// The old pod isn't available, so it needs to be replaced
 				klog.V(5).Infof("DaemonSet %s/%s pod %s on node %s is out of date and not available, allowing replacement", ds.Namespace, ds.Name, oldPod.Name, nodeName)
 				// Record the replacement

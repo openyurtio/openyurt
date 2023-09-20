@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
@@ -72,6 +73,16 @@ func (a *StatefulSetAdapter) GetDetails(obj metav1.Object) (ReplicasInfo, error)
 	}
 
 	return replicasInfo, nil
+}
+
+// GetAvailableStatus returns the available condition status of the workload
+func (a *StatefulSetAdapter) GetAvailableStatus(obj metav1.Object) (conditionStatus corev1.ConditionStatus, err error) {
+	set := obj.(*appsv1.StatefulSet)
+
+	if set.Status.AvailableReplicas != set.Status.Replicas {
+		return corev1.ConditionFalse, nil
+	}
+	return corev1.ConditionTrue, nil
 }
 
 // GetPoolFailure returns the failure information of the pool.

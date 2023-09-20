@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -62,6 +63,9 @@ var (
 	PropagationPolicy = metav1.DeletePropagationBackground
 
 	ErrClusterVersionEmpty = errors.New("cluster version should not be empty")
+
+	// BootstrapTokenRegexp is a compiled regular expression of TokenRegexpString
+	BootstrapTokenRegexp = regexp.MustCompile(constants.BootstrapTokenPattern)
 )
 
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
@@ -540,4 +544,10 @@ func GetDefaultClientSet() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return cliSet, nil
+}
+
+// IsValidBootstrapToken returns whether the given string is valid as a Bootstrap Token and
+// in other words satisfies the BootstrapTokenRegexp
+func IsValidBootstrapToken(token string) bool {
+	return BootstrapTokenRegexp.MatchString(token)
 }

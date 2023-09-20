@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
-	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 // GetDaemonsetPods get all pods belong to the given daemonset
@@ -127,7 +127,7 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 		Type:   PodNeedUpgrade,
 		Status: status,
 	}
-	if change := util.UpdatePodCondition(&pod.Status, cond); change {
+	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
 
 		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
 			return err
@@ -243,6 +243,6 @@ func IsPodUpgradeConditionTrue(status corev1.PodStatus) bool {
 // GetPodUpgradeCondition extracts the pod upgrade condition from the given status and returns that.
 // Returns nil if the condition is not present.
 func GetPodUpgradeCondition(status corev1.PodStatus) *corev1.PodCondition {
-	_, condition := kubernetes.GetPodCondition(&status, PodNeedUpgrade)
+	_, condition := podutil.GetPodCondition(&status, PodNeedUpgrade)
 	return condition
 }

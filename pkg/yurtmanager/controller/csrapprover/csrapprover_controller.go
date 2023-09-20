@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
 	yurtcoorrdinatorCert "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert"
@@ -93,10 +94,6 @@ var (
 	}
 )
 
-const (
-	ControllerName = "csrapprover"
-)
-
 type csrRecognizer struct {
 	recognize  func(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool
 	successMsg string
@@ -107,7 +104,7 @@ type csrRecognizer struct {
 func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileCsrApprover{}
 	// Create a new controller
-	c, err := controller.New(ControllerName, mgr, controller.Options{
+	c, err := controller.New(names.CsrApproverController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
 	})
 	if err != nil {

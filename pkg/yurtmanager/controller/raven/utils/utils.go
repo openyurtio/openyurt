@@ -18,29 +18,41 @@ package utils
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
 )
 
 const (
 	WorkingNamespace               = "kube-system"
 	RavenGlobalConfig              = "raven-cfg"
+	LabelCurrentGatewayEndpoints   = "raven.openyurt.io/endpoints-name"
 	GatewayProxyInternalService    = "x-raven-proxy-internal-svc"
-	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc-"
-	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc-"
-	RavenProxyNodesConfig          = "edge-tunnel-nodes"
-	ProxyNodesKey                  = "tunnel-nodes"
+	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc"
+	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc"
 
-	RavenEnableProxy  = "EnableL7Proxy"
-	RavenEnableTunnel = "EnableL3Tunnel"
+	RavenProxyNodesConfig      = "edge-tunnel-nodes"
+	ProxyNodesKey              = "tunnel-nodes"
+	RavenAgentConfig           = "raven-agent-config"
+	ProxyServerSecurePortKey   = "proxy-internal-secure-addr"
+	ProxyServerInsecurePortKey = "proxy-internal-insecure-addr"
+	ProxyServerExposedPortKey  = "proxy-external-addr"
+	VPNServerExposedPortKey    = "tunnel-bind-addr"
+	RavenEnableProxy           = "enable-l7-proxy"
+	RavenEnableTunnel          = "enable-l3-tunnel"
 )
 
 // GetNodeInternalIP returns internal ip of the given `node`.
@@ -53,10 +65,6 @@ func GetNodeInternalIP(node corev1.Node) string {
 		}
 	}
 	return ip
-}
-
-func IsGatewayExposeByLB(gateway *v1alpha1.Gateway) bool {
-	return gateway.Spec.ExposeType == v1alpha1.ExposeTypeLoadBalancer
 }
 
 // AddGatewayToWorkQueue adds the Gateway the reconciler's workqueue
@@ -86,8 +94,63 @@ func CheckServer(ctx context.Context, client client.Client) (enableProxy, enable
 	return enableProxy, enableTunnel
 }
 
+func AddNodePoolToWorkQueue(npName string, q workqueue.RateLimitingInterface) {
+	if npName != "" {
+		q.Add(reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: npName},
+		})
+	}
+}
+
 func AddDNSConfigmapToWorkQueue(q workqueue.RateLimitingInterface) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: RavenProxyNodesConfig},
 	})
+}
+
+func AddGatewayProxyInternalService(q workqueue.RateLimitingInterface) {
+	q.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: GatewayProxyInternalService},
+	})
+}
+
+func IsValidPort(s string) bool {
+	if s == "" {
+		return false
+	}
+	port, err := strconv.Atoi(s)
+	if err != nil {
+		return false
+	}
+	if port < 0 || port > 65535 {
+		return false
+	}
+	return true
+}
+
+func HashObject(o interface{}) string {
+	data, _ := json.Marshal(o)
+	var a interface{}
+	err := json.Unmarshal(data, &a)
+	if err != nil {
+		klog.Errorf("unmarshal: %s", err.Error())
+	}
+	return computeHash(PrettyYaml(a))
+}
+
+func PrettyYaml(obj interface{}) string {
+	bs, err := yaml.Marshal(obj)
+	if err != nil {
+		klog.Errorf("failed to parse yaml, %v", err.Error())
+	}
+	return string(bs)
+}
+
+func computeHash(target string) string {
+	hash := sha256.Sum224([]byte(target))
+	return strings.ToLower(hex.EncodeToString(hash[:]))
+}
+
+func FormatName(name string) string {
+	return strings.Join([]string{name, fmt.Sprintf("%08x", rand.Uint32())}, "-")
 }

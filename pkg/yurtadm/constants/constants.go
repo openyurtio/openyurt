@@ -57,6 +57,8 @@ const (
 	KubeletHostname        = "--hostname-override=[^\"\\s]*"
 	KubeletEnvironmentFile = "EnvironmentFile=.*"
 
+	BootstrapTokenPattern = `\A([a-z0-9]{6})\.([a-z0-9]{16})\z`
+
 	DaemonReload      = "systemctl daemon-reload"
 	RestartKubeletSvc = "systemctl restart kubelet"
 

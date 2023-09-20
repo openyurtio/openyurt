@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/adapter"
 )
 
@@ -49,14 +49,14 @@ var (
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s-endpointslice: %s", common.ControllerName, s)
+	return fmt.Sprintf("%s: %s", names.ServiceTopologyEndpointSliceController, s)
 }
 
 // Add creates a new Servicetopology endpointslice Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileServiceTopologyEndpointSlice{}
-	c, err := controller.New(fmt.Sprintf("%s-endpointslice", common.ControllerName), mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.ServiceTopologyEndpointSliceController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
 		return err
 	}
 
-	klog.Infof("%s-endpointslice controller is added", common.ControllerName)
+	klog.Infof("%s controller is added", names.ServiceTopologyEndpointSliceController)
 	return nil
 }
 

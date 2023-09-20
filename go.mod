@@ -7,6 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/edgexfoundry/go-mod-core-contracts/v2 v2.3.0
 	github.com/edgexfoundry/go-mod-core-contracts/v3 v3.0.0
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.3.0
@@ -27,8 +28,8 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
-	golang.org/x/net v0.14.0
-	golang.org/x/sys v0.11.0
+	golang.org/x/net v0.15.0
+	golang.org/x/sys v0.12.0
 	google.golang.org/grpc v1.57.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -42,6 +43,7 @@ require (
 	k8s.io/cluster-bootstrap v0.22.3
 	k8s.io/component-base v0.22.3
 	k8s.io/component-helpers v0.22.3
+	k8s.io/controller-manager v0.22.3
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kubectl v0.22.3
 	k8s.io/kubernetes v1.22.3
@@ -86,7 +88,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -149,11 +150,11 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/crypto v0.13.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/term v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

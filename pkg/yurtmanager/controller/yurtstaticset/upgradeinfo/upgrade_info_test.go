@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 const (
@@ -60,6 +61,9 @@ func newNodes(nodeNames []string) []client.Object {
 func newPod(podName string, nodeName string, namespace string, isStaticPod bool) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				podutil.ConfigSourceAnnotationKey: "true",
+			},
 			Name:      UpgradeWorkerPodPrefix + podName + "-" + rand.String(10),
 			Namespace: namespace,
 		},
@@ -86,8 +90,12 @@ func newStaticPod() *appsv1alpha1.YurtStaticSet {
 	return &appsv1alpha1.YurtStaticSet{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				podutil.ConfigSourceAnnotationKey: "true",
+			},
 			Name:      fakeStaticPodName,
-			Namespace: metav1.NamespaceDefault},
+			Namespace: metav1.NamespaceDefault,
+		},
 		Spec:   appsv1alpha1.YurtStaticSetSpec{},
 		Status: appsv1alpha1.YurtStaticSetStatus{},
 	}

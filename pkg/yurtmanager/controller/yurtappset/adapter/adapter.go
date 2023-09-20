@@ -21,6 +21,7 @@ change Adapter interface
 package adapter
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -36,6 +37,8 @@ type Adapter interface {
 	GetStatusObservedGeneration(pool metav1.Object) int64
 	// GetDetails returns the replicas information of the pool status.
 	GetDetails(pool metav1.Object) (replicasInfo ReplicasInfo, err error)
+	// GetAvailableStatus returns the available condition status of the workload
+	GetAvailableStatus(set metav1.Object) (conditionStatus corev1.ConditionStatus, err error)
 	// GetPoolFailure returns failure information of the pool.
 	GetPoolFailure() *string
 	// ApplyPoolTemplate updates the pool to the latest revision.
