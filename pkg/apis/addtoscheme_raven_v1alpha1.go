@@ -17,8 +17,7 @@ limitations under the License.
 package apis
 
 import (
-	v3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
-
+	v3 "github.com/openyurtio/openyurt/pkg/apis/calico/v3"
 	version "github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
 )
 
