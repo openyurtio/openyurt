@@ -37,7 +37,7 @@ type Config struct {
 	enableNodePool            bool
 }
 
-// NodeConverter do the convert job
+// nodeConverter do the convert job
 type nodeConverter struct {
 	Config
 }
@@ -59,7 +59,7 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 }
 
 // Do is used for the convert job.
-// shall be implemented as idempotent, can execute multiple times with no side-affect.
+// shall be implemented as idempotent, can execute multiple times with no side effect.
 func (n *nodeConverter) Do() error {
 	if err := n.installYurtHub(); err != nil {
 		return err
