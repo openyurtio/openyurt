@@ -118,7 +118,7 @@ if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
 fi
 
 CMD_YURT_MANGER_DIR=${YURT_ROOT}/cmd/yurt-manager
-PKG_DIR=${YURT_ROOT}/pkg/yurt-manager
+PKG_DIR=${YURT_ROOT}/pkg/yurtmanager
 APIS_DIR=${YURT_ROOT}/pkg/apis
 CONTROLLER_DIR=${PKG_DIR}/controller
 WEBHOOK_DIR=${PKG_DIR}/webhook
@@ -398,7 +398,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
-	"github.com/openyurtio/openyurt/pkg/yurt-manager/controller/${KIND_ALL_LOWER}/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/${KIND_ALL_LOWER}/config"
 )
 
 func init() {
@@ -564,7 +564,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/yurt-manager/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
@@ -671,7 +671,7 @@ function build_options() {
 $(create_header options)
 
 import (
-	"github.com/openyurtio/openyurt/pkg/yurt-manager/controller/${KIND_ALL_LOWER}/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/${KIND_ALL_LOWER}/config"
 	"github.com/spf13/pflag"
 )
 
@@ -766,8 +766,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/openyurtio/openyurt/pkg/yurt-manager/webhook/builder"
-	"github.com/openyurtio/openyurt/pkg/yurt-manager/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/builder"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
