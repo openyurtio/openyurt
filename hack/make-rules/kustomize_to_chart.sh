@@ -196,9 +196,13 @@ EOF
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_yurtappoverriders.apps.openyurt.io.yaml ${crd_dir}/apps.openyurt.io_yurtappoverriders.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_gateways.raven.openyurt.io.yaml ${crd_dir}/raven.openyurt.io_gateways.yaml
    mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_platformadmins.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_platformadmins.yaml
-   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_devices.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_devices.yaml
-   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceservices.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_deviceservices.yaml
-   mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceprofiles.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_deviceprofiles.yaml  
+   # TODO: In the future, the crd generation process of yurt-manager and yurt-iot-dock will be split. For now, manually remove it from the yurt-manager script
+   # mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_devices.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_devices.yaml
+   # mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceservices.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_deviceservices.yaml
+   # mv ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceprofiles.iot.openyurt.io.yaml ${crd_dir}/iot.openyurt.io_deviceprofiles.yaml
+   rm -f ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_devices.iot.openyurt.io.yaml
+   rm -f ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceservices.iot.openyurt.io.yaml
+   rm -f ${crd_dir}/apiextensions.k8s.io_v1_customresourcedefinition_deviceprofiles.iot.openyurt.io.yaml
 
    # add conversion for crds
    for file in "${Conversion_Files[@]}"
