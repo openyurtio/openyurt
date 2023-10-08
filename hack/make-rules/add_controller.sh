@@ -42,7 +42,6 @@ function usage(){
 
 YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
-
 while [ $# -gt 0 ];do
     case $1 in
     --group|-g)
@@ -108,6 +107,9 @@ KIND_ALL_LOWER=$(echo ${KIND} | tr '[A-Z]' '[a-z]')
 KIND_PLURAL="${KIND_ALL_LOWER}s"
 KIND_FIRST_UPPER=${KIND_INITIAL_UPPER}${KIND: 1}
 
+KIND_UPPER_SHORTNAME=$(echo ${KIND_FIRST_UPPER} | grep -o '[A-Z]' | tr -d '\n')
+KIND_LOWER_SHORTNAME=$(echo ${KIND_UPPER_SHORTNAME} | tr '[A-Z]' '[a-z]')
+
 echo "Add controller Group: $GROUP Version: $VERSION Instance Kind: $KIND_FIRST_UPPER ShortName: $SHORTNAME"
 
 if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
@@ -116,8 +118,8 @@ if [ $SCOPE != $SCOPE_NAMESPACE ] && [ $SCOPE != $SCOPE_CLUSTER ]; then
 fi
 
 CMD_YURT_MANGER_DIR=${YURT_ROOT}/cmd/yurt-manager
-PKG_DIR=${YURT_ROOT}/pkg
-APIS_DIR=${PKG_DIR}/apis
+PKG_DIR=${YURT_ROOT}/pkg/yurtmanager
+APIS_DIR=${YURT_ROOT}/pkg/apis
 CONTROLLER_DIR=${PKG_DIR}/controller
 WEBHOOK_DIR=${PKG_DIR}/webhook
 
@@ -132,7 +134,6 @@ CRD_GROUP_DIR=${APIS_DIR}/${GROUP}
 CRD_GROUP_VERSION_DIR=${CRD_GROUP_DIR}/${VERSION}
 
 CRD_GROUP_VERSION_KIND_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_types.go
-CRD_GROUP_VERSION_KIND_CONVERSION_FILE=${CRD_GROUP_VERSION_DIR}/${KIND_ALL_LOWER}_conversion.go
 CRD_GROUP_VERSION_DEFAULT_FILE=${CRD_GROUP_VERSION_DIR}/default.go
 
 KIND_CONTROLLER_DIR=${CONTROLLER_DIR}/${KIND_ALL_LOWER}
@@ -140,10 +141,8 @@ KIND_CONTROLLER_CONFIG_DIR=${KIND_CONTROLLER_DIR}/config
 
 KIND_CONTROLLER_CONFIG_TYPE_FILE=${KIND_CONTROLLER_CONFIG_DIR}/types.go
 KIND_CONTROLLER_FILE=${KIND_CONTROLLER_DIR}/${KIND_ALL_LOWER}_controller.go
-ADD_CONTROLLER_FILE=${CONTROLLER_DIR}/add_${KIND_ALL_LOWER}.go
 
 WEBHOOK_KIND_DIR=${WEBHOOK_DIR}/${KIND_ALL_LOWER}
-ADD_WEBHOOK_FILE=${WEBHOOK_DIR}/add_${VERSION}_${KIND_ALL_LOWER}.go
 
 WEBHOOK_KIND_VERSION_DIR=${WEBHOOK_KIND_DIR}/${VERSION}
 
@@ -161,11 +160,6 @@ if [ -f "${CRD_GROUP_VERSION_KIND_FILE}" ]; then
     exit 1
 fi
 
-if [ -f "${ADD_CONTROLLER_FILE}" ]; then
-    echo "Add controller file ${ADD_CONTROLLER_FILE} already exist ..."
-    exit 1
-fi
-
 if [ -d "${KIND_CONTROLLER_DIR}" ]; then
     echo "instance controller dir ${KIND_CONTROLLER_DIR} already exist ..."
     exit 1
@@ -173,11 +167,6 @@ fi
 
 if [ -d "${WEBHOOK_KIND_DIR}" ]; then
     echo "instance webhook dir ${WEBHOOK_KIND_DIR} already exist ..."
-    exit 1
-fi
-
-if [ -f ${ADD_WEBHOOK_FILE} ]; then
-    echo "${ADD_WEBHOOK_FILE} file has exist ..."
     exit 1
 fi
 
@@ -272,30 +261,18 @@ EOF
 
 
 function build_apis_frame() {
-
     local need_create_version_dir="False"
 
     if [ ! -d ${CRD_GROUP_DIR} ]; then
-        echo "Group ${GROUP} not exist, Do you want to create it?[Y/n]"
-        read create_group
-        if [ $create_group="Y" ]; then
-            mkdir -p ${CRD_GROUP_DIR}
-        else
-            exit 0
-        fi
+        echo "Group ${GROUP} not exist, create it."
+        mkdir -p ${CRD_GROUP_DIR}
     fi
 
     if [ ! -d ${CRD_GROUP_VERSION_DIR} ]; then
-        echo "Version ${VERSION} not exist, Do you want to create it?[Y/n]"
-        read create_version
-        if [ $create_version="Y" ]; then
-            build_new_version_frame
-            need_create_version_dir="True"
-        else
-            exit 0
-        fi
+        echo "Version ${VERSION} not exist, create it."
+        build_new_version_frame
+        need_create_version_dir="True"
     fi
-
 
     local addtoscheme_group_version_file=${APIS_DIR}/addtoscheme_${GROUP}_${VERSION}.go
 
@@ -312,7 +289,6 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 
 // ${KIND_FIRST_UPPER}Spec defines the desired state of ${KIND_FIRST_UPPER}
 type ${KIND_FIRST_UPPER}Spec struct {
@@ -370,45 +346,6 @@ func init() {
 }
 EOF
 
-    cat >> ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE} << EOF
-$(create_header ${VERSION})
-
-/*
-Implementing the hub method is pretty easy -- we just have to add an empty
-method called Hub() to serve as a
-[marker](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/conversion?tab=doc#Hub).
-*/
-
-// NOTE !!!!!! @kadisi
-// If this version is storageversion, you only need to uncommand this method
-
-// Hub marks this type as a conversion hub.
-//func (*${KIND_FIRST_UPPER}) Hub() {}
-
-
-// NOTE !!!!!!! @kadisi
-// If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
-
-// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
-//func (src *${KIND_FIRST_UPPER}) ConvertTo(dstRaw conversion.Hub) error {
-//	return nil
-//}
-
-
-// NOTE !!!!!!! @kadisi
-// If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
-
-// need import "sigs.k8s.io/controller-runtime/pkg/conversion"
-//func (dst *${KIND_FIRST_UPPER}) ConvertFrom(srcRaw conversion.Hub) error {
-//	return nil
-//}
-
-
-EOF
-
-    gofmt -w ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE}
-    goimports -w ${CRD_GROUP_VERSION_KIND_CONVERSION_FILE}
-
     # append version_default file
     cat >> $CRD_GROUP_VERSION_DEFAULT_FILE << EOF
 
@@ -425,7 +362,6 @@ EOF
 
 
 function build_controller_frame() {
-
     # create instance controller
     mkdir -p ${KIND_CONTROLLER_DIR}
     mkdir -p ${KIND_CONTROLLER_CONFIG_DIR}
@@ -459,11 +395,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-    appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
-	utilclient "github.com/openyurtio/openyurt/pkg/util/client"
-	utildiscovery "github.com/openyurtio/openyurt/pkg/util/discovery"
+	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	${GROUP}${VERSION} "github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
-	"github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/${KIND_ALL_LOWER}/config"
 )
 
 func init() {
@@ -476,7 +411,7 @@ var (
 )
 
 const (
-	controllerName = "${KIND_FIRST_UPPER}-controller"
+	controllerName = names.xxx
 )
 
 func Format(format string, args ...interface{}) string {
@@ -487,9 +422,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new ${KIND_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	if !utildiscovery.DiscoverGVK(controllerKind) {
-		return nil
-	}
+	klog.Infof(Format("${KIND_ALL_LOWER}-controller add controller %s", controllerKind.String()))
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -500,13 +433,13 @@ type Reconcile${KIND_FIRST_UPPER} struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
-    Configration config.${KIND_FIRST_UPPER}ControllerConfiguration
+	Configration config.${KIND_FIRST_UPPER}ControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &Reconcile${KIND_FIRST_UPPER}{
-		Client:   utilclient.NewClientFromManager(mgr, controllerName),
+		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
         Configration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller,
@@ -558,7 +491,7 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 		return reconcile.Result{}, nil
 	}
 
-    // Update Status
+	// Update Status
 	if instance.Spec.Foo != instance.Status.Foo {
 		instance.Status.Foo = instance.Spec.Foo
 		if err = r.Status().Update(context.TODO(), instance); err != nil {
@@ -567,62 +500,25 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 		}
 	}
 
-    // Update Instance
+	// Update Instance
 	//if err = r.Update(context.TODO(), instance); err != nil {
 	//	klog.Errorf(Format("Update ${KIND_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
 	//	return reconcile.Result{Requeue: true}, err
 	//}
 
-
 	return reconcile.Result{}, nil
 }
 EOF
-
-    # ADD_CONTROLLER_FILE
-    cat > ${ADD_CONTROLLER_FILE} <<EOF
-$(create_header controller)
-
-import (
-    "github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}"
-)
-
-// Note !!! @kadisi
-// Do not change the name of the file @kadisi
-// Auto generate by make addcontroller command !!!
-// Note !!!
-
-func init() {
-    controllerAddFuncs = append(controllerAddFuncs, ${KIND_ALL_LOWER}.Add)
-}
-
-EOF
-
-    gofmt -w ${ADD_CONTROLLER_FILE}
-    goimports -w ${ADD_CONTROLLER_FILE}
 
 }
 
 
 function build_webhook_frame() {
 
-    cat > ${ADD_WEBHOOK_FILE} <<EOF
-$(create_header webhook)
-
-import (
-    "github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/${VERSION}"
-)
-
-func init() {
-    addWebhook(&${VERSION}.${KIND_FIRST_UPPER}Handler{})
-}
-
-EOF
-
     if [ -d ${WEBHOOK_KIND_VERSION_DIR} ]; then
         echo "${WEBHOOK_KIND_VERSION_DIR} dir has exist ..."
         exit 1
     fi
-
 
     mkdir -p ${WEBHOOK_KIND_VERSION_DIR}
 
@@ -643,12 +539,12 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *${KIND_FIRST_UPPER}Handler) Default(ctx context.Context, obj runtime.Object) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-    ${VERSION}.SetDefaults${KIND_FIRST_UPPER}(np)
+	${VERSION}.SetDefaults${KIND_FIRST_UPPER}(${KIND_LOWER_SHORTNAME})
 
 	return nil
 }
@@ -668,7 +564,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
@@ -728,38 +624,39 @@ import (
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-   //validate
+	//validate
 
 	return nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	newNp, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	new${KIND_LOWER_SHORTNAME}, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", newObj))
 	}
-	oldNp, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	old${KIND_LOWER_SHORTNAME}, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER}} but got a %T", oldObj))
 	}
 
-    // validate
+	// validate
 	return nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
-    // validate
+
+	// validate
 	return nil
 }
 EOF
@@ -774,7 +671,7 @@ function build_options() {
 $(create_header options)
 
 import (
-	"github.com/openyurtio/openyurt/pkg/controller/${KIND_ALL_LOWER}/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/${KIND_ALL_LOWER}/config"
 	"github.com/spf13/pflag"
 )
 
@@ -789,7 +686,7 @@ func New${KIND_FIRST_UPPER}ControllerOptions() *${KIND_FIRST_UPPER}ControllerOpt
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to ${KIND_ALL_LOWER} for yurt-manager to the specified FlagSet.
 func (n *${KIND_FIRST_UPPER}ControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if n == nil {
 		return
@@ -798,7 +695,7 @@ func (n *${KIND_FIRST_UPPER}ControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up ${KIND_ALL_LOWER} config with options.
 func (o *${KIND_FIRST_UPPER}ControllerOptions) ApplyTo(cfg *config.${KIND_FIRST_UPPER}ControllerConfiguration) error {
 	if o == nil {
 		return nil
@@ -820,24 +717,10 @@ EOF
 
 function build_webhook_special_frame() {
 
-    cat > ${ADD_WEBHOOK_FILE} <<EOF
-$(create_header webhook)
-
-import (
-    "github.com/openyurtio/openyurt/pkg/webhook/${KIND_ALL_LOWER}/${VERSION}"
-)
-
-func init() {
-    addWebhook(&${VERSION}.${KIND_FIRST_UPPER}Handler{})
-}
-
-EOF
-
     if [ -d ${WEBHOOK_KIND_VERSION_DIR} ]; then
         echo "${WEBHOOK_KIND_VERSION_DIR} dir has exist ..."
         exit 1
     fi
-
 
     mkdir -p ${WEBHOOK_KIND_VERSION_DIR}
 
@@ -859,12 +742,12 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *${KIND_FIRST_UPPER}Handler) Default(ctx context.Context, obj runtime.Object, req admission.Request) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-    ${VERSION}.SetDefaults${KIND_FIRST_UPPER}(np)
+	${VERSION}.SetDefaults${KIND_FIRST_UPPER}(${KIND_LOWER_SHORTNAME})
 
 	return nil
 }
@@ -883,8 +766,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/openyurtio/openyurt/pkg/webhook/builder"
-	"github.com/openyurtio/openyurt/pkg/webhook/util"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/builder"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/apis/${GROUP}/${VERSION}"
 )
 
@@ -945,37 +828,38 @@ import (
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateCreate(ctx context.Context, obj runtime.Object, req admission.Request) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
 
-   //validate
+	//validate
 	return nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object, req admission.Request) error {
-	newNp, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	new${KIND_LOWER_SHORTNAME}, ok := newObj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", newObj))
 	}
-	oldNp, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
+	old${KIND_LOWER_SHORTNAME}, ok := oldObj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER}} but got a %T", oldObj))
 	}
 
-    // validate
+	// validate
 	return nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *${KIND_FIRST_UPPER}Handler) ValidateDelete(_ context.Context, obj runtime.Object, req admission.Request) error {
-	np, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
+	${KIND_LOWER_SHORTNAME}, ok := obj.(*${VERSION}.${KIND_FIRST_UPPER})
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a ${KIND_FIRST_UPPER} but got a %T", obj))
 	}
-    // validate
+
+	// validate
 	return nil
 }
 EOF
