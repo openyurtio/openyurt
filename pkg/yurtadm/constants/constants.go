@@ -58,6 +58,7 @@ const (
 	KubeletEnvironmentFile = "EnvironmentFile=.*"
 
 	BootstrapTokenPattern = `\A([a-z0-9]{6})\.([a-z0-9]{16})\z`
+	PlaceholderToken      = "abcdef.0123456789abcdef"
 
 	DaemonReload      = "systemctl daemon-reload"
 	RestartKubeletSvc = "systemctl restart kubelet"
