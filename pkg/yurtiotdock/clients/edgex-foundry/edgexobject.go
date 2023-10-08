@@ -21,7 +21,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 	edgexcliv2 "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry/v2"
-	edgexcliv3 "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry/v3"
 )
 
 type EdgeXObject interface {
@@ -44,9 +43,7 @@ func NewEdgexDock(version string, coreMetadataAddr string, coreCommandAddr strin
 
 func (ep *EdgexDock) CreateDeviceClient() (clients.DeviceInterface, error) {
 	switch ep.Version {
-	case "minnesota":
-		return edgexcliv3.NewEdgexDeviceClient(ep.CoreMetadataAddr, ep.CoreCommandAddr), nil
-	case "levski", "kamakura", "jakarta":
+	case "minnesota", "levski", "kamakura", "jakarta":
 		return edgexcliv2.NewEdgexDeviceClient(ep.CoreMetadataAddr, ep.CoreCommandAddr), nil
 	default:
 		return nil, fmt.Errorf("unsupported Edgex version: %v", ep.Version)
@@ -55,9 +52,7 @@ func (ep *EdgexDock) CreateDeviceClient() (clients.DeviceInterface, error) {
 
 func (ep *EdgexDock) CreateDeviceProfileClient() (clients.DeviceProfileInterface, error) {
 	switch ep.Version {
-	case "minnesota":
-		return edgexcliv3.NewEdgexDeviceProfile(ep.CoreMetadataAddr), nil
-	case "levski", "kamakura", "jakarta":
+	case "minnesota", "levski", "kamakura", "jakarta":
 		return edgexcliv2.NewEdgexDeviceProfile(ep.CoreMetadataAddr), nil
 	default:
 		return nil, fmt.Errorf("unsupported Edgex version: %v", ep.Version)
@@ -66,9 +61,7 @@ func (ep *EdgexDock) CreateDeviceProfileClient() (clients.DeviceProfileInterface
 
 func (ep *EdgexDock) CreateDeviceServiceClient() (clients.DeviceServiceInterface, error) {
 	switch ep.Version {
-	case "minnesota":
-		return edgexcliv3.NewEdgexDeviceServiceClient(ep.CoreMetadataAddr), nil
-	case "levski", "kamakura", "jakarta":
+	case "minnesota", "levski", "kamakura", "jakarta":
 		return edgexcliv2.NewEdgexDeviceServiceClient(ep.CoreMetadataAddr), nil
 	default:
 		return nil, fmt.Errorf("unsupported Edgex version: %v", ep.Version)

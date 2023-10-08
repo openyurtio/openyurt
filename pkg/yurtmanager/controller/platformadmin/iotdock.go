@@ -70,7 +70,7 @@ func newYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformA
 					{
 						Name:            utils.IotDockName,
 						Image:           fmt.Sprintf("%s:%s", utils.IotDockImage, ver),
-						ImagePullPolicy: corev1.PullIfNotPresent,
+						ImagePullPolicy: corev1.PullAlways,
 						Args: []string{
 							"--health-probe-bind-address=:8081",
 							"--metrics-bind-address=127.0.0.1:8080",
