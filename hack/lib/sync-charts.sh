@@ -58,11 +58,22 @@ else
     mkdir -p openyurt-helm/charts/yurthub
 fi
 
+echo "clear openyurt-helm charts/yurt-iot-dock"
+
+if [ -d "openyurt-helm/charts/yurt-iot-dock" ]
+then
+    echo "charts yurt-iot-dock exists, remove it"
+    rm -r openyurt-helm/charts/yurt-iot-dock/*
+else
+    mkdir -p openyurt-helm/charts/yurt-iot-dock
+fi
+
 echo "copy folder openyurt/charts to openyurt-helm/charts"
 
 cp -R openyurt/charts/yurt-coordinator/* openyurt-helm/charts/yurt-coordinator/
 cp -R openyurt/charts/yurt-manager/* openyurt-helm/charts/yurt-manager/
 cp -R openyurt/charts/yurthub/* openyurt-helm/charts/yurthub/
+cp -R openyurt/charts/yurt-iot-dock/* openyurt-helm/charts/yurt-iot-dock/
 
 echo "push to openyurt-helm"
 echo "version: $VERSION, commit: $COMMIT_ID, tag: $TAG"

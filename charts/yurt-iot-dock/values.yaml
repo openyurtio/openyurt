@@ -1,0 +1,5 @@
+# Default values for yurt-iot-dock.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# The yurt-iot-dock is controlled by platformadmin CR. Do not need to specify values at this place!
