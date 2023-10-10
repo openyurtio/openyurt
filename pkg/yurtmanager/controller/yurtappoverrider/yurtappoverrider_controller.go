@@ -173,13 +173,15 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	}
 
 	for _, deployment := range deployments.Items {
-		if deployment.OwnerReferences[0].Kind == instance.Subject.Kind && deployment.OwnerReferences[0].Name == instance.Subject.Name {
-			if deployment.Annotations == nil {
-				deployment.Annotations = make(map[string]string)
-			}
-			deployment.Annotations["LastOverrideTime"] = time.Now().String()
-			if err := r.Client.Update(context.TODO(), &deployment); err != nil {
-				return reconcile.Result{}, err
+		if len(deployment.OwnerReferences) != 0 {
+			if deployment.OwnerReferences[0].Kind == instance.Subject.Kind && deployment.OwnerReferences[0].Name == instance.Subject.Name {
+				if deployment.Annotations == nil {
+					deployment.Annotations = make(map[string]string)
+				}
+				deployment.Annotations["LastOverrideTime"] = time.Now().String()
+				if err := r.Client.Update(context.TODO(), &deployment); err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 		}
 	}
