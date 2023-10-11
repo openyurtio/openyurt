@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/validation/path"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
@@ -71,6 +72,12 @@ func (s *etcdStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	}
 
 	path := filepath.Join(s.prefix, resource, info.Namespace, info.Name)
+
+	gvr := schema.GroupVersionResource{Group: info.Group, Version: info.Version, Resource: info.Resources}
+	if isSchema := hubmeta.IsSchemeResource(gvr); !isSchema {
+		group := info.Group
+		path = filepath.Join(s.prefix, group, resource, info.Namespace, info.Name)
+	}
 
 	return storageKey{
 		comp: info.Component,
