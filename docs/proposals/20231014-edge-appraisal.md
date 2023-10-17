@@ -14,32 +14,32 @@ status: provisional
 ## Table of Contents
 
 - [Edge Computing platform Evaluation System](#edge-computing-platform-evaluation-system)
-	- [Table of Contents](#table-of-contents)
-	- [Glossary](#glossary)
-		- [EdgeAppraisal](#edgeappraisal)
-	- [Summary](#summary)
-	- [Motivation](#motivation)
-		- [Goals](#goals)
-		- [Non-Goals/Future Work](#non-goalsfuture-work)
-	- [Proposal](#proposal)
-		- [Covered Scenarios](#covered-scenarios)
-			- [Cloud-Edge Communication](#cloud-edge-communication)
-			- [Edge Resource](#edge-resource)
-			- [Cloud-Edge Operation](#cloud-edge-operation)
-			- [Edge Autonomy](#edge-autonomy)
-		- [EdgeAppraisal API](#edgeappraisal-api)
-		- [Implementation Details](#implementation-details)
-			- [EdgeAppraisal Validating Webhook](#edgeappraisal-validating-webhook)
-			- [EdgeApprisal Controller](#edgeapprisal-controller)
-		- [User Stories](#user-stories)
-			- [Story 1 (Traffic)](#story-1-traffic)
-			- [Story 2 (Autonomy)](#story-2-autonomy)
-			- [Story 3 (Operation)](#story-3-operation)
-			- [Story 4 (Resource)](#story-4-resource)
-		- [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
-			- [Kubemark](#kubemark)
-			- [ChaosMesh](#chaosmesh)
-	- [Implementation History](#implementation-history)
+  - [Table of Contents](#table-of-contents)
+  - [Glossary](#glossary)
+    - [EdgeAppraisal](#edgeappraisal)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+    - [Non-Goals/Future Work](#non-goalsfuture-work)
+  - [Proposal](#proposal)
+    - [Covered Scenarios](#covered-scenarios)
+      - [Cloud-Edge Communication](#cloud-edge-communication)
+      - [Edge Resource](#edge-resource)
+      - [Cloud-Edge Operation](#cloud-edge-operation)
+      - [Edge Autonomy](#edge-autonomy)
+    - [EdgeAppraisal API](#edgeappraisal-api)
+    - [Implementation Details](#implementation-details)
+      - [EdgeAppraisal Validating Webhook](#edgeappraisal-validating-webhook)
+      - [EdgeAppraisal Controller](#edgeappraisal-controller)
+    - [User Stories](#user-stories)
+      - [Story 1 (Traffic)](#story-1-traffic)
+      - [Story 2 (Autonomy)](#story-2-autonomy)
+      - [Story 3 (Operation)](#story-3-operation)
+      - [Story 4 (Resource)](#story-4-resource)
+    - [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
+      - [KubeMark](#kubemark)
+      - [ChaosMesh](#chaosmesh)
+  - [Implementation History](#implementation-history)
 
 ## Glossary
 
@@ -191,7 +191,7 @@ type EdgeAppraisal struct {
 
 The EdgeAppraisal Validating Webhook is employed to prevent alterations to ongoing tests. As a test process isn't an atomic operation, making changes during testing can lead to unforeseen errors.
 
-#### EdgeApprisal Controller
+#### EdgeAppraisal Controller
 
 1. Execute distinct test processes based on the Spec.Type.
 2. Upon the completion of the test process, whether it ends in success or failure, gather the test results and update them within the EdgeAppraisal Status.
@@ -211,7 +211,7 @@ spec:
   type: traffic
   config:
     pod_num: 500
-    svc_num: 30 
+    svc_num: 30
   timeout: 300
 ```
 
@@ -265,11 +265,11 @@ spec:
 
 ### Comparison with existing open source projects
 
-#### Kubemark
+#### KubeMark
 
-Kubemark is a tool specifically tailored for evaluating the scalability and performance of Kubernetes. It operates as a Kubernetes cluster within a Kubernetes cluster, offering an easy-to-deploy and user-friendly solution capable of scaling to thousands of nodes.
+KubeMark is a tool specifically tailored for evaluating the scalability and performance of Kubernetes. It operates as a Kubernetes cluster within a Kubernetes cluster, offering an easy-to-deploy and user-friendly solution capable of scaling to thousands of nodes.
 
-Kubemark primarily simulates the kubelet and kube proxy components on real nodes but doesn't provide simulation capabilities for other components deployed by OpenYurt on edge nodes. Furthermore, due to its construction, it falls short in assessing the functionality and performance of edge node components, which are also a very important part in the cloud edge scenario.
+KubeMark primarily simulates the kubelet and kube proxy components on real nodes but doesn't provide simulation capabilities for other components deployed by OpenYurt on edge nodes. Furthermore, due to its construction, it falls short in assessing the functionality and performance of edge node components, which are also a very important part in the cloud edge scenario.
 
 #### ChaosMesh
 
@@ -285,4 +285,3 @@ However, the scenarios we need to test don't solely encompass abnormal situation
 - [ ] Cloud-Edge Communication
 - [ ] Cloud-Edge Operation
 - [ ] Edge Autonomy
-
