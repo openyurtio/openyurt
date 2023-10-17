@@ -215,9 +215,7 @@ type YurtAppSpreaderList struct {
 }
 
 ```
-
 ## Implementation History
-
 - [ ] Design CRD of YurtAppSpreader
 - [ ] Present proposal
 - [ ] First round of feedback from community
