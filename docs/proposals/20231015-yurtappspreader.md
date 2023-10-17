@@ -10,31 +10,32 @@ last-updated:
 status:
 ---
 # Proposal for YurtAppSpreader
-- [Proposal for YurtAppSpreader](#proposal-for-yurtappspreader)
-	- [Glossary](#glossary)
-		- [YurtAppSpreader](#yurtappspreader)
-	- [Summary](#summary)
-	- [Motivation](#motivation)
-		- [Goals](#goals)
-		- [Non-Goals/Future Work](#non-goalsfuture-work)
-	- [Proposal](#proposal)
-	- [Implementation History](#implementation-history)
-
+<!-- TOC -->
+* [Proposal for YurtAppSpreader](#proposal-for-yurtappspreader)
+	* [Glossary](#glossary)
+		* [YurtAppSpreader](#yurtappspreader)
+	* [Summary](#summary)
+	* [Motivation](#motivation)
+		* [Goals](#goals)
+		* [Non-Goals/Future Work](#non-goalsfuture-work)
+	* [Proposal](#proposal)
+	* [Implementation History](#implementation-history)
+<!-- TOC -->
 ## Glossary
 ### YurtAppSpreader
-YurtAppSpreader is a new CRD in place of YurtAppSet/YurtAppDaemon. It provides affinity to assign pods to nodes. Node affinity functions like the nodeSelector field but is more expressive and allows you to specify soft rules. 
+YurtAppSpreader is a new CRD in place of YurtAppSet/YurtAppDaemon. It provides affinity to assign pods to nodes. Node affinity functions like the nodeSelector field but is more expressive and allows you to specify soft rules.
 ## Summary
-Due to the multi-region nature of openyurt, we have introduced yurtappset and yurtappdaemon for 
-workload distribution and management. While they serve different scenarios and functionalities, 
-it is evident that their functionalities overlap significantly, making it feasible to consolidate 
-them into a single component through an upgrade. Considering the existing user base and the introduction 
-of the multi-region rendering engine, yurtappoverrider, the ability to configure multiple regions in yurtappset 
-and yurtappdaemon is unnecessary. Therefore, introducing a new component seems 
-more reasonable, as it can encompass the capabilities of both components, allowing users to gradually 
-migrate from yurtappset and yurtappdaemon to the new component. Furthermore, the new component will 
+Due to the multi-region nature of openyurt, we have introduced yurtappset and yurtappdaemon for
+workload distribution and management. While they serve different scenarios and functionalities,
+it is evident that their functionalities overlap significantly, making it feasible to consolidate
+them into a single component through an upgrade. Considering the existing user base and the introduction
+of the multi-region rendering engine, yurtappoverrider, the ability to configure multiple regions in yurtappset
+and yurtappdaemon is unnecessary. Therefore, introducing a new component seems
+more reasonable, as it can encompass the capabilities of both components, allowing users to gradually
+migrate from yurtappset and yurtappdaemon to the new component. Furthermore, the new component will
 offer enhanced expressiveness and the ability to define soft rules through affinity.
 ## Motivation
-Considering that the existing yurtappdaemon and yurtappset have similar functionality and are both used for 
+Considering that the existing yurtappdaemon and yurtappset have similar functionality and are both used for
 workload distribution, their abilities could be integrated into one component. In addition, k8s explicitly
 specify affinity is more expressive than selector. Replacing nodeselector with affinity would be more appropriate.
 ### Goals
@@ -44,8 +45,8 @@ specify affinity is more expressive than selector. Replacing nodeselector with a
 1. Deprecate YurtAppSet/YurtAppDaemon
 2. Completion of migration from YurtAppSet/YurtAppDaemon to YurtAppSpreader
 ## Proposal
-Yurtappspreader retains most of the fields from yurtappset and yurtappdaemon, 
-except that it replaces nodeselector with affinity and removes the 
+Yurtappspreader retains most of the fields from yurtappset and yurtappdaemon,
+except that it replaces nodeselector with affinity and removes the
 previously multi-node pool configuration capability, which is now handled by yurtappoverrider.
 ```go
 type TemplateType string
