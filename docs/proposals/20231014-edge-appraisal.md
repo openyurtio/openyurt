@@ -79,7 +79,7 @@ Non-goals are limited to the scope of this proposal. These scenarios may evolve 
 
 #### Cloud-Edge Communication
 
-In the cloud-edge scenario, the edge nodes monitor the changes of endpoint epslices of all nodes, and when Pods are massively deleted and re-created, this can lead to a substantial surge in communication traffic between the cloud and the edge. Such an increase significantly escalates the cost of public network traffic for customers and imposes constraints on the overall cluster size. Hence, we prioritize assessing the API Server's traffic volume in scenarios involving the extensive creation and deletion of Pods and Servers, with the objective of keeping the traffic at a relatively low level.
+In the cloud-edge scenario, the edge nodes monitor the changes of endpoint/endpoint slices of all nodes, and when Pods are massively deleted and re-created, this can lead to a substantial surge in communication traffic between the cloud and the edge. Such an increase significantly escalates the cost of public network traffic for customers and imposes constraints on the overall cluster size. Hence, we prioritize assessing the API Server's traffic volume in scenarios involving the extensive creation and deletion of Pods and Services, with the objective of keeping the traffic at a relatively low level.
 
 #### Edge Resource
 
