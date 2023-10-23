@@ -15,20 +15,20 @@ status: provisional
 
 ## Table of Contents
 
-* [User message-bus instead of REST to communicate with EdgeX](# use-message-bus-instead-of-rest-to-communicate-with-edgex)
-  * [Table of Contents](#table-of-contents)
-  * [Summary](#summary)
-  * [Motivation](#motivation)
-    * [Goals](#goals)
-    * [Non-Goals/Future Work](#non-goalsfuture-work)
-  * [Proposal](#proposal) 
-    * [Backgrounds](#backgrounds)
-    * [Experiments](#experiments)
-      * [EdgeX Side](#edgex-side)
-      * [Device Side](#device-side)
-    * [Partial Realization](#partial-realization)
-    * [User Stories](#user-stories)
-  * [Implementation History](#implementation-history)
+- [User message-bus instead of REST to communicate with EdgeX](# use-message-bus-instead-of-rest-to-communicate-with-edgex)
+  - [Table of Contents](#table-of-contents)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+    - [Non-Goals/Future Work](#non-goalsfuture-work)
+  - [Proposal](#proposal)
+    - [Backgrounds](#backgrounds)
+    - [Experiments](#experiments)
+      - [EdgeX Side](#edgex-side)
+      - [Device Side](#device-side)
+    - [Partial Realization](#partial-realization)
+    - [User Stories](#user-stories)
+  - [Implementation History](#implementation-history)
 
 ## Summary
 
@@ -165,7 +165,7 @@ func PatchDevice(dto dtos.UpdateDevice, ctx context.Context, dic *di.Container) 
 	// 更新device
 	err = dbClient.UpdateDevice(device)
     ...
-	
+
     // 如果修改了deviceService
 	if oldServiceName != "" {
 		go publishSystemEvent(common.DeviceSystemEventType, common.SystemEventActionUpdate, oldServiceName, deviceDTO, ctx, dic)
@@ -451,4 +451,4 @@ As an end user, I want to support more devices.
 ## Implementation History
 
 - [x] 08/23/2023: Draft proposal created
-- [ ] 
+- [ ]
