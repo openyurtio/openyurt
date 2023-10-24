@@ -54,7 +54,7 @@ func handleCommon(dnsName string, ch certReadWriter) (*generator.Artifacts, bool
 		return nil, false, errors.New("certReaderWriter should not be nil")
 	}
 
-	certs, changed, err := createIfNotExists(ch)
+	certs, changed, err := updateIfNotExists(ch)
 	if err != nil {
 		return nil, changed, err
 	}
@@ -72,16 +72,12 @@ func handleCommon(dnsName string, ch certReadWriter) (*generator.Artifacts, bool
 	return certs, changed, nil
 }
 
-func createIfNotExists(ch certReadWriter) (*generator.Artifacts, bool, error) {
+func updateIfNotExists(ch certReadWriter) (*generator.Artifacts, bool, error) {
 	// Try to read first
 	certs, err := ch.read()
-	if isNotFound(err) {
+	if isNotExist(err) {
 		// Create if not exists
-		certs, err = ch.write()
-		// This may happen if there is another racer.
-		if isAlreadyExists(err) {
-			certs, err = ch.read()
-		}
+		certs, err = ch.overwrite(certs.ResourceVersion)
 		return certs, true, err
 	}
 	return certs, false, err

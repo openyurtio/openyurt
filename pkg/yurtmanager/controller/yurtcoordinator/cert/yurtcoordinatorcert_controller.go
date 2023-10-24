@@ -301,7 +301,7 @@ func (r *ReconcileYurtCoordinatorCert) InjectConfig(cfg *rest.Config) error {
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create
-// +kubebuilder:rbac:groups="",resources=secret,verbs=get;update;patch;create;list
+// +kubebuilder:rbac:groups="",namespace=kube-system,resources=secrets,verbs=get;update;create;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list
 
 // todo: make customized certificate for each yurtcoordinator pod

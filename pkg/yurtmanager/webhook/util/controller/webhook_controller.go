@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	admissionregistrationinformers "k8s.io/client-go/informers/admissionregistration/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -54,8 +53,6 @@ const (
 )
 
 var (
-	secretName = webhookutil.GetSecretName()
-
 	uninit   = make(chan struct{})
 	onceInit = sync.Once{}
 )
@@ -91,8 +88,6 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest
 	}
 
 	c.informerFactory = informers.NewSharedInformerFactory(c.kubeClient, 0)
-
-	secretInformer := coreinformers.New(c.informerFactory, webhookutil.GetNamespace(), nil).Secrets()
 	admissionRegistrationInformer := admissionregistrationinformers.New(c.informerFactory, v1.NamespaceAll, nil)
 
 	extensionsClient, err := apiextensionsclientset.NewForConfig(restCfg)
@@ -120,23 +115,6 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest
 	})
 	c.extensionsClient = extensionsClient
 	c.extensionsLister = crdInformer.Lister()
-
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			secret := obj.(*v1.Secret)
-			if secret.Name == secretName {
-				klog.Infof("Secret %s added", secretName)
-				c.queue.Add("")
-			}
-		},
-		UpdateFunc: func(old, cur interface{}) {
-			secret := cur.(*v1.Secret)
-			if secret.Name == secretName {
-				klog.Infof("Secret %s updated", secretName)
-				c.queue.Add("")
-			}
-		},
-	})
 
 	admissionRegistrationInformer.MutatingWebhookConfigurations().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -173,7 +151,6 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest
 	})
 
 	c.synced = []cache.InformerSynced{
-		secretInformer.Informer().HasSynced,
 		admissionRegistrationInformer.MutatingWebhookConfigurations().Informer().HasSynced,
 		admissionRegistrationInformer.ValidatingWebhookConfigurations().Informer().HasSynced,
 		crdInformer.Informer().HasSynced,

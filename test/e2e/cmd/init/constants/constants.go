@@ -34,6 +34,14 @@ const (
 	YurthubNamespace     = "kube-system"
 	YurthubCmName        = "yurt-hub-cfg"
 
+	YurtManagerCertsSecret = `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: yurt-manager-webhook-certs
+  namespace: kube-system
+`
+
 	YurtManagerServiceAccount = `
 apiVersion: v1
 kind: ServiceAccount
@@ -50,6 +58,22 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
+  name: yurt-manager-role
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: kube-system
+`
+
+	YurtManagerRoleBinding = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yurt-manager-role-binding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
   name: yurt-manager-role
 subjects:
 - kind: ServiceAccount

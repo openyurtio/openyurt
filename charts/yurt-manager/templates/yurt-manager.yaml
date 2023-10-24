@@ -1,4 +1,10 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  name: yurt-manager-webhook-certs
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: yurt-manager
@@ -19,7 +25,20 @@ subjects:
   name: yurt-manager
   namespace: {{ .Release.Namespace }}
 ---
-
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yurt-manager-role-binding
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: yurt-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: yurt-manager
+    namespace: {{ .Release.Namespace }}
+---
 apiVersion: v1
 kind: Service
 metadata:
