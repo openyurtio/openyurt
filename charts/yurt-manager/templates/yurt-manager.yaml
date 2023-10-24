@@ -64,13 +64,15 @@ spec:
           key: node-role.kubernetes.io/control-plane
       containers:
         - args:
-            - --enable-leader-election=true
             - --metrics-addr=:{{ .Values.ports.metrics }}
             - --health-probe-addr=:{{ .Values.ports.healthProbe }}
             - --webhook-port={{ .Values.ports.webhook }}
             - --logtostderr=true
             - --v={{ .Values.log.level }}
             - --working-namespace={{ .Release.Namespace }}
+            {{- if .Values.leaderElectResourceName }}
+            - --leader-elect-resource-name={{ .Values.leaderElectResourceName }}
+            {{- end }}
             {{- if .Values.controllers }}
             - --controllers={{ .Values.controllers }}
             {{- end }}

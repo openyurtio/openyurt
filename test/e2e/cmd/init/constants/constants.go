@@ -96,7 +96,6 @@ spec:
       hostNetwork: true
       containers:
         - args:
-            - --enable-leader-election
             - --metrics-addr=:10271
             - --health-probe-addr=:10272
             - --webhook-port=10273

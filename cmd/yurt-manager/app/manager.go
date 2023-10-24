@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/term"
@@ -158,10 +157,10 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		Scheme:                     scheme,
 		MetricsBindAddress:         c.ComponentConfig.Generic.MetricsAddr,
 		HealthProbeBindAddress:     c.ComponentConfig.Generic.HealthProbeAddr,
-		LeaderElection:             c.ComponentConfig.Generic.EnableLeaderElection,
-		LeaderElectionID:           YurtManager,
-		LeaderElectionNamespace:    c.ComponentConfig.Generic.LeaderElectionNamespace,
-		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
+		LeaderElection:             c.ComponentConfig.Generic.LeaderElection.LeaderElect,
+		LeaderElectionID:           c.ComponentConfig.Generic.LeaderElection.ResourceName,
+		LeaderElectionNamespace:    c.ComponentConfig.Generic.LeaderElection.ResourceNamespace,
+		LeaderElectionResourceLock: c.ComponentConfig.Generic.LeaderElection.ResourceLock,
 		Port:                       util.GetWebHookPort(),
 		Namespace:                  "",
 		Logger:                     setupLog,
