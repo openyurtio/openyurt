@@ -92,10 +92,22 @@ spec:
             - containerPort: {{ .Values.ports.healthProbe }}
               name: health
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.ports.healthProbe }}
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /readyz
               port: {{ .Values.ports.healthProbe }}
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
       serviceAccountName: yurt-manager
     {{- if .Values.affinity }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}

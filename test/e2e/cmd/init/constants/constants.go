@@ -118,10 +118,22 @@ spec:
             - containerPort: 10272
               name: health
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10272
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /readyz
               port: 10272
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
       serviceAccountName: yurt-manager
       affinity:
         nodeAffinity:
