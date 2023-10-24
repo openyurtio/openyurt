@@ -38,9 +38,14 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object, req
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", obj))
 	}
 
-	npName, ok := node.Labels[apps.NodePoolLabel]
-	if !ok || len(npName) == 0 {
-		return nil
+	npName := node.Labels[apps.NodePoolLabel]
+	if len(npName) == 0 {
+		npName = node.Labels[apps.DesiredNodePoolLabel]
+		if len(npName) != 0 {
+			node.Labels[apps.NodePoolLabel] = npName
+		} else {
+			return nil
+		}
 	}
 
 	var np appsv1beta1.NodePool

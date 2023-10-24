@@ -38,6 +38,7 @@ const (
 const (
 	AnnotationPrevAttrs      = "nodepool.openyurt.io/previous-attributes"
 	NodePoolLabel            = "apps.openyurt.io/nodepool"
+	DesiredNodePoolLabel     = "apps.openyurt.io/desired-nodepool"
 	NodePoolTypeLabel        = "nodepool.openyurt.io/type"
 	NodePoolHostNetworkLabel = "nodepool.openyurt.io/hostnetwork"
 	NodePoolChangedEvent     = "NodePoolChanged"
