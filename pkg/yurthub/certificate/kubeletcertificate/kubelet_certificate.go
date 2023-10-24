@@ -32,7 +32,7 @@ import (
 var (
 	KubeConfNotExistErr   = errors.New("/etc/kubernetes/kubelet.conf file doesn't exist")
 	KubeletCANotExistErr  = errors.New("/etc/kubernetes/pki/ca.crt file doesn't exist")
-	KubeletPemNotExistErr = errors.New("/var/lib/kubelet/pki/kubelet-current.pem file doesn't exist")
+	KubeletPemNotExistErr = errors.New("/var/lib/kubelet/pki/kubelet-client-current.pem file doesn't exist")
 )
 
 type kubeletCertManager struct {

@@ -38,7 +38,7 @@ import (
 const (
 	KubeConfFile   = "/etc/kubernetes/kubelet.conf"
 	KubeletCAFile  = "/etc/kubernetes/pki/ca.crt"
-	KubeletPemFile = "/var/lib/kubelet/pki/current-kubelet.pem"
+	KubeletPemFile = "/var/lib/kubelet/pki/kubelet-client-current.pem"
 )
 
 var (
