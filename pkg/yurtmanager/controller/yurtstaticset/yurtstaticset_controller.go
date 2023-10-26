@@ -126,7 +126,7 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new YurtStaticSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
 		klog.Infof("resource %s doesn't exist", controllerResource.String())
 		return err

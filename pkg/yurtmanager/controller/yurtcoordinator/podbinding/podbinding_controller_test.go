@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 var (
@@ -398,8 +399,8 @@ func TestIsPodBoundenToNode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isPodBoundenToNode(tt.node); got != tt.want {
-				t.Errorf("isPodBoundenToNode() = %v, want %v", got, tt.want)
+			if got := nodeutil.IsPodBoundenToNode(tt.node); got != tt.want {
+				t.Errorf("IsPodBoundenToNode() = %v, want %v", got, tt.want)
 			}
 		})
 	}

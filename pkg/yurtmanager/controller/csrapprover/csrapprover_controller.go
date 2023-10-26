@@ -101,7 +101,7 @@ type csrRecognizer struct {
 
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileCsrApprover{}
 	// Create a new controller
 	c, err := controller.New(names.CsrApproverController, mgr, controller.Options{

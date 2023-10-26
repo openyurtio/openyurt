@@ -59,7 +59,7 @@ type ReconcileDelegateLease struct {
 
 // Add creates a delegatelease controller and add it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileDelegateLease{
 		ldc:    utils.NewLeaseDelegatedCounter(),
 		delLdc: utils.NewLeaseDelegatedCounter(),

@@ -48,8 +48,8 @@ func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, s
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io
-// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-node,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=create;update,versions=v1,name=mutate.core.v1.node.openyurt.io
+// +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io
+// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-node,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=create;update,versions=v1,name=mutate.core.v1.node.openyurt.io
 
 // NodeHandler implements a validating and defaulting webhook for Cluster.
 type NodeHandler struct {

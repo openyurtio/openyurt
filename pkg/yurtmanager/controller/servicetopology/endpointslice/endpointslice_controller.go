@@ -54,7 +54,7 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new Servicetopology endpointslice Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(_ *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileServiceTopologyEndpointSlice{}
 	c, err := controller.New(names.ServiceTopologyEndpointSliceController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
