@@ -36,7 +36,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/helper"
+	"github.com/openyurtio/openyurt/pkg/util/helper"
 )
 
 const (

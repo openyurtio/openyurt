@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	clientretry "k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -90,7 +89,7 @@ func DeletePods(ctx context.Context, c client.Client, pods []*v1.Pod, recorder r
 		if _, err := SetPodTerminationReason(ctx, c, pod, nodeName); err != nil {
 			if apierrors.IsConflict(err) {
 				updateErrList = append(updateErrList,
-					fmt.Errorf("update status failed for pod %q: %v", format.Pod(pod), err))
+					fmt.Errorf("update status failed for pod %s/%s: %v", pod.Namespace, pod.Name, err))
 				continue
 			}
 		}
