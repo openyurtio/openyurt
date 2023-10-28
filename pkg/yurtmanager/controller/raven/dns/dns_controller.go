@@ -160,23 +160,24 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 
 func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) (*corev1.ConfigMap, error) {
 	var cm corev1.ConfigMap
-	err := wait.PollImmediate(5*time.Second, time.Minute, func() (done bool, err error) {
+	waitErr := wait.PollImmediate(5*time.Second, time.Minute, func() (done bool, err error) {
 		err = r.Client.Get(ctx, objKey, &cm)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				err = r.buildRavenDNSConfigMap()
 				if err != nil {
-					klog.Errorf(Format("failed to generate dns record , error %s", err.Error()))
-					return false, nil
+					klog.Errorf(Format(err.Error()))
 				}
+			} else {
+				klog.Errorf(Format("failed to get configmap %s, error %s", objKey.String(), err.Error()))
 			}
-			klog.Error(Format("failed to get ConfigMap %s, error %s", objKey.String(), err.Error()))
 			return false, nil
 		}
 		return true, nil
 	})
-	if err != nil {
-		return cm.DeepCopy(), fmt.Errorf("failed to get ConfigMap %s, error %s", objKey.String(), err.Error())
+
+	if waitErr != nil {
+		return nil, fmt.Errorf("failed to get ConfigMap %s, error %s", objKey.String(), waitErr.Error())
 	}
 	return cm.DeepCopy(), nil
 }
