@@ -47,11 +47,15 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      natType:
+                        type: string
                       nodeName:
                         description: NodeName is the Node hosting this endpoint.
                         type: string
                       publicIP:
                         type: string
+                      publicPort:
+                        type: integer
                       underNAT:
                         type: boolean
                     required:
@@ -104,11 +108,15 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    natType:
+                      type: string
                     nodeName:
                       description: NodeName is the Node hosting this endpoint.
                       type: string
                     publicIP:
                       type: string
+                    publicPort:
+                      type: integer
                     underNAT:
                       type: boolean
                   required:
@@ -165,6 +173,9 @@ spec:
                           type: string
                         description: Config is a map to record config for the raven agent of node
                         type: object
+                      natType:
+                        description: NATType is the NAT type of the node
+                        type: string
                       nodeName:
                         description: NodeName is the Node hosting this endpoint.
                         type: string
@@ -174,6 +185,9 @@ spec:
                       publicIP:
                         description: PublicIP is the exposed IP of the node
                         type: string
+                      publicPort:
+                        description: PublicPort is the port used for NAT traversal
+                        type: integer
                       type:
                         description: Type is the service type of the node, proxy or tunnel
                         type: string
@@ -256,6 +270,9 @@ spec:
                           type: string
                         description: Config is a map to record config for the raven agent of node
                         type: object
+                      natType:
+                        description: NATType is the NAT type of the node
+                        type: string
                       nodeName:
                         description: NodeName is the Node hosting this endpoint.
                         type: string
@@ -265,6 +282,9 @@ spec:
                       publicIP:
                         description: PublicIP is the exposed IP of the node
                         type: string
+                      publicPort:
+                        description: PublicPort is the port used for NAT traversal
+                        type: integer
                       type:
                         description: Type is the service type of the node, proxy or tunnel
                         type: string

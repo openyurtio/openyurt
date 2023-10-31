@@ -85,8 +85,12 @@ type Endpoint struct {
 	Port int `json:"port,omitempty"`
 	// UnderNAT indicates whether node is under NAT
 	UnderNAT bool `json:"underNAT,omitempty"`
+	// NATType is the NAT type of the node
+	NATType string `json:"natType,omitempty"`
 	// PublicIP is the exposed IP of the node
 	PublicIP string `json:"publicIP,omitempty"`
+	// PublicPort is the port used for NAT traversal
+	PublicPort int `json:"publicPort,omitempty"`
 	// Config is a map to record config for the raven agent of node
 	Config map[string]string `json:"config,omitempty"`
 }
