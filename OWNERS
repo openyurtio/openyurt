@@ -1,26 +1,38 @@
 # See: https://go.k8s.io/owners
 approvers:
-  - charleszheng44
   - Fei-Guo
-  - huangyuqi
   - rambohe-ch
-  - yixingjia
-  - kadisi
+  - lwmqwer
+  - gnunu
   - zzguang
-reviewers:
-  - charleszheng44
-  - Fei-Guo
-  - huangyuqi
-  - rambohe-ch
-  - yixingjia
-  - kadisi
-  - Peeknut
-  - SataQiu
-  - qclc
-  - adamzhoul
-  - DrmagicE
-  - zzguang
-  - Congrool
   - luckymrwang
-  - fengshunli
+  - JameKeal
+  - LavenderQAQ
+  - zyjhtangtang
+  - wawlian
+  - kadisi
+  - Congrool
+
+reviewers:
+  - Fei-Guo
+  - rambohe-ch
+  - lwmqwer
+  - gnunu
+  - zzguang
+  - luckymrwang
+  - JameKeal
+  - LavenderQAQ
+  - zyjhtangtang
+  - wawlian
+  - kadisi
+  - Congrool
   - YTGhost
+  - huiwq1990
+  - Rui-Gan
+  - donychen1134
+  - fengshunli
+  - huweihuang
+  - Lan-ce-lot
+  - MrGirl
+  - River-sh
+  - xavier-hou

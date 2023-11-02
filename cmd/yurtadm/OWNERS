@@ -1,0 +1,8 @@
+# See: https://go.k8s.io/owners
+approvers:
+  - YTGhost
+  - luc99hen
+
+reviewers:
+  - YTGhost
+  - luc99hen
