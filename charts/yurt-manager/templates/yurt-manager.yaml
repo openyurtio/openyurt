@@ -76,6 +76,10 @@ spec:
       labels:
         {{- include "yurt-manager.selectorLabels" . | nindent 8 }}
     spec:
+      {{- if not (empty .Values.image.pullSecrets) }}
+      imagePullSecrets:
+{{ toYaml .Values.image.pullSecrets | indent 8 }}
+      {{- end }}
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
