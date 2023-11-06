@@ -123,8 +123,12 @@ func (hcm *yurtHubCertManager) Ready() bool {
 		errs = append(errs, apiServerClientCertNotReadyError)
 	}
 
-	if exist, _ := util.FileExists(hcm.YurtClientCertificateManager.GetCaFile()); !exist {
-		errs = append(errs, caCertIsNotReadyError)
+	if exist, err := util.FileExists(hcm.YurtClientCertificateManager.GetCaFile()); !exist {
+		if err == nil {
+			errs = append(errs, caCertIsNotReadyError)
+		} else {
+			errs = append(errs, err)
+		}
 	}
 
 	if hcm.GetHubServerCert() == nil {

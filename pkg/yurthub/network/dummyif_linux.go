@@ -35,7 +35,7 @@ type dummyInterfaceController struct {
 	netlink.Handle
 }
 
-// NewDummyInterfaceManager returns an instance for create/delete dummy net interface
+// NewDummyInterfaceController returns an instance for create/delete dummy net interface
 func NewDummyInterfaceController() DummyInterfaceController {
 	return &dummyInterfaceController{
 		Handle: netlink.Handle{},

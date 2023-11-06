@@ -24,11 +24,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
+	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 func TestGetHubServerCertFile(t *testing.T) {
@@ -103,11 +109,38 @@ func TestReady(t *testing.T) {
 		if mgr.Ready() {
 			return true, nil
 		}
+
+		if exist, err := util.FileExists(mgr.GetCaFile()); !exist {
+			if err != nil {
+				return false, err
+			}
+
+			if exist, err := util.FileExists(mgr.GetHubConfFile()); err != nil {
+				return false, nil
+			} else if exist {
+				klog.Infof("%s file already exists, so use it to create ca file", mgr.GetHubConfFile())
+				hubKubeConfig, err := clientcmd.LoadFromFile(mgr.GetHubConfFile())
+				if err != nil {
+					return false, err
+				}
+
+				cluster := kubeconfigutil.GetClusterFromKubeConfig(hubKubeConfig)
+				if cluster != nil {
+					if err := certutil.WriteCert(mgr.GetCaFile(), cluster.CertificateAuthorityData); err != nil {
+						return false, errors.Wrap(err, "couldn't save the CA certificate to disk")
+					}
+				} else {
+					return false, errors.Errorf("couldn't prepare ca.crt(%s) file", mgr.GetCaFile())
+				}
+			}
+		}
 		return false, nil
 	})
 
 	if err != nil {
 		t.Errorf("certificates are not ready, %v", err)
+		mgr.Stop()
+		return
 	}
 
 	mgr.Stop()
