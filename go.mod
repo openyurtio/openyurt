@@ -30,7 +30,7 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/net v0.15.0
-	golang.org/x/sys v0.12.0
+	golang.org/x/sys v0.14.0
 	google.golang.org/grpc v1.57.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/square/go-jose.v2 v2.6.0
