@@ -22,7 +22,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 type EnqueueRequestForServiceEvent struct{}
@@ -38,8 +38,8 @@ func (h *EnqueueRequestForServiceEvent) Create(e event.CreateEvent, q workqueue.
 		return
 	}
 
-	klog.V(2).Infof(Format("enqueue configmap %s/%s due to service create event", utils.WorkingNamespace, utils.RavenProxyNodesConfig))
-	utils.AddDNSConfigmapToWorkQueue(q)
+	klog.V(2).Infof(Format("enqueue configmap %s/%s due to service create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	util.AddDNSConfigmapToWorkQueue(q)
 }
 
 func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -54,8 +54,8 @@ func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.
 		return
 	}
 	if newSvc.Spec.ClusterIP != oldSvc.Spec.ClusterIP {
-		klog.V(2).Infof(Format("enqueue configmap %s/%s due to service update event", utils.WorkingNamespace, utils.RavenProxyNodesConfig))
-		utils.AddDNSConfigmapToWorkQueue(q)
+		klog.V(2).Infof(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+		util.AddDNSConfigmapToWorkQueue(q)
 	}
 }
 
@@ -65,8 +65,8 @@ func (h *EnqueueRequestForServiceEvent) Delete(e event.DeleteEvent, q workqueue.
 		klog.Error(Format("fail to assert runtime Object to v1.Service"))
 		return
 	}
-	klog.V(2).Infof(Format("enqueue configmap %s/%s due to service update event", utils.WorkingNamespace, utils.RavenProxyNodesConfig))
-	utils.AddDNSConfigmapToWorkQueue(q)
+	klog.V(2).Infof(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	util.AddDNSConfigmapToWorkQueue(q)
 	return
 }
 
@@ -82,8 +82,8 @@ func (h *EnqueueRequestForNodeEvent) Create(e event.CreateEvent, q workqueue.Rat
 		klog.Error(Format("fail to assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node create event", utils.WorkingNamespace, utils.RavenProxyNodesConfig))
-	utils.AddDNSConfigmapToWorkQueue(q)
+	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	util.AddDNSConfigmapToWorkQueue(q)
 }
 
 func (h *EnqueueRequestForNodeEvent) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -96,8 +96,8 @@ func (h *EnqueueRequestForNodeEvent) Delete(e event.DeleteEvent, q workqueue.Rat
 		klog.Error(Format("fail to assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node delete event", utils.WorkingNamespace, utils.RavenProxyNodesConfig))
-	utils.AddDNSConfigmapToWorkQueue(q)
+	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node delete event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	util.AddDNSConfigmapToWorkQueue(q)
 }
 
 func (h *EnqueueRequestForNodeEvent) Generic(e event.GenericEvent, q workqueue.RateLimitingInterface) {

@@ -44,8 +44,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 const (
@@ -96,7 +95,7 @@ type ReconcileService struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
-	option   utils.Option
+	option   util.Option
 	svcInfo  *serviceInformation
 }
 
@@ -106,7 +105,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayPublicServiceController),
-		option:   utils.NewOption(),
+		option:   util.NewOption(),
 		svcInfo:  newServiceInfo(),
 	}
 }
@@ -115,7 +114,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayPublicServiceController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
 	})
 	if err != nil {
 		return err
@@ -134,10 +133,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if !ok {
 				return false
 			}
-			if cm.GetNamespace() != utils.WorkingNamespace {
+			if cm.GetNamespace() != util.WorkingNamespace {
 				return false
 			}
-			if cm.GetName() != utils.RavenAgentConfig {
+			if cm.GetName() != util.RavenAgentConfig {
 				return false
 			}
 			return true
@@ -204,7 +203,7 @@ func (r *ReconcileService) setOptions(ctx context.Context, gw *ravenv1beta1.Gate
 		return
 	}
 
-	enableProxy, enableTunnel := utils.CheckServer(ctx, r.Client)
+	enableProxy, enableTunnel := util.CheckServer(ctx, r.Client)
 	if !enableTunnel {
 		r.option.SetTunnelOption(enableTunnel)
 		klog.V(4).Info(Format("set option for tunnel (%t), reason: raven-cfg close tunnel ", false))
@@ -228,7 +227,7 @@ func (r *ReconcileService) getGateway(ctx context.Context, req reconcile.Request
 
 func (r *ReconcileService) generateServiceName(services []corev1.Service) {
 	for _, svc := range services {
-		epName := svc.Labels[utils.LabelCurrentGatewayEndpoints]
+		epName := svc.Labels[util.LabelCurrentGatewayEndpoints]
 		epType := svc.Labels[raven.LabelCurrentGatewayType]
 		if epName == "" || epType == "" {
 			continue
@@ -401,19 +400,19 @@ func (r *ReconcileService) getTargetPort() (proxyPort, tunnelPort int32) {
 	proxyPort = ravenv1beta1.DefaultProxyServerExposedPort
 	tunnelPort = ravenv1beta1.DefaultTunnelServerExposedPort
 	var cm corev1.ConfigMap
-	err := r.Get(context.TODO(), types.NamespacedName{Namespace: utils.WorkingNamespace, Name: utils.RavenAgentConfig}, &cm)
+	err := r.Get(context.TODO(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.RavenAgentConfig}, &cm)
 	if err != nil {
 		return
 	}
 	if cm.Data == nil {
 		return
 	}
-	_, proxyExposedPort, err := net.SplitHostPort(cm.Data[utils.ProxyServerExposedPortKey])
+	_, proxyExposedPort, err := net.SplitHostPort(cm.Data[util.ProxyServerExposedPortKey])
 	if err == nil {
 		proxy, _ := strconv.Atoi(proxyExposedPort)
 		proxyPort = int32(proxy)
 	}
-	_, tunnelExposedPort, err := net.SplitHostPort(cm.Data[utils.VPNServerExposedPortKey])
+	_, tunnelExposedPort, err := net.SplitHostPort(cm.Data[util.VPNServerExposedPortKey])
 	if err == nil {
 		tunnel, _ := strconv.Atoi(tunnelExposedPort)
 		tunnelPort = int32(tunnel)
@@ -475,11 +474,11 @@ func (r *ReconcileService) acquiredSpecEndpoints(ctx context.Context, gateway *r
 			endpoints = append(endpoints, corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: utils.WorkingNamespace,
+					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
-						raven.LabelCurrentGateway:          gateway.GetName(),
-						raven.LabelCurrentGatewayType:      ravenv1beta1.Proxy,
-						utils.LabelCurrentGatewayEndpoints: aep.NodeName,
+						raven.LabelCurrentGateway:         gateway.GetName(),
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Proxy,
+						util.LabelCurrentGatewayEndpoints: aep.NodeName,
 					},
 				},
 				Subsets: []corev1.EndpointSubset{
@@ -502,11 +501,11 @@ func (r *ReconcileService) acquiredSpecEndpoints(ctx context.Context, gateway *r
 			endpoints = append(endpoints, corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: utils.WorkingNamespace,
+					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
-						raven.LabelCurrentGateway:          gateway.GetName(),
-						raven.LabelCurrentGatewayType:      ravenv1beta1.Tunnel,
-						utils.LabelCurrentGatewayEndpoints: aep.NodeName,
+						raven.LabelCurrentGateway:         gateway.GetName(),
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Tunnel,
+						util.LabelCurrentGatewayEndpoints: aep.NodeName,
 					},
 				},
 				Subsets: []corev1.EndpointSubset{
@@ -533,7 +532,7 @@ func (r *ReconcileService) getEndpointsAddress(ctx context.Context, name string)
 		klog.Errorf(Format("failed to get node %s for get active endpoints address, error %s", name, err.Error()))
 		return nil, err
 	}
-	return &corev1.EndpointAddress{NodeName: func(n corev1.Node) *string { return &n.Name }(node), IP: utils.GetNodeInternalIP(node)}, nil
+	return &corev1.EndpointAddress{NodeName: func(n corev1.Node) *string { return &n.Name }(node), IP: util.GetNodeInternalIP(node)}, nil
 }
 
 func acquiredSpecService(gateway *ravenv1beta1.Gateway, gatewayType string, proxyPort, tunnelPort int32) *corev1.ServiceList {
@@ -552,12 +551,12 @@ func acquiredSpecService(gateway *ravenv1beta1.Gateway, gatewayType string, prox
 		case ravenv1beta1.Proxy:
 			services = append(services, corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.FormatName(fmt.Sprintf("%s-%s", utils.GatewayProxyServiceNamePrefix, gateway.GetName())),
-					Namespace: utils.WorkingNamespace,
+					Name:      util.FormatName(fmt.Sprintf("%s-%s", util.GatewayProxyServiceNamePrefix, gateway.GetName())),
+					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
-						raven.LabelCurrentGateway:          gateway.GetName(),
-						raven.LabelCurrentGatewayType:      ravenv1beta1.Proxy,
-						utils.LabelCurrentGatewayEndpoints: aep.NodeName,
+						raven.LabelCurrentGateway:         gateway.GetName(),
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Proxy,
+						util.LabelCurrentGatewayEndpoints: aep.NodeName,
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -578,12 +577,12 @@ func acquiredSpecService(gateway *ravenv1beta1.Gateway, gatewayType string, prox
 		case ravenv1beta1.Tunnel:
 			services = append(services, corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.FormatName(fmt.Sprintf("%s-%s", utils.GatewayTunnelServiceNamePrefix, gateway.GetName())),
-					Namespace: utils.WorkingNamespace,
+					Name:      util.FormatName(fmt.Sprintf("%s-%s", util.GatewayTunnelServiceNamePrefix, gateway.GetName())),
+					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
-						raven.LabelCurrentGateway:          gateway.GetName(),
-						raven.LabelCurrentGatewayType:      ravenv1beta1.Tunnel,
-						utils.LabelCurrentGatewayEndpoints: aep.NodeName,
+						raven.LabelCurrentGateway:         gateway.GetName(),
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Tunnel,
+						util.LabelCurrentGatewayEndpoints: aep.NodeName,
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -613,7 +612,7 @@ func classifyService(current, spec *corev1.ServiceList) (added, updated, deleted
 
 	getKey := func(svc *corev1.Service) string {
 		epType := svc.Labels[raven.LabelCurrentGatewayType]
-		epName := svc.Labels[utils.LabelCurrentGatewayEndpoints]
+		epName := svc.Labels[util.LabelCurrentGatewayEndpoints]
 		if epType == "" {
 			return ""
 		}
@@ -656,7 +655,7 @@ func classifyEndpoints(current, spec *corev1.EndpointsList) (added, updated, del
 
 	getKey := func(ep *corev1.Endpoints) string {
 		epType := ep.Labels[raven.LabelCurrentGatewayType]
-		epName := ep.Labels[utils.LabelCurrentGatewayEndpoints]
+		epName := ep.Labels[util.LabelCurrentGatewayEndpoints]
 		if epType == "" {
 			return ""
 		}

@@ -84,6 +84,26 @@ func validate(g *v1beta1.Gateway) error {
 		}
 	}
 
+	if g.Spec.TunnelConfig.Replicas > 1 {
+		fldPath := field.NewPath("spec").Child("tunnelConfig.Replicas")
+		errList = append(errList, field.Invalid(fldPath, g.Spec.ExposeType, "the 'Replicas' field  can not be greater than 1"))
+	}
+
+	if g.Spec.ProxyConfig.Replicas > 1 {
+		num := 0
+		for _, ep := range g.Spec.Endpoints {
+			if ep.Type == v1beta1.Proxy {
+				num++
+			}
+		}
+		if g.Spec.ProxyConfig.Replicas > num {
+			fldPath := field.NewPath("spec").Child("endpoints")
+			errList = append(errList, field.Invalid(fldPath, g.Spec.ExposeType,
+				fmt.Sprintf("the 'endpoints' field available proxy endpoints %d is less than the 'proxyConfig.Replicas'%d", num, g.Spec.ProxyConfig.Replicas)))
+		}
+
+	}
+
 	if len(g.Spec.Endpoints) != 0 {
 		underNAT := g.Spec.Endpoints[0].UnderNAT
 		for i, ep := range g.Spec.Endpoints {

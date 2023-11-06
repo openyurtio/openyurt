@@ -32,7 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 const (
@@ -114,12 +114,12 @@ func MockReconcile() *ReconcileService {
 		Items: []corev1.ConfigMap{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.RavenGlobalConfig,
-					Namespace: utils.WorkingNamespace,
+					Name:      util.RavenGlobalConfig,
+					Namespace: util.WorkingNamespace,
 				},
 				Data: map[string]string{
-					utils.RavenEnableProxy:  "true",
-					utils.RavenEnableTunnel: "true",
+					util.RavenEnableProxy:  "true",
+					util.RavenEnableTunnel: "true",
 				},
 			},
 		},
@@ -203,7 +203,7 @@ func MockReconcile() *ReconcileService {
 	return &ReconcileService{
 		Client:   fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
 		recorder: record.NewFakeRecorder(100),
-		option:   utils.NewOption(),
+		option:   util.NewOption(),
 		svcInfo:  newServiceInfo(),
 	}
 }

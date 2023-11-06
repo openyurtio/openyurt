@@ -25,14 +25,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 func mockService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: utils.WorkingNamespace,
-			Name:      utils.GatewayProxyInternalService,
+			Namespace: util.WorkingNamespace,
+			Name:      util.GatewayProxyInternalService,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:      corev1.ServiceTypeClusterIP,

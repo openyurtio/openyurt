@@ -27,7 +27,7 @@ import (
 
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 var (
@@ -52,12 +52,12 @@ var (
 func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 	obj := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RavenGlobalConfig,
-			Namespace: utils.WorkingNamespace,
+			Name:      util.RavenGlobalConfig,
+			Namespace: util.WorkingNamespace,
 		},
 		Data: map[string]string{
-			utils.RavenEnableProxy:  "true",
-			utils.RavenEnableTunnel: "true",
+			util.RavenEnableProxy:  "true",
+			util.RavenEnableTunnel: "true",
 		},
 	}
 

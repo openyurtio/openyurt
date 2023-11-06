@@ -45,8 +45,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 const (
@@ -72,7 +71,7 @@ type ReconcileService struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
-	option   utils.Option
+	option   util.Option
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -81,7 +80,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayInternalServiceController),
-		option:   utils.NewOption(),
+		option:   util.NewOption(),
 	}
 }
 
@@ -89,7 +88,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayInternalServiceController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
 	})
 	if err != nil {
 		return err
@@ -108,10 +107,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if !ok {
 				return false
 			}
-			if cm.GetNamespace() != utils.WorkingNamespace {
+			if cm.GetNamespace() != util.WorkingNamespace {
 				return false
 			}
-			if cm.GetName() != utils.RavenAgentConfig {
+			if cm.GetName() != util.RavenAgentConfig {
 				return false
 			}
 			return true
@@ -137,7 +136,7 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	enableProxy, _ := utils.CheckServer(ctx, r.Client)
+	enableProxy, _ := util.CheckServer(ctx, r.Client)
 	r.option.SetProxyOption(enableProxy)
 	if err := r.reconcileService(ctx, req, gwList); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile service: %s", err))
@@ -230,20 +229,20 @@ func (r *ReconcileService) getTargetPort() (insecurePort, securePort int32) {
 	insecurePort = ravenv1beta1.DefaultProxyServerInsecurePort
 	securePort = ravenv1beta1.DefaultProxyServerSecurePort
 	var cm corev1.ConfigMap
-	err := r.Get(context.TODO(), types.NamespacedName{Namespace: utils.WorkingNamespace, Name: utils.RavenAgentConfig}, &cm)
+	err := r.Get(context.TODO(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.RavenAgentConfig}, &cm)
 	if err != nil {
 		return
 	}
 	if cm.Data == nil {
 		return
 	}
-	_, internalInsecurePort, err := net.SplitHostPort(cm.Data[utils.ProxyServerInsecurePortKey])
+	_, internalInsecurePort, err := net.SplitHostPort(cm.Data[util.ProxyServerInsecurePortKey])
 	if err == nil {
 		insecure, _ := strconv.Atoi(internalInsecurePort)
 		insecurePort = int32(insecure)
 	}
 
-	_, internalSecurePort, err := net.SplitHostPort(cm.Data[utils.ProxyServerSecurePortKey])
+	_, internalSecurePort, err := net.SplitHostPort(cm.Data[util.ProxyServerSecurePortKey])
 	if err == nil {
 		secure, _ := strconv.Atoi(internalSecurePort)
 		securePort = int32(secure)
@@ -367,7 +366,7 @@ func (r *ReconcileService) ensureSpecEndpoints(ctx context.Context, gateways []*
 				continue
 			}
 			specAddresses = append(specAddresses, corev1.EndpointAddress{
-				IP:       utils.GetNodeInternalIP(node),
+				IP:       util.GetNodeInternalIP(node),
 				NodeName: func(n corev1.Node) *string { return &n.Name }(node),
 			})
 		}
