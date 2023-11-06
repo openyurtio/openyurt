@@ -27,7 +27,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 type EnqueueGatewayForNode struct{}
@@ -42,7 +42,7 @@ func (e *EnqueueGatewayForNode) Create(evt event.CreateEvent, q workqueue.RateLi
 	klog.V(5).Infof(Format("will enqueue gateway as node(%s) has been created",
 		node.GetName()))
 	if gwName, exist := node.Labels[raven.LabelCurrentGateway]; exist {
-		utils.AddGatewayToWorkQueue(gwName, q)
+		util.AddGatewayToWorkQueue(gwName, q)
 		return
 	}
 	klog.V(4).Infof(Format("node(%s) does not belong to any gateway", node.GetName()))
@@ -74,8 +74,8 @@ func (e *EnqueueGatewayForNode) Update(evt event.UpdateEvent, q workqueue.RateLi
 	}
 
 	if oldGwName != newGwName || statusChanged(oldNode, newNode) {
-		utils.AddGatewayToWorkQueue(oldGwName, q)
-		utils.AddGatewayToWorkQueue(newGwName, q)
+		util.AddGatewayToWorkQueue(oldGwName, q)
+		util.AddGatewayToWorkQueue(newGwName, q)
 	}
 }
 
@@ -95,7 +95,7 @@ func (e *EnqueueGatewayForNode) Delete(evt event.DeleteEvent, q workqueue.RateLi
 	// enqueue the gateway that the node belongs to
 	klog.V(5).Infof(Format("Will enqueue pool(%s) as node(%s) has been deleted",
 		gwName, node.GetName()))
-	utils.AddGatewayToWorkQueue(gwName, q)
+	util.AddGatewayToWorkQueue(gwName, q)
 }
 
 // Generic implements EventHandler
@@ -132,7 +132,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 		return
 	}
 
-	if oldCm.Data[utils.RavenEnableProxy] != newCm.Data[utils.RavenEnableProxy] {
+	if oldCm.Data[util.RavenEnableProxy] != newCm.Data[util.RavenEnableProxy] {
 		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("failed to config all gateway, error %s", err.Error()))
@@ -140,7 +140,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 		}
 	}
 
-	if oldCm.Data[utils.RavenEnableTunnel] != newCm.Data[utils.RavenEnableTunnel] {
+	if oldCm.Data[util.RavenEnableTunnel] != newCm.Data[util.RavenEnableTunnel] {
 		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("failed to config all gateway, error %s", err.Error()))
@@ -173,7 +173,7 @@ func (e *EnqueueGatewayForRavenConfig) enqueueGateways(q workqueue.RateLimitingI
 		return err
 	}
 	for _, gw := range gwList.Items {
-		utils.AddGatewayToWorkQueue(gw.Name, q)
+		util.AddGatewayToWorkQueue(gw.Name, q)
 	}
 	return nil
 }

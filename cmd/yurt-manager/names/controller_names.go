@@ -32,7 +32,7 @@ const (
 	PodBindingController                   = "pod-binding-controller"
 	GatewayPickupController                = "gateway-pickup-controller"
 	GatewayInternalServiceController       = "gateway-internal-service-controller"
-	GatewayPublicServiceController         = "gateway-public-service"
+	GatewayPublicServiceController         = "gateway-public-service-controller"
 	GatewayDNSController                   = "gateway-dns-controller"
 	NodeLifeCycleController                = "node-life-cycle-controller"
 )

@@ -32,7 +32,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1v1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 const (
@@ -118,7 +118,7 @@ func mockKubeClient() client.Client {
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      MockProxySvc,
-					Namespace: utils.WorkingNamespace,
+					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
 						raven.LabelCurrentGateway:     MockGateway,
 						raven.LabelCurrentGatewayType: ravenv1v1beta1.Proxy,
@@ -137,11 +137,11 @@ func mockKubeClient() client.Client {
 		Items: []v1.ConfigMap{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.RavenProxyNodesConfig,
-					Namespace: utils.WorkingNamespace,
+					Name:      util.RavenProxyNodesConfig,
+					Namespace: util.WorkingNamespace,
 				},
 				Data: map[string]string{
-					utils.ProxyNodesKey: "",
+					util.ProxyNodesKey: "",
 				},
 			},
 		},
@@ -160,7 +160,7 @@ func mockReconciler() *ReconcileDns {
 func TestReconcileDns_Reconcile(t *testing.T) {
 	r := mockReconciler()
 	t.Run("get dns configmap", func(t *testing.T) {
-		res, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: utils.WorkingNamespace, Name: utils.RavenProxyNodesConfig}})
+		res, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.RavenProxyNodesConfig}})
 		assert.Equal(t, reconcile.Result{}, res)
 		assert.Equal(t, err, nil)
 	})

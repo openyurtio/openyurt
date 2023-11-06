@@ -44,9 +44,8 @@ import (
 	calicov3 "github.com/openyurtio/openyurt/pkg/apis/calico/v3"
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
@@ -100,7 +99,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayPickupController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
 	})
 	if err != nil {
 		return err
@@ -124,10 +123,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if !ok {
 				return false
 			}
-			if cm.GetNamespace() != utils.WorkingNamespace {
+			if cm.GetNamespace() != util.WorkingNamespace {
 				return false
 			}
-			if cm.GetName() != utils.RavenGlobalConfig {
+			if cm.GetName() != util.RavenGlobalConfig {
 				return false
 			}
 			return true
@@ -193,7 +192,7 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 		}
 		nodes = append(nodes, ravenv1beta1.NodeInfo{
 			NodeName:  v.Name,
-			PrivateIP: utils.GetNodeInternalIP(v),
+			PrivateIP: util.GetNodeInternalIP(v),
 			Subnets:   podCIDRs,
 		})
 	}
@@ -251,7 +250,7 @@ func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *rav
 	}
 	klog.V(1).Infof(Format("Ready node has %d, node %v", len(readyNodes), readyNodes))
 	// init a endpoints slice
-	enableProxy, enableTunnel := utils.CheckServer(context.TODO(), r.Client)
+	enableProxy, enableTunnel := util.CheckServer(context.TODO(), r.Client)
 	eps := make([]*ravenv1beta1.Endpoint, 0)
 	if enableProxy {
 		eps = append(eps, electEndpoints(gw, ravenv1beta1.Proxy, readyNodes)...)
@@ -368,16 +367,16 @@ func getActiveEndpointsInfo(eps []*ravenv1beta1.Endpoint) (map[string][]string, 
 }
 
 func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1.Gateway) {
-	enableProxy, enableTunnel := utils.CheckServer(ctx, r.Client)
+	enableProxy, enableTunnel := util.CheckServer(ctx, r.Client)
 	for idx, val := range gw.Status.ActiveEndpoints {
 		if gw.Status.ActiveEndpoints[idx].Config == nil {
 			gw.Status.ActiveEndpoints[idx].Config = make(map[string]string)
 		}
 		switch val.Type {
 		case ravenv1beta1.Proxy:
-			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableProxy] = strconv.FormatBool(enableProxy)
+			gw.Status.ActiveEndpoints[idx].Config[util.RavenEnableProxy] = strconv.FormatBool(enableProxy)
 		case ravenv1beta1.Tunnel:
-			gw.Status.ActiveEndpoints[idx].Config[utils.RavenEnableTunnel] = strconv.FormatBool(enableTunnel)
+			gw.Status.ActiveEndpoints[idx].Config[util.RavenEnableTunnel] = strconv.FormatBool(enableTunnel)
 		default:
 		}
 	}

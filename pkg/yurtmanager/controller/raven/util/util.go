@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package util
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -34,25 +33,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
-
-const (
-	WorkingNamespace               = "kube-system"
-	RavenGlobalConfig              = "raven-cfg"
-	LabelCurrentGatewayEndpoints   = "raven.openyurt.io/endpoints-name"
-	GatewayProxyInternalService    = "x-raven-proxy-internal-svc"
-	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc"
-	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc"
-
-	RavenProxyNodesConfig      = "edge-tunnel-nodes"
-	ProxyNodesKey              = "tunnel-nodes"
-	RavenAgentConfig           = "raven-agent-config"
-	ProxyServerSecurePortKey   = "proxy-internal-secure-addr"
-	ProxyServerInsecurePortKey = "proxy-internal-insecure-addr"
-	ProxyServerExposedPortKey  = "proxy-external-addr"
-	VPNServerExposedPortKey    = "tunnel-bind-addr"
-	RavenEnableProxy           = "enable-l7-proxy"
-	RavenEnableTunnel          = "enable-l3-tunnel"
 )
 
 // GetNodeInternalIP returns internal ip of the given `node`.
@@ -94,14 +74,6 @@ func CheckServer(ctx context.Context, client client.Client) (enableProxy, enable
 	return enableProxy, enableTunnel
 }
 
-func AddNodePoolToWorkQueue(npName string, q workqueue.RateLimitingInterface) {
-	if npName != "" {
-		q.Add(reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: npName},
-		})
-	}
-}
-
 func AddDNSConfigmapToWorkQueue(q workqueue.RateLimitingInterface) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: RavenProxyNodesConfig},
@@ -112,20 +84,6 @@ func AddGatewayProxyInternalService(q workqueue.RateLimitingInterface) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: GatewayProxyInternalService},
 	})
-}
-
-func IsValidPort(s string) bool {
-	if s == "" {
-		return false
-	}
-	port, err := strconv.Atoi(s)
-	if err != nil {
-		return false
-	}
-	if port < 0 || port > 65535 {
-		return false
-	}
-	return true
 }
 
 func HashObject(o interface{}) string {

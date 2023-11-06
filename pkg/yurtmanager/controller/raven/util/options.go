@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package util
 
 import "sync"
 
@@ -23,7 +23,6 @@ type Option interface {
 	SetTunnelOption(enable bool)
 	GetProxyOption() bool
 	GetTunnelOption() bool
-	Reset()
 }
 
 type ServerOption struct {
@@ -58,11 +57,4 @@ func (o *ServerOption) GetTunnelOption() bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return o.enableTunnel
-}
-
-func (o *ServerOption) Reset() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.enableTunnel = false
-	o.enableProxy = false
 }

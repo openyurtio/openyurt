@@ -41,8 +41,7 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	common "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/utils"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -77,7 +76,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayDNSController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: common.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
 	})
 	if err != nil {
 		return err
@@ -93,7 +92,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if svc.Spec.Type != corev1.ServiceTypeClusterIP {
 				return false
 			}
-			return svc.Namespace == utils.WorkingNamespace && svc.Name == utils.GatewayProxyInternalService
+			return svc.Namespace == util.WorkingNamespace && svc.Name == util.GatewayProxyInternalService
 		}))
 	if err != nil {
 		return err
@@ -114,29 +113,29 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 	}()
 	var proxyAddress = ""
 	//1. ensure configmap to record dns
-	cm, err := r.getProxyDNS(ctx, client.ObjectKey{Namespace: utils.WorkingNamespace, Name: utils.RavenProxyNodesConfig})
+	cm, err := r.getProxyDNS(ctx, client.ObjectKey{Namespace: util.WorkingNamespace, Name: util.RavenProxyNodesConfig})
 	if err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
 
 	// 2. acquired raven global config to check whether the proxy s enabled
-	enableProxy, _ := utils.CheckServer(ctx, r.Client)
+	enableProxy, _ := util.CheckServer(ctx, r.Client)
 	if !enableProxy {
 		r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord", "The Raven Layer 7 proxy feature is not enabled for the cluster")
 	} else {
-		svc, err := r.getService(ctx, types.NamespacedName{Namespace: utils.WorkingNamespace, Name: utils.GatewayProxyInternalService})
+		svc, err := r.getService(ctx, types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.GatewayProxyInternalService})
 		if err != nil && !apierrors.IsNotFound(err) {
-			klog.V(2).Infof(Format("failed to get service %s/%s", utils.WorkingNamespace, utils.GatewayProxyInternalService))
+			klog.V(2).Infof(Format("failed to get service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
 			return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
 		if apierrors.IsNotFound(err) || svc.DeletionTimestamp != nil {
 			r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord",
-				fmt.Sprintf("The Raven Layer 7 proxy lacks service %s/%s", utils.WorkingNamespace, utils.GatewayProxyInternalService))
+				fmt.Sprintf("The Raven Layer 7 proxy lacks service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
 		}
 		if svc != nil {
 			if svc.Spec.ClusterIP == "" {
 				r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord",
-					fmt.Sprintf("The service %s/%s cluster IP is empty", utils.WorkingNamespace, utils.GatewayProxyInternalService))
+					fmt.Sprintf("The service %s/%s cluster IP is empty", util.WorkingNamespace, util.GatewayProxyInternalService))
 			} else {
 				proxyAddress = svc.Spec.ClusterIP
 			}
@@ -149,7 +148,7 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to list node, error %s", err.Error())
 	}
-	cm.Data[utils.ProxyNodesKey] = buildDNSRecords(nodeList, enableProxy, proxyAddress)
+	cm.Data[util.ProxyNodesKey] = buildDNSRecords(nodeList, enableProxy, proxyAddress)
 	err = r.updateDNS(cm)
 	if err != nil {
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to update configmap %s/%s, error %s",
@@ -185,11 +184,11 @@ func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) 
 func (r *ReconcileDns) buildRavenDNSConfigMap() error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RavenProxyNodesConfig,
-			Namespace: utils.WorkingNamespace,
+			Name:      util.RavenProxyNodesConfig,
+			Namespace: util.WorkingNamespace,
 		},
 		Data: map[string]string{
-			utils.ProxyNodesKey: "",
+			util.ProxyNodesKey: "",
 		},
 	}
 	err := r.Client.Create(context.TODO(), cm, &client.CreateOptions{})
