@@ -53,7 +53,7 @@ func TestNewYurtHubOptions(t *testing.T) {
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
 		EnableDummyIf:             true,
-		EnableIptables:            true,
+		EnableIptables:            false,
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
 		AccessServerThroughHub:    true,
