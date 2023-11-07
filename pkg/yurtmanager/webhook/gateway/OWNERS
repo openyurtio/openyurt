@@ -1,0 +1,12 @@
+# See: https://go.k8s.io/owners
+approvers:
+  - BSWANG
+  - njucjc
+  - River-sh
+  - luckymrwang
+
+reviewers:
+  - BSWANG
+  - njucjc
+  - River-sh
+  - luckymrwang
