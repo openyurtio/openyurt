@@ -17,7 +17,21 @@ This method effectively reduces resource consumption while maintaining applicati
 YurtAppOverrider is a new CRD used to customize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides a simple and straightforward way to configure every field of the workload under each nodepool.
 It is fundamental component of multi-region workloads configuration rendering engine.
 
-**yurt-iot-dock**
+**Support for building edgex iot systems by using PlatformAdmin**
+
+PlatformAdmin is a CRD that manages the IoT systems in the OpenYurt nodepool. It has evolved from the previous yurt-edgex-manager. Starting from this version, the functionality of yurt-edgex-controller has been merged into yurt-manager. This means that users no longer need to deploy any additional components; they only need to install yurt-manager to have all the capabilities for managing edge devices.
+
+PlatformAdmin allows users with a user-friendly way to deploy a complete edgex system on nodepool. It comes with an optional component library and configuration templates. Advanced users can also customize the configuration of this system according to their needs.
+
+Currently, PlatformAdmin supports all versions of EdgeX from Hanoi to Minnesota. In the future, it will continue to rapidly support upcoming releases using the auto-collector feature. This ensures that PlatformAdmin remains compatible with the latest versions of EdgeX as they are released.
+
+**Supports yurt-iot-dock deployment as an iot system component**
+
+yurt-iot-dock is a component responsible for managing edge devices in IoT system. It has evolved from the previous yurt-device-controller. As a component that connects the cloud and edge device management platforms, yurt-iot-dock abstracts three CRDs: DeviceProfile, DeviceService, and Device. These CRDs are used to represent and manage corresponding resources on the device management platform, thereby impacting real-world devices.
+
+By declaratively modifying the fields of these CRs, users can achieve the operational and management goals of complex edge devices in a cloud-native manner. yurt-iot-dock is deployed by PlatformAdmin as an optional IoT component. It is responsible for device synchronization during startup and severs the synchronization relationship when being terminated or destroyed.
+
+In this version, the deployment and destruction of the yurt-iot-dock are all controlled by PlatformAdmin, which improves the ease of use of the yurt-iot-dock.
 
 ### Other Notable changes
 
