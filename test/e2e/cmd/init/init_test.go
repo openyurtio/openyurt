@@ -439,7 +439,7 @@ func TestKindOptions_Config(t *testing.T) {
 		YurtHubImage:      "openyurt/yurthub:latest",
 		YurtManagerImage:  "openyurt/yurt-manager:latest",
 		NodeServantImage:  "openyurt/node-servant:latest",
-		EnableDummyIf:     true,
+		EnableDummyIf:     false,
 	}
 	if !IsConsistent(&wants, case1.Config()) {
 		t.Errorf("Failed to configure initializer")

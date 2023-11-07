@@ -54,7 +54,7 @@ func NewConvertOptions() *Options {
 		workingMode:               string(hubutil.WorkingModeEdge),
 		kubeadmConfPaths:          strings.Join(components.GetDefaultKubeadmConfPath(), ","),
 		openyurtDir:               constants.OpenyurtDir,
-		enableDummyIf:             true,
+		enableDummyIf:             false,
 		enableNodePool:            true,
 	}
 }
