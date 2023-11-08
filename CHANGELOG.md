@@ -33,6 +33,18 @@ By declaratively modifying the fields of these CRs, users can achieve the operat
 
 In this version, the deployment and destruction of the yurt-iot-dock are all controlled by PlatformAdmin, which improves the ease of use of the yurt-iot-dock.
 
+**Some Repos are archived**
+
+With the upgrading of OpenYurt architecture, the functions of quite a few components are merged into Yurt-Manager (e.g. yurt-app-manager, raven-controller-manager, etc.),
+or there are repos migrated to openyurt for better management (e.g. yurtiotdock). The following repos have been archived:
+
+- [yurt-app-manager](https://github.com/openyurtio/yurt-app-manager)
+- [yurt-app-manager-api](https://github.com/openyurtio/yurt-app-manager-api)
+- [raven-controller-manager](https://github.com/openyurtio/raven-controller-manager)
+- [yurt-edgex-manager](https://github.com/openyurtio/yurt-edgex-manager)
+- [yurt-device-controller](https://github.com/openyurtio/yurt-device-controller)
+- [yurtcluster-operator](https://github.com/openyurtio/yurtcluster-operator)
+
 ### Other Notable changes
 
 - feat: use real kubernetes server address to yurthub when yurtadm join by @Lan-ce-lot in https://github.com/openyurtio/openyurt/pull/1517
