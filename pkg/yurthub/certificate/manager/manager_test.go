@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	certutil "k8s.io/client-go/util/cert"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -112,13 +111,15 @@ func TestReady(t *testing.T) {
 
 		if exist, err := util.FileExists(mgr.GetCaFile()); !exist {
 			if err != nil {
+				t.Logf("could not get ca file(%s), %v", mgr.GetCaFile(), err)
 				return false, err
 			}
 
 			if exist, err := util.FileExists(mgr.GetHubConfFile()); err != nil {
+				t.Logf("could not get hub conf file(%s), %v", mgr.GetHubConfFile(), err)
 				return false, nil
 			} else if exist {
-				klog.Infof("%s file already exists, so use it to create ca file", mgr.GetHubConfFile())
+				t.Logf("%s file already exists, so use it to create ca file", mgr.GetHubConfFile())
 				hubKubeConfig, err := clientcmd.LoadFromFile(mgr.GetHubConfFile())
 				if err != nil {
 					return false, err
