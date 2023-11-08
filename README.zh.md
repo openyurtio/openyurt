@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.3.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.4.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -18,7 +18,7 @@
 
 | ![notification](docs/img/bell-outline-badge.svg) What is NEW!            |
 |--------------------------------------------------------------------------|
-| 最新发布：2023-05-03 OpenYurt v1.3.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节. |
+| 最新发布：2023-11-08 OpenYurt v1.4.0 请查看 [CHANGELOG](CHANGELOG.md) 来获得更多更新细节. |
 | 第一个发布：2020-05-29 OpenYurt v0.1.0-beta.1                                  |
 
 OpenYurt (官网: https://openyurt.io) 是基于 Upstream Kubernetes 构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
@@ -48,22 +48,13 @@ OpenYurt 遵循经典的云边一体化架构。
 - **[YurtHub](https://openyurt.io/zh/docs/next/core-concepts/yurthub/)**：YurtHub 以静态 pod 模式在工作节点上运行，它作为节点的 Sidecar 处理所有来自工作节点上的组件(如 Kubelet, Kubeproxy 等)到 kube-apiserver 的请求。
 - **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**：包括所有云边协同场景下的Controllers和Webhooks。
 - **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: 它用于处理 OpenYurt 中的云边，边边间的跨公网通信。 主要在不同物理区域的 pod 之间提供第 3 层网络连接，就像在一个 vanilla Kubernetes 集群中一样。
-- **Yurt-Coordinator**：每个边缘 NodePool 中会自动部署一个 Yurt-Coordinator 实例，它联合 YurtHub 为节点池提供心跳代理、云边缘流量复用等能力。
+- **Yurt-Coordinator(Optional)**：该组件安装会在每个边缘 NodePool 中会自动部署一个 Yurt-Coordinator 实例，它联合 YurtHub 为节点池提供心跳代理、云边缘流量复用等能力。
+- **[YurtIoTDock(Optional)](https://openyurt.io/docs/next/core-concepts/yurt-iot-dock)**: 用户通过创建PlatformAdmin资源在指定节点池中安装YurtIoTDock, 它将连接EdgeX Foundry系统为用户提供云原生的边缘设备管理能力。
 
 此外，OpenYurt 还包括用于集成和定制的辅助控制器。
 
 - **[Node resource manager](https://openyurt.io/zh/docs/next/core-concepts/node-resource-manager)**: 统一管理 OpenYurt 集群的本地节点资源。 目前支持管理 LVM、QuotaPath 和 Pmem 内存。
   详情请参考[node-resource-manager](https://github.com/openyurtio/node-resource-manager)。
-- **[集成 EdgeX Foundry 平台，使用 Kubernetes CRD 管理边缘设备!](https://openyurt.io/zh/docs/next/core-concepts/yurt-device-controller)**
-<table>
-<tr style="border:none">
-<td style="width:80%;border:none">OpenYurt 引入了 <a href="https://github.com/openyurtio/yurt-edgex-manager">Yurt-edgex-manager</a> 来管理EdgeX Foundry软件套件的生命周期，并通过Kubernetes自定义资源引入 <a href="https://github.com/openyurtio/yurt-device-controller">Yurt-device-controller</a> 来管理EdgeX Foundry托管的边缘设备。详情请参阅简短的 <b>demo</b> 演示和有关组件的repo。
-<td style="border:none"><a href="https://www.bilibili.com/video/BV1Mh411t7Q3"><img src="docs/img/demo.jpeg" width=150%></a>
-</table>
-
-## 开始之前
-
-安装 OpenYurt 前，请检查[资源和系统要求](https://github.com/openyurtio/openyurt.io/blob/master/i18n/zh/docusaurus-plugin-content-docs/current/usage-conditions/resource-and-system-requirements.md)
 
 ## 开始使用
 
@@ -90,7 +81,7 @@ OpenYurt 集群安装分成 2 个部分，分别为安装 OpenYurt 管控组件�
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 社区会议 | [从 2022.5.11 开始从双周会调整为周会，周三上午 11:00 ～ 12：00(北京时间)](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
 | 会议链接 | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09                                                                                                                     |
-| 会议纪要 | [会议议程及纪要](https://shimo.im/docs/rGK3cXYWYkPrvWp8)                                                                                                                                       |
+| 会议纪要 | [会议议程及纪要](https://www.yuque.com/rambohech/intck9/yolxrybw2rofcab7)                                                                                                                                       |
 | 会议视频 | [B 站 OpenYurt](https://space.bilibili.com/484245424/video)                                                                                                                                    |
 
 ### 联络方式
@@ -98,7 +89,7 @@ OpenYurt 集群安装分成 2 个部分，分别为安装 OpenYurt 管控组件�
 如果您对本项目有任何疑问或想做出贡献，欢迎通过 github issue 或 pull request 来沟通相关问题，其他有效的沟通渠道如下所示：
 
 - 邮件组: https://groups.google.com/g/openyurt/
-- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1upos7vk0-TREtWsBhyw79zyVnX9TPJQ) (_English_)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-25tm2q1dz-Jn6y4r7W4JigWc0Sx2jDzg) (_English_)
 - DingTalk: 搜索群 ID `12640034121` (_Chinese_)
 
 <div align="left">

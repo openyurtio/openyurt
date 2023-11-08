@@ -4,7 +4,7 @@
 
 <img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.3.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.4.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -18,7 +18,7 @@ English | [简体中文](./README.zh.md)
 
 | ![notification](docs/img/bell-outline-badge.svg) What is NEW!                                           |
 |---------------------------------------------------------------------------------------------------------|
-| Latest Release: May 3rd, 2023. OpenYurt v1.3.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
+| Latest Release: Nov 8th, 2023. OpenYurt v1.4.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
 | First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1                                                   |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
@@ -51,21 +51,12 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
 - **[Yurt-Manager](https://github.com/openyurtio/openyurt/tree/master/cmd/yurt-manager)**: include all controllers and webhooks for edge.
 - **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt, and provides layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
 - **Yurt-Coordinator**: One instance of Yurt-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing abilities, etc.
+- **[YurtIoTDock](https://openyurt.io/docs/next/core-concepts/yurt-iot-dock)**: One instance of YurtIoTDock is deployed in every edge NodePool, for bridging EdgeX Foundry platform and uses Kubernetes CRD to manage edge devices.
 
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
 
 - **[Node resource manager](https://openyurt.io/docs/next/core-concepts/node-resource-manager)**: It manages additional edge node resources such as LVM, QuotaPath and Persistent Memory.
   Please refer to [node-resource-manager](https://github.com/openyurtio/node-resource-manager) repo for more details.
-- **[Integrating EdgeX Foundry platform and uses Kubernetes CRD to manage edge devices!](https://openyurt.io/docs/next/core-concepts/yurt-device-controller/)**
-<table>
-<tr style="border:none">
-<td style="width:80%;border:none">OpenYurt introduces <a href="https://github.com/openyurtio/yurt-edgex-manager">Yurt-edgex-manager</a> to manage the lifecycle of the EdgeX Foundry software suite, and <a href="https://github.com/openyurtio/yurt-device-controller">Yurt-device-controller</a> to manage edge devices hosted by EdgeX Foundry via Kubernetes custom resources. Please refer to the short <b>demo</b> and the respective repos for more details.
-<td style="border:none"><a href="https://youtu.be/ngpkysNzoI0"><img src="docs/img/demo.jpeg" width=150%></a>
-</table>
-
-## Prerequisites
-
-Please check the [resource and system requirements](https://github.com/openyurtio/openyurt.io/blob/master/docs/usage-conditions/resource-and-system-requirements.md) before installing OpenYurt.
 
 ## Getting started
 
@@ -92,7 +83,7 @@ We have also prepared a developer [guide](https://openyurt.io/docs/developer-man
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | APAC Friendly Community meeting    | [Adjust to weekly APAC (Starting May 11, 2022), Wednesday 11:00AM GMT+8](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
 | Meeting link APAC Friendly meeting | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09                                                                                                                    |
-| Meeting notes                      | [Notes and agenda](https://shimo.im/docs/rGK3cXYWYkPrvWp8)                                                                                                                                    |
+| Meeting notes                      | [Notes and agenda](https://www.yuque.com/rambohech/intck9/yolxrybw2rofcab7)                                                                                                                                    |
 | Meeting recordings                 | [OpenYurt bilibili Channel](https://space.bilibili.com/484245424/video)                                                                                                                       |
 
 ### Contact
@@ -101,7 +92,7 @@ If you have any questions or want to contribute, you are welcome to communicate 
 Other active communication channels:
 
 - Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-1upos7vk0-TREtWsBhyw79zyVnX9TPJQ) (_English_)
+- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-25tm2q1dz-Jn6y4r7W4JigWc0Sx2jDzg) (_English_)
 - DingTalk：Search GroupID `12640034121` (_Chinese_)
 
 <div align="left">
