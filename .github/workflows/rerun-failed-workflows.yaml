@@ -1,0 +1,67 @@
+name: Rerun Failed Workflows
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  rerun_failed_workflows:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check for Command and Access Level
+        id: check
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const issue = context.issue;
+            const username = context.payload.comment.user.login;
+            const regex = /\/rerun/g;
+            const comment = await github.rest.issues.getComment({
+              owner: issue.owner,
+              repo: issue.repo,
+              comment_id: context.payload.comment.id,
+            });
+
+            if (regex.test(comment.data.body)) {
+              try {
+                await github.rest.repos.checkUserAccessLevel({
+                  owner: issue.owner,
+                  repo: issue.repo,
+                  username: username,
+                  permission: 'read'
+                });
+                return true;
+              } catch (error) {
+                console.log(`User ${username} does not have access to rerun failed workflows`);
+                return false;
+              }
+            } else {
+              return false;
+            }
+          result-encoding: string
+      - name: Fetch and rerun failed workflows
+        if: steps.check.outputs.result == 'true'
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const issue = context.issue;
+            const pull = await github.rest.pulls.get({
+              owner: issue.owner,
+              repo: issue.repo,
+              pull_number: issue.number,
+            });
+            const workflows = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: issue.owner,
+              repo: issue.repo,
+              branch: pull.data.head.ref,
+              status: 'failure',
+            });
+            for (const run of workflows.data.workflow_runs) {
+              await github.rest.actions.reRunWorkflow({
+                owner: issue.owner,
+                repo: issue.repo,
+                run_id: run.id,
+              });
+            }
