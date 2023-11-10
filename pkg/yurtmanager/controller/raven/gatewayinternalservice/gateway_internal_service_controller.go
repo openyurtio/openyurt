@@ -71,7 +71,6 @@ type ReconcileService struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
-	option   util.Option
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -80,7 +79,6 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayInternalServiceController),
-		option:   util.NewOption(),
 	}
 }
 
@@ -137,13 +135,12 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 
 	enableProxy, _ := util.CheckServer(ctx, r.Client)
-	r.option.SetProxyOption(enableProxy)
-	if err := r.reconcileService(ctx, req, gwList); err != nil {
+	if err := r.reconcileService(ctx, req, gwList, enableProxy); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile service: %s", err))
 		return reconcile.Result{}, err
 	}
 
-	if err := r.reconcileEndpoint(ctx, req, gwList); err != nil {
+	if err := r.reconcileEndpoint(ctx, req, gwList, enableProxy); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile endpoint: %s", err))
 		return reconcile.Result{}, err
 	}
@@ -169,8 +166,8 @@ func (r *ReconcileService) listExposedGateway(ctx context.Context) ([]*ravenv1be
 	return exposedGateways, nil
 }
 
-func (r *ReconcileService) reconcileService(ctx context.Context, req ctrl.Request, gatewayList []*ravenv1beta1.Gateway) error {
-	if len(gatewayList) == 0 || !r.option.GetProxyOption() {
+func (r *ReconcileService) reconcileService(ctx context.Context, req ctrl.Request, gatewayList []*ravenv1beta1.Gateway, enableProxy bool) error {
+	if len(gatewayList) == 0 || !enableProxy {
 		return r.cleanService(ctx, req)
 	}
 	return r.updateService(ctx, req, gatewayList)
@@ -284,13 +281,13 @@ func splitPorts(str string) []string {
 	return ret
 }
 
-func (r *ReconcileService) reconcileEndpoint(ctx context.Context, req ctrl.Request, gatewayList []*ravenv1beta1.Gateway) error {
+func (r *ReconcileService) reconcileEndpoint(ctx context.Context, req ctrl.Request, gatewayList []*ravenv1beta1.Gateway, enableProxy bool) error {
 	var service corev1.Service
 	err := r.Get(ctx, req.NamespacedName, &service)
 	if err != nil && !apierrs.IsNotFound(err) {
 		return err
 	}
-	if apierrs.IsNotFound(err) || service.DeletionTimestamp != nil || len(gatewayList) == 0 || !r.option.GetProxyOption() {
+	if apierrs.IsNotFound(err) || service.DeletionTimestamp != nil || len(gatewayList) == 0 || !enableProxy {
 		return r.cleanEndpoint(ctx, req)
 	}
 	return r.updateEndpoint(ctx, req, &service, gatewayList)

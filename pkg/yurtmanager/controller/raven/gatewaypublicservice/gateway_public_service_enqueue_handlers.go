@@ -38,7 +38,7 @@ func (h *EnqueueRequestForGatewayEvent) Create(e event.CreateEvent, q workqueue.
 		klog.Error(Format("fail to assert runtime Object %s/%s to v1beta1.Gateway,", e.Object.GetNamespace(), e.Object.GetName()))
 		return
 	}
-	if gw.Spec.ExposeType == "" {
+	if gw.Spec.ExposeType != ravenv1beta1.ExposeTypeLoadBalancer {
 		return
 	}
 	klog.V(2).Infof(Format("enqueue gateway %s as create event", gw.GetName()))
@@ -68,10 +68,7 @@ func (h *EnqueueRequestForGatewayEvent) Delete(e event.DeleteEvent, q workqueue.
 		klog.Error(Format("fail to assert runtime Object %s/%s to v1beta1.Gateway,", e.Object.GetNamespace(), e.Object.GetName()))
 		return
 	}
-	if gw.Spec.ExposeType == "" {
-		return
-	}
-	if gw.DeletionTimestamp != nil {
+	if gw.Spec.ExposeType != ravenv1beta1.ExposeTypeLoadBalancer {
 		return
 	}
 	klog.V(2).Infof(Format("enqueue gateway %s as delete event", gw.GetName()))
@@ -83,11 +80,13 @@ func (h *EnqueueRequestForGatewayEvent) Generic(e event.GenericEvent, q workqueu
 }
 
 func needUpdate(newObj, oldObj *ravenv1beta1.Gateway) bool {
-	if newObj.Spec.ExposeType != oldObj.Spec.ExposeType {
-		return true
-	}
-	if util.HashObject(newObj.Status.ActiveEndpoints) != util.HashObject(oldObj.Status.ActiveEndpoints) {
-		return true
+	if newObj.Spec.ExposeType == ravenv1beta1.ExposeTypeLoadBalancer || oldObj.Spec.ExposeType == ravenv1beta1.ExposeTypeLoadBalancer {
+		if newObj.Spec.ExposeType != oldObj.Spec.ExposeType {
+			return true
+		}
+		if util.HashObject(newObj.Status.ActiveEndpoints) != util.HashObject(oldObj.Status.ActiveEndpoints) {
+			return true
+		}
 	}
 	return false
 }

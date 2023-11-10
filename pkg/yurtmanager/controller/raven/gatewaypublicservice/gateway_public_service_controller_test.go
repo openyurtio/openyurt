@@ -203,8 +203,6 @@ func MockReconcile() *ReconcileService {
 	return &ReconcileService{
 		Client:   fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
 		recorder: record.NewFakeRecorder(100),
-		option:   util.NewOption(),
-		svcInfo:  newServiceInfo(),
 	}
 }
 
