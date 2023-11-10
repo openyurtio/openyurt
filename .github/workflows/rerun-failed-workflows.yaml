@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Check for Command and Access Level
         id: check
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -24,25 +24,26 @@ jobs:
             });
 
             if (regex.test(comment.data.body)) {
-              try {
-                await github.rest.repos.checkUserAccessLevel({
+                const permissionLevel = await github.rest.repos.getCollaboratorPermissionLevel({
                   owner: issue.owner,
                   repo: issue.repo,
                   username: username,
-                  permission: 'read'
                 });
-                return true;
-              } catch (error) {
-                console.log(`User ${username} does not have access to rerun failed workflows`);
-                return false;
-              }
+
+                if (['admin', 'write', 'read'].includes(permissionLevel.data.permission)) {
+                  console.log(`User ${username} with permission ${permissionLevel.data.permission} has access to rerun failed workflows`);
+                  return true;
+                } else {
+                  console.log(`User ${username} with permission ${permissionLevel.data.permission} does not have access to rerun failed workflows`);
+                  return false;
+                }
             } else {
               return false;
             }
           result-encoding: string
       - name: Fetch and rerun failed workflows
         if: steps.check.outputs.result == 'true'
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -59,9 +60,10 @@ jobs:
               status: 'failure',
             });
             for (const run of workflows.data.workflow_runs) {
-              await github.rest.actions.reRunWorkflow({
+              const result = await github.rest.actions.reRunWorkflowFailedJobs({
                 owner: issue.owner,
                 repo: issue.repo,
                 run_id: run.id,
               });
+              console.log(`reRunWorkflowFailedJobs workflow ${JSON.stringify(run)} with response ${JSON.stringify(result)}`);
             }
