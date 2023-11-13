@@ -440,7 +440,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if err != nil {
-				klog.Errorf("failed to process watch object %s, %v", key, err)
+				klog.Errorf("failed to process watch object %s, %v", key.Key(), err)
 			}
 		case watch.Bookmark:
 			rv, _ := accessor.ResourceVersion(obj)
