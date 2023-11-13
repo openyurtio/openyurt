@@ -176,14 +176,14 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 		createdEdgeObj, err := r.deviceCli.Create(context.TODO(), d, clients.CreateOptions{})
 		if err != nil {
 			util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceCreateSyncedReason, err.Error()))
-			return fmt.Errorf("fail to add Device to edge platform: %v", err)
+			return fmt.Errorf("could not add Device to edge platform: %v", err)
 		} else {
 			klog.V(4).Infof("Successfully add Device to edge platform, Name: %s, EdgeId: %s", edgeDeviceName, createdEdgeObj.Status.EdgeId)
 			newDeviceStatus.EdgeId = createdEdgeObj.Status.EdgeId
 			newDeviceStatus.Synced = true
 		}
 	} else {
-		klog.V(4).ErrorS(err, "failed to visit the edge platform")
+		klog.V(4).ErrorS(err, "could not visit the edge platform")
 		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceVistedCoreMetadataSyncedReason, ""))
 		return nil
 	}
@@ -234,7 +234,7 @@ func (r *DeviceReconciler) reconcileUpdateDevice(ctx context.Context, d *iotv1al
 		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceManagingCondition, corev1.ConditionFalse, iotv1alpha1.DeviceUpdateStateReason, err.Error()))
 		return err
 	} else if len(failedPropertyNames) != 0 {
-		err = fmt.Errorf("the following device properties failed to reconcile: %v", failedPropertyNames)
+		err = fmt.Errorf("the following device properties could not reconcile: %v", failedPropertyNames)
 		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceManagingCondition, corev1.ConditionFalse, err.Error(), ""))
 		return nil
 	}
@@ -261,7 +261,7 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 		actualProperty, err := r.deviceCli.GetPropertyState(context.TODO(), propertyName, d, clients.GetOptions{})
 		if err != nil {
 			if !clients.IsNotFoundErr(err) {
-				klog.Errorf("DeviceName: %s, failed to get actual property value of %s, err:%v", d.GetName(), propertyName, err)
+				klog.Errorf("DeviceName: %s, could not get actual property value of %s, err:%v", d.GetName(), propertyName, err)
 				failedPropertyNames = append(failedPropertyNames, propertyName)
 				continue
 			}
@@ -282,7 +282,7 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 			klog.V(4).Infof("DeviceName: %s, the desired value and the actual value are different, desired: %s, actual: %s",
 				d.GetName(), desiredProperty.DesiredValue, actualProperty.ActualValue)
 			if err := r.deviceCli.UpdatePropertyState(context.TODO(), propertyName, d, clients.UpdateOptions{}); err != nil {
-				klog.ErrorS(err, "failed to update property", "DeviceName", d.GetName(), "propertyName", propertyName)
+				klog.ErrorS(err, "could not update property", "DeviceName", d.GetName(), "propertyName", propertyName)
 				failedPropertyNames = append(failedPropertyNames, propertyName)
 				continue
 			}

@@ -105,7 +105,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	//	return []string{}
 	//})
 	//if err != nil {
-	//	klog.Errorf(Format("failed to register field indexers for podbinding controller, %v", err))
+	//	klog.Errorf(Format("could not register field indexers for podbinding controller, %v", err))
 	//}
 	//return err
 }
@@ -155,12 +155,12 @@ func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
 		// pod binding takes precedence against node autonomy
 		if nodeutil.IsPodBoundenToNode(node) {
 			if err := r.configureTolerationForPod(pod, nil); err != nil {
-				klog.Errorf(Format("failed to configure toleration of pod, %v", err))
+				klog.Errorf(Format("could not configure toleration of pod, %v", err))
 			}
 		} else {
 			tolerationSeconds := int64(defaultTolerationSeconds)
 			if err := r.configureTolerationForPod(pod, &tolerationSeconds); err != nil {
-				klog.Errorf(Format("failed to configure toleration of pod, %v", err))
+				klog.Errorf(Format("could not configure toleration of pod, %v", err))
 			}
 		}
 	}
@@ -177,7 +177,7 @@ func (r *ReconcilePodBinding) getPodsAssignedToNode(name string) ([]corev1.Pod, 
 	podList := &corev1.PodList{}
 	err := r.List(context.TODO(), podList, listOptions)
 	if err != nil {
-		klog.Errorf(Format("failed to get podList for node(%s), %v", name, err))
+		klog.Errorf(Format("could not get podList for node(%s), %v", name, err))
 		return nil, err
 	}
 	return podList.Items, nil
@@ -198,7 +198,7 @@ func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerat
 		}
 		err := r.Update(context.TODO(), pod, &client.UpdateOptions{})
 		if err != nil {
-			klog.Errorf(Format("failed to update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err))
+			klog.Errorf(Format("could not update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err))
 			return err
 		}
 	}

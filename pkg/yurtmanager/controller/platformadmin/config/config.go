@@ -116,12 +116,12 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 	}
 	securityContent, err := EdgeXFS.ReadFile(securityFile)
 	if err != nil {
-		klog.Errorf("Fail to open the embed EdgeX security config: %v", err)
+		klog.Errorf("could not open the embed EdgeX security config: %v", err)
 		return nil
 	}
 	nosectyContent, err := EdgeXFS.ReadFile(nosectyFile)
 	if err != nil {
-		klog.Errorf("Fail to open the embed EdgeX nosecty config: %v", err)
+		klog.Errorf("could not open the embed EdgeX nosecty config: %v", err)
 		return nil
 	}
 
@@ -131,7 +131,7 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		return nil
 	}
 	if err = json.Unmarshal(securityContent, &edgexconfig); err != nil {
-		klog.Errorf("Fail to unmarshal the embed EdgeX security config: %v", err)
+		klog.Errorf("could not unmarshal the embed EdgeX security config: %v", err)
 		return nil
 	}
 	for _, version := range edgexconfig.Versions {
@@ -140,7 +140,7 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 	}
 
 	if err := json.Unmarshal(nosectyContent, &edgexnosectyconfig); err != nil {
-		klog.Errorf("Fail to unmarshal the embed EdgeX nosecty config: %v", err)
+		klog.Errorf("could not unmarshal the embed EdgeX nosecty config: %v", err)
 		return nil
 	}
 	for _, version := range edgexnosectyconfig.Versions {

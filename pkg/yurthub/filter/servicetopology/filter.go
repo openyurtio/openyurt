@@ -119,7 +119,7 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 
 	node, err := stf.client.CoreV1().Nodes().Get(context.Background(), stf.nodeName, metav1.GetOptions{})
 	if err != nil {
-		klog.Warningf("failed to get node(%s) in serviceTopologyFilter filter, %v", stf.nodeName, err)
+		klog.Warningf("could not get node(%s) in serviceTopologyFilter filter, %v", stf.nodeName, err)
 		return stf.nodePoolName
 	}
 	stf.nodePoolName = node.Labels[apps.NodePoolLabel]
@@ -200,7 +200,7 @@ func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object)
 
 	svc, err := stf.serviceLister.Services(svcNamespace).Get(svcName)
 	if err != nil {
-		klog.Warningf("serviceTopologyFilterHandler: failed to get service %s/%s, err: %v", svcNamespace, svcName, err)
+		klog.Warningf("serviceTopologyFilterHandler: could not get service %s/%s, err: %v", svcNamespace, svcName, err)
 		return false, ""
 	}
 
@@ -232,7 +232,7 @@ func (stf *serviceTopologyFilter) nodePoolTopologyHandler(obj runtime.Object) ru
 
 	runtimeObj, err := stf.nodePoolLister.Get(nodePoolName)
 	if err != nil {
-		klog.Warningf("serviceTopologyFilterHandler: failed to get nodepool %s, err: %v", nodePoolName, err)
+		klog.Warningf("serviceTopologyFilterHandler: could not get nodepool %s, err: %v", nodePoolName, err)
 		return obj
 	}
 	var nodePool *v1beta1.NodePool

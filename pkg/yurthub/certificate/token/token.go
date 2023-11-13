@@ -149,7 +149,7 @@ func (ycm *yurtHubClientCertManager) verifyServerAddrOrCleanup(servers []*url.UR
 func (ycm *yurtHubClientCertManager) Start() {
 	err := ycm.prepareConfigAndCaFile()
 	if err != nil {
-		klog.Errorf("failed to prepare config and ca file, %v", err)
+		klog.Errorf("could not prepare config and ca file, %v", err)
 		return
 	}
 
@@ -171,7 +171,7 @@ func (ycm *yurtHubClientCertManager) prepareConfigAndCaFile() error {
 	if len(ycm.bootstrapFile) != 0 {
 		// 1. load bootstrap config
 		if tlsBootstrapCfg, err = clientcmd.LoadFromFile(ycm.getBootstrapConfFile()); err != nil {
-			klog.Errorf("maybe hub agent restarted, failed to load bootstrap config file(%s), %v.", ycm.getBootstrapConfFile(), err)
+			klog.Errorf("maybe hub agent restarted, could not load bootstrap config file(%s), %v.", ycm.getBootstrapConfFile(), err)
 		} else {
 			klog.V(2).Infof("%s file is configured, just use it", ycm.getBootstrapConfFile())
 		}
@@ -220,7 +220,7 @@ func (ycm *yurtHubClientCertManager) prepareConfigAndCaFile() error {
 		return errors.Wrap(err, "couldn't stat bootstrap config file")
 	} else if !exist {
 		if tlsBootstrapCfg, err = ycm.retrieveHubBootstrapConfig(ycm.joinToken); err != nil {
-			return errors.Wrap(err, "failed to retrieve bootstrap config")
+			return errors.Wrap(err, "could not retrieve bootstrap config")
 		}
 	} else {
 		klog.V(2).Infof("%s file already exists, so reuse it", ycm.getBootstrapConfFile())

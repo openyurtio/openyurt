@@ -49,7 +49,7 @@ func NewConvertCmd() *cobra.Command {
 
 			converter := nodeconverter.NewConverterWithOptions(o)
 			if err := converter.Do(); err != nil {
-				klog.Fatalf("fail to convert the kubernetes node to a yurt node: %s", err)
+				klog.Fatalf("could not convert the kubernetes node to a yurt node: %s", err)
 			}
 			klog.Info("convert success")
 		},

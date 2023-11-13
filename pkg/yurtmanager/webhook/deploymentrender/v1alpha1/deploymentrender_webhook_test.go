@@ -302,11 +302,11 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 	}
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add yurt custom resource")
+		t.Logf("could not add yurt custom resource")
 		return
 	}
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add kubernetes clint-go custom resource")
+		t.Logf("could not add kubernetes clint-go custom resource")
 		return
 	}
 	for _, tcase := range tcases {

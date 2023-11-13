@@ -86,11 +86,11 @@ func NewRESTMapperManager(baseDir string) (*RESTMapperManager, error) {
 		dm = make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 		err = storage.CreateFile(filepath.Join(baseDir, CacheDynamicRESTMapperKey), []byte{})
 		if err != nil {
-			return nil, fmt.Errorf("failed to init dynamic RESTMapper file at %s, %v", cachedFilePath, err)
+			return nil, fmt.Errorf("could not init dynamic RESTMapper file at %s, %v", cachedFilePath, err)
 		}
 		klog.Infof("initialize an empty DynamicRESTMapper")
 	} else if err != nil {
-		return nil, fmt.Errorf("failed to read existing RESTMapper file at %s, %v", cachedFilePath, err)
+		return nil, fmt.Errorf("could not read existing RESTMapper file at %s, %v", cachedFilePath, err)
 	}
 
 	if len(b) != 0 {
@@ -159,7 +159,7 @@ func (rm *RESTMapperManager) updateCachedDynamicRESTMapper() error {
 	}
 	err = rm.storage.Write(rm.cachedFilePath, d)
 	if err != nil {
-		return fmt.Errorf("failed to update cached dynamic RESTMapper, %v", err)
+		return fmt.Errorf("could not update cached dynamic RESTMapper, %v", err)
 	}
 	return nil
 }
@@ -230,7 +230,7 @@ func unmarshalDynamicRESTMapper(data []byte) (map[schema.GroupVersionResource]sc
 	cacheMapper := make(map[string]string)
 	err := json.Unmarshal(data, &cacheMapper)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cached CRDRESTMapper, %v", err)
+		return nil, fmt.Errorf("could not get cached CRDRESTMapper, %v", err)
 	}
 
 	for gvrString, kindString := range cacheMapper {

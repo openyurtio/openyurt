@@ -79,24 +79,24 @@ func (c *componentKeyCache) Recover() error {
 	var err error
 	if buf, err = c.fsOperator.Read(c.filePath); err == fs.ErrNotExists {
 		if err := c.fsOperator.CreateFile(c.filePath, []byte{}); err != nil {
-			return fmt.Errorf("failed to create cache file at %s, %v", c.filePath, err)
+			return fmt.Errorf("could not create cache file at %s, %v", c.filePath, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("failed to recover key cache from %s, %v", c.filePath, err)
+		return fmt.Errorf("could not recover key cache from %s, %v", c.filePath, err)
 	}
 
 	if len(buf) != 0 {
 		// We've got content from file
 		cache, err := unmarshal(buf)
 		if err != nil {
-			return fmt.Errorf("failed to parse file content at %s, %v", c.filePath, err)
+			return fmt.Errorf("could not parse file content at %s, %v", c.filePath, err)
 		}
 		c.cache = cache
 	}
 
 	poolScopedKeyset, err := c.getPoolScopedKeyset()
 	if err != nil {
-		return fmt.Errorf("failed to get pool-scoped keys, %v", err)
+		return fmt.Errorf("could not get pool-scoped keys, %v", err)
 	}
 	// Overwrite the data we recovered from local disk, if any. Because we
 	// only respect to the resources stored in yurt-coordinator to recover the
@@ -121,17 +121,17 @@ func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
 			Resources: gvr.Resource,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate keys for %s, %v", gvr.String(), err)
+			return nil, fmt.Errorf("could not generate keys for %s, %v", gvr.String(), err)
 		}
 		getResp, err := getFunc(rootKey.Key())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get from etcd for %s, %v", gvr.String(), err)
+			return nil, fmt.Errorf("could not get from etcd for %s, %v", gvr.String(), err)
 		}
 
 		for _, kv := range getResp.Kvs {
 			ns, name, err := getNamespaceAndNameFromKeyPath(string(kv.Key))
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse namespace and name of %s", kv.Key)
+				return nil, fmt.Errorf("could not parse namespace and name of %s", kv.Key)
 			}
 			key, err := c.keyFunc(storage.KeyBuildInfo{
 				Component: coordinatorconstants.DefaultPoolScopedUserAgent,
@@ -142,7 +142,7 @@ func (c *componentKeyCache) getPoolScopedKeyset() (*keyCache, error) {
 				Name:      name,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to create resource key for %v", kv.Key)
+				return nil, fmt.Errorf("could not create resource key for %v", kv.Key)
 			}
 
 			if _, ok := keys.m[gvr]; !ok {
@@ -258,7 +258,7 @@ func (c *componentKeyCache) LoadAndDelete(component string) (keyCache, bool) {
 func (c *componentKeyCache) flush() error {
 	buf := marshal(c.cache)
 	if err := c.fsOperator.Write(c.filePath, buf); err != nil {
-		return fmt.Errorf("failed to flush cache to file %s, %v", c.filePath, err)
+		return fmt.Errorf("could not flush cache to file %s, %v", c.filePath, err)
 	}
 	return nil
 }
@@ -299,7 +299,7 @@ func unmarshal(buf []byte) (map[string]keyCache, error) {
 	for i, l := range lines {
 		s := strings.Split(l, "#")
 		if len(s) != 2 {
-			return nil, fmt.Errorf("failed to parse line %d, invalid format", i)
+			return nil, fmt.Errorf("could not parse line %d, invalid format", i)
 		}
 		comp := s[0]
 
@@ -309,11 +309,11 @@ func unmarshal(buf []byte) (map[string]keyCache, error) {
 			for _, gvrKey := range gvrKeys {
 				ss := strings.Split(gvrKey, ":")
 				if len(ss) != 2 {
-					return nil, fmt.Errorf("failed to parse gvr keys %s at line %d, invalid format", gvrKey, i)
+					return nil, fmt.Errorf("could not parse gvr keys %s at line %d, invalid format", gvrKey, i)
 				}
 				gvrStrs := strings.Split(ss[0], "_")
 				if len(gvrStrs) != 3 {
-					return nil, fmt.Errorf("failed to parse gvr %s at line %d, invalid format", ss[0], i)
+					return nil, fmt.Errorf("could not parse gvr %s at line %d, invalid format", ss[0], i)
 				}
 				gvr := schema.GroupVersionResource{
 					Group:    gvrStrs[0],

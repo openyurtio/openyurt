@@ -97,22 +97,21 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	// perform preflight check
 	setupLog.Info("[preflight] Running pre-flight checks")
 	if err := preflightCheck(mgr, opts); err != nil {
-		setupLog.Error(err, "failed to run pre-flight checks")
+		setupLog.Error(err, "could not run pre-flight checks")
 		os.Exit(1)
 	}
 
 	// register the field indexers
 	setupLog.Info("[preflight] Registering the field indexers")
 	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		setupLog.Error(err, "failed to register field indexers")
+		setupLog.Error(err, "could not register field indexers")
 		os.Exit(1)
 	}
-
 	// get nodepool where yurt-iot-dock run
 	if opts.Nodepool == "" {
 		opts.Nodepool, err = util.GetNodePool(mgr.GetConfig())
 		if err != nil {
-			setupLog.Error(err, "failed to get the nodepool where yurt-iot-dock run")
+			setupLog.Error(err, "could not get the nodepool where yurt-iot-dock run")
 			os.Exit(1)
 		}
 	}
@@ -188,7 +187,7 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 
 	setupLog.Info("[run controllers] Starting manager, acting on " + fmt.Sprintf("[NodePool: %s, Namespace: %s]", opts.Nodepool, opts.Namespace))
 	if err := mgr.Start(SetupSignalHandler(mgr.GetClient(), opts)); err != nil {
-		setupLog.Error(err, "failed to running manager")
+		setupLog.Error(err, "could not running manager")
 		os.Exit(1)
 	}
 }
@@ -196,19 +195,19 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 func deleteCRsOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
 	setupLog.Info("[deleteCRsOnControllerShutdown] start delete device crd")
 	if err := controllers.DeleteDevicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "failed to shutdown device cr")
+		setupLog.Error(err, "could not shutdown device cr")
 		return err
 	}
 
 	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceprofile crd")
 	if err := controllers.DeleteDeviceProfilesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "failed to shutdown deviceprofile cr")
+		setupLog.Error(err, "could not shutdown deviceprofile cr")
 		return err
 	}
 
 	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceservice crd")
 	if err := controllers.DeleteDeviceServicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "failed to shutdown deviceservice cr")
+		setupLog.Error(err, "could not shutdown deviceservice cr")
 		return err
 	}
 

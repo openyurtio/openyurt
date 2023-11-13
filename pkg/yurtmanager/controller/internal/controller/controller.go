@@ -167,7 +167,7 @@ func (c *Controller) Start(ctx context.Context) error {
 				// WaitForSync waits for a definitive timeout, and returns if there
 				// is an error or a timeout
 				if err := syncingSource.WaitForSync(sourceStartCtx); err != nil {
-					err := fmt.Errorf("failed to wait for %s caches to sync: %w", c.Name, err)
+					err := fmt.Errorf("could not wait for %s caches to sync: %w", c.Name, err)
 					klog.ErrorS(err, "Could not wait for Cache to sync")
 					return err
 				}
@@ -214,7 +214,7 @@ func (c *Controller) WaitForStarted(ctx context.Context) bool {
 		return true, nil
 	}, ctx.Done())
 	if err != nil {
-		klog.V(2).InfoS("failed to start %s controller , %v", c.Name, err)
+		klog.V(2).InfoS("could not start %s controller , %v", c.Name, err)
 		return false
 	}
 

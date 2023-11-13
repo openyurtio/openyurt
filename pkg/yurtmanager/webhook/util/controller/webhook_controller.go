@@ -169,7 +169,7 @@ func (c *Controller) Start(ctx context.Context) {
 	c.informerFactory.Start(ctx.Done())
 	c.extensionsInformerFactory.Start(ctx.Done())
 	if !cache.WaitForNamedCacheSync("webhook-controller", ctx.Done(), c.synced...) {
-		klog.Errorf("Wait For Cache sync webhook-controller faild")
+		klog.Errorf("Wait For Cache sync webhook-controller failed")
 		return
 	}
 
@@ -228,30 +228,30 @@ func (c *Controller) sync(key string) error {
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("failed to ensure certs: %v", err)
+		return fmt.Errorf("could not ensure certs: %v", err)
 	}
 
 	certs, _, err := certWriter.EnsureCert(dnsName)
 	if err != nil {
-		return fmt.Errorf("failed to ensure certs: %v", err)
+		return fmt.Errorf("could not ensure certs: %v", err)
 	}
 	if err := writer.WriteCertsToDir(webhookutil.GetCertDir(), certs); err != nil {
-		return fmt.Errorf("failed to write certs to dir: %v", err)
+		return fmt.Errorf("could not write certs to dir: %v", err)
 	}
 
 	if err := configuration.Ensure(c.kubeClient, c.handlers, certs.CACert, c.webhookPort); err != nil {
-		return fmt.Errorf("failed to ensure configuration: %v", err)
+		return fmt.Errorf("could not ensure configuration: %v", err)
 	}
 
 	if len(key) != 0 {
 		crd, err := c.extensionsLister.Get(key)
 		if err != nil {
-			klog.Errorf("failed to get crd(%s), %v", key, err)
+			klog.Errorf("could not get crd(%s), %v", key, err)
 			return err
 		}
 
 		if err := ensureCRDConversionCA(c.extensionsClient, crd, certs.CACert); err != nil {
-			klog.Errorf("failed to ensure conversion configuration for crd(%s), %v", crd.Name, err)
+			klog.Errorf("could not ensure conversion configuration for crd(%s), %v", crd.Name, err)
 			return err
 		}
 	}

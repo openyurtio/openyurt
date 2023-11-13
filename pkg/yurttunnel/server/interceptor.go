@@ -107,7 +107,7 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 			tlsTunnelConn := tls.Client(proxyConn, cfg)
 			if err := tlsTunnelConn.Handshake(); err != nil {
 				proxyConn.Close()
-				return nil, fmt.Errorf("fail to setup TLS handshake through the Tunnel: %w", err)
+				return nil, fmt.Errorf("could not setup TLS handshake through the Tunnel: %w", err)
 			}
 			klog.V(4).Infof("successfully setup TLS connection to %q with headers: %s", addr, connectHeaders)
 			return tlsTunnelConn, nil
@@ -144,7 +144,7 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	tunnelConn, err := ri.contextDialer(r.Host, r.Header, r.TLS != nil)
 	if err != nil {
 		klogAndHTTPError(w, http.StatusServiceUnavailable,
-			"fail to setup the tunnel: %s", err)
+			"could not setup the tunnel: %s", err)
 		return
 	}
 	defer tunnelConn.Close()
@@ -152,7 +152,7 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	// 2. proxy the request to tunnel
 	if err := r.Write(tunnelConn); err != nil {
 		klogAndHTTPError(w, http.StatusServiceUnavailable,
-			"fail to write request to tls connection: %s", err)
+			"could not write request to tls connection: %s", err)
 		return
 	}
 
@@ -200,7 +200,7 @@ func serveUpgradeRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Req
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
 		klogAndHTTPError(w, http.StatusServiceUnavailable,
-			"fail to hijack response: %s", err)
+			"could not hijack response: %s", err)
 		return
 	}
 	defer clientConn.Close()
@@ -276,7 +276,7 @@ func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
 	defer putBufioReader(br)
 	tunnelHTTPResp, err := http.ReadResponse(br, r)
 	if err != nil {
-		klogAndHTTPError(w, http.StatusServiceUnavailable, "fail to read response from the tunnel: %v", err)
+		klogAndHTTPError(w, http.StatusServiceUnavailable, "could not read response from the tunnel: %v", err)
 		return
 	}
 	klog.V(4).Infof("interceptor: successfully read the http response from the proxy tunnel for request %s", r.URL.String())
@@ -317,7 +317,7 @@ func serveRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.Copy(writer, tunnelHTTPResp.Body)
 	if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-		klog.ErrorS(err, "fail to copy response from the tunnel back to the client")
+		klog.ErrorS(err, "could not copy response from the tunnel back to the client")
 	}
 
 	klog.V(4).Infof("interceptor: stop serving request %s with headers: %v", r.URL.String(), r.Header)

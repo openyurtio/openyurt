@@ -113,7 +113,7 @@ func (mgr *tenantManager) addSecret(sec interface{}) {
 
 	secret, ok := sec.(*v1.Secret)
 	if !ok {
-		klog.Errorf("failed to convert to *v1.Secret")
+		klog.Errorf("could not convert to *v1.Secret")
 		return
 	}
 
@@ -129,7 +129,7 @@ func (mgr *tenantManager) addSecret(sec interface{}) {
 func (mgr *tenantManager) deleteSecret(sec interface{}) {
 	secret, ok := sec.(*v1.Secret)
 	if !ok {
-		klog.Errorf("failed to convert to *v1.Secret")
+		klog.Errorf("could not convert to *v1.Secret")
 		return
 	}
 
@@ -144,7 +144,7 @@ func (mgr *tenantManager) updateSecret(oldSec interface{}, newSec interface{}) {
 
 	secret, ok := newSec.(*v1.Secret)
 	if !ok {
-		klog.Errorf("failed to convert to *v1.Secret")
+		klog.Errorf("could not convert to *v1.Secret")
 		return
 	}
 

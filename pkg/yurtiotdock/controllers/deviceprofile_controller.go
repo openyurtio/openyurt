@@ -146,7 +146,7 @@ func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Conte
 	klog.V(4).Infof("Checking if deviceProfile already exist on the edge platform: %s", dp.GetName())
 	if edgeDp, err := r.edgeClient.Get(context.TODO(), actualName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
-			klog.V(4).ErrorS(err, "fail to visit the edge platform")
+			klog.V(4).ErrorS(err, "could not visit the edge platform")
 			return nil
 		}
 	} else {

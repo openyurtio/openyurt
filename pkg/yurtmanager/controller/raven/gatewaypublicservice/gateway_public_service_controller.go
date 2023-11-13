@@ -146,7 +146,7 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 			enableTunnel = false
 			enableProxy = false
 		} else {
-			klog.Error(Format("failed to get gateway %s, error %s", req.Name, err.Error()))
+			klog.Error(Format("could not get gateway %s, error %s", req.Name, err.Error()))
 			return reconcile.Result{}, err
 		}
 	}
@@ -190,13 +190,13 @@ func (r *ReconcileService) reconcileService(ctx context.Context, gw *ravenv1beta
 		klog.V(2).Info(Format("start manage proxy service for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish manage proxy service for gateway %s", gw.GetName()))
 		if err := r.manageService(ctx, gw, ravenv1beta1.Proxy, record); err != nil {
-			return fmt.Errorf("failed to manage service for proxy server %s", err.Error())
+			return fmt.Errorf("could not manage service for proxy server %s", err.Error())
 		}
 	} else {
 		klog.V(2).Info(Format("start clear proxy service for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish clear proxy service for gateway %s", gw.GetName()))
 		if err := r.clearService(ctx, gw.GetName(), ravenv1beta1.Proxy); err != nil {
-			return fmt.Errorf("failed to clear service for proxy server %s", err.Error())
+			return fmt.Errorf("could not clear service for proxy server %s", err.Error())
 		}
 	}
 
@@ -204,13 +204,13 @@ func (r *ReconcileService) reconcileService(ctx context.Context, gw *ravenv1beta
 		klog.V(2).Info(Format("start manage tunnel service for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish manage tunnel service for gateway %s", gw.GetName()))
 		if err := r.manageService(ctx, gw, ravenv1beta1.Tunnel, record); err != nil {
-			return fmt.Errorf("failed to manage service for tunnel server %s", err.Error())
+			return fmt.Errorf("could not manage service for tunnel server %s", err.Error())
 		}
 	} else {
 		klog.V(2).Info(Format("start clear tunnel service for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish clear tunnel service for gateway %s", gw.GetName()))
 		if err := r.clearService(ctx, gw.GetName(), ravenv1beta1.Tunnel); err != nil {
-			return fmt.Errorf("failed to clear service for tunnel server %s", err.Error())
+			return fmt.Errorf("could not clear service for tunnel server %s", err.Error())
 		}
 	}
 	return nil
@@ -221,26 +221,26 @@ func (r *ReconcileService) reconcileEndpoints(ctx context.Context, gw *ravenv1be
 		klog.V(2).Info(Format("start manage proxy service endpoints for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish manage proxy service endpoints for gateway %s", gw.GetName()))
 		if err := r.manageEndpoints(ctx, gw, ravenv1beta1.Proxy, record); err != nil {
-			return fmt.Errorf("failed to manage endpoints for proxy server %s", err.Error())
+			return fmt.Errorf("could not manage endpoints for proxy server %s", err.Error())
 		}
 	} else {
 		klog.V(2).Info(Format("start clear proxy service endpoints for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish clear proxy service endpoints for gateway %s", gw.GetName()))
 		if err := r.clearEndpoints(ctx, gw.GetName(), ravenv1beta1.Proxy); err != nil {
-			return fmt.Errorf("failed to clear endpoints for proxy server %s", err.Error())
+			return fmt.Errorf("could not clear endpoints for proxy server %s", err.Error())
 		}
 	}
 	if enableTunnel {
 		klog.V(2).Info(Format("start manage tunnel service endpoints for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish manage tunnel service endpoints for gateway %s", gw.GetName()))
 		if err := r.manageEndpoints(ctx, gw, ravenv1beta1.Tunnel, record); err != nil {
-			return fmt.Errorf("failed to manage endpoints for tunnel server %s", err.Error())
+			return fmt.Errorf("could not manage endpoints for tunnel server %s", err.Error())
 		}
 	} else {
 		klog.V(2).Info(Format("start clear tunnel service endpoints for gateway %s", gw.GetName()))
 		defer klog.V(2).Info(Format("finish clear tunnel service endpoints for gateway %s", gw.GetName()))
 		if err := r.clearEndpoints(ctx, gw.GetName(), ravenv1beta1.Tunnel); err != nil {
-			return fmt.Errorf("failed to clear endpoints for tunnel server %s", err.Error())
+			return fmt.Errorf("could not clear endpoints for tunnel server %s", err.Error())
 		}
 	}
 	return nil
@@ -249,13 +249,13 @@ func (r *ReconcileService) reconcileEndpoints(ctx context.Context, gw *ravenv1be
 func (r *ReconcileService) clearService(ctx context.Context, gatewayName, gatewayType string) error {
 	svcList, err := r.listService(ctx, gatewayName, gatewayType)
 	if err != nil {
-		return fmt.Errorf("failed to list service for gateway %s", gatewayName)
+		return fmt.Errorf("could not list service for gateway %s", gatewayName)
 	}
 	for _, svc := range svcList.Items {
 		err := r.Delete(ctx, svc.DeepCopy())
 		if err != nil {
 			r.recorder.Event(svc.DeepCopy(), corev1.EventTypeWarning, ServiceDeleteFailed,
-				fmt.Sprintf("The gateway %s %s server is not need to exposed by loadbalancer, failed to delete service %s/%s",
+				fmt.Sprintf("The gateway %s %s server is not need to exposed by loadbalancer, could not delete service %s/%s",
 					gatewayName, gatewayType, svc.GetNamespace(), svc.GetName()))
 			continue
 		}
@@ -266,13 +266,13 @@ func (r *ReconcileService) clearService(ctx context.Context, gatewayName, gatewa
 func (r *ReconcileService) clearEndpoints(ctx context.Context, gatewayName, gatewayType string) error {
 	epsList, err := r.listEndpoints(ctx, gatewayName, gatewayType)
 	if err != nil {
-		return fmt.Errorf("failed to list endpoints for gateway %s", gatewayName)
+		return fmt.Errorf("could not list endpoints for gateway %s", gatewayName)
 	}
 	for _, eps := range epsList.Items {
 		err := r.Delete(ctx, eps.DeepCopy())
 		if err != nil {
 			r.recorder.Event(eps.DeepCopy(), corev1.EventTypeWarning, ServiceDeleteFailed,
-				fmt.Sprintf("The gateway %s %s server is not need to exposed by loadbalancer, failed to delete endpoints %s/%s",
+				fmt.Sprintf("The gateway %s %s server is not need to exposed by loadbalancer, could not delete endpoints %s/%s",
 					gatewayName, gatewayType, eps.GetNamespace(), eps.GetName()))
 			continue
 		}
@@ -473,7 +473,7 @@ func (r *ReconcileService) getEndpointsAddress(ctx context.Context, name string)
 	var node corev1.Node
 	err := r.Get(ctx, types.NamespacedName{Name: name}, &node)
 	if err != nil {
-		klog.Errorf(Format("failed to get node %s for get active endpoints address, error %s", name, err.Error()))
+		klog.Errorf(Format("could not get node %s for get active endpoints address, error %s", name, err.Error()))
 		return nil, err
 	}
 	return &corev1.EndpointAddress{NodeName: func(n corev1.Node) *string { return &n.Name }(node), IP: util.GetNodeInternalIP(node)}, nil

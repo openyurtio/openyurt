@@ -446,7 +446,7 @@ func newReconciler(cfg *appconfig.CompletedConfig, mgr manager.Manager) (*Reconc
 	nc.computeZoneStateFunc = nc.ComputeZoneState
 	kubeClient, err := clientset.NewForConfig(mgr.GetConfig())
 	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
+		klog.Errorf("could not create kube client, %v", err)
 		return nil, err
 	}
 	nc.kubeClient = kubeClient
@@ -507,13 +507,13 @@ func (nc *ReconcileNodeLifeCycle) doNodeProcessingPassWorker(ctx context.Context
 		}
 		nodeName := obj.(string)
 		if err := nc.doNoScheduleTaintingPass(ctx, nodeName); err != nil {
-			klog.ErrorS(err, "Failed to taint NoSchedule on node, requeue it", "node", klog.KRef("", nodeName))
+			klog.ErrorS(err, "could not taint NoSchedule on node, requeue it", "node", klog.KRef("", nodeName))
 			// TODO(k82cn): Add nodeName back to the queue
 		}
 		// TODO: re-evaluate whether there are any labels that need to be
 		// reconcile in 1.19. Remove this function if it's no longer necessary.
 		if err := nc.reconcileNodeLabels(ctx, nodeName); err != nil {
-			klog.ErrorS(err, "Failed to reconcile labels for node, requeue it", "node", klog.KRef("", nodeName))
+			klog.ErrorS(err, "could not reconcile labels for node, requeue it", "node", klog.KRef("", nodeName))
 			// TODO(yujuhong): Add nodeName back to the queue
 		}
 		nc.nodeUpdateQueue.Done(nodeName)
@@ -572,7 +572,7 @@ func (nc *ReconcileNodeLifeCycle) doNoScheduleTaintingPass(ctx context.Context, 
 		return nil
 	}
 	if !controllerutil.SwapNodeControllerTaint(ctx, nc.kubeClient, taintsToAdd, taintsToDel, node) {
-		return fmt.Errorf("failed to swap taints of node %+v", node)
+		return fmt.Errorf("could not swap taints of node %+v", node)
 	}
 	return nil
 }
@@ -611,7 +611,7 @@ func (nc *ReconcileNodeLifeCycle) doNoExecuteTaintingPass(ctx context.Context) {
 				klog.InfoS("Node no longer present in nodeLister", "node", klog.KRef("", value.Value))
 				return true, 0
 			} else if err != nil {
-				klog.InfoS("Failed to get Node from the nodeLister", "node", klog.KRef("", value.Value), "err", err)
+				klog.InfoS("could not get Node from the nodeLister", "node", klog.KRef("", value.Value), "err", err)
 				// retry in 50 millisecond
 				return false, 50 * time.Millisecond
 			}
@@ -780,7 +780,7 @@ func (nc *ReconcileNodeLifeCycle) processTaintBaseEviction(ctx context.Context, 
 		if taintutils.TaintExists(node.Spec.Taints, UnreachableTaintTemplate) {
 			taintToAdd := *NotReadyTaintTemplate
 			if !controllerutil.SwapNodeControllerTaint(ctx, nc.kubeClient, []*v1.Taint{&taintToAdd}, []*v1.Taint{UnreachableTaintTemplate}, node) {
-				klog.ErrorS(nil, "Failed to instantly swap UnreachableTaint to NotReadyTaint. Will try again in the next cycle")
+				klog.ErrorS(nil, "could not instantly swap UnreachableTaint to NotReadyTaint. Will try again in the next cycle")
 			}
 		} else if nc.markNodeForTainting(node, v1.ConditionFalse) {
 			klog.V(2).InfoS("Node is NotReady. Adding it to the Taint queue", "node", klog.KObj(node), "timeStamp", decisionTimestamp)
@@ -790,7 +790,7 @@ func (nc *ReconcileNodeLifeCycle) processTaintBaseEviction(ctx context.Context, 
 		if taintutils.TaintExists(node.Spec.Taints, NotReadyTaintTemplate) {
 			taintToAdd := *UnreachableTaintTemplate
 			if !controllerutil.SwapNodeControllerTaint(ctx, nc.kubeClient, []*v1.Taint{&taintToAdd}, []*v1.Taint{NotReadyTaintTemplate}, node) {
-				klog.ErrorS(nil, "Failed to instantly swap NotReadyTaint to UnreachableTaint. Will try again in the next cycle")
+				klog.ErrorS(nil, "could not instantly swap NotReadyTaint to UnreachableTaint. Will try again in the next cycle")
 			}
 		} else if nc.markNodeForTainting(node, v1.ConditionUnknown) {
 			klog.V(2).InfoS("Node is unresponsive. Adding it to the Taint queue", "node", klog.KObj(node), "timeStamp", decisionTimestamp)
@@ -798,7 +798,7 @@ func (nc *ReconcileNodeLifeCycle) processTaintBaseEviction(ctx context.Context, 
 	case v1.ConditionTrue:
 		removed, err := nc.markNodeAsReachable(ctx, node)
 		if err != nil {
-			klog.ErrorS(nil, "Failed to remove taints from node. Will retry in next iteration", "node", klog.KObj(node))
+			klog.ErrorS(nil, "could not remove taints from node. Will retry in next iteration", "node", klog.KObj(node))
 		}
 		if removed {
 			klog.V(2).InfoS("Node is healthy again, removing all taints", "node", klog.KObj(node))
@@ -1033,7 +1033,7 @@ func (nc *ReconcileNodeLifeCycle) handleDisruption(ctx context.Context, zoneToNo
 			for i := range nodes {
 				_, err := nc.markNodeAsReachable(ctx, nodes[i])
 				if err != nil {
-					klog.ErrorS(nil, "Failed to remove taints from Node", "node", klog.KObj(nodes[i]))
+					klog.ErrorS(nil, "could not remove taints from Node", "node", klog.KObj(nodes[i]))
 				}
 			}
 			// We stop all evictions.
@@ -1116,7 +1116,7 @@ func (nc *ReconcileNodeLifeCycle) processPod(ctx context.Context, podItem podUpd
 			// If the pod was deleted, there is no need to requeue.
 			return
 		}
-		klog.InfoS("Failed to read pod", "pod", klog.KRef(podItem.namespace, podItem.name), "err", err)
+		klog.InfoS("could not read pod", "pod", klog.KRef(podItem.namespace, podItem.name), "err", err)
 		nc.podUpdateQueue.AddRateLimited(podItem)
 		return
 	}
@@ -1133,7 +1133,7 @@ func (nc *ReconcileNodeLifeCycle) processPod(ctx context.Context, podItem podUpd
 	//_, err = nc.nodeLister.Get(nodeName)
 	err = nc.controllerRuntimeClient.Get(ctx, types.NamespacedName{Name: nodeName}, node)
 	if err != nil {
-		klog.InfoS("Failed to read node", "node", klog.KRef("", nodeName), "err", err)
+		klog.InfoS("could not read node", "node", klog.KRef("", nodeName), "err", err)
 		nc.podUpdateQueue.AddRateLimited(podItem)
 		return
 	}
@@ -1259,12 +1259,12 @@ func (nc *ReconcileNodeLifeCycle) markNodeForTainting(node *v1.Node, status v1.C
 func (nc *ReconcileNodeLifeCycle) markNodeAsReachable(ctx context.Context, node *v1.Node) (bool, error) {
 	err := controllerutil.RemoveTaintOffNode(ctx, nc.kubeClient, node.Name, node, UnreachableTaintTemplate)
 	if err != nil {
-		klog.ErrorS(err, "Failed to remove taint from node", "node", klog.KObj(node))
+		klog.ErrorS(err, "could not remove taint from node", "node", klog.KObj(node))
 		return false, err
 	}
 	err = controllerutil.RemoveTaintOffNode(ctx, nc.kubeClient, node.Name, node, NotReadyTaintTemplate)
 	if err != nil {
-		klog.ErrorS(err, "Failed to remove taint from node", "node", klog.KObj(node))
+		klog.ErrorS(err, "could not remove taint from node", "node", klog.KObj(node))
 		return false, err
 	}
 	nc.evictorLock.Lock()

@@ -93,7 +93,7 @@ func GetConfiguredProxyPortsAndMappings(client clientset.Interface, insecureList
 		if apierrors.IsNotFound(err) {
 			return []string{}, map[string]string{}, nil
 		}
-		return []string{}, map[string]string{}, fmt.Errorf("failed to get configmap %s/%s: %w",
+		return []string{}, map[string]string{}, fmt.Errorf("could not get configmap %s/%s: %w",
 			YurttunnelServerDnatConfigMapNs,
 			YurttunnelServerDnatConfigMapName, err)
 	}
@@ -160,7 +160,7 @@ func resolvePorts(portsStr, insecurePort string) []string {
 		if len(proxyPort) != 0 {
 			portInt, err := strconv.Atoi(proxyPort)
 			if err != nil {
-				klog.Errorf("failed to parse port %s, %v", port, err)
+				klog.Errorf("could not parse port %s, %v", port, err)
 				continue
 			} else if portInt < MinPort || portInt > MaxPort {
 				klog.Errorf("port %s is not invalid port(should be range 1~65535)", port)

@@ -102,7 +102,7 @@ func (eds *EdgexDeviceServiceClient) Update(ctx context.Context, ds *v1alpha1.De
 	}
 
 	if ds.Status.EdgeId == "" {
-		return nil, fmt.Errorf("failed to update deviceservice %s with empty edgex id", ds.Name)
+		return nil, fmt.Errorf("could not update deviceservice %s with empty edgex id", ds.Name)
 	}
 	edgeDs := toEdgexDeviceService(ds)
 	edgeDs.Id = ds.Status.EdgeId

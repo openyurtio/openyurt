@@ -283,7 +283,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// Either use specified nodename or get hostname from OS envs
 	name, err := edgenode.GetHostname(opt.nodeName)
 	if err != nil {
-		klog.Errorf("failed to get node name, %v", err)
+		klog.Errorf("could not get node name, %v", err)
 		return nil, err
 	}
 
@@ -327,7 +327,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// get tls bootstrap config
 	cfg, err := yurtadmutil.RetrieveBootstrapConfig(data)
 	if err != nil {
-		klog.Errorf("failed to retrieve bootstrap config, %v", err)
+		klog.Errorf("could not retrieve bootstrap config, %v", err)
 		return nil, err
 	}
 	data.tlsBootstrapCfg = cfg
@@ -335,14 +335,14 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// get kubernetes version
 	client, err := kubeconfigutil.ToClientSet(cfg)
 	if err != nil {
-		klog.Errorf("failed to create bootstrap client, %v", err)
+		klog.Errorf("could not create bootstrap client, %v", err)
 		return nil, err
 	}
 	data.clientSet = client
 
 	k8sVersion, err := yurtadmutil.GetKubernetesVersionFromCluster(client)
 	if err != nil {
-		klog.Errorf("failed to get kubernetes version, %v", err)
+		klog.Errorf("could not get kubernetes version, %v", err)
 		return nil, err
 	}
 	data.kubernetesVersion = k8sVersion
@@ -400,7 +400,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 
 	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
-		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
+		klog.Errorf("hard-code yurthub manifest will be used, because could not get yurthub template from kube-apiserver, %v", err)
 		yurthubManifest = yurtconstants.YurthubStaticPodManifest
 		yurthubTemplate = yurtconstants.YurthubTemplate
 

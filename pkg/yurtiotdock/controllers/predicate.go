@@ -31,12 +31,12 @@ func genFirstUpdateFilter(objKind string) predicate.Predicate {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldDp, ok := e.ObjectOld.(edgexCli.EdgeXObject)
 			if !ok {
-				klog.Infof("fail to assert object to deviceprofile, object kind is %s", objKind)
+				klog.Infof("could not assert object to deviceprofile, object kind is %s", objKind)
 				return false
 			}
 			newDp, ok := e.ObjectNew.(edgexCli.EdgeXObject)
 			if !ok {
-				klog.Infof("fail to assert object to deviceprofile, object kind is %s", objKind)
+				klog.Infof("could not assert object to deviceprofile, object kind is %s", objKind)
 				return false
 			}
 			if !oldDp.IsAddedToEdgeX() && newDp.IsAddedToEdgeX() {

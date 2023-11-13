@@ -102,7 +102,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	klog.Infof("%d. prepare cloud kube clients", trace)
 	cloudClients, err := createClients(cfg.HeartbeatTimeoutSeconds, cfg.RemoteServers, transportManager)
 	if err != nil {
-		return fmt.Errorf("failed to create cloud clients, %w", err)
+		return fmt.Errorf("could not create cloud clients, %w", err)
 	}
 	trace++
 
@@ -249,7 +249,7 @@ func coordinatorRun(ctx context.Context,
 		coorCertManager, err := coordinatorcertmgr.NewCertManager(cfg.CoordinatorPKIDir, cfg.YurtHubNamespace, cfg.ProxiedClient, cfg.SharedFactory)
 		close(coordinatorInformerRegistryChan) // notify the coordinator secret informer registry event
 		if err != nil {
-			klog.Errorf("coordinator failed to create coordinator cert manager, %v", err)
+			klog.Errorf("coordinator could not create coordinator cert manager, %v", err)
 			return
 		}
 		klog.Info("coordinator new certManager success")
@@ -274,14 +274,14 @@ func coordinatorRun(ctx context.Context,
 		if apiServerIP == nil {
 			apiServerService, err := serviceList.Services(util.YurtHubNamespace).Get(cfg.CoordinatorServerURL.Hostname())
 			if err != nil {
-				klog.Errorf("coordinator failed to get apiServer service, %v", err)
+				klog.Errorf("coordinator could not get apiServer service, %v", err)
 				return
 			}
 			// rewrite coordinator service info for cfg
 			coordinatorServerURL, err :=
 				url.Parse(fmt.Sprintf("https://%s:%s", apiServerService.Spec.ClusterIP, cfg.CoordinatorServerURL.Port()))
 			if err != nil {
-				klog.Errorf("coordinator failed to parse apiServer service, %v", err)
+				klog.Errorf("coordinator could not parse apiServer service, %v", err)
 				return
 			}
 			cfg.CoordinatorServerURL = coordinatorServerURL
@@ -289,7 +289,7 @@ func coordinatorRun(ctx context.Context,
 		if etcdIP == nil {
 			etcdService, err := serviceList.Services(util.YurtHubNamespace).Get(etcdUrl.Hostname())
 			if err != nil {
-				klog.Errorf("coordinator failed to get etcd service, %v", err)
+				klog.Errorf("coordinator could not get etcd service, %v", err)
 				return
 			}
 			cfg.CoordinatorStorageAddr = fmt.Sprintf("https://%s:%s", etcdService.Spec.ClusterIP, etcdUrl.Port())
@@ -297,7 +297,7 @@ func coordinatorRun(ctx context.Context,
 
 		coorTransportMgr, err := yurtCoordinatorTransportMgrGetter(coorCertManager, ctx.Done())
 		if err != nil {
-			klog.Errorf("coordinator failed to create coordinator transport manager, %v", err)
+			klog.Errorf("coordinator could not create coordinator transport manager, %v", err)
 			return
 		}
 
@@ -307,27 +307,27 @@ func coordinatorRun(ctx context.Context,
 			Timeout:   time.Duration(cfg.HeartbeatTimeoutSeconds) * time.Second,
 		})
 		if err != nil {
-			klog.Errorf("coordinator failed to get coordinator client for yurt coordinator, %v", err)
+			klog.Errorf("coordinator could not get coordinator client for yurt coordinator, %v", err)
 			return
 		}
 
 		coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(cfg, coordinatorClient, cloudHealthChecker, ctx.Done())
 		if err != nil {
-			klog.Errorf("coordinator failed to create coordinator health checker, %v", err)
+			klog.Errorf("coordinator could not create coordinator health checker, %v", err)
 			return
 		}
 
 		var elector *yurtcoordinator.HubElector
 		elector, err = yurtcoordinator.NewHubElector(cfg, coordinatorClient, coorHealthChecker, cloudHealthChecker, ctx.Done())
 		if err != nil {
-			klog.Errorf("coordinator failed to create hub elector, %v", err)
+			klog.Errorf("coordinator could not create hub elector, %v", err)
 			return
 		}
 		go elector.Run(ctx.Done())
 
 		coor, err := yurtcoordinator.NewCoordinator(ctx, cfg, cloudHealthChecker, restConfigMgr, coorCertManager, coorTransportMgr, elector)
 		if err != nil {
-			klog.Errorf("coordinator failed to create coordinator, %v", err)
+			klog.Errorf("coordinator could not create coordinator, %v", err)
 			return
 		}
 		go coor.Run()
@@ -366,7 +366,7 @@ func yurtCoordinatorTransportMgrGetter(coordinatorCertMgr *coordinatorcertmgr.Ce
 
 	coordinatorTransportMgr, err := transport.NewTransportManager(coordinatorCertMgr, stopCh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create transport manager for yurt coordinator, %v", err)
+		return nil, fmt.Errorf("could not create transport manager for yurt coordinator, %v", err)
 	}
 	return coordinatorTransportMgr, nil
 }

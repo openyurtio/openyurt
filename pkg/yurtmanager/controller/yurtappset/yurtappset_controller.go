@@ -172,7 +172,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 
 	currentRevision, updatedRevision, collisionCount, err := r.constructYurtAppSetRevisions(instance)
 	if err != nil {
-		klog.Errorf("Fail to construct controller revision of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("could not construct controller revision of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypeRevisionProvision), err.Error())
 		return reconcile.Result{}, err
 	}
@@ -187,7 +187,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 
 	nameToPool, err := r.getNameToPool(instance, control)
 	if err != nil {
-		klog.Errorf("Fail to get Pools of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("could not get Pools of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed %s",
 			eventTypeFindPools), err.Error())
 		return reconcile.Result{}, nil
@@ -202,7 +202,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 	}
 	newStatus, err := r.managePools(instance, nameToPool, nextPatches, expectedRevision, poolType)
 	if err != nil {
-		klog.Errorf("Fail to update YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("could not update YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypePoolsUpdate), err.Error())
 	}
 
@@ -213,7 +213,7 @@ func (r *ReconcileYurtAppSet) getNameToPool(instance *unitv1alpha1.YurtAppSet, c
 	pools, err := control.GetAllPools(instance)
 	if err != nil {
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypeFindPools), err.Error())
-		return nil, fmt.Errorf("fail to get all Pools for YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
+		return nil, fmt.Errorf("could not get all Pools for YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
 	}
 
 	klog.V(4).Infof("Classify YurtAppSet %s/%s by pool name", instance.Namespace, instance.Name)
@@ -222,7 +222,7 @@ func (r *ReconcileYurtAppSet) getNameToPool(instance *unitv1alpha1.YurtAppSet, c
 	nameToPool, err := r.deleteDupPool(nameToPools, control)
 	if err != nil {
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypeDupPoolsDelete), err.Error())
-		return nil, fmt.Errorf("fail to manage duplicate Pool of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
+		return nil, fmt.Errorf("could not manage duplicate Pool of YurtAppSet %s/%s: %s", instance.Namespace, instance.Name, err)
 	}
 
 	return nameToPool, nil
@@ -301,7 +301,7 @@ func (r *ReconcileYurtAppSet) calculateStatus(instance *unitv1alpha1.YurtAppSet,
 	var poolFailure *string
 	overriderList := unitv1alpha1.YurtAppOverriderList{}
 	if err := r.List(context.TODO(), &overriderList); err != nil {
-		message := fmt.Sprintf("fail to list yurtappoverrider: %v", err)
+		message := fmt.Sprintf("could not list yurtappoverrider: %v", err)
 		poolFailure = &message
 	}
 	for _, overrider := range overriderList.Items {
@@ -393,6 +393,6 @@ func (r *ReconcileYurtAppSet) updateYurtAppSet(yas *unitv1alpha1.YurtAppSet, old
 		obj = tmpObj
 	}
 
-	klog.Errorf("fail to update YurtAppSet %s/%s status: %s", yas.Namespace, yas.Name, updateErr)
+	klog.Errorf("could not update YurtAppSet %s/%s status: %s", yas.Namespace, yas.Name, updateErr)
 	return nil, updateErr
 }

@@ -41,7 +41,7 @@ func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 	klog.V(5).Infof(Format("will enqueue nodepool as node(%s) has been created",
@@ -58,13 +58,13 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 	q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("Fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectNew.GetName()))
 		return
 	}
 	oldNode, ok := evt.ObjectOld.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectOld.GetName()))
 		return
 	}
@@ -113,7 +113,7 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 

@@ -104,7 +104,7 @@ func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
 	if util.IsNil(f.fileStore) {
 		f.fileStore, err = store.NewFileStoreWrapper(cfg.ComponentName, cfg.CertDir, cfg.CertDir, "", "")
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize the server certificate store: %w", err)
+			return nil, fmt.Errorf("could not initialize the server certificate store: %w", err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
 				ips = newIPs
 			}
 			if err != nil {
-				klog.Errorf("failed to get ips for %s when preparing cr template, %v", cfg.ComponentName, err)
+				klog.Errorf("could not get ips for %s when preparing cr template, %v", cfg.ComponentName, err)
 				return nil
 			}
 		}
@@ -128,7 +128,7 @@ func (f *factory) New(cfg *CertManagerConfig) (certificate.Manager, error) {
 				dnsNames = newDNSNames
 			}
 			if err != nil {
-				klog.Errorf("failed to get dns names for %s when preparing cr template, %v", cfg.ComponentName, err)
+				klog.Errorf("could not get dns names for %s when preparing cr template, %v", cfg.ComponentName, err)
 				return nil
 			}
 		}

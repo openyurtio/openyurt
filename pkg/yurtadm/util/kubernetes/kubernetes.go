@@ -88,7 +88,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 				}
 
 				if waitForTimeout {
-					klog.Infof("continue to wait for job(%s) to complete until timeout, even if failed to get job, %v", job.GetName(), err)
+					klog.Infof("continue to wait for job(%s) to complete until timeout, even if could not get job, %v", job.GetName(), err)
 					continue
 				}
 				return err
@@ -99,7 +99,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 					Delete(context.Background(), job.GetName(), metav1.DeleteOptions{
 						PropagationPolicy: &PropagationPolicy,
 					}); err != nil {
-					klog.Errorf("fail to delete succeeded servant job(%s): %s", job.GetName(), err)
+					klog.Errorf("could not delete succeeded servant job(%s): %s", job.GetName(), err)
 					return err
 				}
 				return nil
@@ -339,7 +339,7 @@ func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error
 	// Also, the config map really should be KubeadmConfigConfigMap...
 	configMap, err := apiclient.GetConfigMapWithRetry(client, metav1.NamespaceSystem, constants.KubeadmConfigConfigMap)
 	if err != nil {
-		return kubernetesVersion, pkgerrors.Wrap(err, "failed to get config map")
+		return kubernetesVersion, pkgerrors.Wrap(err, "could not get config map")
 	}
 
 	// gets ClusterConfiguration from kubeadm-config
@@ -363,7 +363,7 @@ func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error
 	}
 
 	if len(kubernetesVersion) == 0 {
-		return kubernetesVersion, errors.New("failed to get Kubernetes version")
+		return kubernetesVersion, errors.New("could not get Kubernetes version")
 	}
 
 	klog.Infof("kubernetes version: %s", kubernetesVersion)
@@ -516,7 +516,7 @@ func GetStaticPodTemplateFromConfigMap(client kubernetes.Interface, namespace, n
 		namespace,
 		name)
 	if err != nil {
-		return "", "", pkgerrors.Errorf("failed to get configmap of %s/%s yurtstaticset, err: %+v", namespace, name, err)
+		return "", "", pkgerrors.Errorf("could not get configmap of %s/%s yurtstaticset, err: %+v", namespace, name, err)
 	}
 
 	if len(configMap.Data) == 1 {
@@ -537,7 +537,7 @@ func GetDefaultClientSet() (*kubernetes.Clientset, error) {
 
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("fail to create the clientset based on %s: %w", kubeConfig, err)
+		return nil, fmt.Errorf("could not create the clientset based on %s: %w", kubeConfig, err)
 	}
 	cliSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {

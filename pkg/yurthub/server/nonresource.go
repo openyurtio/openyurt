@@ -111,7 +111,7 @@ func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.Storag
 }
 
 func writeErrResponse(path string, err error, w http.ResponseWriter) {
-	klog.Errorf("failed to handle %s non resource request, %v", path, err)
+	klog.Errorf("could not handle %s non resource request, %v", path, err)
 	status := responsewriters.ErrorToAPIStatus(err)
 	output, err := json.Marshal(status)
 	if err != nil {

@@ -30,11 +30,11 @@ type EnqueueRequestForServiceEvent struct{}
 func (h *EnqueueRequestForServiceEvent) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	svc, ok := e.Object.(*corev1.Service)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Service"))
+		klog.Error(Format("could not assert runtime Object to v1.Service"))
 		return
 	}
 	if svc.Spec.ClusterIP == "" {
-		klog.Error(Format("failed to get cluster IP %s/%s", svc.Namespace, svc.Name))
+		klog.Error(Format("could not get cluster IP %s/%s", svc.Namespace, svc.Name))
 		return
 	}
 
@@ -45,12 +45,12 @@ func (h *EnqueueRequestForServiceEvent) Create(e event.CreateEvent, q workqueue.
 func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	newSvc, ok := e.ObjectNew.(*corev1.Service)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Service"))
+		klog.Error(Format("could not assert runtime Object to v1.Service"))
 		return
 	}
 	oldSvc, ok := e.ObjectOld.(*corev1.Service)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Service"))
+		klog.Error(Format("could not assert runtime Object to v1.Service"))
 		return
 	}
 	if newSvc.Spec.ClusterIP != oldSvc.Spec.ClusterIP {
@@ -62,7 +62,7 @@ func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.
 func (h *EnqueueRequestForServiceEvent) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Service)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Service"))
+		klog.Error(Format("could not assert runtime Object to v1.Service"))
 		return
 	}
 	klog.V(2).Infof(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
@@ -79,7 +79,7 @@ type EnqueueRequestForNodeEvent struct{}
 func (h *EnqueueRequestForNodeEvent) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
@@ -93,7 +93,7 @@ func (h *EnqueueRequestForNodeEvent) Update(e event.UpdateEvent, q workqueue.Rat
 func (h *EnqueueRequestForNodeEvent) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 	klog.V(2).Infof(Format("enqueue configmap %s/%s due to node delete event", util.WorkingNamespace, util.RavenProxyNodesConfig))

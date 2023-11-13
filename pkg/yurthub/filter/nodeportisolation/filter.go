@@ -127,7 +127,7 @@ func (nif *nodePortIsolationFilter) resolveNodePoolName() string {
 
 	node, err := nif.client.CoreV1().Nodes().Get(context.Background(), nif.nodeName, metav1.GetOptions{})
 	if err != nil {
-		klog.Warningf("skip isolateNodePortService filter, failed to get node(%s), %v", nif.nodeName, err)
+		klog.Warningf("skip isolateNodePortService filter, could not get node(%s), %v", nif.nodeName, err)
 		return nif.nodePoolName
 	}
 	nif.nodePoolName = node.Labels[apps.NodePoolLabel]

@@ -99,7 +99,7 @@ func HashObject(o interface{}) string {
 func PrettyYaml(obj interface{}) string {
 	bs, err := yaml.Marshal(obj)
 	if err != nil {
-		klog.Errorf("failed to parse yaml, %v", err.Error())
+		klog.Errorf("could not parse yaml, %v", err.Error())
 	}
 	return string(bs)
 }

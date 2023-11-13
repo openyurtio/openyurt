@@ -158,6 +158,6 @@ func Initialize(ctx context.Context, cc *config.CompletedConfig, restCfg *rest.C
 	case <-webhookcontroller.Inited():
 		return nil
 	case <-timer.C:
-		return fmt.Errorf("failed to prepare certificate for webhook within 20s")
+		return fmt.Errorf("could not prepare certificate for webhook within 20s")
 	}
 }
