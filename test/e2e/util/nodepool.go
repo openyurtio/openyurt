@@ -142,7 +142,7 @@ func PrepareNodePoolWithNode(ctx context.Context, k8sClient client.Client, nodeN
 	}
 
 	patchObj := client.MergeFrom(node.DeepCopy())
-	node.Labels[apps.NodePoolLabel] = NodePoolName
+	node.Labels[projectinfo.GetNodePoolLabel()] = NodePoolName
 
 	if err := k8sClient.Patch(ctx, node, patchObj); err != nil {
 		return err

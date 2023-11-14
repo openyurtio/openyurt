@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	"github.com/openyurtio/openyurt/test/e2e/util"
@@ -37,43 +37,44 @@ func generateTestVersions() []string {
 	return []string{"levski", "jakarta", "kamakura", "ireland", "minnesota"}
 }
 
-var _ = Describe("OpenYurt IoT Test", func() {
-	var platformAdminName string
+var _ = Describe("OpenYurt IoT Test", Ordered, func() {
+	var (
+		platformAdminName string
+		namespaceName     string
+	)
 
 	ctx := context.Background()
 	k8sClient := ycfg.YurtE2eCfg.RuntimeClient
 	timeout := 60 * time.Second
 	platformadminTimeout := 5 * time.Minute
 	testVersions := generateTestVersions()
-	namespaceName := "iot-test-namespace"
 	nodePoolName := util.NodePoolName
 
 	createNamespace := func() {
+		By(fmt.Sprintf("create the Namespace named %s for iot e2e test", namespaceName))
+		Eventually(
+			func() error {
+				return k8sClient.Delete(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: namespaceName,
+					},
+				})
+			}, timeout, 500*time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
+
 		ns := corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespaceName,
 			},
 		}
-		Eventually(
-			func() error {
-				return k8sClient.Delete(ctx, &ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
-		By("make sure the needed namespace are removed")
 
-		res := &corev1.Namespace{}
-		Eventually(
-			func() error {
-				return k8sClient.Get(ctx, client.ObjectKey{
-					Name: namespaceName,
-				}, res)
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(&util.NotFoundMatcher{})
 		Eventually(
 			func() error {
 				return k8sClient.Create(ctx, &ns)
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
+			}, timeout, 500*time.Millisecond).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
 	}
 
 	createPlatformAdmin := func(version string) {
+		By(fmt.Sprintf("create the PlatformAdmin named %s for iot e2e test", platformAdminName))
 		Eventually(func() error {
 			return k8sClient.Delete(ctx, &iotv1alpha2.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
@@ -81,7 +82,7 @@ var _ = Describe("OpenYurt IoT Test", func() {
 					Namespace: namespaceName,
 				},
 			})
-		}).WithTimeout(timeout).WithPolling(500 * time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
+		}, timeout, 500*time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 
 		testPlatformAdmin := iotv1alpha2.PlatformAdmin{
 			ObjectMeta: metav1.ObjectMeta{
@@ -95,19 +96,24 @@ var _ = Describe("OpenYurt IoT Test", func() {
 		}
 		Eventually(func() error {
 			return k8sClient.Create(ctx, &testPlatformAdmin)
-		}).WithTimeout(timeout).WithPolling(500 * time.Millisecond).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
+		}, timeout, 500*time.Millisecond).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
 	}
 
 	BeforeEach(func() {
 		By("Start to run iot test, clean up previous resources")
 		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
+
+		longUUID := uuid.New()
+		shortUUID := longUUID.String()[:8]
+		namespaceName = "iot-test-" + shortUUID
+
 		createNamespace()
 	})
 
 	AfterEach(func() {
 		By("Cleanup resources after test")
-		By(fmt.Sprintf("Delete the entire namespaceName %s", namespaceName))
-		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(BeNil())
+		By(fmt.Sprintf("Delete the entire namespace named %s", namespaceName))
+		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}})).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 	})
 
 	for _, testVersion := range testVersions {
@@ -120,7 +126,7 @@ var _ = Describe("OpenYurt IoT Test", func() {
 
 			AfterEach(func() {
 				By(fmt.Sprintf("Delete the platformAdmin %s", platformAdminName))
-				Expect(k8sClient.Delete(ctx, &iotv1alpha2.PlatformAdmin{ObjectMeta: metav1.ObjectMeta{Name: platformAdminName, Namespace: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(BeNil())
+				Expect(k8sClient.Delete(ctx, &iotv1alpha2.PlatformAdmin{ObjectMeta: metav1.ObjectMeta{Name: platformAdminName, Namespace: namespaceName}})).Should(BeNil())
 			})
 
 			It(fmt.Sprintf("The %s version of PlatformAdmin should be stable in ready state after it is created", version), func() {

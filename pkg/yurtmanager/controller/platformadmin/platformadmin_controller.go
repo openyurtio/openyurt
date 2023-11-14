@@ -219,8 +219,20 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 	// resource are patched back to the API server.
 	defer func(isDeleted *bool) {
 		if !*isDeleted {
-			platformAdmin.Status = *platformAdminStatus
+			// Finally check whether PlatformAdmin is Ready
+			platformAdminStatus.Ready = true
+			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1alpha2.ConfigmapAvailableCondition); cond.Status == corev1.ConditionFalse {
+				platformAdminStatus.Ready = false
+			}
+			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1alpha2.ComponentAvailableCondition); cond.Status == corev1.ConditionFalse {
+				platformAdminStatus.Ready = false
+			}
+			if platformAdminStatus.UnreadyComponentNum != 0 {
+				platformAdminStatus.Ready = false
+			}
 
+			// Finally update the status of PlatformAdmin
+			platformAdmin.Status = *platformAdminStatus
 			if err := r.Status().Update(ctx, platformAdmin); err != nil {
 				klog.Errorf(Format("Update the status of PlatformAdmin %s/%s failed", platformAdmin.Namespace, platformAdmin.Name))
 				reterr = kerrors.NewAggregate([]error{reterr, err})
@@ -256,8 +268,6 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 		return reconcile.Result{}, err
 	}
 	desiredComponents = append(desiredComponents, additionalComponents...)
-
-	//TODO: handle PlatformAdmin.Spec.Components
 
 	for _, dc := range desiredComponents {
 		if err := r.Get(
@@ -332,7 +342,6 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1alpha2.ComponentAvailableCondition, corev1.ConditionTrue, "", ""))
 
 	// Update the metadata of PlatformAdmin
-	platformAdminStatus.Ready = true
 	if err := r.Client.Update(ctx, platformAdmin); err != nil {
 		klog.Errorf(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
 		return reconcile.Result{}, err
