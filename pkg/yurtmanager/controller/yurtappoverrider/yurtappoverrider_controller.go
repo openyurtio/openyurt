@@ -127,6 +127,7 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			delete(r.CacheOverriderMap, request.Namespace+"/"+request.Name)
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -163,9 +164,8 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 		if reflect.DeepEqual(cacheOverrider.Entries, instance.Entries) {
 			return reconcile.Result{}, nil
 		}
-	} else {
-		r.CacheOverriderMap[instance.Namespace+"/"+instance.Name] = instance.DeepCopy()
 	}
+	r.CacheOverriderMap[instance.Namespace+"/"+instance.Name] = instance.DeepCopy()
 
 	deployments := v1.DeploymentList{}
 	if err := r.List(context.TODO(), &deployments); err != nil {
