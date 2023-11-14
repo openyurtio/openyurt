@@ -286,7 +286,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		select {
 		case reqChan <- true:
-			klog.V(2).Infof("start proxying: %s %s, in flight requests: %d", strings.ToLower(req.Method), req.URL.String(), len(reqChan))
+			klog.V(2).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
 			defer func() {
 				<-reqChan
 				klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
