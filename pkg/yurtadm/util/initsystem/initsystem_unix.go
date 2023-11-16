@@ -58,7 +58,7 @@ type SystemdInitSystem struct{}
 // reloadSystemd reloads the systemd daemon
 func (sysd SystemdInitSystem) reloadSystemd() error {
 	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
-		return errors.Wrap(err, "failed to reload systemd")
+		return errors.Wrap(err, "could not reload systemd")
 	}
 	return nil
 }

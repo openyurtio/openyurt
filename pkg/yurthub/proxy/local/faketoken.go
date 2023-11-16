@@ -53,14 +53,14 @@ func WithFakeTokenInject(handler http.Handler, serializerManager *serializer.Ser
 
 			s := createSerializer(req, tokenRequestGVR, serializerManager)
 			if s == nil {
-				klog.Errorf("skip fake token inject for request %s when cluster is unhealthy, failed to create serializer.", util.ReqString(req))
+				klog.Errorf("skip fake token inject for request %s when cluster is unhealthy, could not create serializer.", util.ReqString(req))
 				writeRequestDirectly(w, req, buf.Bytes(), n)
 				return
 			}
 
 			tokenRequset, err := getTokenRequestWithFakeToken(buf.Bytes(), info, req, s)
 			if err != nil {
-				klog.Errorf("skip fake token inject for request %s when cluster is unhealthy, failed to get token request: %v", util.ReqString(req), err)
+				klog.Errorf("skip fake token inject for request %s when cluster is unhealthy, could not get token request: %v", util.ReqString(req), err)
 				writeRequestDirectly(w, req, buf.Bytes(), n)
 				return
 			}

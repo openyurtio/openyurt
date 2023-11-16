@@ -276,7 +276,7 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 func isSubjectAccessReviewFromYurtCoordinator(req *http.Request) bool {
 	var buf bytes.Buffer
 	if n, err := buf.ReadFrom(req.Body); err != nil || n == 0 {
-		klog.Errorf("failed to read SubjectAccessReview from request %s, read %d bytes, %v", hubutil.ReqString(req), n, err)
+		klog.Errorf("could not read SubjectAccessReview from request %s, read %d bytes, %v", hubutil.ReqString(req), n, err)
 		return false
 	}
 	req.Body = io.NopCloser(&buf)
@@ -289,7 +289,7 @@ func isSubjectAccessReviewFromYurtCoordinator(req *http.Request) bool {
 	obj := &v1.SubjectAccessReview{}
 	got, gvk, err := decoder.Decode(buf.Bytes(), nil, obj)
 	if err != nil {
-		klog.Errorf("failed to decode SubjectAccessReview in request %s, %v", hubutil.ReqString(req), err)
+		klog.Errorf("could not decode SubjectAccessReview in request %s, %v", hubutil.ReqString(req), err)
 		return false
 	}
 	if (*gvk) != subjectAccessReviewGVK {

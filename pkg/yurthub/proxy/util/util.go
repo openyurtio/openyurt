@@ -318,7 +318,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 				if info.Verb == "list" || info.Verb == "watch" {
 					opts := metainternalversion.ListOptions{}
 					if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
-						klog.Errorf("failed to decode parameter for list/watch request: %s", util.ReqString(req))
+						klog.Errorf("could not decode parameter for list/watch request: %s", util.ReqString(req))
 						Err(errors.NewBadRequest(err.Error()), w, req)
 						return
 					}
@@ -372,7 +372,7 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 						}
 
 					} else {
-						klog.Errorf("failed to parse tenant ns from token, token %s, sub: %s", oldToken, oldClaim.Subject)
+						klog.Errorf("could not parse tenant ns from token, token %s, sub: %s", oldToken, oldClaim.Subject)
 					}
 				}
 			}

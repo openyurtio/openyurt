@@ -88,13 +88,13 @@ func (p *prober) Probe(phase string) bool {
 	lease, err := p.nodeLease.Update(baseLease)
 	if err == nil {
 		if err := p.setLastNodeLease(lease); err != nil {
-			klog.Errorf("failed to store last node lease: %v", err)
+			klog.Errorf("could not store last node lease: %v", err)
 		}
 		p.markAsHealthy(phase)
 		return true
 	}
 
-	klog.Errorf("failed to probe: %v, remote server %s", err, p.ServerName())
+	klog.Errorf("could not probe: %v, remote server %s", err, p.ServerName())
 	p.markAsUnhealthy(phase)
 	return false
 }

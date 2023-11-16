@@ -188,7 +188,7 @@ func (im *iptablesManager) cleanupIptableSetting() {
 	args := append(iptablesJumpChains[0].extraArgs, "-m", "comment", "--comment",
 		iptablesJumpChains[0].comment, "-j", string(iptablesJumpChains[0].dstChain))
 	if err := im.iptables.DeleteRule(iptablesJumpChains[0].table, iptablesJumpChains[0].srcChain, args...); err != nil {
-		klog.Errorf("failed to delete rule that %s chain %s jumps to %s: %v",
+		klog.Errorf("could not delete rule that %s chain %s jumps to %s: %v",
 			iptablesJumpChains[0].table, iptablesJumpChains[0].srcChain, iptablesJumpChains[0].dstChain, err)
 	}
 	im.deleteJumpChainsWithoutCheck(deletedJumpChains)
@@ -215,7 +215,7 @@ func (im *iptablesManager) deleteJumpChains(jumpChains []iptablesJumpChain) erro
 			jump.comment, "-j", string(jump.dstChain))
 		// delete the jump rule
 		if err := im.iptables.DeleteRule(jump.table, jump.srcChain, args...); err != nil {
-			klog.Errorf("failed to delete rule that %s chain %s jumps to %s: %v",
+			klog.Errorf("could not delete rule that %s chain %s jumps to %s: %v",
 				jump.table, jump.srcChain, jump.dstChain, err)
 			return err
 		}
@@ -243,7 +243,7 @@ func (im *iptablesManager) getIPOfNodesWithoutAgent() []string {
 	var nodesIP []string
 	nodes, err := im.nodeInformer.Lister().List(labels.Everything())
 	if err != nil {
-		klog.Errorf("failed to list nodes for iptables: %v", err)
+		klog.Errorf("could not list nodes for iptables: %v", err)
 		return nodesIP
 	}
 
@@ -309,7 +309,7 @@ func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, curre
 		})
 	}
 	if err := im.ensureJumpChains(jumpChains); err != nil {
-		klog.Errorf("Failed to ensure jump chain, %v", err)
+		klog.Errorf("could not ensure jump chain, %v", err)
 		return err
 	}
 
@@ -337,7 +337,7 @@ func (im *iptablesManager) ensurePortsIptables(currentPorts, deletedPorts, curre
 		})
 	}
 	if err := im.deleteJumpChains(deletedJumpChains); err != nil {
-		klog.Errorf("Failed to delete jump chain, %v", err)
+		klog.Errorf("could not delete jump chain, %v", err)
 		return err
 	}
 
@@ -419,7 +419,7 @@ func (im *iptablesManager) ensureJumpChains(jumpChains []iptablesJumpChain) erro
 			iptables.Prepend,
 			jump.table,
 			jump.srcChain, args...); err != nil {
-			klog.Errorf("failed to ensure that %s chain %s jumps to %s: %v",
+			klog.Errorf("could not ensure that %s chain %s jumps to %s: %v",
 				jump.table, jump.srcChain, jump.dstChain, err)
 			return err
 		}
@@ -512,7 +512,7 @@ func (im *iptablesManager) syncIptableSetting() {
 	// check if there are new dnat ports
 	dnatPorts, portMappings, err := util.GetConfiguredProxyPortsAndMappings(im.kubeClient, im.insecureDnatDest, im.secureDnatDest)
 	if err != nil {
-		klog.Errorf("failed to sync iptables rules, %v", err)
+		klog.Errorf("could not sync iptables rules, %v", err)
 		return
 	}
 	portsChanged, deletedDnatPorts := getDeletedPorts(im.lastDnatPorts, dnatPorts)
@@ -526,7 +526,7 @@ func (im *iptablesManager) syncIptableSetting() {
 	// update the iptables setting if necessary
 	err = im.ensurePortsIptables(currentDnatPorts, deletedDnatPorts, currentNodesIP, deletedNodesIP, portMappings)
 	if err != nil {
-		klog.Errorf("failed to ensurePortsIptables: %v", err)
+		klog.Errorf("could not ensurePortsIptables: %v", err)
 		return
 	}
 

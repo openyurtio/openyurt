@@ -443,7 +443,7 @@ func (tc *NoExecuteTaintManager) handleNodeUpdate(ctx context.Context, nodeUpdat
 	// tc.PodUpdated which will use tc.taintedNodes to potentially delete delayed pods.
 	pods, err := tc.getPodsAssignedToNode(node.Name)
 	if err != nil {
-		klog.Errorf("Failed to get pods assigned to node(%s), %v", node.Name, err)
+		klog.Errorf("could not get pods assigned to node(%s), %v", node.Name, err)
 		return
 	}
 	if len(pods) == 0 {

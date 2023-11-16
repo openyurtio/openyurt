@@ -70,11 +70,11 @@ func (cp *SelfSignedCertGenerator) Generate(commonName string) (*Artifacts, erro
 	if !valid {
 		signingKey, err = NewPrivateKey()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the CA private key: %v", err)
+			return nil, fmt.Errorf("could not create the CA private key: %v", err)
 		}
 		signingCert, err = cert.NewSelfSignedCACert(cert.Config{CommonName: "webhook-cert-ca"}, signingKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the CA cert: %v", err)
+			return nil, fmt.Errorf("could not create the CA cert: %v", err)
 		}
 	}
 
@@ -89,7 +89,7 @@ func (cp *SelfSignedCertGenerator) Generate(commonName string) (*Artifacts, erro
 
 	key, err := NewPrivateKey()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the private key: %v", err)
+		return nil, fmt.Errorf("could not create the private key: %v", err)
 	}
 	signedCert, err := NewSignedCert(
 		cert.Config{
@@ -100,7 +100,7 @@ func (cp *SelfSignedCertGenerator) Generate(commonName string) (*Artifacts, erro
 		key, signingCert, signingKey,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the cert: %v", err)
+		return nil, fmt.Errorf("could not create the cert: %v", err)
 	}
 	return &Artifacts{
 		Key:    EncodePrivateKeyPEM(key),

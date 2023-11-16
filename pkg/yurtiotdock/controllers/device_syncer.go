@@ -79,7 +79,7 @@ func (ds *DeviceSyncer) Run(stop <-chan struct{}) {
 			// 1. get device on edge platform and OpenYurt
 			edgeDevices, kubeDevices, err := ds.getAllDevices()
 			if err != nil {
-				klog.V(3).ErrorS(err, "fail to list the devices")
+				klog.V(3).ErrorS(err, "could not list the devices")
 				continue
 			}
 
@@ -92,17 +92,17 @@ func (ds *DeviceSyncer) Run(stop <-chan struct{}) {
 
 			// 3. create device on OpenYurt which are exists in edge platform but not in OpenYurt
 			if err := ds.syncEdgeToKube(redundantEdgeDevices); err != nil {
-				klog.V(3).ErrorS(err, "fail to create devices on OpenYurt")
+				klog.V(3).ErrorS(err, "could not create devices on OpenYurt")
 			}
 
 			// 4. delete redundant device on OpenYurt
 			if err := ds.deleteDevices(redundantKubeDevices); err != nil {
-				klog.V(3).ErrorS(err, "fail to delete redundant devices on OpenYurt")
+				klog.V(3).ErrorS(err, "could not delete redundant devices on OpenYurt")
 			}
 
 			// 5. update device status on OpenYurt
 			if err := ds.updateDevices(syncedDevices); err != nil {
-				klog.V(3).ErrorS(err, "fail to update devices status")
+				klog.V(3).ErrorS(err, "could not update devices status")
 			}
 			klog.V(2).Info("[Device] One round of synchronization is complete")
 		}
@@ -121,14 +121,14 @@ func (ds *DeviceSyncer) getAllDevices() (map[string]iotv1alpha1.Device, map[stri
 	// 1. list devices on edge platform
 	eDevs, err := ds.deviceCli.List(context.TODO(), edgeCli.ListOptions{Namespace: ds.Namespace})
 	if err != nil {
-		klog.V(4).ErrorS(err, "fail to list the devices object on the Edge Platform")
+		klog.V(4).ErrorS(err, "could not list the devices object on the Edge Platform")
 		return edgeDevice, kubeDevice, err
 	}
 	// 2. list devices on OpenYurt (filter objects belonging to edgeServer)
 	var kDevs iotv1alpha1.DeviceList
 	listOptions := client.MatchingFields{util.IndexerPathForNodepool: ds.NodePool}
 	if err = ds.List(context.TODO(), &kDevs, listOptions, client.InNamespace(ds.Namespace)); err != nil {
-		klog.V(4).ErrorS(err, "fail to list the devices object on the OpenYurt")
+		klog.V(4).ErrorS(err, "could not list the devices object on the OpenYurt")
 		return edgeDevice, kubeDevice, err
 	}
 	for i := range eDevs {
@@ -185,7 +185,7 @@ func (ds *DeviceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.Device) 
 			if apierrors.IsAlreadyExists(err) {
 				continue
 			}
-			klog.V(5).ErrorS(err, "fail to create device on OpenYurt", "DeviceName", strings.ToLower(ed.Name))
+			klog.V(5).ErrorS(err, "could not create device on OpenYurt", "DeviceName", strings.ToLower(ed.Name))
 			return err
 		}
 	}
@@ -196,7 +196,7 @@ func (ds *DeviceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.Device) 
 func (ds *DeviceSyncer) deleteDevices(redundantKubeDevices map[string]*iotv1alpha1.Device) error {
 	for _, kd := range redundantKubeDevices {
 		if err := ds.Client.Delete(context.TODO(), kd); err != nil {
-			klog.V(5).ErrorS(err, "fail to delete the device on OpenYurt",
+			klog.V(5).ErrorS(err, "could not delete the device on OpenYurt",
 				"DeviceName", kd.Name)
 			return err
 		}
@@ -206,7 +206,7 @@ func (ds *DeviceSyncer) deleteDevices(redundantKubeDevices map[string]*iotv1alph
 			},
 		})
 		if err := ds.Client.Patch(context.TODO(), kd, client.RawPatch(types.MergePatchType, patchData)); err != nil {
-			klog.V(5).ErrorS(err, "fail to remove finalizer of Device on Kubernetes", "Device", kd.Name)
+			klog.V(5).ErrorS(err, "could not remove finalizer of Device on Kubernetes", "Device", kd.Name)
 			return err
 		}
 	}

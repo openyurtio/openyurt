@@ -182,7 +182,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	klog.V(4).Infof(Format("registering the field indexers of platformadmin controller"))
 	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		klog.Errorf(Format("failed to register field indexers for platformadmin controller, %v", err))
+		klog.Errorf(Format("could not register field indexers for platformadmin controller, %v", err))
 		return nil
 	}
 
@@ -701,7 +701,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 			return nil
 		})
 		if err != nil {
-			klog.Errorf(Format("Failed to remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+			klog.Errorf(Format("could not remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 			return nil, err
 		}
 	} else {
@@ -716,7 +716,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 				return controllerutil.SetOwnerReference(platformAdmin, cm, r.scheme)
 			})
 			if err != nil {
-				klog.Errorf(Format("Failed to add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+				klog.Errorf(Format("could not add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 				return nil, err
 			}
 		}
@@ -729,7 +729,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -756,7 +756,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("Failed to write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil
@@ -779,7 +779,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -802,7 +802,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("Failed to init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil

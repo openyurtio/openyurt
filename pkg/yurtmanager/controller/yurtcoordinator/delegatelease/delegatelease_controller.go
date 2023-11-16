@@ -214,7 +214,7 @@ func (r *ReconcileDelegateLease) InjectClient(c client.Client) error {
 func (r *ReconcileDelegateLease) InjectConfig(cfg *rest.Config) error {
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
+		klog.Errorf("could not create kube client, %v", err)
 		return err
 	}
 	r.dlClient = client

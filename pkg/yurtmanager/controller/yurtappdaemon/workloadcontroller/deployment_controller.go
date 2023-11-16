@@ -52,7 +52,7 @@ func (d *DeploymentControllor) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load 
 	set := load.Spec.Ref.(runtime.Object)
 	cliSet, ok := set.(client.Object)
 	if !ok {
-		return errors.New("fail to convert runtime.Object to client.Object")
+		return errors.New("could not convert runtime.Object to client.Object")
 	}
 	return d.Delete(context.TODO(), cliSet, client.PropagationPolicy(metav1.DeletePropagationBackground))
 }
@@ -146,7 +146,7 @@ func (d *DeploymentControllor) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodep
 
 	deploy := appsv1.Deployment{}
 	if err := d.applyTemplate(d.Scheme, yad, nodepool, revision, &deploy); err != nil {
-		klog.Errorf("YurtAppDaemon[%s/%s] faild to apply template, when create deployment: %v", yad.GetNamespace(),
+		klog.Errorf("YurtAppDaemon[%s/%s] could not apply template, when create deployment: %v", yad.GetNamespace(),
 			yad.GetName(), err)
 		return err
 	}

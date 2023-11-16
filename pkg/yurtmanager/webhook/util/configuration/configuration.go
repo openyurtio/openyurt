@@ -104,13 +104,13 @@ func Ensure(kubeClient clientset.Interface, handlers map[string]struct{}, caBund
 
 	if !reflect.DeepEqual(mutatingConfig, oldMutatingConfig) {
 		if _, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), mutatingConfig, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update %s: %v", webhookutil.MutatingWebhookConfigurationName, err)
+			return fmt.Errorf("could not update %s: %v", webhookutil.MutatingWebhookConfigurationName, err)
 		}
 	}
 
 	if !reflect.DeepEqual(validatingConfig, oldValidatingConfig) {
 		if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), validatingConfig, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update %s: %v", webhookutil.ValidatingWebhookConfigurationName, err)
+			return fmt.Errorf("could not update %s: %v", webhookutil.ValidatingWebhookConfigurationName, err)
 		}
 	}
 

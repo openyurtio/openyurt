@@ -80,7 +80,7 @@ func removeRecordByHostname(records []string, hostname string) (result []string,
 func parseHostnameFromDNSRecord(record string) (string, error) {
 	arr := strings.Split(record, "\t")
 	if len(arr) != 2 {
-		return "", fmt.Errorf("failed to parse hostname, invalid dns record %q", record)
+		return "", fmt.Errorf("could not parse hostname, invalid dns record %q", record)
 	}
 	return arr[1], nil
 }

@@ -83,7 +83,7 @@ func (sw *storageWrapper) Create(key storage.Key, obj runtime.Object) error {
 	var buf bytes.Buffer
 	if obj != nil {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			klog.Errorf("failed to encode object in create for %s, %v", key.Key(), err)
+			klog.Errorf("could not encode object in create for %s, %v", key.Key(), err)
 			return err
 		}
 	}
@@ -175,7 +175,7 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
 	var buf bytes.Buffer
 	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-		klog.Errorf("failed to encode object in update for %s, %v", key.Key(), err)
+		klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
 		return nil, err
 	}
 
@@ -183,7 +183,7 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 		if err == storage.ErrUpdateConflict {
 			obj, _, dErr := sw.backendSerializer.Decode(buf, nil, nil)
 			if dErr != nil {
-				return nil, fmt.Errorf("failed to decode existing obj of key %s, %v", key.Key(), dErr)
+				return nil, fmt.Errorf("could not decode existing obj of key %s, %v", key.Key(), dErr)
 			}
 			return obj, err
 		}
@@ -198,7 +198,7 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			klog.Errorf("failed to encode object in update for %s, %v", key.Key(), err)
+			klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
 			return err
 		}
 		contents[key] = make([]byte, len(buf.Bytes()))

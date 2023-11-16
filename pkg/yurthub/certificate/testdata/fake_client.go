@@ -310,7 +310,7 @@ func (ca *CertificateAuthority) Sign(crDER []byte, policy SigningPolicy) ([]byte
 
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.Certificate, cr.PublicKey, ca.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign certificate: %v", err)
+		return nil, fmt.Errorf("could not sign certificate: %v", err)
 	}
 	return der, nil
 }

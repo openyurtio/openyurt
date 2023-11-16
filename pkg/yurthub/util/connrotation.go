@@ -128,7 +128,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 			d.mu.Lock()
 			size := len(d.addrConns[address])
 			d.mu.Unlock()
-			klog.Infof("%s dialer failed to dial: %v, and total connections: %d", d.name, err, size)
+			klog.Infof("%s dialer could not dial: %v, and total connections: %d", d.name, err, size)
 		}
 		return nil, err
 	}

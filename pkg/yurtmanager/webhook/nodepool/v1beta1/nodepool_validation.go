@@ -140,7 +140,7 @@ func validateNodePoolDeletion(cli client.Client, np *appsv1beta1.NodePool) field
 	if err := cli.List(context.TODO(), &nodes, client.MatchingLabels(map[string]string{apps.NodePoolLabel: np.Name})); err != nil {
 		return field.ErrorList([]*field.Error{
 			field.Forbidden(field.NewPath("metadata").Child("name"),
-				"fail to get nodes associated to the pool")})
+				"could not get nodes associated to the pool")})
 	}
 	if len(nodes.Items) != 0 {
 		return field.ErrorList([]*field.Error{

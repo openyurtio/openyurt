@@ -83,7 +83,7 @@ func (im *IptablesManager) CleanUpIptablesRules() error {
 		err := im.iptables.DeleteRule(rule.table, rule.chain, rule.args...)
 		if err != nil {
 			errs = append(errs, err)
-			klog.Errorf("failed to delete iptables rule(%s -t %s %s %s), %v", rule.pos, rule.table, rule.chain, strings.Join(rule.args, " "), err)
+			klog.Errorf("could not delete iptables rule(%s -t %s %s %s), %v", rule.pos, rule.table, rule.chain, strings.Join(rule.args, " "), err)
 		}
 	}
 	return utilerrors.NewAggregate(errs)

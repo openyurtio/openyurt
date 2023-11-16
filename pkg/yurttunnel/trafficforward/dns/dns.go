@@ -140,7 +140,7 @@ func (dnsctl *coreDNSRecordController) Run(stopCh <-chan struct{}) {
 	electionChecker := leaderelection.NewLeaderHealthzAdaptor(time.Second * 20)
 	id, err := os.Hostname()
 	if err != nil {
-		klog.Fatalf("failed to get hostname, %v", err)
+		klog.Fatalf("could not get hostname, %v", err)
 	}
 	rl, err := resourcelock.New("leases", metav1.NamespaceSystem, dnsControllerName,
 		dnsctl.kubeClient.CoreV1(),
@@ -184,7 +184,7 @@ func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
 	}
 
 	if err := dnsctl.ensureCoreDNSRecordConfigMap(); err != nil {
-		klog.Errorf("failed to ensure dns record ConfigMap %v/%v, %v",
+		klog.Errorf("could not ensure dns record ConfigMap %v/%v, %v",
 			constants.YurttunnelDNSRecordConfigMapNs, yurttunnelDNSRecordConfigMapName, err)
 		return
 	}
@@ -194,14 +194,14 @@ func (dnsctl *coreDNSRecordController) run(stopCh <-chan struct{}) {
 	// sync dns hosts as a whole
 	go wait.Until(func() {
 		if err := dnsctl.syncDNSRecordAsWhole(); err != nil {
-			klog.Errorf("failed to sync dns record, %v", err)
+			klog.Errorf("could not sync dns record, %v", err)
 		}
 	}, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
 
 	// sync tunnel server svc
 	go wait.Until(func() {
 		if err := dnsctl.syncTunnelServerServiceAsWhole(); err != nil {
-			klog.Errorf("failed to sync tunnel server service, %v", err)
+			klog.Errorf("could not sync tunnel server service, %v", err)
 		}
 	}, time.Duration(dnsctl.syncPeriod)*time.Second, stopCh)
 
@@ -291,7 +291,7 @@ func (dnsctl *coreDNSRecordController) ensureCoreDNSRecordConfigMap() error {
 		}
 		_, err = dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Create(context.Background(), cm, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create ConfigMap %v/%v, %w",
+			return fmt.Errorf("could not create ConfigMap %v/%v, %w",
 				constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
 		}
 	}
@@ -315,13 +315,13 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() error {
 
 	tunnelServerIP, err := dnsctl.getTunnelServerIP(false)
 	if err != nil {
-		klog.Errorf("failed to sync dns record as whole, %v", err)
+		klog.Errorf("could not sync dns record as whole, %v", err)
 		return err
 	}
 
 	nodes, err := dnsctl.nodeLister.List(labels.Everything())
 	if err != nil {
-		klog.Errorf("failed to sync dns record as whole, %v", err)
+		klog.Errorf("could not sync dns record as whole, %v", err)
 		return err
 	}
 
@@ -331,7 +331,7 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() error {
 		if !isEdgeNode(node) {
 			ip, err = getNodeHostIP(node)
 			if err != nil {
-				klog.Warningf("failed to parse node address for %v, %v", node.Name, err)
+				klog.Warningf("could not parse node address for %v, %v", node.Name, err)
 				continue
 			}
 		}
@@ -339,7 +339,7 @@ func (dnsctl *coreDNSRecordController) syncDNSRecordAsWhole() error {
 	}
 
 	if err := dnsctl.updateDNSRecords(records); err != nil {
-		klog.Errorf("failed to sync dns record as whole, %v", err)
+		klog.Errorf("could not sync dns record as whole, %v", err)
 		return err
 	}
 	return nil
@@ -353,7 +353,7 @@ func (dnsctl *coreDNSRecordController) getTunnelServerIP(useCache bool) (string,
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
 		Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get %v/%v service, %w",
+		return "", fmt.Errorf("could not get %v/%v service, %w",
 			constants.YurttunnelServerServiceNs, constants.YurttunnelServerInternalServiceName, err)
 	}
 	if len(svc.Spec.ClusterIP) == 0 {
@@ -381,7 +381,7 @@ func (dnsctl *coreDNSRecordController) updateDNSRecords(records []string) error 
 	}
 	cm.Data[constants.YurttunnelDNSRecordNodeDataKey] = strings.Join(records, "\n")
 	if _, err := dnsctl.kubeClient.CoreV1().ConfigMaps(constants.YurttunnelServerServiceNs).Update(context.Background(), cm, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update configmap %v/%v, %w",
+		return fmt.Errorf("could not update configmap %v/%v, %w",
 			constants.YurttunnelServerServiceNs, yurttunnelDNSRecordConfigMapName, err)
 	}
 	return nil
@@ -391,7 +391,7 @@ func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []st
 	svc, err := dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).
 		Get(context.Background(), constants.YurttunnelServerInternalServiceName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to sync tunnel server internal service, %w", err)
+		return fmt.Errorf("could not sync tunnel server internal service, %w", err)
 	}
 
 	changed, updatedSvcPorts := resolveServicePorts(svc, ports, portMappings)
@@ -402,7 +402,7 @@ func (dnsctl *coreDNSRecordController) updateTunnelServerSvcDnatPorts(ports []st
 	svc.Spec.Ports = updatedSvcPorts
 	_, err = dnsctl.kubeClient.CoreV1().Services(constants.YurttunnelServerServiceNs).Update(context.Background(), svc, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to sync tunnel server service, %w", err)
+		return fmt.Errorf("could not sync tunnel server service, %w", err)
 	}
 	return nil
 }
@@ -421,24 +421,24 @@ func resolveServicePorts(svc *corev1.Service, ports []string, portMappings map[s
 	for _, dnatPort := range ports {
 		portInt, err := strconv.Atoi(dnatPort)
 		if err != nil {
-			klog.Errorf("failed to parse dnat port %q, %v", dnatPort, err)
+			klog.Errorf("could not parse dnat port %q, %v", dnatPort, err)
 			continue
 		}
 
 		dst, ok := portMappings[dnatPort]
 		if !ok {
-			klog.Errorf("failed to find proxy destination for port: %s", dnatPort)
+			klog.Errorf("could not find proxy destination for port: %s", dnatPort)
 			continue
 		}
 
 		_, targetPort, err := net.SplitHostPort(dst)
 		if err != nil {
-			klog.Errorf("failed to split target port, %v", err)
+			klog.Errorf("could not split target port, %v", err)
 			continue
 		}
 		targetPortInt, err := strconv.Atoi(targetPort)
 		if err != nil {
-			klog.Errorf("failed to parse target port, %v", err)
+			klog.Errorf("could not parse target port, %v", err)
 			continue
 		}
 

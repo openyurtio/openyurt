@@ -293,7 +293,7 @@ type ReconcileYurtCoordinatorCert struct {
 func (r *ReconcileYurtCoordinatorCert) InjectConfig(cfg *rest.Config) error {
 	kubeClient, err := client.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
+		klog.Errorf("could not create kube client, %v", err)
 		return err
 	}
 	r.kubeClient = kubeClient
@@ -366,7 +366,7 @@ func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []
 				ips, _, err := certConf.certInit(r.kubeClient, stopCh)
 				if err != nil {
 					// if cert init failed, skip this cert
-					klog.Errorf(Format("fail to init cert %s when checking dynamic attrs: %v", certConf.CertName, err))
+					klog.Errorf(Format("could not init cert %s when checking dynamic attrs: %v", certConf.CertName, err))
 					continue
 				} else {
 					// check if dynamic IP addresses already exist in cert
@@ -417,12 +417,12 @@ func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.
 		// write it into the secret
 		caCert, caKey, err = NewSelfSignedCA()
 		if err != nil {
-			return nil, nil, false, errors.Wrap(err, "fail to new self CA assets when initializing yurtcoordinator")
+			return nil, nil, false, errors.Wrap(err, "could not new self CA assets when initializing yurtcoordinator")
 		}
 
 		err = WriteCertAndKeyIntoSecret(clientSet, "ca", YurtCoordinatorCASecretName, caCert, caKey)
 		if err != nil {
-			return nil, nil, false, errors.Wrap(err, "fail to write CA assets into secret when initializing yurtcoordinator")
+			return nil, nil, false, errors.Wrap(err, "could not write CA assets into secret when initializing yurtcoordinator")
 		}
 	}
 
@@ -438,7 +438,7 @@ func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{})
 		klog.Infof("apiserver-kubelet-client cert has already existed in secret %s", YurtCoordinatorStaticSecretName)
 		return nil
 	} else if err != nil {
-		klog.Errorf("fail to get apiserver-kubelet-client cert in secret(%s), %v, and new cert will be created", YurtCoordinatorStaticSecretName, err)
+		klog.Errorf("could not get apiserver-kubelet-client cert in secret(%s), %v, and new cert will be created", YurtCoordinatorStaticSecretName, err)
 	}
 
 	certMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
@@ -465,7 +465,7 @@ func initNodeLeaseProxyClient(clientSet client.Interface, stopCh <-chan struct{}
 		klog.Infof("node-lease-proxy-client cert has already existed in secret %s", YurtCoordinatorYurthubClientSecretName)
 		return nil
 	} else if err != nil {
-		klog.Errorf("fail to get node-lease-proxy-client cert in secret(%s), %v, and new cert will be created", YurtCoordinatorYurthubClientSecretName, err)
+		klog.Errorf("could not get node-lease-proxy-client cert in secret(%s), %v, and new cert will be created", YurtCoordinatorYurthubClientSecretName, err)
 	}
 
 	certMgr, err := certfactory.NewCertManagerFactory(clientSet).New(&certfactory.CertManagerConfig{
@@ -487,7 +487,7 @@ func initNodeLeaseProxyClient(clientSet client.Interface, stopCh <-chan struct{}
 func initSAKeyPair(clientSet client.Interface, keyName, secretName string) (err error) {
 	key, err := NewPrivateKey()
 	if err != nil {
-		return errors.Wrap(err, "fail to create sa key pair")
+		return errors.Wrap(err, "could not create sa key pair")
 	}
 
 	return WriteKeyPairIntoSecret(clientSet, secretName, keyName, key)

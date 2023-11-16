@@ -67,7 +67,7 @@ func (ats *anpTunnelServer) Run() error {
 		ats.interceptorServerUDSFile,
 		ats.tlsCfg)
 	if proxierErr != nil {
-		return fmt.Errorf("fail to run the proxier: %w", proxierErr)
+		return fmt.Errorf("could not run the proxier: %w", proxierErr)
 	}
 
 	wrappedHandler, err := wh.WrapHandler(
@@ -75,7 +75,7 @@ func (ats *anpTunnelServer) Run() error {
 		ats.wrappers,
 	)
 	if err != nil {
-		return fmt.Errorf("fail to wrap handler: %w", err)
+		return fmt.Errorf("could not wrap handler: %w", err)
 	}
 
 	// 2. start the master server
@@ -86,13 +86,13 @@ func (ats *anpTunnelServer) Run() error {
 		ats.serverMasterInsecureAddr,
 		ats.tlsCfg)
 	if masterServerErr != nil {
-		return fmt.Errorf("fail to run master server: %w", masterServerErr)
+		return fmt.Errorf("could not run master server: %w", masterServerErr)
 	}
 
 	// 3. start the agent server
 	agentServerErr := runAgentServer(ats.tlsCfg, ats.serverAgentAddr, proxyServer)
 	if agentServerErr != nil {
-		return fmt.Errorf("fail to run agent server: %w", agentServerErr)
+		return fmt.Errorf("could not run agent server: %w", agentServerErr)
 	}
 
 	return nil
@@ -119,11 +119,11 @@ func runProxier(handler http.Handler,
 		}
 		unixListener, err := net.Listen("unix", udsSockFile)
 		if err != nil {
-			klog.Errorf("proxier fail to serving request through uds: %s", err)
+			klog.Errorf("proxier could not serving request through uds: %s", err)
 		}
 		defer unixListener.Close()
 		if err := server.Serve(unixListener); err != nil {
-			klog.Errorf("proxier fail to serving request through uds: %s", err)
+			klog.Errorf("proxier could not serving request through uds: %s", err)
 		}
 	}()
 
@@ -149,7 +149,7 @@ func runMasterServer(handler http.Handler,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			klog.Errorf("failed to serve https request from master: %v", err)
+			klog.Errorf("could not serve https request from master: %v", err)
 		}
 	}()
 
@@ -162,7 +162,7 @@ func runMasterServer(handler http.Handler,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		}
 		if err := server.ListenAndServe(); err != nil {
-			klog.Errorf("failed to serve http request from master: %v", err)
+			klog.Errorf("could not serve http request from master: %v", err)
 		}
 	}()
 
@@ -194,7 +194,7 @@ func runAgentServer(tlsCfg *tls.Config,
 	listener, err := net.Listen("tcp", agentServerAddr)
 	klog.Info("start handling connection from agents")
 	if err != nil {
-		return fmt.Errorf("fail to listen to agent on %s: %w", agentServerAddr, err)
+		return fmt.Errorf("could not listen to agent on %s: %w", agentServerAddr, err)
 	}
 	go grpcServer.Serve(listener)
 	return nil

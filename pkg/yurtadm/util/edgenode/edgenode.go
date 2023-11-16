@@ -62,7 +62,7 @@ func GetContentFormFile(filename string, regularExpression string) ([]string, er
 func GetSingleContentFromFile(filename string, regularExpression string) (string, error) {
 	contents, err := GetContentFormFile(filename, regularExpression)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file %s, %w", filename, err)
+		return "", fmt.Errorf("could not read file %s, %w", filename, err)
 	}
 	if contents == nil {
 		return "", fmt.Errorf("no matching string %s in file %s", regularExpression, filename)
@@ -87,11 +87,11 @@ func EnsureDir(dirname string) error {
 func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error {
 	content, err := os.ReadFile(sourceFile)
 	if err != nil {
-		return fmt.Errorf("failed to read source file %s: %w", sourceFile, err)
+		return fmt.Errorf("could not read source file %s: %w", sourceFile, err)
 	}
 	err = os.WriteFile(destinationFile, content, perm)
 	if err != nil {
-		return fmt.Errorf("failed to write destination file %s: %w", destinationFile, err)
+		return fmt.Errorf("could not write destination file %s: %w", destinationFile, err)
 	}
 	return nil
 }

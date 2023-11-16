@@ -66,12 +66,12 @@ func (m *NetworkManager) Run(stopCh <-chan struct{}) {
 				klog.Infof("exit network manager run goroutine normally")
 				if m.enableIptables {
 					if err := m.iptablesManager.CleanUpIptablesRules(); err != nil {
-						klog.Errorf("failed to cleanup iptables, %v", err)
+						klog.Errorf("could not cleanup iptables, %v", err)
 					}
 				}
 				err := m.ifController.DeleteDummyInterface(m.dummyIfName)
 				if err != nil {
-					klog.Errorf("failed to delete dummy interface %s, %v", m.dummyIfName, err)
+					klog.Errorf("could not delete dummy interface %s, %v", m.dummyIfName, err)
 				} else {
 					klog.Infof("remove dummy interface %s successfully", m.dummyIfName)
 				}
@@ -79,7 +79,7 @@ func (m *NetworkManager) Run(stopCh <-chan struct{}) {
 			case <-ticker.C:
 				if err := m.configureNetwork(); err != nil {
 					// do nothing here
-					klog.Warningf("failed to configure network, %v", err)
+					klog.Warningf("could not configure network, %v", err)
 				}
 			}
 		}

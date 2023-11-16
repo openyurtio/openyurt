@@ -148,7 +148,7 @@ func (r *ReconcileCsrApprover) InjectMapper(mapper meta.RESTMapper) error {
 func (r *ReconcileCsrApprover) InjectConfig(cfg *rest.Config) error {
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
+		klog.Errorf("could not create kube client, %v", err)
 		return err
 	}
 	r.csrApproverClient = client
@@ -211,7 +211,7 @@ func (r *ReconcileCsrApprover) Reconcile(ctx context.Context, request reconcile.
 	// Update CertificateSigningRequests
 	err = r.updateApproval(ctx, v1Instance)
 	if err != nil {
-		klog.Errorf("failed to approve %s(%s), %v", yurtCsr, v1Instance.GetName(), err)
+		klog.Errorf("could not approve %s(%s), %v", yurtCsr, v1Instance.GetName(), err)
 		return reconcile.Result{}, err
 	}
 	klog.Infof("successfully approve %s(%s)", yurtCsr, v1Instance.GetName())

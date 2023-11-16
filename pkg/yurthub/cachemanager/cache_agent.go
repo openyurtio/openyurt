@@ -131,7 +131,7 @@ func (ca *CacheAgent) deleteAgentCache(deletedAgents sets.String) {
 		components := deletedAgents.List()
 		for i := range components {
 			if err := ca.store.DeleteComponentResources(components[i]); err != nil {
-				klog.Errorf("failed to cleanup cache for deleted agent(%s), %v", components[i], err)
+				klog.Errorf("could not cleanup cache for deleted agent(%s), %v", components[i], err)
 			} else {
 				klog.Infof("cleanup cache for agent(%s) successfully", components[i])
 			}

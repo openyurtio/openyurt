@@ -74,7 +74,7 @@ func (ds *DeviceServiceSyncer) Run(stop <-chan struct{}) {
 			// 1. get deviceServices on edge platform and OpenYurt
 			edgeDeviceServices, kubeDeviceServices, err := ds.getAllDeviceServices()
 			if err != nil {
-				klog.V(3).ErrorS(err, "fail to list the deviceServices")
+				klog.V(3).ErrorS(err, "could not list the deviceServices")
 				continue
 			}
 
@@ -88,17 +88,17 @@ func (ds *DeviceServiceSyncer) Run(stop <-chan struct{}) {
 
 			// 3. create deviceServices on OpenYurt which are exists in edge platform but not in OpenYurt
 			if err := ds.syncEdgeToKube(redundantEdgeDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "fail to create deviceServices on OpenYurt")
+				klog.V(3).ErrorS(err, "could not create deviceServices on OpenYurt")
 			}
 
 			// 4. delete redundant deviceServices on OpenYurt
 			if err := ds.deleteDeviceServices(redundantKubeDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "fail to delete redundant deviceServices on OpenYurt")
+				klog.V(3).ErrorS(err, "could not delete redundant deviceServices on OpenYurt")
 			}
 
 			// 5. update deviceService status on OpenYurt
 			if err := ds.updateDeviceServices(syncedDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "fail to update deviceServices")
+				klog.V(3).ErrorS(err, "could not update deviceServices")
 			}
 			klog.V(2).Info("[DeviceService] One round of synchronization is complete")
 		}
@@ -120,14 +120,14 @@ func (ds *DeviceServiceSyncer) getAllDeviceServices() (
 	// 1. list deviceServices on edge platform
 	eDevSs, err := ds.deviceServiceCli.List(context.TODO(), iotcli.ListOptions{Namespace: ds.Namespace})
 	if err != nil {
-		klog.V(4).ErrorS(err, "fail to list the deviceServices object on the edge platform")
+		klog.V(4).ErrorS(err, "could not list the deviceServices object on the edge platform")
 		return edgeDeviceServices, kubeDeviceServices, err
 	}
 	// 2. list deviceServices on OpenYurt (filter objects belonging to edgeServer)
 	var kDevSs iotv1alpha1.DeviceServiceList
 	listOptions := client.MatchingFields{util.IndexerPathForNodepool: ds.NodePool}
 	if err = ds.List(context.TODO(), &kDevSs, listOptions, client.InNamespace(ds.Namespace)); err != nil {
-		klog.V(4).ErrorS(err, "fail to list the deviceServices object on the Kubernetes")
+		klog.V(4).ErrorS(err, "could not list the deviceServices object on the Kubernetes")
 		return edgeDeviceServices, kubeDeviceServices, err
 	}
 	for i := range eDevSs {
@@ -195,7 +195,7 @@ func (ds *DeviceServiceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.D
 func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices map[string]*iotv1alpha1.DeviceService) error {
 	for _, kds := range redundantKubeDeviceServices {
 		if err := ds.Client.Delete(context.TODO(), kds); err != nil {
-			klog.V(5).ErrorS(err, "fail to delete the DeviceService on Kubernetes",
+			klog.V(5).ErrorS(err, "could not delete the DeviceService on Kubernetes",
 				"DeviceService", kds.Name)
 			return err
 		}
@@ -205,7 +205,7 @@ func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices 
 			},
 		})
 		if err := ds.Client.Patch(context.TODO(), kds, client.RawPatch(types.MergePatchType, patchData)); err != nil {
-			klog.V(5).ErrorS(err, "fail to remove finalizer of DeviceService on Kubernetes", "DeviceService", kds.Name)
+			klog.V(5).ErrorS(err, "could not remove finalizer of DeviceService on Kubernetes", "DeviceService", kds.Name)
 			return err
 		}
 	}
@@ -223,7 +223,7 @@ func (ds *DeviceServiceSyncer) updateDeviceServices(syncedDeviceServices map[str
 				klog.V(5).InfoS("update Conflicts", "DeviceService", sd.Name)
 				continue
 			}
-			klog.V(5).ErrorS(err, "fail to update the DeviceService on Kubernetes",
+			klog.V(5).ErrorS(err, "could not update the DeviceService on Kubernetes",
 				"DeviceService", sd.Name)
 			return err
 		}

@@ -227,20 +227,20 @@ func (hc *cloudAPIServerHealthChecker) setLastNodeLease(lease *coordinationv1.Le
 		Version:   "v1",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get key for lease %s/%s, %v", lease.Namespace, lease.Name, err)
+		return fmt.Errorf("could not get key for lease %s/%s, %v", lease.Namespace, lease.Name, err)
 	}
 	rv, err := strconv.ParseUint(lease.ResourceVersion, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to convert rv string %s of lease %s/%s, %v", lease.ResourceVersion, lease.Namespace, lease.Name, err)
+		return fmt.Errorf("could not convert rv string %s of lease %s/%s, %v", lease.ResourceVersion, lease.Namespace, lease.Name, err)
 	}
 	_, err = hc.sw.Update(leaseKey, lease, rv)
 	if err == storage.ErrStorageNotFound {
 		klog.Infof("find no lease of %s in storage, init a new one", leaseKey.Key())
 		if err := hc.sw.Create(leaseKey, lease); err != nil {
-			return fmt.Errorf("failed to create the lease %s, %v", leaseKey.Key(), err)
+			return fmt.Errorf("could not create the lease %s, %v", leaseKey.Key(), err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("failed to update lease %s/%s, %v", lease.Namespace, lease.Name, err)
+		return fmt.Errorf("could not update lease %s/%s, %v", lease.Namespace, lease.Name, err)
 	}
 	return nil
 }

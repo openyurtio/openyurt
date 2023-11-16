@@ -57,7 +57,7 @@ var certFileNames = map[CertFileType]string{
 func NewCertManager(pkiDir, yurtHubNs string, yurtClient kubernetes.Interface, informerFactory informers.SharedInformerFactory) (*CertManager, error) {
 	store := fs.FileSystemOperator{}
 	if err := store.CreateDir(pkiDir); err != nil && err != fs.ErrExists {
-		return nil, fmt.Errorf("failed to create dir %s, %v", pkiDir, err)
+		return nil, fmt.Errorf("could not create dir %s, %v", pkiDir, err)
 	}
 
 	certMgr := &CertManager{
@@ -139,7 +139,7 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 	var coordinatorCert, nodeLeaseProxyCert *tls.Certificate
 	if cook {
 		if cert, err := tls.X509KeyPair(coordinatorClientCrt, coordinatorClientKey); err != nil {
-			klog.Errorf("failed to create tls certificate for coordinator, %v", err)
+			klog.Errorf("could not create tls certificate for coordinator, %v", err)
 		} else {
 			coordinatorCert = &cert
 		}
@@ -147,7 +147,7 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 
 	if nook {
 		if cert, err := tls.X509KeyPair(nodeLeaseProxyClientCrt, nodeLeaseProxyClientKey); err != nil {
-			klog.Errorf("failed to create tls certificate for node lease proxy, %v", err)
+			klog.Errorf("could not create tls certificate for node lease proxy, %v", err)
 		} else {
 			nodeLeaseProxyCert = &cert
 		}
@@ -160,27 +160,27 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 	if caok {
 		klog.Infof("updating coordinator ca cert")
 		if err := c.createOrUpdateFile(c.GetFilePath(RootCA), ca); err != nil {
-			klog.Errorf("failed to update ca, %v", err)
+			klog.Errorf("could not update ca, %v", err)
 		}
 	}
 
 	if cook {
 		klog.Infof("updating yurt-coordinator-yurthub client cert and key")
 		if err := c.createOrUpdateFile(c.GetFilePath(YurthubClientKey), coordinatorClientKey); err != nil {
-			klog.Errorf("failed to update coordinator client key, %v", err)
+			klog.Errorf("could not update coordinator client key, %v", err)
 		}
 		if err := c.createOrUpdateFile(c.GetFilePath(YurthubClientCert), coordinatorClientCrt); err != nil {
-			klog.Errorf("failed to update coordinator client cert, %v", err)
+			klog.Errorf("could not update coordinator client cert, %v", err)
 		}
 	}
 
 	if nook {
 		klog.Infof("updating node-lease-proxy-client cert and key")
 		if err := c.createOrUpdateFile(c.GetFilePath(NodeLeaseProxyClientKey), nodeLeaseProxyClientKey); err != nil {
-			klog.Errorf("failed to update node lease proxy client key, %v", err)
+			klog.Errorf("could not update node lease proxy client key, %v", err)
 		}
 		if err := c.createOrUpdateFile(c.GetFilePath(NodeLeaseProxyClientCert), nodeLeaseProxyClientCrt); err != nil {
-			klog.Errorf("failed to update node lease proxy client cert, %v", err)
+			klog.Errorf("could not update node lease proxy client cert, %v", err)
 		}
 	}
 
@@ -199,10 +199,10 @@ func (c *CertManager) deleteCerts() {
 func (c *CertManager) createOrUpdateFile(path string, data []byte) error {
 	if err := c.store.Write(path, data); err == fs.ErrNotExists {
 		if err := c.store.CreateFile(path, data); err != nil {
-			return fmt.Errorf("failed to create file at %s, %v", path, err)
+			return fmt.Errorf("could not create file at %s, %v", path, err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("failed to update file at %s, %v", path, err)
+		return fmt.Errorf("could not update file at %s, %v", path, err)
 	}
 	return nil
 }

@@ -86,7 +86,7 @@ func NewYurtCoordinatorProxy(
 					transportMgr,
 					stopCh)
 				if err != nil {
-					klog.Errorf("failed to create remote proxy for yurt-coordinator, %v", err)
+					klog.Errorf("could not create remote proxy for yurt-coordinator, %v", err)
 					return
 				}
 
@@ -238,7 +238,7 @@ func (pp *YurtCoordinatorProxy) modifyResponse(resp *http.Response) error {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
 				size, filterRc, err := responseFilter.Filter(req, wrapBody, pp.stopCh)
 				if err != nil {
-					klog.Errorf("failed to filter response for %s, %v", hubutil.ReqString(req), err)
+					klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
 					return err
 				}
 				resp.Body = filterRc
@@ -270,7 +270,7 @@ func (pp *YurtCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Resp
 		rc, prc := hubutil.NewDualReadCloser(req, wrapPrc, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
 			if err := pp.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-				klog.Errorf("pool proxy failed to cache req %s in local cache, %v", hubutil.ReqString(req), err)
+				klog.Errorf("pool proxy could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, ctx.Done())
 

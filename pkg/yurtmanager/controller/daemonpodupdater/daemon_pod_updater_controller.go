@@ -127,7 +127,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
 	c, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("failed to create kube client, %v", err)
+		klog.Errorf("could not create kube client, %v", err)
 		return err
 	}
 	// Use PodControlInterface to delete pods, which is convenient for testing
@@ -215,7 +215,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	// Fetch the DaemonSet instance
 	instance := &appsv1.DaemonSet{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-		klog.Errorf("Fail to get DaemonSet %v, %v", request.NamespacedName, err)
+		klog.Errorf("could not get DaemonSet %v, %v", request.NamespacedName, err)
 		if apierrors.IsNotFound(err) {
 			r.expectations.DeleteExpectations(request.NamespacedName.String())
 		}
@@ -243,13 +243,13 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	switch v {
 	case OTAUpdate:
 		if err := r.otaUpdate(instance); err != nil {
-			klog.Errorf(Format("Fail to OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
+			klog.Errorf(Format("could not OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 
 	case AutoUpdate, AdvancedRollingUpdate:
 		if err := r.advancedRollingUpdate(instance); err != nil {
-			klog.Errorf(Format("Fail to advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
+			klog.Errorf(Format("could not advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 	default:
@@ -263,7 +263,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 func (r *ReconcileDaemonpodupdater) deletePod(evt event.DeleteEvent, _ workqueue.RateLimitingInterface) {
 	pod, ok := evt.Object.(*corev1.Pod)
 	if !ok {
-		utilruntime.HandleError(fmt.Errorf("deletepod fail to deal with object that is not a pod %#v", evt.Object))
+		utilruntime.HandleError(fmt.Errorf("deletepod could not deal with object that is not a pod %#v", evt.Object))
 		return
 	}
 
@@ -406,7 +406,7 @@ func (r *ReconcileDaemonpodupdater) getNodesToDaemonPods(ds *appsv1.DaemonSet) (
 	for _, pod := range pods {
 		nodeName, err := GetTargetNodeName(pod)
 		if err != nil {
-			klog.Warningf("Failed to get target node name of Pod %v/%v in DaemonSet %v/%v",
+			klog.Warningf("could not get target node name of Pod %v/%v in DaemonSet %v/%v",
 				pod.Namespace, pod.Name, ds.Namespace, ds.Name)
 			continue
 		}

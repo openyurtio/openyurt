@@ -66,7 +66,7 @@ func (plm *localHostProxyMiddleware) Name() string {
 func (plm *localHostProxyMiddleware) WrapHandler(handler http.Handler) http.Handler {
 	// wait for nodes and configmaps have synced
 	if !cache.WaitForCacheSync(wait.NeverStop, plm.nodeInformerSynced, plm.cmInformerSynced) {
-		klog.Error("failed to sync node or configmap cache")
+		klog.Error("could not sync node or configmap cache")
 		return handler
 	}
 
@@ -123,7 +123,7 @@ func (plm *localHostProxyMiddleware) SetSharedInformerFactory(factory informers.
 
 	nodeInformer := factory.Core().V1().Nodes()
 	if err := nodeInformer.Informer().AddIndexers(cache.Indexers{constants.NodeIPKeyIndex: getNodeAddress}); err != nil {
-		klog.ErrorS(err, "failed to add statusInternalIP indexer")
+		klog.ErrorS(err, "could not add statusInternalIP indexer")
 		return err
 	}
 
@@ -220,7 +220,7 @@ func (plm *localHostProxyMiddleware) resolveNodeNameByNodeIP(nodeIP string) (str
 	var nodeName string
 
 	if nodes, err := plm.getNodesByIP(nodeIP); err != nil || len(nodes) == 0 {
-		klog.Warningf("failed to get node for node ip(%s)", nodeIP)
+		klog.Warningf("could not get node for node ip(%s)", nodeIP)
 		return "", fmt.Errorf("proxy node ip(%s) is not exist in cluster", nodeIP)
 	} else if len(nodes) != 1 {
 		klog.Warningf("more than one node with the same IP(%s), so unable to proxy request", nodeIP)
@@ -231,7 +231,7 @@ func (plm *localHostProxyMiddleware) resolveNodeNameByNodeIP(nodeIP string) (str
 
 	if len(nodeName) == 0 {
 		klog.Warningf("node name for node ip(%s) is not exist in cluster", nodeIP)
-		return "", fmt.Errorf("failed to get node name for node ip(%s)", nodeIP)
+		return "", fmt.Errorf("could not get node name for node ip(%s)", nodeIP)
 	}
 
 	klog.V(5).Infof("resolved node name(%s) for node ip(%s)", nodeName, nodeIP)

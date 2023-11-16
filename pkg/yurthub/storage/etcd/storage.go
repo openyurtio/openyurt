@@ -104,7 +104,7 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 
 		tlsConfig, err = tlsInfo.ClientConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create tls config for etcd client, %v", err)
+			return nil, fmt.Errorf("could not create tls config for etcd client, %v", err)
 		}
 	}
 
@@ -118,7 +118,7 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 
 	client, err := clientv3.New(clientConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd client, %v", err)
+		return nil, fmt.Errorf("could not create etcd client, %v", err)
 	}
 
 	s := &etcdStorage{
@@ -142,9 +142,9 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 	}
 	if err := cache.Recover(); err != nil {
 		if err := client.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close etcd client, %v", err)
+			return nil, fmt.Errorf("could not close etcd client, %v", err)
 		}
-		return nil, fmt.Errorf("failed to recover component key cache from %s, %v", cacheFilePath, err)
+		return nil, fmt.Errorf("could not recover component key cache from %s, %v", cacheFilePath, err)
 	}
 	s.localComponentKeyCache = cache
 
@@ -172,7 +172,7 @@ func (s *etcdStorage) clientLifeCycleManagement() {
 				if client, err := clientv3.New(s.clientConfig); err == nil {
 					klog.Infof("client reconnected to etcd server, %s", client.ActiveConnection().GetState().String())
 					if err := s.client.Close(); err != nil {
-						klog.Errorf("failed to close old client, %v", err)
+						klog.Errorf("could not close old client, %v", err)
 					}
 					s.client = client
 					return
@@ -186,7 +186,7 @@ func (s *etcdStorage) clientLifeCycleManagement() {
 		select {
 		case <-s.ctx.Done():
 			if err := s.client.Close(); err != nil {
-				klog.Errorf("failed to close etcd client, %v", err)
+				klog.Errorf("could not close etcd client, %v", err)
 			}
 			klog.Info("etcdstorage lifecycle routine exited")
 			return
@@ -215,7 +215,7 @@ func (s *etcdStorage) Create(key storage.Key, content []byte) error {
 	keyStr := key.Key()
 	originRv, err := getRvOfObject(content)
 	if err != nil {
-		return fmt.Errorf("failed to get rv from content when creating %s, %v", keyStr, err)
+		return fmt.Errorf("could not get rv from content when creating %s, %v", keyStr, err)
 	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
@@ -403,7 +403,7 @@ func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVer
 	for k := range addedOrUpdated {
 		rv, err := getRvOfObject(contents[k])
 		if err != nil {
-			klog.Errorf("failed to process %s in list object, %v", k.Key(), err)
+			klog.Errorf("could not process %s in list object, %v", k.Key(), err)
 			continue
 		}
 		createOrUpdateOp := clientv3.OpTxn(

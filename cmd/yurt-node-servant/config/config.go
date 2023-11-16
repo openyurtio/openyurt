@@ -65,7 +65,7 @@ func newCmdConfigControlPlane() *cobra.Command {
 				return err
 			}
 			if err := runner.Do(); err != nil {
-				return fmt.Errorf("failed to config control-plane, %v", err)
+				return fmt.Errorf("could not config control-plane, %v", err)
 			}
 
 			klog.Info("node-servant config control-plane success")

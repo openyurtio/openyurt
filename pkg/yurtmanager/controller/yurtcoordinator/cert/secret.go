@@ -84,7 +84,7 @@ func (c *SecretClient) AddData(key string, val []byte) error {
 func (c *SecretClient) GetData(key string) ([]byte, error) {
 	secret, err := c.client.CoreV1().Secrets(c.Namespace).Get(context.TODO(), c.Name, metav1.GetOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to get secret from secretClient")
+		return nil, errors.Wrap(err, "could not get secret from secretClient")
 	}
 
 	val, ok := secret.Data[key]

@@ -142,7 +142,7 @@ func newFilterReadCloser(
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 	s := CreateSerializer(respContentType, info, sm)
 	if s == nil {
-		klog.Errorf("skip filter, failed to create serializer in %s", ownerName)
+		klog.Errorf("skip filter, could not create serializer in %s", ownerName)
 		return 0, rc, nil
 	}
 
@@ -210,7 +210,7 @@ func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 	}
 	obj, err := frc.serializer.Decode(buf.Bytes())
 	if err != nil || obj == nil {
-		klog.Errorf("skip filter, failed to decode response in HandleObjectResponse of %s %v", frc.ownerName, err)
+		klog.Errorf("skip filter, could not decode response in HandleObjectResponse of %s %v", frc.ownerName, err)
 		return &buf, nil
 	}
 
@@ -228,7 +228,7 @@ func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *byt
 
 	d, err := frc.serializer.WatchDecoder(rc)
 	if err != nil {
-		klog.Errorf("failed to get watch decoder in StreamResponseFilter of %s, %v", frc.ownerName, err)
+		klog.Errorf("could not get watch decoder in StreamResponseFilter of %s, %v", frc.ownerName, err)
 		return err
 	}
 
@@ -251,7 +251,7 @@ func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *byt
 		buf := &bytes.Buffer{}
 		_, err = frc.serializer.WatchEncode(buf, &wEvent)
 		if err != nil {
-			klog.Errorf("failed to encode resource in StreamResponseFilter of %s, %v", frc.ownerName, err)
+			klog.Errorf("could not encode resource in StreamResponseFilter of %s, %v", frc.ownerName, err)
 			return err
 		}
 		ch <- buf

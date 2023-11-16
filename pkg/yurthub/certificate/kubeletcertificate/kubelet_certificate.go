@@ -96,7 +96,7 @@ func (kcm *kubeletCertManager) GetAPIServerClientCert() *tls.Certificate {
 	klog.Warningf("current certificate: %s is expired, reload it", kcm.kubeletPemFile)
 	cert, err := loadFile(kcm.kubeletPemFile)
 	if err != nil {
-		klog.Errorf("failed to load client certificate(%s), %v", kcm.kubeletPemFile, err)
+		klog.Errorf("could not load client certificate(%s), %v", kcm.kubeletPemFile, err)
 		return nil
 	}
 	kcm.cert = cert

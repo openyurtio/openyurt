@@ -65,7 +65,7 @@ func GetWebHookPort() int {
 		if p, err := strconv.ParseInt(p, 10, 32); err == nil {
 			port = int(p)
 		} else {
-			klog.Fatalf("failed to convert WEBHOOK_PORT=%v in env: %v", p, err)
+			klog.Fatalf("could not convert WEBHOOK_PORT=%v in env: %v", p, err)
 		}
 	}
 	return port

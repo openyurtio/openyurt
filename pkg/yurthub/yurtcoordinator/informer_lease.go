@@ -171,7 +171,7 @@ func (nl *informerLeaseTmpl) newLease(base *coordinationv1.Lease) *coordinationv
 				},
 			}
 		} else {
-			klog.Errorf("failed to get node %q when trying to set owner ref to the node lease: %v", nl.leaseName, err)
+			klog.Errorf("could not get node %q when trying to set owner ref to the node lease: %v", nl.leaseName, err)
 		}
 	}
 	return lease
