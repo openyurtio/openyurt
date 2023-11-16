@@ -59,12 +59,10 @@ type GatewaySpec struct {
 // TODO add priority field?
 type Endpoint struct {
 	// NodeName is the Node hosting this endpoint.
-	NodeName   string            `json:"nodeName"`
-	UnderNAT   bool              `json:"underNAT,omitempty"`
-	NATType    string            `json:"natType,omitempty"`
-	PublicIP   string            `json:"publicIP,omitempty"`
-	PublicPort int               `json:"publicPort,omitempty"`
-	Config     map[string]string `json:"config,omitempty"`
+	NodeName string            `json:"nodeName"`
+	UnderNAT bool              `json:"underNAT,omitempty"`
+	PublicIP string            `json:"publicIP,omitempty"`
+	Config   map[string]string `json:"config,omitempty"`
 }
 
 // NodeInfo stores information of node managed by Gateway.

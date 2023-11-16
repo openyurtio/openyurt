@@ -49,14 +49,12 @@ func (src *Gateway) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ProxyConfig.Replicas = 1
 	for _, eps := range src.Spec.Endpoints {
 		dst.Spec.Endpoints = append(dst.Spec.Endpoints, v1beta1.Endpoint{
-			NodeName:   eps.NodeName,
-			PublicIP:   eps.PublicIP,
-			UnderNAT:   eps.UnderNAT,
-			PublicPort: eps.PublicPort,
-			NATType:    eps.NATType,
-			Config:     eps.Config,
-			Type:       v1beta1.Tunnel,
-			Port:       v1beta1.DefaultTunnelServerExposedPort,
+			NodeName: eps.NodeName,
+			PublicIP: eps.PublicIP,
+			UnderNAT: eps.UnderNAT,
+			Config:   eps.Config,
+			Type:     v1beta1.Tunnel,
+			Port:     v1beta1.DefaultTunnelServerExposedPort,
 		})
 	}
 	for _, node := range src.Status.Nodes {
@@ -69,14 +67,12 @@ func (src *Gateway) ConvertTo(dstRaw conversion.Hub) error {
 	if src.Status.ActiveEndpoint != nil {
 		dst.Status.ActiveEndpoints = []*v1beta1.Endpoint{
 			{
-				NodeName:   src.Status.ActiveEndpoint.NodeName,
-				PublicIP:   src.Status.ActiveEndpoint.PublicIP,
-				UnderNAT:   src.Status.ActiveEndpoint.UnderNAT,
-				PublicPort: src.Status.ActiveEndpoint.PublicPort,
-				NATType:    src.Status.ActiveEndpoint.NATType,
-				Config:     src.Status.ActiveEndpoint.Config,
-				Type:       v1beta1.Tunnel,
-				Port:       v1beta1.DefaultTunnelServerExposedPort,
+				NodeName: src.Status.ActiveEndpoint.NodeName,
+				PublicIP: src.Status.ActiveEndpoint.PublicIP,
+				UnderNAT: src.Status.ActiveEndpoint.UnderNAT,
+				Config:   src.Status.ActiveEndpoint.Config,
+				Type:     v1beta1.Tunnel,
+				Port:     v1beta1.DefaultTunnelServerExposedPort,
 			},
 		}
 	}
@@ -95,12 +91,10 @@ func (dst *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.ExposeType = ExposeType(src.Spec.ExposeType)
 	for _, eps := range src.Spec.Endpoints {
 		dst.Spec.Endpoints = append(dst.Spec.Endpoints, Endpoint{
-			NodeName:   eps.NodeName,
-			PublicIP:   eps.PublicIP,
-			UnderNAT:   eps.UnderNAT,
-			PublicPort: eps.PublicPort,
-			NATType:    eps.NATType,
-			Config:     eps.Config,
+			NodeName: eps.NodeName,
+			PublicIP: eps.PublicIP,
+			UnderNAT: eps.UnderNAT,
+			Config:   eps.Config,
 		})
 	}
 	for _, node := range src.Status.Nodes {
@@ -118,12 +112,10 @@ func (dst *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
 		dst.Status.ActiveEndpoint = nil
 	} else {
 		dst.Status.ActiveEndpoint = &Endpoint{
-			NodeName:   src.Status.ActiveEndpoints[0].NodeName,
-			PublicIP:   src.Status.ActiveEndpoints[0].PublicIP,
-			UnderNAT:   src.Status.ActiveEndpoints[0].UnderNAT,
-			PublicPort: src.Status.ActiveEndpoints[0].PublicPort,
-			NATType:    src.Status.ActiveEndpoints[0].NATType,
-			Config:     src.Status.ActiveEndpoints[0].Config,
+			NodeName: src.Status.ActiveEndpoints[0].NodeName,
+			PublicIP: src.Status.ActiveEndpoints[0].PublicIP,
+			UnderNAT: src.Status.ActiveEndpoints[0].UnderNAT,
+			Config:   src.Status.ActiveEndpoints[0].Config,
 		}
 	}
 	klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
