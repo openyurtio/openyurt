@@ -34,7 +34,7 @@ func NewNodePoolControllerOptions() *NodePoolControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
 func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if n == nil {
 		return
@@ -43,7 +43,7 @@ func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&n.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", n.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up nodePool config with options.
 func (o *NodePoolControllerOptions) ApplyTo(cfg *config.NodePoolControllerConfiguration) error {
 	if o == nil {
 		return nil

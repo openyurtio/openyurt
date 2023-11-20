@@ -131,7 +131,7 @@ func TestValidateUpdate(t *testing.T) {
 					Type: "invalid type",
 				},
 			},
-			errcode: http.StatusUnprocessableEntity,
+			errcode: http.StatusForbidden,
 		},
 		"type is changed": {
 			oldPool: &appsv1beta1.NodePool{
@@ -144,7 +144,7 @@ func TestValidateUpdate(t *testing.T) {
 					Type: appsv1beta1.Cloud,
 				},
 			},
-			errcode: http.StatusUnprocessableEntity,
+			errcode: http.StatusForbidden,
 		},
 		"host network is changed": {
 			oldPool: &appsv1beta1.NodePool{
@@ -159,7 +159,7 @@ func TestValidateUpdate(t *testing.T) {
 					HostNetwork: true,
 				},
 			},
-			errcode: http.StatusUnprocessableEntity,
+			errcode: http.StatusForbidden,
 		},
 	}
 
@@ -258,7 +258,7 @@ func TestValidateDelete(t *testing.T) {
 					Name: "hangzhou",
 				},
 			},
-			errcode: http.StatusUnprocessableEntity,
+			errcode: http.StatusForbidden,
 		},
 		"it is not a nodepool": {
 			pool:    &corev1.Node{},
