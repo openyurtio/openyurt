@@ -36,7 +36,7 @@ func NewYurtStaticSetControllerOptions() *YurtStaticSetControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to yurtstaticset for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to YurtStaticSet for yurt-manager to the specified FlagSet.
 func (o *YurtStaticSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if o == nil {
 		return
@@ -45,7 +45,7 @@ func (o *YurtStaticSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.UpgradeWorkerImage, "node-servant-image", o.UpgradeWorkerImage, "Specify node servant pod image used for YurtStaticSet upgrade.")
 }
 
-// ApplyTo fills up yurtstaticset config with options.
+// ApplyTo fills up YurtStaticSet config with options.
 func (o *YurtStaticSetControllerOptions) ApplyTo(cfg *config.YurtStaticSetControllerConfiguration) error {
 	if o == nil {
 		return nil

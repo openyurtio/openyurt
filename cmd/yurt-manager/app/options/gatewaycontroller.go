@@ -32,7 +32,7 @@ func NewGatewayPickupControllerOptions() *GatewayPickupControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
 func (g *GatewayPickupControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if g == nil {
 		return
@@ -40,7 +40,7 @@ func (g *GatewayPickupControllerOptions) AddFlags(fs *pflag.FlagSet) {
 
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up nodePool config with options.
 func (g *GatewayPickupControllerOptions) ApplyTo(cfg *config.GatewayPickupControllerConfiguration) error {
 	if g == nil {
 		return nil
