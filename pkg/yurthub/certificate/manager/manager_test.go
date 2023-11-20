@@ -31,6 +31,11 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 )
 
+var (
+	joinToken = "123456.abcdef1234567890"
+	rootDir   = "/tmp/token/cert"
+)
+
 func TestGetHubServerCertFile(t *testing.T) {
 	nodeName := "foo"
 	u, _ := url.Parse("http://127.0.0.1")
@@ -39,10 +44,6 @@ func TestGetHubServerCertFile(t *testing.T) {
 		rootDir string
 		path    string
 	}{
-		"use default root dir": {
-			rootDir: "",
-			path:    filepath.Join("/var/lib", projectinfo.GetHubName(), "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
-		},
 		"define root dir": {
 			rootDir: "/tmp",
 			path:    filepath.Join("/tmp", "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
@@ -51,28 +52,30 @@ func TestGetHubServerCertFile(t *testing.T) {
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
+			client, err := testdata.CreateCertFakeClient("../testdata")
+			if err != nil {
+				t.Errorf("could not create cert fake client, %v", err)
+				return
+			}
 			opt := &options.YurtHubOptions{
-				NodeName:    nodeName,
-				YurtHubHost: "127.0.0.1",
-				RootDir:     tc.rootDir,
+				NodeName:      nodeName,
+				YurtHubHost:   "127.0.0.1",
+				RootDir:       tc.rootDir,
+				JoinToken:     joinToken,
+				ClientForTest: client,
 			}
 
 			mgr, err := NewYurtHubCertManager(opt, remoteServers)
 			if err != nil {
-				t.Errorf("failed to new cert manager, %v", err)
+				t.Errorf("could not new cert manager, %v", err)
 			}
 
-			if mgr.GetHubServerCertFile() != tc.path {
+			if mgr != nil && mgr.GetHubServerCertFile() != tc.path {
 				t.Errorf("expect hub server cert file %s, but got %s", tc.path, mgr.GetHubServerCertFile())
 			}
 		})
 	}
 }
-
-var (
-	joinToken = "123456.abcdef1234567890"
-	rootDir   = "/tmp/token/cert"
-)
 
 func TestReady(t *testing.T) {
 	nodeName := "foo"
@@ -81,7 +84,7 @@ func TestReady(t *testing.T) {
 
 	client, err := testdata.CreateCertFakeClient("../testdata")
 	if err != nil {
-		t.Errorf("failed to create cert fake client, %v", err)
+		t.Errorf("could not create cert fake client, %v", err)
 		return
 	}
 
@@ -94,7 +97,7 @@ func TestReady(t *testing.T) {
 		ClientForTest:            client,
 	}, remoteServers)
 	if err != nil {
-		t.Errorf("failed to new yurt cert manager, %v", err)
+		t.Errorf("could not new yurt cert manager, %v", err)
 		return
 	}
 	mgr.Start()
@@ -125,7 +128,7 @@ func TestReady(t *testing.T) {
 		ClientForTest:            client,
 	}, remoteServers)
 	if err != nil {
-		t.Errorf("failed to new another yurt cert manager, %v", err)
+		t.Errorf("could not new another yurt cert manager, %v", err)
 		return
 	}
 	newMgr.Start()
@@ -141,4 +144,47 @@ func TestReady(t *testing.T) {
 	newMgr.Stop()
 
 	os.RemoveAll(rootDir)
+}
+
+func Test_removeDirContents(t *testing.T) {
+	dir, err := os.MkdirTemp("", "yurthub-test-removeDirContents")
+	if err != nil {
+		t.Fatalf("Unable to create the test directory %q: %v", dir, err)
+	}
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Errorf("Unable to clean up test directory %q: %v", dir, err)
+		}
+	}()
+
+	tempFile := dir + "/tmp.txt"
+	if err = os.WriteFile(tempFile, nil, 0600); err != nil {
+		t.Fatalf("Unable to create the test file %q: %v", tempFile, err)
+	}
+
+	type args struct {
+		dir string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		file    string
+		wantErr bool
+	}{
+		{"no input dir", args{}, "", true},
+		{"input dir exist", args{dir}, tempFile, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err = removeDirContents(tt.args.dir); (err != nil) != tt.wantErr {
+				t.Errorf("removeDirContents() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.file != "" {
+				if _, err = os.Stat(tt.file); err == nil || !os.IsNotExist(err) {
+					t.Errorf("after remote dir content, no file should exist. file:%s", tt.file)
+				}
+			}
+		})
+	}
 }

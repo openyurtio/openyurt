@@ -20,24 +20,21 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	ipUtils "github.com/openyurtio/openyurt/pkg/util/ip"
+	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	hubCert "github.com/openyurtio/openyurt/pkg/yurthub/certificate"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/kubeletcertificate"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/ca"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/client"
 	hubServerCert "github.com/openyurtio/openyurt/pkg/yurthub/certificate/server"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
-)
-
-const (
-	KubeConfFile   = "/etc/kubernetes/kubelet.conf"
-	KubeletCAFile  = "/etc/kubernetes/pki/ca.crt"
-	KubeletPemFile = "/var/lib/kubelet/pki/kubelet-client-current.pem"
 )
 
 var (
@@ -49,14 +46,13 @@ var (
 )
 
 type yurtHubCertManager struct {
+	hubCert.YurtCACertificateManager
 	hubCert.YurtClientCertificateManager
 	hubCert.YurtServerCertificateManager
 }
 
 // NewYurtHubCertManager new a YurtCertificateManager instance
 func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url.URL) (hubCert.YurtCertificateManager, error) {
-	var clientCertManager hubCert.YurtClientCertificateManager
-	var err error
 	var workDir string
 
 	if len(options.RootDir) == 0 {
@@ -65,26 +61,14 @@ func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url
 		workDir = options.RootDir
 	}
 
-	if options.BootstrapMode == "kubeletcertificate" {
-		clientCertManager, err = kubeletcertificate.NewKubeletCertManager(KubeConfFile, KubeletCAFile, KubeletPemFile)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		cfg := &token.ClientCertificateManagerConfiguration{
-			WorkDir:                  workDir,
-			NodeName:                 options.NodeName,
-			JoinToken:                options.JoinToken,
-			BootstrapFile:            options.BootstrapFile,
-			CaCertHashes:             options.CACertHashes,
-			YurtHubCertOrganizations: options.YurtHubCertOrganizations,
-			RemoteServers:            remoteServers,
-			Client:                   options.ClientForTest,
-		}
-		clientCertManager, err = token.NewYurtHubClientCertManager(cfg)
-		if err != nil {
-			return nil, err
-		}
+	caManager, err := ca.NewCAManager(options.ClientForTest, options.BootstrapMode, workDir, options.BootstrapFile, options.JoinToken, remoteServers, options.CACertHashes)
+	if err != nil {
+		return nil, err
+	}
+
+	clientCertManager, err := client.NewYurtClientCertificateManager(options, remoteServers, caManager, workDir)
+	if err != nil {
+		return nil, err
 	}
 
 	// use dummy ip and bind ip as cert IP SANs
@@ -99,10 +83,13 @@ func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url
 	}
 
 	hubCertManager := &yurtHubCertManager{
+		YurtCACertificateManager:     caManager,
 		YurtClientCertificateManager: clientCertManager,
 		YurtServerCertificateManager: serverCertManager,
 	}
 
+	// verify that need to clean up stale certificates or not based on server addresses.
+	hubCertManager.verifyServerAddrOrCleanup(remoteServers, workDir)
 	return hubCertManager, nil
 }
 
@@ -122,7 +109,7 @@ func (hcm *yurtHubCertManager) Ready() bool {
 		errs = append(errs, apiServerClientCertNotReadyError)
 	}
 
-	if len(hcm.YurtClientCertificateManager.GetCAData()) == 0 {
+	if len(hcm.YurtCACertificateManager.GetCAData()) == 0 {
 		errs = append(errs, caCertIsNotReadyError)
 	}
 
@@ -135,4 +122,37 @@ func (hcm *yurtHubCertManager) Ready() bool {
 		return false
 	}
 	return true
+}
+
+func removeDirContents(dir string) error {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, d := range files {
+		err = os.RemoveAll(filepath.Join(dir, d.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (hcm *yurtHubCertManager) verifyServerAddrOrCleanup(servers []*url.URL, workDir string) {
+	if cfg, err := clientcmd.LoadFromFile(hcm.GetHubConfFile()); err == nil {
+		cluster := kubeconfigutil.GetClusterFromKubeConfig(cfg)
+		if serverURL, err := url.Parse(cluster.Server); err != nil {
+			klog.Errorf("couldn't get server info from %s, %v", hcm.GetHubConfFile(), err)
+		} else {
+			for i := range servers {
+				if servers[i].Host == serverURL.Host {
+					klog.Infof("no change in apiServer address: %s", cluster.Server)
+					return
+				}
+			}
+		}
+
+		klog.Infof("config for apiServer %s found, need to recycle for new server %v", cluster.Server, servers)
+		removeDirContents(workDir)
+	}
 }

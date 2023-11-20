@@ -31,8 +31,8 @@ func TestGetHubServerCertFile(t *testing.T) {
 		path    string
 	}{
 		"use default root dir": {
-			rootDir: filepath.Join("/var/lib", projectinfo.GetHubName(), "pki"),
-			path:    filepath.Join("/var/lib", projectinfo.GetHubName(), "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
+			rootDir: filepath.Join("/tmp/lib", projectinfo.GetHubName(), "pki"),
+			path:    filepath.Join("/tmp/lib", projectinfo.GetHubName(), "pki", fmt.Sprintf("%s-server-current.pem", projectinfo.GetHubName())),
 		},
 		"define root dir": {
 			rootDir: "/tmp/pki",
@@ -44,7 +44,7 @@ func TestGetHubServerCertFile(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			mgr, err := NewHubServerCertificateManager(nil, nil, nodeName, tc.rootDir, nil)
 			if err != nil {
-				t.Errorf("failed to new cert manager, %v", err)
+				t.Errorf("could not new cert manager, %v", err)
 			}
 
 			if mgr.GetHubServerCertFile() != tc.path {

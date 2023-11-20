@@ -45,7 +45,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/client/token"
 	yurtcoorrdinatorCert "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )

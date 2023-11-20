@@ -73,6 +73,10 @@ SaupXSW6XfvIi/UHoIbU3pNcsnUJGnQfQvip95XKk/gqcUr+m50vxgumxtA=
 	tokenSecret = "abcdef1234567890"
 )
 
+func GetCAData() []byte {
+	return []byte(caCert)
+}
+
 func CreateCertFakeClient(CaDir string) (clientset.Interface, error) {
 	// Create a fake client
 	client := fakeclient.NewSimpleClientset()

@@ -33,10 +33,17 @@ const (
 
 // YurtCertificateManager is responsible for managing node certificate for yurthub
 type YurtCertificateManager interface {
+	YurtCACertificateManager
 	YurtClientCertificateManager
 	YurtServerCertificateManager
 	// Ready should be called after yurt certificate manager started by Start.
 	Ready() bool
+}
+
+// YurtCACertificateManager is responsible for managing CA certificate that same as cluster CA certificate
+type YurtCACertificateManager interface {
+	GetCAData() []byte
+	GetCaFile() string
 }
 
 // YurtClientCertificateManager is responsible for managing node client certificates for yurthub
@@ -45,8 +52,6 @@ type YurtClientCertificateManager interface {
 	Stop()
 	UpdateBootstrapConf(joinToken string) error
 	GetHubConfFile() string
-	GetCAData() []byte
-	GetCaFile() string
 	GetAPIServerClientCert() *tls.Certificate
 }
 

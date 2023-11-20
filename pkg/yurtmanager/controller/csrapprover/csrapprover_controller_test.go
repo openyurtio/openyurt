@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/client/token"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 

@@ -29,28 +29,21 @@ func TestNewKubeletCertManager(t *testing.T) {
 			kubeConfFile: "invalid file",
 			err:          KubeConfNotExistErr,
 		},
-		"ca.crt file doesn't exist": {
-			kubeConfFile:  "../testdata/kubelet.conf",
-			kubeletCAFile: "invalid file",
-			err:           KubeletCANotExistErr,
-		},
 		"kubelet.pem doesn't exist": {
-			kubeConfFile:   "../testdata/kubelet.conf",
-			kubeletCAFile:  "../testdata/ca.crt",
+			kubeConfFile:   "../../testdata/kubelet.conf",
 			kubeletPemFile: "invalid file",
 			err:            KubeletPemNotExistErr,
 		},
 		"normal kubelet cert manager": {
-			kubeConfFile:   "../testdata/kubelet.conf",
-			kubeletCAFile:  "../testdata/ca.crt",
-			kubeletPemFile: "../testdata/kubelet.pem",
+			kubeConfFile:   "../../testdata/kubelet.conf",
+			kubeletPemFile: "../../testdata/kubelet.pem",
 			err:            nil,
 		},
 	}
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			_, err := NewKubeletCertManager(tc.kubeConfFile, tc.kubeletCAFile, tc.kubeletPemFile)
+			_, err := NewKubeletCertManager(tc.kubeConfFile, tc.kubeletPemFile)
 			if err != tc.err {
 				t.Errorf("expect error is %v, but got %v", tc.err, err)
 			}
