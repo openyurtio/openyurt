@@ -185,3 +185,10 @@ func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
 	certPool.AppendCertsFromPEM(caData)
 	return certPool, nil
 }
+
+// GenCertPoolUseCAData generates a x509 CertPool based on the given CA data
+func GenCertPoolUseCAData(caData []byte) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(caData)
+	return certPool, nil
+}

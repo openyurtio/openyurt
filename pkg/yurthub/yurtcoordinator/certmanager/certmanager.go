@@ -98,6 +98,7 @@ type CertManager struct {
 	coordinatorCert    *tls.Certificate
 	nodeLeaseProxyCert *tls.Certificate
 	store              fs.FileSystemOperator
+	caData             []byte
 
 	// Used for unit test.
 	secret *corev1.Secret
@@ -113,6 +114,10 @@ func (c *CertManager) GetNodeLeaseProxyClientCert() *tls.Certificate {
 	c.Lock()
 	defer c.Unlock()
 	return c.nodeLeaseProxyCert
+}
+
+func (c *CertManager) GetCAData() []byte {
+	return c.caData
 }
 
 func (c *CertManager) GetCaFile() string {
@@ -162,6 +167,7 @@ func (c *CertManager) updateCerts(secret *corev1.Secret) {
 		if err := c.createOrUpdateFile(c.GetFilePath(RootCA), ca); err != nil {
 			klog.Errorf("could not update ca, %v", err)
 		}
+		c.caData = ca
 	}
 
 	if cook {
