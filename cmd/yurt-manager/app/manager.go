@@ -138,7 +138,7 @@ current state towards the desired state.`,
 	return cmd
 }
 
-// PrintFlags logs the flags in the flagset
+// PrintFlags logs the flags in the flagSet
 func PrintFlags(flags *pflag.FlagSet) {
 	flags.VisitAll(func(flag *pflag.Flag) {
 		klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)

@@ -32,7 +32,7 @@ func NewYurtAppSetControllerOptions() *YurtAppSetControllerOptions {
 	}
 }
 
-// AddFlags adds flags related to nodepool for yurt-manager to the specified FlagSet.
+// AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
 func (n *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if n == nil {
 		return
@@ -41,7 +41,7 @@ func (n *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
 }
 
-// ApplyTo fills up nodepool config with options.
+// ApplyTo fills up nodePool config with options.
 func (o *YurtAppSetControllerOptions) ApplyTo(cfg *config.YurtAppSetControllerConfiguration) error {
 	if o == nil {
 		return nil
