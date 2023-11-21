@@ -80,6 +80,7 @@ type yurtHubClientCertManager struct {
 	joinToken                  string
 	bootstrapFile              string
 	dialer                     *util.Dialer
+	caData                     []byte
 }
 
 // NewYurtHubClientCertManager new a YurtCertificateManager instance
@@ -203,11 +204,17 @@ func (ycm *yurtHubClientCertManager) prepareConfigAndCaFile() error {
 				if err := certutil.WriteCert(ycm.GetCaFile(), cluster.CertificateAuthorityData); err != nil {
 					return errors.Wrap(err, "couldn't save the CA certificate to disk")
 				}
+				ycm.caData = cluster.CertificateAuthorityData
 			} else {
 				return errors.Errorf("couldn't prepare ca.crt(%s) file", ycm.GetCaFile())
 			}
 		} else {
 			klog.V(2).Infof("%s file already exists, so reuse it", ycm.GetCaFile())
+			caData, err := os.ReadFile(ycm.GetCaFile())
+			if err != nil {
+				return err
+			}
+			ycm.caData = caData
 		}
 		return nil
 	}
@@ -250,11 +257,17 @@ func (ycm *yurtHubClientCertManager) prepareConfigAndCaFile() error {
 			if err := certutil.WriteCert(ycm.GetCaFile(), cluster.CertificateAuthorityData); err != nil {
 				return errors.Wrap(err, "couldn't save the CA certificate to disk")
 			}
+			ycm.caData = cluster.CertificateAuthorityData
 		} else {
 			return errors.Errorf("couldn't prepare ca.crt(%s) file", ycm.GetCaFile())
 		}
 	} else {
 		klog.V(2).Infof("%s file already exists, so reuse it", ycm.GetCaFile())
+		caData, err := os.ReadFile(ycm.GetCaFile())
+		if err != nil {
+			return err
+		}
+		ycm.caData = caData
 	}
 
 	return nil
@@ -282,6 +295,10 @@ func (ycm *yurtHubClientCertManager) getBootstrapConfFile() string {
 		return ycm.bootstrapFile
 	}
 	return filepath.Join(ycm.hubRunDir, bootstrapConfigFileName)
+}
+
+func (ycm *yurtHubClientCertManager) GetCAData() []byte {
+	return ycm.caData
 }
 
 // GetCaFile returns the path of ca file
