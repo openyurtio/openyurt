@@ -150,16 +150,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // and what is in the Gateway.Spec
 func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 
-	// Note !!!!!!!!!!
-	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
-	// @kadisi
-	klog.V(2).Info(Format("started reconciling Gateway %s/%s", req.Namespace, req.Name))
-	defer func() {
-		klog.V(2).Info(Format("finished reconciling Gateway %s/%s", req.Namespace, req.Name))
-	}()
-
 	var gw ravenv1beta1.Gateway
 	if err := r.Get(ctx, req.NamespacedName, &gw); err != nil {
+		klog.Error(Format("unable get gateway %s, error %s", req.String(), err.Error()))
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -169,14 +162,12 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.List(ctx, &nodeList, &client.ListOptions{
-		LabelSelector: nodeSelector,
-	})
+	err = r.List(ctx, &nodeList, &client.ListOptions{LabelSelector: nodeSelector})
 	if err != nil {
-		err = fmt.Errorf("unable to list nodes: %s", err)
+		klog.Error(Format("unable to list node error %s", err.Error()))
 		return reconcile.Result{}, err
 	}
-	klog.V(1).Info(Format("list gateway %d node %v", len(nodeList.Items), nodeList.Items))
+
 	// 1. try to elect an active endpoint if possible
 	activeEp := r.electActiveEndpoint(nodeList, &gw)
 	r.recordEndpointEvent(&gw, gw.Status.ActiveEndpoints, activeEp)
@@ -187,7 +178,7 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	for _, v := range nodeList.Items {
 		podCIDRs, err := r.getPodCIDRs(ctx, v)
 		if err != nil {
-			klog.ErrorS(err, "unable to get podCIDR")
+			klog.Error(Format("unable to get podCIDR for node %s error %s", v.GetName(), err.Error()))
 			return reconcile.Result{}, err
 		}
 		nodes = append(nodes, ravenv1beta1.NodeInfo{
@@ -197,7 +188,6 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 		})
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].NodeName < nodes[j].NodeName })
-	klog.V(4).Info(Format("managed node info list, nodes: %v", nodes))
 	gw.Status.Nodes = nodes
 	err = r.Status().Update(ctx, &gw)
 	if err != nil {
@@ -205,8 +195,8 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 			klog.Warning(err, Format("unable to update gateway.status, error %s", err.Error()))
 			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
-		return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second},
-			fmt.Errorf("unable to update %s gateway.status, error %s", gw.GetName(), err.Error())
+		klog.Error(Format("unable to update %s gateway.status, error %s", gw.GetName(), err.Error()))
+		return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 	return reconcile.Result{}, nil
 }

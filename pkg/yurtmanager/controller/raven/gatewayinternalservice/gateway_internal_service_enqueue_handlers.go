@@ -39,7 +39,7 @@ func (h *EnqueueRequestForGatewayEvent) Create(e event.CreateEvent, q workqueue.
 	if gw.Spec.ExposeType == "" {
 		return
 	}
-	klog.V(2).Infof(Format("enqueue service %s/%s due to gateway %s create event", util.WorkingNamespace, util.GatewayProxyInternalService, gw.GetName()))
+	klog.V(4).Infof(Format("enqueue service %s/%s due to gateway %s create event", util.WorkingNamespace, util.GatewayProxyInternalService, gw.GetName()))
 	util.AddGatewayProxyInternalService(q)
 }
 
@@ -57,7 +57,7 @@ func (h *EnqueueRequestForGatewayEvent) Update(e event.UpdateEvent, q workqueue.
 	if oldGw.Spec.ExposeType == "" && newGw.Spec.ExposeType == "" {
 		return
 	}
-	klog.V(2).Infof(Format("enqueue service %s/%s due to gateway %s update event", util.WorkingNamespace, util.GatewayProxyInternalService, newGw.GetName()))
+	klog.V(4).Infof(Format("enqueue service %s/%s due to gateway %s update event", util.WorkingNamespace, util.GatewayProxyInternalService, newGw.GetName()))
 	util.AddGatewayProxyInternalService(q)
 }
 
@@ -70,7 +70,7 @@ func (h *EnqueueRequestForGatewayEvent) Delete(e event.DeleteEvent, q workqueue.
 	if gw.Spec.ExposeType == "" {
 		return
 	}
-	klog.V(2).Infof(Format("enqueue service %s/%s due to gateway %s delete event", util.WorkingNamespace, util.GatewayProxyInternalService, gw.GetName()))
+	klog.V(4).Infof(Format("enqueue service %s/%s due to gateway %s delete event", util.WorkingNamespace, util.GatewayProxyInternalService, gw.GetName()))
 	util.AddGatewayProxyInternalService(q)
 }
 
@@ -91,14 +91,14 @@ func (h *EnqueueRequestForConfigEvent) Create(e event.CreateEvent, q workqueue.R
 	}
 	_, _, err := net.SplitHostPort(cm.Data[util.ProxyServerInsecurePortKey])
 	if err == nil {
-		klog.V(2).Infof(Format("enqueue service %s/%s due to config %s/%s create event",
+		klog.V(4).Infof(Format("enqueue service %s/%s due to config %s/%s create event",
 			util.WorkingNamespace, util.GatewayProxyInternalService, util.WorkingNamespace, util.RavenAgentConfig))
 		util.AddGatewayProxyInternalService(q)
 		return
 	}
 	_, _, err = net.SplitHostPort(cm.Data[util.ProxyServerSecurePortKey])
 	if err == nil {
-		klog.V(2).Infof(Format("enqueue service %s/%s due to config %s/%s create event",
+		klog.V(4).Infof(Format("enqueue service %s/%s due to config %s/%s create event",
 			util.WorkingNamespace, util.GatewayProxyInternalService, util.WorkingNamespace, util.RavenAgentConfig))
 		util.AddGatewayProxyInternalService(q)
 		return
@@ -120,7 +120,7 @@ func (h *EnqueueRequestForConfigEvent) Update(e event.UpdateEvent, q workqueue.R
 	_, oldInsecurePort, oldErr := net.SplitHostPort(oldCm.Data[util.ProxyServerInsecurePortKey])
 	if newErr == nil && oldErr == nil {
 		if newInsecurePort != oldInsecurePort {
-			klog.V(2).Infof(Format("enqueue service %s/%s due to config %s/%s update event",
+			klog.V(4).Infof(Format("enqueue service %s/%s due to config %s/%s update event",
 				util.WorkingNamespace, util.GatewayProxyInternalService, util.WorkingNamespace, util.RavenAgentConfig))
 			util.AddGatewayProxyInternalService(q)
 			return
@@ -130,7 +130,7 @@ func (h *EnqueueRequestForConfigEvent) Update(e event.UpdateEvent, q workqueue.R
 	_, oldSecurePort, oldErr := net.SplitHostPort(oldCm.Data[util.ProxyServerSecurePortKey])
 	if newErr == nil && oldErr == nil {
 		if newSecurePort != oldSecurePort {
-			klog.V(2).Infof(Format("enqueue service %s/%s due to config %s/%s update event",
+			klog.V(4).Infof(Format("enqueue service %s/%s due to config %s/%s update event",
 				util.WorkingNamespace, util.GatewayProxyInternalService, util.WorkingNamespace, util.RavenAgentConfig))
 			util.AddGatewayProxyInternalService(q)
 			return
