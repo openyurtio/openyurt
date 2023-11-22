@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/validation"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func getWorkloadPrefix(controllerName, nodepoolName string) string {
@@ -35,7 +35,7 @@ func getWorkloadPrefix(controllerName, nodepoolName string) string {
 
 func CreateNodeSelectorByNodepoolName(nodepool string) map[string]string {
 	return map[string]string{
-		apps.NodePoolLabel: nodepool,
+		projectinfo.GetNodePoolLabel(): nodepool,
 	}
 }
 

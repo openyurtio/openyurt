@@ -34,8 +34,8 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	poolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 )
 
@@ -138,7 +138,7 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 
 	var currentNodeList corev1.NodeList
 	if err := r.List(ctx, &currentNodeList, client.MatchingLabels(map[string]string{
-		apps.NodePoolLabel: nodePool.GetName(),
+		projectinfo.GetNodePoolLabel(): nodePool.GetName(),
 	})); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}

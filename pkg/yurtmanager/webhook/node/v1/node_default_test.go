@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func TestDefault(t *testing.T) {
@@ -56,7 +56,7 @@ func TestDefault(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 					Labels: map[string]string{
-						apps.NodePoolLabel: "hangzhou",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
 					},
 				},
 			},
@@ -68,7 +68,7 @@ func TestDefault(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 					Labels: map[string]string{
-						apps.NodePoolLabel: "shanghai",
+						projectinfo.GetNodePoolLabel(): "shanghai",
 					},
 				},
 			},

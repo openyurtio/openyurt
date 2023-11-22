@@ -34,8 +34,8 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
@@ -137,7 +137,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -145,7 +145,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -153,7 +153,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -282,7 +282,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -290,7 +290,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -298,7 +298,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -434,7 +434,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -442,7 +442,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -450,7 +450,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -586,7 +586,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -594,7 +594,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -602,7 +602,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -750,7 +750,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -758,7 +758,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -885,7 +885,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -893,7 +893,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -901,7 +901,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1011,7 +1011,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1019,7 +1019,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1027,7 +1027,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1134,7 +1134,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1142,7 +1142,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1150,7 +1150,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1283,7 +1283,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1291,7 +1291,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1299,7 +1299,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1415,7 +1415,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1423,7 +1423,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1431,7 +1431,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1553,7 +1553,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1561,7 +1561,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1569,7 +1569,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1691,7 +1691,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1699,7 +1699,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1707,7 +1707,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1839,7 +1839,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1847,7 +1847,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1950,7 +1950,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -1958,7 +1958,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -1966,7 +1966,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2056,7 +2056,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2064,7 +2064,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2072,7 +2072,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2171,7 +2171,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2179,7 +2179,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2187,7 +2187,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2301,7 +2301,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2309,7 +2309,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2317,7 +2317,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2435,7 +2435,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2443,7 +2443,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2451,7 +2451,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2569,7 +2569,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2577,7 +2577,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2585,7 +2585,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2711,7 +2711,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2719,7 +2719,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2824,7 +2824,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2832,7 +2832,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2840,7 +2840,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2932,7 +2932,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -2940,7 +2940,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -2948,7 +2948,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -3040,7 +3040,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -3048,7 +3048,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -3056,7 +3056,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -3140,7 +3140,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: currentNodeName,
 						Labels: map[string]string{
-							apps.NodePoolLabel: "hangzhou",
+							projectinfo.GetNodePoolLabel(): "hangzhou",
 						},
 					},
 				},
@@ -3148,7 +3148,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node2",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},
@@ -3156,7 +3156,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "shanghai",
+							projectinfo.GetNodePoolLabel(): "shanghai",
 						},
 					},
 				},

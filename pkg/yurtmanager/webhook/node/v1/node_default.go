@@ -19,7 +19,6 @@ package v1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 // Default satisfies the defaulting webhook interface.
@@ -38,11 +38,11 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object, req
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", obj))
 	}
 
-	npName := node.Labels[apps.NodePoolLabel]
+	npName := node.Labels[projectinfo.GetNodePoolLabel()]
 	if len(npName) == 0 {
 		npName = node.Labels[apps.DesiredNodePoolLabel]
 		if len(npName) != 0 {
-			node.Labels[apps.NodePoolLabel] = npName
+			node.Labels[projectinfo.GetNodePoolLabel()] = npName
 		} else {
 			return nil
 		}
@@ -57,7 +57,6 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object, req
 	if node.Labels == nil {
 		node.Labels = make(map[string]string)
 	}
-	node.Labels[apps.NodePoolTypeLabel] = strings.ToLower(string(np.Spec.Type))
 
 	if np.Spec.HostNetwork {
 		node.Labels[apps.NodePoolHostNetworkLabel] = "true"

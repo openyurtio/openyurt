@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func CleanupNodePool(ctx context.Context, k8sClient client.Client) error {
@@ -52,8 +52,8 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 		newNode := originNode.DeepCopy()
 		if newNode.Labels != nil {
 			for k := range newNode.Labels {
-				if k == apps.NodePoolLabel {
-					delete(newNode.Labels, apps.NodePoolLabel)
+				if k == projectinfo.GetNodePoolLabel() {
+					delete(newNode.Labels, projectinfo.GetNodePoolLabel())
 					labelDeleted = true
 				}
 			}
@@ -103,7 +103,7 @@ func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNod
 			continue
 		}
 
-		nodeLabels[apps.NodePoolLabel] = nodeToPoolMap[originNode.Name]
+		nodeLabels[projectinfo.GetNodePoolLabel()] = nodeToPoolMap[originNode.Name]
 		newNode.Labels = nodeLabels
 		if err := k8sClient.Patch(ctx, newNode, client.MergeFrom(&originNode)); err != nil {
 			return err

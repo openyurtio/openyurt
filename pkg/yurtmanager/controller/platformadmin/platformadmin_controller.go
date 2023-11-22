@@ -46,10 +46,10 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
@@ -454,7 +454,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			}
 			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 				corev1.NodeSelectorRequirement{
-					Key:      apps.NodePoolLabel,
+					Key:      projectinfo.GetNodePoolLabel(),
 					Operator: corev1.NodeSelectorOpIn,
 					Values:   []string{platformAdmin.Spec.PoolName},
 				})
@@ -572,7 +572,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	}
 	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 		corev1.NodeSelectorRequirement{
-			Key:      apps.NodePoolLabel,
+			Key:      projectinfo.GetNodePoolLabel(),
 			Operator: corev1.NodeSelectorOpIn,
 			Values:   []string{platformAdmin.Spec.PoolName},
 		})
