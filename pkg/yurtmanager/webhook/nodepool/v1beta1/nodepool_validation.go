@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -137,7 +137,7 @@ func validateNodePoolSpecUpdate(spec, oldSpec *appsv1beta1.NodePoolSpec) field.E
 func validateNodePoolDeletion(cli client.Client, np *appsv1beta1.NodePool) field.ErrorList {
 	nodes := corev1.NodeList{}
 
-	if err := cli.List(context.TODO(), &nodes, client.MatchingLabels(map[string]string{apps.NodePoolLabel: np.Name})); err != nil {
+	if err := cli.List(context.TODO(), &nodes, client.MatchingLabels(map[string]string{projectinfo.GetNodePoolLabel(): np.Name})); err != nil {
 		return field.ErrorList([]*field.Error{
 			field.Forbidden(field.NewPath("metadata").Child("name"),
 				"could not get nodes associated to the pool")})

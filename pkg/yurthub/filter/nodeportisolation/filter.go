@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
@@ -130,7 +130,7 @@ func (nif *nodePortIsolationFilter) resolveNodePoolName() string {
 		klog.Warningf("skip isolateNodePortService filter, could not get node(%s), %v", nif.nodeName, err)
 		return nif.nodePoolName
 	}
-	nif.nodePoolName = node.Labels[apps.NodePoolLabel]
+	nif.nodePoolName = node.Labels[projectinfo.GetNodePoolLabel()]
 	return nif.nodePoolName
 }
 

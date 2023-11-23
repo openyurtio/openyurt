@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func TestValidateUpdate(t *testing.T) {
@@ -50,33 +51,14 @@ func TestValidateUpdate(t *testing.T) {
 			oldNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel: "hangzhou",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
 					},
 				},
 			},
 			newNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel: "shanghai",
-					},
-				},
-			},
-			errCode: http.StatusUnprocessableEntity,
-		},
-		"node pool type is changed": {
-			oldNode: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						apps.NodePoolLabel:     "hangzhou",
-						apps.NodePoolTypeLabel: "edge",
-					},
-				},
-			},
-			newNode: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						apps.NodePoolLabel:     "hangzhou",
-						apps.NodePoolTypeLabel: "cloud",
+						projectinfo.GetNodePoolLabel(): "shanghai",
 					},
 				},
 			},
@@ -86,18 +68,16 @@ func TestValidateUpdate(t *testing.T) {
 			oldNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel:            "hangzhou",
-						apps.NodePoolTypeLabel:        "edge",
-						apps.NodePoolHostNetworkLabel: "true",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
+						apps.NodePoolHostNetworkLabel:  "true",
 					},
 				},
 			},
 			newNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel:            "hangzhou",
-						apps.NodePoolTypeLabel:        "edge",
-						apps.NodePoolHostNetworkLabel: "false",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
+						apps.NodePoolHostNetworkLabel:  "false",
 					},
 				},
 			},
@@ -107,18 +87,16 @@ func TestValidateUpdate(t *testing.T) {
 			oldNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel:            "hangzhou",
-						apps.NodePoolTypeLabel:        "edge",
-						apps.NodePoolHostNetworkLabel: "true",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
+						apps.NodePoolHostNetworkLabel:  "true",
 					},
 				},
 			},
 			newNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel:            "hangzhou",
-						apps.NodePoolTypeLabel:        "edge",
-						apps.NodePoolHostNetworkLabel: "true",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
+						apps.NodePoolHostNetworkLabel:  "true",
 					},
 				},
 			},
@@ -129,9 +107,8 @@ func TestValidateUpdate(t *testing.T) {
 			newNode: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						apps.NodePoolLabel:            "hangzhou",
-						apps.NodePoolTypeLabel:        "edge",
-						apps.NodePoolHostNetworkLabel: "true",
+						projectinfo.GetNodePoolLabel(): "hangzhou",
+						apps.NodePoolHostNetworkLabel:  "true",
 					},
 				},
 			},

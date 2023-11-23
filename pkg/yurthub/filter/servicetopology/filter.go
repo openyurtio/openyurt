@@ -33,8 +33,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
@@ -122,7 +122,7 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 		klog.Warningf("could not get node(%s) in serviceTopologyFilter filter, %v", stf.nodeName, err)
 		return stf.nodePoolName
 	}
-	stf.nodePoolName = node.Labels[apps.NodePoolLabel]
+	stf.nodePoolName = node.Labels[projectinfo.GetNodePoolLabel()]
 	return stf.nodePoolName
 }
 

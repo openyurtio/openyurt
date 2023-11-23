@@ -30,6 +30,7 @@ var (
 	buildDate           = "1970-01-01T00:00:00Z"
 	maintainingVersions = "unknown"
 	separator           = ","
+	nodePoolLabelKey    = "apps.openyurt.io/nodepool"
 )
 
 func ShortAgentVersion() string {
@@ -90,19 +91,9 @@ func GetTunnelName() string {
 	return projectPrefix + "tunnel"
 }
 
-// GetYurtControllerManagerName returns name of openyurt controller-manager: yurtcontroller-manager
-func GetYurtControllerManagerName() string {
-	return projectPrefix + "controller-manager"
-}
-
 // GetYurtManagerName returns name of openyurt-manager: yurt-manager
 func GetYurtManagerName() string {
 	return "yurt-manager"
-}
-
-// GetYurtAppManagerName returns name of tunnel: yurtapp-manager
-func GetYurtAppManagerName() string {
-	return projectPrefix + "app-manager"
 }
 
 // GetAutonomyAnnotation returns annotation key for node autonomy
@@ -119,26 +110,33 @@ func normalizeGitCommit(commit string) string {
 	return commit
 }
 
+// GetNodePoolLabel returns label for specifying nodepool
+func GetNodePoolLabel() string {
+	return nodePoolLabelKey
+}
+
 // Info contains version information.
 type Info struct {
-	GitVersion  string   `json:"gitVersion"`
-	GitCommit   string   `json:"gitCommit"`
-	BuildDate   string   `json:"buildDate"`
-	GoVersion   string   `json:"goVersion"`
-	Compiler    string   `json:"compiler"`
-	Platform    string   `json:"platform"`
-	AllVersions []string `json:"allVersions"`
+	GitVersion       string   `json:"gitVersion"`
+	GitCommit        string   `json:"gitCommit"`
+	BuildDate        string   `json:"buildDate"`
+	GoVersion        string   `json:"goVersion"`
+	Compiler         string   `json:"compiler"`
+	Platform         string   `json:"platform"`
+	AllVersions      []string `json:"allVersions"`
+	NodePoolLabelKey string   `json:"nodePoolLabelKey"`
 }
 
 // Get returns the overall codebase version.
 func Get() Info {
 	return Info{
-		GitVersion:  gitVersion,
-		GitCommit:   normalizeGitCommit(gitCommit),
-		BuildDate:   buildDate,
-		GoVersion:   runtime.Version(),
-		Compiler:    runtime.Compiler,
-		Platform:    fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
-		AllVersions: strings.Split(maintainingVersions, separator),
+		GitVersion:       gitVersion,
+		GitCommit:        normalizeGitCommit(gitCommit),
+		BuildDate:        buildDate,
+		GoVersion:        runtime.Version(),
+		Compiler:         runtime.Compiler,
+		Platform:         fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		AllVersions:      strings.Split(maintainingVersions, separator),
+		NodePoolLabelKey: nodePoolLabelKey,
 	}
 }

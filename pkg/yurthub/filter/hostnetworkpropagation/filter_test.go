@@ -31,8 +31,8 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
@@ -200,7 +200,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "pool-foo",
+							projectinfo.GetNodePoolLabel(): "pool-foo",
 						},
 					},
 				},
@@ -242,7 +242,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "pool-foo",
+							projectinfo.GetNodePoolLabel(): "pool-foo",
 						},
 					},
 				},
@@ -286,7 +286,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "pool-foo",
+							projectinfo.GetNodePoolLabel(): "pool-foo",
 						},
 					},
 				},
@@ -329,7 +329,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "unknown-pool",
+							projectinfo.GetNodePoolLabel(): "unknown-pool",
 						},
 					},
 				},
@@ -380,7 +380,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "pool-foo",
+							projectinfo.GetNodePoolLabel(): "pool-foo",
 						},
 					},
 				},
@@ -441,7 +441,7 @@ func TestFilter(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-foo",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "pool-foo",
+							projectinfo.GetNodePoolLabel(): "pool-foo",
 						},
 					},
 				},

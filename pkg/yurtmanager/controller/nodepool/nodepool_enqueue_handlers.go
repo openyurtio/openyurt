@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 type EnqueueNodePoolForNode struct {
@@ -46,7 +47,7 @@ func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
 	}
 	klog.V(5).Infof(Format("will enqueue nodepool as node(%s) has been created",
 		node.GetName()))
-	if np := node.Labels[apps.NodePoolLabel]; len(np) != 0 {
+	if np := node.Labels[projectinfo.GetNodePoolLabel()]; len(np) != 0 {
 		addNodePoolToWorkQueue(np, q)
 		return
 	}
@@ -69,8 +70,8 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 		return
 	}
 
-	newNp := newNode.Labels[apps.NodePoolLabel]
-	oldNp := oldNode.Labels[apps.NodePoolLabel]
+	newNp := newNode.Labels[projectinfo.GetNodePoolLabel()]
+	oldNp := oldNode.Labels[projectinfo.GetNodePoolLabel()]
 
 	// check the NodePoolLabel of node
 	if len(oldNp) == 0 && len(newNp) == 0 {
@@ -117,7 +118,7 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 		return
 	}
 
-	np := node.Labels[apps.NodePoolLabel]
+	np := node.Labels[projectinfo.GetNodePoolLabel()]
 	if len(np) == 0 {
 		klog.V(4).Infof(Format("A orphan node(%s) is removed", node.Name))
 		return

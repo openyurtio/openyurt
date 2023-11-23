@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	poolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 )
 
@@ -42,7 +42,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node1",
 				Labels: map[string]string{
-					apps.NodePoolLabel: "hangzhou",
+					projectinfo.GetNodePoolLabel(): "hangzhou",
 				},
 			},
 			Status: corev1.NodeStatus{
@@ -58,7 +58,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node2",
 				Labels: map[string]string{
-					apps.NodePoolLabel: "hangzhou",
+					projectinfo.GetNodePoolLabel(): "hangzhou",
 				},
 			},
 			Status: corev1.NodeStatus{
@@ -74,7 +74,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node3",
 				Labels: map[string]string{
-					apps.NodePoolLabel: "beijing",
+					projectinfo.GetNodePoolLabel(): "beijing",
 				},
 			},
 		},
@@ -82,7 +82,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node4",
 				Labels: map[string]string{
-					apps.NodePoolLabel: "beijing",
+					projectinfo.GetNodePoolLabel(): "beijing",
 				},
 			},
 			Status: corev1.NodeStatus{
@@ -197,8 +197,8 @@ func TestReconcile(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node3",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "beijing",
-							"region":           "beijing",
+							projectinfo.GetNodePoolLabel(): "beijing",
+							"region":                       "beijing",
 						},
 						Annotations: map[string]string{
 							"nodepool.openyurt.io/previous-attributes": "{\"labels\":{\"region\":\"beijing\"}}",
@@ -209,8 +209,8 @@ func TestReconcile(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node4",
 						Labels: map[string]string{
-							apps.NodePoolLabel: "beijing",
-							"region":           "beijing",
+							projectinfo.GetNodePoolLabel(): "beijing",
+							"region":                       "beijing",
 						},
 						Annotations: map[string]string{
 							"nodepool.openyurt.io/previous-attributes": "{\"labels\":{\"region\":\"beijing\"}}",
@@ -276,7 +276,7 @@ func TestReconcile(t *testing.T) {
 			if len(tc.wantedNodes) != 0 {
 				var currentNodeList corev1.NodeList
 				if err := r.List(ctx, &currentNodeList, client.MatchingLabels(map[string]string{
-					apps.NodePoolLabel: tc.pool,
+					projectinfo.GetNodePoolLabel(): tc.pool,
 				})); err != nil {
 					t.Errorf("Reconcile() error = %v", err)
 					return
