@@ -105,8 +105,8 @@ type coordinator struct {
 	statusInfoChan    chan statusInfo
 	isPoolCacheSynced bool
 	certMgr           *certmanager.CertManager
-	// cloudCAFilePath is the file path of cloud kubernetes cluster CA cert.
-	cloudCAFilePath string
+	// cloudCAFileData is the file data of cloud kubernetes cluster CA cert.
+	cloudCAFileData []byte
 	// cloudHealthChecker is health checker of cloud APIServers. It is used to
 	// pick a healthy cloud APIServer to proxy heartbeats.
 	cloudHealthChecker   healthchecker.MultipleBackendsHealthChecker
@@ -153,7 +153,7 @@ func NewCoordinator(
 
 	coordinator := &coordinator{
 		ctx:                ctx,
-		cloudCAFilePath:    cfg.CertManager.GetCaFile(),
+		cloudCAFileData:    cfg.CertManager.GetCAData(),
 		cloudHealthChecker: cloudHealthChecker,
 		etcdStorageCfg:     etcdStorageCfg,
 		restConfigMgr:      restMgr,
@@ -425,7 +425,7 @@ func (coordinator *coordinator) newNodeLeaseProxyClient() (coordclientset.LeaseI
 	restCfg := &rest.Config{
 		Host: healthyCloudServer.String(),
 		TLSClientConfig: rest.TLSClientConfig{
-			CAFile:   coordinator.cloudCAFilePath,
+			CAData:   coordinator.cloudCAFileData,
 			CertFile: coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientCert),
 			KeyFile:  coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientKey),
 		},

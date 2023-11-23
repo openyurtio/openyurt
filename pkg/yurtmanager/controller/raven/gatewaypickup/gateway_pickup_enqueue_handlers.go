@@ -133,7 +133,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 	}
 
 	if oldCm.Data[util.RavenEnableProxy] != newCm.Data[util.RavenEnableProxy] {
-		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
@@ -141,7 +141,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 	}
 
 	if oldCm.Data[util.RavenEnableTunnel] != newCm.Data[util.RavenEnableTunnel] {
-		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
@@ -155,7 +155,7 @@ func (e *EnqueueGatewayForRavenConfig) Delete(evt event.DeleteEvent, q workqueue
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
-	klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been deleted"))
+	klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been deleted"))
 	if err := e.enqueueGateways(q); err != nil {
 		klog.Error(Format("could not config all gateway, error %s", err.Error()))
 		return

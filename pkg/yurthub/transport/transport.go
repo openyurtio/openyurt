@@ -34,8 +34,8 @@ type CertGetter interface {
 	// GetAPIServerClientCert returns the currently selected certificate, as well as
 	// the associated certificate and key data in PEM format.
 	GetAPIServerClientCert() *tls.Certificate
-	// Return CA file path.
-	GetCaFile() string
+	// GetCAData returns CA file data.
+	GetCAData() []byte
 }
 
 // Interface is an transport interface for managing clients that used to connecting kube-apiserver
@@ -60,13 +60,12 @@ type transportManager struct {
 
 // NewTransportManager create a transport interface object.
 func NewTransportManager(certGetter CertGetter, stopCh <-chan struct{}) (Interface, error) {
-	caFile := certGetter.GetCaFile()
-	if len(caFile) == 0 {
-		return nil, fmt.Errorf("ca cert file was not prepared when new transport")
+	caData := certGetter.GetCAData()
+	if len(caData) == 0 {
+		return nil, fmt.Errorf("ca cert data was not prepared when new transport")
 	}
-	klog.V(2).Infof("use %s ca cert file to access remote server", caFile)
 
-	cfg, err := tlsConfig(certGetter.GetAPIServerClientCert, caFile)
+	cfg, err := tlsConfig(certGetter.GetAPIServerClientCert, caData)
 	if err != nil {
 		klog.Errorf("could not get tls config when new transport, %v", err)
 		return nil, err
@@ -81,7 +80,7 @@ func NewTransportManager(certGetter CertGetter, stopCh <-chan struct{}) (Interfa
 		DialContext:         d.DialContext,
 	})
 
-	bearerTLSCfg, err := tlsConfig(nil, caFile)
+	bearerTLSCfg, err := tlsConfig(nil, caData)
 	if err != nil {
 		klog.Errorf("could not get tls config when new bearer transport, %v", err)
 		return nil, err
@@ -151,9 +150,9 @@ func (tm *transportManager) start() {
 	}, 10*time.Second, tm.stopCh)
 }
 
-func tlsConfig(current func() *tls.Certificate, caFile string) (*tls.Config, error) {
+func tlsConfig(current func() *tls.Certificate, caData []byte) (*tls.Config, error) {
 	// generate the TLS configuration based on the latest certificate
-	rootCert, err := certmanager.GenCertPoolUseCA(caFile)
+	rootCert, err := certmanager.GenCertPoolUseCAData(caData)
 	if err != nil {
 		klog.Errorf("could not generate a x509 CertPool based on the given CA file, %v", err)
 		return nil, err

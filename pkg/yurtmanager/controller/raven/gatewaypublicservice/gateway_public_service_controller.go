@@ -135,9 +135,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // Reconcile reads that state of the cluster for a Gateway object and makes changes based on the state read
 // and what is in the Gateway.Spec
 func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	klog.V(2).Info(Format("started reconciling public service for gateway %s", req.Name))
-	defer klog.V(2).Info(Format("finished reconciling public service for gateway %s", req.Name))
-
 	enableProxy, enableTunnel := util.CheckServer(ctx, r.Client)
 	gw, err := r.getGateway(ctx, req)
 	if err != nil {
@@ -159,6 +156,7 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 
 	if err := r.reconcileEndpoints(ctx, gw.DeepCopy(), svcRecord, enableTunnel, enableProxy); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile endpoint: %s", err))
+		klog.Error(err.Error())
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
 	return reconcile.Result{}, nil
@@ -187,30 +185,22 @@ func recordServiceNames(services []corev1.Service, record *serviceRecord) {
 
 func (r *ReconcileService) reconcileService(ctx context.Context, gw *ravenv1beta1.Gateway, record *serviceRecord, enableTunnel, enableProxy bool) error {
 	if enableProxy {
-		klog.V(2).Info(Format("start manage proxy service for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish manage proxy service for gateway %s", gw.GetName()))
 		if err := r.manageService(ctx, gw, ravenv1beta1.Proxy, record); err != nil {
-			return fmt.Errorf("could not manage service for proxy server %s", err.Error())
+			return fmt.Errorf("could not manage service for proxy, error %s", err.Error())
 		}
 	} else {
-		klog.V(2).Info(Format("start clear proxy service for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish clear proxy service for gateway %s", gw.GetName()))
 		if err := r.clearService(ctx, gw.GetName(), ravenv1beta1.Proxy); err != nil {
-			return fmt.Errorf("could not clear service for proxy server %s", err.Error())
+			return fmt.Errorf("could not clear service for proxy, error %s", err.Error())
 		}
 	}
 
 	if enableTunnel {
-		klog.V(2).Info(Format("start manage tunnel service for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish manage tunnel service for gateway %s", gw.GetName()))
 		if err := r.manageService(ctx, gw, ravenv1beta1.Tunnel, record); err != nil {
-			return fmt.Errorf("could not manage service for tunnel server %s", err.Error())
+			return fmt.Errorf("could not manage service for tunnel, error %s", err.Error())
 		}
 	} else {
-		klog.V(2).Info(Format("start clear tunnel service for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish clear tunnel service for gateway %s", gw.GetName()))
 		if err := r.clearService(ctx, gw.GetName(), ravenv1beta1.Tunnel); err != nil {
-			return fmt.Errorf("could not clear service for tunnel server %s", err.Error())
+			return fmt.Errorf("could not clear service for tunnel, error %s", err.Error())
 		}
 	}
 	return nil
@@ -218,27 +208,19 @@ func (r *ReconcileService) reconcileService(ctx context.Context, gw *ravenv1beta
 
 func (r *ReconcileService) reconcileEndpoints(ctx context.Context, gw *ravenv1beta1.Gateway, record *serviceRecord, enableTunnel, enableProxy bool) error {
 	if enableProxy {
-		klog.V(2).Info(Format("start manage proxy service endpoints for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish manage proxy service endpoints for gateway %s", gw.GetName()))
 		if err := r.manageEndpoints(ctx, gw, ravenv1beta1.Proxy, record); err != nil {
 			return fmt.Errorf("could not manage endpoints for proxy server %s", err.Error())
 		}
 	} else {
-		klog.V(2).Info(Format("start clear proxy service endpoints for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish clear proxy service endpoints for gateway %s", gw.GetName()))
 		if err := r.clearEndpoints(ctx, gw.GetName(), ravenv1beta1.Proxy); err != nil {
 			return fmt.Errorf("could not clear endpoints for proxy server %s", err.Error())
 		}
 	}
 	if enableTunnel {
-		klog.V(2).Info(Format("start manage tunnel service endpoints for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish manage tunnel service endpoints for gateway %s", gw.GetName()))
 		if err := r.manageEndpoints(ctx, gw, ravenv1beta1.Tunnel, record); err != nil {
 			return fmt.Errorf("could not manage endpoints for tunnel server %s", err.Error())
 		}
 	} else {
-		klog.V(2).Info(Format("start clear tunnel service endpoints for gateway %s", gw.GetName()))
-		defer klog.V(2).Info(Format("finish clear tunnel service endpoints for gateway %s", gw.GetName()))
 		if err := r.clearEndpoints(ctx, gw.GetName(), ravenv1beta1.Tunnel); err != nil {
 			return fmt.Errorf("could not clear endpoints for tunnel server %s", err.Error())
 		}

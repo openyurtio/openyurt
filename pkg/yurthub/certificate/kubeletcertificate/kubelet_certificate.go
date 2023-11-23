@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -40,6 +41,7 @@ type kubeletCertManager struct {
 	kubeletCAFile  string
 	kubeletPemFile string
 	cert           *tls.Certificate
+	caData         []byte
 }
 
 func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (certificate.YurtClientCertificateManager, error) {
@@ -49,6 +51,10 @@ func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (
 
 	if exist, _ := util.FileExists(kubeletCAFile); !exist {
 		return nil, KubeletCANotExistErr
+	}
+	caData, err := os.ReadFile(kubeletCAFile)
+	if err != nil {
+		return nil, err
 	}
 
 	if exist, _ := util.FileExists(kubeletPemFile); !exist {
@@ -65,6 +71,7 @@ func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (
 		kubeletCAFile:  kubeletCAFile,
 		kubeletPemFile: kubeletPemFile,
 		cert:           cert,
+		caData:         caData,
 	}, nil
 }
 
@@ -82,6 +89,10 @@ func (kcm *kubeletCertManager) UpdateBootstrapConf(_ string) error {
 
 func (kcm *kubeletCertManager) GetHubConfFile() string {
 	return kcm.kubeConfFile
+}
+
+func (kcm *kubeletCertManager) GetCAData() []byte {
+	return kcm.caData
 }
 
 func (kcm *kubeletCertManager) GetCaFile() string {
