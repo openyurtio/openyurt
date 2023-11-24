@@ -115,6 +115,8 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 				continue
 			}
 			return err
+		} else {
+			klog.Infof("controller %s is added", controllerName)
 		}
 	}
 
