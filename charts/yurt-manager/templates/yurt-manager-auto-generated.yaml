@@ -278,21 +278,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - configmaps/status
-  - services/status
   verbs:
   - get
   - patch
@@ -361,6 +347,14 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - crd.projectcalico.org
   resources:
