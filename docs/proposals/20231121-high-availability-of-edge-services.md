@@ -13,9 +13,11 @@
     - [Goals](#goals)
     - [Non-Goals/Future Work](#non-goalsfuture-work)
   - [Proposal](#proposal)
+    - [Architecture](#architecture)
     - [Implementation Details](#implementation-details)
-	  - [YurtLB Controller](#yurtlb-controller)
-	  - [Speaker Agent](#speaker-agent)
+      - [YurtLB Controller](#yurtlb-controller)
+      - [Speaker Agent](#speaker-agent)
+      - [Supplement](#supplement)
     - [User Stories](#user-stories)
       - [Story 1](#story-1)
       - [Story 2](#story-2)
@@ -23,7 +25,7 @@
 
 ## Summary
 
-In the context of cloud-edge collaboration, Openyurt employs nodepools to uniformly manage and maintain hosts under different edge regions. This setup enables users to access applications on edge nodes via NodePort. However, this architecture is susceptible to single-point failures —— when an edge application service becomes unavailable, the entire service is compromised. To address this concern, it is crucial to implement load balancing (LB) services. 
+In the context of cloud-edge collaboration, Openyurt employs nodepools to uniformly manage and maintain hosts under different edge regions. This setup enables users to access applications on edge nodes via NodePort. However, this architecture is susceptible to single-point failures —— when an edge application service becomes unavailable, the entire service is compromised. To address this concern, it is crucial to implement load balancing (LB) services.
 
 With the IngressIP of the LB service, external clients can still access edge applications even when some are unavailable. In this scenario, if an edge application fails, the LB service can automatically reroute traffic to other operational edge applications to ensure service availability. This decentralization enhances system resiliency and fault tolerance. Even if a Node fails, the LB service can continue providing access to edge applications in other operational Nodes, ensuring the stability and reliability of the entire system.
 
@@ -61,7 +63,7 @@ The YurtLB Controller monitors changes in the service and the nodepool, implemen
 
 YurtLB controller can be described as:
 
-##### Reconcile:
+##### Reconcile
 
 1. YurtLB Controller will list/monitor NodePool CRs. User-specified VIP information will be uniformly added to the properties of the NodePool, irrespective of how (and if) the IP is advertised.
 
@@ -99,9 +101,10 @@ metadata:
   name: nginx
   namespace: default
 spec:
-  externalIPs:
-  - 172.18.0.20
-  - 172.18.0.30
+  type: LoadBalancer
+  loadBalancerClass: apps.openyurt.io/YurtLB
+...
+
 status:
   loadBalancer:
       ingress:
@@ -112,7 +115,9 @@ status:
 ```
 
 - The Speaker agent in the edge node can list/watch VIP changes to facilitate subsequent VIP binding and traffic forwarding.
-- Note that VIPs can be specified directly through annotation, e.g., `apps.openyurt.io/loadBalancerIP-{Nodepool Name}: 192.168.10.234`. This method bypasses the load balancer's VIP assignment logic, and the specified VIP can be outside the node pool's VIP range. However, VIPs specified in this manner will eventually be synchronized to the VIP range of the node pool.
+- Note:
+  - VIPs can be specified directly through annotation, e.g., `apps.openyurt.io/loadBalancerIP-{Nodepool Name}: 192.168.10.234`. This method bypasses the load balancer's VIP assignment logic, and the specified VIP can be outside the node pool's VIP range. However, VIPs specified in this manner will eventually be synchronized to the VIP range of the node pool.
+  - When creating a service of type "LoadBalancer", you need to specify "apps.openyurt.io/YurtLB" in the loadBalancerClass field. Only services explicitly using YurtLB in the loadBalancerClass field will be managed by the YurtLB Controller and Speaker Agent.
 
 #### Speaker Agent
 
@@ -139,17 +144,17 @@ Given this information, the virtual_ipaddress field of Keepalived on different n
 ```
 worker:
     virtual_ipaddress {
-        172.18.0.20          
+        172.18.0.20
     }
 
 worker2:
 	    virtual_ipaddress {
-        172.18.0.20          
+        172.18.0.20
     }
 
 worker3:
     virtual_ipaddress {
-        172.18.0.30          
+        172.18.0.30
     }
 ```
 
@@ -197,6 +202,12 @@ You will get the following result:
 ```
 
 Since the shanghai nodepool only has worker3, 172.18.0.30 is bound to worker3.
+
+#### Supplement
+
+- The Speaker Agent needs to modify the kernel parameters of the node to set the value of net.ipv4.vs.conntrack parameter to 1.
+- Instead of running keepalived directly as a binary on each node, we use a keepalived container. The osixia/keepalived image is executed as a pod within each node.
+- While we allow users to modify the keepalived configuration without enforcing synchronization to avoid disrupting custom configurations, it's important to note that during the initial phase, users are unable to change the VIP by modifying the keepalived configuration.
 
 ### User Stories
 
