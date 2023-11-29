@@ -329,19 +329,6 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 		},
 	}
 	c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.Funcs{}, podsPredicate)
-	//if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &v1.Pod{}, nodeNameKeyIndex, func(rawObj client.Object) []string {
-	//	pod, ok := rawObj.(*v1.Pod)
-	//	if !ok {
-	//		return []string{}
-	//	}
-	//	if len(pod.Spec.NodeName) == 0 {
-	//		return []string{}
-	//	}
-	//	return []string{pod.Spec.NodeName}
-	//}); err != nil {
-	//	klog.Errorf("could not register spec.NodeName field indexers for nodelifecycle controller, %v", err)
-	//	return err
-	//}
 
 	nc.taintManager = scheduler.NewNoExecuteTaintManager(nc.recorder, nc.controllerRuntimeClient, nc.getPodsAssignedToNode)
 	nodesTaintManagerPredicate := predicate.Funcs{
