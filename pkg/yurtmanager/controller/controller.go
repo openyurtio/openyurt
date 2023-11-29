@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/controller-manager/app"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
@@ -118,6 +120,20 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 		} else {
 			klog.Infof("controller %s is added", controllerName)
 		}
+	}
+
+	if err := m.GetFieldIndexer().IndexField(context.TODO(), &v1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
+		pod, ok := rawObj.(*v1.Pod)
+		if !ok {
+			return []string{}
+		}
+		if len(pod.Spec.NodeName) == 0 {
+			return []string{}
+		}
+		return []string{pod.Spec.NodeName}
+	}); err != nil {
+		klog.Errorf("could not register spec.NodeName field indexers %v", err)
+		return err
 	}
 
 	return nil
