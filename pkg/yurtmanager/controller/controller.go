@@ -122,18 +122,22 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 		}
 	}
 
-	if err := m.GetFieldIndexer().IndexField(context.TODO(), &v1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
-		pod, ok := rawObj.(*v1.Pod)
-		if !ok {
-			return []string{}
+	if app.IsControllerEnabled(names.NodeLifeCycleController, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) ||
+		app.IsControllerEnabled(names.PodBindingController, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) {
+		// Register spec.NodeName field indexers
+		if err := m.GetFieldIndexer().IndexField(context.TODO(), &v1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
+			pod, ok := rawObj.(*v1.Pod)
+			if !ok {
+				return []string{}
+			}
+			if len(pod.Spec.NodeName) == 0 {
+				return []string{}
+			}
+			return []string{pod.Spec.NodeName}
+		}); err != nil {
+			klog.Errorf("could not register spec.NodeName field indexers %v", err)
+			return err
 		}
-		if len(pod.Spec.NodeName) == 0 {
-			return []string{}
-		}
-		return []string{pod.Spec.NodeName}
-	}); err != nil {
-		klog.Errorf("could not register spec.NodeName field indexers %v", err)
-		return err
 	}
 
 	return nil
