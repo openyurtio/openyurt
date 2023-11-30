@@ -279,6 +279,9 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	for i := range opt.ignorePreflightErrors {
 		ignoreErrors.Insert(opt.ignorePreflightErrors[i])
 	}
+	if !ignoreErrors.Has("all") {
+		ignoreErrors.Insert(yurtconstants.KubeletConfFileAvailableError, yurtconstants.ManifestsDirAvailableError)
+	}
 
 	// Either use specified nodename or get hostname from OS envs
 	name, err := edgenode.GetHostname(opt.nodeName)
