@@ -90,7 +90,7 @@ func runConfigPrintActionDefaults(out io.Writer, configBytesProc func() (string,
 
 func getDefaultNodeConfigBytes() (string, error) {
 	KubeadmJoinDiscoveryFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinDiscoveryFileName)
-	ignoreErrors := sets.String{}
+	ignoreErrors := sets.NewString(constants.KubeletConfFileAvailableError, constants.ManifestsDirAvailableError)
 	name, err := edgenode.GetHostname("")
 	if err != nil {
 		return "", err
