@@ -117,6 +117,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		}
 	}
 
+	klog.Infof("list YurtAppOverrider, total: %d", len(overriders))
 	if len(overriders) == 0 {
 		return nil
 	}
