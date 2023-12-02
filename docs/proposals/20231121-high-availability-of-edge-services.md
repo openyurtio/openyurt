@@ -25,27 +25,27 @@
 
 ## Summary
 
-In the context of cloud-edge collaboration, Openyurt employs nodepools to uniformly manage and maintain hosts under different edge regions. This setup enables users to access applications on edge nodes via NodePort. However, this architecture is susceptible to single-point failures —— when an edge application service becomes unavailable, the entire service is compromised. To address this concern, it is crucial to implement load balancing (LB) services.
+In the context of cloud-edge collaboration, Openyurt employs nodepools to uniformly manage and maintain hosts under different edge regions. This setup enables users to access applications on edge nodes via NodePort. However, this architecture is susceptible to single-point failures —— when an edge application service becomes unavailable, the entire service is compromised. To address this concern, it is crucial to implement load balance (LB) services.
 
 With the IngressIP of the LB service, external clients can still access edge applications even when some are unavailable. In this scenario, if an edge application fails, the LB service can automatically reroute traffic to other operational edge applications to ensure service availability. This decentralization enhances system resiliency and fault tolerance. Even if a Node fails, the LB service can continue providing access to edge applications in other operational Nodes, ensuring the stability and reliability of the entire system.
 
 ## Motivation
 
-In cloud environments, Kubernetes (k8s) leverages Service VIP (Virtual IP) technology, coupled with the support of kube-proxy, to achieve service-level load balancing. This provides users with reliable and efficient access to applications deployed in the cluster. In edge scenarios, OpenYurt extends Kubernetes' capabilities to edge nodes through the concept of node pooling, enabling each nodepool to run a set of edge applications.
+In cloud environments, Kubernetes (k8s) leverages Service VIP (Virtual IP) technology, coupled with the support of kube-proxy, to achieve service-level load balance. This provides users with reliable and efficient access to applications deployed in the cluster. In edge scenarios, OpenYurt extends Kubernetes' capabilities to edge nodes through the concept of node pooling, enabling each nodepool to run a set of edge applications.
 
-However, due to the unique characteristics of edge environments, edge nodes may encounter issues such as unstable networks, limited resources, and dynamic changes. Thus, ensuring high availability of services at edge nodes becomes particularly crucial. As such, it's necessary to implement effective load balancing measures at the edge to guarantee continuous availability of edge node services.
+However, due to the unique characteristics of edge environments, edge nodes may encounter issues such as unstable networks, limited resources, and dynamic changes. In addition, yurt-hub provides capabilities such as node autonomy as well as traffic closure. Service access across node pool levels is currently not supported for services between edge node pools. As such, it's necessary to implement effective load balancing measures at the edge to guarantee continuous availability of edge node services.
 
 ### Goals
 
 - Design edge load balance controllers to monitor and distribute VIPs.
-- Enable VIP management from the perspective of the nodepool.
+- Enable VIP management from the level of the nodepool.
 - Design and implement VIP generation and service high availability based on Keepalived.
-- Design a customized traffic forwarding policy based on the ipvs module.
+- Design round rotation based ipvs module for traffic forwarding strategy.
 
 ### Non-Goals/Future Work
 
 - While efficient load balancing is provided, users need to carefully plan the VIP for each nodepool. Especially in a LAN, if there are two nodepools, and both are bound to the same VIP, this could cause conflicts and errors. These issues arise from erroneous VIP planning, for which the LB is not responsible.
-- Provide more traffic forwarding policies.
+- Provide more traffic forwarding policies, such as least connection, random, hash and so on.
 
 ## Proposal
 
@@ -89,9 +89,9 @@ spec:
     - 172.20.0.100-172.20.0.200
 ```
 
-2. When a load balanced service is created, an event triggers the load balance controller to assign a VIP to the service from a pre-defined range for the nodepool.
+2. When a load balanced service is created, an event triggers the YurtLB controller to assign a VIP to the service from a pre-defined range for the nodepool.
 
-- The Load Balancing Controller selects the appropriate VIP for the load-balanced service using customized assignment policies (round robin, random, etc.). It's important that the VIP chosen from the nodepool's VIP set isn't selected repeatedly. In cases of repeated allocation, the load balancing controller will retain only the first successful allocation.
+- YurtLB Controller selects the appropriate VIP for the load-balanced service using customized assignment policies (round robin, random, etc.). It's important that the VIP chosen from the nodepool's VIP set isn't selected repeatedly. In cases of repeated allocation, YurtLB controller will retain only the first successful allocation.
 - YurtLB Controller will deliver the selected VIP information to the nodes where the load balancer service is located, including the nodes where the pods reside.
 
 ```yaml
@@ -118,6 +118,7 @@ status:
 - Note:
   - VIPs can be specified directly through annotation, e.g., `apps.openyurt.io/loadBalancerIP-{Nodepool Name}: 192.168.10.234`. This method bypasses the load balancer's VIP assignment logic, and the specified VIP can be outside the node pool's VIP range. However, VIPs specified in this manner will eventually be synchronized to the VIP range of the node pool.
   - When creating a service of type "LoadBalancer", you need to specify "apps.openyurt.io/YurtLB" in the loadBalancerClass field. Only services explicitly using YurtLB in the loadBalancerClass field will be managed by the YurtLB Controller and Speaker Agent.
+  - For the case where a node is unavailable but the nodepool is available, the YurtLB controller triggers the remaining nodes on the specified nodepool and lets the Speaker agent on those nodes take care of the binding of the remaining nodes to the VIP, but for the rest of the cases, the YurtLB controller will not perform any action.
 
 #### Speaker Agent
 
