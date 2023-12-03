@@ -105,8 +105,8 @@ type coordinator struct {
 	statusInfoChan    chan statusInfo
 	isPoolCacheSynced bool
 	certMgr           *certmanager.CertManager
-	// cloudCAFilePath is the file path of cloud kubernetes cluster CA cert.
-	cloudCAFilePath string
+	// cloudCAFileData is the file data of cloud kubernetes cluster CA cert.
+	cloudCAFileData []byte
 	// cloudHealthChecker is health checker of cloud APIServers. It is used to
 	// pick a healthy cloud APIServer to proxy heartbeats.
 	cloudHealthChecker   healthchecker.MultipleBackendsHealthChecker
@@ -148,12 +148,12 @@ func NewCoordinator(
 	}
 	coordinatorClient, err := kubernetes.NewForConfig(coordinatorRESTCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client for yurt coordinator, %v", err)
+		return nil, fmt.Errorf("could not create client for yurt coordinator, %v", err)
 	}
 
 	coordinator := &coordinator{
 		ctx:                ctx,
-		cloudCAFilePath:    cfg.CertManager.GetCaFile(),
+		cloudCAFileData:    cfg.CertManager.GetCAData(),
 		cloudHealthChecker: cloudHealthChecker,
 		etcdStorageCfg:     etcdStorageCfg,
 		restConfigMgr:      restMgr,
@@ -188,7 +188,7 @@ func NewCoordinator(
 
 	proxiedClient, err := buildProxiedClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), constants.DefaultPoolScopedUserAgent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create proxied client, %v", err)
+		return nil, fmt.Errorf("could not create proxied client, %v", err)
 	}
 
 	// init pool scope resources
@@ -196,7 +196,7 @@ func NewCoordinator(
 
 	dynamicClient, err := buildDynamicClientWithUserAgent(fmt.Sprintf("http://%s", cfg.YurtHubProxyServerAddr), constants.DefaultPoolScopedUserAgent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create dynamic client, %v", err)
+		return nil, fmt.Errorf("could not create dynamic client, %v", err)
 	}
 
 	poolScopedCacheSyncManager := &poolScopedCacheSyncManager{
@@ -283,13 +283,13 @@ func (coordinator *coordinator) Run() {
 			case LeaderHub:
 				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
-					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
+					klog.Errorf("could not create pool scoped cache store and manager, %v", err)
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
 
 				if err := coordinator.poolCacheSyncManager.EnsureStart(); err != nil {
-					klog.Errorf("failed to sync pool-scoped resource, %v", err)
+					klog.Errorf("could not sync pool-scoped resource, %v", err)
 					cancelEtcdStorage()
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
@@ -320,7 +320,7 @@ func (coordinator *coordinator) Run() {
 
 				if coordinator.needUploadLocalCache {
 					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
-						klog.Errorf("failed to upload local cache when yurthub becomes leader, %v", err)
+						klog.Errorf("could not upload local cache when yurthub becomes leader, %v", err)
 					} else {
 						needUploadLocalCache = false
 					}
@@ -328,7 +328,7 @@ func (coordinator *coordinator) Run() {
 			case FollowerHub:
 				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
-					klog.Errorf("failed to create pool scoped cache store and manager, %v", err)
+					klog.Errorf("could not create pool scoped cache store and manager, %v", err)
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
@@ -339,7 +339,7 @@ func (coordinator *coordinator) Run() {
 
 				if coordinator.needUploadLocalCache {
 					if err := coordinator.uploadLocalCache(etcdStorage); err != nil {
-						klog.Errorf("failed to upload local cache when yurthub becomes follower, %v", err)
+						klog.Errorf("could not upload local cache when yurthub becomes follower, %v", err)
 					} else {
 						needUploadLocalCache = false
 					}
@@ -400,7 +400,7 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 	etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, fmt.Errorf("failed to create etcd storage, %v", err)
+		return nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
 	}
 	poolCacheManager := cachemanager.NewCacheManager(
 		cachemanager.NewStorageWrapper(etcdStore),
@@ -418,14 +418,14 @@ func (coordinator *coordinator) getEtcdStore() storage.Store {
 func (coordinator *coordinator) newNodeLeaseProxyClient() (coordclientset.LeaseInterface, error) {
 	healthyCloudServer, err := coordinator.cloudHealthChecker.PickHealthyServer()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get a healthy cloud APIServer, %v", err)
+		return nil, fmt.Errorf("could not get a healthy cloud APIServer, %v", err)
 	} else if healthyCloudServer == nil {
-		return nil, fmt.Errorf("failed to get a healthy cloud APIServer, all server are unhealthy")
+		return nil, fmt.Errorf("could not get a healthy cloud APIServer, all server are unhealthy")
 	}
 	restCfg := &rest.Config{
 		Host: healthyCloudServer.String(),
 		TLSClientConfig: rest.TLSClientConfig{
-			CAFile:   coordinator.cloudCAFilePath,
+			CAData:   coordinator.cloudCAFileData,
 			CertFile: coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientCert),
 			KeyFile:  coordinator.certMgr.GetFilePath(certmanager.NodeLeaseProxyClientKey),
 		},
@@ -433,7 +433,7 @@ func (coordinator *coordinator) newNodeLeaseProxyClient() (coordclientset.LeaseI
 	}
 	cloudClient, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cloud client, %v", err)
+		return nil, fmt.Errorf("could not create cloud client, %v", err)
 	}
 
 	return cloudClient.CoordinationV1().Leases(corev1.NamespaceNodeLease), nil
@@ -458,7 +458,7 @@ func (coordinator *coordinator) delegateNodeLease(cloudLeaseClient coordclientse
 		cloudLease, err := cloudLeaseClient.Get(coordinator.ctx, newLease.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			if _, err := cloudLeaseClient.Create(coordinator.ctx, cloudLease, metav1.CreateOptions{}); err != nil {
-				klog.Errorf("failed to create lease %s at cloud, %v", newLease.Name, err)
+				klog.Errorf("could not create lease %s at cloud, %v", newLease.Name, err)
 				continue
 			}
 		}
@@ -466,7 +466,7 @@ func (coordinator *coordinator) delegateNodeLease(cloudLeaseClient coordclientse
 		cloudLease.Annotations = newLease.Annotations
 		cloudLease.Spec.RenewTime = newLease.Spec.RenewTime
 		if updatedLease, err := cloudLeaseClient.Update(coordinator.ctx, cloudLease, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("failed to update lease %s at cloud, %v", newLease.Name, err)
+			klog.Errorf("could not update lease %s at cloud, %v", newLease.Name, err)
 			continue
 		} else {
 			klog.V(2).Infof("delegate node lease for %s", updatedLease.Name)
@@ -498,7 +498,7 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 	if !p.isRunning {
 		err := p.coordinatorClient.CoordinationV1().Leases(namespaceInformerLease).Delete(p.ctx, nameInformerLease, metav1.DeleteOptions{})
 		if err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete informer sync lease, %v", err)
+			return fmt.Errorf("could not delete informer sync lease, %v", err)
 		}
 
 		etcdStore := p.getEtcdStore()
@@ -506,7 +506,7 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 			return fmt.Errorf("got empty etcd storage")
 		}
 		if err := etcdStore.DeleteComponentResources(constants.DefaultPoolScopedUserAgent); err != nil {
-			return fmt.Errorf("failed to clean old pool-scoped cache, %v", err)
+			return fmt.Errorf("could not clean old pool-scoped cache, %v", err)
 		}
 
 		ctx, cancel := context.WithCancel(p.ctx)
@@ -546,7 +546,7 @@ func (p *poolScopedCacheSyncManager) holdInformerSync(ctx context.Context, hasIn
 		p.renewInformerLease(ctx, informerLease)
 		return
 	}
-	klog.Error("failed to wait for cache synced, it was canceled")
+	klog.Error("could not wait for cache synced, it was canceled")
 }
 
 func (p *poolScopedCacheSyncManager) renewInformerLease(ctx context.Context, lease informerLease) {
@@ -559,7 +559,7 @@ func (p *poolScopedCacheSyncManager) renewInformerLease(ctx context.Context, lea
 		case <-t.C:
 			newLease, err := lease.Update(p.informerSyncedLease)
 			if err != nil {
-				klog.Errorf("failed to update informer lease, %v", err)
+				klog.Errorf("could not update informer lease, %v", err)
 				continue
 			}
 			p.informerSyncedLease = newLease
@@ -613,12 +613,12 @@ func (l *localCacheUploader) Upload() {
 	for k, b := range objBytes {
 		rv, err := getRv(b)
 		if err != nil {
-			klog.Errorf("failed to get name from bytes %s, %v", string(b), err)
+			klog.Errorf("could not get name from bytes %s, %v", string(b), err)
 			continue
 		}
 
 		if err := l.createOrUpdate(k, b, rv); err != nil {
-			klog.Errorf("failed to upload %s, %v", k.Key(), err)
+			klog.Errorf("could not upload %s, %v", k.Key(), err)
 		}
 	}
 }
@@ -648,25 +648,25 @@ func (l *localCacheUploader) resourcesToUpload() map[storage.Key][]byte {
 		}
 		localKeys, err := l.diskStorage.ListResourceKeysOfComponent(info.Component, gvr)
 		if err != nil {
-			klog.Errorf("failed to get object keys from disk for %s, %v", gvr.String(), err)
+			klog.Errorf("could not get object keys from disk for %s, %v", gvr.String(), err)
 			continue
 		}
 
 		for _, k := range localKeys {
 			buf, err := l.diskStorage.Get(k)
 			if err != nil {
-				klog.Errorf("failed to read local cache of key %s, %v", k.Key(), err)
+				klog.Errorf("could not read local cache of key %s, %v", k.Key(), err)
 				continue
 			}
 			buildInfo, err := disk.ExtractKeyBuildInfo(k)
 			if err != nil {
-				klog.Errorf("failed to extract key build info from local cache of key %s, %v", k.Key(), err)
+				klog.Errorf("could not extract key build info from local cache of key %s, %v", k.Key(), err)
 				continue
 			}
 
 			poolCacheKey, err := l.etcdStorage.KeyFunc(*buildInfo)
 			if err != nil {
-				klog.Errorf("failed to generate pool cache key from local cache key %s, %v", k.Key(), err)
+				klog.Errorf("could not generate pool cache key from local cache key %s, %v", k.Key(), err)
 				continue
 			}
 			objBytes[poolCacheKey] = buf
@@ -749,12 +749,12 @@ func (p *poolCacheSyncedDetector) detectPoolCacheSynced(obj interface{}) {
 func getRv(objBytes []byte) (uint64, error) {
 	obj := &unstructured.Unstructured{}
 	if err := json.Unmarshal(objBytes, obj); err != nil {
-		return 0, fmt.Errorf("failed to unmarshal json: %v", err)
+		return 0, fmt.Errorf("could not unmarshal json: %v", err)
 	}
 
 	rv, err := strconv.ParseUint(obj.GetResourceVersion(), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse rv %s of pod %s, %v", obj.GetName(), obj.GetResourceVersion(), err)
+		return 0, fmt.Errorf("could not parse rv %s of pod %s, %v", obj.GetName(), obj.GetResourceVersion(), err)
 	}
 
 	return rv, nil

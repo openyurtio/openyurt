@@ -84,7 +84,7 @@ func GenRootCertPool(kubeConfig, caFile string) (*x509.CertPool, error) {
 		// load the root ca from the given kubeconfig file
 		config, err := clientcmd.LoadFromFile(kubeConfig)
 		if err != nil || config == nil {
-			return nil, fmt.Errorf("failed to load the kubeconfig file(%s), %w",
+			return nil, fmt.Errorf("could not load the kubeconfig file(%s), %w",
 				kubeConfig, err)
 		}
 
@@ -173,7 +173,7 @@ func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("CA file(%s) doesn't exist", caFile)
 		}
-		return nil, fmt.Errorf("fail to stat the CA file(%s): %w", caFile, err)
+		return nil, fmt.Errorf("could not stat the CA file(%s): %w", caFile, err)
 	}
 
 	caData, err := os.ReadFile(caFile)
@@ -181,6 +181,13 @@ func GenCertPoolUseCA(caFile string) (*x509.CertPool, error) {
 		return nil, err
 	}
 
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(caData)
+	return certPool, nil
+}
+
+// GenCertPoolUseCAData generates a x509 CertPool based on the given CA data
+func GenCertPoolUseCAData(caData []byte) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(caData)
 	return certPool, nil

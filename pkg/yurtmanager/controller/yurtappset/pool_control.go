@@ -52,7 +52,7 @@ func (m *PoolControl) GetAllPools(yas *alpha1.YurtAppSet) (pools []*Pool, err er
 	setList := m.adapter.NewResourceListObject()
 	cliSetList, ok := setList.(client.ObjectList)
 	if !ok {
-		return nil, errors.New("fail to convert runtime object to client.ObjectList")
+		return nil, errors.New("could not convert runtime object to client.ObjectList")
 	}
 	err = m.Client.List(context.TODO(), cliSetList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
@@ -94,7 +94,7 @@ func (m *PoolControl) CreatePool(yas *alpha1.YurtAppSet, poolName string, revisi
 	klog.V(4).Infof("Have %d replicas when creating Pool for YurtAppSet %s/%s", replicas, yas.Namespace, yas.Name)
 	cliSet, ok := set.(client.Object)
 	if !ok {
-		return errors.New("fail to convert runtime.Object to client.Object")
+		return errors.New("could not convert runtime.Object to client.Object")
 	}
 	return m.Create(context.TODO(), cliSet)
 }
@@ -104,7 +104,7 @@ func (m *PoolControl) UpdatePool(pool *Pool, yas *alpha1.YurtAppSet, revision st
 	set := m.adapter.NewResourceObject()
 	cliSet, ok := set.(client.Object)
 	if !ok {
-		return errors.New("fail to convert runtime.Object to client.Object")
+		return errors.New("could not convert runtime.Object to client.Object")
 	}
 	var updateError error
 	for i := 0; i < updateRetries; i++ {
@@ -134,7 +134,7 @@ func (m *PoolControl) DeletePool(pool *Pool) error {
 	set := pool.Spec.PoolRef.(runtime.Object)
 	cliSet, ok := set.(client.Object)
 	if !ok {
-		return errors.New("fail to convert runtime.Object to client.Object")
+		return errors.New("could not convert runtime.Object to client.Object")
 	}
 	return m.Delete(context.TODO(), cliSet, client.PropagationPolicy(metav1.DeletePropagationBackground))
 }

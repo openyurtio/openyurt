@@ -69,6 +69,7 @@ project_info() {
     versionSeparator=","
     echo "-X ${PROJECT_INFO_PKG}.separator=${versionSeparator}"
     echo "-X ${PROJECT_INFO_PKG}.maintainingVersions=${maintainingVersions}"
+    echo "-X ${PROJECT_INFO_PKG}.nodePoolLabelKey=${NODEPOOL_LABEL_KEY}"
 }
 
 # get_binary_dir_with_arch generated the binary's directory with GOOS and GOARCH.

@@ -109,7 +109,7 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 
 			info, err := d.Info()
 			if err != nil {
-				return fmt.Errorf("failed to get info for entry %s, %v", path, err)
+				return fmt.Errorf("could not get info for entry %s, %v", path, err)
 			}
 
 			switch {

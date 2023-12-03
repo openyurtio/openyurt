@@ -368,22 +368,22 @@ func WriteCertAndKeyIntoSecret(clientSet client.Interface, certName, secretName 
 	if key != nil {
 		keyPEM, err := keyutil.MarshalPrivateKeyToPEM(key)
 		if err != nil {
-			return errors.Wrapf(err, "fail to write %s.key into secret %s", certName, secretName)
+			return errors.Wrapf(err, "could not write %s.key into secret %s", certName, secretName)
 		}
 		err = secretClient.AddData(fmt.Sprintf("%s.key", certName), keyPEM)
 		if err != nil {
-			return errors.Wrapf(err, "fail to write %s.key into secret %s", certName, secretName)
+			return errors.Wrapf(err, "could not write %s.key into secret %s", certName, secretName)
 		}
 	}
 
 	if cert != nil {
 		certPEM, err := EncodeCertPEM(cert)
 		if err != nil {
-			return errors.Wrapf(err, "fail to write %s.cert into secret %s", certName, secretName)
+			return errors.Wrapf(err, "could not write %s.cert into secret %s", certName, secretName)
 		}
 		err = secretClient.AddData(fmt.Sprintf("%s.crt", certName), certPEM)
 		if err != nil {
-			return errors.Wrapf(err, "fail to write %s.cert into secret %s", certName, secretName)
+			return errors.Wrapf(err, "could not write %s.cert into secret %s", certName, secretName)
 		}
 	}
 
@@ -415,21 +415,21 @@ func WriteKeyPairIntoSecret(clientSet client.Interface, secretName, keyName stri
 
 	privateKeyPEM, err := keyutil.MarshalPrivateKeyToPEM(key)
 	if err != nil {
-		return errors.Wrapf(err, "fail to marshal private key into PEM format %s", keyName)
+		return errors.Wrapf(err, "could not marshal private key into PEM format %s", keyName)
 	}
 	err = secretClient.AddData(fmt.Sprintf("%s.key", keyName), privateKeyPEM)
 	if err != nil {
-		return errors.Wrapf(err, "fail to write %s.key into secret %s", keyName, secretName)
+		return errors.Wrapf(err, "could not write %s.key into secret %s", keyName, secretName)
 	}
 
 	publicKey := key.Public()
 	publicKeyPEM, err := EncodePublicKeyPEM(publicKey)
 	if err != nil {
-		return errors.Wrapf(err, "fail to marshal public key into PEM format %s", keyName)
+		return errors.Wrapf(err, "could not marshal public key into PEM format %s", keyName)
 	}
 	err = secretClient.AddData(fmt.Sprintf("%s.pub", keyName), publicKeyPEM)
 	if err != nil {
-		return errors.Wrapf(err, "fail to write %s.pub into secret %s", keyName, secretName)
+		return errors.Wrapf(err, "could not write %s.pub into secret %s", keyName, secretName)
 	}
 
 	klog.Infof(Format("successfully write key pair into secret %s", secretName))

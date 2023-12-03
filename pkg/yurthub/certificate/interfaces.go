@@ -45,6 +45,7 @@ type YurtClientCertificateManager interface {
 	Stop()
 	UpdateBootstrapConf(joinToken string) error
 	GetHubConfFile() string
+	GetCAData() []byte
 	GetCaFile() string
 	GetAPIServerClientCert() *tls.Certificate
 }

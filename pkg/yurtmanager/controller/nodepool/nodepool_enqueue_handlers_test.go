@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func TestCreate(t *testing.T) {
@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 				Object: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},
@@ -104,7 +104,7 @@ func TestUpdate(t *testing.T) {
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},
@@ -116,14 +116,14 @@ func TestUpdate(t *testing.T) {
 				ObjectOld: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "bar",
+							projectinfo.GetNodePoolLabel(): "bar",
 						},
 					},
 				},
@@ -135,14 +135,14 @@ func TestUpdate(t *testing.T) {
 				ObjectOld: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},
@@ -154,7 +154,7 @@ func TestUpdate(t *testing.T) {
 				ObjectOld: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -169,7 +169,7 @@ func TestUpdate(t *testing.T) {
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -189,7 +189,7 @@ func TestUpdate(t *testing.T) {
 				ObjectOld: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -204,7 +204,7 @@ func TestUpdate(t *testing.T) {
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -224,8 +224,8 @@ func TestUpdate(t *testing.T) {
 				ObjectOld: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
-							"label1":           "value1",
+							projectinfo.GetNodePoolLabel(): "foo",
+							"label1":                       "value1",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -240,8 +240,8 @@ func TestUpdate(t *testing.T) {
 				ObjectNew: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
-							"label2":           "value2",
+							projectinfo.GetNodePoolLabel(): "foo",
+							"label2":                       "value2",
 						},
 					},
 					Status: corev1.NodeStatus{
@@ -296,7 +296,7 @@ func TestDelete(t *testing.T) {
 				Object: &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							apps.NodePoolLabel: "foo",
+							projectinfo.GetNodePoolLabel(): "foo",
 						},
 					},
 				},

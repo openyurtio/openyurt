@@ -61,7 +61,7 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 	}
 	srvJob, ok := srvJobObj.(*batchv1.Job)
 	if !ok {
-		return nil, fmt.Errorf("fail to assert node-servant job")
+		return nil, fmt.Errorf("could not assert node-servant job")
 	}
 
 	return srvJob, nil

@@ -170,14 +170,14 @@ func (r *DeviceServiceReconciler) reconcileCreateDeviceService(ctx context.Conte
 	// Checking if deviceService already exist on the edge platform
 	if edgeDs, err := r.deviceServiceCli.Get(context.TODO(), edgeDeviceServiceName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
-			klog.V(4).ErrorS(err, "fail to visit the edge platform")
+			klog.V(4).ErrorS(err, "could not visit the edge platform")
 			return nil
 		} else {
 			createdDs, err := r.deviceServiceCli.Create(context.TODO(), ds, clients.CreateOptions{})
 			if err != nil {
 				klog.V(4).ErrorS(err, "failed to create deviceService on edge platform")
 				util.SetDeviceServiceCondition(deviceServiceStatus, util.NewDeviceServiceCondition(iotv1alpha1.DeviceServiceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceServiceCreateSyncedReason, err.Error()))
-				return fmt.Errorf("fail to create DeviceService to edge platform: %v", err)
+				return fmt.Errorf("could not create DeviceService to edge platform: %v", err)
 			}
 
 			klog.V(4).Infof("Successfully add DeviceService to Edge Platform, Name: %s, EdgeId: %s", ds.GetName(), createdDs.Status.EdgeId)

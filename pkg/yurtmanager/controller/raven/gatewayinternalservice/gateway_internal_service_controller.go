@@ -124,10 +124,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // Reconcile reads that state of the cluster for a Gateway object and makes changes based on the state read
 // and what is in the Gateway.Spec
 func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	klog.V(2).Info(Format("started reconciling Service %s/%s", req.Namespace, req.Name))
-	defer func() {
-		klog.V(2).Info(Format("finished reconciling Service %s/%s", req.Namespace, req.Name))
-	}()
 
 	gwList, err := r.listExposedGateway(ctx)
 	if err != nil {
@@ -135,13 +131,15 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 
 	enableProxy, _ := util.CheckServer(ctx, r.Client)
-	if err := r.reconcileService(ctx, req, gwList, enableProxy); err != nil {
+	if err = r.reconcileService(ctx, req, gwList, enableProxy); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile service: %s", err))
+		klog.Errorln(err.Error())
 		return reconcile.Result{}, err
 	}
 
-	if err := r.reconcileEndpoint(ctx, req, gwList, enableProxy); err != nil {
+	if err = r.reconcileEndpoint(ctx, req, gwList, enableProxy); err != nil {
 		err = fmt.Errorf(Format("unable to reconcile endpoint: %s", err))
+		klog.Errorln(err.Error())
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
@@ -168,9 +166,15 @@ func (r *ReconcileService) listExposedGateway(ctx context.Context) ([]*ravenv1be
 
 func (r *ReconcileService) reconcileService(ctx context.Context, req ctrl.Request, gatewayList []*ravenv1beta1.Gateway, enableProxy bool) error {
 	if len(gatewayList) == 0 || !enableProxy {
-		return r.cleanService(ctx, req)
+		if err := r.cleanService(ctx, req); err != nil {
+			return fmt.Errorf("clear service %s error: %s", req.String(), err.Error())
+		}
+		return nil
 	}
-	return r.updateService(ctx, req, gatewayList)
+	if err := r.updateService(ctx, req, gatewayList); err != nil {
+		return fmt.Errorf("update service %s error: %s", req.String(), err.Error())
+	}
+	return nil
 }
 
 func (r *ReconcileService) cleanService(ctx context.Context, req ctrl.Request) error {
@@ -285,12 +289,18 @@ func (r *ReconcileService) reconcileEndpoint(ctx context.Context, req ctrl.Reque
 	var service corev1.Service
 	err := r.Get(ctx, req.NamespacedName, &service)
 	if err != nil && !apierrs.IsNotFound(err) {
-		return err
+		return fmt.Errorf("get service %s, error: %s", req.String(), err.Error())
 	}
 	if apierrs.IsNotFound(err) || service.DeletionTimestamp != nil || len(gatewayList) == 0 || !enableProxy {
-		return r.cleanEndpoint(ctx, req)
+		if err = r.cleanEndpoint(ctx, req); err != nil {
+			return fmt.Errorf("clear endpoints %s, error: %s", req.String(), err.Error())
+		}
+		return nil
 	}
-	return r.updateEndpoint(ctx, req, &service, gatewayList)
+	if err = r.updateEndpoint(ctx, req, &service, gatewayList); err != nil {
+		return fmt.Errorf("update endpoints %s, error: %s", req.String(), err.Error())
+	}
+	return nil
 }
 
 func (r *ReconcileService) cleanEndpoint(ctx context.Context, req ctrl.Request) error {

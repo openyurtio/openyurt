@@ -287,7 +287,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 		if kerr.IsNotFound(err) {
 			return reconcile.Result{}, r.deleteConfigMap(request.Name, request.Namespace)
 		}
-		klog.Errorf("Fail to get YurtStaticSet %v, %v", request.NamespacedName, err)
+		klog.Errorf("could not get YurtStaticSet %v, %v", request.NamespacedName, err)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -325,13 +325,13 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// The above hash value will be added to the annotation
 	latestManifest, err := util.GenStaticPodManifest(&instance.Spec.Template, latestHash)
 	if err != nil {
-		klog.Errorf(Format("Fail to generate static pod manifest of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("could not generate static pod manifest of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
 	// Sync the corresponding configmap to the latest state
 	if err := r.syncConfigMap(instance, latestHash, latestManifest); err != nil {
-		klog.Errorf(Format("Fail to sync the corresponding configmap of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("could not sync the corresponding configmap of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
@@ -339,13 +339,13 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	upgradeInfos, err := upgradeinfo.New(r.Client, instance, UpgradeWorkerPodPrefix, latestHash)
 	if err != nil {
 		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
-		if strings.Contains(err.Error(), "fail to init worker pod") {
+		if strings.Contains(err.Error(), "could not init worker pod") {
 			r.recorder.Eventf(instance, corev1.EventTypeWarning, "YurtStaticSet Upgrade Failed", err.Error())
 			klog.Errorf(err.Error())
 			return reconcile.Result{}, err
 		}
 
-		klog.Errorf(Format("Fail to get static pod and worker pod upgrade info for nodes of YurtStaticSet %v, %v",
+		klog.Errorf(Format("could not get static pod and worker pod upgrade info for nodes of YurtStaticSet %v, %v",
 			request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
@@ -361,7 +361,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 
 	// Clean up unused pods
 	if err := r.removeUnusedPods(deletePods); err != nil {
-		klog.Errorf(Format("Fail to remove unused pods of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Errorf(Format("could not remove unused pods of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return reconcile.Result{}, err
 	}
 
@@ -382,7 +382,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 		}
 
 		if err := r.advancedRollingUpdate(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("Fail to AdvancedRollingUpdate upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
+			klog.Errorf(Format("could not AdvancedRollingUpdate upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -391,7 +391,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// It will set PodNeedUpgrade condition and work with YurtHub component
 	case appsv1alpha1.OTAUpgradeStrategyType:
 		if err := r.otaUpgrade(upgradeInfos); err != nil {
-			klog.Errorf(Format("Fail to OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
+			klog.Errorf(Format("could not OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)

@@ -236,11 +236,11 @@ func (dr *tripleReadCloser) Read(p []byte) (n int, err error) {
 		var n1, n2 int
 		var err error
 		if n1, err = dr.pw1.Write(p[:n]); err != nil {
-			klog.Errorf("tripleReader: failed to write to pw1 %v", err)
+			klog.Errorf("tripleReader: could not write to pw1 %v", err)
 			return n1, err
 		}
 		if n2, err = dr.pw2.Write(p[:n]); err != nil {
-			klog.Errorf("tripleReader: failed to write to pw2 %v", err)
+			klog.Errorf("tripleReader: could not write to pw2 %v", err)
 			return n2, err
 		}
 	}
@@ -266,7 +266,7 @@ func (dr *tripleReadCloser) Close() error {
 	}
 
 	if len(errs) != 0 {
-		return fmt.Errorf("failed to close dualReader, %v", errs)
+		return fmt.Errorf("could not close dualReader, %v", errs)
 	}
 
 	return nil
@@ -312,7 +312,7 @@ func (dr *dualReadCloser) Read(p []byte) (n int, err error) {
 	n, err = dr.rc.Read(p)
 	if n > 0 {
 		if n, err := dr.pw.Write(p[:n]); err != nil {
-			klog.Errorf("dualReader: failed to write %v", err)
+			klog.Errorf("dualReader: could not write %v", err)
 			return n, err
 		}
 	}
@@ -334,7 +334,7 @@ func (dr *dualReadCloser) Close() error {
 	}
 
 	if len(errs) != 0 {
-		return fmt.Errorf("failed to close dualReader, %v", errs)
+		return fmt.Errorf("could not close dualReader, %v", errs)
 	}
 
 	return nil

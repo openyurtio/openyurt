@@ -97,7 +97,7 @@ func (op *yurtHubOperator) Install() error {
 	}
 	content, err := os.ReadFile(configMapDataPath)
 	if err != nil {
-		return fmt.Errorf("failed to read source file %s: %w", configMapDataPath, err)
+		return fmt.Errorf("could not read source file %s: %w", configMapDataPath, err)
 	}
 	klog.Infof("yurt-hub.yaml apiServerAddr: %+v", op.apiServerAddr)
 	yssYurtHub, err := tmplutil.SubsituteTemplate(string(content), map[string]string{
@@ -224,7 +224,7 @@ func pingClusterHealthz(client *http.Client, addr string) (bool, error) {
 	b, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
-		return false, fmt.Errorf("failed to read response of cluster healthz, %w", err)
+		return false, fmt.Errorf("could not read response of cluster healthz, %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

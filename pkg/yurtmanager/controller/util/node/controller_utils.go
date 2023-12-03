@@ -170,7 +170,7 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 					// There is nothing left to do with this pod.
 					continue
 				}
-				klog.InfoS("Failed to update status for pod", "pod", klog.KObj(pod), "err", err)
+				klog.InfoS("could not update status for pod", "pod", klog.KObj(pod), "err", err)
 				errs = append(errs, err)
 			}
 			// record NodeNotReady event after updateStatus to make sure pod still exists
@@ -303,7 +303,7 @@ func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName
 		for _, taint := range taints {
 			curNewNode, ok, err := taintutils.AddOrUpdateTaint(oldNodeCopy, taint)
 			if err != nil {
-				return fmt.Errorf("failed to update taint of node")
+				return fmt.Errorf("could not update taint of node")
 			}
 			updated = updated || ok
 			newNode = curNewNode
@@ -360,7 +360,7 @@ func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName str
 		for _, taint := range taints {
 			curNewNode, ok, err := taintutils.RemoveTaint(oldNodeCopy, taint)
 			if err != nil {
-				return fmt.Errorf("failed to remove taint of node")
+				return fmt.Errorf("could not remove taint of node")
 			}
 			updated = updated || ok
 			newNode = curNewNode
@@ -382,7 +382,7 @@ func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string
 	oldNodeNoRV.ResourceVersion = ""
 	oldDataNoRV, err := json.Marshal(&oldNodeNoRV)
 	if err != nil {
-		return fmt.Errorf("failed to marshal old node %#v for node %q: %v", oldNodeNoRV, nodeName, err)
+		return fmt.Errorf("could not marshal old node %#v for node %q: %v", oldNodeNoRV, nodeName, err)
 	}
 
 	newTaints := newNode.Spec.Taints
@@ -390,12 +390,12 @@ func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string
 	newNodeClone.Spec.Taints = newTaints
 	newData, err := json.Marshal(newNodeClone)
 	if err != nil {
-		return fmt.Errorf("failed to marshal new node %#v for node %q: %v", newNodeClone, nodeName, err)
+		return fmt.Errorf("could not marshal new node %#v for node %q: %v", newNodeClone, nodeName, err)
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldDataNoRV, newData, v1.Node{})
 	if err != nil {
-		return fmt.Errorf("failed to create patch for node %q: %v", nodeName, err)
+		return fmt.Errorf("could not create patch for node %q: %v", nodeName, err)
 	}
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
@@ -430,18 +430,18 @@ func addOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 
 		oldData, err := json.Marshal(node)
 		if err != nil {
-			return fmt.Errorf("failed to marshal the existing node %#v: %v", node, err)
+			return fmt.Errorf("could not marshal the existing node %#v: %v", node, err)
 		}
 		newData, err := json.Marshal(newNode)
 		if err != nil {
-			return fmt.Errorf("failed to marshal the new node %#v: %v", newNode, err)
+			return fmt.Errorf("could not marshal the new node %#v: %v", newNode, err)
 		}
 		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &v1.Node{})
 		if err != nil {
-			return fmt.Errorf("failed to create a two-way merge patch: %v", err)
+			return fmt.Errorf("could not create a two-way merge patch: %v", err)
 		}
 		if _, err := kubeClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-			return fmt.Errorf("failed to patch the node: %v", err)
+			return fmt.Errorf("could not patch the node: %v", err)
 		}
 		return nil
 	})

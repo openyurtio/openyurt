@@ -74,7 +74,7 @@ func (trm *traceReqMiddleware) SetSharedInformerFactory(factory informers.Shared
 
 func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 	if !cache.WaitForCacheSync(wait.NeverStop, trm.informersSynced...) {
-		klog.Error("failed to sync node cache for trace request middleware")
+		klog.Error("could not sync node cache for trace request middleware")
 		return handler
 	}
 	klog.Infof("%d informer synced in traceReqMiddleware", len(trm.informersSynced))
@@ -94,7 +94,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 		// detail info link: https://github.com/kubernetes/enhancements/issues/1558
 		if completed, err := trm.handleRequestsFromKAS(req); completed || err != nil {
 			if err != nil {
-				klog.Errorf("failed to handle requests from kube-apiserver, but continue go ahead. %v", err)
+				klog.Errorf("could not handle requests from kube-apiserver, but continue go ahead. %v", err)
 			}
 		} else {
 			host, port, err := net.SplitHostPort(req.Host)
@@ -109,7 +109,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 				// 1. transform hostname to nodeIP for request in order to send request to nodeIP address at tunnel-agent
 				// 2. put hostname into X-Tunnel-Proxy-Host request header in order to select the correct backend agent.
 				if err := trm.modifyRequest(req, host, port); err != nil {
-					klog.Errorf("failed to modify request, %v", err)
+					klog.Errorf("could not modify request, %v", err)
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
@@ -146,14 +146,14 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 func (trm *traceReqMiddleware) modifyRequest(req *http.Request, host, port string) error {
 	node, err := trm.nodeLister.Get(host)
 	if err != nil {
-		klog.Errorf("failed to get node(%s), %v", host, err)
+		klog.Errorf("could not get node(%s), %v", host, err)
 		return err
 	}
 
 	nodeIP := getNodeIP(node)
 	if nodeIP == "" {
-		klog.Errorf("failed to get node(%s) ip", host)
-		return errors.New("failed to get node ip")
+		klog.Errorf("could not get node(%s) ip", host)
+		return errors.New("could not get node ip")
 	}
 
 	// transform hostname to node ip in request

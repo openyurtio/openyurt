@@ -28,5 +28,6 @@ LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
 GIT_VERSION=${GIT_VERSION:-$(git describe --abbrev=0 --tags)}
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+NODEPOOL_LABEL_KEY=${NODEPOOL_LABEL_KEY:-apps.openyurt.io/nodepool}
 
 source "${YURT_ROOT}/hack/lib/common.sh"

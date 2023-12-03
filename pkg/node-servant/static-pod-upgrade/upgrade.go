@@ -120,13 +120,13 @@ func (ctrl *Controller) AutoUpgrade() error {
 	ok, err := ctrl.verify()
 	if err != nil {
 		if err := ctrl.rollbackManifest(); err != nil {
-			klog.Errorf("Fail to rollback manifest when upgrade failed, %v", err)
+			klog.Errorf("could not rollback manifest when upgrade failed, %v", err)
 		}
 		return err
 	}
 	if !ok {
 		if err := ctrl.rollbackManifest(); err != nil {
-			klog.Errorf("Fail to rollback manifest when upgrade failed, %v", err)
+			klog.Errorf("could not rollback manifest when upgrade failed, %v", err)
 		}
 		return fmt.Errorf("the latest static pod is not running")
 	}

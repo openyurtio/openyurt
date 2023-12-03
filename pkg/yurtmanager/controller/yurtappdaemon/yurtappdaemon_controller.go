@@ -159,7 +159,7 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 
 	currentRevision, updatedRevision, collisionCount, err := r.constructYurtAppDaemonRevisions(instance)
 	if err != nil {
-		klog.Errorf("Fail to construct controller revision of YurtAppDaemon %s/%s: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("could not construct controller revision of YurtAppDaemon %s/%s: %s", instance.Namespace, instance.Name, err)
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypeRevisionProvision), err.Error())
 		return reconcile.Result{}, err
 	}
@@ -179,19 +179,19 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 	}
 
 	if control == nil {
-		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("YurtAppDaemon[%s/%s] Fail to get control", instance.Namespace, instance.Name), fmt.Sprintf("fail to find control"))
-		return reconcile.Result{}, fmt.Errorf("fail to find control")
+		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("YurtAppDaemon[%s/%s] could not get control", instance.Namespace, instance.Name), fmt.Sprintf("could not find control"))
+		return reconcile.Result{}, fmt.Errorf("could not find control")
 	}
 
 	currentNPToWorkload, err := r.getNodePoolToWorkLoad(instance, control)
 	if err != nil {
-		klog.Errorf("YurtAppDaemon[%s/%s] Fail to get nodePoolWorkload, error: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("YurtAppDaemon[%s/%s] could not get nodePoolWorkload, error: %s", instance.Namespace, instance.Name, err)
 		return reconcile.Result{}, err
 	}
 
 	allNameToNodePools, err := r.getNameToNodePools(instance)
 	if err != nil {
-		klog.Errorf("YurtAppDaemon[%s/%s] Fail to get nameToNodePools, error: %s", instance.Namespace, instance.Name, err)
+		klog.Errorf("YurtAppDaemon[%s/%s] could not get nameToNodePools, error: %s", instance.Namespace, instance.Name, err)
 		return reconcile.Result{}, err
 	}
 
@@ -247,7 +247,7 @@ func (r *ReconcileYurtAppDaemon) updateYurtAppDaemon(yad *unitv1alpha1.YurtAppDa
 		obj = tmpObj
 	}
 
-	klog.Errorf("fail to update YurtAppDaemon %s/%s status: %s", yad.Namespace, yad.Name, updateErr)
+	klog.Errorf("could not update YurtAppDaemon %s/%s status: %s", yad.Namespace, yad.Name, updateErr)
 	return nil, updateErr
 }
 
@@ -306,7 +306,7 @@ func (r *ReconcileYurtAppDaemon) manageWorkloads(instance *unitv1alpha1.YurtAppD
 	provision, err := r.manageWorkloadsProvision(instance, allNameToNodePools, expectedRevision, templateType, needDeleted, needCreate)
 	if err != nil {
 		SetYurtAppDaemonCondition(newStatus, NewYurtAppDaemonCondition(unitv1alpha1.WorkLoadProvisioned, corev1.ConditionFalse, "Error", err.Error()))
-		return newStatus, fmt.Errorf("fail to manage workload provision: %v", err)
+		return newStatus, fmt.Errorf("could not manage workload provision: %v", err)
 	}
 
 	if provision {
@@ -443,7 +443,7 @@ func (r *ReconcileYurtAppDaemon) getNameToNodePools(instance *unitv1alpha1.YurtA
 
 	nodepools := unitv1alpha1.NodePoolList{}
 	if err := r.Client.List(context.TODO(), &nodepools, &client.ListOptions{LabelSelector: nodepoolSelector}); err != nil {
-		klog.Errorf("YurtAppDaemon [%s/%s] Fail to get NodePoolList", instance.GetNamespace(),
+		klog.Errorf("YurtAppDaemon [%s/%s] could not get NodePoolList", instance.GetNamespace(),
 			instance.GetName())
 		return nil, nil
 	}

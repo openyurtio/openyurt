@@ -114,7 +114,7 @@ var _ = Describe("YurtAppOverrider Test", func() {
 								},
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{
-										Image: "nginx-old",
+										Image: "nginx:1.18",
 										Name:  "nginx",
 									}},
 								},
@@ -164,7 +164,7 @@ var _ = Describe("YurtAppOverrider Test", func() {
 						{
 							Image: &v1alpha1.ImageItem{
 								ContainerName: "nginx",
-								ImageClaim:    "nginx-item",
+								ImageClaim:    "nginx:1.18",
 							},
 						},
 						{
@@ -176,7 +176,7 @@ var _ = Describe("YurtAppOverrider Test", func() {
 							Operation: v1alpha1.REPLACE,
 							Path:      "/spec/template/spec/containers/0/image",
 							Value: apiextensionsv1.JSON{
-								Raw: []byte(`"nginx-patch"`),
+								Raw: []byte(`"nginx:1.19"`),
 							},
 						},
 					},
@@ -240,8 +240,8 @@ var _ = Describe("YurtAppOverrider Test", func() {
 				}
 				for _, deployment := range deploymentList.Items {
 					if deployment.Labels["apps.openyurt.io/pool-name"] == nodePoolName {
-						if deployment.Spec.Template.Spec.Containers[0].Image != "nginx-patch" {
-							return fmt.Errorf("the image of nginx is not nginx-patch but %s", deployment.Spec.Template.Spec.Containers[0].Image)
+						if deployment.Spec.Template.Spec.Containers[0].Image != "nginx:1.19" {
+							return fmt.Errorf("the image of nginx is not nginx:1.19 but %s", deployment.Spec.Template.Spec.Containers[0].Image)
 						}
 						if *deployment.Spec.Replicas != 5 {
 							return fmt.Errorf("the replicas of nginx is not 3 but %d", *deployment.Spec.Replicas)
@@ -269,8 +269,8 @@ var _ = Describe("YurtAppOverrider Test", func() {
 					return err
 				}
 				for _, deployment := range deploymentList.Items {
-					if deployment.Spec.Template.Spec.Containers[0].Image != "nginx-old" {
-						return fmt.Errorf("the image of nginx is not nginx but %s", deployment.Spec.Template.Spec.Containers[0].Image)
+					if deployment.Spec.Template.Spec.Containers[0].Image != "nginx:1.18" {
+						return fmt.Errorf("the image of nginx is not nginx:1.18 but %s", deployment.Spec.Template.Spec.Containers[0].Image)
 					}
 					if *deployment.Spec.Replicas != 3 {
 						return fmt.Errorf("the replicas of nginx is not 3 but %d", *deployment.Spec.Replicas)

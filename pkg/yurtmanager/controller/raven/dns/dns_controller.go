@@ -121,21 +121,19 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 	// 2. acquired raven global config to check whether the proxy s enabled
 	enableProxy, _ := util.CheckServer(ctx, r.Client)
 	if !enableProxy {
-		r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord", "The Raven Layer 7 proxy feature is not enabled for the cluster")
+		klog.Infoln(Format("the proxy feature is not enabled for the cluster"))
 	} else {
 		svc, err := r.getService(ctx, types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.GatewayProxyInternalService})
 		if err != nil && !apierrors.IsNotFound(err) {
-			klog.V(2).Infof(Format("failed to get service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
+			klog.Errorf(Format("could not get service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
 			return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 		}
 		if apierrors.IsNotFound(err) || svc.DeletionTimestamp != nil {
-			r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord",
-				fmt.Sprintf("The Raven Layer 7 proxy lacks service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
+			klog.Infoln(Format("the proxy feature lacks service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService))
 		}
 		if svc != nil {
 			if svc.Spec.ClusterIP == "" {
-				r.recorder.Event(cm.DeepCopy(), corev1.EventTypeNormal, "MaintainDNSRecord",
-					fmt.Sprintf("The service %s/%s cluster IP is empty", util.WorkingNamespace, util.GatewayProxyInternalService))
+				klog.Infoln("the service %s/%s cluster IP is empty", util.WorkingNamespace, util.GatewayProxyInternalService)
 			} else {
 				proxyAddress = svc.Spec.ClusterIP
 			}
@@ -143,16 +141,18 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 	}
 
 	//3. update dns record
-	nodeList := new(corev1.NodeList)
-	err = r.Client.List(ctx, nodeList, &client.ListOptions{})
+	nodeList := corev1.NodeList{}
+	err = r.Client.List(ctx, &nodeList, &client.ListOptions{})
 	if err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to list node, error %s", err.Error())
+		klog.Errorf(Format("could not list node, error %s", err.Error()))
+		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
-	cm.Data[util.ProxyNodesKey] = buildDNSRecords(nodeList, enableProxy, proxyAddress)
+	cm.Data[util.ProxyNodesKey] = buildDNSRecords(&nodeList, enableProxy, proxyAddress)
 	err = r.updateDNS(cm)
 	if err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to update configmap %s/%s, error %s",
-			cm.GetNamespace(), cm.GetName(), err.Error())
+		klog.Errorf(Format("could not update configmap %s/%s, error %s",
+			cm.GetNamespace(), cm.GetName(), err.Error()))
+		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -168,7 +168,7 @@ func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) 
 					klog.Errorf(Format(err.Error()))
 				}
 			} else {
-				klog.Errorf(Format("failed to get configmap %s, error %s", objKey.String(), err.Error()))
+				klog.Errorf(Format("could not get configmap %s, error %s", objKey.String(), err.Error()))
 			}
 			return false, nil
 		}
@@ -176,7 +176,7 @@ func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) 
 	})
 
 	if waitErr != nil {
-		return nil, fmt.Errorf("failed to get ConfigMap %s, error %s", objKey.String(), waitErr.Error())
+		return nil, fmt.Errorf("could not get ConfigMap %s, error %s", objKey.String(), waitErr.Error())
 	}
 	return cm.DeepCopy(), nil
 }
@@ -193,7 +193,7 @@ func (r *ReconcileDns) buildRavenDNSConfigMap() error {
 	}
 	err := r.Client.Create(context.TODO(), cm, &client.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to create ConfigMap %s/%s, error %s", cm.GetNamespace(), cm.GetName(), err.Error())
+		return fmt.Errorf("could not create ConfigMap %s/%s, error %s", cm.GetNamespace(), cm.GetName(), err.Error())
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func (r *ReconcileDns) getService(ctx context.Context, objectKey client.ObjectKe
 func (r *ReconcileDns) updateDNS(cm *corev1.ConfigMap) error {
 	err := r.Client.Update(context.TODO(), cm, &client.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update configmap %s/%s, %s", cm.GetNamespace(), cm.GetName(), err.Error())
+		return fmt.Errorf("could not update configmap %s/%s, %s", cm.GetNamespace(), cm.GetName(), err.Error())
 	}
 	return nil
 }
@@ -218,7 +218,7 @@ func (r *ReconcileDns) updateDNS(cm *corev1.ConfigMap) error {
 func buildDNSRecords(nodeList *corev1.NodeList, needProxy bool, proxyIp string) string {
 	// record node name <-> ip address
 	if needProxy && proxyIp == "" {
-		klog.Errorf(Format("internal proxy address is empty for dns record, redirect node internal address"))
+		klog.Infoln(Format("internal proxy address is empty for dns record, redirect node internal address"))
 		needProxy = false
 	}
 	var err error
@@ -228,7 +228,7 @@ func buildDNSRecords(nodeList *corev1.NodeList, needProxy bool, proxyIp string) 
 		if !needProxy {
 			ip, err = getHostIP(&node)
 			if err != nil {
-				klog.Errorf(Format("failed to parse node address for %s, %s", node.Name, err.Error()))
+				klog.Errorf(Format("could not parse node address for %s, %s", node.Name, err.Error()))
 				continue
 			}
 		}

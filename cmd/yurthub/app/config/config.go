@@ -121,7 +121,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	serializerManager := serializer.NewSerializerManager()
 	restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
 	if err != nil {
-		klog.Errorf("failed to create restMapperManager at path %s, %v", options.DiskCachePath, err)
+		klog.Errorf("could not create restMapperManager at path %s, %v", options.DiskCachePath, err)
 		return nil, err
 	}
 
@@ -214,7 +214,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	for _, server := range servers {
 		u, err := url.Parse(server)
 		if err != nil {
-			klog.Errorf("failed to parse server address %q, %v", server, err)
+			klog.Errorf("could not parse server address %q, %v", server, err)
 			return us, err
 		}
 		if u.Scheme == "" {

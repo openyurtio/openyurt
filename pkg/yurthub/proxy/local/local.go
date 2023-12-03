@@ -225,7 +225,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
 		return apierrors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
-		klog.Errorf("failed to query cache for %s, %v", hubutil.ReqString(req), err)
+		klog.Errorf("could not query cache for %s, %v", hubutil.ReqString(req), err)
 		return apierrors.NewInternalError(err)
 	} else if obj == nil {
 		klog.Errorf("no cache object for %s", hubutil.ReqString(req))

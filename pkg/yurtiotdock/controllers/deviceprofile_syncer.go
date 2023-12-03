@@ -79,7 +79,7 @@ func (dps *DeviceProfileSyncer) Run(stop <-chan struct{}) {
 			// 1. get deviceProfiles on edge platform and OpenYurt
 			edgeDeviceProfiles, kubeDeviceProfiles, err := dps.getAllDeviceProfiles()
 			if err != nil {
-				klog.V(3).ErrorS(err, "fail to list the deviceProfiles")
+				klog.V(3).ErrorS(err, "could not list the deviceProfiles")
 				continue
 			}
 
@@ -93,12 +93,12 @@ func (dps *DeviceProfileSyncer) Run(stop <-chan struct{}) {
 
 			// 3. create deviceProfiles on OpenYurt which are exists in edge platform but not in OpenYurt
 			if err := dps.syncEdgeToKube(redundantEdgeDeviceProfiles); err != nil {
-				klog.V(3).ErrorS(err, "fail to create deviceProfiles on OpenYurt")
+				klog.V(3).ErrorS(err, "could not create deviceProfiles on OpenYurt")
 			}
 
 			// 4. delete redundant deviceProfiles on OpenYurt
 			if err := dps.deleteDeviceProfiles(redundantKubeDeviceProfiles); err != nil {
-				klog.V(3).ErrorS(err, "fail to delete redundant deviceProfiles on OpenYurt")
+				klog.V(3).ErrorS(err, "could not delete redundant deviceProfiles on OpenYurt")
 			}
 
 			// 5. update deviceProfiles on OpenYurt
@@ -122,14 +122,14 @@ func (dps *DeviceProfileSyncer) getAllDeviceProfiles() (
 	// 1. list deviceProfiles on edge platform
 	eDps, err := dps.edgeClient.List(context.TODO(), devcli.ListOptions{Namespace: dps.Namespace})
 	if err != nil {
-		klog.V(4).ErrorS(err, "fail to list the deviceProfiles on the edge platform")
+		klog.V(4).ErrorS(err, "could not list the deviceProfiles on the edge platform")
 		return edgeDeviceProfiles, kubeDeviceProfiles, err
 	}
 	// 2. list deviceProfiles on OpenYurt (filter objects belonging to edgeServer)
 	var kDps iotv1alpha1.DeviceProfileList
 	listOptions := client.MatchingFields{util.IndexerPathForNodepool: dps.NodePool}
 	if err = dps.List(context.TODO(), &kDps, listOptions, client.InNamespace(dps.Namespace)); err != nil {
-		klog.V(4).ErrorS(err, "fail to list the deviceProfiles on the Kubernetes")
+		klog.V(4).ErrorS(err, "could not list the deviceProfiles on the Kubernetes")
 		return edgeDeviceProfiles, kubeDeviceProfiles, err
 	}
 	for i := range eDps {
@@ -211,7 +211,7 @@ func (dps *DeviceProfileSyncer) syncEdgeToKube(edgeDps map[string]*iotv1alpha1.D
 func (dps *DeviceProfileSyncer) deleteDeviceProfiles(redundantKubeDeviceProfiles map[string]*iotv1alpha1.DeviceProfile) error {
 	for _, kdp := range redundantKubeDeviceProfiles {
 		if err := dps.Client.Delete(context.TODO(), kdp); err != nil {
-			klog.V(5).ErrorS(err, "fail to delete the DeviceProfile on Kubernetes: %s ",
+			klog.V(5).ErrorS(err, "could not delete the DeviceProfile on Kubernetes: %s ",
 				"DeviceProfile", kdp.Name)
 			return err
 		}
@@ -221,7 +221,7 @@ func (dps *DeviceProfileSyncer) deleteDeviceProfiles(redundantKubeDeviceProfiles
 			},
 		})
 		if err := dps.Client.Patch(context.TODO(), kdp, client.RawPatch(types.MergePatchType, patchData)); err != nil {
-			klog.V(5).ErrorS(err, "fail to remove finalizer of DeviceProfile on Kubernetes", "DeviceProfile", kdp.Name)
+			klog.V(5).ErrorS(err, "could not remove finalizer of DeviceProfile on Kubernetes", "DeviceProfile", kdp.Name)
 			return err
 		}
 	}

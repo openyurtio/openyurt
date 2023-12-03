@@ -30,7 +30,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
@@ -283,7 +283,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// Either use specified nodename or get hostname from OS envs
 	name, err := edgenode.GetHostname(opt.nodeName)
 	if err != nil {
-		klog.Errorf("failed to get node name, %v", err)
+		klog.Errorf("could not get node name, %v", err)
 		return nil, err
 	}
 
@@ -327,7 +327,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// get tls bootstrap config
 	cfg, err := yurtadmutil.RetrieveBootstrapConfig(data)
 	if err != nil {
-		klog.Errorf("failed to retrieve bootstrap config, %v", err)
+		klog.Errorf("could not retrieve bootstrap config, %v", err)
 		return nil, err
 	}
 	data.tlsBootstrapCfg = cfg
@@ -335,14 +335,14 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	// get kubernetes version
 	client, err := kubeconfigutil.ToClientSet(cfg)
 	if err != nil {
-		klog.Errorf("failed to create bootstrap client, %v", err)
+		klog.Errorf("could not create bootstrap client, %v", err)
 		return nil, err
 	}
 	data.clientSet = client
 
 	k8sVersion, err := yurtadmutil.GetKubernetesVersionFromCluster(client)
 	if err != nil {
-		klog.Errorf("failed to get kubernetes version, %v", err)
+		klog.Errorf("could not get kubernetes version, %v", err)
 		return nil, err
 	}
 	data.kubernetesVersion = k8sVersion
@@ -355,7 +355,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
 		}
 		// add nodePool label for node by kubelet
-		data.nodeLabels[apps.NodePoolLabel] = opt.nodePoolName
+		data.nodeLabels[projectinfo.GetNodePoolLabel()] = opt.nodePoolName
 	}
 
 	// check static pods has value and yurtstaticset is already exist
@@ -400,7 +400,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 
 	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
 	if err != nil {
-		klog.Errorf("hard-code yurthub manifest will be used, because failed to get yurthub template from kube-apiserver, %v", err)
+		klog.Errorf("hard-code yurthub manifest will be used, because could not get yurthub template from kube-apiserver, %v", err)
 		yurthubManifest = yurtconstants.YurthubStaticPodManifest
 		yurthubTemplate = yurtconstants.YurthubTemplate
 

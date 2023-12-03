@@ -30,8 +30,8 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func TestValidateCreate(t *testing.T) {
@@ -185,7 +185,7 @@ func prepareNodes() []client.Object {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node1",
 				Labels: map[string]string{
-					apps.NodePoolLabel: "hangzhou",
+					projectinfo.GetNodePoolLabel(): "hangzhou",
 				},
 			},
 			Status: corev1.NodeStatus{

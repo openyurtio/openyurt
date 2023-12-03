@@ -117,6 +117,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		}
 	}
 
+	klog.Infof("list YurtAppOverrider, total: %d", len(overriders))
 	if len(overriders) == 0 {
 		return nil
 	}
@@ -145,7 +146,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 					dataStruct:  dataStruct,
 				}
 				if err := pc.jsonMergePatch(); err != nil {
-					klog.Infof("fail to update patches for deployment: %v", err)
+					klog.Infof("could not update patches for deployment: %v", err)
 					return err
 				}
 				break

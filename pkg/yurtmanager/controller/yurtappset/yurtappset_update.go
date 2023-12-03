@@ -44,7 +44,7 @@ func (r *ReconcileYurtAppSet) managePools(yas *unitv1alpha1.YurtAppSet,
 	exists, provisioned, err := r.managePoolProvision(yas, nameToPool, nextPatches, expectedRevision, poolType)
 	if err != nil {
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1alpha1.PoolProvisioned, corev1.ConditionFalse, "Error", err.Error()))
-		return newStatus, fmt.Errorf("fail to manage Pool provision: %s", err)
+		return newStatus, fmt.Errorf("could not manage Pool provision: %s", err)
 	}
 
 	if provisioned {
@@ -140,7 +140,7 @@ func (r *ReconcileYurtAppSet) managePoolProvision(yas *unitv1alpha1.YurtAppSet,
 			err := r.poolControls[workloadType].CreatePool(yas, poolName, revision, replicas)
 			if err != nil {
 				if !errors.IsTimeout(err) {
-					return fmt.Errorf("fail to create Pool (%s) %s: %s", workloadType, poolName, err.Error())
+					return fmt.Errorf("could not create Pool (%s) %s: %s", workloadType, poolName, err.Error())
 				}
 			}
 
@@ -160,7 +160,7 @@ func (r *ReconcileYurtAppSet) managePoolProvision(yas *unitv1alpha1.YurtAppSet,
 		for _, poolName := range deletes {
 			pool := nameToPool[poolName]
 			if err := r.poolControls[workloadType].DeletePool(pool); err != nil {
-				deleteErrs = append(deleteErrs, fmt.Errorf("fail to delete Pool (%s) %s/%s for %s: %s", workloadType, pool.Namespace, pool.Name, poolName, err))
+				deleteErrs = append(deleteErrs, fmt.Errorf("could not delete Pool (%s) %s/%s for %s: %s", workloadType, pool.Namespace, pool.Name, poolName, err))
 			}
 		}
 
@@ -181,14 +181,14 @@ func (r *ReconcileYurtAppSet) managePoolProvision(yas *unitv1alpha1.YurtAppSet,
 
 		pools, err := control.GetAllPools(yas)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("fail to list Pool of other type %s for YurtAppSet %s/%s: %s", t, yas.Namespace, yas.Name, err))
+			errs = append(errs, fmt.Errorf("could not list Pool of other type %s for YurtAppSet %s/%s: %s", t, yas.Namespace, yas.Name, err))
 			continue
 		}
 
 		for _, pool := range pools {
 			cleaned = true
 			if err := control.DeletePool(pool); err != nil {
-				errs = append(errs, fmt.Errorf("fail to delete Pool %s of other type %s for YurtAppSet %s/%s: %s", pool.Name, t, yas.Namespace, yas.Name, err))
+				errs = append(errs, fmt.Errorf("could not delete Pool %s of other type %s for YurtAppSet %s/%s: %s", pool.Name, t, yas.Namespace, yas.Name, err))
 				continue
 			}
 		}

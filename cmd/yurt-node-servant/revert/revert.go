@@ -31,12 +31,12 @@ func NewRevertCmd() *cobra.Command {
 		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := o.Complete(cmd.Flags()); err != nil {
-				klog.Fatalf("fail to complete the revert option: %s", err)
+				klog.Fatalf("could not complete the revert option: %s", err)
 			}
 
 			r := revert.NewReverterWithOptions(o)
 			if err := r.Do(); err != nil {
-				klog.Fatalf("fail to revert the yurt node to a kubernetes node: %s", err)
+				klog.Fatalf("could not revert the yurt node to a kubernetes node: %s", err)
 			}
 			klog.Info("revert success")
 		},

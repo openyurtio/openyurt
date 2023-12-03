@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 type EnqueueNodePoolForNode struct {
@@ -41,12 +42,12 @@ func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 	klog.V(5).Infof(Format("will enqueue nodepool as node(%s) has been created",
 		node.GetName()))
-	if np := node.Labels[apps.NodePoolLabel]; len(np) != 0 {
+	if np := node.Labels[projectinfo.GetNodePoolLabel()]; len(np) != 0 {
 		addNodePoolToWorkQueue(np, q)
 		return
 	}
@@ -58,19 +59,19 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 	q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("Fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectNew.GetName()))
 		return
 	}
 	oldNode, ok := evt.ObjectOld.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectOld.GetName()))
 		return
 	}
 
-	newNp := newNode.Labels[apps.NodePoolLabel]
-	oldNp := oldNode.Labels[apps.NodePoolLabel]
+	newNp := newNode.Labels[projectinfo.GetNodePoolLabel()]
+	oldNp := oldNode.Labels[projectinfo.GetNodePoolLabel()]
 
 	// check the NodePoolLabel of node
 	if len(oldNp) == 0 && len(newNp) == 0 {
@@ -113,11 +114,11 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 
-	np := node.Labels[apps.NodePoolLabel]
+	np := node.Labels[projectinfo.GetNodePoolLabel()]
 	if len(np) == 0 {
 		klog.V(4).Infof(Format("A orphan node(%s) is removed", node.Name))
 		return

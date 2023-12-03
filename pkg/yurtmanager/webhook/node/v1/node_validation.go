@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -58,22 +59,15 @@ func (webhook *NodeHandler) ValidateDelete(_ context.Context, obj runtime.Object
 }
 
 func validateNodeUpdate(newNode, oldNode *v1.Node, req admission.Request) field.ErrorList {
-	oldNp := oldNode.Labels[apps.NodePoolLabel]
-	newNp := newNode.Labels[apps.NodePoolLabel]
-	oldNpType := oldNode.Labels[apps.NodePoolTypeLabel]
-	newNpType := newNode.Labels[apps.NodePoolTypeLabel]
+	oldNp := oldNode.Labels[projectinfo.GetNodePoolLabel()]
+	newNp := newNode.Labels[projectinfo.GetNodePoolLabel()]
 	oldNpHostNetwork := oldNode.Labels[apps.NodePoolHostNetworkLabel]
 	newNpHostNetwork := newNode.Labels[apps.NodePoolHostNetworkLabel]
 
 	var errList field.ErrorList
 	// it is not allowed to change NodePoolLabel if it has been set
 	if len(oldNp) != 0 && oldNp != newNp {
-		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolLabel), "apps.openyurt.io/nodepool can not be changed"))
-	}
-
-	// it is not allowed to change NodePoolTypeLabel if it has been set
-	if len(oldNpType) != 0 && oldNpType != newNpType {
-		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolTypeLabel), "nodepool.openyurt.io/type can not be changed"))
+		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(projectinfo.GetNodePoolLabel()), "apps.openyurt.io/nodepool can not be changed"))
 	}
 
 	// it is not allowed to change NodePoolHostNetworkLabel if it has been set

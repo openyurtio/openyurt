@@ -56,7 +56,7 @@ func CreateClientSetKubeConfig(kubeConfig string) (*kubernetes.Clientset, error)
 	}
 	cfg, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("fail to create the clientset based on %s: %w",
+		return nil, fmt.Errorf("could not create the clientset based on %s: %w",
 			kubeConfig, err)
 	}
 	cliSet, err := kubernetes.NewForConfig(cfg)

@@ -104,7 +104,7 @@ func (a *StatefulSetAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName,
 		}
 	}
 	if poolConfig == nil {
-		return fmt.Errorf("fail to find pool config %s", poolName)
+		return fmt.Errorf("could not find pool config %s", poolName)
 	}
 
 	set.Namespace = yas.Namespace

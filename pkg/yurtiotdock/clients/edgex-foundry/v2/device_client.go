@@ -127,7 +127,7 @@ func (efc *EdgexDeviceClient) Update(ctx context.Context, device *iotv1alpha1.De
 	if err != nil {
 		return nil, err
 	} else if rep.StatusCode() != http.StatusMultiStatus {
-		return nil, fmt.Errorf("failed to update device: %s, get response: %s", actualDeviceName, string(rep.Body()))
+		return nil, fmt.Errorf("could not update device: %s, get response: %s", actualDeviceName, string(rep.Body()))
 	}
 	return device, nil
 }
@@ -257,12 +257,12 @@ func (efc *EdgexDeviceClient) UpdatePropertyState(ctx context.Context, propertyN
 	if err != nil {
 		return err
 	} else if rep.StatusCode() != http.StatusOK {
-		return fmt.Errorf("failed to set property: %s, get response: %s", dps.Name, string(rep.Body()))
+		return fmt.Errorf("could not set property: %s, get response: %s", dps.Name, string(rep.Body()))
 	} else if rep.Body() != nil {
 		// If the parameters are illegal, such as out of range, the 200 status code is also returned, but the description appears in the body
 		a := string(rep.Body())
 		if strings.Contains(a, "execWriteCmd") {
-			return fmt.Errorf("failed to set property: %s, get response: %s", dps.Name, string(rep.Body()))
+			return fmt.Errorf("could not set property: %s, get response: %s", dps.Name, string(rep.Body()))
 		}
 	}
 	return nil
@@ -310,7 +310,7 @@ func (efc *EdgexDeviceClient) ListPropertiesState(ctx context.Context, device *i
 			} else {
 				var eResp edgex_resp.EventResponse
 				if err := json.Unmarshal(resp.Body(), &eResp); err != nil {
-					klog.V(5).ErrorS(err, "failed to decode the response ", "response", resp)
+					klog.V(5).ErrorS(err, "could not decode the response ", "response", resp)
 					continue
 				}
 				event := eResp.Event

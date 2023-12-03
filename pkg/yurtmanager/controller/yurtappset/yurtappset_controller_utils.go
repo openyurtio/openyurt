@@ -42,11 +42,11 @@ type YurtAppSetPatches struct {
 func getPoolNameFrom(metaObj metav1.Object) (string, error) {
 	name, exist := metaObj.GetLabels()[apps.PoolNameLabelKey]
 	if !exist {
-		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: no label %s found", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
+		return "", fmt.Errorf("could not get pool name from label of pool %s/%s: no label %s found", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
 	}
 
 	if len(name) == 0 {
-		return "", fmt.Errorf("fail to get pool name from label of pool %s/%s: label %s has an empty value", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
+		return "", fmt.Errorf("could not get pool name from label of pool %s/%s: label %s has an empty value", metaObj.GetNamespace(), metaObj.GetName(), apps.PoolNameLabelKey)
 	}
 
 	return name, nil

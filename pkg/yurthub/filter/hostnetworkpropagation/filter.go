@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
@@ -91,7 +91,7 @@ func (hpf *hostNetworkPropagationFilter) resolveNodePoolName(pod *corev1.Pod) st
 		klog.Warningf("could not get node(%s) in hostNetworkPropagationFilter, %v", pod.Spec.NodeName, err)
 		return hpf.nodePoolName
 	}
-	hpf.nodePoolName = node.Labels[apps.NodePoolLabel]
+	hpf.nodePoolName = node.Labels[projectinfo.GetNodePoolLabel()]
 	return hpf.nodePoolName
 }
 

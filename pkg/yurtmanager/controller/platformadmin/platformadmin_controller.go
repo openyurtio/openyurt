@@ -46,10 +46,10 @@ import (
 
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
@@ -182,7 +182,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	klog.V(4).Infof(Format("registering the field indexers of platformadmin controller"))
 	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		klog.Errorf(Format("failed to register field indexers for platformadmin controller, %v", err))
+		klog.Errorf(Format("could not register field indexers for platformadmin controller, %v", err))
 		return nil
 	}
 
@@ -194,8 +194,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps;services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=configmaps/status;services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=services/status,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a PlatformAdmin object and makes changes based on the state read
 // and what is in the PlatformAdmin.Spec
@@ -454,7 +456,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			}
 			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 				corev1.NodeSelectorRequirement{
-					Key:      apps.NodePoolLabel,
+					Key:      projectinfo.GetNodePoolLabel(),
 					Operator: corev1.NodeSelectorOpIn,
 					Values:   []string{platformAdmin.Spec.PoolName},
 				})
@@ -572,7 +574,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	}
 	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 		corev1.NodeSelectorRequirement{
-			Key:      apps.NodePoolLabel,
+			Key:      projectinfo.GetNodePoolLabel(),
 			Operator: corev1.NodeSelectorOpIn,
 			Values:   []string{platformAdmin.Spec.PoolName},
 		})
@@ -701,7 +703,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 			return nil
 		})
 		if err != nil {
-			klog.Errorf(Format("Failed to remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+			klog.Errorf(Format("could not remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 			return nil, err
 		}
 	} else {
@@ -716,7 +718,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 				return controllerutil.SetOwnerReference(platformAdmin, cm, r.scheme)
 			})
 			if err != nil {
-				klog.Errorf(Format("Failed to add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+				klog.Errorf(Format("could not add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 				return nil, err
 			}
 		}
@@ -729,7 +731,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -756,7 +758,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("Failed to write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil
@@ -779,7 +781,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("Failed to marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -802,7 +804,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("Failed to init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Errorf(Format("could not init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil

@@ -46,7 +46,7 @@ func GetPodFromYurtHub(namespace, name string) (*v1.Pod, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("fail to find pod %s/%s", namespace, name)
+	return nil, fmt.Errorf("could not find pod %s/%s", namespace, name)
 }
 
 func GetPodsFromYurtHub(url string) (*v1.PodList, error) {
@@ -75,7 +75,7 @@ func getPodsDataFromYurtHub(url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fail to access yurthub pods API, returned status: %v", resp.Status)
+		return nil, fmt.Errorf("could not access yurthub pods API, returned status: %v", resp.Status)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
@@ -92,7 +92,7 @@ func decodePods(data []byte) (*v1.PodList, error) {
 
 	podList := new(v1.PodList)
 	if _, _, err := codec.Decode(data, nil, podList); err != nil {
-		return nil, fmt.Errorf("failed to decode pod list: %s", err)
+		return nil, fmt.Errorf("could not decode pod list: %s", err)
 	}
 	return podList, nil
 }

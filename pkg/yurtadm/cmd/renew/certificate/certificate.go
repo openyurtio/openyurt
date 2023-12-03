@@ -119,7 +119,7 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	for _, server := range servers {
 		u, err := url.Parse(server)
 		if err != nil {
-			klog.Errorf("failed to parse server address %s, %v", servers, err)
+			klog.Errorf("could not parse server address %s, %v", servers, err)
 			return us, err
 		}
 		if u.Scheme == "" {

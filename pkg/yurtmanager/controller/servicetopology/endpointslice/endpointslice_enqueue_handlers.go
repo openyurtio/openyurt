@@ -43,13 +43,13 @@ func (e *EnqueueEndpointsliceForService) Update(evt event.UpdateEvent,
 	q workqueue.RateLimitingInterface) {
 	oldSvc, ok := evt.ObjectOld.(*corev1.Service)
 	if !ok {
-		klog.Errorf(Format("Fail to assert runtime Object(%s) to v1.Service",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Service",
 			evt.ObjectOld.GetName()))
 		return
 	}
 	newSvc, ok := evt.ObjectNew.(*corev1.Service)
 	if !ok {
-		klog.Errorf(Format("Fail to assert runtime Object(%s) to v1.Service",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Service",
 			evt.ObjectNew.GetName()))
 		return
 	}
@@ -74,7 +74,7 @@ func (e *EnqueueEndpointsliceForService) enqueueEndpointsliceForSvc(newSvc *core
 	for _, key := range keys {
 		ns, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			klog.Errorf("failed to split key %s, %v", key, err)
+			klog.Errorf("could not split key %s, %v", key, err)
 			continue
 		}
 		q.AddRateLimited(reconcile.Request{

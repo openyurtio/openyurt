@@ -36,16 +36,16 @@ func NewUpgradeCmd() *cobra.Command {
 			})
 
 			if err := o.Validate(); err != nil {
-				klog.Fatalf("Fail to validate static pod upgrade args, %v", err)
+				klog.Fatalf("could not validate static pod upgrade args, %v", err)
 			}
 
 			ctrl, err := upgrade.NewWithOptions(o)
 			if err != nil {
-				klog.Fatalf("Fail to create static-pod-upgrade controller, %v", err)
+				klog.Fatalf("could not create static-pod-upgrade controller, %v", err)
 			}
 
 			if err = ctrl.Upgrade(); err != nil {
-				klog.Fatalf("Fail to upgrade static pod, %v", err)
+				klog.Fatalf("could not upgrade static pod, %v", err)
 			}
 
 			klog.Info("Static pod upgrade Success")

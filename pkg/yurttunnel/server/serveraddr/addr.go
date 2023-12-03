@@ -83,7 +83,7 @@ func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 	}
 
 	if tcpPort == 0 {
-		return "", errors.New("fail to get the port number")
+		return "", errors.New("could not get the port number")
 	}
 
 	return net.JoinHostPort(host, strconv.Itoa(int(tcpPort))), nil

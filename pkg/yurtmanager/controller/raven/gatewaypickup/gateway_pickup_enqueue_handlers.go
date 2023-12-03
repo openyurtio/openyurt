@@ -36,7 +36,7 @@ type EnqueueGatewayForNode struct{}
 func (e *EnqueueGatewayForNode) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 	klog.V(5).Infof(Format("will enqueue gateway as node(%s) has been created",
@@ -52,13 +52,13 @@ func (e *EnqueueGatewayForNode) Create(evt event.CreateEvent, q workqueue.RateLi
 func (e *EnqueueGatewayForNode) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("Fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectNew.GetName()))
 		return
 	}
 	oldNode, ok := evt.ObjectOld.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("fail to assert runtime Object(%s) to v1.Node",
+		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectOld.GetName()))
 		return
 	}
@@ -83,7 +83,7 @@ func (e *EnqueueGatewayForNode) Update(evt event.UpdateEvent, q workqueue.RateLi
 func (e *EnqueueGatewayForNode) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.Node"))
+		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
 
@@ -109,12 +109,12 @@ type EnqueueGatewayForRavenConfig struct {
 func (e *EnqueueGatewayForRavenConfig) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.ConfigMap"))
+		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
 	klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been created"))
 	if err := e.enqueueGateways(q); err != nil {
-		klog.Error(Format("failed to config all gateway, error %s", err.Error()))
+		klog.Error(Format("could not config all gateway, error %s", err.Error()))
 		return
 	}
 }
@@ -122,28 +122,28 @@ func (e *EnqueueGatewayForRavenConfig) Create(evt event.CreateEvent, q workqueue
 func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	oldCm, ok := evt.ObjectOld.(*corev1.ConfigMap)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.ConfigMap"))
+		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
 
 	newCm, ok := evt.ObjectNew.(*corev1.ConfigMap)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.ConfigMap"))
+		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
 
 	if oldCm.Data[util.RavenEnableProxy] != newCm.Data[util.RavenEnableProxy] {
-		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
-			klog.Error(Format("failed to config all gateway, error %s", err.Error()))
+			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
 		}
 	}
 
 	if oldCm.Data[util.RavenEnableTunnel] != newCm.Data[util.RavenEnableTunnel] {
-		klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
-			klog.Error(Format("failed to config all gateway, error %s", err.Error()))
+			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
 		}
 	}
@@ -152,12 +152,12 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 func (e *EnqueueGatewayForRavenConfig) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
-		klog.Error(Format("Fail to assert runtime Object to v1.ConfigMap"))
+		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
-	klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been deleted"))
+	klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been deleted"))
 	if err := e.enqueueGateways(q); err != nil {
-		klog.Error(Format("failed to config all gateway, error %s", err.Error()))
+		klog.Error(Format("could not config all gateway, error %s", err.Error()))
 		return
 	}
 }

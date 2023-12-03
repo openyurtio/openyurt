@@ -98,7 +98,7 @@ func (m *GCManager) gcPodsWhenRestart() {
 		Resource: "pods",
 	})
 	if err != nil {
-		klog.Errorf("failed to list keys for kubelet pods, %v", err)
+		klog.Errorf("could not list keys for kubelet pods, %v", err)
 		return
 	} else if len(localPodKeys) == 0 {
 		klog.Infof("local storage for kubelet pods is empty, not need to gc pods")
@@ -138,7 +138,7 @@ func (m *GCManager) gcPodsWhenRestart() {
 			Resources: "pods",
 		})
 		if err != nil {
-			klog.Errorf("failed to get pod key for %s/%s, %v", ns, name, err)
+			klog.Errorf("could not get pod key for %s/%s, %v", ns, name, err)
 			continue
 		}
 		currentPodKeys[key] = struct{}{}
@@ -159,7 +159,7 @@ func (m *GCManager) gcPodsWhenRestart() {
 
 	for _, key := range deletedPods {
 		if err := m.store.Delete(key); err != nil {
-			klog.Errorf("failed to gc pod %s, %v", key, err)
+			klog.Errorf("could not gc pod %s, %v", key, err)
 		} else {
 			klog.Infof("gc pod %s successfully", key)
 		}
@@ -205,7 +205,7 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 
 	for _, key := range deletedEvents {
 		if err := m.store.Delete(key); err != nil {
-			klog.Errorf("failed to gc events %s, %v", key.Key(), err)
+			klog.Errorf("could not gc events %s, %v", key.Key(), err)
 		} else {
 			klog.Infof("gc events %s successfully", key.Key())
 		}

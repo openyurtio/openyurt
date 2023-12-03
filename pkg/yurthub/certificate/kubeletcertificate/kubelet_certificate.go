@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -40,6 +41,7 @@ type kubeletCertManager struct {
 	kubeletCAFile  string
 	kubeletPemFile string
 	cert           *tls.Certificate
+	caData         []byte
 }
 
 func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (certificate.YurtClientCertificateManager, error) {
@@ -49,6 +51,10 @@ func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (
 
 	if exist, _ := util.FileExists(kubeletCAFile); !exist {
 		return nil, KubeletCANotExistErr
+	}
+	caData, err := os.ReadFile(kubeletCAFile)
+	if err != nil {
+		return nil, err
 	}
 
 	if exist, _ := util.FileExists(kubeletPemFile); !exist {
@@ -65,6 +71,7 @@ func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (
 		kubeletCAFile:  kubeletCAFile,
 		kubeletPemFile: kubeletPemFile,
 		cert:           cert,
+		caData:         caData,
 	}, nil
 }
 
@@ -84,6 +91,10 @@ func (kcm *kubeletCertManager) GetHubConfFile() string {
 	return kcm.kubeConfFile
 }
 
+func (kcm *kubeletCertManager) GetCAData() []byte {
+	return kcm.caData
+}
+
 func (kcm *kubeletCertManager) GetCaFile() string {
 	return kcm.kubeletCAFile
 }
@@ -96,7 +107,7 @@ func (kcm *kubeletCertManager) GetAPIServerClientCert() *tls.Certificate {
 	klog.Warningf("current certificate: %s is expired, reload it", kcm.kubeletPemFile)
 	cert, err := loadFile(kcm.kubeletPemFile)
 	if err != nil {
-		klog.Errorf("failed to load client certificate(%s), %v", kcm.kubeletPemFile, err)
+		klog.Errorf("could not load client certificate(%s), %v", kcm.kubeletPemFile, err)
 		return nil
 	}
 	kcm.cert = cert
