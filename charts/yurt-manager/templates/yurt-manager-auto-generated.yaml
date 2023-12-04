@@ -138,6 +138,18 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
+  - nodebuckets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.openyurt.io
+  resources:
   - nodepools
   verbs:
   - get

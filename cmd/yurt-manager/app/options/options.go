@@ -37,6 +37,7 @@ type YurtManagerOptions struct {
 	PlatformAdminController    *PlatformAdminControllerOptions
 	YurtAppOverriderController *YurtAppOverriderControllerOptions
 	NodeLifeCycleController    *NodeLifecycleControllerOptions
+	NodeBucketController       *NodeBucketControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -55,6 +56,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		PlatformAdminController:    NewPlatformAdminControllerOptions(),
 		YurtAppOverriderController: NewYurtAppOverriderControllerOptions(),
 		NodeLifeCycleController:    NewNodeLifecycleControllerOptions(),
+		NodeBucketController:       NewNodeBucketControllerOptions(),
 	}
 
 	return &s, nil
@@ -73,7 +75,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
 	y.YurtAppOverriderController.AddFlags(fss.FlagSet("yurtappoverrider controller"))
 	y.NodeLifeCycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
-
+	y.NodeBucketController.AddFlags(fss.FlagSet("nodebucket controller"))
 	return fss
 }
 
@@ -91,6 +93,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.PlatformAdminController.Validate()...)
 	errs = append(errs, y.YurtAppOverriderController.Validate()...)
 	errs = append(errs, y.NodeLifeCycleController.Validate()...)
+	errs = append(errs, y.NodeBucketController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -127,6 +130,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.NodeLifeCycleController.ApplyTo(&c.ComponentConfig.NodeLifeCycleController); err != nil {
+		return err
+	}
+	if err := y.NodeBucketController.ApplyTo(&c.ComponentConfig.NodeBucketController); err != nil {
 		return err
 	}
 	return nil

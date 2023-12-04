@@ -23,6 +23,7 @@ import (
 
 	csrapproverconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover/config"
 	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
+	nodebucketconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	gatewaypickupconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
@@ -69,6 +70,9 @@ type YurtManagerConfiguration struct {
 	YurtAppOverriderController yurtappoverriderconfig.YurtAppOverriderControllerConfiguration
 
 	NodeLifeCycleController v1alpha1.NodeLifecycleControllerConfiguration
+
+	//  NodeBucketController holds configuration for NodeBucketController related features.
+	NodeBucketController nodebucketconfig.NodeBucketControllerConfiguration
 }
 
 type GenericConfiguration struct {
