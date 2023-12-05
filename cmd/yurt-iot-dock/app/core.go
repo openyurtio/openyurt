@@ -126,16 +126,16 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceProfile")
 		os.Exit(1)
 	}
-	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, edgexdock)
-	if err != nil {
-		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceProfile")
-		os.Exit(1)
-	}
-	err = mgr.Add(dfs.NewDeviceProfileSyncerRunnable())
-	if err != nil {
-		setupLog.Error(err, "unable to create syncer runnable", "syncer", "DeviceProfile")
-		os.Exit(1)
-	}
+	// dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, edgexdock)
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create syncer", "syncer", "DeviceProfile")
+	// 	os.Exit(1)
+	// }
+	// err = mgr.Add(dfs.NewDeviceProfileSyncerRunnable())
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create syncer runnable", "syncer", "DeviceProfile")
+	// 	os.Exit(1)
+	// }
 
 	// setup the Device Reconciler and Syncer
 	if err = (&controllers.DeviceReconciler{
@@ -156,6 +156,18 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		os.Exit(1)
 	}
 
+	setupLog.Info("[NewPulsimeter] run the pulsimeter1205")
+	pm, err := controllers.NewPulsimeter(mgr.GetClient(), opts, edgexdock)
+	if err != nil {
+		setupLog.Error(err, "unable to create plusimeter", "controller", "Device")
+		os.Exit(1)
+	}
+	err = mgr.Add(pm.NewPulsimeterRunnable())
+	if err != nil {
+		setupLog.Error(err, "unable to create plusimeter runnable", "syncer", "Device")
+		os.Exit(1)
+	}
+
 	// setup the DeviceService Reconciler and Syncer
 	if err = (&controllers.DeviceServiceReconciler{
 		Client: mgr.GetClient(),
@@ -164,17 +176,17 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceService")
 		os.Exit(1)
 	}
-	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, edgexdock)
-	if err != nil {
-		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceService")
-		os.Exit(1)
-	}
-	err = mgr.Add(dss.NewDeviceServiceSyncerRunnable())
-	if err != nil {
-		setupLog.Error(err, "unable to create syncer runnable", "syncer", "DeviceService")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
+	// dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, edgexdock)
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create syncer", "syncer", "DeviceService")
+	// 	os.Exit(1)
+	// }
+	// err = mgr.Add(dss.NewDeviceServiceSyncerRunnable())
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create syncer runnable", "syncer", "DeviceService")
+	// 	os.Exit(1)
+	// }
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

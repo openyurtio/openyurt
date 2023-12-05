@@ -107,6 +107,10 @@ func toEdgeXProfileProperty(pp iotv1alpha1.ResourceProperties) dtos.ResourceProp
 	}
 }
 
+func ToKubeDeviceService(ds dtos.DeviceService, namespace string) iotv1alpha1.DeviceService {
+	return toKubeDeviceService(ds, namespace)
+}
+
 func toKubeDeviceService(ds dtos.DeviceService, namespace string) iotv1alpha1.DeviceService {
 	return iotv1alpha1.DeviceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -198,6 +202,9 @@ func toEdgeXOperatingState(os iotv1alpha1.OperatingState) models.OperatingState 
 	}
 	return models.Unknown
 }
+func ToKubeDevice(ed dtos.Device, namespace string) iotv1alpha1.Device {
+	return toKubeDevice(ed, namespace)
+}
 
 // toKubeDevice serialize the EdgeX Device to the corresponding Kubernetes Device
 func toKubeDevice(ed dtos.Device, namespace string) iotv1alpha1.Device {
@@ -260,6 +267,9 @@ func toKubeProtocols(
 		ret[k] = iotv1alpha1.ProtocolProperties(propMap)
 	}
 	return ret
+}
+func ToKubeDeviceProfile(dp dtos.DeviceProfile, namespace string) iotv1alpha1.DeviceProfile {
+	return toKubeDeviceProfile(&dp, namespace)
 }
 
 // toKubeDeviceProfile create DeviceProfile in cloud according to devicProfile in edge
