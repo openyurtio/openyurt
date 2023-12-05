@@ -62,6 +62,7 @@ const (
 	YurttunnelANPGrpcKeepAliveTimeSec = 10
 	// wait 5 seconds for the probe ack before cutting the connection
 	YurttunnelANPGrpcKeepAliveTimeoutSec = 5
+	UnixListenerNetwork                  = "unix"
 )
 const (
 	HttpsPrfix = "https://"
