@@ -23,17 +23,14 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
@@ -43,10 +40,11 @@ const (
 	AnnotationServiceTopologyValueNode     = "kubernetes.io/hostname"
 	AnnotationServiceTopologyValueZone     = "kubernetes.io/zone"
 	AnnotationServiceTopologyValueNodePool = "openyurt.io/nodepool"
+	LabelNodePoolName                      = "openyurt.io/pool-name"
 )
 
 var (
-	topologyValueSets = sets.NewString(AnnotationServiceTopologyValueNode, AnnotationServiceTopologyValueZone, AnnotationServiceTopologyValueNodePool)
+	poolTopologyValueSets = sets.NewString(AnnotationServiceTopologyValueZone, AnnotationServiceTopologyValueNodePool)
 )
 
 // Register registers a filter
@@ -61,13 +59,14 @@ func NewServiceTopologyFilter() (filter.ObjectFilter, error) {
 }
 
 type serviceTopologyFilter struct {
-	serviceLister  listers.ServiceLister
-	serviceSynced  cache.InformerSynced
-	nodePoolLister cache.GenericLister
-	nodePoolSynced cache.InformerSynced
-	nodePoolName   string
-	nodeName       string
-	client         kubernetes.Interface
+	serviceLister      listers.ServiceLister
+	serviceSynced      cache.InformerSynced
+	enablePoolTopology bool
+	nodesGetter        filter.NodesInPoolGetter
+	nodesSynced        cache.InformerSynced
+	nodePoolName       string
+	nodeName           string
+	client             kubernetes.Interface
 }
 
 func (stf *serviceTopologyFilter) Name() string {
@@ -88,11 +87,10 @@ func (stf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.Sha
 	return nil
 }
 
-func (stf *serviceTopologyFilter) SetNodePoolInformerFactory(dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory) error {
-	gvr := v1beta1.GroupVersion.WithResource("nodepools")
-	stf.nodePoolLister = dynamicInformerFactory.ForResource(gvr).Lister()
-	stf.nodePoolSynced = dynamicInformerFactory.ForResource(gvr).Informer().HasSynced
-
+func (stf *serviceTopologyFilter) SetNodesGetterAndSynced(nodesGetter filter.NodesInPoolGetter, nodesSynced cache.InformerSynced, enablePoolTopology bool) error {
+	stf.nodesGetter = nodesGetter
+	stf.nodesSynced = nodesSynced
+	stf.enablePoolTopology = enablePoolTopology
 	return nil
 }
 
@@ -127,7 +125,7 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 }
 
 func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
-	if ok := cache.WaitForCacheSync(stopCh, stf.serviceSynced, stf.nodePoolSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, stf.serviceSynced, stf.nodesSynced); !ok {
 		return obj
 	}
 
@@ -165,8 +163,8 @@ func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struc
 }
 
 func (stf *serviceTopologyFilter) serviceTopologyHandler(obj runtime.Object) runtime.Object {
-	needHandle, serviceTopologyType := stf.resolveServiceTopologyType(obj)
-	if !needHandle || len(serviceTopologyType) == 0 {
+	serviceTopologyType := stf.resolveServiceTopologyType(obj)
+	if len(serviceTopologyType) == 0 {
 		return obj
 	}
 
@@ -182,7 +180,7 @@ func (stf *serviceTopologyFilter) serviceTopologyHandler(obj runtime.Object) run
 	}
 }
 
-func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object) (bool, string) {
+func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object) string {
 	var svcNamespace, svcName string
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
@@ -195,19 +193,24 @@ func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object)
 		svcNamespace = v.Namespace
 		svcName = v.Name
 	default:
-		return false, ""
+		return ""
 	}
 
 	svc, err := stf.serviceLister.Services(svcNamespace).Get(svcName)
 	if err != nil {
 		klog.Warningf("serviceTopologyFilterHandler: could not get service %s/%s, err: %v", svcNamespace, svcName, err)
-		return false, ""
+		return ""
 	}
 
-	if topologyValueSets.Has(svc.Annotations[AnnotationServiceTopologyKey]) {
-		return true, svc.Annotations[AnnotationServiceTopologyKey]
+	// node topology for service
+	if svc.Annotations[AnnotationServiceTopologyKey] == AnnotationServiceTopologyValueNode {
+		return AnnotationServiceTopologyValueNode
+	} else if poolTopologyValueSets.Has(svc.Annotations[AnnotationServiceTopologyKey]) {
+		if stf.enablePoolTopology {
+			return svc.Annotations[AnnotationServiceTopologyKey]
+		}
 	}
-	return false, ""
+	return ""
 }
 
 func (stf *serviceTopologyFilter) nodeTopologyHandler(obj runtime.Object) runtime.Object {
@@ -230,42 +233,28 @@ func (stf *serviceTopologyFilter) nodePoolTopologyHandler(obj runtime.Object) ru
 		return stf.nodeTopologyHandler(obj)
 	}
 
-	runtimeObj, err := stf.nodePoolLister.Get(nodePoolName)
+	nodes, err := stf.nodesGetter(nodePoolName)
 	if err != nil {
-		klog.Warningf("serviceTopologyFilterHandler: could not get nodepool %s, err: %v", nodePoolName, err)
-		return obj
-	}
-	var nodePool *v1beta1.NodePool
-	switch poolObj := runtimeObj.(type) {
-	case *v1beta1.NodePool:
-		nodePool = poolObj
-	case *unstructured.Unstructured:
-		nodePool = new(v1beta1.NodePool)
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(poolObj.UnstructuredContent(), nodePool); err != nil {
-			klog.Warningf("object(%#+v) is not a v1beta1.NodePool", poolObj)
-			return obj
-		}
-	default:
-		klog.Warningf("object(%#+v) is not a unknown type", poolObj)
+		klog.Warningf("serviceTopologyFilter: could not get nodes for node pool %s, err: %v", nodePoolName, err)
 		return obj
 	}
 
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
-		return reassembleV1beta1EndpointSlice(v, "", nodePool)
+		return reassembleV1beta1EndpointSlice(v, "", nodes)
 	case *discovery.EndpointSlice:
-		return reassembleEndpointSlice(v, "", nodePool)
+		return reassembleEndpointSlice(v, "", nodes)
 	case *v1.Endpoints:
-		return reassembleEndpoints(v, "", nodePool)
+		return reassembleEndpoints(v, "", nodes)
 	default:
 		return obj
 	}
 }
 
 // reassembleV1beta1EndpointSlice will discard endpoints that are not on the same node/nodePool for v1beta1.EndpointSlice
-func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlice, nodeName string, nodePool *v1beta1.NodePool) *discoveryV1beta1.EndpointSlice {
-	if len(nodeName) != 0 && nodePool != nil {
-		klog.Warningf("reassembleV1beta1EndpointSlice: nodeName(%s) and nodePool can not be set at the same time", nodeName)
+func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlice, nodeName string, nodes []string) *discoveryV1beta1.EndpointSlice {
+	if len(nodeName) != 0 && len(nodes) != 0 {
+		klog.Warningf("reassembleV1beta1EndpointSlice: nodeName(%s) and nodes can not be set at the same time", nodeName)
 		return endpointSlice
 	}
 
@@ -277,8 +266,8 @@ func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlic
 			}
 		}
 
-		if nodePool != nil {
-			if inSameNodePool(endpointSlice.Endpoints[i].Topology[v1.LabelHostname], nodePool.Status.Nodes) {
+		if len(nodes) != 0 {
+			if inSameNodePool(endpointSlice.Endpoints[i].Topology[v1.LabelHostname], nodes) {
 				newEps = append(newEps, endpointSlice.Endpoints[i])
 			}
 		}
@@ -290,8 +279,8 @@ func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlic
 }
 
 // reassembleEndpointSlice will discard endpoints that are not on the same node/nodePool for v1.EndpointSlice
-func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName string, nodePool *v1beta1.NodePool) *discovery.EndpointSlice {
-	if len(nodeName) != 0 && nodePool != nil {
+func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName string, nodes []string) *discovery.EndpointSlice {
+	if len(nodeName) != 0 && len(nodes) != 0 {
 		klog.Warningf("reassembleEndpointSlice: nodeName(%s) and nodePool can not be set at the same time", nodeName)
 		return endpointSlice
 	}
@@ -304,8 +293,8 @@ func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName st
 			}
 		}
 
-		if nodePool != nil {
-			if inSameNodePool(*endpointSlice.Endpoints[i].NodeName, nodePool.Status.Nodes) {
+		if len(nodes) != 0 {
+			if inSameNodePool(*endpointSlice.Endpoints[i].NodeName, nodes) {
 				newEps = append(newEps, endpointSlice.Endpoints[i])
 			}
 		}
@@ -317,8 +306,8 @@ func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName st
 }
 
 // reassembleEndpoints will discard subset that are not on the same node/nodePool for v1.Endpoints
-func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodePool *v1beta1.NodePool) *v1.Endpoints {
-	if len(nodeName) != 0 && nodePool != nil {
+func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodes []string) *v1.Endpoints {
+	if len(nodeName) != 0 && len(nodes) != 0 {
 		klog.Warningf("reassembleEndpoints: nodeName(%s) and nodePool can not be set at the same time", nodeName)
 		return endpoints
 	}
@@ -330,9 +319,9 @@ func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodePool *v1b
 			endpoints.Subsets[i].NotReadyAddresses = filterValidEndpointsAddr(endpoints.Subsets[i].NotReadyAddresses, nodeName, nil)
 		}
 
-		if nodePool != nil {
-			endpoints.Subsets[i].Addresses = filterValidEndpointsAddr(endpoints.Subsets[i].Addresses, "", nodePool)
-			endpoints.Subsets[i].NotReadyAddresses = filterValidEndpointsAddr(endpoints.Subsets[i].NotReadyAddresses, "", nodePool)
+		if len(nodes) != 0 {
+			endpoints.Subsets[i].Addresses = filterValidEndpointsAddr(endpoints.Subsets[i].Addresses, "", nodes)
+			endpoints.Subsets[i].NotReadyAddresses = filterValidEndpointsAddr(endpoints.Subsets[i].NotReadyAddresses, "", nodes)
 		}
 
 		if len(endpoints.Subsets[i].Addresses) != 0 || len(endpoints.Subsets[i].NotReadyAddresses) != 0 {
@@ -345,7 +334,7 @@ func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodePool *v1b
 	return endpoints
 }
 
-func filterValidEndpointsAddr(addresses []v1.EndpointAddress, nodeName string, nodePool *v1beta1.NodePool) []v1.EndpointAddress {
+func filterValidEndpointsAddr(addresses []v1.EndpointAddress, nodeName string, nodes []string) []v1.EndpointAddress {
 	var newEpAddresses []v1.EndpointAddress
 	for i := range addresses {
 		if addresses[i].NodeName == nil {
@@ -360,8 +349,8 @@ func filterValidEndpointsAddr(addresses []v1.EndpointAddress, nodeName string, n
 		}
 
 		// filter address on the same node pool
-		if nodePool != nil {
-			if inSameNodePool(*addresses[i].NodeName, nodePool.Status.Nodes) {
+		if len(nodes) != 0 {
+			if inSameNodePool(*addresses[i].NodeName, nodes) {
 				newEpAddresses = append(newEpAddresses, addresses[i])
 			}
 		}
