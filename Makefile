@@ -147,7 +147,7 @@ docker-build:
 
 
 # Build and Push the docker images with multi-arch
-docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent
+docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-yurt-iot-dock
 
 
 docker-buildx-builder:
