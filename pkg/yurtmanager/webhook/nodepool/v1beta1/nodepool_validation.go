@@ -58,7 +58,7 @@ func (webhook *NodePoolHandler) ValidateUpdate(ctx context.Context, oldObj, newO
 	}
 
 	if allErrs := validateNodePoolSpecUpdate(&newNp.Spec, &oldNp.Spec); len(allErrs) > 0 {
-		return apierrors.NewInvalid(appsv1beta1.GroupVersion.WithKind("NodePool").GroupKind(), newNp.Name, allErrs)
+		return apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), newNp.Name, allErrs[0])
 	}
 
 	return nil
@@ -71,7 +71,7 @@ func (webhook *NodePoolHandler) ValidateDelete(_ context.Context, obj runtime.Ob
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
 	}
 	if allErrs := validateNodePoolDeletion(webhook.Client, np); len(allErrs) > 0 {
-		return apierrors.NewInvalid(appsv1beta1.GroupVersion.WithKind("NodePool").GroupKind(), np.Name, allErrs)
+		return apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), np.Name, allErrs[0])
 	}
 
 	return nil
@@ -121,12 +121,12 @@ func validateNodePoolSpecUpdate(spec, oldSpec *appsv1beta1.NodePoolSpec) field.E
 
 	if spec.Type != oldSpec.Type {
 		return field.ErrorList([]*field.Error{
-			field.Invalid(field.NewPath("spec").Child("type"), spec.Type, "pool type can't be changed")})
+			field.Forbidden(field.NewPath("spec").Child("type"), "pool type can't be changed")})
 	}
 
 	if spec.HostNetwork != oldSpec.HostNetwork {
 		return field.ErrorList([]*field.Error{
-			field.Invalid(field.NewPath("spec").Child("hostNetwork"), spec.HostNetwork, "pool hostNetwork can't be changed"),
+			field.Forbidden(field.NewPath("spec").Child("hostNetwork"), "pool hostNetwork can't be changed"),
 		})
 	}
 	return nil
