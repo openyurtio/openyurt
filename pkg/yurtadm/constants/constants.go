@@ -116,6 +116,9 @@ const (
 	// StaticPods flag set the specified static pods on this node want to install
 	StaticPods = "static-pods"
 
+	KubeletConfFileAvailableError = "FileAvailable--etc-kubernetes-kubelet.conf"
+	ManifestsDirAvailableError    = "DirAvailable--etc-kubernetes-manifests"
+
 	DefaultServerAddr            = "https://127.0.0.1:6443"
 	ServerHealthzServer          = "127.0.0.1:10267"
 	ServerHealthzURLPath         = "/v1/healthz"
@@ -178,8 +181,6 @@ nodeRegistration:
   criSocket: {{.criSocket}}
   name: {{.name}}
   ignorePreflightErrors:
-    - FileAvailable--etc-kubernetes-kubelet.conf
-    - DirAvailable--etc-kubernetes-manifests
     {{- range $index, $value := .ignorePreflightErrors}}
     - {{$value}}
     {{- end}}
