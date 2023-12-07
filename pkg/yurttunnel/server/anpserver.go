@@ -117,7 +117,7 @@ func runProxier(handler http.Handler,
 			Handler:     handler,
 			ReadTimeout: constants.YurttunnelANPProxierReadTimeoutSec * time.Second,
 		}
-		unixListener, err := net.Listen("unix", udsSockFile)
+		unixListener, err := net.Listen(constants.UnixListenerNetwork, udsSockFile)
 		if err != nil {
 			klog.Errorf("proxier could not serving request through uds: %s", err)
 		}

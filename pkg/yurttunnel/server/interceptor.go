@@ -76,7 +76,7 @@ func NewRequestInterceptor(udsSockFile string, cfg *tls.Config) *RequestIntercep
 	cfg.InsecureSkipVerify = true
 	contextDialer := func(addr string, header http.Header, isTLS bool) (net.Conn, error) {
 		klog.V(4).Infof("Sending request to %q.", addr)
-		proxyConn, err := net.Dial("unix", udsSockFile)
+		proxyConn, err := net.Dial(constants.UnixListenerNetwork, udsSockFile)
 		if err != nil {
 			return nil, fmt.Errorf("dialing proxy %q failed: %w", udsSockFile, err)
 		}
