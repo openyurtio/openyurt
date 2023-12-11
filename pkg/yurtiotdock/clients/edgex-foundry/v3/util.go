@@ -14,29 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/requests"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/models"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/requests"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/models"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	util "github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
 const (
 	EdgeXObjectName     = "yurt-iot-dock/edgex-object.name"
-	DeviceServicePath   = "/api/v2/deviceservice"
-	DeviceProfilePath   = "/api/v2/deviceprofile"
-	DevicePath          = "/api/v2/device"
-	CommandResponsePath = "/api/v2/device"
+	DeviceServicePath   = "/api/v3/deviceservice"
+	DeviceProfilePath   = "/api/v3/deviceprofile"
+	DevicePath          = "/api/v3/device"
+	CommandResponsePath = "/api/v3/device"
 
-	APIVersionV2 = "v2"
+	APIVersionV3 = "v3"
 )
 
 type ClientURL struct {
@@ -56,13 +57,12 @@ func getEdgeXName(provider metav1.Object) string {
 
 func toEdgexDeviceService(ds *iotv1alpha1.DeviceService) dtos.DeviceService {
 	return dtos.DeviceService{
-		Description:   ds.Spec.Description,
-		Name:          getEdgeXName(ds),
-		LastConnected: ds.Status.LastConnected,
-		LastReported:  ds.Status.LastReported,
-		Labels:        ds.Spec.Labels,
-		AdminState:    string(ds.Spec.AdminState),
-		BaseAddress:   ds.Spec.BaseAddress,
+		Description: ds.Spec.Description,
+		Name:        getEdgeXName(ds),
+		Labels:      ds.Spec.Labels,
+		AdminState:  string(ds.Spec.AdminState),
+		BaseAddress: ds.Spec.BaseAddress,
+		// TODO: Metric LastConnected / LastReported
 	}
 }
 
@@ -83,23 +83,23 @@ func toEdgeXDeviceResource(dr iotv1alpha1.DeviceResource) dtos.DeviceResource {
 	return dtos.DeviceResource{
 		Description: dr.Description,
 		Name:        dr.Name,
-		Tag:         dr.Tag,
-		Properties:  toEdgeXProfileProperty(dr.Properties),
-		Attributes:  genericAttrs,
+		// Tag:         dr.Tag,
+		Properties: toEdgeXProfileProperty(dr.Properties),
+		Attributes: genericAttrs,
 	}
 }
 
 func toEdgeXProfileProperty(pp iotv1alpha1.ResourceProperties) dtos.ResourceProperties {
 	return dtos.ResourceProperties{
 		ReadWrite:    pp.ReadWrite,
-		Minimum:      pp.Minimum,
-		Maximum:      pp.Maximum,
+		Minimum:      util.StrToFloat(pp.Minimum),
+		Maximum:      util.StrToFloat(pp.Maximum),
 		DefaultValue: pp.DefaultValue,
-		Mask:         pp.Mask,
-		Shift:        pp.Shift,
-		Scale:        pp.Scale,
-		Offset:       pp.Offset,
-		Base:         pp.Base,
+		Mask:         util.StrToUint(pp.Mask),
+		Shift:        util.StrToInt(pp.Shift),
+		Scale:        util.StrToFloat(pp.Scale),
+		Offset:       util.StrToFloat(pp.Offset),
+		Base:         util.StrToFloat(pp.Base),
 		Assertion:    pp.Assertion,
 		MediaType:    pp.MediaType,
 		Units:        pp.Units,
@@ -123,10 +123,9 @@ func toKubeDeviceService(ds dtos.DeviceService, namespace string) iotv1alpha1.De
 			BaseAddress: ds.BaseAddress,
 		},
 		Status: iotv1alpha1.DeviceServiceStatus{
-			EdgeId:        ds.Id,
-			LastConnected: ds.LastConnected,
-			LastReported:  ds.LastReported,
-			AdminState:    iotv1alpha1.AdminState(ds.AdminState),
+			EdgeId:     ds.Id,
+			AdminState: iotv1alpha1.AdminState(ds.AdminState),
+			// TODO: Metric LastConnected / LastReported
 		},
 	}
 }
@@ -138,12 +137,11 @@ func toEdgeXDevice(d *iotv1alpha1.Device) dtos.Device {
 		AdminState:     string(toEdgeXAdminState(d.Spec.AdminState)),
 		OperatingState: string(toEdgeXOperatingState(d.Spec.OperatingState)),
 		Protocols:      toEdgeXProtocols(d.Spec.Protocols),
-		LastConnected:  d.Status.LastConnected,
-		LastReported:   d.Status.LastReported,
-		Labels:         d.Spec.Labels,
-		Location:       d.Spec.Location,
-		ServiceName:    d.Spec.Service,
-		ProfileName:    d.Spec.Profile,
+		// TODO: Metric LastConnected / LastReported
+		Labels:      d.Spec.Labels,
+		Location:    d.Spec.Location,
+		ServiceName: d.Spec.Service,
+		ProfileName: d.Spec.Profile,
 	}
 	if d.Status.EdgeId != "" {
 		md.Id = d.Status.EdgeId
@@ -160,13 +158,11 @@ func toEdgeXUpdateDevice(d *iotv1alpha1.Device) dtos.UpdateDevice {
 		AdminState:     &adminState,
 		OperatingState: &operationState,
 		Protocols:      toEdgeXProtocols(d.Spec.Protocols),
-		LastConnected:  &d.Status.LastConnected,
-		LastReported:   &d.Status.LastReported,
 		Labels:         d.Spec.Labels,
 		Location:       d.Spec.Location,
 		ServiceName:    &d.Spec.Service,
 		ProfileName:    &d.Spec.Profile,
-		Notify:         &d.Spec.Notify,
+		// TODO: Metric LastConnected / LastReported
 	}
 	if d.Status.EdgeId != "" {
 		md.Id = &d.Status.EdgeId
@@ -176,9 +172,13 @@ func toEdgeXUpdateDevice(d *iotv1alpha1.Device) dtos.UpdateDevice {
 
 func toEdgeXProtocols(
 	pps map[string]iotv1alpha1.ProtocolProperties) map[string]dtos.ProtocolProperties {
-	ret := map[string]dtos.ProtocolProperties{}
+	ret := make(map[string]dtos.ProtocolProperties, len(pps))
 	for k, v := range pps {
-		ret[k] = dtos.ProtocolProperties(v)
+		propMap := make(map[string]interface{})
+		for key, value := range v {
+			propMap[key] = value
+		}
+		ret[k] = dtos.ProtocolProperties(propMap)
 	}
 	return ret
 }
@@ -225,8 +225,7 @@ func toKubeDevice(ed dtos.Device, namespace string) iotv1alpha1.Device {
 			// TODO: Notify
 		},
 		Status: iotv1alpha1.DeviceStatus{
-			LastConnected:  ed.LastConnected,
-			LastReported:   ed.LastReported,
+			// TODO: Metric LastConnected / LastReported
 			Synced:         true,
 			EdgeId:         ed.Id,
 			AdminState:     iotv1alpha1.AdminState(ed.AdminState),
@@ -241,7 +240,24 @@ func toKubeProtocols(
 	eps map[string]dtos.ProtocolProperties) map[string]iotv1alpha1.ProtocolProperties {
 	ret := map[string]iotv1alpha1.ProtocolProperties{}
 	for k, v := range eps {
-		ret[k] = iotv1alpha1.ProtocolProperties(v)
+		propMap := make(map[string]string)
+		for key, value := range v {
+			switch asserted := value.(type) {
+			case string:
+				propMap[key] = asserted
+				continue
+			case int:
+				propMap[key] = fmt.Sprintf("%d", asserted)
+				continue
+			case float64:
+				propMap[key] = fmt.Sprintf("%f", asserted)
+				continue
+			case fmt.Stringer:
+				propMap[key] = asserted.String()
+				continue
+			}
+		}
+		ret[k] = iotv1alpha1.ProtocolProperties(propMap)
 	}
 	return ret
 }
@@ -351,10 +367,10 @@ func toKubeDeviceResource(dr dtos.DeviceResource) iotv1alpha1.DeviceResource {
 	return iotv1alpha1.DeviceResource{
 		Description: dr.Description,
 		Name:        dr.Name,
-		Tag:         dr.Tag,
-		IsHidden:    dr.IsHidden,
-		Properties:  toKubeProfileProperty(dr.Properties),
-		Attributes:  concreteAttrs,
+		// Tag:         dr.Tag,
+		IsHidden:   dr.IsHidden,
+		Properties: toKubeProfileProperty(dr.Properties),
+		Attributes: concreteAttrs,
 	}
 }
 
@@ -362,14 +378,14 @@ func toKubeProfileProperty(rp dtos.ResourceProperties) iotv1alpha1.ResourcePrope
 	return iotv1alpha1.ResourceProperties{
 		ValueType:    rp.ValueType,
 		ReadWrite:    rp.ReadWrite,
-		Minimum:      rp.Minimum,
-		Maximum:      rp.Maximum,
+		Minimum:      util.FloatToStr(rp.Minimum),
+		Maximum:      util.FloatToStr(rp.Maximum),
 		DefaultValue: rp.DefaultValue,
-		Mask:         rp.Mask,
-		Shift:        rp.Shift,
-		Scale:        rp.Scale,
-		Offset:       rp.Offset,
-		Base:         rp.Base,
+		Mask:         util.UintToStr(rp.Mask),
+		Shift:        util.IntToStr(rp.Shift),
+		Scale:        util.FloatToStr(rp.Scale),
+		Offset:       util.FloatToStr(rp.Offset),
+		Base:         util.FloatToStr(rp.Base),
 		Assertion:    rp.Assertion,
 		MediaType:    rp.MediaType,
 		Units:        rp.Units,
@@ -397,7 +413,7 @@ func makeEdgeXDeviceProfilesRequest(dps []*iotv1alpha1.DeviceProfile) []*request
 		req = append(req, &requests.DeviceProfileRequest{
 			BaseRequest: common.BaseRequest{
 				Versionable: common.Versionable{
-					ApiVersion: APIVersionV2,
+					ApiVersion: APIVersionV3,
 				},
 			},
 			Profile: toEdgeXDeviceProfile(dp),
@@ -412,7 +428,7 @@ func makeEdgeXDeviceUpdateRequest(devs []*iotv1alpha1.Device) []*requests.Update
 		req = append(req, &requests.UpdateDeviceRequest{
 			BaseRequest: common.BaseRequest{
 				Versionable: common.Versionable{
-					ApiVersion: APIVersionV2,
+					ApiVersion: APIVersionV3,
 				},
 			},
 			Device: toEdgeXUpdateDevice(dev),
@@ -427,7 +443,7 @@ func makeEdgeXDeviceRequest(devs []*iotv1alpha1.Device) []*requests.AddDeviceReq
 		req = append(req, &requests.AddDeviceRequest{
 			BaseRequest: common.BaseRequest{
 				Versionable: common.Versionable{
-					ApiVersion: APIVersionV2,
+					ApiVersion: APIVersionV3,
 				},
 			},
 			Device: toEdgeXDevice(dev),
@@ -442,7 +458,7 @@ func makeEdgeXDeviceService(dss []*iotv1alpha1.DeviceService) []*requests.AddDev
 		req = append(req, &requests.AddDeviceServiceRequest{
 			BaseRequest: common.BaseRequest{
 				Versionable: common.Versionable{
-					ApiVersion: APIVersionV2,
+					ApiVersion: APIVersionV3,
 				},
 			},
 			Service: toEdgexDeviceService(ds),

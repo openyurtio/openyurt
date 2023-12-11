@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"context"
@@ -26,15 +26,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	edgex_resp "github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/publicsuffix"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
+	devcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 )
 
 type EdgexDeviceClient struct {
@@ -150,6 +152,19 @@ func (efc *EdgexDeviceClient) Get(ctx context.Context, deviceName string, option
 	}
 	device := toKubeDevice(dResp.Device, options.Namespace)
 	return &device, err
+}
+
+// Convert is used to convert the device information in the systemEvent of messageBus to the device object in the kubernetes cluster
+func (cdc *EdgexDeviceClient) Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts devcli.GetOptions) (*v1alpha1.Device, error) {
+	dto := dtos.Device{}
+	err := systemEvent.DecodeDetails(&dto)
+	if err != nil {
+		klog.V(3).ErrorS(err, "fail to decode device systemEvent details")
+		return nil, err
+	}
+
+	device := toKubeDevice(dto, opts.Namespace)
+	return &device, nil
 }
 
 // List is used to get all device objects on edge platform
