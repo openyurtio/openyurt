@@ -100,9 +100,11 @@ kind: Service
 metadata:
   name: nginx
   namespace: default
+  annotations:
+    service.openyurt.io/nodepool-labelselector: key1=val1,key2=val2
 spec:
   type: LoadBalancer
-  loadBalancerClass: apps.openyurt.io/YurtLB
+  loadBalancerClass: service.openyurt.io/vip
 ...
 
 status:
@@ -116,8 +118,9 @@ status:
 
 - The Speaker agent in the edge node can list/watch VIP changes to facilitate subsequent VIP binding and traffic forwarding.
 - Note:
-  - VIPs can be specified directly through annotation, e.g., `apps.openyurt.io/loadBalancerIP-{Nodepool Name}: 192.168.10.234`. This method bypasses the load balancer's VIP assignment logic, and the specified VIP can be outside the node pool's VIP range. However, VIPs specified in this manner will eventually be synchronized to the VIP range of the node pool.
-  - When creating a service of type "LoadBalancer", you need to specify "apps.openyurt.io/YurtLB" in the loadBalancerClass field. Only services explicitly using YurtLB in the loadBalancerClass field will be managed by the YurtLB Controller and Speaker Agent.
+  - When the above configuration is applied to create a service of type LoadBalancer, not every nodepool that hosts the associated pods will generate a LoadBalancer instance. Only those nodepools that are tagged with both key1:val1 and key2:val2 labels will proceed to create a LB instance.
+  - VIPs can be specified directly through annotation, e.g., `service.openyurt.io/loadBalancerIP-{Nodepool Name}: 192.168.10.234`. This method bypasses the load balancer's VIP assignment logic, and the specified VIP can be outside the node pool's VIP range. However, VIPs specified in this manner will eventually be synchronized to the VIP range of the node pool.
+  - When creating a service of type "LoadBalancer", you need to specify "service.openyurt.io/vip" in the loadBalancerClass field. Only services explicitly using YurtLB in the loadBalancerClass field will be managed by the YurtLB Controller and Speaker Agent.
   - For the case where a node is unavailable but the nodepool is available, the YurtLB controller triggers the remaining nodes on the specified nodepool and lets the Speaker agent on those nodes take care of the binding of the remaining nodes to the VIP, but for the rest of the cases, the YurtLB controller will not perform any action.
 
 #### Speaker Agent
@@ -232,7 +235,8 @@ kind: Service
 metadata:
   name: nginx
   annotations:
-    apps.openyurt.io/loadBalancerIP-hangzhou: 172.18.0.20
+    service.openyurt.io/nodepool-labelselector: service:nginx
+    service.openyurt.io/loadBalancerIP-hangzhou: 172.18.0.20
 spec:
   selector:
     app: nginx
@@ -242,6 +246,7 @@ spec:
       port: 80
       targetPort: 80
   type: LoadBalancer
+  loadBalancerClass: service.openyurt.io/vip
 ```
 
 **Automatically assign the Virtual IP (VIP) for the service**
@@ -253,6 +258,8 @@ apiVersion: apps.openyurt.io/v1beta1
 kind: NodePool
 metadata:
   name: hangzhou
+  labels:
+    service: nginx
 spec:
   type: Edge
   Addresses:
@@ -266,6 +273,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx
+  annotations:
+    service.openyurt.io/nodepool-labelselector: service:nginx
 spec:
   selector:
     app: nginx
@@ -275,6 +284,7 @@ spec:
       port: 80
       targetPort: 80
   type: LoadBalancer
+  loadBalancerClass: service.openyurt.io/vip
 ```
 
 ## Implementation History
