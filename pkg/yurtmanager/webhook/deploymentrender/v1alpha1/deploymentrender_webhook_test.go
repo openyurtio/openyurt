@@ -81,6 +81,13 @@ var defaultAppSet = &v1alpha1.YurtAppSet{
 	},
 }
 
+var defaultNodePool = &v1alpha1.NodePool{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "nodepool-test",
+	},
+	Spec: v1alpha1.NodePoolSpec{},
+}
+
 var defaultAppDaemon = &v1alpha1.YurtAppDaemon{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "yurtappdaemon",
@@ -312,7 +319,7 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 	for _, tcase := range tcases {
 		t.Run("", func(t *testing.T) {
 			webhook := &DeploymentRenderHandler{
-				Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(defaultAppSet, daemonDeployment, defaultDeployment, defaultAppDaemon, tcase.overrider).Build(),
+				Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(defaultAppSet, daemonDeployment, defaultNodePool, defaultDeployment, defaultAppDaemon, tcase.overrider).Build(),
 				Scheme: scheme,
 			}
 			if err := webhook.Default(context.TODO(), defaultDeployment); err != nil {

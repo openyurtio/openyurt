@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/workloadcontroller"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
 )
 
@@ -57,6 +58,16 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	if !contain(deployment.OwnerReferences[0].Kind, resources) {
 		return nil
 	}
+
+	// Get nodepool of deployment
+	np := &v1alpha1.NodePool{}
+	npName := deployment.Labels["apps.openyurt.io/pool-name"]
+	if err := webhook.Client.Get(ctx, client.ObjectKey{
+		Name: npName,
+	}, np); err != nil {
+		return err
+	}
+
 	// Get YurtAppSet/YurtAppDaemon resource of this deployment
 	app := deployment.OwnerReferences[0]
 	var instance client.Object
@@ -74,10 +85,8 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	}, instance); err != nil {
 		return err
 	}
-	// Get nodepool of deployment
-	nodepool := deployment.Labels["apps.openyurt.io/pool-name"]
 
-	// resume deployment
+	// restore deployment
 	switch app.Kind {
 	case "YurtAppSet":
 		var replicas int32
@@ -86,21 +95,29 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 		if yas.Spec.WorkloadTemplate.DeploymentTemplate != nil && yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas != nil {
 			replicas = *yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Replicas
 		}
-		deploymentAdapter := adapter.DeploymentAdapter{
+		yasDeployController := adapter.DeploymentAdapter{
 			Client: webhook.Client,
 			Scheme: webhook.Scheme,
 		}
 		for _, pool := range yas.Spec.Topology.Pools {
-			if pool.Name == nodepool {
+			if pool.Name == npName {
 				replicas = *pool.Replicas
 			}
 		}
-		if err := deploymentAdapter.ApplyPoolTemplate(yas, nodepool, revision, replicas, deployment); err != nil {
+		if err := yasDeployController.ApplyPoolTemplate(yas, npName, revision, replicas, deployment); err != nil {
 			return err
 		}
 	case "YurtAppDaemon":
 		yad := instance.(*v1alpha1.YurtAppDaemon)
-		yad.Spec.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopyInto(&deployment.Spec)
+		revision := yad.Status.CurrentRevision
+		yadDeployController := workloadcontroller.DeploymentControllor{
+			Client: webhook.Client,
+			Scheme: webhook.Scheme,
+		}
+		if err := yadDeployController.ApplyTemplate(webhook.Scheme, yad, *np, revision, deployment); err != nil {
+			return err
+		}
+
 	}
 
 	// Get YurtAppOverrider resource of app(1 to 1)
@@ -125,16 +142,16 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 
 	for _, entry := range render.Entries {
 		for _, pool := range entry.Pools {
-			if pool[0] == '-' && pool[1:] == nodepool {
+			if pool[0] == '-' && pool[1:] == npName {
 				continue
 			}
-			if pool == nodepool || pool == "*" {
+			if pool == npName || pool == "*" {
 				// Replace items
 				replaceItems(deployment, entry.Items)
 				// json patch
 				for i, patch := range entry.Patches {
 					if strings.Contains(string(patch.Value.Raw), "{{nodepool}}") {
-						newPatchString := strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool}}", nodepool)
+						newPatchString := strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool}}", npName)
 						entry.Patches[i].Value = apiextensionsv1.JSON{Raw: []byte(newPatchString)}
 					}
 				}

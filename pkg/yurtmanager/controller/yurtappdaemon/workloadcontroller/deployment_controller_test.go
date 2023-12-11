@@ -162,7 +162,7 @@ func TestApplyTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			get := dc.applyTemplate(tt.scheme, tt.yad, tt.nodepool, tt.revision, tt.set)
+			get := dc.ApplyTemplate(tt.scheme, tt.yad, tt.nodepool, tt.revision, tt.set)
 			t.Logf("expect: %v, get: %v", tt.expect, get)
 			if !reflect.DeepEqual(get, tt.expect) {
 				t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)

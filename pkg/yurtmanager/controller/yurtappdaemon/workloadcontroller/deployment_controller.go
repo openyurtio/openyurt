@@ -58,7 +58,7 @@ func (d *DeploymentControllor) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load 
 }
 
 // ApplyTemplate updates the object to the latest revision, depending on the YurtAppDaemon.
-func (d *DeploymentControllor) applyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
+func (d *DeploymentControllor) ApplyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
 
 	if set.Labels == nil {
 		set.Labels = map[string]string{}
@@ -129,7 +129,7 @@ func (d *DeploymentControllor) UpdateWorkload(load *Workload, yad *v1alpha1.Yurt
 			return getError
 		}
 
-		if err := d.applyTemplate(d.Scheme, yad, nodepool, revision, deploy); err != nil {
+		if err := d.ApplyTemplate(d.Scheme, yad, nodepool, revision, deploy); err != nil {
 			return err
 		}
 		updateError = d.Client.Update(context.TODO(), deploy)
@@ -145,7 +145,7 @@ func (d *DeploymentControllor) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodep
 	klog.Infof("YurtAppDaemon[%s/%s] prepare create new deployment by nodepool %s ", yad.GetNamespace(), yad.GetName(), nodepool.GetName())
 
 	deploy := appsv1.Deployment{}
-	if err := d.applyTemplate(d.Scheme, yad, nodepool, revision, &deploy); err != nil {
+	if err := d.ApplyTemplate(d.Scheme, yad, nodepool, revision, &deploy); err != nil {
 		klog.Errorf("YurtAppDaemon[%s/%s] could not apply template, when create deployment: %v", yad.GetNamespace(),
 			yad.GetName(), err)
 		return err
