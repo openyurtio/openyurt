@@ -1,41 +1,11 @@
 updated: false
-count: 6
-latestVersion: minnesota
+count: 7
+latestVersion: napa
 versions:
-- name: kamakura
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
-- name: jakarta
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
-- name: levski
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
-- name: minnesota
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
-  - edgex-core-common-config-bootstrapper
-- name: ireland
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
-- name: hanoi
-  requiredComponents: 
-  - edgex-core-command
-  - edgex-core-consul
-  - edgex-core-metadata
-  - edgex-redis
+- napa
+- minnesota
+- kamakura
+- jakarta
+- levski
+- ireland
+- hanoi
