@@ -39,6 +39,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewayinternalservice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypublicservice"
+	ravenutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints"
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon"
@@ -139,6 +140,9 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 			return err
 		}
 	}
+
+	// set up raven working namespace
+	ravenutil.SetWorkingNamespace(c.ComponentConfig.Generic.WorkingNamespace)
 
 	return nil
 }

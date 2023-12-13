@@ -35,6 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var WorkingNamespace = "kube-system"
+
+func SetWorkingNamespace(ns string) {
+	WorkingNamespace = ns
+}
+
 // GetNodeInternalIP returns internal ip of the given `node`.
 func GetNodeInternalIP(node corev1.Node) string {
 	var ip string

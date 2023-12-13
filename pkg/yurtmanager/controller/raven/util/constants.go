@@ -18,7 +18,6 @@ package util
 
 const (
 	ConcurrentReconciles           = 1
-	WorkingNamespace               = "kube-system"
 	RavenGlobalConfig              = "raven-cfg"
 	RavenAgentConfig               = "raven-agent-config"
 	LabelCurrentGatewayEndpoints   = "raven.openyurt.io/endpoints-name"
