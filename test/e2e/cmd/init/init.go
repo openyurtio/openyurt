@@ -78,6 +78,7 @@ var (
 	yurtHubImageFormat     = "openyurt/yurthub:%s"
 	yurtManagerImageFormat = "openyurt/yurt-manager:%s"
 	nodeServantImageFormat = "openyurt/node-servant:%s"
+	yurtIotDockImageFormat = "openyurt/yurt-iot-dock:%s"
 )
 
 func NewInitCMD(out io.Writer) *cobra.Command {
@@ -192,6 +193,7 @@ func (o *kindOptions) Config() *initializerConfig {
 		YurtHubImage:      fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
 		YurtManagerImage:  fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
 		NodeServantImage:  fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
+		yurtIotDockImage:  fmt.Sprintf(yurtIotDockImageFormat, o.OpenYurtVersion),
 		EnableDummyIf:     o.EnableDummyIf,
 		DisableDefaultCNI: o.DisableDefaultCNI,
 	}
@@ -237,6 +239,7 @@ type initializerConfig struct {
 	YurtHubImage      string
 	YurtManagerImage  string
 	NodeServantImage  string
+	yurtIotDockImage  string
 	EnableDummyIf     bool
 	DisableDefaultCNI bool
 }
@@ -313,6 +316,7 @@ func (ki *Initializer) prepareImages() error {
 		ki.YurtHubImage,
 		ki.YurtManagerImage,
 		ki.NodeServantImage,
+		ki.yurtIotDockImage,
 	}, ki.CloudNodes); err != nil {
 		return err
 	}
@@ -321,6 +325,7 @@ func (ki *Initializer) prepareImages() error {
 	if err := ki.loadImagesToKindNodes([]string{
 		ki.YurtHubImage,
 		ki.NodeServantImage,
+		ki.yurtIotDockImage,
 	}, ki.EdgeNodes); err != nil {
 		return err
 	}

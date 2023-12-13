@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,6 +109,43 @@ func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNod
 		if err := k8sClient.Patch(ctx, newNode, client.MergeFrom(&originNode)); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+const (
+	NodePoolName = "nodepool-with-node"
+)
+
+// PrepareNodePoolWithNode will create a edge nodepool named "nodepool-with-node" and add the "openyurt-e2e-test-worker" node to this nodepool.
+// In order for Pods to be successfully deployed in e2e tests, a nodepool with nodes needs to be created
+func PrepareNodePoolWithNode(ctx context.Context, k8sClient client.Client, nodeName string) error {
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: NodePoolName}, &v1beta1.NodePool{}); err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return err
+	}
+
+	if err := k8sClient.Create(ctx, &v1beta1.NodePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: NodePoolName,
+		},
+		Spec: v1beta1.NodePoolSpec{
+			Type: v1beta1.Edge,
+		}}); err != nil {
+		return err
+	}
+
+	node := &corev1.Node{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, node); err != nil {
+		return err
+	}
+
+	patchObj := client.MergeFrom(node.DeepCopy())
+	node.Labels[projectinfo.GetNodePoolLabel()] = NodePoolName
+
+	if err := k8sClient.Patch(ctx, node, patchObj); err != nil {
+		return err
 	}
 	return nil
 }
