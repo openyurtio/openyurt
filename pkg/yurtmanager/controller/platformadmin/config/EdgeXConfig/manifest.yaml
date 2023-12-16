@@ -2,10 +2,47 @@ updated: false
 count: 7
 latestVersion: napa
 versions:
-- napa
-- minnesota
-- kamakura
-- jakarta
-- levski
-- ireland
-- hanoi
+- name: napa
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+  - edgex-core-common-config-bootstrapper
+- name: kamakura
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+- name: jakarta
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+- name: levski
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+- name: minnesota
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+  - edgex-core-common-config-bootstrapper
+- name: ireland
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+- name: hanoi
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
