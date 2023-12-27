@@ -278,23 +278,30 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 		}
 
 		// 1.2. set the device attribute in the edge platform to the expected value
-		if actualProperty == nil || desiredProperty.DesiredValue != actualProperty.ActualValue {
-			klog.V(4).Infof("DeviceName: %s, the desired value and the actual value are different, desired: %s, actual: %s",
-				d.GetName(), desiredProperty.DesiredValue, actualProperty.ActualValue)
-			if err := r.deviceCli.UpdatePropertyState(context.TODO(), propertyName, d, clients.UpdateOptions{}); err != nil {
-				klog.ErrorS(err, "could not update property", "DeviceName", d.GetName(), "propertyName", propertyName)
-				failedPropertyNames = append(failedPropertyNames, propertyName)
+		var actualValue string
+		if actualProperty != nil {
+			if actualValue = actualProperty.ActualValue; desiredProperty.DesiredValue == actualValue {
+				// The actual value is same as the desired one.
 				continue
 			}
-
-			klog.V(4).Infof("DeviceName: %s, successfully set the property %s to desired value", d.GetName(), propertyName)
-			newActualProperty := iotv1alpha1.ActualPropertyState{
-				Name:        propertyName,
-				GetURL:      actualProperty.GetURL,
-				ActualValue: desiredProperty.DesiredValue,
-			}
-			newDeviceStatus.DeviceProperties[propertyName] = newActualProperty
 		}
+
+		klog.V(4).Infof("DeviceName: %s, the desired value and the actual value are different, desired: %s, actual: %s",
+			d.GetName(), desiredProperty.DesiredValue, actualValue)
+
+		if err := r.deviceCli.UpdatePropertyState(context.TODO(), propertyName, d, clients.UpdateOptions{}); err != nil {
+			klog.ErrorS(err, "could not update property", "DeviceName", d.GetName(), "propertyName", propertyName)
+			failedPropertyNames = append(failedPropertyNames, propertyName)
+			continue
+		}
+
+		klog.V(4).Infof("DeviceName: %s, successfully set the property %s to desired value", d.GetName(), propertyName)
+		newActualProperty := iotv1alpha1.ActualPropertyState{
+			Name:        propertyName,
+			GetURL:      desiredProperty.PutURL,
+			ActualValue: desiredProperty.DesiredValue,
+		}
+		newDeviceStatus.DeviceProperties[propertyName] = newActualProperty
 	}
 	return newDeviceStatus, failedPropertyNames
 }
