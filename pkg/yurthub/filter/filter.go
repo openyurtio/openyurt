@@ -238,9 +238,12 @@ func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *byt
 			return err
 		}
 
-		newObj := frc.objectFilter.Filter(obj, frc.stopCh)
-		if yurtutil.IsNil(newObj) {
-			continue
+		newObj := obj
+		// BOOKMARK and ERROR response are unnecessary to filter
+		if !(watchType == watch.Bookmark || watchType == watch.Error) {
+			if newObj = frc.objectFilter.Filter(obj, frc.stopCh); yurtutil.IsNil(newObj) {
+				continue
+			}
 		}
 
 		wEvent := watch.Event{
