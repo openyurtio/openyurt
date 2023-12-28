@@ -285,6 +285,8 @@ type ReconcileNodeLifeCycle struct {
 	podUpdateQueue  workqueue.RateLimitingInterface
 }
 
+// +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;list;watch;update;patch
+
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
