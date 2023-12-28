@@ -320,6 +320,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - pods
   verbs:
   - create
