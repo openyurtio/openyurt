@@ -167,6 +167,10 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
 	}
 
+	if len(options.HubAgentDummyIfName) > 15 {
+		return fmt.Errorf("dummy name %s length should not be more than 15", options.HubAgentDummyIfName)
+	}
+
 	if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
 		return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
 	}
