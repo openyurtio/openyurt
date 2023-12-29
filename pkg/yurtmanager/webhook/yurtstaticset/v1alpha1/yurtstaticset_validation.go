@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -110,12 +111,12 @@ func validateYurtStaticSetSpec(spec *v1alpha1.YurtStaticSetSpec) field.ErrorList
 
 	strategy := &spec.UpgradeStrategy
 
-	if strategy.Type != v1alpha1.OTAUpgradeStrategyType && strategy.Type != v1alpha1.AdvancedRollingUpdateUpgradeStrategyType {
+	if !strings.EqualFold(string(strategy.Type), string(v1alpha1.OTAUpgradeStrategyType)) && !strings.EqualFold(string(strategy.Type), string(v1alpha1.AdvancedRollingUpdateUpgradeStrategyType)) {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("spec").Child("upgradeStrategy"),
 			strategy, []string{"OTA", "AdvancedRollingUpdate"}))
 	}
 
-	if strategy.Type == v1alpha1.AdvancedRollingUpdateUpgradeStrategyType && strategy.MaxUnavailable == nil {
+	if strings.EqualFold(string(strategy.Type), string(v1alpha1.AdvancedRollingUpdateUpgradeStrategyType)) && strategy.MaxUnavailable == nil {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec").Child("upgradeStrategy"),
 			"max-unavailable is required in AdvancedRollingUpdate mode"))
 	}

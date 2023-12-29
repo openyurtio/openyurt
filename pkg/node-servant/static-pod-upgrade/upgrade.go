@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -87,10 +88,10 @@ func (ctrl *Controller) Upgrade() error {
 	klog.Info("Create upgrade space success")
 
 	// execute upgrade operations
-	switch ctrl.upgradeMode {
-	case string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType):
+	switch strings.ToLower(ctrl.upgradeMode) {
+	case strings.ToLower(string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType)):
 		return ctrl.AutoUpgrade()
-	case string(appsv1alpha1.OTAUpgradeStrategyType):
+	case strings.ToLower(string(appsv1alpha1.OTAUpgradeStrategyType)):
 		return ctrl.OTAUpgrade()
 	}
 

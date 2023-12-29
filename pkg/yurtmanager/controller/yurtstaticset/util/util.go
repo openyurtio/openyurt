@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	corev1 "k8s.io/api/core/v1"
@@ -63,7 +64,7 @@ func WithConfigMapPrefix(str string) string {
 // unavailability number to allow out of numberToUpgrade if requested, or an error if
 // the unavailability percentage requested is invalid.
 func UnavailableCount(us *appsv1alpha1.YurtStaticSetUpgradeStrategy, numberToUpgrade int) (int, error) {
-	if us == nil || us.Type != appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType {
+	if us == nil || !strings.EqualFold(string(us.Type), string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType)) {
 		return 0, nil
 	}
 	return intstr.GetScaledValueFromIntOrPercent(us.MaxUnavailable, numberToUpgrade, true)
