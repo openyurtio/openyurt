@@ -186,7 +186,7 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 
 	setupLog.Info("[run controllers] Starting manager, acting on " + fmt.Sprintf("[NodePool: %s, Namespace: %s]", opts.Nodepool, opts.Namespace))
-	if err := mgr.Start(SetupSignalHandler(mgr.GetClient(), opts)); err != nil {
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "could not running manager")
 		os.Exit(1)
 	}
