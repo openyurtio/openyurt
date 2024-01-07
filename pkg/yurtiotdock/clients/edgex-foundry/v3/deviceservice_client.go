@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"context"
@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	devcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 	edgeCli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 )
 
@@ -77,6 +79,19 @@ func (eds *EdgexDeviceServiceClient) Create(ctx context.Context, deviceService *
 		return nil, fmt.Errorf("edgex BaseWithIdResponse count mismatch DeviceService count, the response is : %s", resp.Body())
 	}
 	return createdDeviceService, err
+}
+
+// Convert is used to convert the device service information in the systemEvent of messageBus to the device service object in the kubernetes cluster
+func (cdc *EdgexDeviceServiceClient) Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts devcli.GetOptions) (*v1alpha1.DeviceService, error) {
+	dto := dtos.DeviceService{}
+	err := systemEvent.DecodeDetails(&dto)
+	if err != nil {
+		klog.V(3).ErrorS(err, "fail to decode deviceservice systemEvent details")
+		return nil, err
+	}
+
+	deeviceService := toKubeDeviceService(dto, opts.Namespace)
+	return &deeviceService, nil
 }
 
 // Delete function sends a request to EdgeX to delete a deviceService

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"context"
@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/common"
-	"github.com/edgexfoundry/go-mod-core-contracts/v2/dtos/responses"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/common"
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos/responses"
 	"github.com/go-resty/resty/v2"
 	"k8s.io/klog/v2"
 
@@ -86,6 +87,19 @@ func (cdc *EdgexDeviceProfile) Get(ctx context.Context, name string, opts devcli
 	}
 	kubedp := toKubeDeviceProfile(&dpResp.Profile, opts.Namespace)
 	return &kubedp, nil
+}
+
+// Convert is used to convert the device profile information in the systemEvent of messageBus to the device profile object in the kubernetes cluster
+func (cdc *EdgexDeviceProfile) Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts devcli.GetOptions) (*v1alpha1.DeviceProfile, error) {
+	dto := dtos.DeviceProfile{}
+	err := systemEvent.DecodeDetails(&dto)
+	if err != nil {
+		klog.V(3).ErrorS(err, "fail to decode deviceprofile systemEvent details")
+		return nil, err
+	}
+
+	deeviceProfile := toKubeDeviceProfile(&dto, opts.Namespace)
+	return &deeviceProfile, nil
 }
 
 func (cdc *EdgexDeviceProfile) Create(ctx context.Context, deviceProfile *v1alpha1.DeviceProfile, opts devcli.CreateOptions) (*v1alpha1.DeviceProfile, error) {

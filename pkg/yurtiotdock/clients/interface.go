@@ -19,6 +19,8 @@ package clients
 import (
 	"context"
 
+	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
+
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 )
 
@@ -65,6 +67,8 @@ type DeviceInterface interface {
 	Update(ctx context.Context, device *iotv1alpha1.Device, options UpdateOptions) (*iotv1alpha1.Device, error)
 	Get(ctx context.Context, name string, options GetOptions) (*iotv1alpha1.Device, error)
 	List(ctx context.Context, options ListOptions) ([]iotv1alpha1.Device, error)
+
+	Convert(ctx context.Context, systemEvent dtos.SystemEvent, options GetOptions) (*iotv1alpha1.Device, error)
 }
 
 // DevicePropertyInterface defines the interfaces which used to get, list and set the actual status value of the device properties
@@ -81,6 +85,8 @@ type DeviceServiceInterface interface {
 	Update(ctx context.Context, deviceService *iotv1alpha1.DeviceService, options UpdateOptions) (*iotv1alpha1.DeviceService, error)
 	Get(ctx context.Context, name string, options GetOptions) (*iotv1alpha1.DeviceService, error)
 	List(ctx context.Context, options ListOptions) ([]iotv1alpha1.DeviceService, error)
+
+	Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts GetOptions) (*iotv1alpha1.DeviceService, error)
 }
 
 // DeviceProfileInterface defines the interfaces which used to create, delete, update, get and list DeviceProfile objects on edge-side platform
@@ -90,6 +96,8 @@ type DeviceProfileInterface interface {
 	Update(ctx context.Context, deviceProfile *iotv1alpha1.DeviceProfile, options UpdateOptions) (*iotv1alpha1.DeviceProfile, error)
 	Get(ctx context.Context, name string, options GetOptions) (*iotv1alpha1.DeviceProfile, error)
 	List(ctx context.Context, options ListOptions) ([]iotv1alpha1.DeviceProfile, error)
+
+	Convert(ctx context.Context, systemEvent dtos.SystemEvent, options GetOptions) (*iotv1alpha1.DeviceProfile, error)
 }
 
 // IoTDock defines the interfaces which used to create deviceclient, deviceprofileclient, deviceserviceclient
