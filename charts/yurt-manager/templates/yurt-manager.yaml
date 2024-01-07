@@ -133,6 +133,10 @@ spec:
             timeoutSeconds: 2
             periodSeconds: 10
             failureThreshold: 2
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
       serviceAccountName: yurt-manager
     {{- if .Values.affinity }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}
