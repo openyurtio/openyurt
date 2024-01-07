@@ -396,17 +396,25 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 		"criSocket":              nodeReg.CRISocket,
 		"name":                   nodeReg.Name,
 	}
-	if nodeReg.CRISocket == constants.DefaultDockerCRISocket {
-		ctx["networkPlugin"] = "cni"
-	} else {
-		ctx["containerRuntime"] = "remote"
-		ctx["containerRuntimeEndpoint"] = nodeReg.CRISocket
-	}
 
 	v1, err := version.NewVersion(data.KubernetesVersion())
 	if err != nil {
 		return err
 	}
+
+	if nodeReg.CRISocket == constants.DefaultDockerCRISocket {
+		ctx["networkPlugin"] = "cni"
+	} else {
+		v127, err := version.NewVersion("v1.27.0")
+		if err != nil {
+			return err
+		}
+		if v1.LessThan(v127) {
+			ctx["containerRuntime"] = "remote"
+		}
+		ctx["containerRuntimeEndpoint"] = nodeReg.CRISocket
+	}
+
 	v2, err := version.NewVersion("v1.22.0")
 	if err != nil {
 		return err
