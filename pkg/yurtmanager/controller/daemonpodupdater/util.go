@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -143,7 +144,7 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 // 2. update strategy is "OnDelete"
 func checkPrerequisites(ds *appsv1.DaemonSet) bool {
 	v, ok := ds.Annotations[UpdateAnnotation]
-	if !ok || (v != AutoUpdate && v != OTAUpdate && v != AdvancedRollingUpdate) {
+	if !ok || (!strings.EqualFold(v, AutoUpdate) && !strings.EqualFold(v, OTAUpdate) && !strings.EqualFold(v, AdvancedRollingUpdate)) {
 		return false
 	}
 	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType

@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -240,14 +241,14 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 		return reconcile.Result{}, nil
 	}
 
-	switch v {
-	case OTAUpdate:
+	switch strings.ToLower(v) {
+	case strings.ToLower(OTAUpdate):
 		if err := r.otaUpdate(instance); err != nil {
 			klog.Errorf(Format("could not OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 
-	case AutoUpdate, AdvancedRollingUpdate:
+	case strings.ToLower(AutoUpdate), strings.ToLower(AdvancedRollingUpdate):
 		if err := r.advancedRollingUpdate(instance); err != nil {
 			klog.Errorf(Format("could not advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
