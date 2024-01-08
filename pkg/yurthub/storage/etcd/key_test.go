@@ -112,7 +112,7 @@ func TestKeyFunc(t *testing.T) {
 			continue
 		}
 		if key.Key() != c.key {
-			t.Errorf("unexpected key in case %s, want: %s, got: %s", n, c.key, key)
+			t.Errorf("unexpected key in case %s, want: %s, got: %s", n, c.key, key.Key())
 		}
 	}
 }

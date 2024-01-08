@@ -627,7 +627,7 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 
 	newRv, err := accessor.ResourceVersion(obj)
 	if err != nil {
-		return fmt.Errorf("could not get new object resource version for %s, %v", key, err)
+		return fmt.Errorf("could not get new object resource version for %s, %v", key.Key(), err)
 	}
 
 	klog.V(4).Infof("try to store obj of key %s, obj: %v", key.Key(), obj)
@@ -641,13 +641,13 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 		klog.V(4).Infof("find no cached obj of key: %s, create it with the coming obj with rv: %s", key.Key(), newRv)
 		if err := cm.storage.Create(key, obj); err != nil {
 			if err == storage.ErrStorageAccessConflict {
-				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key)
+				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key.Key())
 				return nil
 			}
 			return fmt.Errorf("could not create obj of key: %s, %v", key.Key(), err)
 		}
 	case storage.ErrStorageAccessConflict:
-		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key)
+		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
 		return nil
 	default:
 		return fmt.Errorf("could not store obj with rv %s of key: %s, %v", newRv, key.Key(), err)
