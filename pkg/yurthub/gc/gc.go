@@ -159,9 +159,9 @@ func (m *GCManager) gcPodsWhenRestart() {
 
 	for _, key := range deletedPods {
 		if err := m.store.Delete(key); err != nil {
-			klog.Errorf("could not gc pod %s, %v", key, err)
+			klog.Errorf("could not gc pod %s, %v", key.Key(), err)
 		} else {
-			klog.Infof("gc pod %s successfully", key)
+			klog.Infof("gc pod %s successfully", key.Key())
 		}
 	}
 
