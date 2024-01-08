@@ -405,11 +405,11 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 	if nodeReg.CRISocket == constants.DefaultDockerCRISocket {
 		ctx["networkPlugin"] = "cni"
 	} else {
-		v127, err := version.NewVersion("v1.27.0")
+		v124alpha, err := version.NewVersion("1.24.0-alpha.0")
 		if err != nil {
 			return err
 		}
-		if v1.LessThan(v127) {
+		if v1.LessThan(v124alpha) {
 			ctx["containerRuntime"] = "remote"
 		}
 		ctx["containerRuntimeEndpoint"] = nodeReg.CRISocket
