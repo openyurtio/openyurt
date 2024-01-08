@@ -372,10 +372,10 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
-	switch instance.Spec.UpgradeStrategy.Type {
+	switch strings.ToLower(string(instance.Spec.UpgradeStrategy.Type)) {
 	// AdvancedRollingUpdate Upgrade is to automate the upgrade process for the target static pods on ready nodes
 	// It supports rolling update and the max-unavailable number can be specified by users
-	case appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType:
+	case strings.ToLower(string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType)):
 		if !allSucceeded {
 			klog.V(5).Infof(Format("Wait last round AdvancedRollingUpdate upgrade to finish of YurtStaticSet %v", request.NamespacedName))
 			return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -389,7 +389,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 
 	// OTA Upgrade can help users control the timing of static pods upgrade
 	// It will set PodNeedUpgrade condition and work with YurtHub component
-	case appsv1alpha1.OTAUpgradeStrategyType:
+	case strings.ToLower(string(appsv1alpha1.OTAUpgradeStrategyType)):
 		if err := r.otaUpgrade(upgradeInfos); err != nil {
 			klog.Errorf(Format("could not OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
