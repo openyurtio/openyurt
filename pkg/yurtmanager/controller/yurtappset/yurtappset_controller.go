@@ -206,7 +206,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypePoolsUpdate), err.Error())
 	}
 
-	return r.updateStatus(instance, newStatus, oldStatus, nameToPool, currentRevision, collisionCount, control)
+	return r.updateStatus(instance, newStatus, oldStatus, nameToPool, expectedRevision, collisionCount, control)
 }
 
 func (r *ReconcileYurtAppSet) getNameToPool(instance *unitv1alpha1.YurtAppSet, control ControlInterface) (map[string]*Pool, error) {
