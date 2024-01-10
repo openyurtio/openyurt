@@ -62,7 +62,7 @@ func FuzzAppDaemonReconcile(data []byte) int {
 		Client:   clientFake,
 		scheme:   fakeSchemeForFuzzing,
 		recorder: record.NewFakeRecorder(10000),
-		controls: map[appsv1alpha1.TemplateType]workloadcontroller.WorkloadControllor{
+		controls: map[appsv1alpha1.TemplateType]workloadcontroller.WorkloadController{
 			appsv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: clientFake, Scheme: fakeSchemeForFuzzing},
 		},
 	}
