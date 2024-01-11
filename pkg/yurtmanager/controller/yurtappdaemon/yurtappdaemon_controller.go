@@ -200,7 +200,7 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 		return reconcile.Result{}, err
 	}
 
-	return r.updateStatus(instance, newStatus, oldStatus, currentRevision, collisionCount, templateType, currentNPToWorkload)
+	return r.updateStatus(instance, newStatus, oldStatus, expectedRevision, collisionCount, templateType, currentNPToWorkload)
 }
 
 func (r *ReconcileYurtAppDaemon) updateStatus(instance *unitv1alpha1.YurtAppDaemon, newStatus, oldStatus *unitv1alpha1.YurtAppDaemonStatus,
