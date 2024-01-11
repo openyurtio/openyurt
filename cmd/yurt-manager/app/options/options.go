@@ -26,6 +26,7 @@ import (
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
 	Generic                    *GenericOptions
+	CsrApproverController      *CsrApproverControllerOptions
 	NodePoolController         *NodePoolControllerOptions
 	GatewayPickupController    *GatewayPickupControllerOptions
 	YurtStaticSetController    *YurtStaticSetControllerOptions
@@ -41,6 +42,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 
 	s := YurtManagerOptions{
 		Generic:                    NewGenericOptions(),
+		CsrApproverController:      NewCsrApproverControllerOptions(),
 		NodePoolController:         NewNodePoolControllerOptions(),
 		GatewayPickupController:    NewGatewayPickupControllerOptions(),
 		YurtStaticSetController:    NewYurtStaticSetControllerOptions(),
@@ -57,6 +59,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers []string) cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	y.Generic.AddFlags(fss.FlagSet("generic"), allControllers, disabledByDefaultControllers)
+	y.CsrApproverController.AddFlags(fss.FlagSet("csrapprover controller"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.GatewayPickupController.AddFlags(fss.FlagSet("gateway controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
@@ -72,6 +75,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases map[string]string) error {
 	var errs []error
 	errs = append(errs, y.Generic.Validate(allControllers, controllerAliases)...)
+	errs = append(errs, y.CsrApproverController.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.GatewayPickupController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
@@ -85,6 +89,9 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 // ApplyTo fills up yurt manager config with options.
 func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[string]string) error {
 	if err := y.Generic.ApplyTo(&c.ComponentConfig.Generic, controllerAliases); err != nil {
+		return err
+	}
+	if err := y.CsrApproverController.ApplyTo(&c.ComponentConfig.CsrApproverController); err != nil {
 		return err
 	}
 	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
