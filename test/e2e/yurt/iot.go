@@ -34,7 +34,7 @@ import (
 )
 
 func generateTestVersions() []string {
-	return []string{"levski", "jakarta", "kamakura", "ireland", "minnesota"}
+	return []string{"levski", "jakarta", "kamakura", "ireland", "minnesota", "napa"}
 }
 
 var _ = Describe("OpenYurt IoT Test", Ordered, func() {
