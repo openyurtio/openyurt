@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
-	"flag"
 	"fmt"
 	"strings"
 
@@ -50,13 +49,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "csrapprover-workers", concurrentReconciles, "Max concurrent workers for CsrApprover controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	csrV1Resource        = certificatesv1.SchemeGroupVersion.WithResource("certificatesigningrequests")
+	csrV1Resource = certificatesv1.SchemeGroupVersion.WithResource("certificatesigningrequests")
 
 	yurtCsr                  = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 	yurtHubNodeCertOrgPrefix = "openyurt:tenant:"
@@ -101,11 +95,11 @@ type csrRecognizer struct {
 
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileCsrApprover{}
 	// Create a new controller
 	c, err := controller.New(names.CsrApproverController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.CsrApproverController.ConcurrentCsrApproverWorkers),
 	})
 	if err != nil {
 		return err
