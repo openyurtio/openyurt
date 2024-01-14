@@ -19,7 +19,6 @@ package daemonpodupdater
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"strings"
 	"sync"
@@ -55,13 +54,7 @@ import (
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "daemonpodupdater-workers", concurrentReconciles, "Max concurrent workers for Daemonpodupdater controller.")
-}
-
 var (
-	concurrentReconciles = 3
-
 	// controllerKind contains the schema.GroupVersionKind for this controller type.
 	controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
 )
@@ -103,7 +96,7 @@ func Format(format string, args ...interface{}) string {
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof("daemonupdater-controller add controller %s", controllerKind.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileDaemonpodupdater{}
@@ -140,9 +133,9 @@ func (r *ReconcileDaemonpodupdater) InjectConfig(cfg *rest.Config) error {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.DaemonPodUpdaterController.ConcurrentDaemonPodUpdaterWorkers)})
 	if err != nil {
 		return err
 	}

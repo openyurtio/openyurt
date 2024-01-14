@@ -22,6 +22,7 @@ import (
 	"k8s.io/kube-controller-manager/config/v1alpha1"
 
 	csrapproverconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover/config"
+	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	gatewaypickupconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
@@ -35,6 +36,9 @@ import (
 type YurtManagerConfiguration struct {
 	metav1.TypeMeta
 	Generic GenericConfiguration
+
+	// DaemonPodUpdaterControllerConfiguration holds configuration for DaemonPodUpdaterController related features.
+	DaemonPodUpdaterController daemonpodupdaterconfig.DaemonPodUpdaterControllerConfiguration
 
 	// CsrApproverControllerConfiguration holds configuration for CsrApproverController related features.
 	CsrApproverController csrapproverconfig.CsrApproverControllerConfiguration
