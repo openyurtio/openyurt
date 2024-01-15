@@ -18,7 +18,6 @@ package podbinding
 
 import (
 	"context"
-	"flag"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -37,13 +36,8 @@ import (
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "podbinding-controller", concurrentReconciles, "Max concurrent workers for podbinding-controller controller.")
-}
-
 var (
 	controllerKind           = appsv1.SchemeGroupVersion.WithKind("Node")
-	concurrentReconciles     = 5
 	defaultTolerationSeconds = 300
 
 	notReadyToleration = corev1.Toleration{
@@ -72,7 +66,7 @@ type ReconcilePodBinding struct {
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof(Format("podbinding-controller add controller %s", controllerKind.String()))
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -81,9 +75,9 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	c, err := controller.New(names.PodBindingController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.PodBindingController.ConcurrentPodBindingWorkers),
 	})
 	if err != nil {
 		return err

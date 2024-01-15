@@ -29,6 +29,7 @@ import (
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
 	yurtappoverriderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
+	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 )
 
@@ -36,6 +37,9 @@ import (
 type YurtManagerConfiguration struct {
 	metav1.TypeMeta
 	Generic GenericConfiguration
+
+	// PodBindingControllerConfiguration holds configuration for PodBindingController related features.
+	PodBindingController podbindingconfig.PodBindingControllerConfiguration
 
 	// DaemonPodUpdaterControllerConfiguration holds configuration for DaemonPodUpdaterController related features.
 	DaemonPodUpdaterController daemonpodupdaterconfig.DaemonPodUpdaterControllerConfiguration
