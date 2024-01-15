@@ -31,7 +31,8 @@ type YurtStaticSetControllerOptions struct {
 func NewYurtStaticSetControllerOptions() *YurtStaticSetControllerOptions {
 	return &YurtStaticSetControllerOptions{
 		&config.YurtStaticSetControllerConfiguration{
-			UpgradeWorkerImage: DefaultUpgradeWorkerImage,
+			UpgradeWorkerImage:             DefaultUpgradeWorkerImage,
+			ConcurrentYurtStaticSetWorkers: 3,
 		},
 	}
 }
@@ -43,6 +44,7 @@ func (o *YurtStaticSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&o.UpgradeWorkerImage, "node-servant-image", o.UpgradeWorkerImage, "Specify node servant pod image used for YurtStaticSet upgrade.")
+	fs.Int32Var(&o.ConcurrentYurtStaticSetWorkers, "concurrent-yurtstaticset-workers", o.ConcurrentYurtStaticSetWorkers, "The number of yurtstaticset objects that are allowed to reconcile concurrently. Larger number = more responsive yurtstaticsets, but more CPU (and network) load")
 }
 
 // ApplyTo fills up YurtStaticSet config with options.
@@ -51,6 +53,7 @@ func (o *YurtStaticSetControllerOptions) ApplyTo(cfg *config.YurtStaticSetContro
 		return nil
 	}
 	cfg.UpgradeWorkerImage = o.UpgradeWorkerImage
+	cfg.ConcurrentYurtStaticSetWorkers = o.ConcurrentYurtStaticSetWorkers
 	return nil
 }
 

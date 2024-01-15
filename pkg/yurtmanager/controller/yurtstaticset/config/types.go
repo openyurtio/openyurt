@@ -19,5 +19,6 @@ package config
 // YurtStaticSetControllerConfiguration contains elements describing YurtStaticSetController.
 type YurtStaticSetControllerConfiguration struct {
 	// UpgradeWorkerImage specify the image used to execute the upgrade task
-	UpgradeWorkerImage string
+	UpgradeWorkerImage             string
+	ConcurrentYurtStaticSetWorkers int32
 }
