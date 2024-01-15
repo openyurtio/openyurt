@@ -415,6 +415,18 @@ func IsKubeletLeaseReq(req *http.Request) bool {
 	return true
 }
 
+// IsKubeletGetNodeReq judge whether the request is a get node request from kubelet
+func IsKubeletGetNodeReq(req *http.Request) bool {
+	ctx := req.Context()
+	if comp, ok := util.ClientComponentFrom(ctx); !ok || comp != "kubelet" {
+		return false
+	}
+	if info, ok := apirequest.RequestInfoFrom(ctx); !ok || info.Resource != "nodes" || info.Verb != "get" {
+		return false
+	}
+	return true
+}
+
 // WriteObject write object to response writer
 func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
