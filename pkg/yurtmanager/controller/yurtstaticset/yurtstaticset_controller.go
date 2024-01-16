@@ -18,7 +18,6 @@ package yurtstaticset
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"strings"
 
@@ -50,14 +49,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "yurtstaticset-workers", concurrentReconciles, "Max concurrent workers for YurtStaticSet controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	controllerResource   = appsv1alpha1.SchemeGroupVersion.WithResource("yurtstaticsets")
-	True                 = true
+	controllerResource = appsv1alpha1.SchemeGroupVersion.WithResource("yurtstaticsets")
+	True               = true
 )
 
 const (
@@ -133,7 +127,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 	}
 
 	klog.Infof("yurtstaticset-controller add controller %s", controllerResource.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileYurtStaticSet{}
@@ -157,9 +151,9 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.YurtStaticSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtStaticSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.YurtStaticSetController.ConcurrentYurtStaticSetWorkers)})
 	if err != nil {
 		return err
 	}
