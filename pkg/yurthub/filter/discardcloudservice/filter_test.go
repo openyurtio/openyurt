@@ -67,7 +67,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.SkipDiscardServiceAnnotation: "false",
+								filter.DiscardServiceAnnotation: "true",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -150,7 +150,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.SkipDiscardServiceAnnotation: "true",
+								filter.DiscardServiceAnnotation: "false",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -177,7 +177,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.SkipDiscardServiceAnnotation: "true",
+								filter.DiscardServiceAnnotation: "false",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -205,6 +205,9 @@ func TestFilter(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "svc1",
 							Namespace: "default",
+							Annotations: map[string]string{
+								filter.DiscardServiceAnnotation: "true",
+							},
 						},
 						Spec: corev1.ServiceSpec{
 							ClusterIP: "10.96.105.187",
@@ -230,6 +233,9 @@ func TestFilter(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
 					Namespace: "default",
+					Annotations: map[string]string{
+						filter.DiscardServiceAnnotation: "true",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					ClusterIP: "10.96.105.187",
@@ -256,9 +262,6 @@ func TestFilter(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
 					Namespace: "default",
-					Annotations: map[string]string{
-						filter.SkipDiscardServiceAnnotation: "true",
-					},
 				},
 				Spec: corev1.ServiceSpec{
 					ClusterIP: "10.96.105.187",
@@ -269,9 +272,6 @@ func TestFilter(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
 					Namespace: "default",
-					Annotations: map[string]string{
-						filter.SkipDiscardServiceAnnotation: "true",
-					},
 				},
 				Spec: corev1.ServiceSpec{
 					ClusterIP: "10.96.105.187",

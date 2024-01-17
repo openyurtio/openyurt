@@ -46,6 +46,11 @@ const (
 	// If end users want to use specified LB service at the edge side,
 	// End users should add annotation["openyurt.io/skip-discard"]="true" for LB service.
 	SkipDiscardServiceAnnotation = "openyurt.io/skip-discard"
+
+	// DiscardServiceAnnotation is annotation used by LB service.
+	// If end users want to discard specified LB service at the edge side,
+	// End users should add annotation["svc.openyurt.io/discard"]="true" for LB service.
+	DiscardServiceAnnotation = "svc.openyurt.io/discard"
 )
 
 var (
