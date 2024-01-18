@@ -19,7 +19,6 @@ package delegatelease
 
 import (
 	"context"
-	"flag"
 	"time"
 
 	coordv1 "k8s.io/api/coordination/v1"
@@ -42,14 +41,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/utils"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "delegatelease-controller", concurrentReconciles, "Max concurrent workers for delegatelease-controller controller.")
-}
-
-var (
-	concurrentReconciles = 5
-)
-
 type ReconcileDelegateLease struct {
 	client.Client
 	dlClient kubernetes.Interface
@@ -59,13 +50,13 @@ type ReconcileDelegateLease struct {
 
 // Add creates a delegatelease controller and add it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	r := &ReconcileDelegateLease{
 		ldc:    utils.NewLeaseDelegatedCounter(),
 		delLdc: utils.NewLeaseDelegatedCounter(),
 	}
 	c, err := controller.New(names.DelegateLeaseController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.DelegateLeaseController.ConcurrentDelegateLeaseWorkers),
 	})
 	if err != nil {
 		return err
