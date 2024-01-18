@@ -37,7 +37,7 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
 	dst.Status.Nodes = src.Status.Nodes
 
-	klog.Infof("convert from v1alpha1 to v1beta1 for nodepool %s", dst.Name)
+	klog.V(4).Infof("convert from v1alpha1 to v1beta1 for nodepool %s", dst.Name)
 
 	return nil
 }
@@ -56,6 +56,6 @@ func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
 	dst.Status.Nodes = src.Status.Nodes
 
-	klog.Infof("convert from v1beta1 to v1alpha1 for nodepool %s", dst.Name)
+	klog.V(4).Infof("convert from v1beta1 to v1alpha1 for nodepool %s", dst.Name)
 	return nil
 }

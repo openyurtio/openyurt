@@ -1,0 +1,77 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: nodebuckets.apps.openyurt.io
+spec:
+  group: apps.openyurt.io
+  names:
+    categories:
+    - all
+    kind: NodeBucket
+    listKind: NodeBucketList
+    plural: nodebuckets
+    shortNames:
+    - nb
+    singular: nodebucket
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: NumNodes represents the number of nodes in the NodeBucket.
+      jsonPath: .numNodes
+      name: NUM-NODES
+      type: integer
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC.
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: NodeBucket is the Schema for the samples API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          nodes:
+            description: Nodes represents a subset nodes in the nodepool
+            items:
+              description: Node represents a specified node in the nodepool
+              properties:
+                name:
+                  description: Name is the name of node
+                  type: string
+              type: object
+            type: array
+          numNodes:
+            description: NumNodes represents the number of nodes in the nodebucket
+            format: int32
+            type: integer
+        required:
+        - nodes
+        - numNodes
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

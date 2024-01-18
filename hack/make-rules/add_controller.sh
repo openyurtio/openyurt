@@ -421,7 +421,7 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new ${KIND_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(c *appconfig.CompletedConfig, mgr manager.Manager) error {
+func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof(Format("${KIND_ALL_LOWER}-controller add controller %s", controllerKind.String()))
 	return add(mgr, newReconciler(c, mgr))
 }

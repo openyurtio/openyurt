@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodelifecycle"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin"
@@ -95,6 +96,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.GatewayInternalServiceController, gatewayinternalservice.Add)
 	register(names.GatewayPublicServiceController, gatewaypublicservice.Add)
 	register(names.NodeLifeCycleController, nodelifecycle.Add)
+	register(names.NodeBucketController, nodebucket.Add)
 
 	return controllers
 }
