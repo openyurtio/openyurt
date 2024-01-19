@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/integer"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -62,8 +63,13 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 		wg.Wait()
 		curSuccesses := batchSize - len(errCh)
 		successes += curSuccesses
+		close(errCh)
 		if len(errCh) > 0 {
-			return successes, <-errCh
+			errs := make([]error, 0)
+			for err := range errCh {
+				errs = append(errs, err)
+			}
+			return successes, utilerrors.NewAggregate(errs)
 		}
 		remaining -= batchSize
 	}

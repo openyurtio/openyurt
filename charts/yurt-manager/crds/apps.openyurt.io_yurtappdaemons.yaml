@@ -34,6 +34,9 @@ spec:
       jsonPath: .status.overriderRef
       name: OverriderRef
       type: string
+    deprecated: true
+    deprecationWarning: apps.openyurt.io/v1alpha1 YurtAppDaemon is deprecated; use
+      apps.openyurt.io/v1beta1 YurtAppSet;
     name: v1alpha1
     schema:
       openAPIV3Schema:

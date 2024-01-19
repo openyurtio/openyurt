@@ -69,7 +69,6 @@ type NodePoolStatus struct {
 }
 
 // +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,path=nodepools,shortName=np,categories=all
 // +kubebuilder:subresource:status

@@ -86,6 +86,7 @@ type Subject struct {
 // +kubebuilder:printcolumn:name="Subject",type="string",JSONPath=".subject.kind",description="The subject kind of this overrider."
 // +kubebuilder:printcolumn:name="Name",type="string",JSONPath=".subject.name",description="The subject name of this overrider."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
+// +kubebuilder:deprecatedversion:warning="apps.openyurt.io/v1alpha1 YurtAppOverrider is deprecated; use apps.openyurt.io/v1beta1 YurtAppSet WorkloadTweaks;"
 
 type YurtAppOverrider struct {
 	metav1.TypeMeta   `json:",inline"`

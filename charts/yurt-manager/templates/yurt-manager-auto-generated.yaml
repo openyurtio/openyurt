@@ -675,18 +675,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-apps-openyurt-io-v1alpha1-yurtappset
+      path: /mutate-apps-openyurt-io-v1beta1-yurtappset
   failurePolicy: Fail
   name: myurtappset.kb.io
   rules:
   - apiGroups:
     - apps.openyurt.io
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -848,18 +849,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-apps-openyurt-io-v1alpha1-yurtappset
+      path: /validate-apps-openyurt-io-v1beta1-yurtappset
   failurePolicy: Fail
   name: vyurtappset.kb.io
   rules:
   - apiGroups:
     - apps.openyurt.io
     apiVersions:
-    - v1alpha1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE

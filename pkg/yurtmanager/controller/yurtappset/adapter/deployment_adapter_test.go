@@ -1,11 +1,10 @@
 /*
 Copyright 2022 The OpenYurt Authors.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package adapter
 
 import (
@@ -33,7 +31,6 @@ import (
 
 func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 	var one int32 = 1
-
 	cases := []struct {
 		name       string
 		yas        *appsv1alpha1.YurtAppSet
@@ -109,7 +106,6 @@ func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 			revision: "1",
 			replicas: one,
 			obj:      &appsv1.Deployment{},
-
 			wantDeploy: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
@@ -180,23 +176,19 @@ func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 		return
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
-
 	da := DeploymentAdapter{Client: fc, Scheme: scheme}
-
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			err := da.ApplyPoolTemplate(tt.yas, tt.poolName, tt.revision, tt.replicas, tt.obj)
 			if err != nil {
 				t.Logf("failed to appply pool template")
 			}
-
 			if err = controllerutil.SetControllerReference(tt.yas, tt.wantDeploy, scheme); err != nil {
 				panic(err)
 			}
 		})
 	}
 }
-
 func TestDeploymentAdapter_GetDetails(t *testing.T) {
 	var one int32 = 1
 	cases := []struct {
@@ -220,7 +212,6 @@ func TestDeploymentAdapter_GetDetails(t *testing.T) {
 			},
 		},
 	}
-
 	scheme := runtime.NewScheme()
 	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
 		t.Logf("failed to add yurt custom resource")
@@ -231,12 +222,9 @@ func TestDeploymentAdapter_GetDetails(t *testing.T) {
 		return
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
-
 	da := DeploymentAdapter{Client: fc, Scheme: scheme}
-
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-
 			got, err := da.GetDetails(tt.obj)
 			if err != nil || got.Replicas != tt.wantReplicasInfo.Replicas {
 				t.Logf("failed to get details")

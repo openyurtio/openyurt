@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
@@ -31,23 +31,23 @@ func (webhook *YurtAppSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (str
 	// init
 	webhook.Client = mgr.GetClient()
 
-	gvk, err := apiutil.GVKForObject(&v1alpha1.YurtAppSet{}, mgr.GetScheme())
+	gvk, err := apiutil.GVKForObject(&v1beta1.YurtAppSet{}, mgr.GetScheme())
 	if err != nil {
 		return "", "", err
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
 		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.YurtAppSet{}).
+			For(&v1beta1.YurtAppSet{}).
 			WithDefaulter(webhook).
 			WithValidator(webhook).
 			Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-yurtappset,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=yurtappsets,verbs=create;update,versions=v1alpha1,name=vyurtappset.kb.io,sideEffects=None,admissionReviewVersions=v1
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1alpha1-yurtappset,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=yurtappsets,verbs=create;update,versions=v1alpha1,name=myurtappset.kb.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta1-yurtappset,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=yurtappsets,verbs=create;update,versions=v1beta1,name=vyurtappset.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-yurtappset,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=yurtappsets,verbs=create;update,versions=v1beta1,name=myurtappset.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
 
-// Cluster implements a validating and defaulting webhook for Cluster.
+// YurtAppSetHandler implements a validating and defaulting webhook for Cluster.
 type YurtAppSetHandler struct {
 	Client client.Client
 }

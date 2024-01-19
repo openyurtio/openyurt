@@ -1,11 +1,10 @@
 /*
 Copyright 2021 The OpenYurt Authors.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package adapter
 
 import (
@@ -33,7 +31,6 @@ import (
 
 type DeploymentAdapter struct {
 	client.Client
-
 	Scheme *runtime.Scheme
 }
 
@@ -57,7 +54,6 @@ func (a *DeploymentAdapter) GetStatusObservedGeneration(obj metav1.Object) int64
 // GetDetails returns the replicas detail the pool needs.
 func (a *DeploymentAdapter) GetDetails(obj metav1.Object) (ReplicasInfo, error) {
 	set := obj.(*appsv1.Deployment)
-
 	var specReplicas int32
 	if set.Spec.Replicas != nil {
 		specReplicas = *set.Spec.Replicas
@@ -90,7 +86,6 @@ func (a *DeploymentAdapter) GetPoolFailure() *string {
 func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, revision string,
 	replicas int32, obj runtime.Object) error {
 	set := obj.(*appsv1.Deployment)
-
 	var poolConfig *alpha1.Pool
 	for i, pool := range yas.Spec.Topology.Pools {
 		if pool.Name == poolName {
@@ -101,9 +96,7 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	if poolConfig == nil {
 		return fmt.Errorf("could not find pool config %s", poolName)
 	}
-
 	set.Namespace = yas.Namespace
-
 	if set.Labels == nil {
 		set.Labels = map[string]string{}
 	}
@@ -116,26 +109,20 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	set.Labels[apps.ControllerRevisionHashLabelKey] = revision
 	// record the pool name as a label
 	set.Labels[apps.PoolNameLabelKey] = poolName
-
 	if set.Annotations == nil {
 		set.Annotations = map[string]string{}
 	}
 	for k, v := range yas.Spec.WorkloadTemplate.DeploymentTemplate.Annotations {
 		set.Annotations[k] = v
 	}
-
 	set.GenerateName = getPoolPrefix(yas.Name, poolName)
-
 	selectors := yas.Spec.Selector.DeepCopy()
 	selectors.MatchLabels[apps.PoolNameLabelKey] = poolName
-
 	if err := controllerutil.SetControllerReference(yas, set, a.Scheme); err != nil {
 		return err
 	}
-
 	set.Spec.Selector = selectors
 	set.Spec.Replicas = &replicas
-
 	set.Spec.Strategy = *yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Strategy.DeepCopy()
 	set.Spec.Template = *yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Template.DeepCopy()
 	if set.Spec.Template.Labels == nil {
@@ -143,20 +130,16 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 	}
 	set.Spec.Template.Labels[apps.PoolNameLabelKey] = poolName
 	set.Spec.Template.Labels[apps.ControllerRevisionHashLabelKey] = revision
-
 	set.Spec.RevisionHistoryLimit = yas.Spec.RevisionHistoryLimit
 	set.Spec.MinReadySeconds = yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.MinReadySeconds
 	set.Spec.Paused = yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Paused
 	set.Spec.ProgressDeadlineSeconds = yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec.ProgressDeadlineSeconds
-
 	attachNodeAffinityAndTolerations(&set.Spec.Template.Spec, poolConfig)
-
 	if !PoolHasPatch(poolConfig, set) {
 		klog.Infof("Deployment[%s/%s-] has no patches, do not need strategicmerge", set.Namespace,
 			set.GenerateName)
 		return nil
 	}
-
 	patched := &appsv1.Deployment{}
 	if err := CreateNewPatchedObject(poolConfig.Patch, set, patched); err != nil {
 		klog.Errorf("Deployment[%s/%s-] strategic merge by patch %s error %v", set.Namespace,
@@ -164,7 +147,6 @@ func (a *DeploymentAdapter) ApplyPoolTemplate(yas *alpha1.YurtAppSet, poolName, 
 		return err
 	}
 	patched.DeepCopyInto(set)
-
 	klog.Infof("Deployment [%s/%s-] has patches configure successfully:%v", set.Namespace,
 		set.GenerateName, string(poolConfig.Patch.Raw))
 	return nil
