@@ -271,13 +271,9 @@ func (r *ReconcileService) manageService(ctx context.Context, gateway *ravenv1be
 	specSvcList := acquiredSpecService(gateway, gatewayType, proxyPort, tunnelPort)
 	addSvc, updateSvc, deleteSvc := classifyService(curSvcList, specSvcList)
 	recordServiceNames(specSvcList.Items, record)
-	for i := 0; i < len(addSvc); i++ {
-		if err := r.Create(ctx, addSvc[i]); err != nil {
-			if apierrs.IsAlreadyExists(err) {
-				klog.V(2).Info(Format("service %s/%s has already exist, ignore creating it", addSvc[i].GetNamespace(), addSvc[i].GetName()))
-				return nil
-			}
-			return fmt.Errorf("failed create service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
+	for i := 0; i < len(deleteSvc); i++ {
+		if err := r.Delete(ctx, deleteSvc[i]); err != nil {
+			return fmt.Errorf("failed delete service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
 	for i := 0; i < len(updateSvc); i++ {
@@ -285,9 +281,13 @@ func (r *ReconcileService) manageService(ctx context.Context, gateway *ravenv1be
 			return fmt.Errorf("failed update service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
-	for i := 0; i < len(deleteSvc); i++ {
-		if err := r.Delete(ctx, deleteSvc[i]); err != nil {
-			return fmt.Errorf("failed delete service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
+	for i := 0; i < len(addSvc); i++ {
+		if err := r.Create(ctx, addSvc[i]); err != nil {
+			if apierrs.IsAlreadyExists(err) {
+				klog.V(2).Info(Format("service %s/%s has already exist, ignore creating it", addSvc[i].GetNamespace(), addSvc[i].GetName()))
+				return nil
+			}
+			return fmt.Errorf("failed create service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
 	return nil
@@ -300,13 +300,9 @@ func (r *ReconcileService) manageEndpoints(ctx context.Context, gateway *ravenv1
 	}
 	specEpsList := r.acquiredSpecEndpoints(ctx, gateway, gatewayType, record)
 	addEps, updateEps, deleteEps := classifyEndpoints(currEpsList, specEpsList)
-	for i := 0; i < len(addEps); i++ {
-		if err := r.Create(ctx, addEps[i]); err != nil {
-			if apierrs.IsAlreadyExists(err) {
-				klog.V(2).Info(Format("endpoints %s/%s has already exist, ignore creating it", addEps[i].GetNamespace(), addEps[i].GetName()))
-				return nil
-			}
-			return fmt.Errorf("failed create endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
+	for i := 0; i < len(deleteEps); i++ {
+		if err := r.Delete(ctx, deleteEps[i]); err != nil {
+			return fmt.Errorf("failed delete endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
 	for i := 0; i < len(updateEps); i++ {
@@ -314,9 +310,13 @@ func (r *ReconcileService) manageEndpoints(ctx context.Context, gateway *ravenv1
 			return fmt.Errorf("failed update endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
-	for i := 0; i < len(deleteEps); i++ {
-		if err := r.Delete(ctx, deleteEps[i]); err != nil {
-			return fmt.Errorf("failed delete endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
+	for i := 0; i < len(addEps); i++ {
+		if err := r.Create(ctx, addEps[i]); err != nil {
+			if apierrs.IsAlreadyExists(err) {
+				klog.V(2).Info(Format("endpoints %s/%s has already exist, ignore creating it", addEps[i].GetNamespace(), addEps[i].GetName()))
+				return nil
+			}
+			return fmt.Errorf("failed create endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
 	}
 	return nil
