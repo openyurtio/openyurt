@@ -128,11 +128,13 @@ func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
 	if !ok {
 		return
 	}
+	oldCM = oldCM.DeepCopy()
 
 	newCM, ok := newObj.(*corev1.ConfigMap)
 	if !ok {
 		return
 	}
+	newCM = newCM.DeepCopy()
 
 	// request settings are changed or not
 	needUpdated := a.requestSettingsUpdated(oldCM.Data, newCM.Data)
