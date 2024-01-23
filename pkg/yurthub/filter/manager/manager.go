@@ -47,7 +47,7 @@ type Manager struct {
 
 func NewFilterManager(options *options.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
-	nodePoolFactory dynamicinformer.DynamicSharedInformerFactory,
+	dynamicSharedFactory dynamicinformer.DynamicSharedInformerFactory,
 	proxiedClient kubernetes.Interface,
 	serializerManager *serializer.SerializerManager,
 	apiserverAddr string) (*Manager, error) {
@@ -71,7 +71,7 @@ func NewFilterManager(options *options.YurtHubOptions,
 		}
 	}
 
-	objFilters, err := createObjectFilters(filters, sharedFactory, nodePoolFactory, proxiedClient, options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	objFilters, err := createObjectFilters(options, filters, sharedFactory, dynamicSharedFactory, proxiedClient, mutatedMasterServiceHost, mutatedMasterServicePort)
 	if err != nil {
 		return nil, err
 	}
@@ -112,18 +112,20 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 }
 
 // createObjectFilters return all object filters that initializations completed.
-func createObjectFilters(filters *filter.Filters,
+func createObjectFilters(options *options.YurtHubOptions,
+	filters *filter.Filters,
 	sharedFactory informers.SharedInformerFactory,
-	nodePoolFactory dynamicinformer.DynamicSharedInformerFactory,
+	dynamicSharedFactory dynamicinformer.DynamicSharedInformerFactory,
 	proxiedClient kubernetes.Interface,
-	nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
+	mutatedMasterServiceHost, mutatedMasterServicePort string) ([]filter.ObjectFilter, error) {
 	if filters == nil {
 		return nil, nil
 	}
 
-	genericInitializer := initializer.New(sharedFactory, nodePoolFactory, proxiedClient, nodeName, nodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	genericInitializer := initializer.New(sharedFactory, dynamicSharedFactory, proxiedClient, options.NodeName, options.NodePoolName, mutatedMasterServiceHost, mutatedMasterServicePort)
+	nodesInitializer := initializer.NewNodesInitializer(options.EnableNodePool, options.EnablePoolServiceTopology, dynamicSharedFactory)
 	initializerChain := filter.Initializers{}
-	initializerChain = append(initializerChain, genericInitializer)
+	initializerChain = append(initializerChain, genericInitializer, nodesInitializer)
 	return filters.NewFromFilters(initializerChain)
 }
 

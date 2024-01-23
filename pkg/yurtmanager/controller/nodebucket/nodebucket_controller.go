@@ -93,6 +93,24 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 		return err
 	}
 
+	// Watch nodepool create for nodebucket
+	if err = c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &handler.EnqueueRequestForObject{}, predicate.Funcs{
+		CreateFunc: func(createEvent event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+			return false
+		},
+		GenericFunc: func(genericEvent event.GenericEvent) bool {
+			return false
+		},
+	}); err != nil {
+		return err
+	}
+
 	nodePredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
 			return true

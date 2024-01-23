@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+type NodesInPoolGetter func(poolName string) ([]string, error)
+
 type Initializer interface {
 	Initialize(filter ObjectFilter) error
 }
