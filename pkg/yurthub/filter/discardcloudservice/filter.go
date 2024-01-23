@@ -79,7 +79,7 @@ func discardCloudService(svc *v1.Service) *v1.Service {
 	nsName := fmt.Sprintf("%s/%s", svc.Namespace, svc.Name)
 	// remove cloud LoadBalancer service
 	if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-		if svc.Annotations[filter.SkipDiscardServiceAnnotation] != "true" {
+		if svc.Annotations[filter.DiscardServiceAnnotation] == "true" {
 			klog.V(2).Infof("load balancer service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
 			return nil
 		}
