@@ -53,7 +53,7 @@ func (o *PodBindingControllerOptions) ApplyTo(cfg *config.PodBindingControllerCo
 	return nil
 }
 
-// Validate checks validation of DaemonPodUpdaterControllerOptions.
+// Validate checks validation of PodBindingControllerOptions.
 func (o *PodBindingControllerOptions) Validate() []error {
 	if o == nil {
 		return nil
