@@ -1,17 +1,17 @@
+# Upgrade yurt-app-set to v1beta1
+
 |              title              | authors   | reviewers | creation-date | last-updated | status |
 | :-----------------------------: | --------- | --------- | ------------- | ------------ | ------ |
 | Upgrade yurt-app-set to v1beta1 | @luc99hen |           | 2024-01-02    |              |        |
 
-# Upgrade yurt-app-set to v1beta1
-
 <!-- TOC -->
-* [Upgrade yurt-app-set to v1beta1](#upgrade-yurtappset-to-v1beta1)
- 	* [Summary](#summary)
- 	* [Motivation](#motivation)
-  		* [Goals](#goals)
-  		* [Non-Goals/Future Work](#non-goalsfuture-work)
- 	* [Proposal](#proposal)
- 	* [Implementation History](#implementation-history)
+* [Upgrade yurt-app-set to v1beta1](#upgrade-yurt-app-set-to-v1beta1)
+  * [Summary](#summary)
+  * [Motivation](#motivation)
+    * [Goals](#goals)
+    * [Non-Goals/Future Work](#non-goals)
+  * [Proposal](#proposal)
+  * [Implementation History](#implementation-history)
 <!-- TOC -->
 
 ## Summary
@@ -49,27 +49,32 @@ Design principals:
 ```go
 // YurtAppSetSpec defines the desired state of YurtAppSet.
 type YurtAppSetSpec struct {
- // WorkloadTemplate describes the workload that will be created.
- WorkloadTemplate WorkloadTemplate `json:"workloadTemplate"`
+ // Workload defines the workload to be deployed in the nodepools
+ Workload `json:"workload"`
 
  // NodePoolSelector is a label query over nodepool in which workloads should be deployed in.
  // It must match the nodepool's labels.
  // +optional
- NodePoolSelector *metav1.LabelSelector `json:"nodepoolSelector"`
+ NodePoolSelector *metav1.LabelSelector `json:"nodepoolSelector,omitempty"`
 
  // Pools is a list of selected nodepools specified with nodepool id in which workloads should be deployed in.
  // It is primarily used for compatibility with v1alpha1 version and NodePoolSelector should be preferred to choose nodepools
  // +optional
  Pools []string `json:"pools,omitempty"`
 
- // WorkloadTemplate describes the customization that will be applied to certain workloads in specified nodepools.
- // +optional
- WorkloadTweaks []WorkloadTweak `json:"workloadTweaks,omitempty"`
-
  // Indicates the number of histories to be conserved.
  // If unspecified, defaults to 10.
  // +optional
  RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+}
+
+// Workload defines the workload to be deployed in the nodepools
+type Workload struct {
+ // WorkloadTemplate defines the pool template under the YurtAppSet.
+ WorkloadTemplate `json:"workloadTemplate"`
+ // WorkloadTemplate defines the customization that will be applied to certain workloads in specified nodepools.
+ // +optional
+ WorkloadTweaks []WorkloadTweak `json:"workloadTweaks,omitempty"`
 }
 
 // WorkloadTemplate defines the pool template under the YurtAppSet.
@@ -111,33 +116,34 @@ type DeploymentTemplateSpec struct {
 type WorkloadTweak struct {
  // NodePoolSelector is a label query over nodepool in which workloads should be adjusted.
  // +optional
- NodePoolSelector *metav1.LabelSelector `json:"nodepoolSelector"`
+ NodePoolSelector *metav1.LabelSelector `json:"nodepoolSelector,omitempty"`
  // Pools is a list of selected nodepools specified with nodepool id in which workloads should be adjusted.
  // Pools is not recommended and NodePoolSelector should be preferred
  // +optional
  Pools []string `json:"pools,omitempty"`
- // BasicTweaks is a list of basic tweaks can be easily applied to certain workloads in specified nodepools such as image and replicas
- // +optional
- BasicTweaks []BasicTweak `json:"basicTweaks,omitempty"`
- // AdvancedTweaks is a list of advanced tweaks to be applied to certain workloads in specified nodepools
- // It can add/remove/replace the field values of specified paths in the template.
- // +optional
- AdvancedTweaks []AdvancedTweak `json:"advancedTweaks,omitempty"`
+ // Tweaks is the adjustment can be applied to a certain workload in specified nodepools such as image and replicas
+ Tweaks `json:"tweaks"`
 }
 
-// BasicTweak represents configuration to be injected.
+// Tweaks represents configuration to be injected.
 // Only one of its members may be specified.
-type BasicTweak struct {
+type Tweaks struct {
  // +optional
- Image *ImageTweak `json:"imageTweak,omitempty"`
- // +optional
+ // Replicas overrides the replicas of the workload
  Replicas *int32 `json:"replicas,omitempty"`
+ // +optional
+ // ContainerImages is a list of container images to be injected to a certain workload
+ ContainerImages []ContainerImage `json:"containerImages,omitempty"`
+ // +optional
+ // Patches is a list of advanced tweaks to be applied to a certain workload
+ // It can add/remove/replace the field values of specified paths in the template.
+ Patches []Patch `json:"patches,omitempty"`
 }
 
-// ImageTweak specifies the corresponding container and the target image
-type ImageTweak struct {
- // ContainerName represents name of the container in which the Image will be replaced
- ContainerName string `json:"containerName"`
+// ContainerImage specifies the corresponding container and the target image
+type ContainerImage struct {
+ // Name represents name of the container in which the Image will be replaced
+ Name string `json:"name"`
  // TargetImage represents the image name which is injected into the container above
  TargetImage string `json:"targetImage"`
 }
@@ -150,7 +156,7 @@ const (
  REPLACE Operation = "replace" // json patch
 )
 
-type AdvancedTweak struct {
+type Patch struct {
  // Path represents the path in the json patch
  Path string `json:"path"`
  // Operation represents the operation
