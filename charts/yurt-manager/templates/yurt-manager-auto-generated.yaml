@@ -356,6 +356,7 @@ rules:
   resources:
   - pods/status
   verbs:
+  - patch
   - update
 - apiGroups:
   - ""
