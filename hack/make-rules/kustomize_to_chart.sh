@@ -39,7 +39,7 @@ YURT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 SUFFIX="auto_generated"
 
-Conversion_Files=("apps.openyurt.io_nodepools.yaml" "raven.openyurt.io_gateways.yaml")
+Conversion_Files=("apps.openyurt.io_nodepools.yaml" "raven.openyurt.io_gateways.yaml" "apps.openyurt.io_yurtappsets.yaml")
 
 while [ $# -gt 0 ];do
     case $1 in

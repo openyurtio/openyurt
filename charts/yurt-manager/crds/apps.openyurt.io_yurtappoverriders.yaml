@@ -32,6 +32,9 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
+    deprecated: true
+    deprecationWarning: apps.openyurt.io/v1alpha1 YurtAppOverrider is deprecated;
+      use apps.openyurt.io/v1beta1 YurtAppSet WorkloadTweaks;
     name: v1alpha1
     schema:
       openAPIV3Schema:

@@ -77,6 +77,16 @@ func TestSlowStartBatch(t *testing.T) {
 		},
 	}
 
+	errEqual := func(err1, err2 error) bool {
+		if err1 == nil && err2 == nil {
+			return true
+		}
+		if err1 == nil || err2 == nil {
+			return false
+		}
+		return err1.Error() == err2.Error()
+	}
+
 	for _, test := range tests {
 		callCnt = 0
 		callLimit = test.callLimit
@@ -84,7 +94,7 @@ func TestSlowStartBatch(t *testing.T) {
 		if successes != test.expectedSuccesses {
 			t.Errorf("%s: unexpected processed batch size, expected %d, got %d", test.name, test.expectedSuccesses, successes)
 		}
-		if err != test.expectedErr {
+		if !errEqual(err, test.expectedErr) {
 			t.Errorf("%s: unexpected processed batch size, expected %v, got %v", test.name, test.expectedErr, err)
 		}
 		// verify that slowStartBatch stops trying more calls after a batch fails

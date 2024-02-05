@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -22,29 +22,25 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
+	utilpointer "k8s.io/utils/pointer"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *YurtAppSetHandler) Default(ctx context.Context, obj runtime.Object) error {
-	appset, ok := obj.(*v1alpha1.YurtAppSet)
+	set, ok := obj.(*v1beta1.YurtAppSet)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppSet but got a %T", obj))
 	}
 
-	v1alpha1.SetDefaultsYurtAppSet(appset)
-	appset.Status = v1alpha1.YurtAppSetStatus{}
-
-	statefulSetTemp := appset.Spec.WorkloadTemplate.StatefulSetTemplate
-	deployTem := appset.Spec.WorkloadTemplate.DeploymentTemplate
-
-	if statefulSetTemp != nil {
-		statefulSetTemp.Spec.Selector = appset.Spec.Selector
+	if set.Spec.RevisionHistoryLimit == nil {
+		set.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
+		klog.V(4).Info("defaulting YurtAppSet.Spec.RevisionHistoryLimit to 10")
 	}
-	if deployTem != nil {
-		deployTem.Spec.Selector = appset.Spec.Selector
-	}
+
+	klog.V(5).Info("received a YurtAppSet: %v", obj)
 
 	return nil
 }

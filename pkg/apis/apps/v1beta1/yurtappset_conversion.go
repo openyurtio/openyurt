@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The OpenYurt Authors.
+Copyright 2023 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package v1beta1
 
-type YurtAppSetControllerConfiguration struct {
-}
+/*
+Implementing the hub method is pretty easy -- we just have to add an empty
+method called `Hub()` to serve as a
+[marker](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/conversion?tab=doc#Hub).
+*/
+
+// Hub marks this type as a conversion hub.
+func (*YurtAppSet) Hub() {}

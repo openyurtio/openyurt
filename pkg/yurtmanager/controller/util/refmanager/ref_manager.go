@@ -250,6 +250,10 @@ func (mgr *RefManager) claimObject(obj metav1.Object, match func(metav1.Object) 
 		// Ignore if the object is being deleted
 		return false, nil
 	}
+	if len(mgr.owner.GetNamespace()) > 0 && mgr.owner.GetNamespace() != obj.GetNamespace() {
+		// Ignore if the object is in a different namespace
+		return false, nil
+	}
 	// Selector matches. Try to adopt.
 	if err := mgr.adopt(obj); err != nil {
 		// If the pod no longer exists, ignore the error.

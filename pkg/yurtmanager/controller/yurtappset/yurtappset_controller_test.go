@@ -1,12 +1,11 @@
 /*
-Copyright 2020 The OpenYurt Authors.
-Copyright 2019 The Kruise Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,65 +18,259 @@ package yurtappset
 
 import (
 	"context"
-	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	fakeclint "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
-var (
-	ten     int32 = 10
-	forteen int64 = 14
-	fifteen int64 = 15
-)
+func TestGetWorkloadManagerFromYurtAppSet(t *testing.T) {
+	type args struct {
+		yas *v1beta1.YurtAppSet
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "StatefulSetTemplate is set in YurtAppSet's Spec.Workload.WorkloadTemplate.",
+			args: args{
+				yas: &v1beta1.YurtAppSet{
+					Spec: v1beta1.YurtAppSetSpec{
+						Workload: v1beta1.Workload{
+							WorkloadTemplate: v1beta1.WorkloadTemplate{
+								StatefulSetTemplate: &v1beta1.StatefulSetTemplateSpec{},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "DeploymentTemplate is set in YurtAppSet's Spec.Workload.WorkloadTemplate.",
+			args: args{
+				yas: &v1beta1.YurtAppSet{
+					Spec: v1beta1.YurtAppSetSpec{
+						Workload: v1beta1.Workload{
+							WorkloadTemplate: v1beta1.WorkloadTemplate{
+								DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Neither StatefulSetTemplate nor DeploymentTemplate is set in YurtAppSet's Spec.Workload.WorkloadTemplate.",
+			args: args{
+				yas: &v1beta1.YurtAppSet{
+					Spec: v1beta1.YurtAppSetSpec{
+						Workload: v1beta1.Workload{},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
 
-func TestReconcileYurtAppSet_Reconcile2(t *testing.T) {
-
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := ReconcileYurtAppSet{}
+			_, err := r.getWorkloadManagerFromYurtAppSet(tt.args.yas)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getWorkloadManagerFromYurtAppSet() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
 }
 
-func TestReconcileYurtAppSet_Reconcile(t *testing.T) {
-	instance := &appsv1alpha1.YurtAppSet{
+func TestClassifyWorkloads(t *testing.T) {
+	yas := &v1beta1.YurtAppSet{}
+	expectedNodePools := sets.NewString("test-np1", "test-np3")
+	expectedRevision := "test-revision-2"
+	workloadTobeDeleted := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "foo-ns",
+			Name: "test-deployment-1",
+			Labels: map[string]string{
+				apps.PoolNameLabelKey: "test-np2",
+			},
 		},
-		Spec: appsv1alpha1.YurtAppSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "foo",
+	}
+	workloadTobeUpdated := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-deployment-2",
+			Labels: map[string]string{
+				apps.PoolNameLabelKey:               "test-np1",
+				apps.ControllerRevisionHashLabelKey: "test-revision-1",
+			},
+		},
+	}
+	currentWorkloads := []metav1.Object{workloadTobeDeleted, workloadTobeUpdated}
+
+	needDeleted, needUpdate, needCreate := classifyWorkloads(yas, currentWorkloads, expectedNodePools, expectedRevision)
+	if len(needDeleted) != 1 || needDeleted[0].GetName() != workloadTobeDeleted.GetName() {
+		t.Errorf("classifyWorkloads() needDeleted = %v, want %v", needDeleted, workloadTobeDeleted)
+	}
+	if len(needUpdate) != 1 || needUpdate[0].GetName() != workloadTobeUpdated.GetName() {
+		t.Errorf("classifyWorkloads() needUpdate = %v, want %v", needUpdate, workloadTobeUpdated)
+	}
+	if len(needCreate) != 1 || needCreate[0] != "test-np3" {
+		t.Errorf("classifyWorkloads() needCreate = %v, want %v", needCreate, []string{"test-np3"})
+	}
+}
+
+type fakeEventRecorder struct {
+}
+
+func (f *fakeEventRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+}
+
+func (f *fakeEventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+}
+
+func (f *fakeEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+}
+
+func TestReconcile(t *testing.T) {
+	tests := []struct {
+		name       string
+		request    reconcile.Request
+		yas        *v1beta1.YurtAppSet
+		npList     []client.Object
+		deployList []client.Object
+
+		expectedDeployNum int
+		expectedErr       bool
+		isUpdated         bool
+	}{
+		{
+			name: "yas create 2 deployment",
+			request: reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      "test-yurtappset",
+					Namespace: "default",
 				},
 			},
-			WorkloadTemplate: appsv1alpha1.WorkloadTemplate{
-				DeploymentTemplate: &appsv1alpha1.DeploymentTemplateSpec{
+			yas: &v1beta1.YurtAppSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+				Spec: v1beta1.YurtAppSetSpec{
+					Pools: []string{"test-np1", "test-np2"},
+					Workload: v1beta1.Workload{
+						WorkloadTemplate: v1beta1.WorkloadTemplate{
+							DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+								Spec: appsv1.DeploymentSpec{
+									Selector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "test-yurtappset",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			npList: []client.Object{
+				&v1beta1.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo",
+						Name: "test-np1",
+					},
+				},
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-np2",
+					},
+				},
+			},
+			expectedDeployNum: 2,
+			expectedErr:       false,
+		},
+		{
+			name: "no np found, should delete 1 deployment",
+			request: reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+			},
+			yas: &v1beta1.YurtAppSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+				Spec: v1beta1.YurtAppSetSpec{
+					Pools: []string{"test-np1"},
+					Workload: v1beta1.Workload{
+						WorkloadTemplate: v1beta1.WorkloadTemplate{
+							DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+								Spec: appsv1.DeploymentSpec{
+									Selector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "test-yurtappset",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			deployList: []client.Object{
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-deployment-1",
+						Namespace: "default",
 						Labels: map[string]string{
-							"name": "foo",
+							apps.PoolNameLabelKey:        "test-np2",
+							apps.YurtAppSetOwnerLabelKey: "test-yurtappset",
 						},
 					},
-					Spec: appsv1.DeploymentSpec{
-						Replicas: &two,
-						Template: corev1.PodTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{
-									"name": "foo",
-								},
-							},
-							Spec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Name:  "container",
-										Image: "nginx:1.0",
+				},
+			},
+			expectedDeployNum: 0,
+			expectedErr:       false,
+		},
+		{
+			name: "1 np found and 1 np miss, should create 1 deployment and delete 1 deployment",
+			request: reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+			},
+			yas: &v1beta1.YurtAppSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+				Spec: v1beta1.YurtAppSetSpec{
+					Pools: []string{"test-np1"},
+					Workload: v1beta1.Workload{
+						WorkloadTemplate: v1beta1.WorkloadTemplate{
+							DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+								Spec: appsv1.DeploymentSpec{
+									Selector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": "test-yurtappset",
+										},
 									},
 								},
 							},
@@ -85,214 +278,127 @@ func TestReconcileYurtAppSet_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			Topology: appsv1alpha1.Topology{
-				Pools: []appsv1alpha1.Pool{
-					{
-						Name:     "foo-0",
-						Replicas: &one,
-						NodeSelectorTerm: corev1.NodeSelectorTerm{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{
-									Key:      "app.openyurt.io/nodepool",
-									Operator: corev1.NodeSelectorOpIn,
-									Values: []string{
-										"foo-0",
+			npList: []client.Object{
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-np1",
+					},
+				},
+			},
+			deployList: []client.Object{
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-deployment-1",
+						Namespace: "default",
+						Labels: map[string]string{
+							apps.PoolNameLabelKey:        "test-np2",
+							apps.YurtAppSetOwnerLabelKey: "test-yurtappset",
+						},
+					},
+				},
+			},
+			expectedDeployNum: 1,
+			expectedErr:       false,
+		},
+		{
+			name: "update 1 deployment",
+			request: reconcile.Request{
+				NamespacedName: client.ObjectKey{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+			},
+			yas: &v1beta1.YurtAppSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-yurtappset",
+					Namespace: "default",
+				},
+				Spec: v1beta1.YurtAppSetSpec{
+					Pools: []string{"test-np1"},
+					Workload: v1beta1.Workload{
+						WorkloadTemplate: v1beta1.WorkloadTemplate{
+							DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+								Spec: appsv1.DeploymentSpec{
+									Template: corev1.PodTemplateSpec{
+										Spec: corev1.PodSpec{
+											Containers: []corev1.Container{
+												{
+													Name:  "test-container",
+													Image: "test-image",
+												},
+											},
+										},
 									},
 								},
 							},
 						},
 					},
-					{
-						Name:     "foo-1",
-						Replicas: &two,
-						NodeSelectorTerm: corev1.NodeSelectorTerm{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{
-									Key:      "app.openyurt.io/nodepool",
-									Operator: corev1.NodeSelectorOpIn,
-									Values: []string{
-										"foo-1",
-									},
-								},
-							},
+				},
+			},
+			npList: []client.Object{
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-np1",
+					},
+				},
+			},
+			deployList: []client.Object{
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-deployment-1",
+						Namespace: "default",
+						Labels: map[string]string{
+							apps.PoolNameLabelKey:               "test-np1",
+							apps.YurtAppSetOwnerLabelKey:        "test-yurtappset",
+							apps.ControllerRevisionHashLabelKey: "test-revision-1",
 						},
 					},
 				},
 			},
-			RevisionHistoryLimit: &two,
-		},
-		Status: appsv1alpha1.YurtAppSetStatus{
-			ObservedGeneration: fifteen,
-			CollisionCount:     &two,
-			CurrentRevision:    "v0.1.0",
-			Replicas:           2,
-			ReadyReplicas:      2,
-			TemplateType:       appsv1alpha1.DeploymentTemplateType,
+			expectedDeployNum: 1,
+			expectedErr:       false,
+			isUpdated:         true,
 		},
 	}
 
-	scheme := runtime.NewScheme()
-	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add yurt custom resource")
-		return
-	}
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add kubernetes clint-go custom resource")
-		return
-	}
-	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objList := []client.Object{tt.yas}
+			if len(tt.npList) > 0 {
+				objList = append(objList, tt.npList...)
+			}
+			if len(tt.deployList) > 0 {
+				objList = append(objList, tt.deployList...)
+			}
 
-	var req = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "foo-ns"}}
-	ryas := ReconcileYurtAppSet{
-		Client: fc,
-		scheme: scheme,
-		poolControls: map[appsv1alpha1.TemplateType]ControlInterface{
-			appsv1alpha1.StatefulSetTemplateType: &PoolControl{
-				Client:  fc,
-				scheme:  scheme,
-				adapter: &adapter.StatefulSetAdapter{Client: fc, Scheme: scheme},
-			},
-			appsv1alpha1.DeploymentTemplateType: &PoolControl{
-				Client:  fc,
-				scheme:  scheme,
-				adapter: &adapter.DeploymentAdapter{Client: fc, Scheme: scheme},
-			},
-		},
-	}
-
-	for i := 0; i < 2; i++ {
-		tf := ryas.poolControls[appsv1alpha1.DeploymentTemplateType].CreatePool(instance, "foo-"+strconv.FormatInt(int64(i), 10), "v0.1.0", two)
-		if tf != nil {
-			t.Logf("failed create node pool resource")
-		}
-	}
-
-	_, err := ryas.Reconcile(context.TODO(), req)
-	if err != nil {
-		t.Logf("failed to control yurtappset controller")
-	}
-}
-
-func TestGetPoolTemplateType(t *testing.T) {
-	instances := []struct {
-		yas  *appsv1alpha1.YurtAppSet
-		want appsv1alpha1.TemplateType
-	}{
-		{
-			yas: &appsv1alpha1.YurtAppSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fooYurtAppSet",
-					Namespace: "foo",
-				},
-				Spec: appsv1alpha1.YurtAppSetSpec{
-					WorkloadTemplate: appsv1alpha1.WorkloadTemplate{
-						DeploymentTemplate: &appsv1alpha1.DeploymentTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "fooo",
-								Namespace: "foo-ns",
-							},
-						},
+			fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(objList...).Build()
+			r := &ReconcileYurtAppSet{
+				scheme:   fakeScheme,
+				Client:   fakeClient,
+				recorder: &fakeEventRecorder{},
+				workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
+					workloadmanager.DeploymentTemplateType: &workloadmanager.DeploymentManager{
+						Client: fakeClient,
+						Scheme: fakeScheme,
 					},
 				},
-			},
-			want: "Deployment",
-		},
-		{
-			yas: &appsv1alpha1.YurtAppSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fooYurtAppSet",
-					Namespace: "foo",
-				},
-				Spec: appsv1alpha1.YurtAppSetSpec{
-					WorkloadTemplate: appsv1alpha1.WorkloadTemplate{
-						StatefulSetTemplate: &appsv1alpha1.StatefulSetTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "foo-ns",
-							},
-						},
-					},
-				},
-			},
-			want: "StatefulSet",
-		},
-		{
-			yas: &appsv1alpha1.YurtAppSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fooYurtAppSet",
-					Namespace: "foo",
-				},
-			},
-			want: "",
-		},
-	}
+			}
 
-	for _, v := range instances {
-		tt := getPoolTemplateType(v.yas)
-		if tt != v.want {
-			t.Logf("failed to get pool template type")
-		}
-	}
-}
+			_, err := r.Reconcile(context.TODO(), tt.request)
+			if tt.expectedErr {
+				assert.NotNil(t, err)
+			}
 
-func TestReconcileYurtAppSet_UpdateYurtAppSet(t *testing.T) {
-	instance := struct {
-		yas       *appsv1alpha1.YurtAppSet
-		oldStatus *appsv1alpha1.YurtAppSetStatus
-		newStatus *appsv1alpha1.YurtAppSetStatus
-	}{
-		yas: &appsv1alpha1.YurtAppSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "fooYurtAppSet",
-				Namespace:  "foo",
-				Generation: forteen,
-			},
-			Spec: appsv1alpha1.YurtAppSetSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"name": "foo",
-					},
-				},
-			},
-			Status: appsv1alpha1.YurtAppSetStatus{},
-		},
-		oldStatus: &appsv1alpha1.YurtAppSetStatus{
-			CurrentRevision:    "v0.1.0",
-			CollisionCount:     &ten,
-			Replicas:           two,
-			ReadyReplicas:      one,
-			ObservedGeneration: fifteen,
-			PoolReplicas: map[string]int32{
-				"foo-pool": ten,
-			},
-			Conditions: []appsv1alpha1.YurtAppSetCondition{},
-		},
-		newStatus: &appsv1alpha1.YurtAppSetStatus{
-			CurrentRevision:    "v0.2.0",
-			CollisionCount:     &ten,
-			Replicas:           two,
-			ReadyReplicas:      one,
-			ObservedGeneration: fifteen,
-			PoolReplicas: map[string]int32{
-				"foo-pool": ten,
-			},
-			Conditions: []appsv1alpha1.YurtAppSetCondition{},
-		},
-	}
+			deployList := &appsv1.DeploymentList{}
+			if err := fakeClient.List(context.TODO(), deployList); err == nil {
+				assert.Len(t, deployList.Items, tt.expectedDeployNum)
+			}
 
-	scheme := runtime.NewScheme()
-	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add yurt custom resource")
-		return
-	}
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Logf("failed to add kubernetes clint-go custom resource")
-		return
-	}
-	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance.yas).Build()
-	r := ReconcileYurtAppSet{Client: fc, scheme: scheme}
-	o, err := r.updateYurtAppSet(instance.yas, instance.oldStatus, instance.newStatus)
-	if err != nil || o.Status.CurrentRevision != instance.newStatus.CurrentRevision {
-		t.Logf("failed to update yurtappset")
+			if tt.isUpdated {
+				for _, deploy := range deployList.Items {
+					assert.NotEqual(t, deploy.Labels[apps.ControllerRevisionHashLabelKey], tt.yas.Status.CurrentRevision)
+				}
+			}
+		})
 	}
 }

@@ -22,6 +22,9 @@ package apps
 
 // YurtAppSet & YurtAppDaemon related labels and annotations
 const (
+	// YurtAppSetOwnerLabelKey is used to record which yas owns this deployment
+	YurtAppSetOwnerLabelKey = "apps.openyurt.io/ref-yurtappset"
+
 	// ControllerRevisionHashLabelKey is used to record the controller revision of current resource.
 	ControllerRevisionHashLabelKey = "apps.openyurt.io/controller-revision-hash"
 

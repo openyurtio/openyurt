@@ -70,7 +70,6 @@ type NodePoolStatus struct {
 	Nodes []string `json:"nodes,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,path=nodepools,shortName=np,categories=all

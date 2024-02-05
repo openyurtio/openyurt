@@ -112,6 +112,7 @@ type YurtAppDaemonCondition struct {
 // +kubebuilder:printcolumn:name="WorkloadTemplate",type="string",JSONPath=".status.templateType",description="The WorkloadTemplate Type."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 // +kubebuilder:printcolumn:name="OverriderRef",type="string",JSONPath=".status.overriderRef",description="The name of overrider bound to this yurtappdaemon"
+// +kubebuilder:deprecatedversion:warning="apps.openyurt.io/v1alpha1 YurtAppDaemon is deprecated; use apps.openyurt.io/v1beta1 YurtAppSet;"
 
 // YurtAppDaemon is the Schema for the samples API
 type YurtAppDaemon struct {

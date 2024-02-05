@@ -12,7 +12,7 @@ limitations under the License.
 */
 // +kubebuilder:docs-gen:collapse=Apache License
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -22,31 +22,31 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
-var defaultAppSet = &v1alpha1.YurtAppSet{
+var defaultAppSet = &v1beta1.YurtAppSet{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "fooboo",
 		Namespace: "default",
 	},
-	Spec: v1alpha1.YurtAppSetSpec{
-		Topology: v1alpha1.Topology{Pools: []v1alpha1.Pool{{Name: "beijing"}}},
-		Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo"}},
-		WorkloadTemplate: v1alpha1.WorkloadTemplate{
-			DeploymentTemplate: &v1alpha1.DeploymentTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "demo"},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo"}},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"app": "demo"},
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Name: "demo", Image: "nginx"},
+	Spec: v1beta1.YurtAppSetSpec{
+		Workload: v1beta1.Workload{
+			WorkloadTemplate: v1beta1.WorkloadTemplate{
+				DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": "demo"},
+					},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo"}},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{"app": "demo"},
+							},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "demo", Image: "nginx"},
+								},
 							},
 						},
 					},
@@ -80,14 +80,13 @@ func TestYurtAppSetValidator(t *testing.T) {
 	}
 
 	dupTopology := defaultAppSet.DeepCopy()
-	dupTopology.Spec.Topology = v1alpha1.Topology{Pools: []v1alpha1.Pool{{Name: "beijing"}, {Name: "beijing"}}}
-	if err := webhook.ValidateCreate(context.TODO(), dupTopology); err == nil {
+	if err := webhook.ValidateCreate(context.TODO(), dupTopology); err != nil {
 		t.Fatal("topology dup should not fail")
 	}
 
 	updateAppSet := defaultAppSet.DeepCopy()
 	updateAppSet.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
-	if err := webhook.ValidateUpdate(context.TODO(), defaultAppSet, updateAppSet); err == nil {
-		t.Fatal("workload selector change should fail")
+	if err := webhook.ValidateUpdate(context.TODO(), defaultAppSet, updateAppSet); err != nil {
+		t.Fatal("workload selector change should not fail")
 	}
 }

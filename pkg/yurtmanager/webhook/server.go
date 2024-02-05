@@ -40,7 +40,7 @@ import (
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappdaemon/v1alpha1"
 	v1alpha1yurtappoverrider "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappoverrider/v1alpha1"
-	v1alpha1yurtappset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappset/v1alpha1"
+	v1beta1yurtappset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappset/v1beta1"
 	v1alpha1yurtstaticset "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtstaticset/v1alpha1"
 )
 
@@ -73,7 +73,7 @@ func init() {
 	addControllerWebhook(names.GatewayPickupController, &v1beta1gateway.GatewayHandler{})
 	addControllerWebhook(names.NodePoolController, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(names.YurtStaticSetController, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
-	addControllerWebhook(names.YurtAppSetController, &v1alpha1yurtappset.YurtAppSetHandler{})
+	addControllerWebhook(names.YurtAppSetController, &v1beta1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(names.YurtAppDaemonController, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
 	addControllerWebhook(names.PlatformAdminController, &v1alpha1platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
