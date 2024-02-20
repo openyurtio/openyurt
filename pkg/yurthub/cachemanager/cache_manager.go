@@ -52,6 +52,11 @@ import (
 
 var (
 	ErrInMemoryCacheMiss = errors.New("in-memory cache miss")
+
+	nonCacheableResources = map[string]struct{}{
+		"certificatesigningrequests": {},
+		"subjectaccessreviews":       {},
+	}
 )
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
@@ -705,7 +710,7 @@ func isCreate(ctx context.Context) bool {
 // 1. component is not set
 // 2. delete/deletecollection/proxy request
 // 3. sub-resource request but is not status
-// 4. csr resource request
+// 4. csr and sar resource request
 func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	ctx := req.Context()
 
@@ -740,6 +745,10 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	}
 
 	if info.Subresource != "" && info.Subresource != "status" {
+		return false
+	}
+
+	if _, ok := nonCacheableResources[info.Resource]; ok {
 		return false
 	}
 
