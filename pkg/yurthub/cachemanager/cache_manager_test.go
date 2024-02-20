@@ -3194,6 +3194,22 @@ func TestCanCacheFor(t *testing.T) {
 			cacheAgents: "xxx",
 			expectCache: false,
 		},
+		"do not cache csr": {
+			request: &proxyRequest{
+				userAgent: "kubelet",
+				verb:      "POST",
+				path:      "/apis/certificates.k8s.io/v1/certificatesigningrequests",
+			},
+			expectCache: false,
+		},
+		"do not cache sar": {
+			request: &proxyRequest{
+				userAgent: "kubelet",
+				verb:      "POST",
+				path:      "/apis/authorization.k8s.io/v1/subjectaccessreviews",
+			},
+			expectCache: false,
+		},
 	}
 
 	for k, tt := range testcases {
