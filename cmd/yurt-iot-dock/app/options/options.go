@@ -34,9 +34,22 @@ type YurtIoTDockOptions struct {
 	CoreDataAddr         string
 	CoreMetadataAddr     string
 	CoreCommandAddr      string
-	RedisAddr            string
-	RedisPort            uint
+	MessageBusOptions    MessageBusOptions
 	EdgeSyncPeriod       uint
+}
+
+type MessageBusOptions struct {
+	// Host is the hostname or IP address of the messaging broker, if applicable.
+	Host string
+	// Port defines the port on which to access the message queue.
+	Port int
+	// Protocol indicates the protocol to use when accessing the message queue.
+	Protocol string
+	// Type indicates the message queue platform being used. eg. "redis" for Redis Pub/Sub
+	Type              string
+	HeartbeatInterval int
+	// Name is the name of the message bus instance.
+	Name string
 }
 
 func NewYurtIoTDockOptions() *YurtIoTDockOptions {
@@ -50,9 +63,13 @@ func NewYurtIoTDockOptions() *YurtIoTDockOptions {
 		CoreDataAddr:         "edgex-core-data:59880",
 		CoreMetadataAddr:     "edgex-core-metadata:59881",
 		CoreCommandAddr:      "edgex-core-command:59882",
-		RedisAddr:            "edgex-redis",
-		RedisPort:            6379,
-		EdgeSyncPeriod:       5,
+		MessageBusOptions: MessageBusOptions{
+			Host:     "edgex-redis",
+			Port:     6379,
+			Protocol: "redis",
+			Type:     "redis",
+		},
+		EdgeSyncPeriod: 120,
 	}
 }
 
@@ -73,9 +90,13 @@ func (o *YurtIoTDockOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CoreDataAddr, "core-data-address", "edgex-core-data:59880", "The address of edge core-data service.")
 	fs.StringVar(&o.CoreMetadataAddr, "core-metadata-address", "edgex-core-metadata:59881", "The address of edge core-metadata service.")
 	fs.StringVar(&o.CoreCommandAddr, "core-command-address", "edgex-core-command:59882", "The address of edge core-command service.")
-	fs.StringVar(&o.RedisAddr, "edgex-redis-address", "edgex-redis", "The address of edge database service.")
-	fs.UintVar(&o.RedisPort, "edgex-redis-port", 6379, "The port of the redis service.")
-	fs.UintVar(&o.EdgeSyncPeriod, "edge-sync-period", 5, "The period of the device management platform synchronizing the device status to the cloud.(in seconds,not less than 5 seconds)")
+	fs.StringVar(&o.MessageBusOptions.Host, "message-bus-host", "edgex-redis", "The hostname or IP address of the messaging broker, if applicable.")
+	fs.IntVar(&o.MessageBusOptions.Port, "message-bus-port", 6379, "The port on which to access the message queue.")
+	fs.StringVar(&o.MessageBusOptions.Protocol, "message-bus-protocol", "redis", "The protocol to use when accessing the message queue.")
+	fs.StringVar(&o.MessageBusOptions.Type, "message-bus-type", "redis", "The message queue platform being used. eg. \"redis\" for Redis Pub/Sub")
+	fs.IntVar(&o.MessageBusOptions.HeartbeatInterval, "message-bus-heartbeat-interval", 30, "The heartbeat interval for iot-dock to checker the connection with message bus.(in seconds,not less than 30 seconds)")
+	fs.StringVar(&o.MessageBusOptions.Name, "message-bus-name", "edgex-redis", "The name of the message bus instance.")
+	fs.UintVar(&o.EdgeSyncPeriod, "edge-sync-period", 2*60, "The period of the device management platform synchronizing the device status to the cloud.(in seconds,not less than 2 minutes)")
 }
 
 func ValidateEdgePlatformAddress(options *YurtIoTDockOptions) error {
