@@ -19,6 +19,7 @@ package options
 import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/forwardkubesvctraffic"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/nodeportisolation"
@@ -27,15 +28,16 @@ import (
 
 var (
 	// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
-	DisabledInCloudMode = []string{discardcloudservice.FilterName}
+	DisabledInCloudMode = []string{discardcloudservice.FilterName, forwardkubesvctraffic.FilterName}
 
 	// SupportedComponentsForFilter is used for specifying which components are supported by filters as default setting.
 	SupportedComponentsForFilter = map[string]string{
-		masterservice.FilterName:       "kubelet",
-		discardcloudservice.FilterName: "kube-proxy",
-		servicetopology.FilterName:     "kube-proxy, coredns, nginx-ingress-controller",
-		inclusterconfig.FilterName:     "kubelet",
-		nodeportisolation.FilterName:   "kube-proxy",
+		masterservice.FilterName:         "kubelet",
+		discardcloudservice.FilterName:   "kube-proxy",
+		servicetopology.FilterName:       "kube-proxy, coredns, nginx-ingress-controller",
+		inclusterconfig.FilterName:       "kubelet",
+		nodeportisolation.FilterName:     "kube-proxy",
+		forwardkubesvctraffic.FilterName: "kube-proxy",
 	}
 )
 
@@ -49,4 +51,5 @@ func RegisterAllFilters(filters *base.Filters) {
 	discardcloudservice.Register(filters)
 	inclusterconfig.Register(filters)
 	nodeportisolation.Register(filters)
+	forwardkubesvctraffic.Register(filters)
 }
