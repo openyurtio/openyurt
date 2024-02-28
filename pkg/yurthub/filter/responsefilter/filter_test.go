@@ -50,6 +50,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/forwardkubesvctraffic"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
@@ -423,6 +424,10 @@ func TestResponseFilterForListRequest(t *testing.T) {
 	masterPort := "10268"
 	var masterPortInt int32
 	masterPortInt = 10268
+	readyCondition := true
+	portName := "https"
+	var kasPort int32
+	kasPort = 443
 	scheme := runtime.NewScheme()
 	apis.AddToScheme(scheme)
 	nodeBucketGVRToListKind := map[schema.GroupVersionResource]string{
@@ -431,7 +436,6 @@ func TestResponseFilterForListRequest(t *testing.T) {
 	gvrToListKind := map[schema.GroupVersionResource]string{
 		{Group: "apps.openyurt.io", Version: "v1beta1", Resource: "nodepools"}: "NodePoolList",
 	}
-
 	serializerManager := serializer.NewSerializerManager()
 
 	testcases := map[string]struct {
@@ -1953,6 +1957,266 @@ func TestResponseFilterForListRequest(t *testing.T) {
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "EndpointSliceList",
 					APIVersion: "discovery.k8s.io/v1",
+				},
+			},
+		},
+		"forwardkubesvctraffic: endpointsliceList contains kubernetes endpointslice": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "discovery.k8s.io",
+			version:    "v1",
+			resource:   "endpointslices",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/apis/discovery.k8s.io/v1/endpointslices",
+			accept:     "application/json",
+			inputObj: &discovery.EndpointSliceList{
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      forwardkubesvctraffic.KubeSVCName,
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.14"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.15"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.16"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.17"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discovery.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1",
+				},
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      forwardkubesvctraffic.KubeSVCName,
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{masterHost},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &masterPortInt,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.16"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.17"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+				},
+			},
+		},
+		"forwardkubesvctraffic: endpointsliceList doesn't contain kubernetes endpointslice": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "discovery.k8s.io",
+			version:    "v1",
+			resource:   "endpointslices",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/apis/discovery.k8s.io/v1/endpointslices",
+			accept:     "application/json",
+			inputObj: &discovery.EndpointSliceList{
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "bar",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.14"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.15"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.16"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.17"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discovery.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1",
+				},
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "bar",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.14"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.15"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: forwardkubesvctraffic.KubeSVCNamespace,
+						},
+						AddressType: discovery.AddressTypeIPv4,
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{"172.16.0.16"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+							{
+								Addresses: []string{"172.16.0.17"},
+								Conditions: discovery.EndpointConditions{
+									Ready: &readyCondition,
+								},
+							},
+						},
+						Ports: []discovery.EndpointPort{
+							{
+								Name: &portName,
+								Port: &kasPort,
+							},
+						},
+					},
 				},
 			},
 		},
