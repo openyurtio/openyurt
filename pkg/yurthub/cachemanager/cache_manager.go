@@ -50,6 +50,11 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
+const (
+	CanCacheForRemote = "remote"
+	CanCacheForLocal  = "local"
+)
+
 var (
 	ErrInMemoryCacheMiss = errors.New("in-memory cache miss")
 
@@ -63,7 +68,7 @@ var (
 type CacheManager interface {
 	CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error
 	QueryCache(req *http.Request) (runtime.Object, error)
-	CanCacheFor(req *http.Request) bool
+	CanCacheFor(req *http.Request, cacheForWho string) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
 }
 
@@ -711,7 +716,7 @@ func isCreate(ctx context.Context) bool {
 // 2. delete/deletecollection/proxy request
 // 3. sub-resource request but is not status
 // 4. csr and sar resource request
-func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
+func (cm *cacheManager) CanCacheFor(req *http.Request, canCacheForWho string) bool {
 	ctx := req.Context()
 
 	comp, ok := util.ClientComponentFrom(ctx)
@@ -754,7 +759,7 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 
 	cm.Lock()
 	defer cm.Unlock()
-	if info.Verb == "list" && info.Name == "" {
+	if info.Verb == "list" && info.Name == "" && canCacheForWho != CanCacheForLocal {
 		key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
 			Component: comp,
 			Resources: info.Resource,
