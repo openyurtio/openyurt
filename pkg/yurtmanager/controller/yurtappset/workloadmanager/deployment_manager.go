@@ -45,7 +45,7 @@ func (d *DeploymentManager) GetTemplateType() TemplateType {
 }
 
 func (d *DeploymentManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Object) error {
-	klog.V(4).Infof("YurtAppSet[%s/%s] prepare delete [Deployment/%s/%s]", yas.GetNamespace(),
+	klog.V(4).Infof("YurtAppSet[%s/%s] prepare to delete Deployment[/%s/%s]", yas.GetNamespace(),
 		yas.GetName(), workload.GetNamespace(), workload.GetName())
 
 	workloadObj, ok := workload.(client.Object)
@@ -109,7 +109,7 @@ func (d *DeploymentManager) applyTemplate(yas *v1beta1.YurtAppSet, nodepoolName,
 }
 
 func (d *DeploymentManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Object, nodepoolName, revision string) error {
-	klog.V(4).Infof("YurtAppSet[%s/%s] prepare update [Deployment/%s/%s]", yas.GetNamespace(),
+	klog.V(4).Infof("YurtAppSet[%s/%s] prepare to update [Deployment/%s/%s]", yas.GetNamespace(),
 		yas.GetName(), workload.GetNamespace(), workload.GetName())
 
 	if nodepoolName == "" {
