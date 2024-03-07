@@ -43,4 +43,5 @@ const (
 	DesiredNodePoolLabel     = "apps.openyurt.io/desired-nodepool"
 	NodePoolHostNetworkLabel = "nodepool.openyurt.io/hostnetwork"
 	NodePoolChangedEvent     = "NodePoolChanged"
+	NodePoolTypeLabel        = "nodepool.openyurt.io/type"
 )
