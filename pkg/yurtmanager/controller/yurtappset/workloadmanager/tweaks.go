@@ -19,12 +19,15 @@ package workloadmanager
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	v1 "k8s.io/api/apps/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -123,8 +126,12 @@ type patchOperation struct {
 func applyAdvancedTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta1.Tweaks) error {
 	// convert into json patch format
 	var patchOperations []patchOperation
+	nodepoolName := deployment.Labels[apps.PoolNameLabelKey]
 	for _, tweak := range tweaks {
 		for _, patch := range tweak.Patches {
+			if strings.Contains(string(patch.Value.Raw), "{{nodepool}}") {
+				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool}}", nodepoolName))}
+			}
 			patchOperations = append(patchOperations, patchOperation{
 				Op:    string(patch.Operation),
 				Path:  patch.Path,
