@@ -50,7 +50,7 @@ func (s *StatefulSetManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Obj
 	return s.Client.Delete(context.TODO(), workloadObj, client.PropagationPolicy(metav1.DeletePropagationBackground))
 }
 
-func (s *StatefulSetManager) applyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.StatefulSet) error {
+func (s *StatefulSetManager) ApplyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.StatefulSet) error {
 	statefulsetTemplate := yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate
 	if statefulsetTemplate == nil {
 		return errors.New("no statefulset template in workloadTemplate")
@@ -100,7 +100,7 @@ func (s *StatefulSetManager) Create(yas *v1beta1.YurtAppSet, nodepoolName, revis
 	klog.V(4).Infof("YurtAppSet[%s/%s] prepare to create new StatefulSet for nodepool[%s]", yas.Namespace, yas.Name, nodepoolName)
 
 	stateful := appsv1.StatefulSet{}
-	if err := s.applyTemplate(yas, nodepoolName, revision, &stateful); err != nil {
+	if err := s.ApplyTemplate(yas, nodepoolName, revision, &stateful); err != nil {
 		klog.Errorf("YurtAppSet[%s/%s] failed to apply template for StatefulSet when creating statefulset: %v", yas.Namespace, yas.Name, err)
 		return err
 	}
@@ -122,7 +122,7 @@ func (s *StatefulSetManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Obj
 			return getError
 		}
 
-		if err := s.applyTemplate(yas, nodepoolName, revision, stateful); err != nil {
+		if err := s.ApplyTemplate(yas, nodepoolName, revision, stateful); err != nil {
 			return err
 		}
 		updateError = s.Client.Update(context.TODO(), stateful)

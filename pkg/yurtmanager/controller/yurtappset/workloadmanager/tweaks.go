@@ -49,6 +49,7 @@ func GetNodePoolTweaksFromYurtAppSet(cli client.Client, nodepoolName string, yas
 	return
 }
 
+// TODO: optimize implementation of applying tweaks
 func ApplyTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta1.Tweaks) error {
 	if len(tweaks) > 0 {
 		applyBasicTweaksToDeployment(deployment, tweaks)

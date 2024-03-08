@@ -20,11 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/kubernetes/pkg/apis/apps"
+	v1 "k8s.io/kubernetes/pkg/apis/apps/v1"
+	appsvalidation "k8s.io/kubernetes/pkg/apis/apps/validation"
+	"k8s.io/kubernetes/pkg/apis/core/validation"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
 const YurtAppSetKind = "YurtAppSet"
@@ -43,6 +49,16 @@ func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtim
 	} else if template.DeploymentTemplate != nil && template.StatefulSetTemplate != nil {
 		return apierrors.NewInvalid(v1beta1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), set.Name,
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), template, "only one workload template should be configured")})
+	}
+
+	if template.DeploymentTemplate != nil {
+		if err := webhook.validateDeployment(set); err != nil {
+			return err
+		}
+	} else if template.StatefulSetTemplate != nil {
+		if err := webhook.validateStatefulSet(set); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -68,6 +84,16 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), newTemplate, "only one workload template should be configured")})
 	}
 
+	if newTemplate.DeploymentTemplate != nil {
+		if err := webhook.validateDeployment(newSet); err != nil {
+			return err
+		}
+	} else if newTemplate.StatefulSetTemplate != nil {
+		if err := webhook.validateStatefulSet(newSet); err != nil {
+			return err
+		}
+	}
+
 	oldTemplate := oldSet.Spec.Workload.WorkloadTemplate
 	if (oldTemplate.DeploymentTemplate == nil && newTemplate.DeploymentTemplate != nil) ||
 		(oldTemplate.StatefulSetTemplate == nil && newTemplate.StatefulSetTemplate != nil) {
@@ -75,6 +101,47 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), newTemplate, "the kind of workload template should not be changed")})
 	}
 
+	return nil
+}
+
+// TODO: move functions under k8s.io/kubernetes to pkg/util/kubernetes
+func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) error {
+	mgr := workloadmanager.DeploymentManager{
+		Client: webhook.Client,
+		Scheme: webhook.Scheme,
+	}
+	deploy := &appsv1.Deployment{}
+	if err := mgr.ApplyTemplate(yas, "test", "", deploy); err != nil {
+		return err
+	}
+	out := &apps.Deployment{}
+	if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
+		return err
+	}
+	allErrs := appsvalidation.ValidateDeployment(out, validation.PodValidationOptions{})
+	if len(allErrs) != 0 {
+		return allErrs.ToAggregate()
+	}
+	return nil
+}
+
+func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) error {
+	mgr := workloadmanager.StatefulSetManager{
+		Client: webhook.Client,
+		Scheme: webhook.Scheme,
+	}
+	sts := &appsv1.StatefulSet{}
+	if err := mgr.ApplyTemplate(yas, "test", "", sts); err != nil {
+		return err
+	}
+	out := &apps.StatefulSet{}
+	if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(sts, out, nil); err != nil {
+		return err
+	}
+	allErrs := appsvalidation.ValidateStatefulSet(out, validation.PodValidationOptions{})
+	if len(allErrs) != 0 {
+		return allErrs.ToAggregate()
+	}
 	return nil
 }
 
