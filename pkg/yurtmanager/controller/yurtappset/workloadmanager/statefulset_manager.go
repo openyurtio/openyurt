@@ -104,7 +104,7 @@ func (s *StatefulSetManager) Create(yas *v1beta1.YurtAppSet, nodepoolName, revis
 		klog.Errorf("YurtAppSet[%s/%s] failed to apply template for StatefulSet when creating statefulset: %v", yas.Namespace, yas.Name, err)
 		return err
 	}
-	return nil
+	return s.Client.Create(context.TODO(), &stateful)
 }
 
 func (s *StatefulSetManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Object, nodepoolName, revision string) error {
