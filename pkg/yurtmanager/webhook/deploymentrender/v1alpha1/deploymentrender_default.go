@@ -73,6 +73,9 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	var instance client.Object
 	switch app.Kind {
 	case "YurtAppSet":
+		if app.APIVersion != "apps.openyurt.io/v1alpha1" {
+			return nil
+		}
 		instance = &v1alpha1.YurtAppSet{}
 	case "YurtAppDaemon":
 		instance = &v1alpha1.YurtAppDaemon{}
