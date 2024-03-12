@@ -62,6 +62,9 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 			index++
 		}
 		wg.Wait()
+		if len(errCh) > 0 {
+			batchSize = (batchSize / 2) + 1
+		}
 		curSuccesses := batchSize - len(errCh)
 		successes += curSuccesses
 		remaining -= batchSize
