@@ -44,3 +44,9 @@ const (
 	NodePoolHostNetworkLabel = "nodepool.openyurt.io/hostnetwork"
 	NodePoolChangedEvent     = "NodePoolChanged"
 )
+
+// Pod related labels and annotations
+const (
+	// AnnotationExcludeHostNetworkPool indicates the pod don't want to be scheduled to nodes in hostNetwork mode NodePool
+	AnnotationExcludeHostNetworkPool = "apps.openyurt.io/exclude-host-network-pool"
+)
