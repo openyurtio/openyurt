@@ -29,7 +29,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/hostnetworkpropagation"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
@@ -137,5 +136,4 @@ func registerAllFilters(filters *filter.Filters) {
 	discardcloudservice.Register(filters)
 	inclusterconfig.Register(filters)
 	nodeportisolation.Register(filters)
-	hostnetworkpropagation.Register(filters)
 }
