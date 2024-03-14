@@ -10,10 +10,10 @@ on:
 jobs:
   sync-charts:
     if: github.repository == 'openyurtio/openyurt'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get the version
         id: get_version
