@@ -28,13 +28,12 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
 func TestName(t *testing.T) {
 	nif, _ := NewNodePortIsolationFilter()
-	if nif.Name() != filter.NodePortIsolationFilterName {
-		t.Errorf("expect %s, but got %s", filter.NodePortIsolationFilterName, nif.Name())
+	if nif.Name() != FilterName {
+		t.Errorf("expect %s, but got %s", FilterName, nif.Name())
 	}
 }
 

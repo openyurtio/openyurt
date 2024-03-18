@@ -26,13 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
 func TestName(t *testing.T) {
 	msf, _ := NewMasterServiceFilter()
-	if msf.Name() != filter.MasterServiceFilterName {
-		t.Errorf("expect %s, but got %s", filter.MasterServiceFilterName, msf.Name())
+	if msf.Name() != FilterName {
+		t.Errorf("expect %s, but got %s", FilterName, msf.Name())
 	}
 }
 
@@ -55,10 +54,10 @@ func TestSupportedResourceAndVerbs(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	msf := &masterServiceFilter{
-		host: "169.251.2.1",
-		port: 10268,
-	}
+	masterServiceHost := "169.251.2.1"
+	var masterServicePort int32
+	masterServicePort = 10268
+	masterServicePortStr := "10268"
 
 	testcases := map[string]struct {
 		responseObject runtime.Object
@@ -106,10 +105,10 @@ func TestFilter(t *testing.T) {
 							Namespace: MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: msf.host,
+							ClusterIP: masterServiceHost,
 							Ports: []corev1.ServicePort{
 								{
-									Port: msf.port,
+									Port: masterServicePort,
 									Name: MasterServicePortName,
 								},
 							},
@@ -192,10 +191,10 @@ func TestFilter(t *testing.T) {
 					Namespace: MasterServiceNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: msf.host,
+					ClusterIP: masterServiceHost,
 					Ports: []corev1.ServicePort{
 						{
-							Port: msf.port,
+							Port: masterServicePort,
 							Name: MasterServicePortName,
 						},
 					},
@@ -277,6 +276,9 @@ func TestFilter(t *testing.T) {
 	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
+			msf := &masterServiceFilter{}
+			msf.SetMasterServiceHost(masterServiceHost)
+			msf.SetMasterServicePort(masterServicePortStr)
 			newObj := msf.Filter(tt.responseObject, stopCh)
 			if tt.expectObject == nil {
 				if !util.IsNil(newObj) {

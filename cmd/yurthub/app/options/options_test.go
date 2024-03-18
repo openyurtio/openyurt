@@ -56,7 +56,6 @@ func TestNewYurtHubOptions(t *testing.T) {
 		EnableIptables:            false,
 		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
 		DiskCachePath:             disk.CacheBaseDir,
-		AccessServerThroughHub:    true,
 		EnableResourceFilter:      true,
 		DisabledResourceFilters:   make([]string, 0),
 		WorkingMode:               string(util.WorkingModeEdge),

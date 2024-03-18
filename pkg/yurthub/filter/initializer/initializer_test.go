@@ -24,8 +24,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -41,16 +39,12 @@ func TestNew(t *testing.T) {
 	fakeClient := &fake.Clientset{}
 	sharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour)
 
-	scheme := runtime.NewScheme()
-	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
-	nodePoolFactory := dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
-
 	nodeName := "foo"
 	nodePoolName := "foo-pool"
 	masterServiceHost := "127.0.0.1"
 	masterServicePort := "8080"
 
-	obj := New(sharedFactory, nodePoolFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
+	obj := New(sharedFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
 	_, ok := obj.(filter.Initializer)
 	if !ok {
 		t.Errorf("expect a filter Initializer object, but got %v", reflect.TypeOf(obj))
@@ -90,21 +84,18 @@ func TestInitialize(t *testing.T) {
 	fakeClient := &fake.Clientset{}
 	sharedFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour)
 
-	scheme := runtime.NewScheme()
-	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
-	nodePoolFactory := dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
 	nodeName := "foo"
 	nodePoolName := "foo-pool"
 	masterServiceHost := "127.0.0.1"
 	masterServicePort := "8080"
 
-	obj := New(sharedFactory, nodePoolFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
+	obj := New(sharedFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			objFilter, _ := tc.fn()
 			err := obj.Initialize(objFilter)
-			if tc.result != err {
+			if !errors.Is(err, tc.result) {
 				t.Errorf("expect result error: %v, but got %v", tc.result, err)
 			}
 		})
