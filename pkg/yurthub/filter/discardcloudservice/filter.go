@@ -25,6 +25,18 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
+)
+
+const (
+	// FilterName filter is used to discard cloud service(like loadBalancer service)
+	// on kube-proxy list/watch service request from edge nodes.
+	FilterName = "discardcloudservice"
+
+	// DiscardServiceAnnotation is annotation used by LB service.
+	// If end users want to discard specified LB service at the edge side,
+	// End users should add annotation["svc.openyurt.io/discard"]="true" for LB service.
+	DiscardServiceAnnotation = "svc.openyurt.io/discard"
 )
 
 var (
@@ -34,8 +46,8 @@ var (
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
-	filters.Register(filter.DiscardCloudServiceFilterName, func() (filter.ObjectFilter, error) {
+func Register(filters *base.Filters) {
+	filters.Register(FilterName, func() (filter.ObjectFilter, error) {
 		return NewDiscardCloudServiceFilter()
 	})
 }
@@ -47,7 +59,7 @@ func NewDiscardCloudServiceFilter() (filter.ObjectFilter, error) {
 }
 
 func (sf *discardCloudServiceFilter) Name() string {
-	return filter.DiscardCloudServiceFilterName
+	return FilterName
 }
 
 func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets.String {
@@ -79,7 +91,7 @@ func discardCloudService(svc *v1.Service) *v1.Service {
 	nsName := fmt.Sprintf("%s/%s", svc.Namespace, svc.Name)
 	// remove cloud LoadBalancer service
 	if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-		if svc.Annotations[filter.DiscardServiceAnnotation] == "true" {
+		if svc.Annotations[DiscardServiceAnnotation] == "true" {
 			klog.V(2).Infof("load balancer service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
 			return nil
 		}

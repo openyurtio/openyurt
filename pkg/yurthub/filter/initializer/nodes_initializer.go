@@ -18,6 +18,7 @@ package initializer
 
 import (
 	"errors"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -60,6 +61,9 @@ func NewNodesInitializer(enableNodePool, enablePoolServiceTopology bool, dynamic
 		nodesGetter, nodesSynced = createNodeGetterAndSyncedByNodePool(dynamicInformerFactory)
 	} else {
 		enablePoolTopology = false
+		nodesGetter = func(poolName string) ([]string, error) {
+			return []string{}, nil
+		}
 		nodesSynced = func() bool {
 			return true
 		}
@@ -81,6 +85,9 @@ func createNodeGetterAndSyncedByNodeBucket(dynamicInformerFactory dynamicinforme
 		if buckets, err := lister.List(labels.Set{LabelNodePoolName: poolName}.AsSelector()); err != nil {
 			klog.Warningf("could not get node buckets for pool(%s), %v", poolName, err)
 			return nodes, err
+		} else if len(buckets) == 0 {
+			klog.Warningf("there is no node bucket for pool(%s)", poolName)
+			return nodes, fmt.Errorf("there is no node bucket for pool(%s)", poolName)
 		} else {
 			for i := range buckets {
 				var nodeBucket *v1alpha1.NodeBucket

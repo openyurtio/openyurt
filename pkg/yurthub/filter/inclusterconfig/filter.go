@@ -26,9 +26,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
 
 const (
+	// FilterName filter is used to comment kubeconfig in kube-system/kube-proxy configmap
+	// in order to make kube-proxy to use InClusterConfig to access kube-apiserver.
+	FilterName = "inclusterconfig"
+
 	KubeProxyConfigMapNamespace = "kube-system"
 	KubeProxyConfigMapName      = "kube-proxy"
 	KubeProxyDataKey            = "config.conf"
@@ -36,8 +41,8 @@ const (
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
-	filters.Register(filter.InClusterConfigFilterName, func() (filter.ObjectFilter, error) {
+func Register(filters *base.Filters) {
+	filters.Register(FilterName, func() (filter.ObjectFilter, error) {
 		return NewInClusterConfigFilter()
 	})
 }
@@ -49,7 +54,7 @@ func NewInClusterConfigFilter() (filter.ObjectFilter, error) {
 }
 
 func (iccf *inClusterConfigFilter) Name() string {
-	return filter.InClusterConfigFilterName
+	return FilterName
 }
 
 func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.String {
