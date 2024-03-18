@@ -14,17 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package filter
+package responsefilter
 
 import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -33,97 +31,17 @@ import (
 	"k8s.io/klog/v2"
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
-
-type Factory func() (ObjectFilter, error)
-
-type Filters struct {
-	sync.Mutex
-	names           []string
-	registry        map[string]Factory
-	disabledFilters sets.String
-}
-
-func NewFilters(disabledFilters []string) *Filters {
-	return &Filters{
-		names:           make([]string, 0),
-		registry:        make(map[string]Factory),
-		disabledFilters: sets.NewString(disabledFilters...),
-	}
-}
-
-func (fs *Filters) NewFromFilters(initializer Initializer) ([]ObjectFilter, error) {
-	var filters = make([]ObjectFilter, 0)
-	for _, name := range fs.names {
-		if fs.Enabled(name) {
-			factory, found := fs.registry[name]
-			if !found {
-				return nil, fmt.Errorf("filter %s has not registered", name)
-			}
-
-			ins, err := factory()
-			if err != nil {
-				klog.Errorf("new filter %s failed, %v", name, err)
-				return nil, err
-			}
-
-			if err = initializer.Initialize(ins); err != nil {
-				klog.Errorf("Filter %s initialize failed, %v", name, err)
-				return nil, err
-			}
-			klog.V(2).Infof("Filter %s initialize successfully", name)
-			filters = append(filters, ins)
-		} else {
-			klog.V(2).Infof("Filter %s is disabled", name)
-		}
-	}
-
-	return filters, nil
-}
-
-func (fs *Filters) Register(name string, fn Factory) {
-	fs.Lock()
-	defer fs.Unlock()
-
-	_, found := fs.registry[name]
-	if found {
-		klog.Warningf("Filter %q has already registered", name)
-		return
-	}
-
-	klog.V(2).Infof("Filter %s registered successfully", name)
-	fs.registry[name] = fn
-	fs.names = append(fs.names, name)
-}
-
-func (fs *Filters) Enabled(name string) bool {
-	if fs.disabledFilters.Len() == 1 && fs.disabledFilters.Has("*") {
-		return false
-	}
-
-	return !fs.disabledFilters.Has(name)
-}
-
-type Initializers []Initializer
-
-func (fis Initializers) Initialize(ins ObjectFilter) error {
-	for _, fi := range fis {
-		if err := fi.Initialize(ins); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 type filterReadCloser struct {
 	rc           io.ReadCloser
 	filterCache  *bytes.Buffer
 	watchDataCh  chan *bytes.Buffer
 	serializer   *serializer.Serializer
-	objectFilter ObjectFilter
+	objectFilter filter.ObjectFilter
 	isWatch      bool
 	ownerName    string
 	stopCh       <-chan struct{}
@@ -134,13 +52,13 @@ func newFilterReadCloser(
 	req *http.Request,
 	sm *serializer.SerializerManager,
 	rc io.ReadCloser,
-	objectFilter ObjectFilter,
+	objectFilter filter.ObjectFilter,
 	ownerName string,
 	stopCh <-chan struct{}) (int, io.ReadCloser, error) {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
-	s := CreateSerializer(respContentType, info, sm)
+	s := createSerializer(respContentType, info, sm)
 	if s == nil {
 		klog.Errorf("skip filter, could not create serializer in %s", ownerName)
 		return 0, rc, nil
@@ -159,7 +77,7 @@ func newFilterReadCloser(
 
 	if frc.isWatch {
 		go func(req *http.Request, rc io.ReadCloser, ch chan *bytes.Buffer) {
-			err := frc.StreamResponseFilter(rc, ch)
+			err := frc.streamResponseFilter(rc, ch)
 			if err != nil && err != io.EOF && !errors.Is(err, context.Canceled) {
 				klog.Errorf("filter(%s) watch response ended with error, %v", frc.ownerName, err)
 			}
@@ -167,7 +85,7 @@ func newFilterReadCloser(
 		return 0, frc, nil
 	} else {
 		var err error
-		frc.filterCache, err = frc.ObjectResponseFilter(rc)
+		frc.filterCache, err = frc.objectResponseFilter(rc)
 		return frc.filterCache.Len(), frc, err
 	}
 }
@@ -202,7 +120,7 @@ func (frc *filterReadCloser) Close() error {
 	return frc.rc.Close()
 }
 
-func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buffer, error) {
+func (frc *filterReadCloser) objectResponseFilter(rc io.ReadCloser) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
 	_, err := buf.ReadFrom(rc)
 	if err != nil {
@@ -216,6 +134,7 @@ func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 
 	filteredObj := frc.objectFilter.Filter(obj, frc.stopCh)
 	if yurtutil.IsNil(filteredObj) {
+		klog.Warningf("filter %s doesn't work correctly, response is discarded completely in list request.", frc.ownerName)
 		return &buf, nil
 	}
 
@@ -223,7 +142,7 @@ func (frc *filterReadCloser) ObjectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 	return bytes.NewBuffer(newData), err
 }
 
-func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *bytes.Buffer) error {
+func (frc *filterReadCloser) streamResponseFilter(rc io.ReadCloser, ch chan *bytes.Buffer) error {
 	defer close(ch)
 
 	d, err := frc.serializer.WatchDecoder(rc)
@@ -261,7 +180,7 @@ func (frc *filterReadCloser) StreamResponseFilter(rc io.ReadCloser, ch chan *byt
 	}
 }
 
-func CreateSerializer(respContentType string, info *apirequest.RequestInfo, sm *serializer.SerializerManager) *serializer.Serializer {
+func createSerializer(respContentType string, info *apirequest.RequestInfo, sm *serializer.SerializerManager) *serializer.Serializer {
 	if respContentType == "" || info == nil || info.APIVersion == "" || info.Resource == "" {
 		klog.Infof("CreateSerializer failed , info is :%+v", info)
 		return nil
@@ -269,9 +188,9 @@ func CreateSerializer(respContentType string, info *apirequest.RequestInfo, sm *
 	return sm.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
 }
 
-type filterChain []ObjectFilter
+type filterChain []filter.ObjectFilter
 
-func CreateFilterChain(objFilters []ObjectFilter) ObjectFilter {
+func createFilterChain(objFilters []filter.ObjectFilter) filter.ObjectFilter {
 	chain := make(filterChain, 0)
 	chain = append(chain, objFilters...)
 	return chain
@@ -293,19 +212,22 @@ func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.String {
 func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	for i := range chain {
 		obj = chain[i].Filter(obj, stopCh)
+		if yurtutil.IsNil(obj) {
+			break
+		}
 	}
 
 	return obj
 }
 
 type responseFilter struct {
-	objectFilter      ObjectFilter
+	objectFilter      filter.ObjectFilter
 	serializerManager *serializer.SerializerManager
 }
 
-func CreateResponseFilter(objectFilter ObjectFilter, serializerManager *serializer.SerializerManager) ResponseFilter {
+func CreateResponseFilter(objectFilters []filter.ObjectFilter, serializerManager *serializer.SerializerManager) filter.ResponseFilter {
 	return &responseFilter{
-		objectFilter:      objectFilter,
+		objectFilter:      createFilterChain(objectFilters),
 		serializerManager: serializerManager,
 	}
 }

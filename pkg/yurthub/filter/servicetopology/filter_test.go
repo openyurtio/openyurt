@@ -38,14 +38,17 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
+)
+
+const (
+	LabelNodePoolName = "openyurt.io/pool-name"
 )
 
 func TestName(t *testing.T) {
 	stf, _ := NewServiceTopologyFilter()
-	if stf.Name() != filter.ServiceTopologyFilterName {
-		t.Errorf("expect %s, but got %s", filter.ServiceTopologyFilterName, stf.Name())
+	if stf.Name() != FilterName {
+		t.Errorf("expect %s, but got %s", FilterName, stf.Name())
 	}
 }
 
@@ -3547,15 +3550,142 @@ func TestFilter(t *testing.T) {
 				},
 			},
 		},
+		"v1.EndpointSlice: topologyKeys is kubernetes.io/hostname": {
+			responseObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.3",
+						},
+						NodeName: &nodeName2,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.4",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.5",
+						},
+						NodeName: &nodeName3,
+					},
+				},
+			},
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: currentNodeName,
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							AnnotationServiceTopologyKey: AnnotationServiceTopologyValueNode,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+					},
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
+					},
+					Status: v1beta1.NodePoolStatus{
+						Nodes: []string{
+							currentNodeName,
+							"node3",
+						},
+					},
+				},
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+					},
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
+					},
+					Status: v1beta1.NodePoolStatus{
+						Nodes: []string{
+							"node2",
+						},
+					},
+				},
+			),
+			expectObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.4",
+						},
+						NodeName: &currentNodeName,
+					},
+				},
+			},
+		},
 	}
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			factory := informers.NewSharedInformerFactory(tt.kubeClient, 24*time.Hour)
-			serviceInformer := factory.Core().V1().Services()
-			serviceInformer.Informer()
-			serviceLister := serviceInformer.Lister()
-			serviceSynced := serviceInformer.Informer().HasSynced
+			stf := &serviceTopologyFilter{}
+			stf.SetSharedInformerFactory(factory)
+			stf.SetKubeClient(tt.kubeClient)
+			stf.SetNodeName(currentNodeName)
+			if len(tt.poolName) != 0 {
+				stf.SetNodePoolName(tt.poolName)
+			}
 
 			stopper := make(chan struct{})
 			defer close(stopper)
@@ -3564,6 +3694,7 @@ func TestFilter(t *testing.T) {
 
 			yurtFactory := dynamicinformer.NewDynamicSharedInformerFactory(tt.yurtClient, 24*time.Hour)
 			nodesInitializer := initializer.NewNodesInitializer(tt.enableNodePool, tt.enablePoolServiceTopology, yurtFactory)
+			nodesInitializer.Initialize(stf)
 
 			stopper2 := make(chan struct{})
 			defer close(stopper2)
@@ -3571,20 +3702,6 @@ func TestFilter(t *testing.T) {
 			yurtFactory.WaitForCacheSync(stopper2)
 
 			stopCh := make(<-chan struct{})
-			stf := &serviceTopologyFilter{
-				nodeName:      currentNodeName,
-				serviceLister: serviceLister,
-				serviceSynced: serviceSynced,
-				client:        tt.kubeClient,
-			}
-			nodesInitializer.Initialize(stf)
-
-			if len(tt.poolName) != 0 {
-				stf.nodePoolName = tt.poolName
-			} else {
-				stf.nodeName = currentNodeName
-			}
-
 			newObj := stf.Filter(tt.responseObject, stopCh)
 			if util.IsNil(newObj) {
 				t.Errorf("empty object is returned")

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package filter
+package approver
 
 import (
 	"fmt"
@@ -30,7 +30,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -48,7 +50,7 @@ var (
 	defaultBlackListRequests = sets.NewString(reqKey(projectinfo.GetHubName(), "configmaps", "list"), reqKey(projectinfo.GetHubName(), "configmaps", "watch"))
 )
 
-func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedResAndVerbs map[string]map[string]sets.String) Approver {
+func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedResAndVerbs map[string]map[string]sets.String) filter.Approver {
 	configMapInformer := sharedFactory.Core().V1().ConfigMaps().Informer()
 	na := &approver{
 		reqKeyToNames:                      make(map[string]sets.String),
@@ -58,7 +60,7 @@ func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedR
 		stopCh:                             make(chan struct{}),
 	}
 
-	for name, setting := range SupportedComponentsForFilter {
+	for name, setting := range options.SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
 			if _, ok := na.defaultReqKeyToNames[key]; !ok {
 				na.defaultReqKeyToNames[key] = sets.NewString()

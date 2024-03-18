@@ -30,15 +30,20 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
 
 const (
+	// FilterName filter is used to discard or keep NodePort service in specified NodePool
+	// in order to make NodePort will not be listened by kube-proxy component in specified NodePool.
+	FilterName = "nodeportisolation"
+
 	ServiceAnnotationNodePortListen = "nodeport.openyurt.io/listen"
 )
 
 // Register registers a filter
-func Register(filters *filter.Filters) {
-	filters.Register(filter.NodePortIsolationFilterName, func() (filter.ObjectFilter, error) {
+func Register(filters *base.Filters) {
+	filters.Register(FilterName, func() (filter.ObjectFilter, error) {
 		return NewNodePortIsolationFilter()
 	})
 }
@@ -54,7 +59,7 @@ func NewNodePortIsolationFilter() (filter.ObjectFilter, error) {
 }
 
 func (nif *nodePortIsolationFilter) Name() string {
-	return filter.NodePortIsolationFilterName
+	return FilterName
 }
 
 func (nif *nodePortIsolationFilter) SupportedResourceAndVerbs() map[string]sets.String {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package filter
+package approver
 
 import (
 	"net/http"
@@ -30,18 +30,22 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 )
 
 var supportedResourceAndVerbsForFilter = map[string]map[string]sets.String{
-	MasterServiceFilterName: {
+	masterservice.FilterName: {
 		"services": sets.NewString("list", "watch"),
 	},
-	DiscardCloudServiceFilterName: {
+	discardcloudservice.FilterName: {
 		"services": sets.NewString("list", "watch"),
 	},
-	ServiceTopologyFilterName: {
+	servicetopology.FilterName: {
 		"endpoints":      sets.NewString("list", "watch"),
 		"endpointslices": sets.NewString("list", "watch"),
 	},
@@ -67,56 +71,56 @@ func TestApprove(t *testing.T) {
 			verb:         "GET",
 			path:         "/api/v1/services",
 			approved:     true,
-			resultFilter: []string{MasterServiceFilterName},
+			resultFilter: []string{masterservice.FilterName},
 		},
 		"kubelet watch services": {
 			userAgent:    "kubelet/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
-			resultFilter: []string{MasterServiceFilterName},
+			resultFilter: []string{masterservice.FilterName},
 		},
 		"kube-proxy list services": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services",
 			approved:     true,
-			resultFilter: []string{DiscardCloudServiceFilterName},
+			resultFilter: []string{discardcloudservice.FilterName},
 		},
 		"kube-proxy watch services": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
-			resultFilter: []string{DiscardCloudServiceFilterName},
+			resultFilter: []string{discardcloudservice.FilterName},
 		},
 		"kube-proxy list endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/apis/discovery.k8s.io/v1/endpointslices",
 			approved:     true,
-			resultFilter: []string{ServiceTopologyFilterName},
+			resultFilter: []string{servicetopology.FilterName},
 		},
 		"kube-proxy watch endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
 			verb:         "GET",
 			path:         "/apis/discovery.k8s.io/v1/endpointslices?watch=true",
 			approved:     true,
-			resultFilter: []string{ServiceTopologyFilterName},
+			resultFilter: []string{servicetopology.FilterName},
 		},
 		"nginx-ingress-controller list endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints",
 			approved:     true,
-			resultFilter: []string{ServiceTopologyFilterName},
+			resultFilter: []string{servicetopology.FilterName},
 		},
 		"nginx-ingress-controller watch endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
 			verb:         "GET",
 			path:         "/api/v1/endpoints?watch=true",
 			approved:     true,
-			resultFilter: []string{ServiceTopologyFilterName},
+			resultFilter: []string{servicetopology.FilterName},
 		},
 		"list endpoints without user agent": {
 			verb:         "GET",
@@ -385,17 +389,17 @@ func TestParseRequestSetting(t *testing.T) {
 		resultKeys    []string
 	}{
 		"old normal filter setting has two components": {
-			filterName:    MasterServiceFilterName,
+			filterName:    masterservice.FilterName,
 			filterSetting: "foo/services#list;watch,bar/services#list;watch",
 			resultKeys:    []string{"foo/services/list", "foo/services/watch", "bar/services/list", "bar/services/watch"},
 		},
 		"normal filter setting has one component": {
-			filterName:    MasterServiceFilterName,
+			filterName:    masterservice.FilterName,
 			filterSetting: "foo",
 			resultKeys:    []string{"foo/services/list", "foo/services/watch"},
 		},
 		"normal filter setting has two components": {
-			filterName:    MasterServiceFilterName,
+			filterName:    masterservice.FilterName,
 			filterSetting: "foo, bar",
 			resultKeys:    []string{"foo/services/list", "foo/services/watch", "bar/services/list", "bar/services/watch"},
 		},
@@ -660,7 +664,7 @@ func newApprover(filterSupportedResAndVerbs map[string]map[string]sets.String) *
 	}
 
 	defaultReqKeyToFilterNames := make(map[string]sets.String)
-	for name, setting := range SupportedComponentsForFilter {
+	for name, setting := range options.SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
 			if _, ok := defaultReqKeyToFilterNames[key]; !ok {
 				defaultReqKeyToFilterNames[key] = sets.NewString()
