@@ -293,6 +293,9 @@ func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.String {
 func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	for i := range chain {
 		obj = chain[i].Filter(obj, stopCh)
+		if yurtutil.IsNil(obj) {
+			break
+		}
 	}
 
 	return obj
