@@ -18,4 +18,5 @@ package config
 
 // YurtAppDaemonControllerConfiguration contains elements describing YurtAppDaemonController.
 type YurtAppDaemonControllerConfiguration struct {
+	ConcurrentYurtAppDaemonWorkers int32
 }

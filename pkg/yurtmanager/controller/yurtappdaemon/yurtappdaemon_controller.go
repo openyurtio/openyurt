@@ -18,7 +18,6 @@ package yurtappdaemon
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"reflect"
 
@@ -45,8 +44,7 @@ import (
 )
 
 var (
-	concurrentReconciles = 3
-	controllerResource   = unitv1alpha1.SchemeGroupVersion.WithResource("yurtappdaemons")
+	controllerResource = unitv1alpha1.SchemeGroupVersion.WithResource("yurtappdaemons")
 )
 
 const (
@@ -59,10 +57,6 @@ const (
 	eventTypeWorkloadsUpdated = "UpdateWorkload"
 	eventTypeWorkloadsDeleted = "DeleteWorkload"
 )
-
-func init() {
-	flag.IntVar(&concurrentReconciles, "yurtappdaemon-workers", concurrentReconciles, "Max concurrent workers for YurtAppDaemon controller.")
-}
 
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
@@ -79,13 +73,13 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	}
 
 	klog.Infof("yurtappdaemon-controller add controller %s", controllerResource.String())
-	return add(mgr, newReconciler(mgr))
+	return add(mgr, c, newReconciler(mgr))
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.YurtAppDaemonController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtAppDaemonController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.YurtAppDaemonController.ConcurrentYurtAppDaemonWorkers)})
 	if err != nil {
 		return err
 	}
