@@ -18,4 +18,5 @@ package config
 
 // YurtAppOverriderControllerConfiguration contains elements describing YurtAppOverriderController.
 type YurtAppOverriderControllerConfiguration struct {
+	ConcurrentYurtAppOverriderWorkers int32
 }

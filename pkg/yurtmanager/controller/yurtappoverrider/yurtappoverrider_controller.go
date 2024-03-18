@@ -18,7 +18,6 @@ package yurtappoverrider
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"reflect"
 	"time"
@@ -41,13 +40,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "yurtappoverrider-workers", concurrentReconciles, "Max concurrent workers for YurtAppOverrider controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	controllerResource   = appsv1alpha1.SchemeGroupVersion.WithResource("yurtappoverriders")
+	controllerResource = appsv1alpha1.SchemeGroupVersion.WithResource("yurtappoverriders")
 )
 
 const (
@@ -67,7 +61,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 		return err
 	}
 
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileYurtAppOverrider{}
@@ -91,10 +85,10 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.YurtAppOverriderController.ConcurrentYurtAppOverriderWorkers),
 	})
 	if err != nil {
 		return err
