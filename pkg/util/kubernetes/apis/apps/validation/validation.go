@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/klog/v2"
 
 	apps "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps"
 	core "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/core"
@@ -21,6 +22,7 @@ import (
 // ValidateDeploymentSpec validates given deployment spec.
 func ValidateDeploymentSpec(spec *apps.DeploymentSpec, fldPath *field.Path, opts apivalidation.PodValidationOptions) field.ErrorList {
 	allErrs := field.ErrorList{}
+	klog.Infof("spec replicas: %d", spec.Replicas)
 	allErrs = append(allErrs, apivalidation.ValidateNonnegativeField(int64(spec.Replicas), fldPath.Child("replicas"))...)
 
 	if spec.Selector == nil {

@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps"
@@ -61,6 +62,7 @@ func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtim
 		}
 	}
 
+	klog.Infof("Validate YurtAppSet %s successfully ...", klog.KObj(set))
 	return nil
 }
 
