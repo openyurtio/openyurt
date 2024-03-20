@@ -130,8 +130,8 @@ func applyAdvancedTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta
 	nodepoolName := deployment.Labels[apps.PoolNameLabelKey]
 	for _, tweak := range tweaks {
 		for _, patch := range tweak.Patches {
-			if strings.Contains(string(patch.Value.Raw), "{{nodepool}}") {
-				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool}}", nodepoolName))}
+			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
+				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", nodepoolName))}
 			}
 			patchOperations = append(patchOperations, patchOperation{
 				Op:    string(patch.Operation),
