@@ -108,6 +108,19 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 
 // TODO: move functions under k8s.io/kubernetes to pkg/util/kubernetes
 func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) error {
+	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+		deploy := &appsv1.Deployment{}
+		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		out := &apps.Deployment{}
+		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateDeploymentSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+		return nil
+	}
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		deploy := &appsv1.Deployment{}
 		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
@@ -127,6 +140,19 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 }
 
 func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) error {
+	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+		state := &appsv1.StatefulSet{}
+		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		out := &apps.StatefulSet{}
+		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+		return nil
+	}
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		state := &appsv1.StatefulSet{}
 		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
