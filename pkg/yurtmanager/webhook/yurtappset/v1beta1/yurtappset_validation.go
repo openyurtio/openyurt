@@ -24,12 +24,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/kubernetes/pkg/apis/apps"
-	v1 "k8s.io/kubernetes/pkg/apis/apps/v1"
-	appsvalidation "k8s.io/kubernetes/pkg/apis/apps/validation"
-	"k8s.io/kubernetes/pkg/apis/core/validation"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps"
+	v1 "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps/v1"
+	appsvalidation "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps/validation"
+	"github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/core/validation"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
