@@ -26,13 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
 func TestName(t *testing.T) {
 	iccf, _ := NewInClusterConfigFilter()
-	if iccf.Name() != filter.InClusterConfigFilterName {
-		t.Errorf("expect %s, but got %s", filter.InClusterConfigFilterName, iccf.Name())
+	if iccf.Name() != FilterName {
+		t.Errorf("expect %s, but got %s", FilterName, iccf.Name())
 	}
 }
 

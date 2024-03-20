@@ -118,6 +118,45 @@ var defaultAppDaemon = &v1alpha1.YurtAppDaemon{
 	},
 }
 
+var deploymentByYasv1beta1 = &appsv1.Deployment{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "test1",
+		Namespace: "default",
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: "apps.openyurt.io/v1beta1",
+			Kind:       "YurtAppSet",
+			Name:       "yurtappset-patch",
+		}},
+		Labels: map[string]string{
+			"apps.openyurt.io/pool-name": "nodepool-test",
+		},
+	},
+	Status: appsv1.DeploymentStatus{},
+	Spec: appsv1.DeploymentSpec{
+		Replicas: &replica,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app": "test",
+			},
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"app": "test",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "nginx",
+						Image: "nginx",
+					},
+				},
+			},
+		},
+	},
+}
+
 var defaultDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "test1",
@@ -326,6 +365,9 @@ func TestDeploymentRenderHandler_Default(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := webhook.Default(context.TODO(), daemonDeployment); err != nil {
+				t.Fatal(err)
+			}
+			if err := webhook.Default(context.TODO(), deploymentByYasv1beta1); err != nil {
 				t.Fatal(err)
 			}
 		})

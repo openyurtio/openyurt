@@ -28,7 +28,9 @@ type YurtAppDaemonControllerOptions struct {
 
 func NewYurtAppDaemonControllerOptions() *YurtAppDaemonControllerOptions {
 	return &YurtAppDaemonControllerOptions{
-		&config.YurtAppDaemonControllerConfiguration{},
+		&config.YurtAppDaemonControllerConfiguration{
+			ConcurrentYurtAppDaemonWorkers: 3,
+		},
 	}
 }
 
@@ -39,6 +41,7 @@ func (o *YurtAppDaemonControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
+	fs.Int32Var(&o.ConcurrentYurtAppDaemonWorkers, "concurrent-yurtappdaemon-workers", o.ConcurrentYurtAppDaemonWorkers, "The number of yurtappdaemon objects that are allowed to reconcile concurrently. Larger number = more responsive yurtappdaemons, but more CPU (and network) load")
 }
 
 // ApplyTo fills up YurtAppDaemon config with options.
@@ -46,7 +49,7 @@ func (o *YurtAppDaemonControllerOptions) ApplyTo(cfg *config.YurtAppDaemonContro
 	if o == nil {
 		return nil
 	}
-
+	cfg.ConcurrentYurtAppDaemonWorkers = o.ConcurrentYurtAppDaemonWorkers
 	return nil
 }
 

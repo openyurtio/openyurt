@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/square/go-jose.v2/jwt"
+	"github.com/go-jose/go-jose/v3/jwt"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"

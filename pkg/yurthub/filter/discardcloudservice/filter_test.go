@@ -26,13 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
 func TestName(t *testing.T) {
 	dcsf, _ := NewDiscardCloudServiceFilter()
-	if dcsf.Name() != filter.DiscardCloudServiceFilterName {
-		t.Errorf("expect %s, but got %s", filter.DiscardCloudServiceFilterName, dcsf.Name())
+	if dcsf.Name() != FilterName {
+		t.Errorf("expect %s, but got %s", FilterName, dcsf.Name())
 	}
 }
 
@@ -67,7 +66,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.DiscardServiceAnnotation: "true",
+								DiscardServiceAnnotation: "true",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -150,7 +149,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.DiscardServiceAnnotation: "false",
+								DiscardServiceAnnotation: "false",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -177,7 +176,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.DiscardServiceAnnotation: "false",
+								DiscardServiceAnnotation: "false",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -206,7 +205,7 @@ func TestFilter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "default",
 							Annotations: map[string]string{
-								filter.DiscardServiceAnnotation: "true",
+								DiscardServiceAnnotation: "true",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -234,7 +233,7 @@ func TestFilter(t *testing.T) {
 					Name:      "svc1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						filter.DiscardServiceAnnotation: "true",
+						DiscardServiceAnnotation: "true",
 					},
 				},
 				Spec: corev1.ServiceSpec{
