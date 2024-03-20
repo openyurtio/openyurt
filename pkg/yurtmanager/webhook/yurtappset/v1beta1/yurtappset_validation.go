@@ -111,6 +111,7 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
 		deploy := &appsv1.Deployment{}
 		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		webhook.Scheme.Default(deploy)
 		out := &apps.Deployment{}
 		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
 			return err
@@ -127,6 +128,7 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 		if err := workloadmanager.ApplyTweaksToDeployment(deploy, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
 			return err
 		}
+		webhook.Scheme.Default(deploy)
 		out := &apps.Deployment{}
 		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
 			return err
@@ -143,6 +145,7 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
 		state := &appsv1.StatefulSet{}
 		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		webhook.Scheme.Default(state)
 		out := &apps.StatefulSet{}
 		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
 			return err
@@ -159,6 +162,7 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 		if err := workloadmanager.ApplyTweaksToStatefulSet(state, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
 			return err
 		}
+		webhook.Scheme.Default(state)
 		out := &apps.StatefulSet{}
 		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
 			return err

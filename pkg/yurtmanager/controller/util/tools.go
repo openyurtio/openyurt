@@ -25,7 +25,6 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/integer"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -48,8 +47,8 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 	remaining := count
 	successes := 0
 	index := 0
-	errCh := make(chan error, count)
 	for batchSize := integer.IntMin(remaining, initialBatchSize); batchSize > 0; batchSize = integer.IntMin(2*batchSize, remaining) {
+		errCh := make(chan error, batchSize)
 		var wg sync.WaitGroup
 		wg.Add(batchSize)
 		for i := 0; i < batchSize; i++ {
@@ -62,21 +61,17 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 			index++
 		}
 		wg.Wait()
-		if len(errCh) > 0 {
-			batchSize = (batchSize / 2) + 1
-		}
 		curSuccesses := batchSize - len(errCh)
 		successes += curSuccesses
-		remaining -= batchSize
-	}
-	close(errCh)
-	if len(errCh) > 0 {
-		errs := make([]error, 0)
-		for err := range errCh {
-			errs = append(errs, err)
+		close(errCh)
+		if len(errCh) > 0 {
+			errs := make([]error, 0)
+			for err := range errCh {
+				errs = append(errs, err)
+			}
+			return successes, utilerrors.NewAggregate(errs)
 		}
-		klog.V(4).Infof("SlowStartBatch %d calls succeeded, %d calls failed: %v", successes, count, errs)
-		return successes, utilerrors.NewAggregate(errs)
+		remaining -= batchSize
 	}
 	return successes, nil
 }
