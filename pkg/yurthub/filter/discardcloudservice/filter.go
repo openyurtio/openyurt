@@ -70,16 +70,6 @@ func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets
 
 func (sf *discardCloudServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
-	case *v1.ServiceList:
-		var svcNew []v1.Service
-		for i := range v.Items {
-			svc := discardCloudService(&v.Items[i])
-			if svc != nil {
-				svcNew = append(svcNew, *svc)
-			}
-		}
-		v.Items = svcNew
-		return v
 	case *v1.Service:
 		return discardCloudService(v)
 	default:

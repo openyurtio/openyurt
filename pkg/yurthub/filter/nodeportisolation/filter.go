@@ -85,16 +85,6 @@ func (nif *nodePortIsolationFilter) SetKubeClient(client kubernetes.Interface) e
 
 func (nif *nodePortIsolationFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
-	case *v1.ServiceList:
-		var svcNew []v1.Service
-		for i := range v.Items {
-			svc := nif.isolateNodePortService(&v.Items[i])
-			if svc != nil {
-				svcNew = append(svcNew, *svc)
-			}
-		}
-		v.Items = svcNew
-		return v
 	case *v1.Service:
 		return nif.isolateNodePortService(v)
 	default:

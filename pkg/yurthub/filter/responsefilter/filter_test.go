@@ -24,23 +24,44 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
+	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/discardcloudservice"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/nodeportisolation"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
+)
+
+const (
+	LabelNodePoolName = "openyurt.io/pool-name"
 )
 
 type nopObjectHandler struct {
@@ -394,38 +415,56 @@ func newTestRequestInfoResolver() *apirequest.RequestInfoFactory {
 }
 
 func TestResponseFilterForListRequest(t *testing.T) {
-	discardCloudSvcFilter, _ := discardcloudservice.NewDiscardCloudServiceFilter()
-	nodePortIsolationFilter, _ := nodeportisolation.NewNodePortIsolationFilter()
-	if wants, ok := nodePortIsolationFilter.(initializer.WantsNodePoolName); ok {
-		if err := wants.SetNodePoolName("hangzhou"); err != nil {
-			t.Errorf("cloudn't set pool name, %v", err)
-			return
-		}
+	currentNodeName := "node1"
+	nodeName2 := "node2"
+	nodeName3 := "node3"
+	poolName := "foo"
+	masterHost := "169.254.2.1"
+	masterPort := "10268"
+	var masterPortInt int32
+	masterPortInt = 10268
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	nodeBucketGVRToListKind := map[schema.GroupVersionResource]string{
+		{Group: "apps.openyurt.io", Version: "v1alpha1", Resource: "nodebuckets"}: "NodeBucketList",
 	}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "apps.openyurt.io", Version: "v1beta1", Resource: "nodepools"}: "NodePoolList",
+	}
+
 	serializerManager := serializer.NewSerializerManager()
 
 	testcases := map[string]struct {
-		objectFilters []filter.ObjectFilter
-		group         string
-		version       string
-		resource      string
-		userAgent     string
-		verb          string
-		path          string
-		accept        string
-		inputObj      runtime.Object
-		names         sets.String
-		expectedObj   runtime.Object
+		poolName                  string
+		masterHost                string
+		masterPort                string
+		enableNodePool            bool
+		enablePoolServiceTopology bool
+		nodeName                  string
+		kubeClient                *k8sfake.Clientset
+		yurtClient                *fake.FakeDynamicClient
+		group                     string
+		version                   string
+		resource                  string
+		userAgent                 string
+		verb                      string
+		path                      string
+		accept                    string
+		inputObj                  runtime.Object
+		expectedObj               runtime.Object
 	}{
-		"verify discard cloud service filter": {
-			objectFilters: []filter.ObjectFilter{discardCloudSvcFilter},
-			group:         "",
-			version:       "v1",
-			resource:      "services",
-			userAgent:     "kube-proxy",
-			verb:          "GET",
-			path:          "/api/v1/services",
-			accept:        "application/json",
+		"discardcloudservice: discard lb service only": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
 			inputObj: &corev1.ServiceList{
 				Items: []corev1.Service{
 					{
@@ -441,13 +480,1479 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Type:      corev1.ServiceTypeLoadBalancer,
 						},
 					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
 				},
 			},
-			names: sets.NewString("discardcloudservice"),
 			expectedObj: &corev1.ServiceList{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "ServiceList",
 					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"discardcloudservice: discard cloud clusterIP service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "x-tunnel-server-internal-svc",
+							Namespace: "kube-system",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"discardcloudservice: discard all service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								discardcloudservice.DiscardServiceAnnotation: "true",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "x-tunnel-server-internal-svc",
+							Namespace: "kube-system",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{},
+			},
+		},
+		"discardcloudservice: skip all service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								discardcloudservice.DiscardServiceAnnotation: "false",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								discardcloudservice.DiscardServiceAnnotation: "false",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"inclusterconfig: mutate kube-proxy configmap": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "configmaps",
+			userAgent:  "kubelet",
+			verb:       "GET",
+			path:       "/api/v1/configmaps",
+			accept:     "application/json",
+			inputObj: &corev1.ConfigMapList{
+				Items: []corev1.ConfigMap{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Data: map[string]string{
+							"foo": "bar",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      inclusterconfig.KubeProxyConfigMapName,
+							Namespace: inclusterconfig.KubeProxyConfigMapNamespace,
+						},
+						Data: map[string]string{
+							"config.conf": "    apiVersion: kubeproxy.config.k8s.io/v1alpha1\n    bindAddress: 0.0.0.0\n    bindAddressHardFail: false\n    clientConnection:\n      acceptContentTypes: \"\"\n      burst: 0\n      contentType: \"\"\n      kubeconfig: /var/lib/kube-proxy/kubeconfig.conf\n      qps: 0\n    clusterCIDR: 10.244.0.0/16\n    configSyncPeriod: 0s",
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ConfigMapList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConfigMapList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.ConfigMap{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "default",
+						},
+						Data: map[string]string{
+							"foo": "bar",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      inclusterconfig.KubeProxyConfigMapName,
+							Namespace: inclusterconfig.KubeProxyConfigMapNamespace,
+						},
+						Data: map[string]string{
+							"config.conf": "    apiVersion: kubeproxy.config.k8s.io/v1alpha1\n    bindAddress: 0.0.0.0\n    bindAddressHardFail: false\n    clientConnection:\n      acceptContentTypes: \"\"\n      burst: 0\n      contentType: \"\"\n      #kubeconfig: /var/lib/kube-proxy/kubeconfig.conf\n      qps: 0\n    clusterCIDR: 10.244.0.0/16\n    configSyncPeriod: 0s",
+						},
+					},
+				},
+			},
+		},
+		"masterservice: serviceList contains kubernetes service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kubelet",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      masterservice.MasterServiceName,
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.0.1",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 443,
+									Name: masterservice.MasterServicePortName,
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      masterservice.MasterServiceName,
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: masterHost,
+							Ports: []corev1.ServicePort{
+								{
+									Port: masterPortInt,
+									Name: masterservice.MasterServicePortName,
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"masterservice: serviceList doesn't contain kubernetes service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kubelet",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: masterservice.MasterServiceNamespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"masterservice: it is a kubernetes service": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kubelet",
+			verb:       "GET",
+			path:       "/api/v1/namespaces/default/services/kubernetes",
+			accept:     "application/json",
+			inputObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      masterservice.MasterServiceName,
+					Namespace: masterservice.MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.188",
+					Ports: []corev1.ServicePort{
+						{
+							Port: 80,
+							Name: masterservice.MasterServicePortName,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.Service{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Service",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      masterservice.MasterServiceName,
+					Namespace: masterservice.MasterServiceNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: masterHost,
+					Ports: []corev1.ServicePort{
+						{
+							Port: masterPortInt,
+							Name: masterservice.MasterServicePortName,
+						},
+					},
+				},
+			},
+		},
+		"nodeportisolation: enable NodePort service listening on nodes in foo and bar NodePool": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			poolName:   poolName,
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "foo, bar",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "foo, bar",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"nodeportisolation: enable NodePort service listening on nodes of all NodePools": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			poolName:   poolName,
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "foo, *",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "foo, *",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"nodeportisolation: disable NodePort service listening on nodes of all NodePools": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			poolName:   poolName,
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "-foo,-bar",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "-foo",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{},
+			},
+		},
+		"nodeportisolation: NodePort service doesn't listen on nodes in foo NodePool": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			poolName:   poolName,
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "-foo,*",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeClusterIP,
+						},
+					},
+				},
+			},
+		},
+		"nodeportisolation: disable NodePort service listening if no value configured": {
+			masterHost: masterHost,
+			masterPort: masterPort,
+			kubeClient: &k8sfake.Clientset{},
+			yurtClient: &fake.FakeDynamicClient{},
+			poolName:   poolName,
+			group:      "",
+			version:    "v1",
+			resource:   "services",
+			userAgent:  "kube-proxy",
+			verb:       "GET",
+			path:       "/api/v1/services",
+			accept:     "application/json",
+			inputObj: &corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: "",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.187",
+							Type:      corev1.ServiceTypeNodePort,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc2",
+							Namespace: "default",
+							Annotations: map[string]string{
+								nodeportisolation.ServiceAnnotationNodePortListen: " ",
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "10.96.105.188",
+							Type:      corev1.ServiceTypeLoadBalancer,
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.ServiceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ServiceList",
+					APIVersion: "v1",
+				},
+				Items: []corev1.Service{},
+			},
+		},
+		"servicetopology: v1beta1.EndpointSliceList: topologyKeys is kubernetes.io/hostname": {
+			masterHost:                masterHost,
+			masterPort:                masterPort,
+			poolName:                  "hangzhou",
+			nodeName:                  "node1",
+			enablePoolServiceTopology: true,
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							servicetopology.AnnotationServiceTopologyKey: servicetopology.AnnotationServiceTopologyValueNode,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind,
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+						Labels: map[string]string{
+							LabelNodePoolName: "hangzhou",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node1",
+						},
+						{
+							Name: "node3",
+						},
+					},
+				},
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+						Labels: map[string]string{
+							LabelNodePoolName: "shanghai",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node2",
+						},
+					},
+				},
+			),
+			group:     "discovery.k8s.io",
+			version:   "v1beta1",
+			resource:  "endpointslices",
+			userAgent: "kube-proxy",
+			verb:      "GET",
+			path:      "/apis/discovery.k8s.io/v1beta1/endpointslices",
+			accept:    "application/json",
+			inputObj: &discoveryV1beta1.EndpointSliceList{
+				Items: []discoveryV1beta1.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discoveryV1beta1.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discoveryV1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.3",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node2",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node3",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discoveryV1beta1.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1beta1",
+				},
+				Items: []discoveryV1beta1.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discoveryV1beta1.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discoveryV1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"servicetopology: v1beta1.EndpointSliceList: topologyKeys is openyurt.io/nodepool": {
+			masterHost:     masterHost,
+			masterPort:     masterPort,
+			poolName:       "hangzhou",
+			nodeName:       "node1",
+			enableNodePool: true,
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							servicetopology.AnnotationServiceTopologyKey: servicetopology.AnnotationServiceTopologyValueNodePool,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+					},
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
+					},
+					Status: v1beta1.NodePoolStatus{
+						Nodes: []string{
+							"node1",
+							"node3",
+						},
+					},
+				},
+				&v1beta1.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+					},
+					Spec: v1beta1.NodePoolSpec{
+						Type: v1beta1.Edge,
+					},
+					Status: v1beta1.NodePoolStatus{
+						Nodes: []string{
+							"node2",
+						},
+					},
+				},
+			),
+			group:     "discovery.k8s.io",
+			version:   "v1beta1",
+			resource:  "endpointslices",
+			userAgent: "kube-proxy",
+			verb:      "GET",
+			path:      "/apis/discovery.k8s.io/v1beta1/endpointslices",
+			accept:    "application/json",
+			inputObj: &discoveryV1beta1.EndpointSliceList{
+				Items: []discoveryV1beta1.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discoveryV1beta1.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discoveryV1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.3",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node2",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node3",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discoveryV1beta1.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1beta1",
+				},
+				Items: []discoveryV1beta1.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discoveryV1beta1.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discoveryV1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node1",
+								},
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								Topology: map[string]string{
+									corev1.LabelHostname: "node3",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"servicetopology: v1.EndpointSliceList: topologyKeys is kubernetes.io/hostname": {
+			masterHost:                masterHost,
+			masterPort:                masterPort,
+			poolName:                  "hangzhou",
+			nodeName:                  "node1",
+			enablePoolServiceTopology: true,
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							servicetopology.AnnotationServiceTopologyKey: servicetopology.AnnotationServiceTopologyValueNode,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind,
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+						Labels: map[string]string{
+							LabelNodePoolName: "hangzhou",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node1",
+						},
+						{
+							Name: "node3",
+						},
+					},
+				},
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+						Labels: map[string]string{
+							LabelNodePoolName: "shanghai",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node2",
+						},
+					},
+				},
+			),
+			group:     "discovery.k8s.io",
+			version:   "v1",
+			resource:  "endpointslices",
+			userAgent: "kube-proxy",
+			verb:      "GET",
+			path:      "/apis/discovery.k8s.io/v1/endpointslices",
+			accept:    "application/json",
+			inputObj: &discovery.EndpointSliceList{
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discovery.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.3",
+								},
+								NodeName: &nodeName2,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								NodeName: &nodeName3,
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discovery.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1",
+				},
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discovery.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								NodeName: &currentNodeName,
+							},
+						},
+					},
+				},
+			},
+		},
+		"servicetopology: v1.EndpointSliceList: topologyKeys is openyurt.io/nodepool": {
+			masterHost:                masterHost,
+			masterPort:                masterPort,
+			poolName:                  "hangzhou",
+			nodeName:                  "node1",
+			enablePoolServiceTopology: true,
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							servicetopology.AnnotationServiceTopologyKey: servicetopology.AnnotationServiceTopologyValueNodePool,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind,
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+						Labels: map[string]string{
+							LabelNodePoolName: "hangzhou",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node1",
+						},
+						{
+							Name: "node3",
+						},
+					},
+				},
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+						Labels: map[string]string{
+							LabelNodePoolName: "shanghai",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node2",
+						},
+					},
+				},
+			),
+			group:     "discovery.k8s.io",
+			version:   "v1",
+			resource:  "endpointslices",
+			userAgent: "kube-proxy",
+			verb:      "GET",
+			path:      "/apis/discovery.k8s.io/v1/endpointslices",
+			accept:    "application/json",
+			inputObj: &discovery.EndpointSliceList{
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discovery.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.3",
+								},
+								NodeName: &nodeName2,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								NodeName: &nodeName3,
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &discovery.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1",
+				},
+				Items: []discovery.EndpointSlice{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-np7sf",
+							Namespace: "default",
+							Labels: map[string]string{
+								discovery.LabelServiceName: "svc1",
+							},
+						},
+						Endpoints: []discovery.Endpoint{
+							{
+								Addresses: []string{
+									"10.244.1.2",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.4",
+								},
+								NodeName: &currentNodeName,
+							},
+							{
+								Addresses: []string{
+									"10.244.1.5",
+								},
+								NodeName: &nodeName3,
+							},
+						},
+					},
+				},
+			},
+		},
+		"servicetopology: v1.EndpointSliceList: there are no endpoints": {
+			masterHost:                masterHost,
+			masterPort:                masterPort,
+			poolName:                  "hangzhou",
+			nodeName:                  "node1",
+			enablePoolServiceTopology: true,
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							servicetopology.AnnotationServiceTopologyKey: servicetopology.AnnotationServiceTopologyValueNodePool,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind,
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+						Labels: map[string]string{
+							LabelNodePoolName: "hangzhou",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node1",
+						},
+						{
+							Name: "node3",
+						},
+					},
+				},
+				&v1alpha1.NodeBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+						Labels: map[string]string{
+							LabelNodePoolName: "shanghai",
+						},
+					},
+					Nodes: []v1alpha1.Node{
+						{
+							Name: "node2",
+						},
+					},
+				},
+			),
+			group:     "discovery.k8s.io",
+			version:   "v1",
+			resource:  "endpointslices",
+			userAgent: "kube-proxy",
+			verb:      "GET",
+			path:      "/apis/discovery.k8s.io/v1/endpointslices",
+			accept:    "application/json",
+			inputObj:  &discovery.EndpointSliceList{},
+			expectedObj: &discovery.EndpointSliceList{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "EndpointSliceList",
+					APIVersion: "discovery.k8s.io/v1",
 				},
 			},
 		},
@@ -456,6 +1961,28 @@ func TestResponseFilterForListRequest(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
+			var factory informers.SharedInformerFactory
+			var yurtFactory dynamicinformer.DynamicSharedInformerFactory
+			var nodesInitializer filter.Initializer
+			var genericInitializer filter.Initializer
+
+			factory = informers.NewSharedInformerFactory(tc.kubeClient, 24*time.Hour)
+			yurtFactory = dynamicinformer.NewDynamicSharedInformerFactory(tc.yurtClient, 24*time.Hour)
+
+			nodesInitializer = initializer.NewNodesInitializer(tc.enableNodePool, tc.enablePoolServiceTopology, yurtFactory)
+			genericInitializer = initializer.New(factory, tc.kubeClient, tc.nodeName, tc.poolName, tc.masterHost, tc.masterPort)
+			initializerChain := base.Initializers{}
+			initializerChain = append(initializerChain, genericInitializer, nodesInitializer)
+
+			// get all object filters
+			baseFilters := base.NewFilters([]string{})
+			options.RegisterAllFilters(baseFilters)
+
+			objectFilters, err := baseFilters.NewFromFilters(initializerChain)
+			if err != nil {
+				t.Errorf("couldn't new object filters, %v", err)
+			}
+
 			s := serializerManager.CreateSerializer(tc.accept, tc.group, tc.version, tc.resource)
 			encoder, err := s.Encoder(tc.accept, nil)
 			if err != nil {
@@ -478,11 +2005,21 @@ func TestResponseFilterForListRequest(t *testing.T) {
 				req.Header.Set("User-Agent", tc.userAgent)
 			}
 
+			stopper := make(chan struct{})
+			defer close(stopper)
+			factory.Start(stopper)
+			factory.WaitForCacheSync(stopper)
+
+			stopper2 := make(chan struct{})
+			defer close(stopper2)
+			yurtFactory.Start(stopper2)
+			yurtFactory.WaitForCacheSync(stopper2)
+
 			var newReadCloser io.ReadCloser
 			var filterErr error
 			var responseFilter filter.ResponseFilter
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				responseFilter = CreateResponseFilter(tc.objectFilters, serializerManager)
+				responseFilter = CreateResponseFilter(objectFilters, serializerManager)
 				ctx := req.Context()
 				ctx = hubutil.WithRespContentType(ctx, tc.accept)
 				req = req.WithContext(ctx)
@@ -497,11 +2034,6 @@ func TestResponseFilterForListRequest(t *testing.T) {
 			if filterErr != nil {
 				t.Errorf("get filter err, %v", err)
 				return
-			}
-
-			names := strings.Split(responseFilter.Name(), ",")
-			if !tc.names.Equal(sets.NewString(names...)) {
-				t.Errorf("expect filter names %v, but got %v", tc.names.List(), names)
 			}
 
 			newBuf, err := io.ReadAll(newReadCloser)

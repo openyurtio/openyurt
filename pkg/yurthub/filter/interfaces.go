@@ -47,8 +47,7 @@ type ResponseFilter interface {
 }
 
 // ObjectFilter is used for filtering runtime object.
-// runtime object includes List object(like ServiceList) that has multiple items and
-// Standalone object(like Service).
+// runtime object is only a standalone object(like Service).
 // Every Filter need to implement ObjectFilter interface.
 type ObjectFilter interface {
 	Name() string

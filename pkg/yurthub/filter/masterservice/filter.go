@@ -81,15 +81,6 @@ func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {
 
 func (msf *masterServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
-	case *v1.ServiceList:
-		for i := range v.Items {
-			mutated := msf.mutateMasterService(&v.Items[i])
-			if mutated {
-				// short-circuit break
-				break
-			}
-		}
-		return v
 	case *v1.Service:
 		msf.mutateMasterService(v)
 		return v
@@ -109,7 +100,7 @@ func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) bool {
 				break
 			}
 		}
-		klog.V(2).Infof("mutate master service with ClusterIP:Port=%s:%d", msf.host, msf.port)
+		klog.Infof("mutate master service with ClusterIP:Port=%s:%d", msf.host, msf.port)
 	}
 	return mutated
 }

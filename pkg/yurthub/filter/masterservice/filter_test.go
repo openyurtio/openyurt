@@ -26,7 +26,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
+
+func TestRegister(t *testing.T) {
+	filters := base.NewFilters([]string{})
+	Register(filters)
+	if !filters.Enabled(FilterName) {
+		t.Errorf("couldn't register %s filter", FilterName)
+	}
+}
 
 func TestName(t *testing.T) {
 	msf, _ := NewMasterServiceFilter()
@@ -63,112 +72,6 @@ func TestFilter(t *testing.T) {
 		responseObject runtime.Object
 		expectObject   runtime.Object
 	}{
-		"serviceList contains kubernetes service": {
-			responseObject: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      MasterServiceName,
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.0.1",
-							Ports: []corev1.ServicePort{
-								{
-									Port: 443,
-									Name: MasterServicePortName,
-								},
-							},
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Ports: []corev1.ServicePort{
-								{
-									Port: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectObject: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      MasterServiceName,
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: masterServiceHost,
-							Ports: []corev1.ServicePort{
-								{
-									Port: masterServicePort,
-									Name: MasterServicePortName,
-								},
-							},
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Ports: []corev1.ServicePort{
-								{
-									Port: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		"serviceList does not contain kubernetes service": {
-			responseObject: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Ports: []corev1.ServicePort{
-								{
-									Port: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectObject: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: MasterServiceNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Ports: []corev1.ServicePort{
-								{
-									Port: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 		"it's a kubernetes service": {
 			responseObject: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
