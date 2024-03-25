@@ -16,9 +16,9 @@ limitations under the License.
 
 package v1alpha1
 
-// Package v1alpha1 contains API Schema definitions for the net v1alpha1API group
+// Package v1alpha1 contains API Schema definitions for the network v1alpha1API group
 // +kubebuilder:object:generate=true
-// +groupName=net.openyurt.io
+// +groupName=network.openyurt.io
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
