@@ -189,6 +189,7 @@ func (r *ReconcileGateway) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].NodeName < nodes[j].NodeName })
 	gw.Status.Nodes = nodes
+	r.addExtraAllowedSubnet(&gw)
 	err = r.Status().Update(ctx, &gw)
 	if err != nil {
 		if apierrs.IsConflict(err) {
@@ -371,4 +372,24 @@ func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1
 		}
 	}
 	return
+}
+
+func (r *ReconcileGateway) addExtraAllowedSubnet(gw *ravenv1beta1.Gateway) {
+	if gw.Annotations == nil || gw.Annotations[util.ExtraAllowedSourceCIDRs] == "" {
+		return
+	}
+	subnets := strings.Split(gw.Annotations[util.ExtraAllowedSourceCIDRs], ",")
+	var gatewayName string
+	for _, aep := range gw.Status.ActiveEndpoints {
+		if aep.Type == ravenv1beta1.Tunnel {
+			gatewayName = aep.NodeName
+			break
+		}
+	}
+	for idx, node := range gw.Status.Nodes {
+		if node.NodeName == gatewayName {
+			gw.Status.Nodes[idx].Subnets = append(gw.Status.Nodes[idx].Subnets, subnets...)
+			break
+		}
+	}
 }

@@ -18,6 +18,7 @@ package gatewaypickup
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -463,5 +464,81 @@ func TestReconcileGateway_getPodCIDRs(t *testing.T) {
 				a.Equal(v.expectPodCIDR, podCIDRs)
 			}
 		})
+	}
+}
+
+func TestReconcileGateway_addExtraAllowedSubnet(t *testing.T) {
+	mockReconciler := &ReconcileGateway{}
+	gw := &ravenv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gateway",
+			Annotations: map[string]string{
+				util.ExtraAllowedSourceCIDRs: "1.1.1.1/32,2.2.2.2/32",
+			},
+		},
+		Spec: ravenv1beta1.GatewaySpec{
+			TunnelConfig: ravenv1beta1.TunnelConfiguration{
+				Replicas: 1,
+			},
+			Endpoints: []ravenv1beta1.Endpoint{
+				{
+					NodeName: "node-1",
+					Type:     ravenv1beta1.Tunnel,
+				},
+			},
+		},
+		Status: ravenv1beta1.GatewayStatus{
+			ActiveEndpoints: []*ravenv1beta1.Endpoint{
+				{
+					NodeName: "node-1",
+					Type:     ravenv1beta1.Tunnel,
+				},
+			},
+			Nodes: []ravenv1beta1.NodeInfo{
+				{
+					NodeName:  "node-1",
+					PrivateIP: "10.10.10.10",
+					Subnets:   []string{"10.244.10.0/24"},
+				},
+			},
+		},
+	}
+	expect := &ravenv1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gateway",
+			Annotations: map[string]string{
+				util.ExtraAllowedSourceCIDRs: "1.1.1.1/32,2.2.2.2/32",
+			},
+		},
+		Spec: ravenv1beta1.GatewaySpec{
+			TunnelConfig: ravenv1beta1.TunnelConfiguration{
+				Replicas: 1,
+			},
+			Endpoints: []ravenv1beta1.Endpoint{
+				{
+					NodeName: "node-1",
+					Type:     ravenv1beta1.Tunnel,
+				},
+			},
+		},
+		Status: ravenv1beta1.GatewayStatus{
+			ActiveEndpoints: []*ravenv1beta1.Endpoint{
+				{
+					NodeName: "node-1",
+					Type:     ravenv1beta1.Tunnel,
+				},
+			},
+			Nodes: []ravenv1beta1.NodeInfo{
+				{
+					NodeName:  "node-1",
+					PrivateIP: "10.10.10.10",
+					Subnets:   []string{"10.244.10.0/24", "1.1.1.1/32", "2.2.2.2/32"},
+				},
+			},
+		},
+	}
+	mockReconciler.addExtraAllowedSubnet(gw)
+	if !reflect.DeepEqual(gw.Status.Nodes, expect.Status.Nodes) {
+		t.Errorf("failed add extra allowed subnet, expect %v, but get %v", expect.Status.Nodes, gw.Status.Nodes)
 	}
 }

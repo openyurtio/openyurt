@@ -25,6 +25,7 @@ const (
 	GatewayProxyInternalService    = "x-raven-proxy-internal-svc"
 	GatewayProxyServiceNamePrefix  = "x-raven-proxy-svc"
 	GatewayTunnelServiceNamePrefix = "x-raven-tunnel-svc"
+	ExtraAllowedSourceCIDRs        = "raven.openyurt.io/extra-allowed-source-cidrs"
 
 	RavenProxyNodesConfig      = "edge-tunnel-nodes"
 	ProxyNodesKey              = "tunnel-nodes"
