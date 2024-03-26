@@ -17,6 +17,8 @@ limitations under the License.
 package base
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -47,16 +50,23 @@ func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) 
 	return obj
 }
 
-func registerLocalFilters(filters *Filters) {
-	filters.Register("servicetopology", func() (filter.ObjectFilter, error) {
-		return &nopObjectHandler{name: "servicetopology"}, nil
-	})
-	filters.Register("discardcloudservice", func() (filter.ObjectFilter, error) {
-		return &nopObjectHandler{name: "discardcloudservice"}, nil
-	})
-	filters.Register("masterservice", func() (filter.ObjectFilter, error) {
-		return &nopObjectHandler{name: "masterservice"}, nil
-	})
+var (
+	nodesNameErr = errors.New("nodes name error")
+)
+
+type nopNodesErrHandler struct {
+	nopObjectHandler
+	err error
+}
+
+func NewNopNodesErrHandler() filter.ObjectFilter {
+	return &nopNodesErrHandler{
+		err: nodesNameErr,
+	}
+}
+
+func (nneh *nopNodesErrHandler) SetNodesGetterAndSynced(filter.NodesInPoolGetter, cache.InformerSynced, bool) error {
+	return nneh.err
 }
 
 type nopInitializer struct{}
@@ -65,34 +75,87 @@ func (nopInit *nopInitializer) Initialize(_ filter.ObjectFilter) error {
 	return nil
 }
 
+type errInitializer struct{}
+
+func (errInit *errInitializer) Initialize(_ filter.ObjectFilter) error {
+	return fmt.Errorf("error initialize")
+}
+
 func TestNewFromFilters(t *testing.T) {
 	allFilters := []string{"masterservice", "discardcloudservice", "servicetopology"}
 	testcases := map[string]struct {
+		inputFilters     []string
 		disabledFilters  []string
+		initializer      filter.Initializer
 		generatedFilters sets.String
+		expectedErr      bool
 	}{
 		"disable master service filter": {
+			inputFilters:     allFilters,
 			disabledFilters:  []string{"masterservice"},
 			generatedFilters: sets.NewString(allFilters...).Delete("masterservice"),
 		},
 		"disable service topology filter": {
+			inputFilters:     allFilters,
 			disabledFilters:  []string{"servicetopology"},
 			generatedFilters: sets.NewString(allFilters...).Delete("servicetopology"),
 		},
 		"disable discard cloud service filter": {
+			inputFilters:     allFilters,
 			disabledFilters:  []string{"discardcloudservice"},
 			generatedFilters: sets.NewString(allFilters...).Delete("discardcloudservice"),
+		},
+		"disable all filters": {
+			inputFilters:     allFilters,
+			disabledFilters:  []string{"*"},
+			generatedFilters: sets.NewString(),
+		},
+		"register duplicated filters": {
+			inputFilters:     append(allFilters, "servicetopology"),
+			disabledFilters:  []string{},
+			generatedFilters: sets.NewString(allFilters...),
+		},
+		"a invalid filter": {
+			inputFilters:     append(allFilters, "invalidFilter"),
+			disabledFilters:  []string{},
+			generatedFilters: sets.NewString(),
+			expectedErr:      true,
+		},
+		"initialize error": {
+			inputFilters:     allFilters,
+			disabledFilters:  []string{},
+			initializer:      &errInitializer{},
+			generatedFilters: sets.NewString(),
+			expectedErr:      true,
 		},
 	}
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			filters := NewFilters(tt.disabledFilters)
-			registerLocalFilters(filters)
+			for i := range tt.inputFilters {
+				filterName := tt.inputFilters[i]
+				filters.Register(filterName, func() (filter.ObjectFilter, error) {
+					if filterName == "invalidFilter" {
+						return nil, fmt.Errorf("a invalide filter")
+					}
+					return &nopObjectHandler{name: filterName}, nil
+				})
+			}
 
-			runners, err := filters.NewFromFilters(&nopInitializer{})
-			if err != nil {
+			initializer := tt.initializer
+			if initializer == nil {
+				initializer = &nopInitializer{}
+			}
+			runners, err := filters.NewFromFilters(initializer)
+			if err != nil && tt.expectedErr {
+				return
+			} else if err != nil && !tt.expectedErr {
 				t.Errorf("failed to new from filters, %v", err)
+				return
+			} else if err == nil && tt.expectedErr {
+				t.Errorf("expect an error, but got nil")
+				return
 			}
 
 			gotRunners := sets.NewString()
@@ -120,7 +183,26 @@ func TestInitializers(t *testing.T) {
 	nodeInitializer := initializer.NewNodesInitializer(false, true, yurtFactory)
 	initializers = append(initializers, nodeInitializer)
 
-	if err := initializers.Initialize(&nopObjectHandler{}); err != nil {
-		t.Errorf("initialize error, %v", err)
+	testcases := map[string]struct {
+		filter    filter.ObjectFilter
+		resultErr error
+	}{
+		"initialize normally": {
+			filter:    &nopObjectHandler{},
+			resultErr: nil,
+		},
+		"initialize error": {
+			filter:    NewNopNodesErrHandler(),
+			resultErr: nodesNameErr,
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			err := initializers.Initialize(tc.filter)
+			if !errors.Is(err, tc.resultErr) {
+				t.Errorf("initialize expect err %v, but got %v", tc.resultErr, err)
+			}
+		})
 	}
 }

@@ -130,22 +130,6 @@ func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struc
 	}
 
 	switch v := obj.(type) {
-	case *discoveryV1beta1.EndpointSliceList:
-		// filter endpointSlice before k8s 1.21
-		for i := range v.Items {
-			stf.serviceTopologyHandler(&v.Items[i])
-		}
-		return v
-	case *discovery.EndpointSliceList:
-		for i := range v.Items {
-			stf.serviceTopologyHandler(&v.Items[i])
-		}
-		return v
-	case *v1.EndpointsList:
-		for i := range v.Items {
-			stf.serviceTopologyHandler(&v.Items[i])
-		}
-		return v
 	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discovery.EndpointSlice:
 		return stf.serviceTopologyHandler(v)
 	default:

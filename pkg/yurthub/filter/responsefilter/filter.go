@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,6 +44,7 @@ type filterReadCloser struct {
 	serializer   *serializer.Serializer
 	objectFilter filter.ObjectFilter
 	isWatch      bool
+	isList       bool
 	ownerName    string
 	stopCh       <-chan struct{}
 }
@@ -71,6 +73,7 @@ func newFilterReadCloser(
 		serializer:   s,
 		objectFilter: objectFilter,
 		isWatch:      info.Verb == "watch",
+		isList:       info.Verb == "list",
 		ownerName:    ownerName,
 		stopCh:       stopCh,
 	}
@@ -132,13 +135,32 @@ func (frc *filterReadCloser) objectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 		return &buf, nil
 	}
 
-	filteredObj := frc.objectFilter.Filter(obj, frc.stopCh)
-	if yurtutil.IsNil(filteredObj) {
+	if frc.isList {
+		items, err := meta.ExtractList(obj)
+		if err != nil || len(items) == 0 {
+			obj = frc.objectFilter.Filter(obj, frc.stopCh)
+		} else {
+			list := make([]runtime.Object, 0)
+			for i := range items {
+				newObj := frc.objectFilter.Filter(items[i], frc.stopCh)
+				if !yurtutil.IsNil(newObj) {
+					list = append(list, newObj)
+				}
+			}
+			if err = meta.SetList(obj, list); err != nil {
+				klog.Warningf("filter %s doesn't work correctly, couldn't set list, %v.", frc.ownerName, err)
+				return &buf, nil
+			}
+		}
+	} else {
+		obj = frc.objectFilter.Filter(obj, frc.stopCh)
+	}
+	if yurtutil.IsNil(obj) {
 		klog.Warningf("filter %s doesn't work correctly, response is discarded completely in list request.", frc.ownerName)
 		return &buf, nil
 	}
 
-	newData, err := frc.serializer.Encode(filteredObj)
+	newData, err := frc.serializer.Encode(obj)
 	return bytes.NewBuffer(newData), err
 }
 

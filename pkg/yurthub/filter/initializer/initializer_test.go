@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -76,9 +77,29 @@ func TestInitialize(t *testing.T) {
 			fn:     servicetopology.NewServiceTopologyFilter,
 			result: nil,
 		},
-		"init errfilter filter": {
-			fn:     NewErrFilter,
+		"init node err filter": {
+			fn:     NewNodeErrFilter,
 			result: nodeNameErr,
+		},
+		"init pool err filter": {
+			fn:     NewPoolErrFilter,
+			result: poolNameErr,
+		},
+		"init master svc host err filter": {
+			fn:     NewMasterSvcHostErrFilter,
+			result: masterSvcHostErr,
+		},
+		"init master svc port err filter": {
+			fn:     NewMasterSvcPortErrFilter,
+			result: masterSvcPortErr,
+		},
+		"init factory err filter": {
+			fn:     NewFactoryErrFilter,
+			result: factoryErr,
+		},
+		"init kube client err filter": {
+			fn:     NewKubeClientErrFilter,
+			result: kubeClientErr,
 		},
 	}
 	fakeClient := &fake.Clientset{}
@@ -102,32 +123,124 @@ func TestInitialize(t *testing.T) {
 	}
 }
 
-type errFilter struct {
-	err error
+type baseErrFilter struct {
+}
+
+func (bef *baseErrFilter) Name() string {
+	return "nop"
+}
+
+func (bef *baseErrFilter) SupportedResourceAndVerbs() map[string]sets.String {
+	return map[string]sets.String{}
+}
+
+func (bef *baseErrFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+	return obj
 }
 
 var (
-	nodeNameErr = errors.New("node name error")
+	nodeNameErr      = errors.New("node name error")
+	poolNameErr      = errors.New("pool name error")
+	masterSvcHostErr = errors.New("master svc host error")
+	masterSvcPortErr = errors.New("master svc port error")
+	factoryErr       = errors.New("factory error")
+	kubeClientErr    = errors.New("kube client error")
 )
 
-func NewErrFilter() (filter.ObjectFilter, error) {
-	return &errFilter{
+type nodeErrFilter struct {
+	baseErrFilter
+	err error
+}
+
+func NewNodeErrFilter() (filter.ObjectFilter, error) {
+	return &nodeErrFilter{
 		err: nodeNameErr,
 	}, nil
 }
 
-func (ef *errFilter) Name() string {
-	return "nop"
+func (nef *nodeErrFilter) SetNodeName(nodeName string) error {
+	return nef.err
 }
 
-func (ef *errFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{}
+type poolErrFilter struct {
+	baseErrFilter
+	err error
 }
 
-func (ef *errFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
-	return obj
+func NewPoolErrFilter() (filter.ObjectFilter, error) {
+	return &poolErrFilter{
+		err: poolNameErr,
+	}, nil
 }
 
-func (ef *errFilter) SetNodeName(nodeName string) error {
-	return ef.err
+func (pef *poolErrFilter) SetNodePoolName(poolName string) error {
+	return pef.err
+}
+
+type masterSvcHostErrFilter struct {
+	baseErrFilter
+	err error
+}
+
+func NewMasterSvcHostErrFilter() (filter.ObjectFilter, error) {
+	return &masterSvcHostErrFilter{
+		err: masterSvcHostErr,
+	}, nil
+}
+
+func (mshef *masterSvcHostErrFilter) SetMasterServiceHost(host string) error {
+	return mshef.err
+}
+
+func (mshef *masterSvcHostErrFilter) SetMasterServicePort(port string) error {
+	return nil
+}
+
+type masterSvcPortErrFilter struct {
+	baseErrFilter
+	err error
+}
+
+func NewMasterSvcPortErrFilter() (filter.ObjectFilter, error) {
+	return &masterSvcPortErrFilter{
+		err: masterSvcPortErr,
+	}, nil
+}
+
+func (mvpef *masterSvcPortErrFilter) SetMasterServiceHost(host string) error {
+	return nil
+}
+
+func (mvpef *masterSvcPortErrFilter) SetMasterServicePort(port string) error {
+	return mvpef.err
+}
+
+type factoryErrFilter struct {
+	baseErrFilter
+	err error
+}
+
+func NewFactoryErrFilter() (filter.ObjectFilter, error) {
+	return &factoryErrFilter{
+		err: factoryErr,
+	}, nil
+}
+
+func (fef *factoryErrFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
+	return fef.err
+}
+
+type kubeClientErrFilter struct {
+	baseErrFilter
+	err error
+}
+
+func NewKubeClientErrFilter() (filter.ObjectFilter, error) {
+	return &kubeClientErrFilter{
+		err: kubeClientErr,
+	}, nil
+}
+
+func (kcef *kubeClientErrFilter) SetKubeClient(client kubernetes.Interface) error {
+	return kcef.err
 }

@@ -65,15 +65,6 @@ func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.S
 
 func (iccf *inClusterConfigFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
-	case *v1.ConfigMapList:
-		for i := range v.Items {
-			newCM, mutated := mutateKubeProxyConfigMap(&v.Items[i])
-			if mutated {
-				v.Items[i] = *newCM
-				break
-			}
-		}
-		return v
 	case *v1.ConfigMap:
 		cm, _ := mutateKubeProxyConfigMap(v)
 		return cm

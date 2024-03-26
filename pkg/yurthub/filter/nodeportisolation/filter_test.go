@@ -28,7 +28,16 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
+
+func TestRegister(t *testing.T) {
+	filters := base.NewFilters([]string{})
+	Register(filters)
+	if !filters.Enabled(FilterName) {
+		t.Errorf("couldn't register %s filter", FilterName)
+	}
+}
 
 func TestName(t *testing.T) {
 	nif, _ := NewNodePortIsolationFilter()
@@ -106,198 +115,6 @@ func TestFilter(t *testing.T) {
 		responseObj runtime.Object
 		expectObj   runtime.Object
 	}{
-		"enable NodePort service listening on nodes in foo and bar NodePool.": {
-			poolName: nodePoolName,
-			responseObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "foo, bar",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-			expectObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "foo, bar",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-		},
-		"enable NodePort service listening on nodes of all NodePools": {
-			nodeName: "foo",
-			responseObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "foo, *",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-			expectObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "foo, *",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-		},
-		"disable NodePort service listening on nodes of all NodePools": {
-			poolName: nodePoolName,
-			responseObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "-foo,-bar",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "-foo",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeLoadBalancer,
-						},
-					},
-				},
-			},
-			expectObj: &corev1.ServiceList{},
-		},
-		"disable NodePort service listening only on nodes in foo NodePool": {
-			poolName: nodePoolName,
-			responseObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "-foo,*",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-			expectObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeClusterIP,
-						},
-					},
-				},
-			},
-		},
 		"disable nodeport service": {
 			poolName: nodePoolName,
 			responseObj: &corev1.Service{
@@ -306,6 +123,40 @@ func TestFilter(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						ServiceAnnotationNodePortListen: "-foo",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
+			expectObj: nil,
+		},
+		"disable NodePort service listening on nodes of foo NodePool": {
+			poolName: nodePoolName,
+			responseObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "-foo",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
+			expectObj: nil,
+		},
+		"disable NodePort service listening on nodes of bar NodePool": {
+			poolName: "bar",
+			responseObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "foo",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -344,14 +195,14 @@ func TestFilter(t *testing.T) {
 				},
 			},
 		},
-		"disable NodePort service listening on nodes of foo NodePool": {
+		"enable NodePort service listening on nodes of foo NodePool": {
 			poolName: nodePoolName,
 			responseObj: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "svc1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						ServiceAnnotationNodePortListen: "-foo",
+						ServiceAnnotationNodePortListen: "foo",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -359,7 +210,48 @@ func TestFilter(t *testing.T) {
 					Type:      corev1.ServiceTypeNodePort,
 				},
 			},
-			expectObj: nil,
+			expectObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "foo",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
+		},
+		"enable NodePort service listening on all nodes": {
+			poolName: nodePoolName,
+			responseObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "*",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
+			expectObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "*",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
 		},
 		"enable nodeport service on orphan nodes": {
 			nodeName: "bar",
@@ -390,39 +282,57 @@ func TestFilter(t *testing.T) {
 				},
 			},
 		},
-		"disable NodePort service listening if no value configured": {
-			poolName: nodePoolName,
-			responseObj: &corev1.ServiceList{
-				Items: []corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: "",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.187",
-							Type:      corev1.ServiceTypeNodePort,
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc2",
-							Namespace: "default",
-							Annotations: map[string]string{
-								ServiceAnnotationNodePortListen: " ",
-							},
-						},
-						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
-							Type:      corev1.ServiceTypeLoadBalancer,
-						},
+		"enable nodeport service on orphan node that can not found": {
+			nodeName: "notfound",
+			responseObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "-foo,*",
 					},
 				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
 			},
-			expectObj: &corev1.ServiceList{},
+			expectObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceAnnotationNodePortListen: "-foo,*",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeNodePort,
+				},
+			},
+		},
+		"skip ClusterIP service": {
+			poolName: nodePoolName,
+			responseObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeClusterIP,
+				},
+			},
+			expectObj: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeClusterIP,
+				},
+			},
 		},
 		"skip podList": {
 			poolName: nodePoolName,
