@@ -93,20 +93,19 @@ func (nif *nodePortIsolationFilter) Filter(obj runtime.Object, stopCh <-chan str
 }
 
 func (nif *nodePortIsolationFilter) isolateNodePortService(svc *v1.Service) *v1.Service {
-	nodePoolName := nif.resolveNodePoolName()
-	// node is not located in NodePool, keep the NodePort service the same as native K8s
-	if len(nodePoolName) == 0 {
-		return svc
-	}
-
-	nsName := fmt.Sprintf("%s/%s", svc.Namespace, svc.Name)
 	if svc.Spec.Type == v1.ServiceTypeNodePort || svc.Spec.Type == v1.ServiceTypeLoadBalancer {
 		if _, ok := svc.Annotations[ServiceAnnotationNodePortListen]; ok {
+			nodePoolName := nif.resolveNodePoolName()
+			// node is not located in NodePool, keep the NodePort service the same as native K8s
+			if len(nodePoolName) == 0 {
+				return svc
+			}
+
 			nodePoolConf := getNodePoolConfiguration(svc.Annotations[ServiceAnnotationNodePortListen])
 			if nodePoolConf.Len() != 0 && isNodePoolEnabled(nodePoolConf, nodePoolName) {
 				return svc
 			} else {
-				klog.V(2).Infof("service(%s) is disabled in nodePool(%s) by nodePortIsolationFilter", nsName, nodePoolName)
+				klog.V(2).Infof("service(%s/%s) is disabled in nodePool(%s) by nodePortIsolationFilter", svc.Namespace, svc.Name, nodePoolName)
 				return nil
 			}
 		}

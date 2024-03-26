@@ -2066,18 +2066,19 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 	serializerManager := serializer.NewSerializerManager()
 
 	testcases := map[string]struct {
-		objectFilters []filter.ObjectFilter
-		group         string
-		version       string
-		resource      string
-		userAgent     string
-		verb          string
-		path          string
-		accept        string
-		eventType     watch.EventType
-		inputObj      runtime.Object
-		names         sets.String
-		expectedObj   runtime.Object
+		objectFilters     []filter.ObjectFilter
+		group             string
+		version           string
+		resource          string
+		userAgent         string
+		verb              string
+		path              string
+		accept            string
+		eventType         watch.EventType
+		inputObj          runtime.Object
+		names             sets.String
+		expectedObj       runtime.Object
+		expectedEventType watch.EventType
 	}{
 		"verify discardcloudservice filter": {
 			objectFilters: []filter.ObjectFilter{discardCloudSvcFilter},
@@ -2102,8 +2103,25 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
-			names:       sets.NewString("discardcloudservice"),
-			expectedObj: nil,
+			names: sets.NewString("discardcloudservice"),
+			expectedObj: &corev1.Service{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Service",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						discardcloudservice.DiscardServiceAnnotation: "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeLoadBalancer,
+				},
+			},
+			expectedEventType: watch.Deleted,
 		},
 		"verify discardcloudservice and nodeportisolation filter with nil response": {
 			objectFilters: []filter.ObjectFilter{discardCloudSvcFilter, nodePortIsolationFilter},
@@ -2128,8 +2146,25 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
-			names:       sets.NewString("discardcloudservice", "nodeportisolation"),
-			expectedObj: nil,
+			names: sets.NewString("discardcloudservice", "nodeportisolation"),
+			expectedObj: &corev1.Service{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Service",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						discardcloudservice.DiscardServiceAnnotation: "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.96.105.187",
+					Type:      corev1.ServiceTypeLoadBalancer,
+				},
+			},
+			expectedEventType: watch.Deleted,
 		},
 		"verify discardcloudservice and nodeportisolation filter normally": {
 			objectFilters: []filter.ObjectFilter{discardCloudSvcFilter, nodePortIsolationFilter},
@@ -2166,6 +2201,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
+			expectedEventType: watch.Added,
 		},
 	}
 
@@ -2234,8 +2270,8 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					continue
 				}
 
-				if eType != tc.eventType {
-					t.Errorf("expect event type %s, but got %s", tc.eventType, eType)
+				if eType != tc.expectedEventType {
+					t.Errorf("expect event type %s, but got %s", tc.expectedEventType, eType)
 				}
 
 				if !reflect.DeepEqual(tc.expectedObj, resObj) {

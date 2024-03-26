@@ -66,17 +66,16 @@ func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.S
 func (iccf *inClusterConfigFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.ConfigMap:
-		cm, _ := mutateKubeProxyConfigMap(v)
-		return cm
+		return mutateKubeProxyConfigMap(v)
 	default:
 		return v
 	}
 }
 
-func mutateKubeProxyConfigMap(cm *v1.ConfigMap) (*v1.ConfigMap, bool) {
-	mutated := false
+func mutateKubeProxyConfigMap(cm *v1.ConfigMap) *v1.ConfigMap {
 	if cm.Namespace == KubeProxyConfigMapNamespace && cm.Name == KubeProxyConfigMapName {
 		if cm.Data != nil && len(cm.Data[KubeProxyDataKey]) != 0 {
+			mutated := false
 			parts := make([]string, 0)
 			for _, line := range strings.Split(cm.Data[KubeProxyDataKey], "\n") {
 				items := strings.Split(strings.Trim(line, " "), ":")
@@ -94,5 +93,5 @@ func mutateKubeProxyConfigMap(cm *v1.ConfigMap) (*v1.ConfigMap, bool) {
 		}
 	}
 
-	return cm, mutated
+	return cm
 }
