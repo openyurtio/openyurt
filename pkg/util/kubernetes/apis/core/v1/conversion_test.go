@@ -30,10 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/diff"
 
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/api/legacyscheme"
-	// ensure types are installed corereplicationcontroller<->replicaset conversions
 	_ "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/apps/install"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/core"
-	// ensure types are installed
 	_ "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/core/install"
 	corev1 "github.com/openyurtio/openyurt/pkg/util/kubernetes/apis/core/v1"
 )
