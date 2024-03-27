@@ -89,10 +89,8 @@ func (msf *masterServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) ru
 	}
 }
 
-func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) bool {
-	mutated := false
+func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) {
 	if svc.Namespace == MasterServiceNamespace && svc.Name == MasterServiceName {
-		mutated = true
 		svc.Spec.ClusterIP = msf.host
 		for j := range svc.Spec.Ports {
 			if svc.Spec.Ports[j].Name == MasterServicePortName {
@@ -102,5 +100,4 @@ func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) bool {
 		}
 		klog.Infof("mutate master service with ClusterIP:Port=%s:%d", msf.host, msf.port)
 	}
-	return mutated
 }
