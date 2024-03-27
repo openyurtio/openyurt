@@ -33,7 +33,7 @@ import (
 
 // Whether AppArmor should be disabled by default.
 // Set to true if the wrong build tags are set (see validate_disabled.go).
-var isDisabledBuild bool
+// var isDisabledBuild bool
 
 // Verify that the profile is valid and loaded.
 func validateProfile(profile string, loadedProfiles map[string]bool) error {

@@ -16,7 +16,7 @@ limitations under the License.
 
 package apparmor
 
-func init() {
-	// If Kubernetes was not built for linux, apparmor is always disabled.
-	isDisabledBuild = true
-}
+//func init() {
+//	// If Kubernetes was not built for linux, apparmor is always disabled.
+//	isDisabledBuild = true
+//}
