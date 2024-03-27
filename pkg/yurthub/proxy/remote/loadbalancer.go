@@ -238,7 +238,7 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 	klog.Errorf("remote proxy error handler: %s, %v", hubutil.ReqString(req), err)
-	if lb.localCacheMgr == nil || !lb.localCacheMgr.CanCacheFor(req) {
+	if lb.localCacheMgr == nil || !lb.localCacheMgr.CanCacheFor(req, cachemanager.CanCacheForRemote) {
 		rw.WriteHeader(http.StatusBadGateway)
 		return
 	}
@@ -332,7 +332,7 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 }
 
 func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
-	if lb.localCacheMgr.CanCacheFor(req) {
+	if lb.localCacheMgr.CanCacheFor(req, cachemanager.CanCacheForRemote) {
 		ctx := req.Context()
 		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 		// after gunzip in filter, the header content encoding should be removed.

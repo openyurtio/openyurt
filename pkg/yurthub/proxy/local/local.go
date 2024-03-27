@@ -214,7 +214,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 
 // localReqCache handles Get/List/Update requests when remote servers are unhealthy
 func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) error {
-	if !lp.cacheMgr.CanCacheFor(req) {
+	if !lp.cacheMgr.CanCacheFor(req, manager.CanCacheForLocal) {
 		klog.Errorf("can not cache for %s", hubutil.ReqString(req))
 		return apierrors.NewBadRequest(fmt.Sprintf("can not cache for %s", hubutil.ReqString(req)))
 	}

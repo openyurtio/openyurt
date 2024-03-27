@@ -262,7 +262,7 @@ func (pp *YurtCoordinatorProxy) modifyResponse(resp *http.Response) error {
 }
 
 func (pp *YurtCoordinatorProxy) cacheResponse(req *http.Request, resp *http.Response) {
-	if pp.localCacheMgr.CanCacheFor(req) {
+	if pp.localCacheMgr.CanCacheFor(req, cachemanager.CanCacheForLocal) {
 		ctx := req.Context()
 		req = req.WithContext(ctx)
 		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")

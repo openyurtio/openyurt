@@ -3271,7 +3271,7 @@ func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[s
 	}
 	var reqCanCache bool
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		reqCanCache = m.CanCacheFor(req)
+		reqCanCache = m.CanCacheFor(req, CanCacheForRemote)
 
 	})
 
