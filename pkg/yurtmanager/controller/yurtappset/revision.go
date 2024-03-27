@@ -108,19 +108,14 @@ func (r *ReconcileYurtAppSet) constructYurtAppSetRevisions(yas *appsbetav1.YurtA
 		// if the equivalent revision is immediately prior the update revision has not changed
 		updateRevision = allRevisions[revisionCount-1]
 	} else if equalCount > 0 {
-		if isRevisionInvalid(equalRevisions[0]) {
-			// if equal revision is invalid, just reuse it
-			updateRevision = equalRevisions[0]
-		} else {
-			// if the equivalent revision is valid and not immediately prior, we will roll back by incrementing the
-			// Revision of the equivalent revision
-			equalRevisions[equalCount-1].Revision = updateRevision.Revision
-			err := r.Client.Update(context.TODO(), equalRevisions[equalCount-1])
-			if err != nil {
-				return nil, nil, collisionCount, err
-			}
-			updateRevision = equalRevisions[equalCount-1]
+		// if the equivalent revision is valid and not immediately prior, we will roll back by incrementing the
+		// Revision of the equivalent revision
+		equalRevisions[equalCount-1].Revision = updateRevision.Revision
+		err := r.Client.Update(context.TODO(), equalRevisions[equalCount-1])
+		if err != nil {
+			return nil, nil, collisionCount, err
 		}
+		updateRevision = equalRevisions[equalCount-1]
 	} else {
 		//if there is no equivalent revision we create a new one
 		updateRevision, err = createControllerRevision(r.Client, yas, updateRevision, &collisionCount)
@@ -137,20 +132,6 @@ func (r *ReconcileYurtAppSet) constructYurtAppSetRevisions(yas *appsbetav1.YurtA
 // clean expired and invalid revisions
 func cleanRevisions(cli client.Client, yas *appsbetav1.YurtAppSet, revisions []*apps.ControllerRevision) error {
 
-	// clean invalid revisions
-	validRevisions := make([]*apps.ControllerRevision, 0)
-	for _, revision := range revisions {
-		if isRevisionInvalid(revision) {
-			if err := cli.Delete(context.TODO(), revision); err != nil {
-				klog.Errorf("YurtAppSet [%s/%s] delete invalid revision %s error: %v")
-				return err
-			}
-			klog.Infof("YurtAppSet [%s/%s] delete invalid revision %s", yas.GetNamespace(), yas.GetName(), revision.Name)
-		} else {
-			validRevisions = append(validRevisions, revision)
-		}
-	}
-
 	// clean expired revisions
 	var revisionLimit int
 	if yas.Spec.RevisionHistoryLimit != nil {
@@ -160,18 +141,18 @@ func cleanRevisions(cli client.Client, yas *appsbetav1.YurtAppSet, revisions []*
 		revisionLimit = 10
 	}
 
-	if len(validRevisions) > revisionLimit {
+	if len(revisions) > revisionLimit {
 		klog.V(4).Info("YurtAppSet [%s/%s] clean expired revisions", yas.GetNamespace(), yas.GetName())
-		for i := 0; i < len(validRevisions)-revisionLimit; i++ {
-			if validRevisions[i].GetName() == yas.Status.CurrentRevision {
+		for i := 0; i < len(revisions)-revisionLimit; i++ {
+			if revisions[i].GetName() == yas.Status.CurrentRevision {
 				klog.Warningf("YurtAppSet [%s/%s] current revision %s is expired, skip")
 				continue
 			}
-			if err := cli.Delete(context.TODO(), validRevisions[i]); err != nil {
+			if err := cli.Delete(context.TODO(), revisions[i]); err != nil {
 				klog.Errorf("YurtAppSet [%s/%s] delete expired revision %s error: %v")
 				return err
 			}
-			klog.Infof("YurtAppSet [%s/%s] delete expired revision %s", yas.GetNamespace(), yas.GetName(), validRevisions[i].Name)
+			klog.Infof("YurtAppSet [%s/%s] delete expired revision %s", yas.GetNamespace(), yas.GetName(), revisions[i].Name)
 		}
 	}
 
@@ -291,16 +272,4 @@ func getYurtAppSetPatch(yas *appsbetav1.YurtAppSet) ([]byte, error) {
 	objCopy["spec"] = specCopy
 	patch, err := json.Marshal(objCopy)
 	return patch, err
-}
-
-func isRevisionInvalid(revision *apps.ControllerRevision) bool {
-	// set Revision to 0 to indicate invalid, because the revision number is increased from 1
-	return revision.Revision == 0
-}
-
-func setRevisionInvalid(cli client.Client, revision *apps.ControllerRevision) {
-	revision.Revision = 0
-	if err := cli.Update(context.TODO(), revision); err != nil {
-		klog.Warningf("YurtAppSet [%s/%s] set revision invalid error: %v", revision.Namespace, revision.Name, err)
-	}
 }
