@@ -10453,26 +10453,6 @@ func TestValidatePodStatusUpdate(t *testing.T) {
 	}
 }
 
-func makeValidService() core.Service {
-	clusterInternalTrafficPolicy := core.ServiceInternalTrafficPolicyCluster
-	return core.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "valid",
-			Namespace:       "valid",
-			Labels:          map[string]string{},
-			Annotations:     map[string]string{},
-			ResourceVersion: "1",
-		},
-		Spec: core.ServiceSpec{
-			Selector:              map[string]string{"key": "val"},
-			SessionAffinity:       "None",
-			Type:                  core.ServiceTypeClusterIP,
-			Ports:                 []core.ServicePort{{Name: "p", Protocol: "TCP", Port: 8675, TargetPort: intstr.FromInt(8675)}},
-			InternalTrafficPolicy: &clusterInternalTrafficPolicy,
-		},
-	}
-}
-
 func TestValidatePodEphemeralContainersUpdate(t *testing.T) {
 	tests := []struct {
 		new  []core.EphemeralContainer
@@ -14246,27 +14226,6 @@ func TestPodIPsValidation(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// makes a node with pod cidr and a name
-func makeNode(nodeName string, podCIDRs []string) core.Node {
-	return core.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-		},
-		Status: core.NodeStatus{
-			Addresses: []core.NodeAddress{
-				{Type: core.NodeExternalIP, Address: "something"},
-			},
-			Capacity: core.ResourceList{
-				core.ResourceName(core.ResourceCPU):    resource.MustParse("10"),
-				core.ResourceName(core.ResourceMemory): resource.MustParse("0"),
-			},
-		},
-		Spec: core.NodeSpec{
-			PodCIDRs: podCIDRs,
-		},
 	}
 }
 
