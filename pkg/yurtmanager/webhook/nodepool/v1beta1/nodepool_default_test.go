@@ -50,6 +50,9 @@ func TestDefault(t *testing.T) {
 			wantedNodePool: &v1beta1.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
+					Labels: map[string]string{
+						"nodepool.openyurt.io/type": "Edge",
+					},
 				},
 				Spec: v1beta1.NodePoolSpec{
 					HostNetwork: true,
@@ -75,6 +78,9 @@ func TestDefault(t *testing.T) {
 			wantedNodePool: &v1beta1.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
+					Labels: map[string]string{
+						"nodepool.openyurt.io/type": "Cloud",
+					},
 				},
 				Spec: v1beta1.NodePoolSpec{
 					HostNetwork: true,
