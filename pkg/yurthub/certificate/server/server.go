@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/pkg/errors"
 	certificatesv1 "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	clientset "k8s.io/client-go/kubernetes"
@@ -41,12 +43,17 @@ import (
 type hubServerCertificateManager struct {
 	hubServerCertManager certificate.Manager
 	hubServerCertStore   certificate.FileStore
+	kubeSvcClusterIP     net.IP
 }
 
 func NewHubServerCertificateManager(client clientset.Interface, clientCertManager hubCert.YurtClientCertificateManager, nodeName, pkiDir string, certIPs []net.IP) (hubCert.YurtServerCertificateManager, error) {
 	hubServerCertStore, err := store.NewFileStoreWrapper(fmt.Sprintf("%s-server", projectinfo.GetHubName()), pkiDir, pkiDir, "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't new hub server cert store")
+	}
+
+	hscm := &hubServerCertificateManager{
+		hubServerCertStore: hubServerCertStore,
 	}
 
 	kubeClientFn := func(current *tls.Certificate) (clientset.Interface, error) {
@@ -67,22 +74,61 @@ func NewHubServerCertificateManager(client clientset.Interface, clientCertManage
 		return kubeconfigutil.ClientSetFromFile(clientCertManager.GetHubConfFile())
 	}
 
+	serverIPsGetter := func() ([]net.IP, error) {
+		ips := []net.IP{}
+		if hscm.kubeSvcClusterIP != nil {
+			ips = append(ips, hscm.kubeSvcClusterIP)
+			ips = append(ips, certIPs...)
+			return ips, nil
+		}
+		if clientCertManager.GetAPIServerClientCert() == nil {
+			return ips, fmt.Errorf("client certificate(%s) of hub agent is not ready", clientCertManager.GetHubConfFile())
+		}
+
+		if !yurtutil.IsNil(client) {
+			return certIPs, nil
+		}
+
+		kubeClient, err := kubeconfigutil.ClientSetFromFile(clientCertManager.GetHubConfFile())
+		if err != nil {
+			return ips, err
+		}
+
+		kubeSvc, err := kubeClient.CoreV1().Services("default").Get(context.Background(), "kubernetes", metav1.GetOptions{})
+		if err != nil {
+			return ips, err
+		} else if kubeSvc == nil {
+			return ips, fmt.Errorf("couldn't get default/kubernetes service")
+		} else {
+			ip := net.ParseIP(kubeSvc.Spec.ClusterIP)
+			if ip == nil {
+				return ips, fmt.Errorf("couldn't get clusterIP from default/kubernetes service")
+			}
+			klog.Infof("completed to prepare default/kubernetes service clusterIP(%s) for server certificate", ip.String())
+			hscm.kubeSvcClusterIP = ip
+			ips = append(ips, ip)
+		}
+
+		ips = append(ips, certIPs...)
+
+		return ips, nil
+	}
+
 	hubServerCertManager, sErr := certfactory.NewCertManagerFactoryWithFnAndStore(kubeClientFn, hubServerCertStore).New(&certfactory.CertManagerConfig{
 		ComponentName:  fmt.Sprintf("%s-server", projectinfo.GetHubName()),
 		SignerName:     certificatesv1.KubeletServingSignerName,
 		ForServerUsage: true,
 		CommonName:     fmt.Sprintf("system:node:%s", nodeName),
 		Organizations:  []string{user.NodesGroup},
-		IPs:            certIPs,
+		IPGetter:       serverIPsGetter,
+		DNSNames:       []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc", "kubernetes.default.svc.cluster.local"},
 	})
 	if sErr != nil {
 		return nil, sErr
 	}
 
-	return &hubServerCertificateManager{
-		hubServerCertManager: hubServerCertManager,
-		hubServerCertStore:   hubServerCertStore,
-	}, nil
+	hscm.hubServerCertManager = hubServerCertManager
+	return hscm, nil
 }
 
 func (hcm *hubServerCertificateManager) Start() {
