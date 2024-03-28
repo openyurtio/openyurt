@@ -4,3 +4,5 @@ coverage:
       default:
         target: auto
         threshold: 2%
+  ignore:
+    - "**/zz_generated.*"
