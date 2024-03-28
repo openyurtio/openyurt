@@ -100,6 +100,10 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 				Client: mgr.GetClient(),
 				Scheme: mgr.GetScheme(),
 			},
+			workloadmanager.StatefulSetTemplateType: &workloadmanager.StatefulSetManager{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			},
 		},
 	}
 }

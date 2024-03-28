@@ -21,6 +21,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
@@ -67,8 +69,11 @@ func TestYurtAppSetDefaulter(t *testing.T) {
 }
 
 func TestYurtAppSetValidator(t *testing.T) {
-
-	webhook := &YurtAppSetHandler{}
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	webhook := &YurtAppSetHandler{
+		Scheme: scheme,
+	}
 
 	// set default value
 	if err := webhook.Default(context.TODO(), defaultAppSet); err != nil {
@@ -86,7 +91,7 @@ func TestYurtAppSetValidator(t *testing.T) {
 
 	updateAppSet := defaultAppSet.DeepCopy()
 	updateAppSet.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
-	if err := webhook.ValidateUpdate(context.TODO(), defaultAppSet, updateAppSet); err != nil {
-		t.Fatal("workload selector change should not fail")
+	if err := webhook.ValidateUpdate(context.TODO(), defaultAppSet, updateAppSet); err == nil {
+		t.Fatal("workload selector should match template selector")
 	}
 }
