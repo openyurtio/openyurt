@@ -18,6 +18,7 @@ package app
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -34,6 +35,8 @@ import (
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	runtimewebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/options"
@@ -160,19 +163,28 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	}
 	setRestConfig(cfg, c)
 
+	metricsServerOpts := metricsserver.Options{
+		BindAddress:   c.ComponentConfig.Generic.MetricsAddr,
+		ExtraHandlers: make(map[string]http.Handler, 0),
+	}
+	for path, handler := range profile.GetPprofHandlers() {
+		metricsServerOpts.ExtraHandlers[path] = handler
+	}
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                     scheme,
-		MetricsBindAddress:         c.ComponentConfig.Generic.MetricsAddr,
+		Metrics:                    metricsServerOpts,
 		HealthProbeBindAddress:     c.ComponentConfig.Generic.HealthProbeAddr,
 		LeaderElection:             c.ComponentConfig.Generic.LeaderElection.LeaderElect,
 		LeaderElectionID:           c.ComponentConfig.Generic.LeaderElection.ResourceName,
 		LeaderElectionNamespace:    c.ComponentConfig.Generic.LeaderElection.ResourceNamespace,
 		LeaderElectionResourceLock: c.ComponentConfig.Generic.LeaderElection.ResourceLock,
-		Port:                       util.GetWebHookPort(),
-		Namespace:                  "",
-		Logger:                     setupLog,
-		CertDir:                    util.GetCertDir(),
-		Host:                       "0.0.0.0",
+		WebhookServer: runtimewebhook.NewServer(runtimewebhook.Options{
+			Host:    "0.0.0.0",
+			Port:    util.GetWebHookPort(),
+			CertDir: util.GetCertDir(),
+		}),
+		Logger: setupLog,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -214,13 +226,6 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
-	}
-
-	for path, handler := range profile.GetPprofHandlers() {
-		if err := mgr.AddMetricsExtraHandler(path, handler); err != nil {
-			setupLog.Error(err, "unable to add pprof handler")
-			os.Exit(1)
-		}
 	}
 
 	setupLog.Info("starting manager")

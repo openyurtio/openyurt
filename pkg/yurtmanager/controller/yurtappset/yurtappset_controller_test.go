@@ -101,7 +101,7 @@ func TestGetWorkloadManagerFromYurtAppSet(t *testing.T) {
 
 func TestClassifyWorkloads(t *testing.T) {
 	yas := &v1beta1.YurtAppSet{}
-	expectedNodePools := sets.NewString("test-np1", "test-np3")
+	expectedNodePools := sets.New[string]("test-np1", "test-np3")
 	expectedRevision := "test-revision-2"
 	workloadTobeDeleted := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

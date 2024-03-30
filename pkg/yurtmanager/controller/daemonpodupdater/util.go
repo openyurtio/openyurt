@@ -130,7 +130,7 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 	}
 	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
 
-		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
+		if err := c.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
 		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)

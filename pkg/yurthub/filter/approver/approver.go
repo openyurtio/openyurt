@@ -38,10 +38,10 @@ import (
 
 type approver struct {
 	sync.Mutex
-	reqKeyToNames                      map[string]sets.String
+	reqKeyToNames                      map[string]sets.Set[string]
 	configMapSynced                    cache.InformerSynced
-	supportedResourceAndVerbsForFilter map[string]map[string]sets.String
-	defaultReqKeyToNames               map[string]sets.String
+	supportedResourceAndVerbsForFilter map[string]map[string]sets.Set[string]
+	defaultReqKeyToNames               map[string]sets.Set[string]
 	stopCh                             chan struct{}
 }
 
@@ -50,20 +50,20 @@ var (
 	defaultBlackListRequests = sets.NewString(reqKey(projectinfo.GetHubName(), "configmaps", "list"), reqKey(projectinfo.GetHubName(), "configmaps", "watch"))
 )
 
-func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedResAndVerbs map[string]map[string]sets.String) filter.Approver {
+func NewApprover(sharedFactory informers.SharedInformerFactory, filterSupportedResAndVerbs map[string]map[string]sets.Set[string]) filter.Approver {
 	configMapInformer := sharedFactory.Core().V1().ConfigMaps().Informer()
 	na := &approver{
-		reqKeyToNames:                      make(map[string]sets.String),
+		reqKeyToNames:                      make(map[string]sets.Set[string]),
 		configMapSynced:                    configMapInformer.HasSynced,
 		supportedResourceAndVerbsForFilter: filterSupportedResAndVerbs,
-		defaultReqKeyToNames:               make(map[string]sets.String),
+		defaultReqKeyToNames:               make(map[string]sets.Set[string]),
 		stopCh:                             make(chan struct{}),
 	}
 
 	for name, setting := range options.SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
 			if _, ok := na.defaultReqKeyToNames[key]; !ok {
-				na.defaultReqKeyToNames[key] = sets.NewString()
+				na.defaultReqKeyToNames[key] = sets.New[string]()
 			}
 			na.defaultReqKeyToNames[key].Insert(name)
 		}
@@ -109,12 +109,12 @@ func (a *approver) addConfigMap(obj interface{}) {
 	}
 
 	// get reqKeyToNames of user request setting from configmap
-	reqKeyToNamesFromCM := make(map[string]sets.String)
+	reqKeyToNamesFromCM := make(map[string]sets.Set[string])
 	for key, setting := range cm.Data {
 		if filterName, ok := a.hasFilterName(key); ok {
 			for _, requestKey := range a.parseRequestSetting(filterName, setting) {
 				if _, ok := reqKeyToNamesFromCM[requestKey]; !ok {
-					reqKeyToNamesFromCM[requestKey] = sets.NewString()
+					reqKeyToNamesFromCM[requestKey] = sets.New[string]()
 				}
 				reqKeyToNamesFromCM[requestKey].Insert(filterName)
 			}
@@ -145,12 +145,12 @@ func (a *approver) updateConfigMap(oldObj, newObj interface{}) {
 	}
 
 	// get reqKeyToNames of user request setting from new configmap
-	reqKeyToNamesFromCM := make(map[string]sets.String)
+	reqKeyToNamesFromCM := make(map[string]sets.Set[string])
 	for key, setting := range newCM.Data {
 		if filterName, ok := a.hasFilterName(key); ok {
 			for _, requestKey := range a.parseRequestSetting(filterName, setting) {
 				if _, ok := reqKeyToNamesFromCM[requestKey]; !ok {
-					reqKeyToNamesFromCM[requestKey] = sets.NewString()
+					reqKeyToNamesFromCM[requestKey] = sets.New[string]()
 				}
 				reqKeyToNamesFromCM[requestKey].Insert(filterName)
 			}
@@ -168,11 +168,11 @@ func (a *approver) deleteConfigMap(obj interface{}) {
 	}
 
 	// update reqKeyToName by merging user setting
-	a.merge("delete", map[string]sets.String{})
+	a.merge("delete", map[string]sets.Set[string]{})
 }
 
 // merge is used to add specified setting into reqKeyToNames map.
-func (a *approver) merge(action string, keyToNamesSetting map[string]sets.String) {
+func (a *approver) merge(action string, keyToNamesSetting map[string]sets.Set[string]) {
 	a.Lock()
 	defer a.Unlock()
 	// remove current user setting from reqKeyToNames and left default setting
@@ -188,7 +188,7 @@ func (a *approver) merge(action string, keyToNamesSetting map[string]sets.String
 	// merge new user setting
 	for key, names := range keyToNamesSetting {
 		if _, ok := a.reqKeyToNames[key]; !ok {
-			a.reqKeyToNames[key] = sets.NewString()
+			a.reqKeyToNames[key] = sets.New[string]()
 		}
 		a.reqKeyToNames[key].Insert(names.UnsortedList()...)
 	}
@@ -212,7 +212,7 @@ func (a *approver) parseRequestSetting(name, setting string) []string {
 		for resource, verbSet := range resourceAndVerbs {
 			comp = strings.TrimSpace(comp)
 			resource = strings.TrimSpace(resource)
-			verbs := verbSet.List()
+			verbs := verbSet.UnsortedList()
 
 			if len(comp) != 0 && len(resource) != 0 && len(verbs) != 0 {
 				for i := range verbs {

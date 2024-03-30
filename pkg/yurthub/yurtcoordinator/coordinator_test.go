@@ -168,12 +168,12 @@ func TestInformerSyncLeaseDelete(t *testing.T) {
 		poolCacheSyncedDetector.EnsureStart()
 		defer poolCacheSyncedDetector.EnsureStop()
 
-		err := wait.PollUntil(50*time.Millisecond, func() (done bool, err error) {
+		err := wait.PollUntilContextCancel(ctx, 50*time.Millisecond, true, func(ctx2 context.Context) (done bool, err error) {
 			if isPoolCacheSynced {
 				return true, nil
 			}
 			return false, nil
-		}, ctx.Done())
+		})
 		if err != nil {
 			t.Errorf("failed to wait isPoolCacheSynced to be initialized as true")
 		}
@@ -182,12 +182,12 @@ func TestInformerSyncLeaseDelete(t *testing.T) {
 			t.Errorf("failed to delete lease, %v", err)
 		}
 
-		err = wait.PollUntil(50*time.Millisecond, func() (done bool, err error) {
+		err = wait.PollUntilContextCancel(ctx, 50*time.Millisecond, true, func(ctx2 context.Context) (done bool, err error) {
 			if isPoolCacheSynced {
 				return false, nil
 			}
 			return true, nil
-		}, ctx.Done())
+		})
 		if err != nil {
 			t.Errorf("unexpect err when waitting isPoolCacheSynced to be false, %v", err)
 		}
@@ -208,7 +208,7 @@ func TestIfInformerSyncLease(t *testing.T) {
 					Namespace: namespaceInformerLease,
 				},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.StringPtr("leader-yurthub"),
+					HolderIdentity: pointer.String("leader-yurthub"),
 				},
 			},
 			Expect: true,
@@ -221,7 +221,7 @@ func TestIfInformerSyncLease(t *testing.T) {
 					Namespace: "kube-system",
 				},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.StringPtr("other-lease"),
+					HolderIdentity: pointer.String("other-lease"),
 				},
 			},
 			Expect: false,

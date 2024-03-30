@@ -113,7 +113,7 @@ func TestReconcile(t *testing.T) {
 
 	for _, s := range strategy {
 		instance.Spec.UpgradeStrategy = s
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithStatusSubresource(instance).WithObjects(staticPods...).WithObjects(nodes...).Build()
 
 		var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestStaticPodName}}
 		rsp := ReconcileYurtStaticSet{
@@ -123,7 +123,7 @@ func TestReconcile(t *testing.T) {
 
 		_, err := rsp.Reconcile(context.TODO(), req)
 		if err != nil {
-			t.Fatalf("failed to control static-pod controller")
+			t.Fatalf("failed to control static-pod controller, %v", err)
 		}
 	}
 }

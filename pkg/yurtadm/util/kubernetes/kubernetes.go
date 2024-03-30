@@ -390,7 +390,7 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 	ctx := map[string]interface{}{
 		"kubeConfigPath":         KubeadmJoinDiscoveryFilePath,
 		"tlsBootstrapToken":      data.JoinToken(),
-		"ignorePreflightErrors":  data.IgnorePreflightErrors().List(),
+		"ignorePreflightErrors":  data.IgnorePreflightErrors().UnsortedList(),
 		"podInfraContainerImage": data.PauseImage(),
 		"nodeLabels":             constructNodeLabels(data.NodeLabels(), nodeReg.WorkingMode, projectinfo.GetEdgeWorkerLabelKey()),
 		"criSocket":              nodeReg.CRISocket,

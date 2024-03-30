@@ -73,10 +73,10 @@ func (stf *serviceTopologyFilter) Name() string {
 	return FilterName
 }
 
-func (stf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{
-		"endpoints":      sets.NewString("list", "watch"),
-		"endpointslices": sets.NewString("list", "watch"),
+func (stf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{
+		"endpoints":      sets.New("list", "watch"),
+		"endpointslices": sets.New("list", "watch"),
 	}
 }
 

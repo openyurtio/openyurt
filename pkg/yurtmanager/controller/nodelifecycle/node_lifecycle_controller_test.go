@@ -2981,16 +2981,22 @@ func TestTaintsNodeByCondition(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fakeNodeHandler.DelegateNodeHandler.Update(ctx, test.Node, metav1.UpdateOptions{})
+		_, err := fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, test.Node, metav1.UpdateOptions{})
+		if err != nil {
+			t.Errorf("unxpected error %v", err)
+		}
 		//if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 		//	t.Errorf("unexpected error: %v", err)
 		//}
-		nodeController.doNoScheduleTaintingPass(ctx, test.Node.Name)
+		err = nodeController.doNoScheduleTaintingPass(ctx, test.Node.Name)
+		if err != nil {
+			t.Errorf("Can't do noschedule taint, %v", err)
+		}
 		//if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 		//	t.Errorf("unexpected error: %v", err)
 		//}
 		node0 := new(v1.Node)
-		err := nodeController.controllerRuntimeClient.Get(ctx, client.ObjectKey{Name: "node0"}, node0)
+		err = nodeController.controllerRuntimeClient.Get(ctx, client.ObjectKey{Name: "node0"}, node0)
 		if err != nil {
 			t.Errorf("Can't get current node0...")
 			return

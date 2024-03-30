@@ -71,7 +71,9 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePodBinding{}
+	return &ReconcilePodBinding{
+		Client: mgr.GetClient(),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -83,7 +85,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return err
 	}
 
-	return c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{})
+	return c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &handler.EnqueueRequestForObject{})
 	//err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{})
 	//if err != nil {
 	//	return err
@@ -102,11 +104,6 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	//	klog.Errorf(Format("could not register field indexers for podbinding controller, %v", err))
 	//}
 	//return err
-}
-
-func (r *ReconcilePodBinding) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
 }
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed

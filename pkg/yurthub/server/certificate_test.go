@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -59,7 +60,7 @@ func TestUpdateTokenHandler(t *testing.T) {
 	defer certManager.Stop()
 	defer os.RemoveAll(testDir)
 
-	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		if certManager.GetAPIServerClientCert() != nil {
 			return true, nil
 		}
@@ -73,7 +74,7 @@ func TestUpdateTokenHandler(t *testing.T) {
 		body       map[string]string
 		statusCode int
 	}{
-		"failed to update join token": {
+		"can not update join token": {
 			body:       map[string]string{},
 			statusCode: http.StatusBadRequest,
 		},

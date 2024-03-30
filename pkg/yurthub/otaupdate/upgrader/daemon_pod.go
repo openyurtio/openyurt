@@ -34,10 +34,10 @@ type DaemonPodUpgrader struct {
 func (s *DaemonPodUpgrader) Apply() error {
 	err := s.CoreV1().Pods(s.Namespace).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 	if err != nil {
-		klog.Errorf("Update pod %v/%v failed when delete, %v", s.Namespace, s.Name, err)
+		klog.Errorf("couldn't update pod %s/%s because of can't delete, %v", s.Namespace, s.Name, err)
 		return err
 	}
 
-	klog.Infof("Start updating pod: %v/%v", s.Namespace, s.Name)
+	klog.Infof("Start updating pod: %s/%s", s.Namespace, s.Name)
 	return nil
 }

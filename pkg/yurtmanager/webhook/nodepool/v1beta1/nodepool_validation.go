@@ -27,54 +27,55 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodePoolHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *NodePoolHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	np, ok := obj.(*appsv1beta1.NodePool)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
 	}
 
 	if allErrs := validateNodePoolSpec(&np.Spec); len(allErrs) > 0 {
-		return apierrors.NewInvalid(appsv1beta1.GroupVersion.WithKind("NodePool").GroupKind(), np.Name, allErrs)
+		return nil, apierrors.NewInvalid(appsv1beta1.GroupVersion.WithKind("NodePool").GroupKind(), np.Name, allErrs)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodePoolHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *NodePoolHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newNp, ok := newObj.(*appsv1beta1.NodePool)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", newObj))
 	}
 	oldNp, ok := oldObj.(*appsv1beta1.NodePool)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", oldObj))
 	}
 
 	if allErrs := validateNodePoolSpecUpdate(&newNp.Spec, &oldNp.Spec); len(allErrs) > 0 {
-		return apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), newNp.Name, allErrs[0])
+		return nil, apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), newNp.Name, allErrs[0])
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodePoolHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+func (webhook *NodePoolHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	np, ok := obj.(*appsv1beta1.NodePool)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
 	}
 	if allErrs := validateNodePoolDeletion(webhook.Client, np); len(allErrs) > 0 {
-		return apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), np.Name, allErrs[0])
+		return nil, apierrors.NewForbidden(appsv1beta1.GroupVersion.WithResource("nodepools").GroupResource(), np.Name, allErrs[0])
 	}
 
-	return nil
+	return nil, nil
 }
 
 // annotationValidator validates the NodePool.Spec.Annotations

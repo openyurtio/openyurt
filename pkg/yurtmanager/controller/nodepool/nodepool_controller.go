@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,19 +50,8 @@ func Format(format string, args ...interface{}) string {
 // ReconcileNodePool reconciles a NodePool object
 type ReconcileNodePool struct {
 	client.Client
-	mapper   meta.RESTMapper
 	recorder record.EventRecorder
 	cfg      poolconfig.NodePoolControllerConfiguration
-}
-
-func (r *ReconcileNodePool) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
-
-func (r *ReconcileNodePool) InjectMapper(mapper meta.RESTMapper) error {
-	r.mapper = mapper
-	return nil
 }
 
 var _ reconcile.Reconciler = &ReconcileNodePool{}
@@ -75,6 +63,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	r := &ReconcileNodePool{
 		cfg:      c.ComponentConfig.NodePoolController,
 		recorder: mgr.GetEventRecorderFor(names.NodePoolController),
+		Client:   mgr.GetClient(),
 	}
 
 	// Create a new controller
@@ -85,19 +74,19 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 		return err
 	}
 
-	if _, err := r.mapper.KindFor(controllerResource); err != nil {
+	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
 		klog.Infof("resource %s doesn't exist", controllerResource.String())
 		return err
 	}
 
 	// Watch for changes to NodePool
-	err = ctrl.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &handler.EnqueueRequestForObject{})
+	err = ctrl.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.NodePool{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to Node
-	err = ctrl.Watch(&source.Kind{Type: &corev1.Node{}}, &EnqueueNodePoolForNode{
+	err = ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueNodePoolForNode{
 		EnableSyncNodePoolConfigurations: r.cfg.EnableSyncNodePoolConfigurations,
 		Recorder:                         r.recorder,
 	})

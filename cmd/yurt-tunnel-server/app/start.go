@@ -167,14 +167,14 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	cfg.SharedInformerFactory.Start(stopCh)
 
 	// 5. waiting for the certificate is generated
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		// keep polling until the certificate is signed
 		if serverCertMgr.Current() != nil && tunnelProxyCertMgr.Current() != nil {
 			return true, nil
 		}
 		klog.Infof("waiting for the master to sign the %s certificate", projectinfo.GetServerName())
 		return false, nil
-	}, stopCh)
+	})
 
 	// 6. generate the TLS configuration based on the latest certificate
 	tlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(serverCertMgr.Current, cfg.RootCert, "server")
@@ -219,7 +219,7 @@ func getTunnelServerIPsAndDNSNamesBeforeInformerSynced(clientset kubernetes.Inte
 	)
 
 	// the ips and dnsNames should be acquired through api-server at the first time, because the informer factory has not started yet.
-	werr := wait.PollUntil(5*time.Second, func() (bool, error) {
+	werr := wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		dnsNames, ips, err = serveraddr.GetYurttunelServerDNSandIP(clientset)
 		if err != nil {
 			klog.Errorf("failed to get yurt tunnel server dns and ip, %v", err)
@@ -243,7 +243,7 @@ func getTunnelServerIPsAndDNSNamesBeforeInformerSynced(clientset kubernetes.Inte
 		}
 
 		return true, nil
-	}, stopCh)
+	})
 	if werr != nil {
 		return nil, nil, werr
 	}

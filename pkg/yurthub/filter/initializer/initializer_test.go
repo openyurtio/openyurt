@@ -130,8 +130,8 @@ func (bef *baseErrFilter) Name() string {
 	return "nop"
 }
 
-func (bef *baseErrFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{}
+func (bef *baseErrFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{}
 }
 
 func (bef *baseErrFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {

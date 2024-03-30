@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -51,9 +50,17 @@ type ReconcileDelegateLease struct {
 // Add creates a delegatelease controller and add it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		klog.Errorf("could not create kube client, %v", err)
+		return err
+	}
+
 	r := &ReconcileDelegateLease{
-		ldc:    utils.NewLeaseDelegatedCounter(),
-		delLdc: utils.NewLeaseDelegatedCounter(),
+		ldc:      utils.NewLeaseDelegatedCounter(),
+		delLdc:   utils.NewLeaseDelegatedCounter(),
+		Client:   mgr.GetClient(),
+		dlClient: kubeClient,
 	}
 	c, err := controller.New(names.DelegateLeaseController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.DelegateLeaseController.ConcurrentDelegateLeaseWorkers),
@@ -61,7 +68,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	if err != nil {
 		return err
 	}
-	err = c.Watch(&source.Kind{Type: &coordv1.Lease{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &coordv1.Lease{}), &handler.EnqueueRequestForObject{})
 
 	return err
 }
@@ -195,19 +202,4 @@ func (r *ReconcileDelegateLease) checkNodeReadyConditionAndSetIt(ctx context.Con
 		return
 	}
 	klog.Infof("successful set node %s ready condition with true", newNode.Name)
-}
-
-func (r *ReconcileDelegateLease) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
-
-func (r *ReconcileDelegateLease) InjectConfig(cfg *rest.Config) error {
-	client, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("could not create kube client, %v", err)
-		return err
-	}
-	r.dlClient = client
-	return nil
 }

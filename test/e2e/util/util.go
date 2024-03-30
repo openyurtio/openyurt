@@ -91,8 +91,8 @@ func WaitForNamespacesDeleted(c clientset.Interface, namespaces []string, timeou
 		nsMap[ns] = true
 	}
 	// Now POLL until all namespaces have been eradicated.
-	return wait.Poll(2*time.Second, timeout,
-		func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), 2*time.Second, timeout, true,
+		func(ctx context.Context) (bool, error) {
 			nsList, err := c.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return false, err

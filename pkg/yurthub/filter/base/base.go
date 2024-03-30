@@ -32,14 +32,14 @@ type Filters struct {
 	sync.Mutex
 	names           []string
 	registry        map[string]Factory
-	disabledFilters sets.String
+	disabledFilters sets.Set[string]
 }
 
 func NewFilters(disabledFilters []string) *Filters {
 	return &Filters{
 		names:           make([]string, 0),
 		registry:        make(map[string]Factory),
-		disabledFilters: sets.NewString(disabledFilters...),
+		disabledFilters: sets.New(disabledFilters...),
 	}
 }
 
@@ -54,18 +54,18 @@ func (fs *Filters) NewFromFilters(initializer filter.Initializer) ([]filter.Obje
 
 			ins, err := factory()
 			if err != nil {
-				klog.Errorf("new filter %s failed, %v", name, err)
+				klog.Errorf("couldn't new filter %s, %v", name, err)
 				return nil, err
 			}
 
 			if err = initializer.Initialize(ins); err != nil {
-				klog.Errorf("Filter %s initialize failed, %v", name, err)
+				klog.Errorf("couldn't initialize filter %s, %v", name, err)
 				return nil, err
 			}
-			klog.V(2).Infof("Filter %s initialize successfully", name)
+			klog.V(2).Infof("filter %s initialize successfully", name)
 			filters = append(filters, ins)
 		} else {
-			klog.V(2).Infof("Filter %s is disabled", name)
+			klog.V(2).Infof("filter %s is disabled", name)
 		}
 	}
 

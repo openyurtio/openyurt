@@ -35,7 +35,11 @@ import (
 )
 
 const (
-	staticPodPath string = "/etc/kubernetes/manifests"
+	staticPodPath    string                  = "/etc/kubernetes/manifests"
+	PodNeedUpgrade   corev1.PodConditionType = "PodNeedUpgrade"
+	ServerName       string                  = "127.0.0.1"
+	ServerPort       string                  = "10267"
+	FlannelNamespace string                  = "kube-flannel"
 )
 
 var _ = Describe("yurtStaticSet Test", Ordered, func() {
@@ -53,29 +57,38 @@ var _ = Describe("yurtStaticSet Test", Ordered, func() {
 	testImg1 := "busybox"
 	testImg2 := "busybox:1.36.0"
 
-	createNamespace := func() {
+	createNamespace := func(name string) {
 		ns := corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: namespaceName,
+				Name: name,
 			},
 		}
-		Eventually(
-			func() error {
-				return k8sClient.Delete(ctx, &ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
-		By("make sure all the resources are removed")
 
-		res := &corev1.Namespace{}
-		Eventually(
-			func() error {
-				return k8sClient.Get(ctx, client.ObjectKey{
-					Name: namespaceName,
-				}, res)
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(&util.NotFoundMatcher{})
-		Eventually(
-			func() error {
-				return k8sClient.Create(ctx, &ns)
-			}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
+		// Delete the namespace if it exists. Ignore the NotFound error.
+		err := k8sClient.Delete(ctx, &ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		Expect(client.IgnoreNotFound(err)).To(BeNil())
+
+		// Wait for the namespace to be fully deleted if it was present.
+		if client.IgnoreNotFound(err) != nil {
+			// Namespace deletion was initiated, wait for completion.
+			Eventually(
+				func() bool {
+					return client.IgnoreNotFound(k8sClient.Get(ctx, client.ObjectKey{Name: name}, &ns)) == nil
+				},
+				timeout,
+				time.Millisecond*500,
+			).Should(BeTrue(), "Namespace should be deleted")
+		}
+		By("All resources in the namespace have been removed")
+
+		// Create the namespace and expect no error or that it already exists.
+		err = k8sClient.Create(ctx, &ns)
+		Expect(client.IgnoreAlreadyExists(err)).To(BeNil())
+		if client.IgnoreAlreadyExists(err) != nil {
+			By(fmt.Sprintf("couldn't create namespace %s", name))
+		} else {
+			By(fmt.Sprintf("Namespace %s created", name))
+		}
 	}
 
 	createStaticPod := func(nodeName string) {
@@ -113,64 +126,68 @@ spec:
 	}
 
 	createYurtStaticSet := func() {
-		Eventually(func() error {
-			return k8sClient.Delete(ctx, &v1alpha1.YurtStaticSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      yurtStaticSetName,
-					Namespace: namespaceName,
-				},
-			})
-		}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
-
-		testLabel := map[string]string{"app": podName}
-
-		testYurtStaticSet := &v1alpha1.YurtStaticSet{
+		yss := &v1alpha1.YurtStaticSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      yurtStaticSetName,
 				Namespace: namespaceName,
 			},
-			Spec: v1alpha1.YurtStaticSetSpec{
-				StaticPodManifest: podName,
-				UpgradeStrategy: v1alpha1.YurtStaticSetUpgradeStrategy{
-					Type: v1alpha1.YurtStaticSetUpgradeStrategyType(updateStrategyType),
+		}
+
+		// Attempt to delete any existing YurtStaticSet with a given name and namespace.
+		Eventually(func() error {
+			return client.IgnoreNotFound(k8sClient.Delete(ctx, yss))
+		}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(BeNil())
+
+		// Define the pod labels and YurtStaticSet specs.
+		testLabel := map[string]string{"app": podName}
+		yss.Spec = v1alpha1.YurtStaticSetSpec{
+			StaticPodManifest: podName,
+			UpgradeStrategy: v1alpha1.YurtStaticSetUpgradeStrategy{
+				Type: v1alpha1.YurtStaticSetUpgradeStrategyType(updateStrategyType),
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: testLabel,
 				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      podName,
-						Namespace: namespaceName,
-						Labels:    testLabel,
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:    testContainerName,
-								Image:   testImg1,
-								Command: []string{"/bin/sh"},
-								Args:    []string{"-c", "while true; do echo hello; sleep 10; done"},
-							},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    testContainerName,
+							Image:   testImg1,
+							Command: []string{"/bin/sh"},
+							Args:    []string{"-c", "while true; do echo hello; sleep 10; done"},
 						},
 					},
 				},
 			},
 		}
-
+		// Attempt to create a new YurtStaticSet.
 		Eventually(func() error {
-			return k8sClient.Create(ctx, testYurtStaticSet)
-		}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(SatisfyAny(BeNil(), &util.AlreadyExistMatcher{}))
+			return client.IgnoreAlreadyExists(k8sClient.Create(ctx, yss))
+		}).WithTimeout(timeout).WithPolling(time.Millisecond * 300).Should(BeNil())
 	}
 
 	updateYurtStaticSet := func() {
+		// Define the object key to identify the YurtStaticSet.
+		key := client.ObjectKey{
+			Name:      yurtStaticSetName,
+			Namespace: namespaceName,
+		}
+
+		// Retries updating the YurtStaticSet until it succeeds or times out.
 		Eventually(func() error {
+			// Fetch the existing YurtStaticSet instance.
 			testYurtStaticSet := &v1alpha1.YurtStaticSet{}
-			if err := k8sClient.Get(ctx, client.ObjectKey{
-				Name:      yurtStaticSetName,
-				Namespace: namespaceName,
-			}, testYurtStaticSet); err != nil {
+			if err := k8sClient.Get(ctx, key, testYurtStaticSet); err != nil {
 				return err
 			}
+
+			// Update the image of the first container.
 			testYurtStaticSet.Spec.Template.Spec.Containers[0].Image = testImg2
+
+			// Submit the updated YurtStaticSet to the Kubernetes API server.
 			return k8sClient.Update(ctx, testYurtStaticSet)
-		}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(SatisfyAny(BeNil()))
+		}, timeout, 500*time.Millisecond).Should(BeNil()) // Directly assert that the error should be nil.
 	}
 
 	checkPodStatusAndUpdate := func() {
@@ -215,6 +232,7 @@ spec:
 		Eventually(func() error {
 			return checkNodeStatus(nodeName)
 		}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+		By("node " + nodeName + "becomes ready again")
 
 		// restart flannel pod on node to recover flannel NIC
 		Eventually(func() error {
@@ -241,7 +259,7 @@ spec:
 		nodeToImageMap = map[string]string{}
 		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
 		namespaceName = "yurtstaticset-e2e-test" + "-" + rand.String(4)
-		createNamespace()
+		createNamespace(namespaceName)
 	})
 
 	AfterEach(func() {
@@ -250,7 +268,7 @@ spec:
 		deleteStaticPod("openyurt-e2e-test-worker2")
 
 		By(fmt.Sprintf("Delete the entire namespaceName %s", namespaceName))
-		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(BeNil())
+		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationForeground))).Should(BeNil())
 	})
 
 	Describe("Test YurtStaticSet AdvancedRollingUpdate upgrade model", func() {
@@ -263,9 +281,11 @@ spec:
 			Eventually(func() error {
 				return checkNodeStatus("openyurt-e2e-test-worker2")
 			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(SatisfyAll(HaveOccurred(), Not(&util.NotFoundMatcher{})))
+			By("node openyurt-e2e-test-worker2 is not ready, then start to update yurtstaticset")
 
 			// update the yurtStaticSet
 			updateYurtStaticSet()
+			By("yurtstaticset is updated, start to check pod image")
 
 			// check image version
 			Eventually(func() error {
@@ -275,9 +295,11 @@ spec:
 				}
 				return fmt.Errorf("error image update")
 			}).WithTimeout(timeout * 2).WithPolling(time.Millisecond * 1000).Should(Succeed())
+			By("pod on node openyurt-e2e-test-worker is updated, then start to reconnect the node openyurt-e2e-test-worker2")
 
 			// recover network environment
 			reconnectNode("openyurt-e2e-test-worker2")
+			By("node openyurt-e2e-test-worker2 is reconnected, and start to wait pod upgrade on node openyurt-e2e-test-worker2")
 
 			// check image version
 			Eventually(func() error {
@@ -287,6 +309,7 @@ spec:
 				}
 				return fmt.Errorf("error image update")
 			}).WithTimeout(timeout).WithPolling(time.Millisecond * 500).Should(Succeed())
+			By("pod on node openyurt-e2e-test-worker2 is updated")
 		})
 
 		It("Testing situation where upgrade is not required", func() {

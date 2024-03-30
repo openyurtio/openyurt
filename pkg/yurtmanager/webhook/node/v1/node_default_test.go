@@ -29,7 +29,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -101,7 +100,7 @@ func TestDefault(t *testing.T) {
 			}
 
 			w := &NodeHandler{Client: c}
-			err := w.Default(context.TODO(), tc.node, admission.Request{})
+			err := w.Default(context.TODO(), tc.node)
 			if err != nil {
 				if tc.errCode != 0 {
 					statusErr := err.(*errors.StatusError)

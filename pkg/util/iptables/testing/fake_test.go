@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,598 +18,328 @@ package testing
 
 import (
 	"bytes"
-	"reflect"
+	"strings"
 	"testing"
-	"time"
+
+	"github.com/lithammer/dedent"
 
 	"github.com/openyurtio/openyurt/pkg/util/iptables"
 )
 
-const (
-	failed  = "\u2717"
-	succeed = "\u2713"
-)
+func TestFakeIPTables(t *testing.T) {
+	fake := NewFake()
+	buf := bytes.NewBuffer(nil)
 
-func TestNewFake(t *testing.T) {
-	tests := []struct {
-		name   string
-		expect *FakeIPTables
-	}{
-		{
-			"normal",
-			&FakeIPTables{},
-		},
+	err := fake.SaveInto("", buf)
+	if err != nil {
+		t.Fatalf("unexpected error from SaveInto: %v", err)
+	}
+	expected := dedent.Dedent(strings.Trim(`
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		COMMIT
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		COMMIT
+		*mangle
+		COMMIT
+		`, "\n"))
+	if buf.String() != expected {
+		t.Fatalf("bad initial dump. expected:\n%s\n\ngot:\n%s\n", expected, buf.Bytes())
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := NewFake()
-
-				if !reflect.DeepEqual(*tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// EnsureChain
+	existed, err := fake.EnsureChain(iptables.Table("blah"), iptables.Chain("KUBE-TEST"))
+	if err == nil {
+		t.Errorf("did not get expected error creating chain in non-existent table")
+	} else if existed {
+		t.Errorf("wrong return value from EnsureChain with non-existent table")
 	}
-}
-
-func TestNewIpv6Fake(t *testing.T) {
-	tests := []struct {
-		name   string
-		expect *FakeIPTables
-	}{
-		{
-			"normal",
-			&FakeIPTables{ipv6: true},
-		},
+	existed, err = fake.EnsureChain(iptables.TableNAT, iptables.Chain("KUBE-TEST"))
+	if err != nil {
+		t.Errorf("unexpected error creating chain: %v", err)
+	} else if existed {
+		t.Errorf("wrong return value from EnsureChain with non-existent chain")
+	}
+	existed, err = fake.EnsureChain(iptables.TableNAT, iptables.Chain("KUBE-TEST"))
+	if err != nil {
+		t.Errorf("unexpected error creating chain: %v", err)
+	} else if !existed {
+		t.Errorf("wrong return value from EnsureChain with existing chain")
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := NewIpv6Fake()
-
-				if !reflect.DeepEqual(*tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// ChainExists
+	exists, err := fake.ChainExists(iptables.TableNAT, iptables.Chain("KUBE-TEST"))
+	if err != nil {
+		t.Errorf("unexpected error checking chain: %v", err)
+	} else if !exists {
+		t.Errorf("wrong return value from ChainExists with existing chain")
 	}
-}
-
-func TestSetHasRandomFully(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		can    bool
-		expect *FakeIPTables
-	}{
-		{
-			"normal",
-			true,
-			&FakeIPTables{
-				hasRandomFully: true,
-				ipv6:           false,
-			},
-		},
+	exists, err = fake.ChainExists(iptables.TableNAT, iptables.Chain("KUBE-TEST-NOT"))
+	if err != nil {
+		t.Errorf("unexpected error checking chain: %v", err)
+	} else if exists {
+		t.Errorf("wrong return value from ChainExists with non-existent chain")
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				var get = f.SetHasRandomFully(true)
-				if !reflect.DeepEqual(*tt.expect, *get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// EnsureRule
+	existed, err = fake.EnsureRule(iptables.Append, iptables.Table("blah"), iptables.Chain("KUBE-TEST"), "-j", "ACCEPT")
+	if err == nil {
+		t.Errorf("did not get expected error creating rule in non-existent table")
+	} else if existed {
+		t.Errorf("wrong return value from EnsureRule with non-existent table")
 	}
-}
-
-func TestEnsureChain(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		chain  iptables.Chain
-		expect bool
-	}{
-		{
-			"normal",
-			"",
-			"",
-			true,
-		},
+	existed, err = fake.EnsureRule(iptables.Append, iptables.TableNAT, iptables.Chain("KUBE-TEST-NOT"), "-j", "ACCEPT")
+	if err == nil {
+		t.Errorf("did not get expected error creating rule in non-existent chain")
+	} else if existed {
+		t.Errorf("wrong return value from EnsureRule with non-existent chain")
+	}
+	existed, err = fake.EnsureRule(iptables.Append, iptables.TableNAT, iptables.Chain("KUBE-TEST"), "-j", "ACCEPT")
+	if err != nil {
+		t.Errorf("unexpected error creating rule: %v", err)
+	} else if existed {
+		t.Errorf("wrong return value from EnsureRule with non-existent rule")
+	}
+	existed, err = fake.EnsureRule(iptables.Prepend, iptables.TableNAT, iptables.Chain("KUBE-TEST"), "-j", "DROP")
+	if err != nil {
+		t.Errorf("unexpected error creating rule: %v", err)
+	} else if existed {
+		t.Errorf("wrong return value from EnsureRule with non-existent rule")
+	}
+	existed, err = fake.EnsureRule(iptables.Append, iptables.TableNAT, iptables.Chain("KUBE-TEST"), "-j", "DROP")
+	if err != nil {
+		t.Errorf("unexpected error creating rule: %v", err)
+	} else if !existed {
+		t.Errorf("wrong return value from EnsureRule with already-existing rule")
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get, _ := f.EnsureChain(tt.table, tt.chain)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// Sanity-check...
+	buf.Reset()
+	err = fake.SaveInto("", buf)
+	if err != nil {
+		t.Fatalf("unexpected error from SaveInto: %v", err)
 	}
-}
-
-func TestFlushChain(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		chain  iptables.Chain
-		expect error
-	}{
-		{
-			"normal",
-			"",
-			"",
-			nil,
-		},
+	expected = dedent.Dedent(strings.Trim(`
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		:KUBE-TEST - [0:0]
+		-A KUBE-TEST -j DROP
+		-A KUBE-TEST -j ACCEPT
+		COMMIT
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		COMMIT
+		*mangle
+		COMMIT
+		`, "\n"))
+	if buf.String() != expected {
+		t.Fatalf("bad sanity-check dump. expected:\n%s\n\ngot:\n%s\n", expected, buf.Bytes())
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.FlushChain(tt.table, tt.chain)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// DeleteRule
+	err = fake.DeleteRule(iptables.Table("blah"), iptables.Chain("KUBE-TEST"), "-j", "DROP")
+	if err == nil {
+		t.Errorf("did not get expected error deleting rule in non-existent table")
 	}
-}
-
-func TestDeleteChain(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		chain  iptables.Chain
-		expect error
-	}{
-		{
-			"normal",
-			"",
-			"",
-			nil,
-		},
+	err = fake.DeleteRule(iptables.TableNAT, iptables.Chain("KUBE-TEST-NOT"), "-j", "DROP")
+	if err == nil {
+		t.Errorf("did not get expected error deleting rule in non-existent chain")
+	}
+	err = fake.DeleteRule(iptables.TableNAT, iptables.Chain("KUBE-TEST"), "-j", "DROPLET")
+	if err != nil {
+		t.Errorf("unexpected error deleting non-existent rule: %v", err)
+	}
+	err = fake.DeleteRule(iptables.TableNAT, iptables.Chain("KUBE-TEST"), "-j", "DROP")
+	if err != nil {
+		t.Errorf("unexpected error deleting rule: %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.DeleteChain(tt.table, tt.chain)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestEnsureRule(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name     string
-		position iptables.RulePosition
-		table    iptables.Table
-		chain    iptables.Chain
-		expect   error
-	}{
-		{
-			"normal",
-			"",
-			"",
-			"",
-			nil,
-		},
+	// Restore
+	rules := dedent.Dedent(strings.Trim(`
+		*nat
+		:KUBE-RESTORED - [0:0]
+		:KUBE-MISC-CHAIN - [0:0]
+		:KUBE-MISC-TWO - [0:0]
+		:KUBE-EMPTY - [0:0]
+		-A KUBE-RESTORED -m comment --comment "restored chain" -j ACCEPT
+		-A KUBE-MISC-CHAIN -s 1.2.3.4 -j KUBE-MISC-TWO
+		-A KUBE-MISC-CHAIN -d 5.6.7.8 -j MASQUERADE
+		-A KUBE-MISC-TWO -j ACCEPT
+		COMMIT
+		`, "\n"))
+	err = fake.Restore(iptables.TableNAT, []byte(rules), iptables.NoFlushTables, iptables.NoRestoreCounters)
+	if err != nil {
+		t.Fatalf("unexpected error from Restore: %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				_, get := f.EnsureRule(tt.position, tt.table, tt.chain)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	// We used NoFlushTables, so this should leave KUBE-TEST unchanged
+	buf.Reset()
+	err = fake.SaveInto("", buf)
+	if err != nil {
+		t.Fatalf("unexpected error from SaveInto: %v", err)
 	}
-}
-
-func TestDeleteRule(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		chain  iptables.Chain
-		expect error
-	}{
-		{
-			"normal",
-			"",
-			"",
-			nil,
-		},
-	}
-
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.DeleteRule(tt.table, tt.chain)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestIsIpv6(t *testing.T) {
-	f := FakeIPTables{
-		ipv6: true,
+	expected = dedent.Dedent(strings.Trim(`
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		:KUBE-TEST - [0:0]
+		:KUBE-RESTORED - [0:0]
+		:KUBE-MISC-CHAIN - [0:0]
+		:KUBE-MISC-TWO - [0:0]
+		:KUBE-EMPTY - [0:0]
+		-A KUBE-TEST -j ACCEPT
+		-A KUBE-RESTORED -m comment --comment "restored chain" -j ACCEPT
+		-A KUBE-MISC-CHAIN -s 1.2.3.4 -j KUBE-MISC-TWO
+		-A KUBE-MISC-CHAIN -d 5.6.7.8 -j MASQUERADE
+		-A KUBE-MISC-TWO -j ACCEPT
+		COMMIT
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		COMMIT
+		*mangle
+		COMMIT
+		`, "\n"))
+	if buf.String() != expected {
+		t.Fatalf("bad post-restore dump. expected:\n%s\n\ngot:\n%s\n", expected, buf.Bytes())
 	}
 
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		{
-			"normal",
-			true,
-		},
+	// Trying to use Restore to delete a chain that another chain jumps to will fail
+	rules = dedent.Dedent(strings.Trim(`
+		*nat
+		:KUBE-MISC-TWO - [0:0]
+		-X KUBE-MISC-TWO
+		COMMIT
+		`, "\n"))
+	err = fake.Restore(iptables.TableNAT, []byte(rules), iptables.NoFlushTables, iptables.RestoreCounters)
+	if err == nil || !strings.Contains(err.Error(), "referenced by existing rules") {
+		t.Fatalf("Expected 'referenced by existing rules' error from Restore, got %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.IsIpv6()
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestSave(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		expect error
-	}{
-		{
-			"normal",
-			"",
-			nil,
-		},
+	// Trying to use Restore to add a jump to a non-existent chain will fail
+	rules = dedent.Dedent(strings.Trim(`
+		*nat
+		:KUBE-MISC-TWO - [0:0]
+		-A KUBE-MISC-TWO -j KUBE-MISC-THREE
+		COMMIT
+		`, "\n"))
+	err = fake.Restore(iptables.TableNAT, []byte(rules), iptables.NoFlushTables, iptables.RestoreCounters)
+	if err == nil || !strings.Contains(err.Error(), "non-existent chain") {
+		t.Fatalf("Expected 'non-existent chain' error from Restore, got %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				_, get := f.Save(tt.table)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestSaveInto(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name   string
-		table  iptables.Table
-		buffer *bytes.Buffer
-		expect error
-	}{
-		{
-			"normal",
-			"",
-			&bytes.Buffer{},
-			nil,
-		},
+	// more Restore; empty out one chain and delete another, but also update its counters
+	rules = dedent.Dedent(strings.Trim(`
+		*nat
+		:KUBE-RESTORED - [0:0]
+		:KUBE-TEST - [99:9999]
+		-X KUBE-RESTORED
+		COMMIT
+		`, "\n"))
+	err = fake.Restore(iptables.TableNAT, []byte(rules), iptables.NoFlushTables, iptables.RestoreCounters)
+	if err != nil {
+		t.Fatalf("unexpected error from Restore: %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.SaveInto(tt.table, tt.buffer)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	buf.Reset()
+	err = fake.SaveInto("", buf)
+	if err != nil {
+		t.Fatalf("unexpected error from SaveInto: %v", err)
 	}
-}
-
-func TestRestore(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name     string
-		table    iptables.Table
-		data     []byte
-		flush    iptables.FlushFlag
-		counters iptables.RestoreCountersFlag
-		expect   error
-	}{
-		{
-			"normal",
-			"",
-			[]byte{},
-			true,
-			true,
-			nil,
-		},
+	expected = dedent.Dedent(strings.Trim(`
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		:KUBE-TEST - [99:9999]
+		:KUBE-MISC-CHAIN - [0:0]
+		:KUBE-MISC-TWO - [0:0]
+		:KUBE-EMPTY - [0:0]
+		-A KUBE-MISC-CHAIN -s 1.2.3.4 -j KUBE-MISC-TWO
+		-A KUBE-MISC-CHAIN -d 5.6.7.8 -j MASQUERADE
+		-A KUBE-MISC-TWO -j ACCEPT
+		COMMIT
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		COMMIT
+		*mangle
+		COMMIT
+		`, "\n"))
+	if buf.String() != expected {
+		t.Fatalf("bad post-second-restore dump. expected:\n%s\n\ngot:\n%s\n", expected, buf.Bytes())
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.Restore(tt.table, tt.data, tt.flush, tt.counters)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestRestoreAll(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name     string
-		data     []byte
-		flush    iptables.FlushFlag
-		counters iptables.RestoreCountersFlag
-		expect   error
-	}{
-		{
-			"normal",
-			[]byte{},
-			true,
-			true,
-			nil,
-		},
+	// RestoreAll, FlushTables
+	rules = dedent.Dedent(strings.Trim(`
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		:KUBE-TEST - [0:0]
+		-A KUBE-TEST -m comment --comment "filter table KUBE-TEST" -j ACCEPT
+		COMMIT
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		:KUBE-TEST - [88:8888]
+		:KUBE-NEW-CHAIN - [0:0]
+		-A KUBE-NEW-CHAIN -d 172.30.0.1 -j DNAT --to-destination 10.0.0.1
+		-A KUBE-NEW-CHAIN -d 172.30.0.2 -j DNAT --to-destination 10.0.0.2
+		-A KUBE-NEW-CHAIN -d 172.30.0.3 -j DNAT --to-destination 10.0.0.3
+		COMMIT
+		`, "\n"))
+	err = fake.RestoreAll([]byte(rules), iptables.FlushTables, iptables.NoRestoreCounters)
+	if err != nil {
+		t.Fatalf("unexpected error from RestoreAll: %v", err)
 	}
 
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.RestoreAll(tt.data, tt.flush, tt.counters)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	buf.Reset()
+	err = fake.SaveInto("", buf)
+	if err != nil {
+		t.Fatalf("unexpected error from SaveInto: %v", err)
 	}
-}
-
-func TestMonitor(t *testing.T) {
-	f := FakeIPTables{}
-
-	tests := []struct {
-		name       string
-		canary     iptables.Chain
-		tables     []iptables.Table
-		reloadFunc func()
-		interval   time.Duration
-		stopCh     <-chan struct{}
-		expect     error
-	}{
-		{
-			"normal",
-			"",
-			[]iptables.Table{},
-			func() {},
-			1,
-			make(<-chan struct{}),
-			nil,
-		},
-	}
-
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				f.Monitor(tt.canary, tt.tables, tt.reloadFunc, tt.interval, tt.stopCh)
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestGetToken(t *testing.T) {
-	tests := []struct {
-		name      string
-		line      string
-		separator string
-		expect    string
-	}{
-		{
-			"normal",
-			"a,b",
-			",",
-			"a",
-		},
-		{
-			"empty",
-			"",
-			"",
-			"",
-		},
-	}
-
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := getToken(tt.line, tt.separator)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestGetRules(t *testing.T) {
-	f := FakeIPTables{
-		Lines: []byte("iptables -A INPUT -p tcp --dport 22 -j ACCEPT"),
-	}
-
-	tests := []struct {
-		name      string
-		chainName string
-		expect    []Rule
-	}{
-		{
-			"normal",
-			"INPUT",
-			[]Rule{
-				map[string]string{
-					"--dport ": "22",
-					"-j ":      "ACCEPT",
-					"-p ":      "tcp",
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.GetRules("")
-				t.Log(get)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
-	}
-}
-
-func TestHasRandomFully(t *testing.T) {
-	f := FakeIPTables{
-		hasRandomFully: true,
-	}
-
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		{
-			"normal",
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		tf := func(t *testing.T) {
-			t.Parallel()
-			t.Logf("\tTestCase: %s", tt.name)
-			{
-				get := f.HasRandomFully()
-				t.Log(get)
-				if !reflect.DeepEqual(tt.expect, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
-				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
-
-			}
-		}
-		t.Run(tt.name, tf)
+	expected = dedent.Dedent(strings.Trim(`
+		*nat
+		:PREROUTING - [0:0]
+		:INPUT - [0:0]
+		:OUTPUT - [0:0]
+		:POSTROUTING - [0:0]
+		:KUBE-TEST - [88:8888]
+		:KUBE-NEW-CHAIN - [0:0]
+		-A KUBE-NEW-CHAIN -d 172.30.0.1 -j DNAT --to-destination 10.0.0.1
+		-A KUBE-NEW-CHAIN -d 172.30.0.2 -j DNAT --to-destination 10.0.0.2
+		-A KUBE-NEW-CHAIN -d 172.30.0.3 -j DNAT --to-destination 10.0.0.3
+		COMMIT
+		*filter
+		:INPUT - [0:0]
+		:FORWARD - [0:0]
+		:OUTPUT - [0:0]
+		:KUBE-TEST - [0:0]
+		-A KUBE-TEST -m comment --comment "filter table KUBE-TEST" -j ACCEPT
+		COMMIT
+		*mangle
+		COMMIT
+		`, "\n"))
+	if buf.String() != expected {
+		t.Fatalf("bad post-restore-all dump. expected:\n%s\n\ngot:\n%s\n", expected, buf.Bytes())
 	}
 }

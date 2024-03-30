@@ -56,14 +56,14 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 	var serverSVC *corev1.Service
 
 	// wait until get tls server Service
-	if err = wait.PollUntil(1*time.Second, func() (bool, error) {
+	if err = wait.PollUntilContextCancel(context.Background(), 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		serverSVC, err = clientSet.CoreV1().Services(YurtCoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err == nil {
 			klog.Infof(Format("%s service is ready for yurtcoordinator_cert_manager", serviceName))
 			return true, nil
 		}
 		return false, nil
-	}, stopCh); err != nil {
+	}); err != nil {
 		return nil, nil, err
 	}
 

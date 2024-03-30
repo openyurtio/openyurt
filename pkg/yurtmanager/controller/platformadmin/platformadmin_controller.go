@@ -145,31 +145,25 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to PlatformAdmin
-	err = c.Watch(&source.Kind{Type: &iotv1alpha2.PlatformAdmin{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &iotv1alpha2.PlatformAdmin{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &iotv1alpha2.PlatformAdmin{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}),
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &iotv1alpha2.PlatformAdmin{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}),
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &appsv1alpha1.YurtAppSet{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &iotv1alpha2.PlatformAdmin{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.YurtAppSet{}),
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
@@ -455,7 +449,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			}
 			pool := appsv1alpha1.Pool{
 				Name:     platformAdmin.Spec.PoolName,
-				Replicas: pointer.Int32Ptr(1),
+				Replicas: pointer.Int32(1),
 			}
 			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 				corev1.NodeSelectorRequirement{
@@ -573,7 +567,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	yas.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelDeployment
 	pool := appsv1alpha1.Pool{
 		Name:     platformAdmin.Spec.PoolName,
-		Replicas: pointer.Int32Ptr(1),
+		Replicas: pointer.Int32(1),
 	}
 	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 		corev1.NodeSelectorRequirement{
@@ -837,7 +831,7 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 
 	// Calculate all the components that need to be added or removed and determine whether need to rewrite the framework
 	addedComponentSet := sets.NewString()
-	for _, componentName := range requiredComponentSet.List() {
+	for _, componentName := range requiredComponentSet.UnsortedList() {
 		if !frameworkComponentSet.Has(componentName) {
 			addedComponentSet.Insert(componentName)
 			needWriteFramework = true

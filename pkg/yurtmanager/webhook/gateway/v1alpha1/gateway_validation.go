@@ -26,49 +26,50 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven/v1alpha1"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *GatewayHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	gw, ok := obj.(*v1alpha1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
 	}
 
-	return validate(gw)
+	return nil, validate(gw)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newGw, ok := newObj.(*v1alpha1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", newObj))
 	}
 	oldGw, ok := oldObj.(*v1alpha1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway} but got a %T", oldObj))
 	}
 
 	if err := validate(oldGw); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validate(newGw); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
+func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	gw, ok := obj.(*v1alpha1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
 	}
-	return validate(gw)
+	return nil, validate(gw)
 }
 
 func validate(g *v1alpha1.Gateway) error {

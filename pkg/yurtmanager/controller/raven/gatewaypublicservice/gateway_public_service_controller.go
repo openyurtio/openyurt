@@ -105,13 +105,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Gateway
-	err = c.Watch(&source.Kind{Type: &ravenv1beta1.Gateway{}}, &EnqueueRequestForGatewayEvent{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &ravenv1beta1.Gateway{}), &EnqueueRequestForGatewayEvent{})
 	if err != nil {
 		return err
 	}
 
 	//Watch for changes to raven agent
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &EnqueueRequestForConfigEvent{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueRequestForConfigEvent{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {

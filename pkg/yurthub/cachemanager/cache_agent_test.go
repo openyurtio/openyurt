@@ -30,44 +30,44 @@ func TestUpdateCacheAgents(t *testing.T) {
 		desc          string
 		initAgents    []string
 		cacheAgents   string
-		resultAgents  sets.String
-		deletedAgents sets.String
+		resultAgents  sets.Set[string]
+		deletedAgents sets.Set[string]
 	}{
 		"two new agents updated": {
 			initAgents:    []string{},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.NewString(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
-			deletedAgents: sets.String{},
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			deletedAgents: sets.Set[string]{},
 		},
 		"two new agents updated but an old agent deleted": {
 			initAgents:    []string{"agent1", "agent2"},
 			cacheAgents:   "agent2,agent3",
-			resultAgents:  sets.NewString(append([]string{"agent2", "agent3"}, util.DefaultCacheAgents...)...),
-			deletedAgents: sets.NewString("agent1"),
+			resultAgents:  sets.New(append([]string{"agent2", "agent3"}, util.DefaultCacheAgents...)...),
+			deletedAgents: sets.New("agent1"),
 		},
 		"no agents updated ": {
 			initAgents:    []string{"agent1", "agent2"},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.NewString(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
-			deletedAgents: sets.String{},
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			deletedAgents: sets.New[string](),
 		},
 		"no agents updated with default": {
 			initAgents:    []string{"agent1", "agent2", "kubelet"},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.NewString(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
-			deletedAgents: sets.String{},
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			deletedAgents: sets.New[string](),
 		},
 		"empty agents added ": {
 			initAgents:    []string{},
 			cacheAgents:   "",
-			resultAgents:  sets.NewString(util.DefaultCacheAgents...),
-			deletedAgents: sets.String{},
+			resultAgents:  sets.New(util.DefaultCacheAgents...),
+			deletedAgents: sets.New[string](),
 		},
 	}
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			m := &CacheAgent{
-				agents: sets.NewString(tt.initAgents...),
+				agents: sets.New(tt.initAgents...),
 			}
 
 			m.updateCacheAgents(strings.Join(tt.initAgents, ","), "")

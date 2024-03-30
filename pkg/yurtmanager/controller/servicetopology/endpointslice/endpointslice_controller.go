@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,21 +53,16 @@ func Format(format string, args ...interface{}) string {
 
 // Add creates a new Servicetopology endpointslice Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(ctx context.Context, _ *appconfig.CompletedConfig, mgr manager.Manager) error {
-	r := &ReconcileServiceTopologyEndpointSlice{}
-	c, err := controller.New(names.ServiceTopologyEndpointSliceController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
+	r := newReconciler(cfg, mgr)
+	c, err := controller.New(names.ServiceTopologyEndpointSliceController, mgr,
+		controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
 	if err != nil {
 		return err
 	}
 
-	if r.isSupportEndpointslicev1 {
-		r.endpointsliceAdapter = adapter.NewEndpointsV1Adapter(r.Client)
-	} else {
-		r.endpointsliceAdapter = adapter.NewEndpointsV1Beta1Adapter(r.Client)
-	}
-
 	// Watch for changes to Service
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsliceForService{
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueEndpointsliceForService{
 		endpointsliceAdapter: r.endpointsliceAdapter,
 	}); err != nil {
 		return err
@@ -87,21 +81,21 @@ type ReconcileServiceTopologyEndpointSlice struct {
 	isSupportEndpointslicev1 bool
 }
 
-func (r *ReconcileServiceTopologyEndpointSlice) InjectMapper(mapper meta.RESTMapper) error {
-	if gvk, err := mapper.KindFor(v1EndpointSliceGVR); err != nil {
+func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) *ReconcileServiceTopologyEndpointSlice {
+	r := &ReconcileServiceTopologyEndpointSlice{
+		Client: mgr.GetClient(),
+	}
+	if gvk, err := mgr.GetRESTMapper().KindFor(v1EndpointSliceGVR); err != nil {
 		klog.Errorf("v1.EndpointSlice is not supported, %v", err)
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Beta1Adapter(r.Client)
 		r.isSupportEndpointslicev1 = false
 	} else {
 		klog.Infof("%s is supported", gvk.String())
+		r.endpointsliceAdapter = adapter.NewEndpointsV1Adapter(r.Client)
 		r.isSupportEndpointslicev1 = true
 	}
 
-	return nil
-}
-
-func (r *ReconcileServiceTopologyEndpointSlice) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
+	return r
 }
 
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch

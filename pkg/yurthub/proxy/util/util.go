@@ -424,7 +424,7 @@ func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req 
 			Version: info.APIVersion,
 		}
 		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
-		responsewriters.WriteObjectNegotiated(negotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj)
+		responsewriters.WriteObjectNegotiated(negotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj, false)
 		return nil
 	}
 

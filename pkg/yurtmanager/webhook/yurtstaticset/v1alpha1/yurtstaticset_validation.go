@@ -28,6 +28,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core"
 	k8s_api_v1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	k8s_validation "k8s.io/kubernetes/pkg/apis/core/validation"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
@@ -37,40 +38,40 @@ const (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtStaticSetHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *YurtStaticSetHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	sp, ok := obj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", obj))
 	}
 
-	return validate(sp)
+	return nil, validate(sp)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtStaticSetHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *YurtStaticSetHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newSP, ok := newObj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", newObj))
 	}
 	oldSP, ok := oldObj.(*v1alpha1.YurtStaticSet)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", oldObj))
 	}
 
 	if err := validate(newSP); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := validate(oldSP); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtStaticSetHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	return nil
+func (webhook *YurtStaticSetHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 func validate(obj *v1alpha1.YurtStaticSet) error {

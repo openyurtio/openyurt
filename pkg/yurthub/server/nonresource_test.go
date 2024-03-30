@@ -70,7 +70,7 @@ func TestLocalCacheHandler(t *testing.T) {
 		statusCode       int
 		metav1StatusCode int
 	}{
-		"failed to get from local cache, because it does not exist": {
+		"can not get from local cache, because it does not exist": {
 			path:             "/version",
 			initData:         nil,
 			statusCode:       http.StatusNotFound,
@@ -149,13 +149,13 @@ func TestNonResourceHandler(t *testing.T) {
 			initData:   []byte("fake resource"),
 			statusCode: http.StatusOK,
 		},
-		"failed to get non resource because of internal error": {
+		"can not get non resource because of internal error": {
 			path:             "/apis/discovery.k8s.io/v1beta1",
 			err:              internalError,
 			statusCode:       http.StatusInternalServerError,
 			metav1StatusCode: http.StatusInternalServerError,
 		},
-		"failed to get non resource because it does not exist": {
+		"can not get non resource because it does not exist": {
 			path:             "/apis/discovery.k8s.io/v1",
 			err:              notFoundError,
 			statusCode:       http.StatusNotFound,

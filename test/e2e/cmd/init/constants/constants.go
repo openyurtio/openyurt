@@ -124,7 +124,6 @@ spec:
             - --health-probe-addr=:10272
             - --webhook-port=10273
             - --controllers=*
-            - --logtostderr=true
             - --v=4
           command:
             - /usr/local/bin/yurt-manager

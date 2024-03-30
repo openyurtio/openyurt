@@ -21,8 +21,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/builder"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
@@ -41,7 +41,7 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
-		builder.WebhookManagedBy(mgr).
+		ctrl.NewWebhookManagedBy(mgr).
 			For(&corev1.Pod{}).
 			WithDefaulter(webhook).
 			Complete()
@@ -54,4 +54,4 @@ type PodHandler struct {
 	Client client.Client
 }
 
-var _ builder.CustomDefaulter = &PodHandler{}
+var _ webhook.CustomDefaulter = &PodHandler{}

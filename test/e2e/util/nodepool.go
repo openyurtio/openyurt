@@ -68,10 +68,10 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 	return nil
 }
 
-func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNodesMap map[string]sets.String) error {
+func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNodesMap map[string]sets.Set[string]) error {
 	nodeToPoolMap := make(map[string]string)
 	for k, v := range poolToNodesMap {
-		for _, n := range v.List() {
+		for _, n := range sets.List(v) {
 			nodeToPoolMap[n] = k
 		}
 	}

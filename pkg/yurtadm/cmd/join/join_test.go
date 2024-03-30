@@ -529,16 +529,16 @@ func TestNodeRegistration(t *testing.T) {
 
 func TestIgnorePreflightErrors(t *testing.T) {
 	jd := joinData{
-		ignorePreflightErrors: sets.String{},
+		ignorePreflightErrors: sets.Set[string]{},
 	}
 
 	tests := []struct {
 		name   string
-		expect sets.String
+		expect sets.Set[string]
 	}{
 		{
 			"normal",
-			sets.String{},
+			sets.Set[string]{},
 		},
 	}
 

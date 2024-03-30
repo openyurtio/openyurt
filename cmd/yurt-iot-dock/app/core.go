@@ -19,6 +19,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
@@ -81,13 +83,17 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	ctrl.SetLogger(klogr.New())
 	cfg := ctrl.GetConfigOrDie()
 
+	metricsServerOpts := metricsserver.Options{
+		BindAddress:   opts.MetricsAddr,
+		ExtraHandlers: make(map[string]http.Handler, 0),
+	}
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     opts.MetricsAddr,
+		Metrics:                metricsServerOpts,
 		HealthProbeBindAddress: opts.ProbeAddr,
 		LeaderElection:         opts.EnableLeaderElection,
 		LeaderElectionID:       "yurt-iot-dock",
-		Namespace:              opts.Namespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

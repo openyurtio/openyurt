@@ -148,7 +148,7 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 func preCheck(clientset kubernetes.Interface, namespace, podName, nodeName string) (*corev1.Pod, bool) {
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("Get pod %v/%v failed, %v", namespace, podName, err)
+		klog.Errorf("couldn't get pod %s/%s, %v", namespace, podName, err)
 		return nil, false
 	}
 

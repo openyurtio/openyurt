@@ -27,12 +27,10 @@ import (
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -54,12 +52,12 @@ var (
 
 	yurtCsr                  = fmt.Sprintf("%s-csr", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 	yurtHubNodeCertOrgPrefix = "openyurt:tenant:"
-	clientRequiredUsages     = sets.NewString(
+	clientRequiredUsages     = sets.New(
 		string(certificatesv1.UsageDigitalSignature),
 		string(certificatesv1.UsageKeyEncipherment),
 		string(certificatesv1.UsageClientAuth))
 
-	serverRequiredUsages = sets.NewString(
+	serverRequiredUsages = sets.New(
 		string(certificatesv1.UsageDigitalSignature),
 		string(certificatesv1.UsageKeyEncipherment),
 		string(certificatesv1.UsageServerAuth))
@@ -96,7 +94,11 @@ type csrRecognizer struct {
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	r := &ReconcileCsrApprover{}
+	r, err := NewReconcileCsrApprover(mgr)
+	if err != nil {
+		return err
+	}
+
 	// Create a new controller
 	c, err := controller.New(names.CsrApproverController, mgr, controller.Options{
 		Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.CsrApproverController.ConcurrentCsrApproverWorkers),
@@ -107,9 +109,9 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 	// Watch for csr changes
 	if r.csrV1Supported {
-		return c.Watch(&source.Kind{Type: &certificatesv1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+		return c.Watch(source.Kind(mgr.GetCache(), &certificatesv1.CertificateSigningRequest{}), &handler.EnqueueRequestForObject{})
 	} else {
-		return c.Watch(&source.Kind{Type: &certificatesv1beta1.CertificateSigningRequest{}}, &handler.EnqueueRequestForObject{})
+		return c.Watch(source.Kind(mgr.GetCache(), &certificatesv1beta1.CertificateSigningRequest{}), &handler.EnqueueRequestForObject{})
 	}
 }
 
@@ -122,12 +124,18 @@ type ReconcileCsrApprover struct {
 	csrApproverClient kubernetes.Interface
 }
 
-func (r *ReconcileCsrApprover) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
+func NewReconcileCsrApprover(mgr manager.Manager) (*ReconcileCsrApprover, error) {
+	r := &ReconcileCsrApprover{
+		Client: mgr.GetClient(),
+	}
+	client, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		klog.Errorf("could not create kube client, %v", err)
+		return nil, err
+	}
+	r.csrApproverClient = client
 
-func (r *ReconcileCsrApprover) InjectMapper(mapper meta.RESTMapper) error {
+	mapper := mgr.GetRESTMapper()
 	if gvk, err := mapper.KindFor(csrV1Resource); err != nil {
 		klog.Errorf("v1.CertificateSigningRequest is not supported, %v", err)
 		r.csrV1Supported = false
@@ -136,17 +144,7 @@ func (r *ReconcileCsrApprover) InjectMapper(mapper meta.RESTMapper) error {
 		r.csrV1Supported = true
 	}
 
-	return nil
-}
-
-func (r *ReconcileCsrApprover) InjectConfig(cfg *rest.Config) error {
-	client, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("could not create kube client, %v", err)
-		return err
-	}
-	r.csrApproverClient = client
-	return nil
+	return r, nil
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -442,8 +440,8 @@ func isYurtCoordinatorClientCert(csr *certificatesv1.CertificateSigningRequest, 
 	return true
 }
 
-func usagesToSet(usages []certificatesv1.KeyUsage) sets.String {
-	result := sets.NewString()
+func usagesToSet(usages []certificatesv1.KeyUsage) sets.Set[string] {
+	result := sets.New[string]()
 	for _, usage := range usages {
 		result.Insert(string(usage))
 	}

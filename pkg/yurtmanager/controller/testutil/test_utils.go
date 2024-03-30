@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
@@ -60,6 +61,17 @@ type ImprovedFakeNodeHandler struct {
 	UpdatedNodeStatuses []*v1.Node
 }
 
+func podIndexer(rawObj ctlclient.Object) []string {
+	pod, ok := rawObj.(*v1.Pod)
+	if !ok {
+		return []string{}
+	}
+	if len(pod.Spec.NodeName) == 0 {
+		return []string{}
+	}
+	return []string{pod.Spec.NodeName}
+}
+
 func NewImprovedFakeNodeHandler(nodes []*v1.Node, pods *v1.PodList) *ImprovedFakeNodeHandler {
 	scheme := runtime.NewScheme()
 	clientgoscheme.AddToScheme(scheme)
@@ -70,6 +82,7 @@ func NewImprovedFakeNodeHandler(nodes []*v1.Node, pods *v1.PodList) *ImprovedFak
 	if pods != nil {
 		clientBuilder.WithLists(pods)
 	}
+	clientBuilder.WithIndex(&v1.Pod{}, "spec.nodeName", podIndexer)
 	delegateClient := clientBuilder.Build()
 	clientWrapper := NewClientWrapper(delegateClient, scheme)
 	m := &ImprovedFakeNodeHandler{
@@ -117,7 +130,7 @@ func (m *ImprovedFakeNodeHandler) UpdateNodeStatuses(updatedNodeStatuses map[str
 	for _, node := range nodeList.Items {
 		if status, ok := updatedNodeStatuses[node.Name]; ok {
 			node.Status = status
-			if err = m.baseClient.Status().Update(context.TODO(), &node, &ctlclient.UpdateOptions{}); err != nil {
+			if err = m.baseClient.Status().Update(context.TODO(), &node, &ctlclient.SubResourceUpdateOptions{}); err != nil {
 				return err
 			}
 		}
@@ -203,7 +216,8 @@ func NewClientWrapper(client ctlclient.Client, scheme *runtime.Scheme) *ClientWr
 	}
 }
 
-func (m *ClientWrapper) Get(ctx context.Context, key ctlclient.ObjectKey, obj ctlclient.Object) error {
+// func (m *ClientWrapper) Get(ctx context.Context, key ctlclient.ObjectKey, obj ctlclient.Object) error {
+func (m *ClientWrapper) Get(ctx context.Context, key ctlclient.ObjectKey, obj ctlclient.Object, opts ...ctlclient.GetOption) error {
 	m.Lock()
 	defer m.Unlock()
 	gvk, err := apiutil.GVKForObject(obj, m.scheme)
@@ -337,7 +351,7 @@ type fakeStatusWriter struct {
 	statusWriter ctlclient.StatusWriter
 }
 
-func (sw *fakeStatusWriter) Update(ctx context.Context, obj ctlclient.Object, opts ...ctlclient.UpdateOption) error {
+func (sw *fakeStatusWriter) Update(ctx context.Context, obj ctlclient.Object, opts ...ctlclient.SubResourceUpdateOption) error {
 	// TODO(droot): This results in full update of the obj (spec + status). Need
 	// a way to update status field only.
 	gvk, err := apiutil.GVKForObject(obj, sw.client.scheme)
@@ -377,7 +391,7 @@ func (sw *fakeStatusWriter) Update(ctx context.Context, obj ctlclient.Object, op
 	return nil
 }
 
-func (sw *fakeStatusWriter) Patch(ctx context.Context, obj ctlclient.Object, patch ctlclient.Patch, opts ...ctlclient.PatchOption) error {
+func (sw *fakeStatusWriter) Patch(ctx context.Context, obj ctlclient.Object, patch ctlclient.Patch, opts ...ctlclient.SubResourcePatchOption) error {
 	// TODO(droot): This results in full update of the obj (spec + status). Need
 	// a way to update status field only.
 	patchData, err := patch.Data(obj)
@@ -415,6 +429,14 @@ func (sw *fakeStatusWriter) Patch(ctx context.Context, obj ctlclient.Object, pat
 	return nil
 }
 
+func (sw *fakeStatusWriter) Create(ctx context.Context, obj ctlclient.Object, subResource ctlclient.Object, opts ...ctlclient.SubResourceCreateOption) error {
+	return nil
+}
+
+func (m *ClientWrapper) SubResource(subResource string) ctlclient.SubResourceClient {
+	return m.delegateClient.SubResource(subResource)
+}
+
 func (m *ClientWrapper) Status() ctlclient.StatusWriter {
 	return &fakeStatusWriter{
 		client:       m,
@@ -429,6 +451,14 @@ func (m *ClientWrapper) Scheme() *runtime.Scheme {
 // RESTMapper returns the rest this client is using.
 func (m *ClientWrapper) RESTMapper() meta.RESTMapper {
 	return m.delegateClient.RESTMapper()
+}
+
+func (m *ClientWrapper) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return m.delegateClient.GroupVersionKindFor(obj)
+}
+
+func (m *ClientWrapper) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return m.delegateClient.IsObjectNamespaced(obj)
 }
 
 func (m *ClientWrapper) ClearActions() {
@@ -620,7 +650,7 @@ func (m *FakeNodeHandler) UpdateStatus(ctx context.Context, node *v1.Node, _ met
 		m.lock.Unlock()
 	}()
 
-	if err := m.runtimeClient.Status().Update(ctx, node, &ctlclient.UpdateOptions{}); err != nil {
+	if err := m.runtimeClient.Status().Update(ctx, node, &ctlclient.SubResourceUpdateOptions{}); err != nil {
 		return node, err
 	}
 

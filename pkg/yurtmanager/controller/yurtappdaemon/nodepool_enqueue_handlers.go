@@ -33,19 +33,19 @@ type EnqueueYurtAppDaemonForNodePool struct {
 	client client.Client
 }
 
-func (e *EnqueueYurtAppDaemonForNodePool) Create(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (e *EnqueueYurtAppDaemonForNodePool) Create(ctx context.Context, event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
 	e.addAllYurtAppDaemonToWorkQueue(limitingInterface)
 }
 
-func (e *EnqueueYurtAppDaemonForNodePool) Update(event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (e *EnqueueYurtAppDaemonForNodePool) Update(ctx context.Context, event event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
 	e.addAllYurtAppDaemonToWorkQueue(limitingInterface)
 }
 
-func (e *EnqueueYurtAppDaemonForNodePool) Delete(event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (e *EnqueueYurtAppDaemonForNodePool) Delete(ctx context.Context, event event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
 	e.addAllYurtAppDaemonToWorkQueue(limitingInterface)
 }
 
-func (e *EnqueueYurtAppDaemonForNodePool) Generic(event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+func (e *EnqueueYurtAppDaemonForNodePool) Generic(ctx context.Context, event event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
 	return
 }
 

@@ -83,7 +83,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to service
-	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueRequestForServiceEvent{}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueRequestForServiceEvent{}, predicate.NewPredicateFuncs(
 		func(obj client.Object) bool {
 			svc, ok := obj.(*corev1.Service)
 			if !ok {
@@ -98,7 +98,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 	//Watch for changes to nodes
-	err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &EnqueueRequestForNodeEvent{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueRequestForNodeEvent{})
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 
 func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) (*corev1.ConfigMap, error) {
 	var cm corev1.ConfigMap
-	waitErr := wait.PollImmediate(5*time.Second, time.Minute, func() (done bool, err error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		err = r.Client.Get(ctx, objKey, &cm)
 		if err != nil {
 			if apierrors.IsNotFound(err) {

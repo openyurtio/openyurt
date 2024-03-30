@@ -330,7 +330,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.Funcs{}, podsPredicate)
+	c.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), &handler.Funcs{}, podsPredicate)
 
 	nc.taintManager = scheduler.NewNoExecuteTaintManager(nc.recorder, nc.controllerRuntimeClient, nc.getPodsAssignedToNode)
 	nodesTaintManagerPredicate := predicate.Funcs{
@@ -354,7 +354,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	c.Watch(&source.Kind{Type: &v1.Node{}}, &handler.Funcs{}, nodesTaintManagerPredicate)
+	c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), &handler.Funcs{}, nodesTaintManagerPredicate)
 
 	nodesUpdateQueuePredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
@@ -376,9 +376,9 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	c.Watch(&source.Kind{Type: &v1.Node{}}, &handler.Funcs{}, nodesUpdateQueuePredicate)
-	c.Watch(&source.Kind{Type: &apps.DaemonSet{}}, &handler.Funcs{})
-	c.Watch(&source.Kind{Type: &coordinationv1.Lease{}}, &handler.Funcs{})
+	c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), &handler.Funcs{}, nodesUpdateQueuePredicate)
+	c.Watch(source.Kind(mgr.GetCache(), &apps.DaemonSet{}), &handler.Funcs{})
+	c.Watch(source.Kind(mgr.GetCache(), &coordinationv1.Lease{}), &handler.Funcs{})
 
 	go nc.Run(ctx, c.WaitForStarted)
 	return nil
@@ -687,7 +687,7 @@ func (nc *ReconcileNodeLifeCycle) monitorNodeHealth(ctx context.Context) error {
 		var currentReadyCondition *v1.NodeCondition
 		node := nodes[piece].DeepCopy()
 
-		if err := wait.PollImmediate(retrySleepTime, retrySleepTime*scheduler.NodeHealthUpdateRetry, func() (bool, error) {
+		if err := wait.PollUntilContextTimeout(ctx, retrySleepTime, retrySleepTime*scheduler.NodeHealthUpdateRetry, true, func(ctx context.Context) (bool, error) {
 			var err error
 			_, observedReadyCondition, currentReadyCondition, err = nc.tryUpdateNodeHealth(ctx, node)
 			if err == nil {
@@ -960,7 +960,7 @@ func (nc *ReconcileNodeLifeCycle) tryUpdateNodeHealth(ctx context.Context, node 
 
 		if !apiequality.Semantic.DeepEqual(currentReadyCondition, &observedReadyCondition) {
 			//if _, err := nc.kubeClient.CoreV1().Nodes().UpdateStatus(ctx, node, metav1.UpdateOptions{}); err != nil {
-			if err := nc.controllerRuntimeClient.Status().Update(ctx, node, &client.UpdateOptions{}); err != nil {
+			if err := nc.controllerRuntimeClient.Status().Update(ctx, node, &client.SubResourceUpdateOptions{}); err != nil {
 				klog.ErrorS(err, "Error updating node", "node", klog.KObj(node))
 				return gracePeriod, observedReadyCondition, currentReadyCondition, err
 			}

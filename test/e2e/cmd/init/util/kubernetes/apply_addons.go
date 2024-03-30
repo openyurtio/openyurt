@@ -129,7 +129,7 @@ type Builder struct {
 }
 
 func NewBuilder(kubeconfig string) *Builder {
-	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags := genericclioptions.NewConfigFlags(false).WithDeprecatedPasswordFlag()
 	kubeConfigFlags.KubeConfig = &kubeconfig
 	f := kubectlutil.NewFactory(kubeConfigFlags)
 	return &Builder{f}

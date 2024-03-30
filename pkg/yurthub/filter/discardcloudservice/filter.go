@@ -62,9 +62,9 @@ func (sf *discardCloudServiceFilter) Name() string {
 	return FilterName
 }
 
-func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{
-		"services": sets.NewString("list", "watch"),
+func (sf *discardCloudServiceFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{
+		"services": sets.New("list", "watch"),
 	}
 }
 

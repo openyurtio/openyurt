@@ -75,7 +75,7 @@ func TestValidateCreate(t *testing.T) {
 	handler := &NodePoolHandler{}
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			err := handler.ValidateCreate(context.TODO(), tc.pool)
+			_, err := handler.ValidateCreate(context.TODO(), tc.pool)
 			if tc.errcode == 0 && err != nil {
 				t.Errorf("Expected error code %d, got %v", tc.errcode, err)
 			} else if tc.errcode != 0 {
@@ -166,7 +166,7 @@ func TestValidateUpdate(t *testing.T) {
 	handler := &NodePoolHandler{}
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			err := handler.ValidateUpdate(context.TODO(), tc.oldPool, tc.newPool)
+			_, err := handler.ValidateUpdate(context.TODO(), tc.oldPool, tc.newPool)
 			if tc.errcode == 0 && err != nil {
 				t.Errorf("Expected error code %d, got %v", tc.errcode, err)
 			} else if tc.errcode != 0 {
@@ -271,7 +271,7 @@ func TestValidateDelete(t *testing.T) {
 	}
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			err := handler.ValidateDelete(context.TODO(), tc.pool)
+			_, err := handler.ValidateDelete(context.TODO(), tc.pool)
 			if tc.errcode == 0 && err != nil {
 				t.Errorf("Expected error code %d, got %v", tc.errcode, err)
 			} else if tc.errcode != 0 {

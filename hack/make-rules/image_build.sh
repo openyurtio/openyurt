@@ -36,7 +36,7 @@ IMAGE_REPO=${IMAGE_REPO:-"openyurt"}
 IMAGE_TAG=${IMAGE_TAG:-$(get_image_tag)}
 DOCKER_BUILD_ARGS=""
 DOCKER_EXTRA_ENVS=""
-BUILD_BASE_IMAGE="golang:1.18"
+BUILD_BASE_IMAGE="golang:1.20"
 BUILD_GOPROXY=$(go env GOPROXY)
 GOPROXY_CN="https://goproxy.cn"
 APKREPO_MIRROR_CN="mirrors.aliyun.com"
@@ -79,9 +79,8 @@ docker run \
     --env GOARCH=${TARGETARCH} \
     --env GOCACHE=/tmp/ \
     ${DOCKER_EXTRA_ENVS} \
-    --user $(id -u ${USER}):$(id -g ${USER}) \
     ${BUILD_BASE_IMAGE} \
-    ./hack/make-rules/build.sh ${targets[@]}
+    /bin/bash -c "git config --global --add safe.directory /build && ./hack/make-rules/build.sh ${targets[@]}"
 
 # build images
 for image in ${targets[@]}; do

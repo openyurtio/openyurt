@@ -30,11 +30,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var _ inject.Injector = &Controller{}
 
 // Controller implements controller.Controller.
 type Controller struct {
@@ -49,10 +46,6 @@ type Controller struct {
 	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
 	// the Queue for processing
 	Queue workqueue.RateLimitingInterface
-
-	// SetFields is used to inject dependencies into other objects such as Sources, EventHandlers and Predicates
-	// Deprecated: the caller should handle injected fields itself.
-	SetFields func(i interface{}) error
 
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
@@ -75,7 +68,10 @@ type Controller struct {
 	startWatches []watchDescription
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	RecoverPanic bool
+	RecoverPanic *bool
+
+	// LeaderElected indicates whether the controller is leader elected or always running.
+	LeaderElected *bool
 }
 
 // watchDescription contains all the information necessary to start a watch.
@@ -89,20 +85,6 @@ type watchDescription struct {
 func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prct ...predicate.Predicate) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// Inject Cache into arguments
-	if err := c.SetFields(src); err != nil {
-		return err
-	}
-	if err := c.SetFields(evthdler); err != nil {
-		return err
-	}
-	for _, pr := range prct {
-		if err := c.SetFields(pr); err != nil {
-			return err
-		}
-	}
-
 	// Controller hasn't started yet, store the watches locally and return.
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
@@ -113,6 +95,14 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 
 	klog.V(2).InfoS("Starting EventSource", "source", src)
 	return src.Start(c.ctx, evthdler, c.Queue, prct...)
+}
+
+// NeedLeaderElection implements the manager.LeaderElectionRunnable interface.
+func (c *Controller) NeedLeaderElection() bool {
+	if c.LeaderElected == nil {
+		return true
+	}
+	return *c.LeaderElected
 }
 
 // Start implements controller.Controller.
@@ -197,14 +187,8 @@ func (c *Controller) Start(ctx context.Context) error {
 	return nil
 }
 
-// InjectFunc implement SetFields.Injector.
-func (c *Controller) InjectFunc(f inject.Func) error {
-	c.SetFields = f
-	return nil
-}
-
 func (c *Controller) WaitForStarted(ctx context.Context) bool {
-	err := wait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, 200*time.Millisecond, true, func(ctx context.Context) (bool, error) {
 		c.mu.Lock()
 		started := c.Started
 		c.mu.Unlock()
@@ -212,7 +196,7 @@ func (c *Controller) WaitForStarted(ctx context.Context) bool {
 			return false, nil
 		}
 		return true, nil
-	}, ctx.Done())
+	})
 	if err != nil {
 		klog.V(2).InfoS("could not start %s controller , %v", c.Name, err)
 		return false

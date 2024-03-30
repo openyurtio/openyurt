@@ -17,6 +17,7 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -111,14 +112,14 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 	agentCertMgr.Start()
 
 	// 2.1. waiting for the certificate is generated
-	_ = wait.PollUntil(5*time.Second, func() (bool, error) {
+	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		if agentCertMgr.Current() != nil {
 			return true, nil
 		}
 		klog.Infof("certificate %s not signed, waiting...",
 			projectinfo.GetAgentName())
 		return false, nil
-	}, stopCh)
+	})
 	klog.Infof("certificate %s ok", projectinfo.GetAgentName())
 
 	// 3. generate a TLS configuration for securing the connection to server

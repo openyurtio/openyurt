@@ -194,7 +194,10 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Client: c,
 		}
 
+		// call Reconcile twice
 		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
+		assertErrNil(t, err)
+		_, err = rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
 		assertErrNil(t, err)
 
 		newSvc := &corev1.Service{}
@@ -250,7 +253,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, map[string]string{"lb-id": "lb34567"}, nil)
-		svc.Annotations["lb-id"] = "lb23456,lb34567"
+		svc.Annotations[aggregateKeyPrefix+"lb-id"] = "lb23456,lb34567"
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).
 			WithObjects(ps1).Build()
@@ -259,7 +262,10 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Client: c,
 		}
 
+		// call Reconcile twice
 		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
+		assertErrNil(t, err)
+		_, err = rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
 		assertErrNil(t, err)
 
 		newSvc := &corev1.Service{}
@@ -288,7 +294,10 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Client: c,
 		}
 
+		// call Reconcile twice
 		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
+		assertErrNil(t, err)
+		_, err = rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
 		assertErrNil(t, err)
 
 		newSvc := &corev1.Service{}
@@ -775,9 +784,10 @@ func newNodepool(name string, labelStr string) *v1beta1.NodePool {
 			APIVersion: "apps.openyurt.io/v1beta1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Labels: labels,
-			Name:   name,
-			UID:    mockNodePoolUid,
+			Labels:     labels,
+			Name:       name,
+			UID:        mockNodePoolUid,
+			Finalizers: []string{"openyurt.io/nodepool"},
 		},
 	}
 }

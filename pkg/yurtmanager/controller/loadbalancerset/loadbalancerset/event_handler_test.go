@@ -17,6 +17,7 @@ limitations under the License.
 package loadbalancerset
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,9 +36,9 @@ func TestPoolServiceEventHandler(t *testing.T) {
 	f := NewPoolServiceEventHandler()
 	t.Run("create pool service", func(t *testing.T) {
 		ps := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Create(event.CreateEvent{
+		f.Create(context.Background(), event.CreateEvent{
 			Object: ps,
 		}, q)
 
@@ -47,9 +48,9 @@ func TestPoolServiceEventHandler(t *testing.T) {
 	t.Run("create pool service not service name", func(t *testing.T) {
 		ps := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
 		delete(ps.Labels, network.LabelServiceName)
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Create(event.CreateEvent{
+		f.Create(context.Background(), event.CreateEvent{
 			Object: ps,
 		}, q)
 		assertAndDoneQueue(t, q, []string{})
@@ -59,9 +60,9 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		oldPs := newPoolServiceWithServiceNameAndNodepoolName("mock1", "np123")
 		newPs := newPoolServiceWithServiceNameAndNodepoolName("mock2", "np123")
 
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Update(event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
+		f.Update(context.Background(), event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
 
 		assertAndDoneQueue(t, q, []string{
 			v1.NamespaceDefault + "/" + "mock1",
@@ -74,9 +75,9 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		newPs := newPoolServiceWithServiceNameAndNodepoolName("mock1", "np123")
 		delete(newPs.Labels, network.LabelServiceName)
 
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Update(event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
+		f.Update(context.Background(), event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
 
 		assertAndDoneQueue(t, q, []string{v1.NamespaceDefault + "/" + "mock1"})
 	})
@@ -86,9 +87,9 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		newPs := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
 		newPs.Annotations = map[string]string{"test": "app"}
 
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Update(event.UpdateEvent{
+		f.Update(context.Background(), event.UpdateEvent{
 			ObjectOld: oldPs,
 			ObjectNew: newPs,
 		}, q)
@@ -150,12 +151,12 @@ func TestNodePoolEventHandler(t *testing.T) {
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc1).WithObjects(svc2).Build()
 		f := NewNodePoolEventHandler(c)
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Create(event.CreateEvent{Object: np}, q)
+		f.Create(context.Background(), event.CreateEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{v1.NamespaceDefault + "/" + mockServiceName})
 
-		f.Update(event.UpdateEvent{ObjectOld: np, ObjectNew: np}, q)
+		f.Update(context.Background(), event.UpdateEvent{ObjectOld: np, ObjectNew: np}, q)
 		assertAndDoneQueue(t, q, []string{v1.NamespaceDefault + "/" + mockServiceName})
 	})
 
@@ -169,16 +170,16 @@ func TestNodePoolEventHandler(t *testing.T) {
 		f := NewNodePoolEventHandler(c)
 
 		np := newNodepool("np123", "name=np123,app=deploy")
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Delete(event.DeleteEvent{Object: np}, q)
+		f.Delete(context.Background(), event.DeleteEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{
 			v1.NamespaceDefault + "/" + "mock1",
 			v1.NamespaceDefault + "/" + "mock2",
 			v1.NamespaceDefault + "/" + "mock3",
 		})
 
-		f.Generic(event.GenericEvent{Object: np}, q)
+		f.Generic(context.Background(), event.GenericEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{
 			v1.NamespaceDefault + "/" + "mock1",
 			v1.NamespaceDefault + "/" + "mock2",
@@ -193,18 +194,18 @@ func TestNodePoolEventHandler(t *testing.T) {
 		f := NewNodePoolEventHandler(c)
 
 		np := newNodepool("np234", "name=np234,app=deploy")
-		q := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pool_services")
+		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
 
-		f.Create(event.CreateEvent{Object: np}, q)
+		f.Create(context.Background(), event.CreateEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{})
 
-		f.Update(event.UpdateEvent{ObjectOld: np, ObjectNew: np}, q)
+		f.Update(context.Background(), event.UpdateEvent{ObjectOld: np, ObjectNew: np}, q)
 		assertAndDoneQueue(t, q, []string{})
 
-		f.Delete(event.DeleteEvent{Object: np}, q)
+		f.Delete(context.Background(), event.DeleteEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{})
 
-		f.Generic(event.GenericEvent{Object: np}, q)
+		f.Generic(context.Background(), event.GenericEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{})
 	})
 

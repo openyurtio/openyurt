@@ -28,7 +28,6 @@ import (
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -204,7 +203,15 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new YurtCoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	r := &ReconcileYurtCoordinatorCert{}
+	kubeClient, err := client.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		klog.Errorf("could not create kube client, %v", err)
+		return err
+	}
+
+	r := &ReconcileYurtCoordinatorCert{
+		kubeClient: kubeClient,
+	}
 
 	// Create a new controller
 	c, err := controller.New(names.YurtCoordinatorCertController, mgr, controller.Options{
@@ -264,7 +271,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	return c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}, svcReadyPredicates)
+	return c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &handler.EnqueueRequestForObject{}, svcReadyPredicates)
 }
 
 func isYurtCoordinatorSvc(svc *corev1.Service) bool {
@@ -287,17 +294,6 @@ type ReconcileYurtCoordinatorCert struct {
 	caCert     *x509.Certificate
 	caKey      crypto.Signer
 	reuseCA    bool
-}
-
-// InjectConfig will prepare kube client for YurtCoordinatorCert
-func (r *ReconcileYurtCoordinatorCert) InjectConfig(cfg *rest.Config) error {
-	kubeClient, err := client.NewForConfig(cfg)
-	if err != nil {
-		klog.Errorf("could not create kube client, %v", err)
-		return err
-	}
-	r.kubeClient = kubeClient
-	return nil
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create

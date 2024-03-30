@@ -76,5 +76,5 @@ func (c *Config) Complete() *CompletedConfig {
 }
 
 func (c *Config) IsIPv6() bool {
-	return c.IPFamily == iptables.ProtocolIpv6
+	return c.IPFamily == iptables.ProtocolIPv6
 }

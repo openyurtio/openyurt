@@ -26,47 +26,44 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *GatewayHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	gw, ok := obj.(*v1beta1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
 	}
 
 	return validate(gw)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newGw, ok := newObj.(*v1beta1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", newObj))
 	}
 	oldGw, ok := oldObj.(*v1beta1.Gateway)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway} but got a %T", oldObj))
 	}
 
 	if newGw.GetName() != oldGw.GetName() {
-		return apierrors.NewBadRequest(fmt.Sprintf("gateway name can not change"))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("gateway name can not change"))
 	}
-	if err := validate(newGw); err != nil {
-		return err
-	}
-
-	return nil
+	return validate(newGw)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	return nil
+func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
-func validate(g *v1beta1.Gateway) error {
+func validate(g *v1beta1.Gateway) (admission.Warnings, error) {
 	var errList field.ErrorList
 
 	if g.Spec.ExposeType != "" {
@@ -129,14 +126,14 @@ func validate(g *v1beta1.Gateway) error {
 	}
 
 	if errList != nil {
-		return apierrors.NewInvalid(
+		return nil, apierrors.NewInvalid(
 			schema.GroupKind{Group: v1beta1.SchemeGroupVersion.Group, Kind: g.Kind},
 			g.Name, errList)
 	}
 
 	klog.Infof("Validate Gateway %s successfully ...", klog.KObj(g))
 
-	return nil
+	return nil, nil
 }
 
 func validateIP(ip string) error {

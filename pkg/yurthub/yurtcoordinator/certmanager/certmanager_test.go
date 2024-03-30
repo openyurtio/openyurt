@@ -17,6 +17,7 @@ limitations under the License.
 package certmanager
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -236,7 +237,7 @@ func TestSecretAdd(t *testing.T) {
 
 		// Expect to timeout which indicates the CertManager does not save the cert
 		// that is not yurt-coordinator-yurthub-certs.
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if certMgr.secret != nil {
 				return false, fmt.Errorf("unexpect cert initialization")
 			}
@@ -250,7 +251,7 @@ func TestSecretAdd(t *testing.T) {
 			return false, nil
 		})
 
-		if err != wait.ErrWaitTimeout {
+		if !wait.Interrupted(err) {
 			t.Errorf("CertManager should not react for add event of secret that is not yurt-coordinator-yurthub-certs, %v", err)
 		}
 
@@ -270,7 +271,7 @@ func TestSecretAdd(t *testing.T) {
 			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
@@ -328,7 +329,7 @@ func TestSecretUpdate(t *testing.T) {
 			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
-		err = wait.Poll(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
@@ -375,7 +376,7 @@ func TestSecretUpdate(t *testing.T) {
 			t.Errorf("failed to update secret, %v", err)
 		}
 
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if pass, err := checkSecret(certMgr, newSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
@@ -421,7 +422,7 @@ func TestSecretUpdate(t *testing.T) {
 			t.Errorf("failed to update secret, %v", err)
 		}
 
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if pass, err := checkSecret(certMgr, newSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
@@ -483,7 +484,7 @@ func TestSecretDelete(t *testing.T) {
 			t.Errorf("failed to add secret %s, %v", yurtCoordinatorSecret.Name, err)
 		}
 
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if pass, err := checkSecret(certMgr, yurtCoordinatorSecret, []expectFile{
 				{
 					FilePath: certMgr.GetFilePath(RootCA),
@@ -526,7 +527,7 @@ func TestSecretDelete(t *testing.T) {
 			t.Errorf("failed to delete secret, %v", err)
 		}
 
-		err = wait.PollImmediate(50*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if certMgr.GetAPIServerClientCert() != nil {
 				return false, nil
 			}

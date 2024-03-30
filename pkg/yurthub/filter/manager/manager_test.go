@@ -56,7 +56,7 @@ func TestFindResponseFilter(t *testing.T) {
 		path                    string
 		mgrIsNil                bool
 		isFound                 bool
-		names                   sets.String
+		names                   sets.Set[string]
 	}{
 		"disable resource filter": {
 			enableResourceFilter: false,
@@ -69,7 +69,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                 "GET",
 			path:                 "/api/v1/services",
 			isFound:              true,
-			names:                sets.NewString("masterservice"),
+			names:                sets.New("masterservice"),
 		},
 		"get discard cloud service and node port isolation filter": {
 			enableResourceFilter: true,
@@ -78,7 +78,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                 "GET",
 			path:                 "/api/v1/services",
 			isFound:              true,
-			names:                sets.NewString("discardcloudservice", "nodeportisolation"),
+			names:                sets.New("discardcloudservice", "nodeportisolation"),
 		},
 		"get service topology filter": {
 			enableResourceFilter: true,
@@ -87,7 +87,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                 "GET",
 			path:                 "/api/v1/endpoints",
 			isFound:              true,
-			names:                sets.NewString("servicetopology"),
+			names:                sets.New("servicetopology"),
 		},
 		"disable service topology filter": {
 			enableResourceFilter:    true,
@@ -105,7 +105,7 @@ func TestFindResponseFilter(t *testing.T) {
 			verb:                 "GET",
 			path:                 "/api/v1/services",
 			isFound:              true,
-			names:                sets.NewString("nodeportisolation"),
+			names:                sets.New("nodeportisolation"),
 		},
 	}
 
@@ -163,8 +163,8 @@ func TestFindResponseFilter(t *testing.T) {
 			}
 
 			names := strings.Split(responseFilter.Name(), ",")
-			if !tt.names.Equal(sets.NewString(names...)) {
-				t.Errorf("expect filter names %v, but got %v", tt.names.List(), names)
+			if !tt.names.Equal(sets.New(names...)) {
+				t.Errorf("expect filter names %v, but got %v", sets.List(tt.names), names)
 			}
 		})
 	}

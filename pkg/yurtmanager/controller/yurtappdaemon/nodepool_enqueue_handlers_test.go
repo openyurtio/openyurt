@@ -17,6 +17,7 @@ limitations under the License.
 package yurtappdaemon
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -109,7 +110,7 @@ func TestCreate(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				ep.Create(st.event, st.limitingInterface)
+				ep.Create(context.Background(), st.event, st.limitingInterface)
 				get := st.expect
 				if get != st.expect {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)
@@ -171,7 +172,7 @@ func TestUpdate(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				ep.Update(st.event, st.limitingInterface)
+				ep.Update(context.Background(), st.event, st.limitingInterface)
 				get := st.expect
 				if get != st.expect {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)
@@ -225,7 +226,7 @@ func TestDelete(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				ep.Delete(st.event, st.limitingInterface)
+				ep.Delete(context.Background(), st.event, st.limitingInterface)
 				get := st.expect
 				if get != st.expect {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)
@@ -278,7 +279,7 @@ func TestGeneric(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", st.name)
 			{
-				ep.Generic(st.event, st.limitingInterface)
+				ep.Generic(context.Background(), st.event, st.limitingInterface)
 				get := st.expect
 				if get != st.expect {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, st.expect, get)

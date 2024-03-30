@@ -93,13 +93,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Gateway
-	err = c.Watch(&source.Kind{Type: &ravenv1beta1.Gateway{}}, &EnqueueRequestForGatewayEvent{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &ravenv1beta1.Gateway{}), &EnqueueRequestForGatewayEvent{})
 	if err != nil {
 		return err
 	}
 
 	//Watch for changes to raven agent
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &EnqueueRequestForConfigEvent{}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueRequestForConfigEvent{}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {
@@ -383,7 +383,7 @@ func (r *ReconcileService) ensureSpecEndpoints(ctx context.Context, gateways []*
 
 func (r *ReconcileService) waitElectEndpoints(ctx context.Context, gwName string) (*ravenv1beta1.Gateway, error) {
 	var gw ravenv1beta1.Gateway
-	err := wait.PollImmediate(time.Second*5, time.Minute, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second*5, time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		err = r.Get(ctx, types.NamespacedName{Name: gwName}, &gw)
 		if err != nil {
 			return false, err

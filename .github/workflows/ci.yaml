@@ -9,7 +9,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  GO_VERSION: 1.18
+  GO_VERSION: '1.20'
+  GOLANGCI_VERSION: 'v1.55.2'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
   # a step 'if env.AWS_USR' != ""', so we copy these to succinctly test whether
@@ -18,7 +19,6 @@ env:
   AWS_USR: ${{ secrets.AWS_USR }}
 
 jobs:
-
   verify:
     runs-on: ubuntu-22.04
     steps:
@@ -42,11 +42,12 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Lint golang code
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6.0.1
         with:
-          version: v1.54
-          args: -v
+          version: ${{ env.GOLANGCI_VERSION }}
+          args: --verbose
           skip-cache: true
+          mode: readonly
 
   markdownlint-misspell-shellcheck:
     runs-on: ubuntu-22.04
@@ -120,8 +121,8 @@ jobs:
 #          restore-keys: ${{ runner.os }}-go-
       - name: Install Required Commands
         run: |
-          go get sigs.k8s.io/kind@v0.12.0
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.22.3/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go install sigs.k8s.io/kind@v0.22.0
+          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.28.7/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind

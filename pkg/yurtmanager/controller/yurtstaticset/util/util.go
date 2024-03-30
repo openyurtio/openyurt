@@ -128,7 +128,7 @@ func SetPodUpgradeCondition(c client.Client, status corev1.ConditionStatus, pod 
 		Status: status,
 	}
 	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
-		if err := c.Status().Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
+		if err := c.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
 	}

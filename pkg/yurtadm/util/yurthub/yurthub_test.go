@@ -283,7 +283,7 @@ func (j *testData) NodeRegistration() *joindata.NodeRegistration {
 	return j.joinNodeData
 }
 
-func (j *testData) IgnorePreflightErrors() sets.String {
+func (j *testData) IgnorePreflightErrors() sets.Set[string] {
 	return nil
 }
 

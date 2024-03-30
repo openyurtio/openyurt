@@ -139,7 +139,7 @@ func (w *Writer) Write(payload map[string]FileProjection) error {
 	}
 	oldTsPath := path.Join(w.targetDir, oldTsDir)
 
-	var pathsToRemove sets.String
+	var pathsToRemove sets.Set[string]
 	// if there was no old version, there's nothing to remove
 	if len(oldTsDir) != 0 {
 		// (3)
@@ -310,8 +310,8 @@ func shouldWriteFile(path string, content []byte) (bool, error) {
 // pathsToRemove walks the current version of the data directory and
 // determines which paths should be removed (if any) after the payload is
 // written to the target directory.
-func (w *Writer) pathsToRemove(payload map[string]FileProjection, oldTsDir string) (sets.String, error) {
-	paths := sets.NewString()
+func (w *Writer) pathsToRemove(payload map[string]FileProjection, oldTsDir string) (sets.Set[string], error) {
+	paths := sets.Set[string]{}
 	visitor := func(path string, info os.FileInfo, err error) error {
 		relativePath := strings.TrimPrefix(path, oldTsDir)
 		relativePath = strings.TrimPrefix(relativePath, string(os.PathSeparator))
@@ -330,7 +330,7 @@ func (w *Writer) pathsToRemove(payload map[string]FileProjection, oldTsDir strin
 		return nil, err
 	}
 
-	newPaths := sets.NewString()
+	newPaths := sets.Set[string]{}
 	for file := range payload {
 		// add all subpaths for the payload to the set of new paths
 		// to avoid attempting to remove non-empty dirs
@@ -436,7 +436,7 @@ func (w *Writer) createUserVisibleFiles(payload map[string]FileProjection) error
 
 // removeUserVisiblePaths removes the set of paths from the user-visible
 // portion of the writer's target directory.
-func (w *Writer) removeUserVisiblePaths(paths sets.String) error {
+func (w *Writer) removeUserVisiblePaths(paths sets.Set[string]) error {
 	ps := string(os.PathSeparator)
 	var lasterr error
 	for p := range paths {

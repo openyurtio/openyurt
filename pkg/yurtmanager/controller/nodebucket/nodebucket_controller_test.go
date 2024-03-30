@@ -49,7 +49,7 @@ func TestReconcile(t *testing.T) {
 		nodeBuckets           []client.Object
 		pool                  client.Object
 		wantedNumberOfBuckets int
-		wantedNodeNames       sets.String
+		wantedNodeNames       sets.Set[string]
 	}{
 		"generate one bucket": {
 			maxNodesPerBucket: 10,
@@ -77,7 +77,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 1,
-			wantedNodeNames:       sets.NewString("node1", "node2"),
+			wantedNodeNames:       sets.New("node1", "node2"),
 		},
 		"generate two buckets": {
 			maxNodesPerBucket: 2,
@@ -129,7 +129,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 2,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node5"),
 		},
 		"update one bucket": {
 			maxNodesPerBucket: 10,
@@ -199,7 +199,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 1,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node5"),
 		},
 		"update two buckets": {
 			maxNodesPerBucket: 2,
@@ -285,7 +285,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 2,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node5"),
 		},
 		"create and update one bucket": {
 			maxNodesPerBucket: 2,
@@ -355,7 +355,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 2,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node5"),
 		},
 		"delete and update one bucket": {
 			maxNodesPerBucket: 2,
@@ -414,7 +414,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 1,
-			wantedNodeNames:       sets.NewString("node1", "node2"),
+			wantedNodeNames:       sets.New("node1", "node2"),
 		},
 		"update three buckets": {
 			maxNodesPerBucket: 2,
@@ -497,7 +497,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 3,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node4", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node4", "node5"),
 		},
 		"two buckets are updated": {
 			maxNodesPerBucket: 2,
@@ -583,7 +583,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			wantedNumberOfBuckets: 3,
-			wantedNodeNames:       sets.NewString("node1", "node2", "node3", "node4", "node5"),
+			wantedNodeNames:       sets.New("node1", "node2", "node3", "node4", "node5"),
 		},
 	}
 
@@ -620,7 +620,7 @@ func TestReconcile(t *testing.T) {
 				t.Errorf("expect %d buckets, but got %d", tc.wantedNumberOfBuckets, len(buckets.Items))
 			}
 
-			gotBucketNodes := sets.String{}
+			gotBucketNodes := sets.Set[string]{}
 			for i := range buckets.Items {
 				for _, node := range buckets.Items[i].Nodes {
 					gotBucketNodes.Insert(node.Name)

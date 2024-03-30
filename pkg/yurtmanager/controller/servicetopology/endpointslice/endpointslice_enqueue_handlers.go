@@ -17,6 +17,8 @@ limitations under the License.
 package endpointslice
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -34,12 +36,12 @@ type EnqueueEndpointsliceForService struct {
 }
 
 // Create implements EventHandler
-func (e *EnqueueEndpointsliceForService) Create(evt event.CreateEvent,
+func (e *EnqueueEndpointsliceForService) Create(ctx context.Context, evt event.CreateEvent,
 	q workqueue.RateLimitingInterface) {
 }
 
 // Update implements EventHandler
-func (e *EnqueueEndpointsliceForService) Update(evt event.UpdateEvent,
+func (e *EnqueueEndpointsliceForService) Update(ctx context.Context, evt event.UpdateEvent,
 	q workqueue.RateLimitingInterface) {
 	oldSvc, ok := evt.ObjectOld.(*corev1.Service)
 	if !ok {
@@ -59,12 +61,12 @@ func (e *EnqueueEndpointsliceForService) Update(evt event.UpdateEvent,
 }
 
 // Delete implements EventHandler
-func (e *EnqueueEndpointsliceForService) Delete(evt event.DeleteEvent,
+func (e *EnqueueEndpointsliceForService) Delete(ctx context.Context, evt event.DeleteEvent,
 	q workqueue.RateLimitingInterface) {
 }
 
 // Generic implements EventHandler
-func (e *EnqueueEndpointsliceForService) Generic(evt event.GenericEvent,
+func (e *EnqueueEndpointsliceForService) Generic(ctx context.Context, evt event.GenericEvent,
 	q workqueue.RateLimitingInterface) {
 }
 

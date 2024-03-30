@@ -106,18 +106,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to Gateway
-	err = c.Watch(&source.Kind{Type: &ravenv1beta1.Gateway{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &ravenv1beta1.Gateway{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to Nodes
-	err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &EnqueueGatewayForNode{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueGatewayForNode{})
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &EnqueueGatewayForRavenConfig{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueGatewayForRavenConfig{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {

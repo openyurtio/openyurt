@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	"github.com/openyurtio/openyurt/test/e2e/util"
@@ -113,7 +114,7 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 	AfterEach(func() {
 		By("Cleanup resources after test")
 		By(fmt.Sprintf("Delete the entire namespace named %s", namespaceName))
-		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}})).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
+		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationForeground))).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 	})
 
 	for _, testVersion := range testVersions {

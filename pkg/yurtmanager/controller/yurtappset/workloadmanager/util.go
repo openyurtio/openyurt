@@ -63,14 +63,14 @@ func NewLabelSelectorForYurtAppSet(yas *v1beta1.YurtAppSet) (*metav1.LabelSelect
 
 // Get selecetd NodePools from YurtAppSet
 // return sets for deduplication of NodePools
-func GetNodePoolsFromYurtAppSet(cli client.Client, yas *v1beta1.YurtAppSet) (npNames sets.String, err error) {
+func GetNodePoolsFromYurtAppSet(cli client.Client, yas *v1beta1.YurtAppSet) (npNames sets.Set[string], err error) {
 	return getSelectedNodepools(cli, yas.Spec.Pools, yas.Spec.NodePoolSelector)
 }
 
 // Get NodePools selected by pools and npSelector
 // If specified pool does not exist, it will skip
-func getSelectedNodepools(cli client.Client, pools []string, npSelector *metav1.LabelSelector) (selectedNps sets.String, err error) {
-	selectedNps = sets.NewString()
+func getSelectedNodepools(cli client.Client, pools []string, npSelector *metav1.LabelSelector) (selectedNps sets.Set[string], err error) {
+	selectedNps = sets.New[string]()
 
 	// get all nodepools
 	allNps := v1beta1.NodePoolList{}

@@ -36,7 +36,7 @@ func (webhook *YurtAppSetHandler) Default(ctx context.Context, obj runtime.Objec
 	}
 
 	if set.Spec.RevisionHistoryLimit == nil {
-		set.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
+		set.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
 		klog.V(4).Info("defaulting YurtAppSet.Spec.RevisionHistoryLimit to 10")
 	}
 

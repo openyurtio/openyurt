@@ -42,8 +42,8 @@ func (noh *nopObjectHandler) Name() string {
 	return noh.name
 }
 
-func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{}
+func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{}
 }
 
 func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
@@ -87,45 +87,45 @@ func TestNewFromFilters(t *testing.T) {
 		inputFilters     []string
 		disabledFilters  []string
 		initializer      filter.Initializer
-		generatedFilters sets.String
+		generatedFilters sets.Set[string]
 		expectedErr      bool
 	}{
 		"disable master service filter": {
 			inputFilters:     allFilters,
 			disabledFilters:  []string{"masterservice"},
-			generatedFilters: sets.NewString(allFilters...).Delete("masterservice"),
+			generatedFilters: sets.New(allFilters...).Delete("masterservice"),
 		},
 		"disable service topology filter": {
 			inputFilters:     allFilters,
 			disabledFilters:  []string{"servicetopology"},
-			generatedFilters: sets.NewString(allFilters...).Delete("servicetopology"),
+			generatedFilters: sets.New(allFilters...).Delete("servicetopology"),
 		},
 		"disable discard cloud service filter": {
 			inputFilters:     allFilters,
 			disabledFilters:  []string{"discardcloudservice"},
-			generatedFilters: sets.NewString(allFilters...).Delete("discardcloudservice"),
+			generatedFilters: sets.New(allFilters...).Delete("discardcloudservice"),
 		},
 		"disable all filters": {
 			inputFilters:     allFilters,
 			disabledFilters:  []string{"*"},
-			generatedFilters: sets.NewString(),
+			generatedFilters: sets.New[string](),
 		},
 		"register duplicated filters": {
 			inputFilters:     append(allFilters, "servicetopology"),
 			disabledFilters:  []string{},
-			generatedFilters: sets.NewString(allFilters...),
+			generatedFilters: sets.New(allFilters...),
 		},
 		"a invalid filter": {
 			inputFilters:     append(allFilters, "invalidFilter"),
 			disabledFilters:  []string{},
-			generatedFilters: sets.NewString(),
+			generatedFilters: sets.New[string](),
 			expectedErr:      true,
 		},
 		"initialize error": {
 			inputFilters:     allFilters,
 			disabledFilters:  []string{},
 			initializer:      &errInitializer{},
-			generatedFilters: sets.NewString(),
+			generatedFilters: sets.New[string](),
 			expectedErr:      true,
 		},
 	}
@@ -158,7 +158,7 @@ func TestNewFromFilters(t *testing.T) {
 				return
 			}
 
-			gotRunners := sets.NewString()
+			gotRunners := sets.New[string]()
 			for i := range runners {
 				gotRunners.Insert(runners[i].Name())
 			}

@@ -17,6 +17,7 @@ limitations under the License.
 package dns
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,7 +68,7 @@ func TestEnqueueRequestFoServiceEvent(t *testing.T) {
 			queue.Done(item)
 		}
 	}
-	h.Create(event.CreateEvent{Object: svc}, queue)
+	h.Create(context.Background(), event.CreateEvent{Object: svc}, queue)
 	if !assert.Equal(t, 1, queue.Len()) {
 		t.Errorf("failed to update service, expected %d, but get %d", 1, queue.Len())
 	}
@@ -76,7 +77,7 @@ func TestEnqueueRequestFoServiceEvent(t *testing.T) {
 	deletedSvc := svc.DeepCopy()
 	time := metav1.Now()
 	deletedSvc.DeletionTimestamp = &time
-	h.Delete(event.DeleteEvent{Object: deletedSvc}, queue)
+	h.Delete(context.Background(), event.DeleteEvent{Object: deletedSvc}, queue)
 	if !assert.Equal(t, 1, queue.Len()) {
 		t.Errorf("failed to update service, expected %d, but get %d", 1, queue.Len())
 	}
@@ -84,7 +85,7 @@ func TestEnqueueRequestFoServiceEvent(t *testing.T) {
 
 	newSvc := svc.DeepCopy()
 	newSvc.Spec.ClusterIP = "0.0.0.0"
-	h.Update(event.UpdateEvent{ObjectOld: svc, ObjectNew: newSvc}, queue)
+	h.Update(context.Background(), event.UpdateEvent{ObjectOld: svc, ObjectNew: newSvc}, queue)
 	if !assert.Equal(t, 1, queue.Len()) {
 		t.Errorf("failed to update service, expected %d, but get %d", 1, queue.Len())
 	}
@@ -101,7 +102,7 @@ func TestEnqueueRequestForNodeEvent(t *testing.T) {
 			queue.Done(item)
 		}
 	}
-	h.Create(event.CreateEvent{Object: node}, queue)
+	h.Create(context.Background(), event.CreateEvent{Object: node}, queue)
 	if !assert.Equal(t, 1, queue.Len()) {
 		t.Errorf("failed to create node, expected %d, but get %d", 1, queue.Len())
 	}
@@ -110,7 +111,7 @@ func TestEnqueueRequestForNodeEvent(t *testing.T) {
 	time := metav1.Now()
 	deletedNode := node.DeepCopy()
 	deletedNode.DeletionTimestamp = &time
-	h.Delete(event.DeleteEvent{Object: deletedNode}, queue)
+	h.Delete(context.Background(), event.DeleteEvent{Object: deletedNode}, queue)
 	if !assert.Equal(t, 1, queue.Len()) {
 		t.Errorf("failed to create node, expected %d, but get %d", 1, queue.Len())
 	}

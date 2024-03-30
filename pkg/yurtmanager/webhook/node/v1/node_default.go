@@ -24,7 +24,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -32,7 +31,7 @@ import (
 )
 
 // Default satisfies the defaulting webhook interface.
-func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object, req admission.Request) error {
+func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object) error {
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", obj))

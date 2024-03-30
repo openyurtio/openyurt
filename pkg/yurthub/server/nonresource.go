@@ -95,7 +95,7 @@ func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.Storag
 		}
 
 		result := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO())
-		code := pointer.IntPtr(0)
+		code := pointer.Int(0)
 		result.StatusCode(code)
 		if result.Error() != nil {
 			err := result.Error()

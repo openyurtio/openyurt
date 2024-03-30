@@ -28,10 +28,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
@@ -152,7 +150,7 @@ func TestReconcile(t *testing.T) {
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatal("Fail to add kubernetes clint-go custom resource")
 	}
-	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pods...).WithObjects(nodes...).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pods...).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer).WithObjects(nodes...).Build()
 
 	for i := range TestNodesName {
 		var req = reconcile.Request{NamespacedName: types.NamespacedName{Name: TestNodesName[i]}}
@@ -246,9 +244,20 @@ func TestConfigureTolerationForPod(t *testing.T) {
 	}
 }
 
+func podIndexer(rawObj client.Object) []string {
+	pod, ok := rawObj.(*corev1.Pod)
+	if !ok {
+		return []string{}
+	}
+	if len(pod.Spec.NodeName) == 0 {
+		return []string{}
+	}
+	return []string{pod.Spec.NodeName}
+}
+
 func TestGetPodsAssignedToNode(t *testing.T) {
 	pods := preparePods()
-	c := fakeclient.NewClientBuilder().WithObjects(pods...).Build()
+	c := fakeclient.NewClientBuilder().WithObjects(pods...).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer).Build()
 	tests := []struct {
 		name     string
 		nodeName string
@@ -259,10 +268,8 @@ func TestGetPodsAssignedToNode(t *testing.T) {
 			name:     "test1",
 			nodeName: "node1",
 			want: []corev1.Pod{
-				*pods[0].(*corev1.Pod),
 				*pods[1].(*corev1.Pod),
 				*pods[2].(*corev1.Pod),
-				*pods[3].(*corev1.Pod),
 			},
 			wantErr: false,
 		},
@@ -280,7 +287,7 @@ func TestGetPodsAssignedToNode(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPodsAssignedToNode() got = %v, want %v", got, tt.want)
+				t.Errorf("getPodsAssignedToNode() got = %v\n, want %v\n", got, tt.want)
 			}
 		})
 	}
@@ -401,29 +408,6 @@ func TestIsPodBoundenToNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := nodeutil.IsPodBoundenToNode(tt.node); got != tt.want {
 				t.Errorf("IsPodBoundenToNode() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_newReconciler(t *testing.T) {
-	tests := []struct {
-		name string
-		in0  *appconfig.CompletedConfig
-		mgr  manager.Manager
-		want reconcile.Reconciler
-	}{
-		{
-			name: "test1",
-			in0:  nil,
-			mgr:  nil,
-			want: &ReconcilePodBinding{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := newReconciler(tt.in0, tt.mgr); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newReconciler() = %v, want %v", got, tt.want)
 			}
 		})
 	}

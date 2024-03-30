@@ -146,7 +146,7 @@ func TestReconcile(t *testing.T) {
 	}
 	apis.AddToScheme(scheme)
 
-	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pools...).WithObjects(nodes...).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pools...).WithStatusSubresource(pools...).WithObjects(nodes...).Build()
 	testcases := map[string]struct {
 		EnableSyncNodePoolConfigurations bool
 		pool                             string

@@ -39,7 +39,7 @@ func TestGetPods(t *testing.T) {
 	dir := t.TempDir()
 	dStorage, err := disk.NewDiskStorage(dir)
 	if err != nil {
-		t.Errorf("failed to create disk storage, %v", err)
+		t.Errorf("couldn't to create disk storage, %v", err)
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 
@@ -58,11 +58,11 @@ func TestGetPods(t *testing.T) {
 			Name:      pod.Name,
 		})
 		if err != nil {
-			t.Errorf("failed to get key, %v", err)
+			t.Errorf("couldn't to get key, %v", err)
 		}
 		err = sWrapper.Create(key, pod)
 		if err != nil {
-			t.Errorf("failed to create obj, %v", err)
+			t.Errorf("cloudn't to create obj, %v", err)
 		}
 	}
 
@@ -126,7 +126,7 @@ func Test_preCheck(t *testing.T) {
 		assert.Equal(t, true, ok)
 	})
 
-	t.Run("Test_preCheckOKGetPodFailed", func(t *testing.T) {
+	t.Run("Test_preCheckCanNotGetPod", func(t *testing.T) {
 		_, ok := preCheck(clientset, metav1.NamespaceDefault, "nginx1", "node")
 		assert.Equal(t, false, ok)
 	})

@@ -17,6 +17,7 @@ limitations under the License.
 package nodepool
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,7 +64,7 @@ func TestCreate(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			handler := &EnqueueNodePoolForNode{}
 			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			handler.Create(tc.event, q)
+			handler.Create(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {
 				t.Errorf("Expected %d, got %d", tc.wantedNum, q.Len())
@@ -265,7 +266,7 @@ func TestUpdate(t *testing.T) {
 				Recorder:                         record.NewFakeRecorder(100),
 			}
 			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			handler.Update(tc.event, q)
+			handler.Update(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {
 				t.Errorf("Expected %d, got %d", tc.wantedNum, q.Len())
@@ -309,7 +310,7 @@ func TestDelete(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			handler := &EnqueueNodePoolForNode{}
 			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			handler.Delete(tc.event, q)
+			handler.Delete(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {
 				t.Errorf("Expected %d, got %d", tc.wantedNum, q.Len())

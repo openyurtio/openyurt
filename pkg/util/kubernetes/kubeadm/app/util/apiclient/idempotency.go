@@ -73,7 +73,7 @@ func CreateOrUpdateSecret(client clientset.Interface, secret *v1.Secret) error {
 // CreateOrUpdateRole creates a Role if the target resource doesn't exist. If the resource exists already, this function will update the resource instead.
 func CreateOrUpdateRole(client clientset.Interface, role *rbac.Role) error {
 	var lastError error
-	err := wait.PollImmediate(constants.APICallRetryInterval, constants.APICallWithWriteTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), constants.APICallRetryInterval, constants.APICallWithWriteTimeout, true, func(ctx context.Context) (bool, error) {
 		if _, err := client.RbacV1().Roles(role.ObjectMeta.Namespace).Create(context.TODO(), role, metav1.CreateOptions{}); err != nil {
 			if !apierrors.IsAlreadyExists(err) {
 				lastError = errors.Wrap(err, "unable to create RBAC role")
@@ -96,7 +96,7 @@ func CreateOrUpdateRole(client clientset.Interface, role *rbac.Role) error {
 // CreateOrUpdateRoleBinding creates a RoleBinding if the target resource doesn't exist. If the resource exists already, this function will update the resource instead.
 func CreateOrUpdateRoleBinding(client clientset.Interface, roleBinding *rbac.RoleBinding) error {
 	var lastError error
-	err := wait.PollImmediate(constants.APICallRetryInterval, constants.APICallWithWriteTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), constants.APICallRetryInterval, constants.APICallWithWriteTimeout, true, func(ctx context.Context) (bool, error) {
 		if _, err := client.RbacV1().RoleBindings(roleBinding.ObjectMeta.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{}); err != nil {
 			if !apierrors.IsAlreadyExists(err) {
 				lastError = errors.Wrap(err, "unable to create RBAC rolebinding")

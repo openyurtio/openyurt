@@ -33,7 +33,7 @@ import (
 type EnqueueGatewayForNode struct{}
 
 // Create implements EventHandler
-func (e *EnqueueGatewayForNode) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -49,7 +49,7 @@ func (e *EnqueueGatewayForNode) Create(evt event.CreateEvent, q workqueue.RateLi
 }
 
 // Update implements EventHandler
-func (e *EnqueueGatewayForNode) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
 		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
@@ -80,7 +80,7 @@ func (e *EnqueueGatewayForNode) Update(evt event.UpdateEvent, q workqueue.RateLi
 }
 
 // Delete implements EventHandler
-func (e *EnqueueGatewayForNode) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -99,14 +99,14 @@ func (e *EnqueueGatewayForNode) Delete(evt event.DeleteEvent, q workqueue.RateLi
 }
 
 // Generic implements EventHandler
-func (e *EnqueueGatewayForNode) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 }
 
 type EnqueueGatewayForRavenConfig struct {
 	client client.Client
 }
 
-func (e *EnqueueGatewayForRavenConfig) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -119,7 +119,7 @@ func (e *EnqueueGatewayForRavenConfig) Create(evt event.CreateEvent, q workqueue
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	oldCm, ok := evt.ObjectOld.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -149,7 +149,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(evt event.UpdateEvent, q workqueue
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -162,7 +162,7 @@ func (e *EnqueueGatewayForRavenConfig) Delete(evt event.DeleteEvent, q workqueue
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 
 }
 

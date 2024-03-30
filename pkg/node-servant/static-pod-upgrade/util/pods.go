@@ -18,7 +18,7 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"time"
@@ -65,7 +65,6 @@ func GetPodsFromYurtHub(url string) (*v1.PodList, error) {
 
 func getPodsDataFromYurtHub(url string) ([]byte, error) {
 	// avoid accessing conflict
-	rand.Seed(time.Now().UnixNano())
 	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
 
 	resp, err := http.Get(url)
@@ -78,7 +77,7 @@ func getPodsDataFromYurtHub(url string) ([]byte, error) {
 		return nil, fmt.Errorf("could not access yurthub pods API, returned status: %v", resp.Status)
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
