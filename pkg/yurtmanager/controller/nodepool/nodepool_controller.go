@@ -40,7 +40,6 @@ import (
 )
 
 var (
-	concurrentReconciles = 3
 	controllerResource   = appsv1beta1.SchemeGroupVersion.WithResource("nodepools")
 )
 
@@ -80,7 +79,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 
 	// Create a new controller
 	ctrl, err := controller.New(names.NodePoolController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.config.CompletedConfig.NodePoolControllerConfiguration.ConcurrentNodepools),
 	})
 	if err != nil {
 		return err
