@@ -76,10 +76,10 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 		cfg:      c.ComponentConfig.NodePoolController,
 		recorder: mgr.GetEventRecorderFor(names.NodePoolController),
 	}
-
+	// config.NodePoolControllerConfiguration
 	// Create a new controller
 	ctrl, err := controller.New(names.NodePoolController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: int(cfg.config.CompletedConfig.NodePoolControllerConfiguration.ConcurrentNodepools),
+		Reconciler: r, MaxConcurrentReconciles: int(c.ComponentConfig.NodePoolController.ConcurrentNodepools),
 	})
 	if err != nil {
 		return err
