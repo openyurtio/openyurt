@@ -30,7 +30,7 @@ func NewNodePoolControllerOptions() *NodePoolControllerOptions {
 	return &NodePoolControllerOptions{
 		&config.NodePoolControllerConfiguration{
 			EnableSyncNodePoolConfigurations: true,
-			ConcurrentNodepools: 3,
+			ConcurrentNodepools:              3,
 		},
 	}
 }

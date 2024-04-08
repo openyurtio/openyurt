@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	controllerResource   = appsv1beta1.SchemeGroupVersion.WithResource("nodepools")
+	controllerResource = appsv1beta1.SchemeGroupVersion.WithResource("nodepools")
 )
 
 func Format(format string, args ...interface{}) string {
