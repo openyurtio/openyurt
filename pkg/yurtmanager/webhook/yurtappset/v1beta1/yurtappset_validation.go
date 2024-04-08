@@ -122,6 +122,8 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 		}
 		return nil
 	}
+	// Checking tweaks one by one, because if we test them all together,
+	// we might miss one invalid tweak. And that tweak could only apply to a specific workload.
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		deploy := &appsv1.Deployment{}
 		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
@@ -156,6 +158,7 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 		}
 		return nil
 	}
+	// Same as validateDeployment
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		state := &appsv1.StatefulSet{}
 		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()

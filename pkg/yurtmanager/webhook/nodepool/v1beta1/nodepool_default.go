@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,7 +42,7 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 
 	if np.Labels == nil {
 		np.Labels = map[string]string{
-			apps.NodePoolTypeLabel: string(np.Spec.Type),
+			apps.NodePoolTypeLabel: strings.ToLower(string(np.Spec.Type)),
 		}
 	} else {
 		np.Labels[apps.NodePoolTypeLabel] = string(np.Spec.Type)
