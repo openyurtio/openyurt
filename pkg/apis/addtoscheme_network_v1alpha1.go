@@ -17,7 +17,7 @@ limitations under the License.
 package apis
 
 import (
-	version "github.com/openyurtio/openyurt/pkg/apis/net/v1alpha1"
+	version "github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 )
 
 func init() {

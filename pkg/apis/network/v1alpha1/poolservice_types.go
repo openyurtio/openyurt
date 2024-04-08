@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -26,14 +26,8 @@ import (
 
 // PoolServiceSpec defines the desired state of PoolService
 type PoolServiceSpec struct {
-	// Specify the name of the nodepool to identifies the nodepool to which the PoolService belongs.
-	PoolName string `json:"poolName,omitempty"`
-
-	// When the service corresponding to poolService is updated, the RenewTime will be refreshed.
-	RenewTime *metav1.MicroTime `json:"renewTime,omitempty"`
-
-	// Inherited from service annotations service.beta.kubernetes.io/class.
-	LoadBalancerClass string `json:"loadBalancerClass,omitempty"`
+	// Inherited from service spec.LoadBalancerClass
+	LoadBalancerClass *string `json:"loadBalancerClass,omitempty"`
 }
 
 // PoolServiceStatus defines the observed state of PoolService

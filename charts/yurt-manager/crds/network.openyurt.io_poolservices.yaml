@@ -4,9 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: poolservices.net.openyurt.io
+  name: poolservices.network.openyurt.io
 spec:
-  group: net.openyurt.io
+  group: network.openyurt.io
   names:
     categories:
     - all
@@ -47,11 +47,6 @@ spec:
             description: PoolServiceSpec defines the desired state of PoolService
             properties:
               loadBalancerClass:
-                type: string
-              poolName:
-                type: string
-              renewTime:
-                format: date-time
                 type: string
             type: object
           status:
