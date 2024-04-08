@@ -51,7 +51,7 @@ func TestDefault(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 					Labels: map[string]string{
-						"nodepool.openyurt.io/type": "Edge",
+						"nodepool.openyurt.io/type": "edge",
 					},
 				},
 				Spec: v1beta1.NodePoolSpec{
@@ -79,7 +79,7 @@ func TestDefault(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 					Labels: map[string]string{
-						"nodepool.openyurt.io/type": "Cloud",
+						"nodepool.openyurt.io/type": "cloud",
 					},
 				},
 				Spec: v1beta1.NodePoolSpec{

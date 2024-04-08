@@ -45,7 +45,7 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 			apps.NodePoolTypeLabel: strings.ToLower(string(np.Spec.Type)),
 		}
 	} else {
-		np.Labels[apps.NodePoolTypeLabel] = string(np.Spec.Type)
+		np.Labels[apps.NodePoolTypeLabel] = strings.ToLower(string(np.Spec.Type))
 	}
 
 	// init node pool status
