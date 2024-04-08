@@ -19,7 +19,6 @@ package workloadmanager
 import (
 	"testing"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 

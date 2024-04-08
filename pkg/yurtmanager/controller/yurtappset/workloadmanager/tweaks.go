@@ -125,20 +125,8 @@ type patchOperation struct {
 
 func applyAdvancedTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta1.Tweaks) error {
 	// convert into json patch format
-	var patchOperations []patchOperation
 	nodepoolName := deployment.Labels[apps.PoolNameLabelKey]
-	for _, tweak := range tweaks {
-		for _, patch := range tweak.Patches {
-			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
-				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", nodepoolName))}
-			}
-			patchOperations = append(patchOperations, patchOperation{
-				Op:    string(patch.Operation),
-				Path:  patch.Path,
-				Value: patch.Value,
-			})
-		}
-	}
+	patchOperations := preparePatchOperations(tweaks, nodepoolName)
 
 	if len(patchOperations) == 0 {
 		return nil
@@ -172,20 +160,8 @@ func applyAdvancedTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta
 
 func applyAdvancedTweaksToStatefulSet(statefulset *v1.StatefulSet, tweaks []*v1beta1.Tweaks) error {
 	// convert into json patch format
-	var patchOperations []patchOperation
 	nodepoolName := statefulset.Labels[apps.PoolNameLabelKey]
-	for _, tweak := range tweaks {
-		for _, patch := range tweak.Patches {
-			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
-				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", nodepoolName))}
-			}
-			patchOperations = append(patchOperations, patchOperation{
-				Op:    string(patch.Operation),
-				Path:  patch.Path,
-				Value: patch.Value,
-			})
-		}
-	}
+	patchOperations := preparePatchOperations(tweaks, nodepoolName)
 	if len(patchOperations) == 0 {
 		return nil
 	}
@@ -212,4 +188,21 @@ func applyAdvancedTweaksToStatefulSet(statefulset *v1.StatefulSet, tweaks []*v1b
 
 	klog.V(5).Infof("Apply AdvancedTweaks %v successfully: patched statefulset %+v", patchOperations, statefulset)
 	return nil
+}
+
+func preparePatchOperations(tweaks []*v1beta1.Tweaks, poolName string) []patchOperation {
+	var patchOperations []patchOperation
+	for _, tweak := range tweaks {
+		for _, patch := range tweak.Patches {
+			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
+				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", poolName))}
+			}
+			patchOperations = append(patchOperations, patchOperation{
+				Op:    string(patch.Operation),
+				Path:  patch.Path,
+				Value: patch.Value,
+			})
+		}
+	}
+	return patchOperations
 }
