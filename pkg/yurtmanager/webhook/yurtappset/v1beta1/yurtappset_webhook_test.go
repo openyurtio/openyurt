@@ -21,13 +21,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
-var defaultAppSet = &v1beta1.YurtAppSet{
+var deployAppSet = &v1beta1.YurtAppSet{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "fooboo",
+		Name:      "foobar",
 		Namespace: "default",
 	},
 	Spec: v1beta1.YurtAppSetSpec{
@@ -56,37 +58,92 @@ var defaultAppSet = &v1beta1.YurtAppSet{
 	},
 }
 
-func TestYurtAppSetDefaulter(t *testing.T) {
+var stsAppSet = &v1beta1.YurtAppSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "foobar",
+		Namespace: "default",
+	},
+	Spec: v1beta1.YurtAppSetSpec{
+		Workload: v1beta1.Workload{
+			WorkloadTemplate: v1beta1.WorkloadTemplate{
+				StatefulSetTemplate: &v1beta1.StatefulSetTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": "demo"},
+					},
+					Spec: appsv1.StatefulSetSpec{
+						ServiceName: "test-service",
+						Selector:    &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo"}},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{"app": "demo"},
+							},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "demo", Image: "nginx"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
 
+func TestYurtAppSetDeploymentDefaulter(t *testing.T) {
 	webhook := &YurtAppSetHandler{}
-
-	if err := webhook.Default(context.TODO(), defaultAppSet); err != nil {
+	if err := webhook.Default(context.TODO(), deployAppSet); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestYurtAppSetValidator(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	webhook := &YurtAppSetHandler{
+		Scheme: scheme,
+	}
 
-	webhook := &YurtAppSetHandler{}
-
-	// set default value
-	if err := webhook.Default(context.TODO(), defaultAppSet); err != nil {
+	// test validating deployment
+	if err := webhook.Default(context.TODO(), deployAppSet); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := webhook.ValidateCreate(context.TODO(), defaultAppSet); err != nil {
+	if err := webhook.ValidateCreate(context.TODO(), deployAppSet); err != nil {
 		t.Fatal("yurtappset should create success", err)
 	}
 
-	dupTopology := defaultAppSet.DeepCopy()
+	dupTopology := deployAppSet.DeepCopy()
 	if err := webhook.ValidateCreate(context.TODO(), dupTopology); err != nil {
 		t.Fatal("topology dup should not fail")
 	}
 
-	updateAppSet := defaultAppSet.DeepCopy()
+	updateAppSet := deployAppSet.DeepCopy()
 	updateAppSet.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
-	if err := webhook.ValidateUpdate(context.TODO(), defaultAppSet, updateAppSet); err != nil {
-		t.Fatal("workload selector change should not fail")
+	if err := webhook.ValidateUpdate(context.TODO(), deployAppSet, updateAppSet); err == nil {
+		t.Fatal("workload selector should match template selector")
+	}
+}
+
+func TestYurtAppSetStatefulSetValidator(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	webhook := &YurtAppSetHandler{
+		Scheme: scheme,
+	}
+
+	// test validating statefulSet
+	if err := webhook.Default(context.TODO(), stsAppSet); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := webhook.ValidateCreate(context.TODO(), stsAppSet); err != nil {
+		t.Fatal("yurtappset should create success", err)
+	}
+
+	updateAppSet := stsAppSet.DeepCopy()
+	updateAppSet.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
+	if err := webhook.ValidateUpdate(context.TODO(), stsAppSet, updateAppSet); err == nil {
+		t.Fatal("workload selector should match template selector")
 	}
 }

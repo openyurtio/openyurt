@@ -100,6 +100,10 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 				Client: mgr.GetClient(),
 				Scheme: mgr.GetScheme(),
 			},
+			workloadmanager.StatefulSetTemplateType: &workloadmanager.StatefulSetManager{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			},
 		},
 	}
 }
@@ -226,21 +230,15 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 		klog.Errorf("could not construct controller revision of YurtAppSet %s/%s: %s", yas.Namespace, yas.Name, err)
 		r.recorder.Event(yas.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed%s", eventTypeRevisionProvision), err.Error())
 		return
-	} else if isRevisionInvalid(expectedRevision) {
-		// if expectedRevision is invalid (current yas workload template is invalid), we should report error and not retry
-		klog.Warningf("YurtAppSet[%s/%s] expectedRevision is invalid", yas.Namespace, yas.Name)
-		return
 	}
 
 	// Conciliate workloads, udpate yas related workloads (deploy/sts)
 	// this may infect yas appdispatched/appupdated/appdeleted condition
 	expectedNps, curWorkloads, nErr := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
 	if nErr != nil {
-		// if err, retry after 1s; err caused by invalid revision, no need to retry
-		if !isRevisionInvalid(expectedRevision) {
-			res.RequeueAfter = 1 * time.Second
-		}
+		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate workloads error: %v", yas.Namespace, yas.Name, nErr)
+		return
 	}
 
 	// Concilaiate yas, update yas status and clean yas related revisions
@@ -248,6 +246,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 		// if err, retry after 1s to wait for latest updates synced
 		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate yurtappset error: %v", yas.GetNamespace(), yas.GetName(), nErr)
+		return
 	}
 
 	return
@@ -374,11 +373,6 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 				klog.Errorf("YurtAppSet[%s/%s] templatetype %s create workload by nodepool %s error: %s",
 					yas.GetNamespace(), yas.GetName(), templateType, nodepoolName, err.Error())
 				if !errors.IsTimeout(err) {
-					if errors.IsInvalid(err) {
-						// notify users provided workload template+tweak is not valid
-						r.recorder.Event(yas.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed %s: invalid workload template in YurtAppSet", eventTypeWorkloadsCreated), err.Error())
-						setRevisionInvalid(r.Client, expectedRevision)
-					}
 					return fmt.Errorf("YurtAppSet[%s/%s] templatetype %s create workload by nodepool %s error: %s",
 						yas.GetNamespace(), yas.GetName(), templateType, nodepoolName, err.Error())
 				}
@@ -430,11 +424,6 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 			workloadTobeUpdated := needUpdateWorkloads[index]
 			err := workloadManager.Update(yas, workloadTobeUpdated, workloadmanager.GetWorkloadRefNodePool(workloadTobeUpdated), expectedRevision.GetName())
 			if err != nil {
-				if errors.IsInvalid(err) {
-					// notify users provided workload template+tweak is not valid
-					r.recorder.Event(yas.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed %s: invalid workload template in YurtAppSet", eventTypeWorkloadsUpdated), err.Error())
-					setRevisionInvalid(r.Client, expectedRevision)
-				}
 				r.recorder.Event(yas.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("Failed %s", eventTypeWorkloadsUpdated),
 					fmt.Sprintf("Error updating %s %s when updating: %s", templateType, workloadTobeUpdated.GetName(), err))
 				klog.Errorf("YurtAppSet[%s/%s] update workload[%s/%s/%s] error %v", yas.GetNamespace(), yas.GetName(),
@@ -458,19 +447,15 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 	return
 }
 
-func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expecteddRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
-	if err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expecteddRevison, expectedNps, newStatus); err != nil {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expectedRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
+	if err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevison, expectedNps, newStatus); err != nil {
 		return err
-	}
-	if isRevisionInvalid(expecteddRevison) {
-		// donot clean revisions, when it is invalid, because it will trigger a new reconcile which will lead to endless loop
-		return nil
 	}
 	return cleanRevisions(r.Client, yas, allRevisions)
 }
 
 // update yas status and clean unused revisions
-func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expecteddRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expectedRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
 
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0
@@ -479,7 +464,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAp
 		if workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
 			readyWorkloads++
 		}
-		if workloadmanager.GetWorkloadHash(workloadObj) == expecteddRevison.GetName() && workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
+		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevison.GetName() && workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
 			updatedWorkloads++
 		}
 	}
@@ -487,12 +472,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAp
 	newStatus.ReadyWorkloads = int32(readyWorkloads)
 	newStatus.TotalWorkloads = int32(len(curWorkloads))
 	newStatus.UpdatedWorkloads = int32(updatedWorkloads)
-
-	if isRevisionInvalid(expecteddRevison) {
-		klog.Infof("YurtAppSet[%s/%s] expected revision is invalid, no need to update revision", yas.GetNamespace(), yas.GetName())
-	} else {
-		newStatus.CurrentRevision = expecteddRevison.GetName()
-	}
+	newStatus.CurrentRevision = expectedRevison.GetName()
 
 	if newStatus.TotalWorkloads == 0 {
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetAppReady, corev1.ConditionFalse, "NoWorkloadFound", ""))

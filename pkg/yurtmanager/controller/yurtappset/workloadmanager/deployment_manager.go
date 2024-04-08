@@ -45,7 +45,7 @@ func (d *DeploymentManager) GetTemplateType() TemplateType {
 }
 
 func (d *DeploymentManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Object) error {
-	klog.V(4).Infof("YurtAppSet[%s/%s] prepare delete [Deployment/%s/%s]", yas.GetNamespace(),
+	klog.V(4).Infof("YurtAppSet[%s/%s] prepare to delete Deployment[/%s/%s]", yas.GetNamespace(),
 		yas.GetName(), workload.GetNamespace(), workload.GetName())
 
 	workloadObj, ok := workload.(client.Object)
@@ -56,7 +56,7 @@ func (d *DeploymentManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Obje
 }
 
 // ApplyTemplate updates the object to the latest revision, depending on the YurtAppSet.
-func (d *DeploymentManager) applyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.Deployment) error {
+func (d *DeploymentManager) ApplyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.Deployment) error {
 
 	deployTemplate := yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate
 	if deployTemplate == nil {
@@ -109,7 +109,7 @@ func (d *DeploymentManager) applyTemplate(yas *v1beta1.YurtAppSet, nodepoolName,
 }
 
 func (d *DeploymentManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Object, nodepoolName, revision string) error {
-	klog.V(4).Infof("YurtAppSet[%s/%s] prepare update [Deployment/%s/%s]", yas.GetNamespace(),
+	klog.V(4).Infof("YurtAppSet[%s/%s] prepare to update [Deployment/%s/%s]", yas.GetNamespace(),
 		yas.GetName(), workload.GetNamespace(), workload.GetName())
 
 	if nodepoolName == "" {
@@ -124,7 +124,7 @@ func (d *DeploymentManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Obje
 			return getError
 		}
 
-		if err := d.applyTemplate(yas, nodepoolName, revision, deploy); err != nil {
+		if err := d.ApplyTemplate(yas, nodepoolName, revision, deploy); err != nil {
 			return err
 		}
 		updateError = d.Client.Update(context.TODO(), deploy)
@@ -141,7 +141,7 @@ func (d *DeploymentManager) Create(yas *v1beta1.YurtAppSet, nodepoolName, revisi
 	klog.V(4).Infof("YurtAppSet[%s/%s] prepare create new deployment for nodepool %s ", yas.GetNamespace(), yas.GetName(), nodepoolName)
 
 	deploy := appsv1.Deployment{}
-	if err := d.applyTemplate(yas, nodepoolName, revision, &deploy); err != nil {
+	if err := d.ApplyTemplate(yas, nodepoolName, revision, &deploy); err != nil {
 		klog.Errorf("YurtAppSet[%s/%s] could not apply template, when create deployment: %v", yas.GetNamespace(),
 			yas.GetName(), err)
 		return err

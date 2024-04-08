@@ -172,6 +172,7 @@ func TestClusterConverter_DeployYurtHub(t *testing.T) {
 	fakeclient.Fake.Resources = append(fakeclient.Fake.Resources, case1.apiResourceObj)
 	initializer.kubeClient = fakeclient
 	converter := NewClusterConverter(initializer)
+	converter.ComponentsBuilder = yurtutil.NewBuilder(initializer.KubeConfig)
 	converter.CloudNodes = []string{}
 	converter.EdgeNodes = []string{}
 	err := converter.deployYurthub()

@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -92,6 +93,43 @@ var testDeployment = &appsv1.Deployment{
 								},
 							},
 						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var testStatefulSet = &appsv1.StatefulSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "default",
+	},
+	Spec: appsv1.StatefulSetSpec{
+		Replicas: &itemReplicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app": "test",
+			},
+		},
+		ServiceName: "test-service",
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"app": "test",
+				},
+			},
+			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "initContainer",
+						Image: "initOld",
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:  "nginx",
+						Image: "nginx",
 					},
 				},
 			},
@@ -284,9 +322,14 @@ func TestApplyBasicTweaksToDeployment(t *testing.T) {
 	assert.Equal(t, "nginx-test", testDeployment.Spec.Template.Spec.Containers[0].Image)
 	assert.Equal(t, "initNew", testDeployment.Spec.Template.Spec.InitContainers[0].Image)
 	assert.Equal(t, targetReplicas, *testDeployment.Spec.Replicas)
+
+	applyBasicTweaksToStatefulSet(testStatefulSet, items)
+	assert.Equal(t, "nginx-test", testStatefulSet.Spec.Template.Spec.Containers[0].Image)
+	assert.Equal(t, "initNew", testStatefulSet.Spec.Template.Spec.InitContainers[0].Image)
+	assert.Equal(t, targetReplicas, *testStatefulSet.Spec.Replicas)
 }
 
-func TestApplyAdavancedTweaksToDeployment(t *testing.T) {
+func TestApplyAdvancedTweaksToDeployment(t *testing.T) {
 	patches := []v1beta1.Patch{
 		{
 			Operation: v1beta1.REPLACE,
@@ -350,6 +393,80 @@ func TestApplyAdavancedTweaksToDeployment(t *testing.T) {
 		{Patches: patches},
 	})
 	assert.Equal(t, "tomcat:1.18", testPatchDeployment.Spec.Template.Spec.Containers[0].Image)
+}
+
+func TestApplyAdvancedTweaksToStatefulSet(t *testing.T) {
+	patches := []v1beta1.Patch{
+		{
+			Operation: v1beta1.REPLACE,
+			Path:      "/spec/template/spec/containers/0/image",
+			Value: apiextensionsv1.JSON{
+				Raw: []byte(`"tomcat:1.18"`),
+			},
+		},
+		{
+			Operation: v1beta1.ADD,
+			Path:      "/spec/template/spec/volumes",
+			Value: apiextensionsv1.JSON{
+				Raw: []byte(`[{"name": "foo", "configMap": {"name": "{{nodepool-name}}-configmap"}}]`),
+			},
+		},
+	}
+
+	var replicas int32 = 2
+	var testPatchStatefulSet = &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Labels: map[string]string{
+				apps.PoolNameLabelKey: "test-nodepool",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "apps.openyurt.io/v1beta1",
+				Kind:       "YurtAppSet",
+				Name:       "yurtappset-patch",
+			}},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "test",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "test",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// apply no patches
+	testPatchStatefulSetCopy := testPatchStatefulSet.DeepCopy()
+	if err := applyAdvancedTweaksToStatefulSet(testPatchStatefulSetCopy, []*v1beta1.Tweaks{}); err != nil {
+		t.Errorf("applyAdvancedTweaksToStatefulSet() error = %v", err)
+	}
+	assert.Equal(t, testPatchStatefulSetCopy, testPatchStatefulSet)
+
+	// apply patches
+	if err := applyAdvancedTweaksToStatefulSet(testPatchStatefulSet, []*v1beta1.Tweaks{
+		{Patches: patches},
+	}); err != nil {
+		t.Errorf("applyAdvancedTweaksToStatefulSet() error = %v", err)
+	}
+	assert.Equal(t, "tomcat:1.18", testPatchStatefulSet.Spec.Template.Spec.Containers[0].Image)
+	assert.Equal(t, "test-nodepool-configmap", testPatchStatefulSet.Spec.Template.Spec.Volumes[0].ConfigMap.Name)
 }
 
 func TestApplyTweaksToDeployment(t *testing.T) {
