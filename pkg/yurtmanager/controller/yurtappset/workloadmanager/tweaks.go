@@ -45,7 +45,6 @@ func GetNodePoolTweaksFromYurtAppSet(cli client.Client, nodepoolName string, yas
 			tweaksList = append(tweaksList, &yasTweak.Tweaks)
 		}
 	}
-
 	return
 }
 
@@ -174,8 +173,12 @@ func applyAdvancedTweaksToDeployment(deployment *v1.Deployment, tweaks []*v1beta
 func applyAdvancedTweaksToStatefulSet(statefulset *v1.StatefulSet, tweaks []*v1beta1.Tweaks) error {
 	// convert into json patch format
 	var patchOperations []patchOperation
+	nodepoolName := statefulset.Labels[apps.PoolNameLabelKey]
 	for _, tweak := range tweaks {
 		for _, patch := range tweak.Patches {
+			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
+				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", nodepoolName))}
+			}
 			patchOperations = append(patchOperations, patchOperation{
 				Op:    string(patch.Operation),
 				Path:  patch.Path,
