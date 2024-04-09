@@ -93,6 +93,7 @@ type PlatformAdminControllerConfiguration struct {
 	NoSectyComponents  map[string][]*Component
 	SecurityConfigMaps map[string][]corev1.ConfigMap
 	NoSectyConfigMaps  map[string][]corev1.ConfigMap
+	ConcurrentPlatformAdminWorkers int32
 }
 
 func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfiguration {
@@ -105,6 +106,7 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 			NoSectyComponents:  make(map[string][]*Component),
 			SecurityConfigMaps: make(map[string][]corev1.ConfigMap),
 			NoSectyConfigMaps:  make(map[string][]corev1.ConfigMap),
+			ConcurrentPlatformAdminWorkers: 3,
 		}
 	)
 

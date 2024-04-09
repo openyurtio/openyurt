@@ -39,6 +39,8 @@ func (n *PlatformAdminControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if n == nil {
 		return
 	}
+
+	fs.Int32Var(&n.ConcurrentPlatformAdminWorkers, "concurrent-platform-administrator-workers", n.ConcurrentPlatformAdminWorkers, "Max concurrent workers for PlatformAdmin controller.")
 }
 
 // ApplyTo fills up nodePool config with options.
