@@ -59,7 +59,7 @@ func Format(format string, args ...interface{}) string {
 }
 
 var (
-	controllerResource   = iotv1alpha2.SchemeGroupVersion.WithResource("platformadmins")
+	controllerResource = iotv1alpha2.SchemeGroupVersion.WithResource("platformadmins")
 )
 
 const (
