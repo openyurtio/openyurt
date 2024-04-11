@@ -39,6 +39,7 @@ type YurtManagerOptions struct {
 	YurtAppOverriderController *YurtAppOverriderControllerOptions
 	NodeLifeCycleController    *NodeLifecycleControllerOptions
 	NodeBucketController       *NodeBucketControllerOptions
+	EndPointsController        *EndPointsControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -59,6 +60,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		YurtAppOverriderController: NewYurtAppOverriderControllerOptions(),
 		NodeLifeCycleController:    NewNodeLifecycleControllerOptions(),
 		NodeBucketController:       NewNodeBucketControllerOptions(),
+		EndPointsController:        NewEndPointsControllerOptions(),
 	}
 
 	return &s, nil
@@ -79,6 +81,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.YurtAppOverriderController.AddFlags(fss.FlagSet("yurtappoverrider controller"))
 	y.NodeLifeCycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
 	y.NodeBucketController.AddFlags(fss.FlagSet("nodebucket controller"))
+	y.EndPointsController.AddFlags(fss.FlagSet("endpoints controller"))
 	return fss
 }
 
@@ -98,6 +101,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.YurtAppOverriderController.Validate()...)
 	errs = append(errs, y.NodeLifeCycleController.Validate()...)
 	errs = append(errs, y.NodeBucketController.Validate()...)
+	errs = append(errs, y.EndPointsController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -140,6 +144,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.NodeBucketController.ApplyTo(&c.ComponentConfig.NodeBucketController); err != nil {
+		return err
+	}
+	if err := y.EndPointsController.ApplyTo(&c.ComponentConfig.ServiceTopologyEndpointsController); err != nil {
 		return err
 	}
 	return nil

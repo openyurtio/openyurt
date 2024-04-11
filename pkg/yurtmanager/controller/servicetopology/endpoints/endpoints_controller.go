@@ -18,7 +18,6 @@ package endpoints
 
 import (
 	"context"
-	"flag"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +34,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/adapter"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "servicetopology-endpoints-workers", concurrentReconciles, "Max concurrent workers for Servicetopology-endpoints controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	controllerKind       = corev1.SchemeGroupVersion.WithKind("Endpoints")
+	controllerKind = corev1.SchemeGroupVersion.WithKind("Endpoints")
 )
 
 func Format(format string, args ...interface{}) string {
@@ -53,7 +47,7 @@ func Format(format string, args ...interface{}) string {
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof("servicetopology-endpoints-controller add controller %s", controllerKind.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileServicetopologyEndpoints{}
@@ -76,9 +70,9 @@ func (r *ReconcileServicetopologyEndpoints) InjectClient(c client.Client) error 
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.ServiceTopologyEndpointsController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.ServiceTopologyEndpointsController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.ServiceTopologyEndpointsController.ConcurrentEndPointsWorkers)})
 	if err != nil {
 		return err
 	}

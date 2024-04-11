@@ -28,6 +28,7 @@ import (
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	poolserviceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/poolservice/config"
 	gatewaypickupconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
+	endpointsconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
 	yurtappoverriderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
@@ -81,6 +82,9 @@ type YurtManagerConfiguration struct {
 
 	//  PoolServiceController holds configuration for PoolServiceController related features.
 	PoolServiceController poolserviceconfig.PoolServiceControllerConfiguration
+
+	// EndPointsController holds configuration for EndPointsController related features.
+	ServiceTopologyEndpointsController endpointsconfig.ServiceTopologyEndPointsControllerConfiguration
 }
 
 type GenericConfiguration struct {
