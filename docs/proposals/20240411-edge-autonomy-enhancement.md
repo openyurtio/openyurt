@@ -24,10 +24,10 @@ which will optimize the cache mechanism, this proposal will asynchronously enabl
 status report.
 ## Motivation
 Currently, users can enable autonomy for a node by annotating "node.beta.openyurt.io/autonomy". With this annotation, the control plane does not evict the pods on the node.
-but the node itself is not directly aware of the annotation, 
-which means that the node will only start interacting with the local data when it is disconnected from the network and actually turn on the autonomy. 
-Therefore, the current control plane does not validate the autonomy status of nodes and does not report any problems on the node's side. 
-This is not consistent with real-world scenarios. For example, deploying new pods may cause a disk cache write to fail, 
+but the node itself is not directly aware of the annotation,
+which means that the node will only start interacting with the local data when it is disconnected from the network and actually turn on the autonomy.
+Therefore, the current control plane does not validate the autonomy status of nodes and does not report any problems on the node's side.
+This is not consistent with real-world scenarios. For example, deploying new pods may cause a disk cache write to fail,
 which in turn affects the autonomy state of the node.
 ### Goals
 - Asynchronously enable node autonomy
@@ -48,12 +48,12 @@ Every time get&lis&... check if there is any in the error key, write it if there
 #### Autonomy manager
 Incorporate a new module mainly responsible for updating node autonomy status and re-fetching objects according to error key.
 - Every fixed period of time, retrieve the content of the object from the api server according to the error key, and then brush off the corresponding error key.
-- Check the error key periodically, if the error key is not empty for three consecutive times, set the node condition AutonomyState to Unknown. 
+- Check the error key periodically, if the error key is not empty for three consecutive times, set the node condition AutonomyState to Unknown.
 
 Unknown state: at the moment of user annotation, the node is successfully autonomous, and then due to disk write burst and other reasons, the node's autonomy state is affected, so it is changed to Unknown.
 `const AutonomyState v1.NodeConditionType = "AutonomyState"`
 ### Controller
-The user annotates the node to request for node autonomy, and the controller goes to the list&watch edge node and labels the node with `node.autonomy.openyurt.io/status=true/false` based on the condition of the node AutonomyState, 
+The user annotates the node to request for node autonomy, and the controller goes to the list&watch edge node and labels the node with `node.autonomy.openyurt.io/status=true/false` based on the condition of the node AutonomyState,
 thus indicating that the control plane approves or denies node autonomy request.
 - node's condition state change(finite state machine)
 
