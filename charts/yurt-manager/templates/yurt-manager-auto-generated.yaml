@@ -500,7 +500,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - net.openyurt.io
+  - network.openyurt.io
   resources:
   - poolservices
   verbs:
@@ -512,7 +512,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - net.openyurt.io
+  - network.openyurt.io
   resources:
   - poolservices/status
   verbs:
@@ -756,27 +756,6 @@ webhooks:
     resources:
     - yurtstaticsets
   sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /mutate-net-openyurt-io-poolservice
-  failurePolicy: Fail
-  name: mutate.net.v1alpha1.poolservice.openyurt.io
-  rules:
-  - apiGroups:
-    - net.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - poolservices
-  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -950,25 +929,4 @@ webhooks:
     - UPDATE
     resources:
     - yurtstaticsets
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-net-openyurt-io-poolservice
-  failurePolicy: Fail
-  name: validate.net.v1alpha1.poolservice.openyurt.io
-  rules:
-  - apiGroups:
-    - net.openyurt.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - poolservices
   sideEffects: None

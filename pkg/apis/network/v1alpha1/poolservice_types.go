@@ -33,7 +33,7 @@ type PoolServiceSpec struct {
 // PoolServiceStatus defines the observed state of PoolService
 type PoolServiceStatus struct {
 	// LoadBalancer contains the current status of the load-balancer in the current nodepool
-	LoadBalancer *v1.LoadBalancerStatus `json:"loadBalancer,omitempty"`
+	LoadBalancer v1.LoadBalancerStatus `json:"loadBalancer,omitempty"`
 
 	// Current poolService state
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
