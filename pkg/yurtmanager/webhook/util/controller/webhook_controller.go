@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,8 @@ import (
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	apiextensionslister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -42,6 +45,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
+	"github.com/openyurtio/openyurt/pkg/apis"
 	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/generator"
@@ -55,7 +59,13 @@ const (
 var (
 	uninit   = make(chan struct{})
 	onceInit = sync.Once{}
+
+	yurtScheme = runtime.NewScheme()
 )
+
+func init() {
+	utilruntime.Must(apis.AddToScheme(yurtScheme))
+}
 
 func Inited() chan struct{} {
 	return uninit
@@ -100,14 +110,14 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest
 	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
-			if crdHasWebhookConversion(crd) {
+			if yurtCRDHasWebhookConversion(crd) {
 				klog.Infof("CRD %s with conversion added", crd.Name)
 				c.queue.Add(crd.Name)
 			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 			crd := new.(*apiextensionsv1.CustomResourceDefinition)
-			if crdHasWebhookConversion(crd) {
+			if yurtCRDHasWebhookConversion(crd) {
 				klog.Infof("CRD %s with conversion updated", crd.Name)
 				c.queue.Add(crd.Name)
 			}
@@ -262,7 +272,12 @@ func (c *Controller) sync(key string) error {
 	return nil
 }
 
-func crdHasWebhookConversion(crd *apiextensionsv1.CustomResourceDefinition) bool {
+func yurtCRDHasWebhookConversion(crd *apiextensionsv1.CustomResourceDefinition) bool {
+	// it is an openyurt crd
+	if !strings.Contains(crd.Spec.Group, "openyurt.io") {
+		return false
+	}
+
 	conversion := crd.Spec.Conversion
 	if conversion == nil {
 		return false
@@ -276,9 +291,19 @@ func crdHasWebhookConversion(crd *apiextensionsv1.CustomResourceDefinition) bool
 }
 
 func ensureCRDConversionCA(client apiextensionsclientset.Interface, crd *apiextensionsv1.CustomResourceDefinition, newCABundle []byte) error {
-	if crd.Spec.Conversion == nil ||
+	if len(crd.Spec.Versions) == 0 ||
+		crd.Spec.Conversion == nil ||
+		crd.Spec.Conversion.Strategy != apiextensionsv1.WebhookConverter ||
 		crd.Spec.Conversion.Webhook == nil ||
 		crd.Spec.Conversion.Webhook.ClientConfig == nil {
+		return nil
+	}
+
+	if !yurtScheme.Recognizes(schema.GroupVersionKind{
+		Group:   crd.Spec.Group,
+		Version: crd.Spec.Versions[0].Name,
+		Kind:    crd.Spec.Names.Kind,
+	}) {
 		return nil
 	}
 

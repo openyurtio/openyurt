@@ -20,11 +20,18 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/apis/apps"
+	v1 "k8s.io/kubernetes/pkg/apis/apps/v1"
+	appsvalidation "k8s.io/kubernetes/pkg/apis/apps/validation"
+	"k8s.io/kubernetes/pkg/apis/core/validation"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
 const YurtAppSetKind = "YurtAppSet"
@@ -45,6 +52,17 @@ func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtim
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), template, "only one workload template should be configured")})
 	}
 
+	if template.DeploymentTemplate != nil {
+		if err := webhook.validateDeployment(set); err != nil {
+			return err
+		}
+	} else if template.StatefulSetTemplate != nil {
+		if err := webhook.validateStatefulSet(set); err != nil {
+			return err
+		}
+	}
+
+	klog.Infof("Validate YurtAppSet %s successfully ...", klog.KObj(set))
 	return nil
 }
 
@@ -68,6 +86,16 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), newTemplate, "only one workload template should be configured")})
 	}
 
+	if newTemplate.DeploymentTemplate != nil {
+		if err := webhook.validateDeployment(newSet); err != nil {
+			return err
+		}
+	} else if newTemplate.StatefulSetTemplate != nil {
+		if err := webhook.validateStatefulSet(newSet); err != nil {
+			return err
+		}
+	}
+
 	oldTemplate := oldSet.Spec.Workload.WorkloadTemplate
 	if (oldTemplate.DeploymentTemplate == nil && newTemplate.DeploymentTemplate != nil) ||
 		(oldTemplate.StatefulSetTemplate == nil && newTemplate.StatefulSetTemplate != nil) {
@@ -75,6 +103,78 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), newTemplate, "the kind of workload template should not be changed")})
 	}
 
+	return nil
+}
+
+// TODO: move functions under k8s.io/kubernetes to pkg/util/kubernetes
+func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) error {
+	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+		deploy := &appsv1.Deployment{}
+		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		webhook.Scheme.Default(deploy)
+		out := &apps.Deployment{}
+		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateDeploymentSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+		return nil
+	}
+	// Checking tweaks one by one, because if we test them all together,
+	// we might miss one invalid tweak. And that tweak could only apply to a specific workload.
+	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
+		deploy := &appsv1.Deployment{}
+		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		if err := workloadmanager.ApplyTweaksToDeployment(deploy, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
+			return err
+		}
+		webhook.Scheme.Default(deploy)
+		out := &apps.Deployment{}
+		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateDeploymentSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+	}
+	return nil
+}
+
+func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) error {
+	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+		state := &appsv1.StatefulSet{}
+		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		webhook.Scheme.Default(state)
+		out := &apps.StatefulSet{}
+		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+		return nil
+	}
+	// Same as validateDeployment
+	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
+		state := &appsv1.StatefulSet{}
+		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		if err := workloadmanager.ApplyTweaksToStatefulSet(state, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
+			return err
+		}
+		webhook.Scheme.Default(state)
+		out := &apps.StatefulSet{}
+		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
+			return err
+		}
+		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		if len(allErrs) != 0 {
+			return allErrs.ToAggregate()
+		}
+	}
 	return nil
 }
 

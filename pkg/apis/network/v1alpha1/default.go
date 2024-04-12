@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -16,24 +16,7 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	"context"
-	"fmt"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/openyurtio/openyurt/pkg/apis/net/v1alpha1"
-)
-
-// Default satisfies the defaulting webhook interface.
-func (webhook *PoolServiceHandler) Default(ctx context.Context, obj runtime.Object) error {
-	ps, ok := obj.(*v1alpha1.PoolService)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a PoolService but got a %T", obj))
-	}
-
-	v1alpha1.SetDefaultsPoolService(ps)
-
-	return nil
+// SetDefaultsPoolService set default values for PoolService.
+func SetDefaultsPoolService(obj *PoolService) {
+	// example for set default value for PoolService
 }

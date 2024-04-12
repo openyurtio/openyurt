@@ -19,10 +19,12 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -36,6 +38,14 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 	// specify default type as Edge
 	if len(np.Spec.Type) == 0 {
 		np.Spec.Type = v1beta1.Edge
+	}
+
+	if np.Labels == nil {
+		np.Labels = map[string]string{
+			apps.NodePoolTypeLabel: strings.ToLower(string(np.Spec.Type)),
+		}
+	} else {
+		np.Labels[apps.NodePoolTypeLabel] = strings.ToLower(string(np.Spec.Type))
 	}
 
 	// init node pool status

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -30,6 +31,7 @@ import (
 func (webhook *YurtAppSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
 	webhook.Client = mgr.GetClient()
+	webhook.Scheme = mgr.GetScheme()
 
 	gvk, err := apiutil.GVKForObject(&v1beta1.YurtAppSet{}, mgr.GetScheme())
 	if err != nil {
@@ -50,6 +52,7 @@ func (webhook *YurtAppSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (str
 // YurtAppSetHandler implements a validating and defaulting webhook for Cluster.
 type YurtAppSetHandler struct {
 	Client client.Client
+	Scheme *runtime.Scheme
 }
 
 var _ webhook.CustomDefaulter = &YurtAppSetHandler{}

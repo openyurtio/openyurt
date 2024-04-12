@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@ limitations under the License.
 
 package v1alpha1
 
-// Package v1alpha1 contains API Schema definitions for the net v1alpha1API group
+// Package v1alpha1 contains API Schema definitions for the network v1alpha1API group
 // +kubebuilder:object:generate=true
-// +groupName=net.openyurt.io
+// +groupName=network.openyurt.io
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,7 +27,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "net.openyurt.io", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "network.openyurt.io", Version: "v1alpha1"}
 
 	SchemeGroupVersion = GroupVersion
 

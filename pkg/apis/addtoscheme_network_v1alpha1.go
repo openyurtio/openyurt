@@ -14,8 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package apis
 
-// PoolServiceControllerConfiguration contains elements describing PoolServiceController.
-type PoolServiceControllerConfiguration struct {
+import (
+	version "github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
+)
+
+func init() {
+	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
 }

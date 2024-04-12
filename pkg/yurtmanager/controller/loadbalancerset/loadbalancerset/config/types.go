@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package config
 
-// SetDefaultsPoolService set default values for PoolService.
-func SetDefaultsPoolService(obj *PoolService) {
-	// example for set default value for PoolService
+// LoadBalancerSetControllerConfiguration contains elements describing LoadBalancerSetController.
+type LoadBalancerSetControllerConfiguration struct {
+	ConcurrentLoadBalancerSetWorkers int32
 }
