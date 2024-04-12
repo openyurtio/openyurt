@@ -19,7 +19,6 @@ package platformadmin
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"time"
 
@@ -54,18 +53,13 @@ import (
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "platformadmin-workers", concurrentReconciles, "Max concurrent workers for PlatformAdmin controller.")
-}
-
 func Format(format string, args ...interface{}) string {
 	s := fmt.Sprintf(format, args...)
 	return fmt.Sprintf("%s: %s", names.PlatformAdminController, s)
 }
 
 var (
-	concurrentReconciles = 3
-	controllerResource   = iotv1alpha2.SchemeGroupVersion.WithResource("platformadmins")
+	controllerResource = iotv1alpha2.SchemeGroupVersion.WithResource("platformadmins")
 )
 
 const (
@@ -126,7 +120,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 	}
 
 	klog.Infof("platformadmin-controller add controller %s", controllerResource.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -141,10 +135,10 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.PlatformAdminController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.PlatformAdminController.ConcurrentPlatformAdminWorkers),
 	})
 	if err != nil {
 		return err

@@ -88,11 +88,12 @@ func ExtractRequiredComponentsName(manifest *Manifest, versionName string) sets.
 
 // PlatformAdminControllerConfiguration contains elements describing PlatformAdminController.
 type PlatformAdminControllerConfiguration struct {
-	Manifest           Manifest
-	SecurityComponents map[string][]*Component
-	NoSectyComponents  map[string][]*Component
-	SecurityConfigMaps map[string][]corev1.ConfigMap
-	NoSectyConfigMaps  map[string][]corev1.ConfigMap
+	Manifest                       Manifest
+	SecurityComponents             map[string][]*Component
+	NoSectyComponents              map[string][]*Component
+	SecurityConfigMaps             map[string][]corev1.ConfigMap
+	NoSectyConfigMaps              map[string][]corev1.ConfigMap
+	ConcurrentPlatformAdminWorkers int32
 }
 
 func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfiguration {
@@ -100,11 +101,12 @@ func NewPlatformAdminControllerConfiguration() *PlatformAdminControllerConfigura
 		edgexconfig        = EdgeXConfig{}
 		edgexnosectyconfig = EdgeXConfig{}
 		conf               = PlatformAdminControllerConfiguration{
-			Manifest:           Manifest{},
-			SecurityComponents: make(map[string][]*Component),
-			NoSectyComponents:  make(map[string][]*Component),
-			SecurityConfigMaps: make(map[string][]corev1.ConfigMap),
-			NoSectyConfigMaps:  make(map[string][]corev1.ConfigMap),
+			Manifest:                       Manifest{},
+			SecurityComponents:             make(map[string][]*Component),
+			NoSectyComponents:              make(map[string][]*Component),
+			SecurityConfigMaps:             make(map[string][]corev1.ConfigMap),
+			NoSectyConfigMaps:              make(map[string][]corev1.ConfigMap),
+			ConcurrentPlatformAdminWorkers: 3,
 		}
 	)
 
