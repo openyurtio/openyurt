@@ -35,6 +35,12 @@ type PoolServiceStatus struct {
 	// LoadBalancer contains the current status of the load-balancer in the current nodepool
 	LoadBalancer v1.LoadBalancerStatus `json:"loadBalancer,omitempty"`
 
+	// AggregateToAnnotations means that this information is aggregated into the annotations of the service
+	AggregateToAnnotations map[string]string `json:"aggregateToAnnotations,omitempty"`
+
+	//AggregateToLabels means that this information is aggregated into the labels of the service
+	AggregateToLabels map[string]string `json:"aggregateToLabels,omitempty"`
+
 	// Current poolService state
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
