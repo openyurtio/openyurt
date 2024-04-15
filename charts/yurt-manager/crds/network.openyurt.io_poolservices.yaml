@@ -47,12 +47,26 @@ spec:
             description: PoolServiceSpec defines the desired state of PoolService
             properties:
               loadBalancerClass:
+                description: Inherited from service spec.LoadBalancerClass
                 type: string
             type: object
           status:
             description: PoolServiceStatus defines the observed state of PoolService
             properties:
+              aggregateToAnnotations:
+                additionalProperties:
+                  type: string
+                description: AggregateToAnnotations means that this information is
+                  aggregated into the annotations of the service
+                type: object
+              aggregateToLabels:
+                additionalProperties:
+                  type: string
+                description: AggregateToLabels means that this information is aggregated
+                  into the labels of the service
+                type: object
               conditions:
+                description: Current poolService state
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -122,7 +136,8 @@ spec:
                   type: object
                 type: array
               loadBalancer:
-                description: LoadBalancerStatus represents the status of a load-balancer.
+                description: LoadBalancer contains the current status of the load-balancer
+                  in the current nodepool
                 properties:
                   ingress:
                     description: Ingress is a list containing ingress points for the

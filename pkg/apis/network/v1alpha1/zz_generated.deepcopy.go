@@ -109,6 +109,20 @@ func (in *PoolServiceSpec) DeepCopy() *PoolServiceSpec {
 func (in *PoolServiceStatus) DeepCopyInto(out *PoolServiceStatus) {
 	*out = *in
 	in.LoadBalancer.DeepCopyInto(&out.LoadBalancer)
+	if in.AggregateToAnnotations != nil {
+		in, out := &in.AggregateToAnnotations, &out.AggregateToAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.AggregateToLabels != nil {
+		in, out := &in.AggregateToLabels, &out.AggregateToLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
