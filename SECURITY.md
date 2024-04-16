@@ -8,10 +8,10 @@ as well as the last minor version of the previous major release.
 Here's an overview:
 
 | Version | Supported           |
-| ------- | ------------------- |
-| 1.0.x   | :white_check_mark: |
-| 0.7.x   | :white_check_mark:  |
-| < 0.7   | :x:                 |
+|---------| ------------------- |
+| 1.4.x   | :white_check_mark: |
+| 1.3.x   | :white_check_mark:  |
+| < 1.3   | :x:                 |
 
 ## Prevention
 
@@ -30,11 +30,11 @@ In case of a confirmed breach, reporters will get full credit and can be keep in
 
 ### Private Disclosure Processes
 
-We ask that all suspected vulnerabilities be privately and responsibly disclosed by [contacting our maintainers](mailto:security@mail.openyurt.io).
+We ask that all suspected vulnerabilities be privately and responsibly disclosed by [contacting our maintainers](mailto:kubernetes-security@service.aliyun.com).
 
 ### Public Disclosure Processes
 
-If you know of a publicly disclosed security vulnerability please IMMEDIATELY email the [OpenYurt maintainers](mailto:security@mail.openyurt.io) to inform about the vulnerability so they may start the patch, release, and communication process.
+If you know of a publicly disclosed security vulnerability please IMMEDIATELY email the [OpenYurt maintainers](mailto:kubernetes-security@service.aliyun.com) to inform about the vulnerability so they may start the patch, release, and communication process.
 
 ### Compensation
 
