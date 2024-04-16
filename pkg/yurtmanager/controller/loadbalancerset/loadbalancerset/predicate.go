@@ -128,7 +128,7 @@ func isDeleteTimeChange(oldSvc, newSvc *v1.Service) bool {
 }
 
 func isNodePoolSelectorChange(oldAnnotations, newAnnotations map[string]string) bool {
-	return !annotationValueIsEqual(oldAnnotations, newAnnotations, network.AnnotationNodePoolSelector)
+	return !mapValueIsEqual(oldAnnotations, newAnnotations, network.AnnotationNodePoolSelector)
 }
 
 func isServiceTypeChange(oldSvc, newSvc *v1.Service) bool {

@@ -129,8 +129,8 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, nil)
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
+		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, nil, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).WithObjects(ps1).WithObjects(ps2).Build()
 
@@ -153,9 +153,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, []corev1.LoadBalancerIngress{{IP: "2.2.3.4"}})
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, []corev1.LoadBalancerIngress{{IP: "1.2.3.4"}})
-		ps3 := newPoolService(v1.NamespaceSystem, "np234", nil, []corev1.LoadBalancerIngress{{IP: "3.4.5.6"}})
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil, []corev1.LoadBalancerIngress{{IP: "2.2.3.4"}})
+		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, nil, []corev1.LoadBalancerIngress{{IP: "1.2.3.4"}})
+		ps3 := newPoolService(v1.NamespaceSystem, "np234", nil, nil, []corev1.LoadBalancerIngress{{IP: "3.4.5.6"}})
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).WithObjects(ps1).WithObjects(ps2).WithObjects(ps3).Build()
 
@@ -176,16 +176,16 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		assertLoadBalancerStatusEqual(t, expectedStatus, newSvc.Status.LoadBalancer.Ingress)
 	})
 
-	t.Run("test aggregate annotations multi pool services", func(t *testing.T) {
+	t.Run("test aggregate annotations/labels multi pool services", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}, nil)
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb23456"}, nil)
-		ps3 := newPoolService(v1.NamespaceDefault, "np345", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb12345"}, nil)
-		ps4 := newPoolService(v1.NamespaceDefault, "np456", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb12345"}, nil)
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{"lb-id": "lb34567"}, map[string]string{"lb-id": "lb34567"}, nil)
+		ps2 := newPoolService(v1.NamespaceDefault, "np234", map[string]string{"lb-id": "lb23456"}, map[string]string{"lb-id": "lb23456"}, nil)
+		ps3 := newPoolService(v1.NamespaceDefault, "np345", map[string]string{"lb-id": "lb12345"}, map[string]string{"lb-id": "lb12345"}, nil)
+		ps4 := newPoolService(v1.NamespaceDefault, "np456", map[string]string{"lb-id": "lb12345"}, map[string]string{"lb-id": "lb12345"}, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).
 			WithObjects(ps1).WithObjects(ps2).WithObjects(ps3).WithObjects(ps4).Build()
@@ -203,9 +203,11 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Name:      mockServiceName,
 		}, newSvc)
 
-		expectedAnnotations := map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb23456,lb34567"}
+		expectedAnnotations := map[string]string{aggregateKeyPrefix + "lb-id": "lb23456,lb34567"}
+		expectedLabels := map[string]string{aggregateKeyPrefix + "lb-id": "lb23456,lb34567"}
 
-		assertOpenYurtAnnotationsEqual(t, expectedAnnotations, newSvc.Annotations)
+		assertMapEqual(t, expectedAnnotations, newSvc.Annotations)
+		assertMapEqual(t, expectedLabels, newSvc.Labels)
 		assertResourceVersion(t, "1001", newSvc.ResourceVersion)
 	})
 
@@ -215,9 +217,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}, nil)
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb23456"}, nil)
-		svc.Annotations[network.AggregateAnnotationsKeyPrefix+"/lb-id"] = "lb23456,lb34567"
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, map[string]string{"lb-id": "lb34567"}, nil)
+		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, map[string]string{"lb-id": "lb23456"}, nil)
+		svc.Annotations[aggregateKeyPrefix+"lb-id"] = "lb23456,lb34567"
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).
 			WithObjects(ps1).WithObjects(ps2).Build()
@@ -235,9 +237,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Name:      mockServiceName,
 		}, newSvc)
 
-		expectedAnnotations := map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb23456,lb34567"}
+		expectedAnnotations := map[string]string{aggregateKeyPrefix + "lb-id": "lb23456,lb34567"}
 
-		assertOpenYurtAnnotationsEqual(t, expectedAnnotations, newSvc.Annotations)
+		assertMapEqual(t, expectedAnnotations, newSvc.Annotations)
 		assertResourceVersion(t, "1000", newSvc.ResourceVersion)
 	})
 
@@ -247,8 +249,8 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}, nil)
-		svc.Annotations[network.AggregateAnnotationsKeyPrefix+"/lb-id"] = "lb23456,lb34567"
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, map[string]string{"lb-id": "lb34567"}, nil)
+		svc.Annotations["lb-id"] = "lb23456,lb34567"
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).
 			WithObjects(ps1).Build()
@@ -266,9 +268,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 			Name:      mockServiceName,
 		}, newSvc)
 
-		expectedAnnotations := map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}
+		expectedAnnotations := map[string]string{aggregateKeyPrefix + "lb-id": "lb34567"}
 
-		assertOpenYurtAnnotationsEqual(t, expectedAnnotations, newSvc.Annotations)
+		assertMapEqual(t, expectedAnnotations, newSvc.Annotations)
 		assertResourceVersion(t, "1001", newSvc.ResourceVersion)
 	})
 
@@ -278,7 +280,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		svc.Annotations[network.AggregateAnnotationsKeyPrefix+"/lb-id"] = "lb23456,lb34567"
+		svc.Annotations[aggregateKeyPrefix+"lb-id"] = "lb23456,lb34567"
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).Build()
 
@@ -297,7 +299,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		expectedAnnotations := map[string]string{}
 
-		assertOpenYurtAnnotationsEqual(t, expectedAnnotations, newSvc.Annotations)
+		assertMapEqual(t, expectedAnnotations, newSvc.Annotations)
 		assertResourceVersion(t, "1001", newSvc.ResourceVersion)
 	})
 
@@ -375,7 +377,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		controllerutil.AddFinalizer(svc, poolServiceFinalizer)
 		svc.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}, nil)
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, map[string]string{"lb-id": "lb34567"}, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(ps1).Build()
 
@@ -403,8 +405,8 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		controllerutil.AddFinalizer(svc, poolServiceFinalizer)
 		svc.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb34567"}, nil)
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", map[string]string{network.AggregateAnnotationsKeyPrefix + "/lb-id": "lb45678"}, nil)
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, map[string]string{"lb-id": "lb34567"}, nil)
+		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, map[string]string{"lb-id": "lb45678"}, nil)
 		controllerutil.AddFinalizer(ps1, "elb.openyurt.io/resources")
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(ps1).WithObjects(ps2).Build()
@@ -476,7 +478,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np := newNodepool("np123", "name=np123,app=deploy")
 		np.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np).WithObjects(ps).Build()
 
@@ -496,7 +498,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		svc.Spec.Type = corev1.ServiceTypeClusterIP
 		np := newNodepool("np123", "name=np123,app=deploy")
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np).WithObjects(ps).Build()
 
@@ -523,7 +525,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		delete(svc.Annotations, network.AnnotationNodePoolSelector)
 
 		np := newNodepool("np123", "name=np123,app=deploy")
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np).WithObjects(ps).Build()
 
@@ -540,7 +542,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 	t.Run("not managed by controller", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		delete(ps.Labels, labelManageBy)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(ps).Build()
@@ -559,7 +561,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 	t.Run("Modifying the service name to reference a non-existent service", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		ps.Labels[network.LabelServiceName] = "mock"
 		ps.OwnerReferences = nil
 		ps.Labels[network.LabelNodePoolName] = "np111"
@@ -617,7 +619,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		svc1 := newService(v1.NamespaceDefault, mockServiceName)
 		svc2 := newService(v1.NamespaceDefault, "mock")
 
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		ps.Labels[network.LabelServiceName] = "mock"
 		ps.OwnerReferences = nil
 		ps.Labels[network.LabelNodePoolName] = "np111"
@@ -648,7 +650,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		np := newNodepool("np123", "name=np123,app=deploy")
 
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		ps.Labels[network.LabelNodePoolName] = "np111"
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(ps).WithObjects(np).Build()
@@ -676,7 +678,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 	t.Run("modifying the pool service is not managed by controller", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 
-		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		ps.Labels[network.LabelServiceName] = "mock"
 		delete(ps.Labels, labelManageBy)
 
@@ -831,7 +833,7 @@ func assertPoolServiceLabels(t testing.TB, psl *v1alpha1.PoolServiceList, servic
 	}
 }
 
-func newPoolService(namespace string, poolName string, annotations map[string]string, lbIngress []corev1.LoadBalancerIngress) *v1alpha1.PoolService {
+func newPoolService(namespace string, poolName string, aggregatedLabels, aggregatedAnnotations map[string]string, lbIngress []corev1.LoadBalancerIngress) *v1alpha1.PoolService {
 	blockOwnerDeletion := true
 	controller := true
 	return &v1alpha1.PoolService{
@@ -840,10 +842,9 @@ func newPoolService(namespace string, poolName string, annotations map[string]st
 			APIVersion: v1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Namespace:   namespace,
-			Name:        mockServiceName + "-" + poolName,
-			Labels:      map[string]string{network.LabelServiceName: mockServiceName, network.LabelNodePoolName: poolName, labelManageBy: names.LoadBalancerSetController},
-			Annotations: annotations,
+			Namespace: namespace,
+			Name:      mockServiceName + "-" + poolName,
+			Labels:    map[string]string{network.LabelServiceName: mockServiceName, network.LabelNodePoolName: poolName, labelManageBy: names.LoadBalancerSetController},
 			OwnerReferences: []v1.OwnerReference{
 				{
 					APIVersion:         "v1",
@@ -869,6 +870,8 @@ func newPoolService(namespace string, poolName string, annotations map[string]st
 			LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: lbIngress,
 			},
+			AggregateToAnnotations: aggregatedAnnotations,
+			AggregateToLabels:      aggregatedLabels,
 		},
 	}
 }
@@ -892,11 +895,11 @@ func assertLoadBalancerStatusEqual(t testing.TB, expected, got []corev1.LoadBala
 	}
 }
 
-func assertOpenYurtAnnotationsEqual(t testing.TB, expected, got map[string]string) {
+func assertMapEqual(t testing.TB, expected, got map[string]string) {
 	t.Helper()
 
 	for k, v := range expected {
-		if !strings.HasPrefix(k, network.AggregateAnnotationsKeyPrefix) || (k == network.AnnotationNodePoolSelector) {
+		if !strings.HasPrefix(k, aggregateKeyPrefix) {
 			continue
 		}
 		if got[k] != v {
@@ -905,7 +908,7 @@ func assertOpenYurtAnnotationsEqual(t testing.TB, expected, got map[string]strin
 	}
 
 	for k, v := range got {
-		if !strings.HasPrefix(k, network.AggregateAnnotationsKeyPrefix) || (k == network.AnnotationNodePoolSelector) {
+		if !strings.HasPrefix(k, aggregateKeyPrefix) {
 			continue
 		}
 
