@@ -163,6 +163,15 @@ func TestServicePredicate(t *testing.T) {
 		got := f.Update(event.UpdateEvent{ObjectOld: svc1, ObjectNew: svc2})
 		assertBool(t, true, got)
 	})
+
+	t.Run("modify service status", func(t *testing.T) {
+		svc1 := newService(v1.NamespaceDefault, mockServiceName)
+		svc2 := newService(v1.NamespaceDefault, mockServiceName)
+		svc2.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{{IP: "1.2.3.4"}}
+
+		got := f.Update(event.UpdateEvent{ObjectOld: svc1, ObjectNew: svc2})
+		assertBool(t, true, got)
+	})
 }
 
 func assertBool(t testing.TB, expected, got bool) {

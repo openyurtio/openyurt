@@ -503,5 +503,5 @@ func (r *ReconcileLoadBalancerSet) compareAndUpdateService(svc *corev1.Service, 
 		return nil
 	}
 
-	return r.Update(context.Background(), svc)
+	return r.Status().Update(context.Background(), svc)
 }
