@@ -1,8 +1,6 @@
 # openyurtio/openyurt
 
-<div align="center">
-
-<img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
+![](docs/img/OpenYurt.png)
 
 [![Version](https://img.shields.io/badge/OpenYurt-v1.4.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
@@ -11,8 +9,6 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/openyurtio/openyurt/badge)](https://api.securityscorecards.dev/projects/github.com/openyurtio/openyurt)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/7117/badge)](https://bestpractices.coreinfrastructure.org/projects/7117)
 [![](https://img.shields.io/badge/OpenYurt-Check%20Your%20Contribution-orange)](https://opensource.alibaba.com/contribution_leaderboard/details?projectValue=openyurt)
-
-</div>
 
 English | [简体中文](./README.zh.md)
 
@@ -23,9 +19,7 @@ English | [简体中文](./README.zh.md)
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
 
-<div align="left">
-  <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
-</div>
+![OpenYurt Overview](docs/img/overview.png)
 
 OpenYurt has been designed to meet various DevOps requirements against typical edge infrastructures.
 It provides consistent user experience for managing the edge applications as if they were running in the cloud infrastructure.
@@ -41,9 +35,7 @@ manage multiple edge nodes residing in the edge sites. Each edge node has modera
 run edge applications plus the required OpenYurt components. The edge nodes in a cluster can span
 multiple physical regions, which are referred to as `Pools` in OpenYurt.
 
-<div align="left">
-  <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
-</div>
+![OpenYurt architecture](docs/img/arch.png)
 
 The above figure demonstrates the core OpenYurt architecture. The major components consist of:
 
@@ -91,13 +83,11 @@ We have also prepared a developer [guide](https://openyurt.io/docs/developer-man
 If you have any questions or want to contribute, you are welcome to communicate most things via GitHub issues or pull requests.
 Other active communication channels:
 
-- Mailing List: https://groups.google.com/g/openyurt/
-- Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-2ajsy47br-jl~zjumRsCAE~BlPRRsIvg) (_English_)
-- DingTalk：Search GroupID `12640034121` (_Chinese_)
+* Mailing List: https://groups.google.com/g/openyurt/
+* Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-2ajsy47br-jl~zjumRsCAE~BlPRRsIvg) (_English_)
+* DingTalk：Search GroupID `12640034121` (_Chinese_)
 
-<div align="left">
-  <img src="docs/img/ding.jpg" width=25% title="dingtalk">
-</div>
+![dingtalk](docs/img/ding.jpg)
 
 ## License
 

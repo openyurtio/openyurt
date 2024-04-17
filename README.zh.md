@@ -1,8 +1,6 @@
 # openyurtio/openyurt
 
-<div align="center">
-
-<img src="docs/img/OpenYurt.png" width="400" height="94"><br/>
+![](docs/img/OpenYurt.png)
 
 [![Version](https://img.shields.io/badge/OpenYurt-v1.4.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
@@ -11,8 +9,6 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/openyurtio/openyurt/badge)](https://api.securityscorecards.dev/projects/github.com/openyurtio/openyurt)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/7117/badge)](https://bestpractices.coreinfrastructure.org/projects/7117)
 [![](https://img.shields.io/badge/OpenYurt-%E6%9F%A5%E7%9C%8B%E8%B4%A1%E7%8C%AE%E6%8E%92%E8%A1%8C%E6%A6%9C-orange)](https://opensource.alibaba.com/contribution_leaderboard/details?projectValue=openyurt)
-
-</div>
 
 [English](./README.md) | 简体中文
 
@@ -23,9 +19,7 @@
 
 OpenYurt (官网: https://openyurt.io) 是基于 Upstream Kubernetes 构建的，现在是托管在云原生基金会(CNCF) 下的 [沙箱项目](https://www.cncf.io/sandbox-projects/).
 
-<div align="left">
-  <img src="docs/img/overview.png" width=80% title="OpenYurt Overview ">
-</div>
+![OpenYurt Overview](docs/img/overview.png)
 
 OpenYurt 是为满足典型边缘基础设施的各种 DevOps 需求而设计的。
 通过 OpenYurt 来管理边缘应用程序，用户可以获得与中心式云计算应用管理一致的用户体验。
@@ -39,9 +33,7 @@ OpenYurt 遵循经典的云边一体化架构。
 每个边缘节点都具有适量的计算资源，从而可以运行边缘应用以及 OpenYurt 系统组件。集群中的边缘节点可以分布在多个物理区域，这些物理区域在 OpenYurt 中称为 Pools。
 集群中的边缘节点可以分处于在多个物理区域中（region）。
 
-<div align="left">
-  <img src="docs/img/arch.png" width=70% title="OpenYurt architecture">
-</div>
+![OpenYurt architecture](docs/img/arch.png)
 
 上图展示了 OpenYurt 的核心架构。OpenYurt 的主要组件包括：
 
@@ -92,9 +84,7 @@ OpenYurt 集群安装分成 2 个部分，分别为安装 OpenYurt 管控组件�
 - Slack: [OpenYurt channel](https://join.slack.com/t/openyurt/shared_invite/zt-25tm2q1dz-Jn6y4r7W4JigWc0Sx2jDzg) (_English_)
 - DingTalk: 搜索群 ID `12640034121` (_Chinese_)
 
-<div align="left">
-  <img src="docs/img/ding.jpg" width=25% title="dingtalk">
-</div>
+![](docs/img/ding.jpg)
 
 ## 许可证
 
