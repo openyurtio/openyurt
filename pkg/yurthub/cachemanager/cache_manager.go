@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -42,6 +43,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -74,6 +77,8 @@ type cacheManager struct {
 	cacheAgents           *CacheAgent
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
+	errorKeys             *errorKeys
+	failedNumber          *int32
 }
 
 // NewCacheManager creates a new CacheManager
@@ -92,7 +97,8 @@ func NewCacheManager(
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
 	}
-
+	cm.errorKeys = NewErrorKeys()
+	cm.errorKeys.recover()
 	return cm
 }
 
@@ -133,6 +139,10 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	}
 	if !info.IsResourceRequest {
 		return nil, fmt.Errorf("could not QueryCache for getting non-resource request %s", util.ReqString(req))
+	}
+	comp, _ := util.ClientComponentFrom(ctx)
+	if comp == "kubelet" && info.Resource == "nodes" && info.Verb == "Get" {
+		return cm.updateNodeStatus(req)
 	}
 
 	switch info.Verb {
@@ -190,7 +200,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	} else if len(objs) == 0 {
 		if isKubeletPodRequest(req) {
 			// because at least there will be yurt-hub pod on the node.
-			// if no pods in cache, maybe all of pods have been deleted by accident,
+			// if no pods in cache, maybe all pods have been deleted by accident,
 			// if empty object is returned, pods on node will be deleted by kubelet.
 			// in order to prevent the influence to business, return error here so pods
 			// will be kept on node.
@@ -217,6 +227,55 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 	return listObj, nil
+}
+
+func (cm *cacheManager) updateNodeStatus(req *http.Request) (runtime.Object, error) {
+	obj, err := cm.queryOneObject(req)
+	if err != nil {
+		return nil, err
+	}
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		return nil, fmt.Errorf("could not QueryCache, node is not found")
+	}
+	if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
+		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
+		return node, nil
+	}
+	if cm.errorKeys.length() == 0 {
+		setNodeAutonomyCondition(node, v1.ConditionTrue, "cache successful", "The autonomy is enabled and it works fine")
+		atomic.StoreInt32(cm.failedNumber, 0)
+	} else {
+		atomic.AddInt32(cm.failedNumber, 1)
+		if *cm.failedNumber > 3 {
+			setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
+		}
+	}
+	return node, nil
+}
+
+func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, reason, message string) {
+	for i := range node.Status.Conditions {
+		if node.Status.Conditions[i].Type == appsv1beta1.NodeAutonomy {
+			if node.Status.Conditions[i].Status == expectedStatus {
+				return
+			}
+			node.Status.Conditions[i].Status = expectedStatus
+			node.Status.Conditions[i].Reason = reason
+			node.Status.Conditions[i].Message = message
+			node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+			node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+			return
+		}
+	}
+	node.Status.Conditions = append(node.Status.Conditions, v1.NodeCondition{
+		Type:               appsv1beta1.NodeAutonomy,
+		Status:             expectedStatus,
+		Reason:             reason,
+		Message:            message,
+		LastHeartbeatTime:  metav1.Now(),
+		LastTransitionTime: metav1.Now(),
+	})
 }
 
 func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error) {
@@ -266,7 +325,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// we need to rebuild the in-memory cache with backend consistent storage.
 	// Note:
 	// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
-	// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
+	// While cloud-edge network is broken, the inMemoryCache can only be fulfilled with data from edge cache,
 	// such as local disk and yurt-coordinator.
 	if isInMemoryCacheMiss {
 		return obj, cm.updateInMemoryCache(ctx, info, obj)
@@ -373,15 +432,15 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				klog.Errorf("could not get namespace of watch object, %v", err)
 				continue
 			}
-
-			key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			keyBuildInfo := storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
 				Group:     info.APIGroup,
 				Version:   info.APIVersion,
-			})
+			}
+			key, err := cm.storage.KeyFunc(keyBuildInfo)
 			if err != nil {
 				klog.Errorf("could not get cache path, %v", err)
 				continue
@@ -405,7 +464,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				// for now, If it's a delete request, no need to modify the inmemory cache,
 				// because currently, there shouldn't be any delete requests for nodes or leases.
 			default:
-				// impossible go to here
+				// impossible go here
 			}
 
 			if info.Resource == "pods" {
@@ -413,6 +472,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if err != nil {
+				cm.errorKeys.put(key.Key(), err.Error())
 				klog.Errorf("could not process watch object %s, %v", key.Key(), err)
 			}
 		case watch.Bookmark:
@@ -473,15 +533,22 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 		if ns == "" {
 			ns = info.Namespace
 		}
-		key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
+		keyBuildInfo := storage.KeyBuildInfo{
 			Component: comp,
 			Namespace: ns,
 			Name:      name,
 			Resources: info.Resource,
 			Group:     info.APIGroup,
 			Version:   info.APIVersion,
-		})
-		return cm.storeObjectWithKey(key, items[0])
+		}
+		key, _ := cm.storage.KeyFunc(keyBuildInfo)
+		err = cm.storeObjectWithKey(key, items[0])
+		if err != nil {
+			cm.errorKeys.put(key.Key(), err.Error())
+			return err
+		}
+		cm.errorKeys.del(key.Key())
+		return nil
 	} else {
 		// list all objects or with fieldselector/labelselector
 		objs := make(map[storage.Key]runtime.Object)
@@ -494,23 +561,32 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			if ns == "" {
 				ns = info.Namespace
 			}
-
-			key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			singleKeyInfo := storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
 				Group:     info.APIGroup,
 				Version:   info.APIVersion,
-			})
+			}
+			key, _ := cm.storage.KeyFunc(singleKeyInfo)
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+		err = cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
 			Group:    info.APIGroup,
 			Version:  info.APIVersion,
 			Resource: info.Resource,
 		}, info.Namespace, objs)
+		if err != nil {
+			for key := range objs {
+				cm.errorKeys.put(key.Key(), err.Error())
+			}
+		}
+		for key := range objs {
+			cm.errorKeys.del(key.Key())
+		}
+		return nil
 	}
 }
 
@@ -549,14 +625,15 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		return nil
 	}
 
-	key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+	keyBuildInfo := storage.KeyBuildInfo{
 		Component: comp,
 		Namespace: info.Namespace,
 		Name:      name,
 		Resources: info.Resource,
 		Group:     info.APIGroup,
 		Version:   info.APIVersion,
-	})
+	}
+	key, err := cm.storage.KeyFunc(keyBuildInfo)
 	if err != nil {
 		klog.Errorf("could not get cache key(%s:%s:%s:%s), %v", comp, info.Resource, info.Namespace, info.Name, err)
 		return err
@@ -570,10 +647,11 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 
 	err = cm.storeObjectWithKey(key, obj)
 	if err != nil {
+		cm.errorKeys.put(key.Key(), err.Error())
 		klog.Errorf("could not store object %s, %v", key.Key(), err)
 		return err
 	}
-
+	cm.errorKeys.del(key.Key())
 	return cm.updateInMemoryCache(ctx, info, obj)
 }
 
@@ -611,19 +689,19 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 	newRvUint, _ := strconv.ParseUint(newRv, 10, 64)
 	_, err = cm.storage.Update(key, obj, newRvUint)
 
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return nil
-	case storage.ErrStorageNotFound:
+	case errors.Is(err, storage.ErrStorageNotFound):
 		klog.V(4).Infof("find no cached obj of key: %s, create it with the coming obj with rv: %s", key.Key(), newRv)
 		if err := cm.storage.Create(key, obj); err != nil {
-			if err == storage.ErrStorageAccessConflict {
+			if errors.Is(err, storage.ErrStorageAccessConflict) {
 				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key.Key())
 				return nil
 			}
 			return fmt.Errorf("could not create obj of key: %s, %v", key.Key(), err)
 		}
-	case storage.ErrStorageAccessConflict:
+	case errors.Is(err, storage.ErrStorageAccessConflict):
 		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
 		return nil
 	default:

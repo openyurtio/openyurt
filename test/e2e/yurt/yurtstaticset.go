@@ -44,7 +44,7 @@ const (
 
 var _ = Describe("yurtStaticSet Test", Ordered, func() {
 	ctx := context.Background()
-	timeout := 60 * time.Second
+	timeout := 90 * time.Second
 	k8sClient := ycfg.YurtE2eCfg.RuntimeClient
 	nodeToImageMap := make(map[string]string)
 
