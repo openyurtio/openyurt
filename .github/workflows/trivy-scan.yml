@@ -13,12 +13,12 @@ env:
 jobs:
   images:
     name: Image Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         target: [ yurthub,  node-servant, yurt-manager, yurt-iot-dock ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
