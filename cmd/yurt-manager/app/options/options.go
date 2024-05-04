@@ -46,6 +46,7 @@ type YurtManagerOptions struct {
 	GatewayDNSController          *GatewayDNSControllerOptions
 	GatewayInternalSvcController  *GatewayInternalSvcControllerOptions
 	GatewayPublicSvcController    *GatewayPublicSvcControllerOptions
+	VipLoadBalancerController     *VipLoadBalancerControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -73,6 +74,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		GatewayDNSController:          NewGatewayDNSControllerOptions(),
 		GatewayInternalSvcController:  NewGatewayInternalSvcControllerOptions(),
 		GatewayPublicSvcController:    NewGatewayPublicSvcControllerOptions(),
+		VipLoadBalancerController:     NewVipLoadBalancerControllerOptions(),
 	}
 
 	return &s, nil
@@ -101,6 +103,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.GatewayDNSController.AddFlags(fss.FlagSet("gatewaydns controller"))
 	y.GatewayInternalSvcController.AddFlags(fss.FlagSet("gatewayinternalsvc controller"))
 	y.GatewayPublicSvcController.AddFlags(fss.FlagSet("gatewaypublicsvc controller"))
+	y.VipLoadBalancerController.AddFlags(fss.FlagSet("viploadbalancer controller"))
 	return fss
 }
 
@@ -128,6 +131,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.GatewayDNSController.Validate()...)
 	errs = append(errs, y.GatewayInternalSvcController.Validate()...)
 	errs = append(errs, y.GatewayPublicSvcController.Validate()...)
+	errs = append(errs, y.VipLoadBalancerController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -194,6 +198,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.GatewayPublicSvcController.ApplyTo(&c.ComponentConfig.GatewayPublicSvcController); err != nil {
+		return err
+	}
+	if err := y.VipLoadBalancerController.ApplyTo(&c.ComponentConfig.VipLoadBalancerController); err != nil {
 		return err
 	}
 	return nil

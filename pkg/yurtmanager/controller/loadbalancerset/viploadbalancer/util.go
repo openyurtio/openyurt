@@ -18,6 +18,7 @@ package viploadbalancer
 import "sync"
 
 const (
+	MINVRIDLIMIT = 0
 	MAXVRIDLIMIT = 255
 	EVICTED      = -1
 )
@@ -43,7 +44,7 @@ func (vm *VRIDManager) GetVRID(key string) int {
 		vm.vridMap[key] = make(map[int]bool)
 	}
 
-	for vrid := 1; vrid <= vm.maxVRID; vrid++ {
+	for vrid := 0; vrid < vm.maxVRID; vrid++ {
 		if !vm.vridMap[key][vrid] {
 			vm.vridMap[key][vrid] = true
 			return vrid
@@ -51,12 +52,6 @@ func (vm *VRIDManager) GetVRID(key string) int {
 	}
 
 	return EVICTED
-}
-
-func (vm *VRIDManager) isEmpty(key string) bool {
-	vm.mutex.Lock()
-	defer vm.mutex.Unlock()
-	return len(vm.vridMap[key]) == 0
 }
 
 func (vm *VRIDManager) ReleaseVRID(key string, vrid int) {
@@ -70,7 +65,7 @@ func (vm *VRIDManager) ReleaseVRID(key string, vrid int) {
 	delete(vm.vridMap[key], vrid)
 }
 
-func (vm *VRIDManager) isValid(key string, vrid int) bool {
+func (vm *VRIDManager) IsValid(key string, vrid int) bool {
 	vm.mutex.Lock()
 	defer vm.mutex.Unlock()
 
@@ -83,4 +78,17 @@ func (vm *VRIDManager) isValid(key string, vrid int) bool {
 	}
 
 	return true
+}
+
+func (vm *VRIDManager) SyncVRID(key string, vird []int) {
+	vm.mutex.Lock()
+	defer vm.mutex.Unlock()
+
+	if _, ok := vm.vridMap[key]; !ok {
+		vm.vridMap[key] = make(map[int]bool)
+	}
+
+	for _, v := range vird {
+		vm.vridMap[key][v] = true
+	}
 }

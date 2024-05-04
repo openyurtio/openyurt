@@ -63,10 +63,6 @@ func NewPoolServicePredicated() predicate.Predicate {
 }
 
 func predicatedPoolService(ps *v1alpha1.PoolService) bool {
-	if ps.Labels == nil {
-		return false
-	}
-
 	return matchLoadBalancerClass(ps)
 }
 
@@ -75,9 +71,9 @@ func matchLoadBalancerClass(ps *v1alpha1.PoolService) bool {
 		return false
 	}
 
-	if *ps.Spec.LoadBalancerClass == VipLoadBalancerClass {
-		return true
+	if *ps.Spec.LoadBalancerClass != VipLoadBalancerClass {
+		return false
 	}
 
-	return false
+	return true
 }

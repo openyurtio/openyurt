@@ -1527,6 +1527,27 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /mutate-network-openyurt-io-poolservice
+  failurePolicy: Fail
+  name: mutate.network.v1alpha1.poolservice.openyurt.io
+  rules:
+  - apiGroups:
+    - network.openyurt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - poolservices
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /mutate-apps-openyurt-io-v1alpha1-yurtappdaemon
   failurePolicy: Fail
   name: mutate.apps.v1alpha1.yurtappdaemon.openyurt.io
