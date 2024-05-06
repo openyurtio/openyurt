@@ -77,7 +77,7 @@ type Coordinator interface {
 	// 2. Pool-Scoped resources have been synced with cloud, through list/watch
 	// 3. local cache has been uploaded to yurt-coordinator
 	IsReady() (cachemanager.CacheManager, bool)
-	// IsCoordinatorHealthy will return the poolCacheManager and true if the yurt-coordinator is healthy.
+	// IsHealthy will return the poolCacheManager and true if the yurt-coordinator is healthy.
 	// We assume coordinator is healthy when the elect status is LeaderHub and FollowerHub.
 	IsHealthy() (cachemanager.CacheManager, bool)
 }
