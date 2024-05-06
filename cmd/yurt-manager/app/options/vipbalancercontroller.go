@@ -29,7 +29,7 @@ type VipLoadBalancerControllerOptions struct {
 func NewVipLoadBalancerControllerOptions() *VipLoadBalancerControllerOptions {
 	return &VipLoadBalancerControllerOptions{
 		&config.VipLoadBalancerControllerConfiguration{
-			ConcurrentLoadBalancerSetWorkers: 3,
+			ConcurrentVipLoadBalancerWorkers: 3,
 		},
 	}
 }
@@ -40,7 +40,7 @@ func (n *VipLoadBalancerControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentLoadBalancerSetWorkers, "concurrent-load-balancer-set-workers", n.ConcurrentLoadBalancerSetWorkers, "The number of load-balancer-set service objects that are allowed to reconcile concurrently. Larger number = more responsive load-balancer-set services, but more CPU (and network) load")
+	fs.Int32Var(&n.ConcurrentVipLoadBalancerWorkers, "concurrent-vip-load-balancer-workers", n.ConcurrentVipLoadBalancerWorkers, "The number of vip-load-balancer service objects that are allowed to reconcile concurrently. Larger number = more responsive vip-load-balancer services, but more CPU (and network) load")
 }
 
 // ApplyTo fills up poolservice config with options.
@@ -49,7 +49,7 @@ func (o *VipLoadBalancerControllerOptions) ApplyTo(cfg *config.VipLoadBalancerCo
 		return nil
 	}
 
-	cfg.ConcurrentLoadBalancerSetWorkers = o.ConcurrentLoadBalancerSetWorkers
+	cfg.ConcurrentVipLoadBalancerWorkers = o.ConcurrentVipLoadBalancerWorkers
 
 	return nil
 }

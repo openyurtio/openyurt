@@ -23,13 +23,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -52,6 +52,8 @@ const (
 
 	AnnotationServiceTopologyKey           = "openyurt.io/topologyKeys"
 	AnnotationServiceTopologyValueNodePool = "openyurt.io/nodepool"
+
+	VipLoadBalancerFinalizer = "viploadbalancer.openyurt.io/resources"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -101,7 +103,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *Reconcile
 func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.VipLoadBalancerController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.VipLoadBalancerController.ConcurrentLoadBalancerSetWorkers),
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.VipLoadBalancerController.ConcurrentVipLoadBalancerWorkers),
 	})
 	if err != nil {
 		return err
@@ -138,29 +140,29 @@ func (r *ReconcileVipLoadBalancer) Reconcile(ctx context.Context, request reconc
 		return r.reconcileDelete(ctx, copyPoolService)
 	}
 
-	if err := r.syncPoolServices(ctx, copyPoolService); err != nil {
+	if err := r.syncPoolService(ctx, copyPoolService); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVipLoadBalancer) syncPoolServices(ctx context.Context, poolService *netv1alpha1.PoolService) error {
+func (r *ReconcileVipLoadBalancer) syncPoolService(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	klog.V(4).Infof(Format("SyncPoolServices VipLoadBalancer %s/%s", poolService.Namespace, poolService.Name))
 	// if not exist, create a new VRID
-	if err := r.handleVRID(poolService); err != nil {
-		return err
-	}
-
-	// Update the PoolService
-	if err := r.Update(ctx, poolService); err != nil {
-		klog.Errorf(Format("Failed to create PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+	if err := r.handleVRID(ctx, poolService); err != nil {
 		return err
 	}
 
 	// sync VRID from the poolservice
 	if err := r.syncVRID(ctx, poolService); err != nil {
 		klog.Errorf(Format("Failed to sync VRID on Pool Service %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return err
+	}
+
+	// add finalizer to the PoolService
+	if err := r.addFinalizer(ctx, poolService); err != nil {
+		klog.Errorf(Format("Failed to add finalizer to PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
 		return err
 	}
 
@@ -183,9 +185,6 @@ func (r *ReconcileVipLoadBalancer) getCurrentVRID(ctx context.Context, poolServi
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			network.LabelNodePoolName: poolService.Labels[network.LabelNodePoolName],
 		}),
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.loadBalancerClass": VipLoadBalancerClass,
-		}),
 	}
 	poolServiceList := &netv1alpha1.PoolServiceList{}
 	if err := r.List(ctx, poolServiceList, listSelector); err != nil {
@@ -198,7 +197,7 @@ func (r *ReconcileVipLoadBalancer) getCurrentVRID(ctx context.Context, poolServi
 func filterInvalidPoolService(poolServices []netv1alpha1.PoolService) []int {
 	poolVrids := []int{}
 	for _, poolService := range poolServices {
-		if poolService.Labels == nil {
+		if *poolService.Spec.LoadBalancerClass != VipLoadBalancerClass || poolService.Labels == nil {
 			continue
 		}
 
@@ -235,20 +234,20 @@ func (r *ReconcileVipLoadBalancer) hasValidVRID(poolService netv1alpha1.PoolServ
 	return true
 }
 
-func (r *ReconcileVipLoadBalancer) handleVRID(poolService *netv1alpha1.PoolService) error {
+func (r *ReconcileVipLoadBalancer) handleVRID(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	if r.hasValidVRID(*poolService) {
 		return nil
 	}
 
 	// Assign a new VRID to the PoolService
-	if err := r.assignVRID(poolService); err != nil {
+	if err := r.assignVRID(ctx, poolService); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *ReconcileVipLoadBalancer) assignVRID(poolService *netv1alpha1.PoolService) error {
+func (r *ReconcileVipLoadBalancer) assignVRID(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	// Get the poolName from the PoolService
 	poolName := poolService.Labels[network.LabelNodePoolName]
 	// Get a new VRID
@@ -263,6 +262,12 @@ func (r *ReconcileVipLoadBalancer) assignVRID(poolService *netv1alpha1.PoolServi
 	}
 
 	poolService.Annotations[AnnotationVipLoadBalancerVRID] = strconv.Itoa(vrid)
+
+	// Update the PoolService
+	if err := r.Update(ctx, poolService); err != nil {
+		klog.Errorf(Format("Failed to create PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return err
+	}
 	return nil
 }
 
@@ -279,12 +284,30 @@ func (r *ReconcileVipLoadBalancer) reconcileDelete(ctx context.Context, poolServ
 		return reconcile.Result{}, fmt.Errorf("VRID: %d is not in valid range", vrid)
 	}
 	r.VRIDManager.ReleaseVRID(poolName, vrid)
-	// Delete the PoolService
-	if err := r.Delete(ctx, poolService, &client.DeleteOptions{}); err != nil {
-		klog.Errorf(Format("Failed to delete PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
-		return reconcile.Result{}, err
+	// remove the finalizer in the PoolService
 
+	if err := r.removeFinalizer(ctx, poolService); err != nil {
+		klog.Errorf(Format("Failed to remove finalizer from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVipLoadBalancer) addFinalizer(ctx context.Context, poolService *netv1alpha1.PoolService) error {
+	if controllerutil.ContainsFinalizer(poolService, VipLoadBalancerFinalizer) {
+		return nil
+	}
+
+	controllerutil.AddFinalizer(poolService, VipLoadBalancerFinalizer)
+	return r.Update(ctx, poolService)
+}
+
+func (r *ReconcileVipLoadBalancer) removeFinalizer(ctx context.Context, poolService *netv1alpha1.PoolService) error {
+	if !controllerutil.ContainsFinalizer(poolService, VipLoadBalancerFinalizer) {
+		return nil
+	}
+
+	controllerutil.RemoveFinalizer(poolService, VipLoadBalancerFinalizer)
+	return r.Update(ctx, poolService)
 }

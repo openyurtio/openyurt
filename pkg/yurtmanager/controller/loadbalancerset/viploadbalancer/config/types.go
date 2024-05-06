@@ -18,5 +18,5 @@ package config
 
 // VipLoadBalancerControllerConfiguration contains elements describing EdgeLoadBalanceController.
 type VipLoadBalancerControllerConfiguration struct {
-	ConcurrentLoadBalancerSetWorkers int32
+	ConcurrentVipLoadBalancerWorkers int32
 }

@@ -63,5 +63,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"nodelifecycle":                 NodeLifeCycleController,
 		"nodebucket":                    NodeBucketController,
 		"loadbalancerset":               LoadBalancerSetController,
+		"viploadbalancer":               VipLoadBalancerController,
 	}
 }

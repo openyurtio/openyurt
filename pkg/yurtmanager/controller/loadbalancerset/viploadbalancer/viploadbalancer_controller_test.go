@@ -114,7 +114,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		c.List(context.Background(), psl)
 
 		assertErrNil(t, err)
-		assertPoolServiceNil(t, psl)
+		assertPoolServiceFinalizerNil(t, psl)
 	})
 
 }
@@ -191,11 +191,13 @@ func newNodepool(name string, labelStr string) *v1beta1.NodePool {
 	}
 }
 
-func assertPoolServiceNil(t testing.TB, psl *v1alpha1.PoolServiceList) {
+func assertPoolServiceFinalizerNil(t testing.TB, psl *v1alpha1.PoolServiceList) {
 	t.Helper()
 
-	if len(psl.Items) != 0 {
-		t.Errorf("expected pool service list is nil")
+	for _, ps := range psl.Items {
+		if len(ps.Finalizers) != 0 {
+			t.Errorf("expected finalizer is nil, but got %v", ps.Finalizers)
+		}
 	}
 }
 
