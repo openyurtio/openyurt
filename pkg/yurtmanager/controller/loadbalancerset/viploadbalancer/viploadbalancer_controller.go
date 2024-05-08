@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
@@ -53,7 +54,8 @@ const (
 	AnnotationServiceTopologyKey           = "openyurt.io/topologyKeys"
 	AnnotationServiceTopologyValueNodePool = "openyurt.io/nodepool"
 
-	VipLoadBalancerFinalizer = "viploadbalancer.openyurt.io/resources"
+	VipLoadBalancerFinalizer               = "viploadbalancer.openyurt.io/resources"
+	poolServiceVRIDExhaustedEventMsgFormat = "PoolService %s/%s in NodePool %s has exhausted all VRIDs"
 )
 
 func Format(format string, args ...interface{}) string {
@@ -253,7 +255,9 @@ func (r *ReconcileVipLoadBalancer) assignVRID(ctx context.Context, poolService *
 	// Get a new VRID
 	vrid := r.VRIDManager.GetVRID(poolName)
 	if vrid == EVICTED {
-		return fmt.Errorf("VRID usage limit exceeded")
+		r.recorder.Eventf(poolService, corev1.EventTypeWarning, "VRIDExhausted", poolServiceVRIDExhaustedEventMsgFormat,
+			poolService.Namespace, poolService.Name, poolName)
+		return nil
 	}
 
 	// Set the VRID to the PoolService
