@@ -16,7 +16,7 @@ limitations under the License.
 
 package config
 
-// VipLoadBalancerControllerConfiguration contains elements describing EdgeLoadBalanceController.
+// VipLoadBalancerControllerConfiguration contains elements describing VipLoadBalanceController.
 type VipLoadBalancerControllerConfiguration struct {
 	ConcurrentVipLoadBalancerWorkers int32
 }

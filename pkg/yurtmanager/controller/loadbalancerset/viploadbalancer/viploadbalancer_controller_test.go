@@ -66,7 +66,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		assertErrNil(t, err)
 	})
 
-	t.Run("test update pool services", func(t *testing.T) {
+	t.Run("test get pool services", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
@@ -87,7 +87,116 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		assertPoolServicesNameList(t, psl, []string{"test-np123"})
 		assertPoolServicesLBClass(t, psl, svc.Spec.LoadBalancerClass)
 		assertPoolServiceLabels(t, psl, svc.Name)
+		assertPoolServiceFinalizer(t, psl)
 		assertPoolServiceVRIDLabels(t, psl, "0")
+	})
+
+	t.Run("test get pool services with valid vrid", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+
+		poolsvc.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: "6"}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+
+		vridManage := viploadbalancer.NewVRIDManager()
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:      c,
+			VRIDManager: vridManage,
+		}
+
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServicesNameList(t, psl, []string{"test-np123"})
+		assertPoolServicesLBClass(t, psl, svc.Spec.LoadBalancerClass)
+		assertPoolServiceLabels(t, psl, svc.Name)
+		assertPoolServiceFinalizer(t, psl)
+		assertPoolServiceVRIDLabels(t, psl, "6")
+	})
+
+	t.Run("test update pool services with invalid vrid", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		vridManage := viploadbalancer.NewVRIDManager()
+
+		poolsvc.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: "256"}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:      c,
+			VRIDManager: vridManage,
+		}
+
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServicesNameList(t, psl, []string{"test-np123"})
+		assertPoolServicesLBClass(t, psl, svc.Spec.LoadBalancerClass)
+		assertPoolServiceLabels(t, psl, svc.Name)
+		assertPoolServiceFinalizer(t, psl)
+		assertPoolServiceVRIDLabels(t, psl, "0")
+	})
+
+	t.Run("test delete pool services with invalid vrid", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+
+		vridManage := viploadbalancer.NewVRIDManager()
+
+		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: "256"}
+		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:      c,
+			VRIDManager: vridManage,
+		}
+
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceFinalizer(t, psl)
+	})
+
+	t.Run("test delete pool services with empty vrid", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+
+		vridManage := viploadbalancer.NewVRIDManager()
+		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:      c,
+			VRIDManager: vridManage,
+		}
+
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceFinalizer(t, psl)
 	})
 
 	t.Run("test delete pool services with delete time not zero", func(t *testing.T) {
@@ -191,6 +300,24 @@ func newNodepool(name string, labelStr string) *v1beta1.NodePool {
 	}
 }
 
+func assertPoolServiceFinalizer(t testing.TB, psl *v1alpha1.PoolServiceList) {
+	t.Helper()
+
+	for _, ps := range psl.Items {
+		if len(ps.Finalizers) == 0 {
+			t.Errorf("expected finalizer is not nil, but got %v", ps.Finalizers)
+			return
+		}
+		for _, f := range ps.Finalizers {
+			if f == viploadbalancer.VipLoadBalancerFinalizer {
+				return
+			}
+		}
+		t.Errorf("expected finalizer is %s, but got %s", viploadbalancer.VipLoadBalancerFinalizer, ps.Finalizers)
+	}
+
+}
+
 func assertPoolServiceFinalizerNil(t testing.TB, psl *v1alpha1.PoolServiceList) {
 	t.Helper()
 
@@ -260,7 +387,7 @@ func assertPoolServiceVRIDLabels(t testing.TB, psl *v1alpha1.PoolServiceList, vr
 		}
 
 		if ps.Annotations[vridLable] != vrid {
-			t.Errorf("expected pool service name is %s, but got %s", vrid, ps.Labels[vridLable])
+			t.Errorf("expected pool service vird is %s, but got %s", vrid, ps.Labels[vridLable])
 		}
 	}
 }

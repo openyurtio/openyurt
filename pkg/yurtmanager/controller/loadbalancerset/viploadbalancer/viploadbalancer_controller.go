@@ -151,14 +151,15 @@ func (r *ReconcileVipLoadBalancer) Reconcile(ctx context.Context, request reconc
 
 func (r *ReconcileVipLoadBalancer) syncPoolService(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	klog.V(4).Infof(Format("SyncPoolServices VipLoadBalancer %s/%s", poolService.Namespace, poolService.Name))
-	// if not exist, create a new VRID
-	if err := r.handleVRID(ctx, poolService); err != nil {
-		return err
-	}
 
 	// sync VRID from the poolservice
 	if err := r.syncVRID(ctx, poolService); err != nil {
 		klog.Errorf(Format("Failed to sync VRID on Pool Service %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return err
+	}
+
+	// if not exist, create a new VRID
+	if err := r.handleVRID(ctx, poolService); err != nil {
 		return err
 	}
 
@@ -224,7 +225,22 @@ func filterInvalidPoolService(poolServices []netv1alpha1.PoolService) []int {
 	return poolVrids
 }
 
-func (r *ReconcileVipLoadBalancer) hasValidVRID(poolService netv1alpha1.PoolService) bool {
+func (r *ReconcileVipLoadBalancer) checkVRID(poolService netv1alpha1.PoolService) (int, error) {
+	if !r.containsVRID(&poolService) {
+		// Assign a new VRID to the PoolService
+		return EVICTED, fmt.Errorf("PoolService %s/%s doesn't have VRID", poolService.Namespace, poolService.Name)
+	}
+
+	vrid, err := r.isValidVRID(&poolService, poolService.Labels[network.LabelNodePoolName])
+	if err != nil {
+		klog.Errorf(Format("Get invalid VRID from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return EVICTED, err
+	}
+
+	return vrid, nil
+}
+
+func (r *ReconcileVipLoadBalancer) containsVRID(poolService *netv1alpha1.PoolService) bool {
 	if poolService.Annotations == nil {
 		return false
 	}
@@ -236,12 +252,25 @@ func (r *ReconcileVipLoadBalancer) hasValidVRID(poolService netv1alpha1.PoolServ
 	return true
 }
 
+func (r *ReconcileVipLoadBalancer) isValidVRID(poolService *netv1alpha1.PoolService, poolName string) (int, error) {
+	vrid, err := strconv.Atoi(poolService.Annotations[AnnotationVipLoadBalancerVRID])
+	if err != nil {
+		return EVICTED, fmt.Errorf("invalid VRID: %v", err)
+	}
+
+	if !r.VRIDManager.IsValid(poolName, vrid) {
+		return EVICTED, fmt.Errorf("VRID: %d is not in valid range", vrid)
+	}
+	return vrid, nil
+}
+
 func (r *ReconcileVipLoadBalancer) handleVRID(ctx context.Context, poolService *netv1alpha1.PoolService) error {
-	if r.hasValidVRID(*poolService) {
+	// Check if the PoolService has a VRID
+	if _, err := r.checkVRID(*poolService); err == nil {
 		return nil
 	}
 
-	// Assign a new VRID to the PoolService
+	// If not, Assign a new VRID to the PoolService
 	if err := r.assignVRID(ctx, poolService); err != nil {
 		return err
 	}
@@ -279,17 +308,15 @@ func (r *ReconcileVipLoadBalancer) reconcileDelete(ctx context.Context, poolServ
 	klog.V(4).Infof(Format("ReconcilDelete VipLoadBalancer %s/%s", poolService.Namespace, poolService.Name))
 	poolName := poolService.Labels[network.LabelNodePoolName]
 
-	vrid, err := strconv.Atoi(poolService.Annotations[AnnotationVipLoadBalancerVRID])
+	// Check if the PoolService has a VRID
+	vrid, err := r.checkVRID(*poolService)
+
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("invalid VRID in poolservice: %v", err)
+		return reconcile.Result{}, nil
 	}
 
-	if !r.VRIDManager.IsValid(poolName, vrid) {
-		return reconcile.Result{}, fmt.Errorf("VRID: %d is not in valid range", vrid)
-	}
 	r.VRIDManager.ReleaseVRID(poolName, vrid)
 	// remove the finalizer in the PoolService
-
 	if err := r.removeFinalizer(ctx, poolService); err != nil {
 		klog.Errorf(Format("Failed to remove finalizer from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
 		return reconcile.Result{}, err
