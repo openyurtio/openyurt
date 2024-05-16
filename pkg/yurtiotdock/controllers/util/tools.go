@@ -19,7 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,11 +42,11 @@ func GetNodePool(cfg *rest.Config) (string, error) {
 		return nodePool, err
 	}
 
-	bn, err := ioutil.ReadFile(PODHOSTNAME)
+	bn, err := os.ReadFile(PODHOSTNAME)
 	if err != nil {
 		return nodePool, fmt.Errorf("Read file %s fail: %v", PODHOSTNAME, err)
 	}
-	bns, err := ioutil.ReadFile(PODNAMESPACE)
+	bns, err := os.ReadFile(PODNAMESPACE)
 	if err != nil {
 		return nodePool, fmt.Errorf("Read file %s fail: %v", PODNAMESPACE, err)
 	}

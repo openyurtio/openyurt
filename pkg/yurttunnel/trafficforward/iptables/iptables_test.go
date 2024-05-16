@@ -49,7 +49,7 @@ func newFakeIptablesManager(client clientset.Interface,
 	syncPeriod int,
 	execer exec.Interface) *iptablesManager {
 
-	protocol := iptables.ProtocolIpv4
+	protocol := iptables.ProtocolIPv4
 	iptInterface := iptables.New(execer, protocol)
 
 	if syncPeriod < defaultSyncPeriod {

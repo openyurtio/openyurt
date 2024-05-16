@@ -73,7 +73,7 @@ func TestSupportedResourceAndVerbs(t *testing.T) {
 			t.Errorf("expect resource is endpoints/endpointslices, but got %s", resource)
 		}
 
-		if !verbs.Equal(sets.NewString("list", "watch")) {
+		if !verbs.Equal(sets.New("list", "watch")) {
 			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
 		}
 	}

@@ -113,17 +113,17 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to PoolService
-	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}, NewServicePredicated())
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &handler.EnqueueRequestForObject{}, NewServicePredicated())
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &netv1alpha1.PoolService{}}, NewPoolServiceEventHandler(), NewPoolServicePredicated())
+	err = c.Watch(source.Kind(mgr.GetCache(), &netv1alpha1.PoolService{}), NewPoolServiceEventHandler(), NewPoolServicePredicated())
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &v1beta1.NodePool{}}, NewNodePoolEventHandler(mgr.GetClient()), NewNodePoolPredicated())
+	err = c.Watch(source.Kind(mgr.GetCache(), &v1beta1.NodePool{}), NewNodePoolEventHandler(mgr.GetClient()), NewNodePoolPredicated())
 	if err != nil {
 		return err
 	}
@@ -497,13 +497,16 @@ func (r *ReconcileLoadBalancerSet) syncService(svc *corev1.Service) error {
 }
 
 func (r *ReconcileLoadBalancerSet) compareAndUpdateService(svc *corev1.Service, labels, annotations map[string]string, lbStatus corev1.LoadBalancerStatus) error {
-	isUpdatedAnnotations := compareAndUpdateServiceAnnotations(svc, annotations)
 	isUpdatedLbStatus := compareAndUpdateServiceLbStatus(svc, lbStatus)
-	isUpdatedLabels := compareAndUpdateServiceLabels(svc, labels)
-
-	if !isUpdatedLbStatus && !isUpdatedAnnotations && !isUpdatedLabels {
-		return nil
+	if isUpdatedLbStatus {
+		return r.Status().Update(context.Background(), svc)
 	}
 
-	return r.Status().Update(context.Background(), svc)
+	isUpdatedAnnotations := compareAndUpdateServiceAnnotations(svc, annotations)
+	isUpdatedLabels := compareAndUpdateServiceLabels(svc, labels)
+	if isUpdatedAnnotations || isUpdatedLabels {
+		return r.Update(context.Background(), svc, &client.UpdateOptions{})
+	}
+
+	return nil
 }

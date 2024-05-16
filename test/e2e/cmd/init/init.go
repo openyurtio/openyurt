@@ -49,10 +49,17 @@ var (
 		"v1.21",
 		"v1.22",
 		"v1.23",
+		"v1.24",
+		"v1.25",
+		"v1.26",
+		"v1.27",
+		"v1.28",
+		"v1.29",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
 		"v0.12.0",
+		"v0.22.0",
 	}
 	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
@@ -72,6 +79,15 @@ var (
 			"v1.21": "kindest/node:v1.21.10@sha256:84709f09756ba4f863769bdcabe5edafc2ada72d3c8c44d6515fc581b66b029c",
 			"v1.22": "kindest/node:v1.22.7@sha256:1dfd72d193bf7da64765fd2f2898f78663b9ba366c2aa74be1fd7498a1873166",
 			"v1.23": "kindest/node:v1.23.4@sha256:0e34f0d0fd448aa2f2819cfd74e99fe5793a6e4938b328f657c8e3f81ee0dfb9",
+		},
+		"v0.22.0": {
+			"v1.23": "kindest/node:v1.23.17@sha256:14d0a9a892b943866d7e6be119a06871291c517d279aedb816a4b4bc0ec0a5b3",
+			"v1.24": "kindest/node:v1.24.17@sha256:bad10f9b98d54586cba05a7eaa1b61c6b90bfc4ee174fdc43a7b75ca75c95e51",
+			"v1.25": "kindest/node:v1.25.16@sha256:e8b50f8e06b44bb65a93678a65a26248fae585b3d3c2a669e5ca6c90c69dc519",
+			"v1.26": "kindest/node:v1.26.14@sha256:5d548739ddef37b9318c70cb977f57bf3e5015e4552be4e27e57280a8cbb8e4f",
+			"v1.27": "kindest/node:v1.27.11@sha256:681253009e68069b8e01aad36a1e0fa8cf18bb0ab3e5c4069b2e65cafdd70843",
+			"v1.28": "kindest/node:v1.28.7@sha256:9bc6c451a289cf96ad0bbaf33d416901de6fd632415b076ab05f5fa7e4f65c58",
+			"v1.29": "kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245",
 		},
 	}
 
@@ -124,7 +140,7 @@ func newKindOptions() *kindOptions {
 		NodeNum:           2,
 		ClusterName:       "openyurt",
 		OpenYurtVersion:   constants.DefaultOpenYurtVersion,
-		KubernetesVersion: "v1.22",
+		KubernetesVersion: "v1.28",
 		UseLocalImages:    false,
 		IgnoreError:       false,
 		EnableDummyIf:     true,

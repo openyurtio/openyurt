@@ -17,6 +17,8 @@ limitations under the License.
 package dns
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -27,7 +29,7 @@ import (
 
 type EnqueueRequestForServiceEvent struct{}
 
-func (h *EnqueueRequestForServiceEvent) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForServiceEvent) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	svc, ok := e.Object.(*corev1.Service)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Service"))
@@ -42,7 +44,7 @@ func (h *EnqueueRequestForServiceEvent) Create(e event.CreateEvent, q workqueue.
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 
-func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForServiceEvent) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	newSvc, ok := e.ObjectNew.(*corev1.Service)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Service"))
@@ -59,7 +61,7 @@ func (h *EnqueueRequestForServiceEvent) Update(e event.UpdateEvent, q workqueue.
 	}
 }
 
-func (h *EnqueueRequestForServiceEvent) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForServiceEvent) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Service)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Service"))
@@ -70,13 +72,13 @@ func (h *EnqueueRequestForServiceEvent) Delete(e event.DeleteEvent, q workqueue.
 	return
 }
 
-func (h *EnqueueRequestForServiceEvent) Generic(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForServiceEvent) Generic(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
 	return
 }
 
 type EnqueueRequestForNodeEvent struct{}
 
-func (h *EnqueueRequestForNodeEvent) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForNodeEvent) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -86,11 +88,11 @@ func (h *EnqueueRequestForNodeEvent) Create(e event.CreateEvent, q workqueue.Rat
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 
-func (h *EnqueueRequestForNodeEvent) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForNodeEvent) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	return
 }
 
-func (h *EnqueueRequestForNodeEvent) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForNodeEvent) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	_, ok := e.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -100,6 +102,6 @@ func (h *EnqueueRequestForNodeEvent) Delete(e event.DeleteEvent, q workqueue.Rat
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 
-func (h *EnqueueRequestForNodeEvent) Generic(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (h *EnqueueRequestForNodeEvent) Generic(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
 
 }

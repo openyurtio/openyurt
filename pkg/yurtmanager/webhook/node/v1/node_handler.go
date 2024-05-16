@@ -21,8 +21,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/builder"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
@@ -41,7 +41,7 @@ func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, s
 	}
 	return util.GenerateMutatePath(gvk),
 		util.GenerateValidatePath(gvk),
-		builder.WebhookManagedBy(mgr).
+		ctrl.NewWebhookManagedBy(mgr).
 			For(&v1.Node{}).
 			WithDefaulter(webhook).
 			WithValidator(webhook).
@@ -56,5 +56,5 @@ type NodeHandler struct {
 	Client client.Client
 }
 
-var _ builder.CustomDefaulter = &NodeHandler{}
-var _ builder.CustomValidator = &NodeHandler{}
+var _ webhook.CustomDefaulter = &NodeHandler{}
+var _ webhook.CustomValidator = &NodeHandler{}

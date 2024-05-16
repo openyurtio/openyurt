@@ -122,7 +122,7 @@ func NewIptablesManagerWithIPFamily(client clientset.Interface,
 		syncPeriod:       syncPeriod,
 	}
 
-	im.loopbackAddr = ip.MustGetLoopbackIP(ipFamily == iptables.ProtocolIpv6)
+	im.loopbackAddr = ip.MustGetLoopbackIP(ipFamily == iptables.ProtocolIPv6)
 
 	// conntrack setting
 	conntrackPath, err := im.execer.LookPath("conntrack")
@@ -145,7 +145,7 @@ func NewIptablesManager(client clientset.Interface,
 	listenAddr string,
 	listenInsecureAddr string,
 	syncPeriod int) IptablesManager {
-	im, _ := NewIptablesManagerWithIPFamily(client, nodeInformer, listenAddr, listenInsecureAddr, syncPeriod, iptables.ProtocolIpv4)
+	im, _ := NewIptablesManagerWithIPFamily(client, nodeInformer, listenAddr, listenInsecureAddr, syncPeriod, iptables.ProtocolIPv4)
 	return im
 }
 

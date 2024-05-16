@@ -17,6 +17,7 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -180,7 +181,7 @@ func waitUntilYurthubExit(timeout time.Duration, period time.Duration) error {
 	serverHealthzURL, _ := url.Parse(fmt.Sprintf("http://%s", constants.ServerHealthzServer))
 	serverHealthzURL.Path = constants.ServerHealthzURLPath
 
-	return wait.PollImmediate(period, timeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), period, timeout, true, func(ctx context.Context) (bool, error) {
 		_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
 		if err != nil { // means yurthub has exited
 			klog.Infof("yurt-hub is not running, with ping result: %v", err)
@@ -200,7 +201,7 @@ func hubHealthcheck(timeout time.Duration) error {
 	serverHealthzURL.Path = constants.ServerHealthzURLPath
 
 	start := time.Now()
-	return wait.PollImmediate(hubHealthzCheckFrequency, timeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), hubHealthzCheckFrequency, timeout, true, func(ctx context.Context) (bool, error) {
 		_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
 		if err != nil {
 			klog.Infof("yurt-hub is not ready, ping cluster healthz with result: %v", err)

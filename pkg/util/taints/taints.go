@@ -28,12 +28,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/helper"
 )
 
-const (
-	MODIFIED  = "modified"
-	TAINTED   = "tainted"
-	UNTAINTED = "untainted"
-)
-
 // parseTaint parses a taint from a string, whose form must be either
 // '<key>=<value>:<effect>', '<key>:<effect>', or '<key>'.
 func parseTaint(st string) (v1.Taint, error) {
@@ -91,7 +85,7 @@ func validateTaintEffect(effect v1.TaintEffect) error {
 // It also validates the spec. For example, the form `<key>` may be used to remove a taint, but not to add one.
 func ParseTaints(spec []string) ([]v1.Taint, []v1.Taint, error) {
 	var taints, taintsToRemove []v1.Taint
-	uniqueTaints := map[v1.TaintEffect]sets.String{}
+	uniqueTaints := map[v1.TaintEffect]sets.Set[string]{}
 
 	for _, taintSpec := range spec {
 		if strings.HasSuffix(taintSpec, "-") {
@@ -115,7 +109,7 @@ func ParseTaints(spec []string) ([]v1.Taint, []v1.Taint, error) {
 			}
 			// add taint to existingTaints for uniqueness check
 			if len(uniqueTaints[newTaint.Effect]) == 0 {
-				uniqueTaints[newTaint.Effect] = sets.String{}
+				uniqueTaints[newTaint.Effect] = sets.Set[string]{}
 			}
 			uniqueTaints[newTaint.Effect].Insert(newTaint.Key)
 

@@ -81,7 +81,7 @@ func newYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformA
 						LivenessProbe: &corev1.Probe{
 							InitialDelaySeconds: 15,
 							PeriodSeconds:       20,
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
 									Path: "/healthz",
 									Port: intstr.FromInt(8081),
@@ -91,7 +91,7 @@ func newYurtIoTDockComponent(platformAdmin *iotv1alpha2.PlatformAdmin, platformA
 						ReadinessProbe: &corev1.Probe{
 							InitialDelaySeconds: 5,
 							PeriodSeconds:       10,
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
 									Path: "/readyz",
 									Port: intstr.FromInt(8081),

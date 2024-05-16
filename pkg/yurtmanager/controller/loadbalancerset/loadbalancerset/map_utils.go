@@ -32,14 +32,14 @@ func aggregatedMaps(elems ...map[string]string) map[string]string {
 	return mapSetToMapString(aggregatedSet)
 }
 
-func mergeMapListToMapSet(elems ...map[string]string) map[string]sets.String {
-	aggregatedSet := make(map[string]sets.String)
+func mergeMapListToMapSet(elems ...map[string]string) map[string]sets.Set[string] {
+	aggregatedSet := make(map[string]sets.Set[string])
 
 	for _, elem := range elems {
 		for key, value := range elem {
 			aggregatedKey := aggregateKeyPrefix + key
 			if _, exists := aggregatedSet[aggregatedKey]; !exists {
-				aggregatedSet[aggregatedKey] = sets.NewString()
+				aggregatedSet[aggregatedKey] = sets.New[string]()
 			}
 			aggregatedSet[aggregatedKey].Insert(value)
 		}
@@ -47,10 +47,10 @@ func mergeMapListToMapSet(elems ...map[string]string) map[string]sets.String {
 	return aggregatedSet
 }
 
-func mapSetToMapString(aggregatedSet map[string]sets.String) map[string]string {
+func mapSetToMapString(aggregatedSet map[string]sets.Set[string]) map[string]string {
 	result := make(map[string]string)
 	for key, value := range aggregatedSet {
-		result[key] = strings.Join(value.List(), ",")
+		result[key] = strings.Join(sets.List(value), ",")
 	}
 	return result
 }

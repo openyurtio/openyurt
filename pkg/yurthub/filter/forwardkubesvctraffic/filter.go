@@ -60,9 +60,9 @@ func (fkst *forwardKubeSVCTrafficFilter) Name() string {
 	return FilterName
 }
 
-func (fkst *forwardKubeSVCTrafficFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{
-		"endpointslices": sets.NewString("list", "watch"),
+func (fkst *forwardKubeSVCTrafficFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{
+		"endpointslices": sets.New("list", "watch"),
 	}
 }
 

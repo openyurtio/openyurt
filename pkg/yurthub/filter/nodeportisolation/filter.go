@@ -62,9 +62,9 @@ func (nif *nodePortIsolationFilter) Name() string {
 	return FilterName
 }
 
-func (nif *nodePortIsolationFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{
-		"services": sets.NewString("list", "watch"),
+func (nif *nodePortIsolationFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{
+		"services": sets.New("list", "watch"),
 	}
 }
 
@@ -128,8 +128,8 @@ func (nif *nodePortIsolationFilter) resolveNodePoolName() string {
 	return nif.nodePoolName
 }
 
-func getNodePoolConfiguration(v string) sets.String {
-	nodePoolConf := sets.NewString()
+func getNodePoolConfiguration(v string) sets.Set[string] {
+	nodePoolConf := sets.New[string]()
 	nodePoolsForValidation := sets.NewString()
 	for _, name := range strings.Split(v, ",") {
 		name = strings.TrimSpace(name)
@@ -143,7 +143,7 @@ func getNodePoolConfiguration(v string) sets.String {
 	return nodePoolConf
 }
 
-func isNodePoolEnabled(nodePoolConf sets.String, name string) bool {
+func isNodePoolEnabled(nodePoolConf sets.Set[string], name string) bool {
 	if nodePoolConf.Has(name) {
 		return true
 	}

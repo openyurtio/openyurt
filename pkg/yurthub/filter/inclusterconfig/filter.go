@@ -57,9 +57,9 @@ func (iccf *inClusterConfigFilter) Name() string {
 	return FilterName
 }
 
-func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{
-		"configmaps": sets.NewString("get", "list", "watch"),
+func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{
+		"configmaps": sets.New("get", "list", "watch"),
 	}
 }
 

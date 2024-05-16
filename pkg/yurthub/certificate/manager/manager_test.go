@@ -17,6 +17,7 @@ limitations under the License.
 package manager
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -99,7 +100,7 @@ func TestReady(t *testing.T) {
 	}
 	mgr.Start()
 
-	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		if mgr.Ready() {
 			return true, nil
 		}
@@ -129,7 +130,7 @@ func TestReady(t *testing.T) {
 		return
 	}
 	newMgr.Start()
-	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		if mgr.Ready() {
 			return true, nil
 		}

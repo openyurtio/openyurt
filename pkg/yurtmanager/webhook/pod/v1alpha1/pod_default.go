@@ -23,13 +23,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 )
 
 // Default implements builder.CustomDefaulter.
-func (webhook *PodHandler) Default(ctx context.Context, obj runtime.Object, req admission.Request) error {
+func (webhook *PodHandler) Default(ctx context.Context, obj runtime.Object) error {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Pod but got a %T", obj))

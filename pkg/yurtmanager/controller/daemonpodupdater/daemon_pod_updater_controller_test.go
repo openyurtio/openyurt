@@ -207,7 +207,7 @@ type tCase struct {
 func TestDaemonsetPodUpdater(t *testing.T) {
 	tcases := []tCase{
 		{
-			name:           "failed with not OnDelete strategy",
+			name:           "not OnDelete strategy",
 			onDelete:       false,
 			strategy:       "Auto",
 			nodeNum:        3,

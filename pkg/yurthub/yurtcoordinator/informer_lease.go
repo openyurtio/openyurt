@@ -151,8 +151,8 @@ func (nl *informerLeaseTmpl) newLease(base *coordinationv1.Lease) *coordinationv
 				Namespace: nl.leaseNamespace,
 			},
 			Spec: coordinationv1.LeaseSpec{
-				HolderIdentity:       pointer.StringPtr(nl.holderIdentity),
-				LeaseDurationSeconds: pointer.Int32Ptr(nl.leaseDurationSeconds),
+				HolderIdentity:       pointer.String(nl.holderIdentity),
+				LeaseDurationSeconds: pointer.Int32(nl.leaseDurationSeconds),
 			},
 		}
 	} else {

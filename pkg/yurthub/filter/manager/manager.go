@@ -82,7 +82,7 @@ func NewFilterManager(options *yurtoptions.YurtHubOptions,
 		serializerManager:  serializerManager,
 	}
 
-	filterSupportedResAndVerbs := make(map[string]map[string]sets.String)
+	filterSupportedResAndVerbs := make(map[string]map[string]sets.Set[string])
 	for i := range objFilters {
 		m.nameToObjectFilter[objFilters[i].Name()] = objFilters[i]
 		filterSupportedResAndVerbs[objFilters[i].Name()] = objFilters[i].SupportedResourceAndVerbs()

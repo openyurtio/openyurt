@@ -223,7 +223,7 @@ type joinData struct {
 	token                    string
 	tlsBootstrapCfg          *clientcmdapi.Config
 	clientSet                *clientset.Clientset
-	ignorePreflightErrors    sets.String
+	ignorePreflightErrors    sets.Set[string]
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
@@ -275,7 +275,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, errors.Errorf("when --discovery-token-ca-cert-hash is not specified, --discovery-token-unsafe-skip-ca-verification should be true")
 	}
 
-	ignoreErrors := sets.String{}
+	ignoreErrors := sets.Set[string]{}
 	for i := range opt.ignorePreflightErrors {
 		ignoreErrors.Insert(opt.ignorePreflightErrors[i])
 	}
@@ -473,7 +473,7 @@ func (j *joinData) NodeRegistration() *joindata.NodeRegistration {
 }
 
 // IgnorePreflightErrors returns the list of preflight errors to ignore.
-func (j *joinData) IgnorePreflightErrors() sets.String {
+func (j *joinData) IgnorePreflightErrors() sets.Set[string] {
 	return j.ignorePreflightErrors
 }
 

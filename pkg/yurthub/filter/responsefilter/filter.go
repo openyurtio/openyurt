@@ -230,9 +230,9 @@ func (chain filterChain) Name() string {
 	return strings.Join(names, ",")
 }
 
-func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.String {
+func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.Set[string] {
 	// do nothing
-	return map[string]sets.String{}
+	return map[string]sets.Set[string]{}
 }
 
 func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {

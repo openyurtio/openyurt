@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
@@ -33,43 +34,43 @@ import (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PlatformAdminHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *PlatformAdminHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	platformAdmin, ok := obj.(*v1alpha2.PlatformAdmin)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", obj))
 	}
 
 	//validate
 	if allErrs := webhook.validate(ctx, platformAdmin); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha2.GroupVersion.WithKind("PlatformAdmin").GroupKind(), platformAdmin.Name, allErrs)
+		return nil, apierrors.NewInvalid(v1alpha2.GroupVersion.WithKind("PlatformAdmin").GroupKind(), platformAdmin.Name, allErrs)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PlatformAdminHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *PlatformAdminHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newPlatformAdmin, ok := newObj.(*v1alpha2.PlatformAdmin)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", newObj))
 	}
 	oldPlatformAdmin, ok := oldObj.(*v1alpha2.PlatformAdmin)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", oldObj))
 	}
 
 	// validate
 	newErrorList := webhook.validate(ctx, newPlatformAdmin)
 	oldErrorList := webhook.validate(ctx, oldPlatformAdmin)
 	if allErrs := append(newErrorList, oldErrorList...); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha2.GroupVersion.WithKind("PlatformAdmin").GroupKind(), newPlatformAdmin.Name, allErrs)
+		return nil, apierrors.NewInvalid(v1alpha2.GroupVersion.WithKind("PlatformAdmin").GroupKind(), newPlatformAdmin.Name, allErrs)
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *PlatformAdminHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	return nil
+func (webhook *PlatformAdminHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 func (webhook *PlatformAdminHandler) validate(ctx context.Context, platformAdmin *v1alpha2.PlatformAdmin) field.ErrorList {
@@ -101,7 +102,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 	}
 
 	return field.ErrorList{
-		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(config.ExtractVersionsName(webhook.Manifests).List(), ",")),
+		field.Invalid(field.NewPath("spec", "version"), platformAdmin.Spec.Version, "must be one of"+strings.Join(config.ExtractVersionsName(webhook.Manifests).UnsortedList(), ",")),
 	}
 }
 

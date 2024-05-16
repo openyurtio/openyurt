@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -38,16 +39,16 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 )
 
-var supportedResourceAndVerbsForFilter = map[string]map[string]sets.String{
+var supportedResourceAndVerbsForFilter = map[string]map[string]sets.Set[string]{
 	masterservice.FilterName: {
-		"services": sets.NewString("list", "watch"),
+		"services": sets.New[string]("list", "watch"),
 	},
 	discardcloudservice.FilterName: {
-		"services": sets.NewString("list", "watch"),
+		"services": sets.New[string]("list", "watch"),
 	},
 	servicetopology.FilterName: {
-		"endpoints":      sets.NewString("list", "watch"),
-		"endpointslices": sets.NewString("list", "watch"),
+		"endpoints":      sets.New[string]("list", "watch"),
+		"endpointslices": sets.New[string]("list", "watch"),
 	},
 }
 
@@ -195,7 +196,7 @@ func TestAddConfigMap(t *testing.T) {
 	testcases := []struct {
 		desc                string
 		cm                  *v1.ConfigMap
-		resultReqKeyToNames map[string]sets.String
+		resultReqKeyToNames map[string]sets.Set[string]
 	}{
 		{
 			desc: "add a new filter setting",
@@ -237,7 +238,7 @@ func TestAddConfigMap(t *testing.T) {
 			if !reflect.DeepEqual(approver.reqKeyToNames, tt.resultReqKeyToNames) {
 				t.Errorf("expect reqkeyToNames is %#+v, but got %#+v", tt.resultReqKeyToNames, approver.reqKeyToNames)
 			}
-			approver.merge("cleanup", map[string]sets.String{})
+			approver.merge("cleanup", map[string]sets.Set[string]{})
 		})
 	}
 }
@@ -248,7 +249,7 @@ func TestUpdateConfigMap(t *testing.T) {
 		desc                string
 		oldCM               *v1.ConfigMap
 		newCM               *v1.ConfigMap
-		resultReqKeyToNames map[string]sets.String
+		resultReqKeyToNames map[string]sets.Set[string]
 	}{
 		{
 			desc: "add a new filter setting",
@@ -311,7 +312,7 @@ func TestUpdateConfigMap(t *testing.T) {
 			if !reflect.DeepEqual(approver.reqKeyToNames, tt.resultReqKeyToNames) {
 				t.Errorf("expect reqkeyToName is %#+v, but got %#+v", tt.resultReqKeyToNames, approver.reqKeyToNames)
 			}
-			approver.merge("cleanup", map[string]sets.String{})
+			approver.merge("cleanup", map[string]sets.Set[string]{})
 		})
 	}
 }
@@ -320,20 +321,20 @@ func TestMerge(t *testing.T) {
 	approver := newApprover(supportedResourceAndVerbsForFilter)
 	testcases := map[string]struct {
 		action              string
-		reqKeyToNamesFromCM map[string]sets.String
-		resultReqKeyToNames map[string]sets.String
+		reqKeyToNamesFromCM map[string]sets.Set[string]
+		resultReqKeyToNames map[string]sets.Set[string]
 	}{
 		"init req key to name": {
 			action:              "init",
-			reqKeyToNamesFromCM: map[string]sets.String{},
+			reqKeyToNamesFromCM: map[string]sets.Set[string]{},
 			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 		"add some items of req key to name": {
 			action: "add",
-			reqKeyToNamesFromCM: map[string]sets.String{
-				"comp1/resources1/list":  sets.NewString("filter1"),
-				"comp2/resources2/watch": sets.NewString("filter2"),
-				"comp3/resources3/watch": sets.NewString("filter1"),
+			reqKeyToNamesFromCM: map[string]sets.Set[string]{
+				"comp1/resources1/list":  sets.New[string]("filter1"),
+				"comp2/resources2/watch": sets.New[string]("filter2"),
+				"comp3/resources3/watch": sets.New[string]("filter1"),
 			},
 			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp1/resources1/list":  "filter1",
@@ -343,9 +344,9 @@ func TestMerge(t *testing.T) {
 		},
 		"update and delete item of req key to name": {
 			action: "update",
-			reqKeyToNamesFromCM: map[string]sets.String{
-				"comp1/resources1/list":  sets.NewString("filter1"),
-				"comp2/resources2/watch": sets.NewString("filter3"),
+			reqKeyToNamesFromCM: map[string]sets.Set[string]{
+				"comp1/resources1/list":  sets.New[string]("filter1"),
+				"comp2/resources2/watch": sets.New[string]("filter3"),
 			},
 			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp1/resources1/list":  "filter1",
@@ -354,9 +355,9 @@ func TestMerge(t *testing.T) {
 		},
 		"update default setting of req key to name": {
 			action: "update",
-			reqKeyToNamesFromCM: map[string]sets.String{
-				"kubelet/services/list":  sets.NewString("filter1"),
-				"comp2/resources2/watch": sets.NewString("filter3"),
+			reqKeyToNamesFromCM: map[string]sets.Set[string]{
+				"kubelet/services/list":  sets.New("filter1"),
+				"comp2/resources2/watch": sets.New("filter3"),
 			},
 			resultReqKeyToNames: mergeReqKeyMap(approver.defaultReqKeyToNames, map[string]string{
 				"comp2/resources2/watch": "filter3",
@@ -365,7 +366,7 @@ func TestMerge(t *testing.T) {
 		},
 		"clear all user setting of req key to name": {
 			action:              "update",
-			reqKeyToNamesFromCM: map[string]sets.String{},
+			reqKeyToNamesFromCM: map[string]sets.Set[string]{},
 			resultReqKeyToNames: approver.defaultReqKeyToNames,
 		},
 	}
@@ -413,6 +414,8 @@ func TestParseRequestSetting(t *testing.T) {
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			keys := approver.parseRequestSetting(tt.filterName, tt.filterSetting)
+			sort.Strings(keys)
+			sort.Strings(tt.resultKeys)
 
 			if !reflect.DeepEqual(keys, tt.resultKeys) {
 				t.Errorf("expect request keys %#+v, but got %#+v", tt.resultKeys, keys)
@@ -639,35 +642,35 @@ func TestReqKey(t *testing.T) {
 	}
 }
 
-func mergeReqKeyMap(base map[string]sets.String, m map[string]string) map[string]sets.String {
-	reqKeyToNames := make(map[string]sets.String)
+func mergeReqKeyMap(base map[string]sets.Set[string], m map[string]string) map[string]sets.Set[string] {
+	reqKeyToNames := make(map[string]sets.Set[string])
 	for k, v := range base {
-		reqKeyToNames[k] = sets.NewString(v.UnsortedList()...)
+		reqKeyToNames[k] = sets.New[string](v.UnsortedList()...)
 	}
 
 	for k, v := range m {
 		if _, ok := reqKeyToNames[k]; ok {
 			reqKeyToNames[k].Insert(v)
 		} else {
-			reqKeyToNames[k] = sets.NewString(v)
+			reqKeyToNames[k] = sets.New[string](v)
 		}
 	}
 
 	return reqKeyToNames
 }
 
-func newApprover(filterSupportedResAndVerbs map[string]map[string]sets.String) *approver {
+func newApprover(filterSupportedResAndVerbs map[string]map[string]sets.Set[string]) *approver {
 	na := &approver{
-		reqKeyToNames:                      make(map[string]sets.String),
+		reqKeyToNames:                      make(map[string]sets.Set[string]),
 		supportedResourceAndVerbsForFilter: filterSupportedResAndVerbs,
 		stopCh:                             make(chan struct{}),
 	}
 
-	defaultReqKeyToFilterNames := make(map[string]sets.String)
+	defaultReqKeyToFilterNames := make(map[string]sets.Set[string])
 	for name, setting := range options.SupportedComponentsForFilter {
 		for _, key := range na.parseRequestSetting(name, setting) {
 			if _, ok := defaultReqKeyToFilterNames[key]; !ok {
-				defaultReqKeyToFilterNames[key] = sets.NewString()
+				defaultReqKeyToFilterNames[key] = sets.New[string]()
 			}
 			defaultReqKeyToFilterNames[key].Insert(name)
 		}

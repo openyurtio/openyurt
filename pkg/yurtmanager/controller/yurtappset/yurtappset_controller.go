@@ -143,10 +143,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	nodePoolToYurtAppSet := func(nodePool client.Object) (res []reconcile.Request) {
+	nodePoolToYurtAppSet := func(ctx context.Context, nodePool client.Object) (res []reconcile.Request) {
 		res = make([]reconcile.Request, 0)
 		yasList := &unitv1beta1.YurtAppSetList{}
-		if err := mgr.GetClient().List(context.TODO(), yasList); err != nil {
+		if err := mgr.GetClient().List(ctx, yasList); err != nil {
 			return
 		}
 
@@ -160,20 +160,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return
 	}
 
-	err = c.Watch(&source.Kind{Type: &unitv1beta1.NodePool{}}, handler.EnqueueRequestsFromMapFunc(nodePoolToYurtAppSet), nodePoolPredicate)
+	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1beta1.NodePool{}), handler.EnqueueRequestsFromMapFunc(nodePoolToYurtAppSet), nodePoolPredicate)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &unitv1beta1.YurtAppSet{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1beta1.YurtAppSet{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &unitv1beta1.YurtAppSet{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}),
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &unitv1beta1.YurtAppSet{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
@@ -252,7 +250,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 	return
 }
 
-func (r *ReconcileYurtAppSet) getNodePoolsFromYurtAppSet(yas *unitv1beta1.YurtAppSet, newStatus *unitv1beta1.YurtAppSetStatus) (npNames sets.String, err error) {
+func (r *ReconcileYurtAppSet) getNodePoolsFromYurtAppSet(yas *unitv1beta1.YurtAppSet, newStatus *unitv1beta1.YurtAppSetStatus) (npNames sets.Set[string], err error) {
 	expectedNps, err := workloadmanager.GetNodePoolsFromYurtAppSet(r.Client, yas)
 	if err != nil {
 		return nil, err
@@ -262,8 +260,8 @@ func (r *ReconcileYurtAppSet) getNodePoolsFromYurtAppSet(yas *unitv1beta1.YurtAp
 		r.recorder.Event(yas.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("No%s", eventTypeFindPools), fmt.Sprintf("There are no matched nodepools for YurtAppSet %s/%s", yas.Namespace, yas.Name))
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetPoolFound, corev1.ConditionFalse, fmt.Sprintf("No%s", eventTypeFindPools), "There are no matched nodepools for YurtAppSet"))
 	} else {
-		klog.V(4).Infof("NodePools matched for YurtAppSet %s/%s: %v", yas.Namespace, yas.Name, expectedNps.List())
-		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetPoolFound, corev1.ConditionTrue, eventTypeFindPools, fmt.Sprintf("There are %d matched nodepools: %v", expectedNps.Len(), expectedNps.List())))
+		klog.V(4).Infof("NodePools matched for YurtAppSet %s/%s: %v", yas.Namespace, yas.Name, expectedNps.UnsortedList())
+		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetPoolFound, corev1.ConditionTrue, eventTypeFindPools, fmt.Sprintf("There are %d matched nodepools: %v", expectedNps.Len(), expectedNps.UnsortedList())))
 	}
 	return expectedNps, nil
 }
@@ -282,7 +280,7 @@ func (r *ReconcileYurtAppSet) getWorkloadManagerFromYurtAppSet(yas *unitv1beta1.
 }
 
 func classifyWorkloads(yas *unitv1beta1.YurtAppSet, currentWorkloads []metav1.Object,
-	expectedNodePools sets.String, expectedRevision string) (needDeleted, needUpdate []metav1.Object, needCreate []string) {
+	expectedNodePools sets.Set[string], expectedRevision string) (needDeleted, needUpdate []metav1.Object, needCreate []string) {
 
 	// classify workloads by nodepool name
 	nodePoolsToWorkloads := make(map[string]metav1.Object)
@@ -334,7 +332,7 @@ func classifyWorkloads(yas *unitv1beta1.YurtAppSet, currentWorkloads []metav1.Ob
 }
 
 // Conciliate workloads as yas spec expect
-func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, expectedRevision *appsv1.ControllerRevision, newStatus *unitv1beta1.YurtAppSetStatus) (expectedNps sets.String, curWorkloads []metav1.Object, err error) {
+func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, expectedRevision *appsv1.ControllerRevision, newStatus *unitv1beta1.YurtAppSetStatus) (expectedNps sets.Set[string], curWorkloads []metav1.Object, err error) {
 
 	// Get yas selected NodePools
 	// this may infect yas poolfound condition
@@ -447,7 +445,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 	return
 }
 
-func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expectedRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expectedRevison *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
 	if err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevison, expectedNps, newStatus); err != nil {
 		return err
 	}
@@ -455,7 +453,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, 
 }
 
 // update yas status and clean unused revisions
-func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expectedRevison *appsv1.ControllerRevision, expectedNps sets.String, newStatus *unitv1beta1.YurtAppSetStatus) error {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expectedRevison *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
 
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0

@@ -142,8 +142,8 @@ func (nl *nodeLeaseImpl) newLease(base *coordinationv1.Lease) *coordinationv1.Le
 				Namespace: corev1.NamespaceNodeLease,
 			},
 			Spec: coordinationv1.LeaseSpec{
-				HolderIdentity:       pointer.StringPtr(nl.holderIdentity),
-				LeaseDurationSeconds: pointer.Int32Ptr(nl.leaseDurationSeconds),
+				HolderIdentity:       pointer.String(nl.holderIdentity),
+				LeaseDurationSeconds: pointer.Int32(nl.leaseDurationSeconds),
 			},
 		}
 	} else {

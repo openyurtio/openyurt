@@ -68,7 +68,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	}
 
 	if cfg.YurtHubSecureProxyServerServing != nil {
-		if _, err := cfg.YurtHubSecureProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if _, _, err := cfg.YurtHubSecureProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
 			return err
 		}
 	}

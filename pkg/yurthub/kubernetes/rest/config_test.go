@@ -17,6 +17,7 @@ limitations under the License.
 package rest
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"testing"
@@ -61,7 +62,7 @@ func TestGetRestConfig(t *testing.T) {
 	defer certManager.Stop()
 	defer os.RemoveAll(testDir)
 
-	err = wait.PollImmediate(2*time.Second, 1*time.Minute, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		if certManager.Ready() {
 			return true, nil
 		}

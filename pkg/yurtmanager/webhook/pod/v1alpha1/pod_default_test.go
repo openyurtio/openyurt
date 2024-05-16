@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 )
@@ -312,7 +311,7 @@ func TestDefault(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			h := PodHandler{}
-			err := h.Default(context.TODO(), tc.obj, admission.Request{})
+			err := h.Default(context.TODO(), tc.obj)
 			if tc.errHappened {
 				if err == nil {
 					t.Errorf("expect error, got nil")

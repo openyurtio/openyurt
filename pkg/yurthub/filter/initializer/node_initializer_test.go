@@ -45,8 +45,8 @@ func (nop *nopNodeHandler) Name() string {
 	return nop.name
 }
 
-func (nop *nopNodeHandler) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{}
+func (nop *nopNodeHandler) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{}
 }
 
 func (nop *nopNodeHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
@@ -75,7 +75,7 @@ func TestNodesInitializer(t *testing.T) {
 		enablePoolServiceTopology bool
 		poolName                  string
 		yurtClient                *fake.FakeDynamicClient
-		expectedNodes             sets.String
+		expectedNodes             sets.Set[string]
 		expectedErr               bool
 	}{
 		"get nodes in nodepool": {
@@ -99,7 +99,7 @@ func TestNodesInitializer(t *testing.T) {
 					},
 				},
 			),
-			expectedNodes: sets.NewString("node1", "node2", "node3"),
+			expectedNodes: sets.New("node1", "node2", "node3"),
 		},
 		"get nodes in nodebucket": {
 			enableNodePool:            true,
@@ -123,7 +123,7 @@ func TestNodesInitializer(t *testing.T) {
 					},
 				},
 			),
-			expectedNodes: sets.NewString("node1", "node2"),
+			expectedNodes: sets.New("node1", "node2"),
 		},
 		"nodepool doesn't exist": {
 			enableNodePool:            true,
@@ -145,7 +145,7 @@ func TestNodesInitializer(t *testing.T) {
 			poolName:                  "hangzhou",
 			yurtClient:                fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind),
 			expectedErr:               false,
-			expectedNodes:             sets.NewString(),
+			expectedNodes:             sets.New[string](),
 		},
 	}
 
@@ -181,7 +181,7 @@ func TestNodesInitializer(t *testing.T) {
 				return
 			}
 
-			if !tc.expectedNodes.Equal(sets.NewString(nodes...)) {
+			if !tc.expectedNodes.Equal(sets.New(nodes...)) {
 				t.Errorf("expect nodes %v, but got %v", tc.expectedNodes, nodes)
 			}
 		})

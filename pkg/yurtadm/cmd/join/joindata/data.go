@@ -45,7 +45,7 @@ type YurtJoinData interface {
 	NodeRegistration() *NodeRegistration
 	CaCertHashes() []string
 	NodeLabels() map[string]string
-	IgnorePreflightErrors() sets.String
+	IgnorePreflightErrors() sets.Set[string]
 	KubernetesResourceServer() string
 	ReuseCNIBin() bool
 	Namespace() string

@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
@@ -84,6 +85,7 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 		},
 	}
 
+	globalflag.AddGlobalFlags(cmd.Flags(), cmd.Name())
 	yurtHubOptions.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -350,7 +352,7 @@ func coordinatorRun(ctx context.Context,
 }
 
 func yurtCoordinatorTransportMgrGetter(coordinatorCertMgr *coordinatorcertmgr.CertManager, stopCh <-chan struct{}) (transport.Interface, error) {
-	err := wait.PollImmediate(5*time.Second, 4*time.Minute, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 4*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 		klog.Info("waiting for preparing certificates for coordinator client and node lease proxy client")
 		if coordinatorCertMgr.GetAPIServerClientCert() == nil {
 			return false, nil

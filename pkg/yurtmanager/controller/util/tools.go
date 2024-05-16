@@ -81,10 +81,6 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 		return nil, fmt.Errorf("must specify Name for Controller")
 	}
 
-	if options.Log == nil {
-		options.Log = mgr.GetLogger()
-	}
-
 	if options.CacheSyncTimeout == 0 {
 		options.CacheSyncTimeout = 2 * time.Minute
 	}
@@ -93,18 +89,12 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
 	}
 
-	// Inject dependencies into Reconciler
-	if err := mgr.SetFields(options.Reconciler); err != nil {
-		return nil, err
-	}
-
 	// Create controller with dependencies set
 	c := &controllerimpl.Controller{
 		MakeQueue: func() workqueue.RateLimitingInterface {
 			return workqueue.NewNamedRateLimitingQueue(options.RateLimiter, name)
 		},
 		CacheSyncTimeout: options.CacheSyncTimeout,
-		SetFields:        mgr.SetFields,
 		Name:             name,
 		RecoverPanic:     options.RecoverPanic,
 	}

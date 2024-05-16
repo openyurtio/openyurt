@@ -320,7 +320,7 @@ func TestUpdatePod(t *testing.T) {
 
 			if item.awaitForScheduledEviction {
 				nsName := types.NamespacedName{Namespace: item.prevPod.Namespace, Name: item.prevPod.Name}
-				err := wait.PollImmediate(time.Millisecond*10, time.Second, func() (bool, error) {
+				err := wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(ctx context.Context) (bool, error) {
 					scheduledEviction := controller.taintEvictionQueue.GetWorkerUnsafe(nsName.String())
 					return scheduledEviction != nil, nil
 				})
@@ -413,7 +413,7 @@ func TestDeleteNode(t *testing.T) {
 	controller.NodeUpdated(NewNode("node1"), nil)
 
 	// await until controller.taintedNodes is empty
-	err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, time.Second, true, func(ctx context.Context) (bool, error) {
 		controller.taintedNodesLock.Lock()
 		defer controller.taintedNodesLock.Unlock()
 		_, ok := controller.taintedNodes["node1"]
@@ -915,7 +915,7 @@ func verifyPodActions(t *testing.T, description string, fakeClientset *testutil.
 	podDeleted := false
 	// use Poll instead of PollImmediate to give some processing time to the controller that the expected
 	// actions are likely to be already sent
-	err := wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		for _, action := range fakeClientset.Actions() {
 			if action.GetVerb() == "patch" && action.GetResource().Resource == "pods" {
 				podPatched = true

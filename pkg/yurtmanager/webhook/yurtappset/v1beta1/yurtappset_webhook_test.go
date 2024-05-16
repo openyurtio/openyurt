@@ -109,18 +109,18 @@ func TestYurtAppSetValidator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := webhook.ValidateCreate(context.TODO(), deployAppSet); err != nil {
+	if _, err := webhook.ValidateCreate(context.TODO(), deployAppSet); err != nil {
 		t.Fatal("yurtappset should create success", err)
 	}
 
 	dupTopology := deployAppSet.DeepCopy()
-	if err := webhook.ValidateCreate(context.TODO(), dupTopology); err != nil {
+	if _, err := webhook.ValidateCreate(context.TODO(), dupTopology); err != nil {
 		t.Fatal("topology dup should not fail")
 	}
 
 	updateAppSet := deployAppSet.DeepCopy()
 	updateAppSet.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
-	if err := webhook.ValidateUpdate(context.TODO(), deployAppSet, updateAppSet); err == nil {
+	if _, err := webhook.ValidateUpdate(context.TODO(), deployAppSet, updateAppSet); err == nil {
 		t.Fatal("workload selector should match template selector")
 	}
 }
@@ -137,13 +137,13 @@ func TestYurtAppSetStatefulSetValidator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := webhook.ValidateCreate(context.TODO(), stsAppSet); err != nil {
+	if _, err := webhook.ValidateCreate(context.TODO(), stsAppSet); err != nil {
 		t.Fatal("yurtappset should create success", err)
 	}
 
 	updateAppSet := stsAppSet.DeepCopy()
 	updateAppSet.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
-	if err := webhook.ValidateUpdate(context.TODO(), stsAppSet, updateAppSet); err == nil {
+	if _, err := webhook.ValidateUpdate(context.TODO(), stsAppSet, updateAppSet); err == nil {
 		t.Fatal("workload selector should match template selector")
 	}
 }

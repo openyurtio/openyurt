@@ -179,8 +179,8 @@ func TestGetNodePoolsFromYurtAppSet(t *testing.T) {
 				t.Errorf("GetNodePoolsFromYurtAppSet() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(gotNps.List(), tt.wantNps) {
-				t.Errorf("GetNodePoolsFromYurtAppSet() gotNps = %v, want %v", gotNps.List(), tt.wantNps)
+			if !reflect.DeepEqual(gotNps.UnsortedList(), tt.wantNps) {
+				t.Errorf("GetNodePoolsFromYurtAppSet() gotNps = %v, want %v", gotNps.UnsortedList(), tt.wantNps)
 			}
 		})
 	}

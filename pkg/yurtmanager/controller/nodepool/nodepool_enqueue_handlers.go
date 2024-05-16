@@ -17,6 +17,7 @@ limitations under the License.
 package nodepool
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -38,7 +39,7 @@ type EnqueueNodePoolForNode struct {
 }
 
 // Create implements EventHandler
-func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
+func (e *EnqueueNodePoolForNode) Create(ctx context.Context, evt event.CreateEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
@@ -55,7 +56,7 @@ func (e *EnqueueNodePoolForNode) Create(evt event.CreateEvent,
 }
 
 // Update implements EventHandler
-func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
+func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEvent,
 	q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
@@ -110,7 +111,7 @@ func (e *EnqueueNodePoolForNode) Update(evt event.UpdateEvent,
 }
 
 // Delete implements EventHandler
-func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
+func (e *EnqueueNodePoolForNode) Delete(ctx context.Context, evt event.DeleteEvent,
 	q workqueue.RateLimitingInterface) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
@@ -130,7 +131,7 @@ func (e *EnqueueNodePoolForNode) Delete(evt event.DeleteEvent,
 }
 
 // Generic implements EventHandler
-func (e *EnqueueNodePoolForNode) Generic(evt event.GenericEvent,
+func (e *EnqueueNodePoolForNode) Generic(ctx context.Context, evt event.GenericEvent,
 	q workqueue.RateLimitingInterface) {
 }
 

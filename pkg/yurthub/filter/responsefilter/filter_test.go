@@ -73,8 +73,8 @@ func (noh *nopObjectHandler) Name() string {
 	return noh.name
 }
 
-func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.String {
-	return map[string]sets.String{}
+func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	return map[string]sets.Set[string]{}
 }
 
 func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
@@ -2340,7 +2340,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 		accept            string
 		eventType         watch.EventType
 		inputObj          runtime.Object
-		names             sets.String
+		names             sets.Set[string]
 		expectedObj       runtime.Object
 		expectedEventType watch.EventType
 	}{
@@ -2367,7 +2367,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
-			names: sets.NewString("discardcloudservice"),
+			names: sets.New("discardcloudservice"),
 			expectedObj: &corev1.Service{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Service",
@@ -2410,7 +2410,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
-			names: sets.NewString("discardcloudservice", "nodeportisolation"),
+			names: sets.New("discardcloudservice", "nodeportisolation"),
 			expectedObj: &corev1.Service{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Service",
@@ -2450,7 +2450,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 					Type:      corev1.ServiceTypeLoadBalancer,
 				},
 			},
-			names: sets.NewString("discardcloudservice", "nodeportisolation"),
+			names: sets.New("discardcloudservice", "nodeportisolation"),
 			expectedObj: &corev1.Service{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Service",
@@ -2516,8 +2516,8 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 			}
 
 			names := strings.Split(responseFilter.Name(), ",")
-			if !tc.names.Equal(sets.NewString(names...)) {
-				t.Errorf("expect filter names %v, but got %v", tc.names.List(), names)
+			if !tc.names.Equal(sets.New(names...)) {
+				t.Errorf("expect filter names %v, but got %v", sets.List(tc.names), names)
 				return
 			}
 

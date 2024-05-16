@@ -300,7 +300,7 @@ func GetCertAndKeyFromCertMgr(certManager certificate.Manager, stopCh <-chan str
 	// waiting for the certificate is generated
 	certManager.Start()
 
-	err = wait.PollUntil(5*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		// keep polling until the certificate is signed
 		if certManager.Current() != nil {
 			klog.Infof(Format("%s certificate signed successfully", ComponentName))
@@ -308,7 +308,7 @@ func GetCertAndKeyFromCertMgr(certManager certificate.Manager, stopCh <-chan str
 		}
 		klog.Infof(Format("waiting for the master to sign the %s certificate", ComponentName))
 		return false, nil
-	}, stopCh)
+	})
 
 	if err != nil {
 		return nil, nil, err

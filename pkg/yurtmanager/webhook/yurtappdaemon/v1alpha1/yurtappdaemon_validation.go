@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	apivalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
@@ -44,41 +45,41 @@ const (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *YurtAppDaemonHandler) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	daemon, ok := obj.(*v1alpha1.YurtAppDaemon)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", obj))
 	}
 
 	if allErrs := validateYurtAppDaemon(webhook.Client, daemon); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), daemon.Name, allErrs)
+		return nil, apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), daemon.Name, allErrs)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtAppDaemonHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *YurtAppDaemonHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newDaemon, ok := newObj.(*v1alpha1.YurtAppDaemon)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", newObj))
 	}
 	oldDaemon, ok := oldObj.(*v1alpha1.YurtAppDaemon)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppDaemon but got a %T", oldObj))
 	}
 
 	validationErrorList := validateYurtAppDaemon(webhook.Client, newDaemon)
 	updateErrorList := ValidateYurtAppDaemonUpdate(newDaemon, oldDaemon)
 	if allErrs := append(validationErrorList, updateErrorList...); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), newDaemon.Name, allErrs)
+		return nil, apierrors.NewInvalid(v1alpha1.GroupVersion.WithKind(YurtAppDaemonKind).GroupKind(), newDaemon.Name, allErrs)
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *YurtAppDaemonHandler) ValidateDelete(_ context.Context, obj runtime.Object) error {
-	return nil
+func (webhook *YurtAppDaemonHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 // validateYurtAppDaemon validates a YurtAppDaemon.
@@ -95,7 +96,7 @@ func validateYurtAppDaemonSpec(c client.Client, spec *v1alpha1.YurtAppDaemonSpec
 	if spec.Selector == nil {
 		allErrs = append(allErrs, field.Required(fldPath.Child("selector"), ""))
 	} else {
-		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(spec.Selector, fldPath.Child("selector"))...)
+		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(spec.Selector, unversionedvalidation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, fldPath.Child("selector"))...)
 		if len(spec.Selector.MatchLabels)+len(spec.Selector.MatchExpressions) == 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("selector"), spec.Selector, "empty selector is invalid for statefulset"))
 		}

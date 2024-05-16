@@ -60,13 +60,10 @@ type ReconcileServicetopologyEndpoints struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileServicetopologyEndpoints{}
-}
-
-func (r *ReconcileServicetopologyEndpoints) InjectClient(c client.Client) error {
-	r.Client = c
-	r.endpointsAdapter = adapter.NewEndpointsAdapter(c)
-	return nil
+	return &ReconcileServicetopologyEndpoints{
+		Client:           mgr.GetClient(),
+		endpointsAdapter: adapter.NewEndpointsAdapter(mgr.GetClient()),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -78,7 +75,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to Service
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, &EnqueueEndpointsForService{
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueEndpointsForService{
 		endpointsAdapter: r.(*ReconcileServicetopologyEndpoints).endpointsAdapter,
 	}); err != nil {
 		return err

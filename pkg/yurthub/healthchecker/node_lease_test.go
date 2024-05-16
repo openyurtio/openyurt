@@ -70,7 +70,7 @@ func TestNodeLeaseManager_Update(t *testing.T) {
 			success: true,
 		},
 		{
-			desc: "update fail",
+			desc: "couldn't update",
 			updateReactor: func(action clienttesting.Action) (bool, runtime.Object, error) {
 				return true, nil, noConnectionUpdateErr
 			},

@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -119,7 +118,7 @@ func TestValidateUpdate(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			h := &NodeHandler{}
-			err := h.ValidateUpdate(context.TODO(), tc.oldNode, tc.newNode, admission.Request{})
+			_, err := h.ValidateUpdate(context.TODO(), tc.oldNode, tc.newNode)
 			if tc.errCode == 0 && err != nil {
 				t.Errorf("Expected error code %d, got %v", tc.errCode, err)
 			} else if tc.errCode != 0 {

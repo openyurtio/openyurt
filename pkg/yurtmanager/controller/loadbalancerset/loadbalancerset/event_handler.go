@@ -36,16 +36,16 @@ import (
 
 func NewPoolServiceEventHandler() handler.EventHandler {
 	return handler.Funcs{
-		CreateFunc: func(event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+		CreateFunc: func(ctx context.Context, event event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
 			handlePoolServiceNormal(event.Object, limitingInterface)
 		},
-		UpdateFunc: func(updateEvent event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+		UpdateFunc: func(ctx context.Context, updateEvent event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
 			handlePoolServiceUpdate(updateEvent.ObjectOld, updateEvent.ObjectNew, limitingInterface)
 		},
-		DeleteFunc: func(deleteEvent event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+		DeleteFunc: func(ctx context.Context, deleteEvent event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
 			handlePoolServiceNormal(deleteEvent.Object, limitingInterface)
 		},
-		GenericFunc: func(genericEvent event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+		GenericFunc: func(ctx context.Context, genericEvent event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
 			handlePoolServiceNormal(genericEvent.Object, limitingInterface)
 		},
 	}
@@ -95,16 +95,16 @@ func handlePoolServiceUpdate(oldObject, newObject client.Object, q workqueue.Rat
 
 func NewNodePoolEventHandler(c client.Client) handler.EventHandler {
 	return handler.Funcs{
-		CreateFunc: func(createEvent event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
+		CreateFunc: func(ctx context.Context, createEvent event.CreateEvent, limitingInterface workqueue.RateLimitingInterface) {
 			allLoadBalancerSetServicesEnqueue(c, limitingInterface)
 		},
-		UpdateFunc: func(updateEvent event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
+		UpdateFunc: func(ctx context.Context, updateEvent event.UpdateEvent, limitingInterface workqueue.RateLimitingInterface) {
 			allLoadBalancerSetServicesEnqueue(c, limitingInterface)
 		},
-		DeleteFunc: func(deleteEvent event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
+		DeleteFunc: func(ctx context.Context, deleteEvent event.DeleteEvent, limitingInterface workqueue.RateLimitingInterface) {
 			nodePoolRelatedServiceEnqueue(c, deleteEvent.Object, limitingInterface)
 		},
-		GenericFunc: func(genericEvent event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
+		GenericFunc: func(ctx context.Context, genericEvent event.GenericEvent, limitingInterface workqueue.RateLimitingInterface) {
 			nodePoolRelatedServiceEnqueue(c, genericEvent.Object, limitingInterface)
 		},
 	}

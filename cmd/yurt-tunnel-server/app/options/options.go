@@ -140,9 +140,9 @@ func (o *ServerOptions) Config() (*config.Config, error) {
 	}
 
 	if utilnet.IsIPv6String(o.BindAddr) {
-		cfg.IPFamily = iptables.ProtocolIpv6
+		cfg.IPFamily = iptables.ProtocolIPv6
 	} else {
-		cfg.IPFamily = iptables.ProtocolIpv4
+		cfg.IPFamily = iptables.ProtocolIPv4
 	}
 	cfg.ListenAddrForAgent = net.JoinHostPort(o.BindAddr, o.TunnelAgentConnectPort)
 	cfg.ListenAddrForMaster = net.JoinHostPort(o.BindAddr, o.SecurePort)

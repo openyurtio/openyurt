@@ -18,8 +18,6 @@ package main
 
 import (
 	"flag"
-	"math/rand"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -31,7 +29,6 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
 	klog.InitFlags(nil)
 	defer klog.Flush()
 

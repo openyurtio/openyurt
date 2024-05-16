@@ -38,7 +38,7 @@ func SetDefaultsNodePool(obj *NodePool) {
 func SetDefaultsYurtAppSet(obj *YurtAppSet) {
 
 	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
+		obj.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
 	}
 
 	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
@@ -129,14 +129,14 @@ func SetDefaultPodSpec(in *corev1.PodSpec) {
 		v1.SetDefaults_ResourceList(&a.Resources.Requests)
 		if a.LivenessProbe != nil {
 			v1.SetDefaults_Probe(a.LivenessProbe)
-			if a.LivenessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.Handler.HTTPGet)
+			if a.LivenessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.ReadinessProbe != nil {
 			v1.SetDefaults_Probe(a.ReadinessProbe)
-			if a.ReadinessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.Handler.HTTPGet)
+			if a.ReadinessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.Lifecycle != nil {
@@ -175,14 +175,14 @@ func SetDefaultPodSpec(in *corev1.PodSpec) {
 		v1.SetDefaults_ResourceList(&a.Resources.Requests)
 		if a.LivenessProbe != nil {
 			v1.SetDefaults_Probe(a.LivenessProbe)
-			if a.LivenessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.Handler.HTTPGet)
+			if a.LivenessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.LivenessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.ReadinessProbe != nil {
 			v1.SetDefaults_Probe(a.ReadinessProbe)
-			if a.ReadinessProbe.Handler.HTTPGet != nil {
-				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.Handler.HTTPGet)
+			if a.ReadinessProbe.ProbeHandler.HTTPGet != nil {
+				v1.SetDefaults_HTTPGetAction(a.ReadinessProbe.ProbeHandler.HTTPGet)
 			}
 		}
 		if a.Lifecycle != nil {
@@ -239,7 +239,7 @@ func SetDefaultsYurtStaticSet(obj *YurtStaticSet) {
 func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
 
 	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = utilpointer.Int32Ptr(10)
+		obj.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
 	}
 
 	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {

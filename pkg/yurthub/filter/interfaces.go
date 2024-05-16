@@ -53,7 +53,7 @@ type ObjectFilter interface {
 	Name() string
 	// SupportedResourceAndVerbs is used to specify which resource and request verb is supported by the filter.
 	// Because each filter can make sure what requests with resource and verb can be handled.
-	SupportedResourceAndVerbs() map[string]sets.String
+	SupportedResourceAndVerbs() map[string]sets.Set[string]
 	// Filter is used for filtering runtime object
 	// all filter logic should be located in it.
 	Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object

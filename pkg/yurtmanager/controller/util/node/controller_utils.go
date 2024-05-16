@@ -164,7 +164,7 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 
 			klog.V(2).InfoS("Updating ready status of pod to false", "pod", klog.KObj(pod))
 			//if _, err := kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(ctx, pod, metav1.UpdateOptions{}); err != nil {
-			if err := c.Status().Update(ctx, pod, &client.UpdateOptions{}); err != nil {
+			if err := c.Status().Update(ctx, pod, &client.SubResourceUpdateOptions{}); err != nil {
 				if apierrors.IsNotFound(err) {
 					// NotFound error means that pod was already deleted.
 					// There is nothing left to do with this pod.

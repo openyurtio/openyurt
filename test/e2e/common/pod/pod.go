@@ -65,7 +65,7 @@ func VerifyPodsRunning(c clientset.Interface, ns, podName string, wantName bool,
 }
 
 func WaitTimeoutForPodRunning(c clientset.Interface, podName, ns string, timeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, timeout, podRunning(c, podName, ns))
+	return wait.PollUntilContextTimeout(context.Background(), 2*time.Second, timeout, true, podRunning(c, podName, ns))
 }
 
 // PodsCreated returns a pod list matched by the given name.
@@ -133,11 +133,11 @@ func WaitForPodRunningInNamespace(c clientset.Interface, pod *apiv1.Pod) error {
 		return nil
 	}
 
-	return wait.PollImmediate(2*time.Second, util.PodStartTimeout, podRunning(c, pod.Name, pod.Namespace))
+	return wait.PollUntilContextTimeout(context.Background(), 2*time.Second, util.PodStartTimeout, true, podRunning(c, pod.Name, pod.Namespace))
 }
 
-func podRunning(c clientset.Interface, podName, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
+func podRunning(c clientset.Interface, podName, namespace string) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
 		pod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err

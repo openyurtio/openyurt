@@ -85,13 +85,13 @@ func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconcile
 	}
 
 	// Watch for changes to YurtAppDaemon
-	err = c.Watch(&source.Kind{Type: &unitv1alpha1.YurtAppDaemon{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1alpha1.YurtAppDaemon{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to NodePool
-	err = c.Watch(&source.Kind{Type: &unitv1alpha1.NodePool{}}, &EnqueueYurtAppDaemonForNodePool{client: mgr.GetClient()})
+	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1alpha1.NodePool{}), &EnqueueYurtAppDaemonForNodePool{client: mgr.GetClient()})
 	if err != nil {
 		return err
 	}

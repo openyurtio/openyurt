@@ -31,34 +31,34 @@ import (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodeHandler) ValidateCreate(_ context.Context, obj runtime.Object, req admission.Request) error {
-	return nil
+func (webhook *NodeHandler) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodeHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object, req admission.Request) error {
+func (webhook *NodeHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newNode, ok := newObj.(*v1.Node)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", newObj))
 	}
 	oldNode, ok := oldObj.(*v1.Node)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a Node} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Node} but got a %T", oldObj))
 	}
 
-	if allErrs := validateNodeUpdate(newNode, oldNode, req); len(allErrs) > 0 {
-		return apierrors.NewInvalid(v1.SchemeGroupVersion.WithKind("Node").GroupKind(), newNode.Name, allErrs)
+	if allErrs := validateNodeUpdate(newNode, oldNode); len(allErrs) > 0 {
+		return nil, apierrors.NewInvalid(v1.SchemeGroupVersion.WithKind("Node").GroupKind(), newNode.Name, allErrs)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodeHandler) ValidateDelete(_ context.Context, obj runtime.Object, req admission.Request) error {
-	return nil
+func (webhook *NodeHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
-func validateNodeUpdate(newNode, oldNode *v1.Node, req admission.Request) field.ErrorList {
+func validateNodeUpdate(newNode, oldNode *v1.Node) field.ErrorList {
 	oldNp := oldNode.Labels[projectinfo.GetNodePoolLabel()]
 	newNp := newNode.Labels[projectinfo.GetNodePoolLabel()]
 	oldNpHostNetwork := oldNode.Labels[apps.NodePoolHostNetworkLabel]

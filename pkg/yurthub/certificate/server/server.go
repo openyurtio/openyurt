@@ -58,7 +58,7 @@ func NewHubServerCertificateManager(client clientset.Interface, clientCertManage
 
 	kubeClientFn := func(current *tls.Certificate) (clientset.Interface, error) {
 		// waiting for the certificate is generated
-		_ = wait.PollInfinite(5*time.Second, func() (bool, error) {
+		_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 			// keep polling until the yurthub client certificate is signed
 			if clientCertManager.GetAPIServerClientCert() != nil {
 				return true, nil

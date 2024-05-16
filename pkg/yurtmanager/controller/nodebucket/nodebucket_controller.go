@@ -24,7 +24,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -69,6 +68,7 @@ func Format(format string, args ...interface{}) string {
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof(Format("nodebucket-controller add controller %s", controllerResource.String()))
 	r := &ReconcileNodeBucket{
+		Client:            mgr.GetClient(),
 		maxNodesPerBucket: int(cfg.ComponentConfig.NodeBucketController.MaxNodesPerBucket),
 	}
 
@@ -80,21 +80,19 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 		return err
 	}
 
-	if _, err := r.mapper.KindFor(controllerResource); err != nil {
+	if _, err := mgr.GetRESTMapper().KindFor(controllerResource); err != nil {
 		klog.Infof("resource %s doesn't exist", controllerResource.String())
 		return err
 	}
 
 	// Watch for changes to NodeBucket
-	if err = c.Watch(&source.Kind{Type: &appsv1alpha1.NodeBucket{}}, &handler.EnqueueRequestForOwner{
-		OwnerType:    &appsv1beta1.NodePool{},
-		IsController: true,
-	}); err != nil {
+	if err = c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.NodeBucket{}),
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1beta1.NodePool{}, handler.OnlyControllerOwner())); err != nil {
 		return err
 	}
 
 	// Watch nodepool create for nodebucket
-	if err = c.Watch(&source.Kind{Type: &appsv1beta1.NodePool{}}, &handler.EnqueueRequestForObject{}, predicate.Funcs{
+	if err = c.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.NodePool{}), &handler.EnqueueRequestForObject{}, predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
 			return true
 		},
@@ -138,7 +136,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 		},
 	}
 
-	reconcilePool := handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+	reconcilePool := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		node, ok := obj.(*v1.Node)
 		if !ok {
 			return []reconcile.Request{}
@@ -154,7 +152,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	})
 
 	// Watch for changes to Node
-	if err = c.Watch(&source.Kind{Type: &v1.Node{}}, reconcilePool, nodePredicate); err != nil {
+	if err = c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), reconcilePool, nodePredicate); err != nil {
 		return err
 	}
 	return nil
@@ -162,20 +160,9 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 var _ reconcile.Reconciler = &ReconcileNodeBucket{}
 
-func (r *ReconcileNodeBucket) InjectClient(c client.Client) error {
-	r.Client = c
-	return nil
-}
-
-func (r *ReconcileNodeBucket) InjectMapper(mapper meta.RESTMapper) error {
-	r.mapper = mapper
-	return nil
-}
-
 // ReconcileNodeBucket reconciles a NodeBucket object
 type ReconcileNodeBucket struct {
 	client.Client
-	mapper            meta.RESTMapper
 	maxNodesPerBucket int
 }
 
@@ -206,7 +193,7 @@ func (r *ReconcileNodeBucket) Reconcile(ctx context.Context, request reconcile.R
 	})); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	desiredNodeSet := sets.String{}
+	desiredNodeSet := sets.Set[string]{}
 	for i := range currentNodeList.Items {
 		desiredNodeSet.Insert(currentNodeList.Items[i].Name)
 	}
@@ -234,12 +221,12 @@ func (r *ReconcileNodeBucket) Reconcile(ctx context.Context, request reconcile.R
 
 func (r *ReconcileNodeBucket) reconcileNodeBuckets(
 	pool *appsv1beta1.NodePool,
-	desiredNodeSet sets.String,
+	desiredNodeSet sets.Set[string],
 	buckets *appsv1alpha1.NodeBucketList,
 ) ([]*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket) {
 	bucketsUnchanged, bucketsToUpdate, bucketsToDelete, unFilledNodeSet := resolveExistingBuckets(buckets, desiredNodeSet)
 	klog.V(4).Infof("reconcileNodeBuckets for pool(%s), len(bucketsUnchanged)=%d, len(bucketsToUpdate)=%d, len(bucketsToDelete)=%d, unFilledNodeSet=%v",
-		pool.Name, len(bucketsUnchanged), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.List())
+		pool.Name, len(bucketsUnchanged), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.UnsortedList())
 
 	// If we still have unfilled nodes to add and buckets marked for update,
 	// iterate through the buckets and fill them up with the unfilled nodes.
@@ -253,7 +240,7 @@ func (r *ReconcileNodeBucket) reconcileNodeBuckets(
 		}
 	}
 	klog.V(4).Infof("reconcileNodeBuckets for pool(%s) after filling bucketsToUpdate, len(bucketsUnchanged)=%d, len(bucketsToUpdate)=%d, len(bucketsToDelete)=%d, unFilledNodeSet=%v",
-		pool.Name, len(bucketsUnchanged), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.List())
+		pool.Name, len(bucketsUnchanged), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.UnsortedList())
 
 	// If there are still unfilled nodes left at this point, we try to fit the nodes in a single existing buckets.
 	// If there are no buckets with that capacity, we create new buckets for the nodes.
@@ -282,13 +269,13 @@ func (r *ReconcileNodeBucket) reconcileNodeBuckets(
 		}
 	}
 	klog.V(4).Infof("reconcileNodeBuckets for pool(%s) after filling bucketsUnchanged, len(bucketsUnchanged)=%d, len(bucketsToCreate)=%d len(bucketsToUpdate)=%v, len(bucketsToDelete)=%d, unFilledNodeSet=%v",
-		pool.Name, len(bucketsUnchanged), len(bucketsToCreate), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.List())
+		pool.Name, len(bucketsUnchanged), len(bucketsToCreate), len(bucketsToUpdate), len(bucketsToDelete), unFilledNodeSet.UnsortedList())
 
 	return bucketsToCreate, bucketsToUpdate, bucketsToDelete, bucketsUnchanged
 }
 
 // resolveExistingBuckets iterates through existing node buckets to delete nodes no longer desired and update node buckets that have changed
-func resolveExistingBuckets(buckets *appsv1alpha1.NodeBucketList, desiredNodeSet sets.String) ([]*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, sets.String) {
+func resolveExistingBuckets(buckets *appsv1alpha1.NodeBucketList, desiredNodeSet sets.Set[string]) ([]*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, []*appsv1alpha1.NodeBucket, sets.Set[string]) {
 	bucketsUnchanged := []*appsv1alpha1.NodeBucket{}
 	bucketsToUpdate := []*appsv1alpha1.NodeBucket{}
 	bucketsToDelete := []*appsv1alpha1.NodeBucket{}

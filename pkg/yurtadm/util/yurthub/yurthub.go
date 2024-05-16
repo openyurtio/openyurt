@@ -19,6 +19,7 @@ package yurthub
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -125,7 +126,7 @@ func CheckYurthubHealthz(yurthubServer string) error {
 		return err
 	}
 	client := &http.Client{}
-	return wait.PollImmediate(time.Second*5, 300*time.Second, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), time.Second*5, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		resp, err := client.Do(req)
 		if err != nil {
 			return false, nil
@@ -145,7 +146,7 @@ func CheckYurthubReadyz(yurthubServer string) error {
 		return err
 	}
 	client := &http.Client{}
-	return wait.PollImmediate(time.Second*5, 300*time.Second, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), time.Second*5, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		resp, err := client.Do(req)
 		if err != nil {
 			return false, nil
