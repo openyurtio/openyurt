@@ -90,6 +90,7 @@ func backupFile(path string) error {
 	if err != nil {
 		return err
 	}
+	defer src.Close()
 
 	fileName := filepath.Base(path)
 	bakFile := filepath.Join("/tmp", fileName)
@@ -97,7 +98,14 @@ func backupFile(path string) error {
 	if err != nil {
 		return err
 	}
+	defer dst.Close()
 
-	_, err = io.Copy(dst, src)
-	return err
+	if _, err = io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	if err = dst.Sync(); err != nil {
+		return err
+	}
+	return nil
 }
