@@ -225,6 +225,82 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
+		"pod with specified annotation but without NodeAffinity's NodeSelectorTerms": {
+			obj: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-test",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						apps.AnnotationExcludeHostNetworkPool: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 100,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"value-test"},
+											},
+										},
+									},
+								},
+							},
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{},
+							},
+						},
+					},
+				},
+			},
+			wantedPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-test",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						apps.AnnotationExcludeHostNetworkPool: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 100,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"value-test"},
+											},
+										},
+									},
+								},
+							},
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "nodepool.openyurt.io/hostnetwork",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"true"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"pod with specified annotation, then append new informations to NodeAffinity's RequiredDuringSchedulingIgnoredDuringExecution": {
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -274,10 +350,97 @@ func TestDefault(t *testing.T) {
 												Operator: corev1.NodeSelectorOpIn,
 												Values:   []string{"value-test"},
 											},
+											{
+												Key:      "nodepool.openyurt.io/hostnetwork",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"true"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"pod with specified annotation and NodeAffinity's RequiredDuringSchedulingIgnoredDuringExecution": {
+			obj: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-test",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						apps.AnnotationExcludeHostNetworkPool: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"value-test"},
+											},
+											{
+												Key:      "nodepool.openyurt.io/hostnetwork",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"true"},
+											},
 										},
 									},
 									{
 										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test2",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"value-test2"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantedPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-test",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						apps.AnnotationExcludeHostNetworkPool: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"value-test"},
+											},
+											{
+												Key:      "nodepool.openyurt.io/hostnetwork",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"true"},
+											},
+										},
+									},
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key-test2",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"value-test2"},
+											},
 											{
 												Key:      "nodepool.openyurt.io/hostnetwork",
 												Operator: corev1.NodeSelectorOpNotIn,
@@ -321,7 +484,7 @@ func TestDefault(t *testing.T) {
 			} else {
 				currentPod := tc.obj.(*corev1.Pod)
 				if !reflect.DeepEqual(currentPod, tc.wantedPod) {
-					t.Errorf("expect %#+v, got %#+v", tc.wantedPod, currentPod)
+					t.Errorf("expect %#+v\n, got %#+v\n", tc.wantedPod, currentPod)
 				}
 			}
 		})
