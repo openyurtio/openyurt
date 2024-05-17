@@ -148,7 +148,7 @@ docker-build:
 
 # Build and Push the docker images with multi-arch
 docker-push: docker-push-yurthub docker-push-node-servant docker-push-yurt-manager docker-push-yurt-tunnel-server docker-push-yurt-tunnel-agent docker-push-yurt-iot-dock
-
+	@echo "release openyurt images completed~~"
 
 docker-buildx-builder:
 	if ! docker buildx ls | grep -q container-builder; then\
@@ -177,10 +177,12 @@ docker-push-yurt-tunnel-agent: docker-buildx-builder
 docker-push-yurt-iot-dock: docker-buildx-builder
 	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-iot-dock . -t ${IMAGE_REPO}/yurt-iot-dock:${GIT_VERSION}
 
+.PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 #	hack/make-rule/generate_openapi.sh // TODO by kadisi
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/apis/..."
 
+.PHONY: manifests
 manifests: kustomize kubectl yq generate ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	rm -rf $(BUILD_KUSTOMIZE)
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./pkg/..." output:crd:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/crd output:rbac:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/rbac output:webhook:artifacts:config=$(BUILD_KUSTOMIZE)/auto_generate/webhook
@@ -191,10 +193,12 @@ manifests: kustomize kubectl yq generate ## Generate WebhookConfiguration, Clust
 # .e.g
 # make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Namespaced 
 # make newcontroller GROUP=apps VERSION=v1beta1 KIND=example SHORTNAME=examples SCOPE=Cluster
+.PHONY: newcontroller
 newcontroller:
 	hack/make-rules/add_controller.sh --group $(GROUP) --version $(VERSION) --kind $(KIND) --shortname $(SHORTNAME) --scope $(SCOPE)
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+.PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 ifeq ("$(shell $(CONTROLLER_GEN) --version 2> /dev/null)", "Version: v0.7.0")
 else
