@@ -5,6 +5,7 @@ bin
 gopath
 dockerbuild
 hack/cni
+config/demo
 
 vendor
 .vscode
