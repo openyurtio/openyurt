@@ -60,6 +60,7 @@ type yurtReverseProxy struct {
 	isCoordinatorReady            func() bool
 	workingMode                   hubutil.WorkingMode
 	enableYurtCoordinator         bool
+	lastConnectionStatus          bool
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -192,7 +193,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsKubeletGetNodeReq(req):
-		if p.localProxy != nil {
+		if p.localProxy != nil && !p.isKubeletFirstReq() {
 			p.localProxy.ServeHTTP(rw, req)
 		} else {
 			p.loadBalancer.ServeHTTP(rw, req)
@@ -211,6 +212,18 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		} else {
 			p.localProxy.ServeHTTP(rw, req)
 		}
+	}
+}
+
+func (p *yurtReverseProxy) isKubeletFirstReq() bool {
+	if p.cloudHealthChecker.IsHealthy() && !p.lastConnectionStatus {
+		p.lastConnectionStatus = true
+		return true
+	} else if p.cloudHealthChecker.IsHealthy() && p.lastConnectionStatus {
+		return false
+	} else {
+		p.lastConnectionStatus = false
+		return false
 	}
 }
 
