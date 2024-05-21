@@ -18,6 +18,7 @@ package viploadbalancer_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/strings/slices"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -119,7 +121,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		assertPoolServiceLabels(t, psl, svc.Name)
 		assertPoolServiceFinalizer(t, psl)
 		assertPoolServiceVRIDLabels(t, psl, "0")
-		assertPoolServiceIPAddress(t, psl, "")
+		assertPoolServiceIPAddress(t, psl, nil)
 	})
 
 	t.Run("test update pool services with invalid vrid", func(t *testing.T) {
@@ -171,13 +173,66 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 
 		assertErrNil(t, err)
 		assertPoolServiceVRIDLabels(t, psl, "0")
-		assertPoolServiceIPAddress(t, psl, "192.168.1.1")
+		assertPoolServiceIPAddress(t, psl, []string{"192.168.1.1"})
+	})
+
+	t.Run("test update pool services with specify ip range", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		svcIPRange := "192.168.1.1-192.168.1.3"
+		expectIPs := viploadbalancer.ParseIP(svcIPRange)
+		svc.Annotations = map[string]string{viploadbalancer.AnnotationServiceVIPAddress: svcIPRange}
+		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		adressPool := "192.168.0.1-192.168.2.2"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:     c,
+			IPManagers: map[string]*viploadbalancer.IPManager{},
+		}
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceVRIDLabels(t, psl, "0")
+		assertPoolServiceIPAddress(t, psl, expectIPs)
+	})
+
+	t.Run("test update pool services with specify ip mix", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		svcIPRange := "192.168.1.1-192.168.1.3, 10.1.0.1"
+		exceptIPs := viploadbalancer.ParseIP(svcIPRange)
+		svc.Annotations = map[string]string{viploadbalancer.AnnotationServiceVIPAddress: svcIPRange}
+		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		adressPool := "192.168.0.1-192.168.2.2, 10.1.0.1-10.1.0.2"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client:     c,
+			IPManagers: map[string]*viploadbalancer.IPManager{},
+		}
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceVRIDLabels(t, psl, "0")
+		assertPoolServiceIPAddress(t, psl, exceptIPs)
 	})
 
 	t.Run("test delete pool services with invalid vrid", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 
 		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
 		if err != nil {
@@ -210,6 +265,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 
 		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
 		if err != nil {
@@ -237,10 +293,12 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		assertPoolServiceFinalizer(t, psl)
 	})
 
-	t.Run("test delete pool services with delete time not zero", func(t *testing.T) {
+	t.Run("test delete pool services with delete time not zero and vip empty", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
+		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
 
 		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
 		if err != nil {
@@ -252,6 +310,80 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		}
 
 		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID)}
+		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client: c,
+			IPManagers: map[string]*viploadbalancer.IPManager{
+				"np123": ipManage,
+			},
+		}
+
+		_, err = rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceFinalizer(t, psl)
+	})
+
+	t.Run("test delete pool services with delete time not zero and vip ready", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
+		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
+
+		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		if err != nil {
+			t.Fatalf("Failed to create IPManager: %v", err)
+		}
+		ipvrid, err := ipManage.Get()
+		if err != nil {
+			t.Fatalf("Failed to get IPVRID: %v", err)
+		}
+
+		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusReady}
+		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
+
+		rc := viploadbalancer.ReconcileVipLoadBalancer{
+			Client: c,
+			IPManagers: map[string]*viploadbalancer.IPManager{
+				"np123": ipManage,
+			},
+		}
+
+		_, err = rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockPoolServiceName))
+
+		psl := &v1alpha1.PoolServiceList{}
+		c.List(context.Background(), psl)
+
+		assertErrNil(t, err)
+		assertPoolServiceFinalizer(t, psl)
+	})
+
+	t.Run("test delete pool services with delete time not zero and vip unready", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+		np1 := newNodepool("np123", "name=np123,app=deploy")
+		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
+		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
+		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
+
+		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		if err != nil {
+			t.Fatalf("Failed to create IPManager: %v", err)
+		}
+		ipvrid, err := ipManage.Get()
+		if err != nil {
+			t.Fatalf("Failed to get IPVRID: %v", err)
+		}
+
+		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusUnReady}
 		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
@@ -346,7 +478,7 @@ func newNodepool(name string, labelStr string) *v1beta1.NodePool {
 	}
 }
 
-func assertPoolServiceIPAddress(t testing.TB, psl *v1alpha1.PoolServiceList, ip string) {
+func assertPoolServiceIPAddress(t testing.TB, psl *v1alpha1.PoolServiceList, ips []string) {
 	t.Helper()
 
 	for _, ps := range psl.Items {
@@ -360,9 +492,11 @@ func assertPoolServiceIPAddress(t testing.TB, psl *v1alpha1.PoolServiceList, ip 
 				t.Errorf("expected loadbalancer ingress IP is not empty, but got %s", lbIngress.IP)
 			}
 
-			if ip != "" && lbIngress.IP != ip {
-				t.Errorf("expected loadbalancer ingress IP is %s, but got %s", ip, lbIngress.IP)
+			if len(ips) != 0 && !slices.Contains(ips, lbIngress.IP) {
+				t.Errorf("excepted IPs are %v, but got %s", ips, lbIngress.IP)
 			}
+
+			fmt.Printf("IP: %s\n", lbIngress.IP)
 		}
 	}
 

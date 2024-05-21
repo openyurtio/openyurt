@@ -27,19 +27,12 @@ const (
 	VRIDEVICTED  = -1
 )
 
-type IPRange struct {
-	// IPRange: [startIP, endIP)
-	startIP net.IP
-	endIP   net.IP
-}
-
 type IPVRID struct {
 	IPs  []string
 	VRID int
 }
 
 type IPManager struct {
-	ranges []IPRange
 	// ipPools indicates if ip is assign
 	ipPools map[string]int
 	// ipVRIDs indicates which IPs are assigned to vrid
@@ -59,7 +52,7 @@ func NewIPManager(ipRanges string) (*IPManager, error) {
 		ipVRIDs: make(map[int][]string),
 	}
 
-	iprs := parseIP(ipRanges)
+	iprs := ParseIP(ipRanges)
 	for _, ipr := range iprs {
 		manager.ipPools[ipr] = VRIDEVICTED
 	}
@@ -67,7 +60,9 @@ func NewIPManager(ipRanges string) (*IPManager, error) {
 	return manager, nil
 }
 
-func parseIP(ipr string) []string {
+// ParseIP support ipv4 / ipv6 parse, like "192.168.0.1-192.168.0.3", "192.168.0.1, 10.0.1.1", "2001:db8::2-2001:db8::4"
+// Output is a list of ip strings, which is left closed and right open, like [192.168.0.1, 192.168.0.2], [192.168.0.1, 10.0.1.1],[2001:db8::2, 2001:db8::3]
+func ParseIP(ipr string) []string {
 	var ips []string
 	ipRanges := strings.Split(ipr, ",")
 
@@ -103,8 +98,8 @@ func incrementIP(ip net.IP) net.IP {
 	return ip
 }
 
+// Get return a IPVRID with a available IP and VRID combination
 func (m *IPManager) Get() (IPVRID, error) {
-
 	for vrid := 0; vrid < VRIDMAXVALUE; vrid++ {
 		if ips, ok := m.ipVRIDs[vrid]; !ok || len(ips) == 0 {
 			for ip, used := range m.ipPools {
@@ -120,8 +115,8 @@ func (m *IPManager) Get() (IPVRID, error) {
 	return IPVRID{}, errors.New("no available IP and VRID combination")
 }
 
+// Assign assign ips to a vrid, if no available ip, get a new ipvrid from Get()
 func (m *IPManager) Assign(ips []string) (IPVRID, error) {
-
 	var noConflictIPs []string
 	for _, ip := range ips {
 		// if conflict, just use no conflict
@@ -151,29 +146,27 @@ func (m *IPManager) Assign(ips []string) (IPVRID, error) {
 	return IPVRID{}, errors.New("no available IPs and VRID combination")
 }
 
+// Release release ips from vrid, if vrid is not assigned, return error
 func (m *IPManager) Release(ipVRID IPVRID) error {
-
 	if err := m.IsValid(ipVRID); err != nil {
 		return err
 	}
-	ips := ipVRID.IPs
-	vrid := ipVRID.VRID
 
-	if _, ok := m.ipVRIDs[vrid]; !ok {
-		return fmt.Errorf("VRID %d does not assign ips", vrid)
+	if _, ok := m.ipVRIDs[ipVRID.VRID]; !ok {
+		return fmt.Errorf("VRID %d does not assign ips", ipVRID.VRID)
 	}
-	remain := make([]string, len(m.ipVRIDs[vrid])-len(ips))
+	remain := make([]string, len(m.ipVRIDs[ipVRID.VRID])-len(ipVRID.IPs))
 
-	for _, ip := range m.ipVRIDs[vrid] {
-		if m.isIPPresent(ip, ips) {
+	for _, ip := range m.ipVRIDs[ipVRID.VRID] {
+		if m.isIPPresent(ip, ipVRID.IPs) {
 			continue
 		}
 
 		remain = append(remain, ip)
 	}
 
-	if len(remain) == len(m.ipVRIDs[vrid]) {
-		return fmt.Errorf("IP %v is not assigned", ips)
+	if len(remain) == len(m.ipVRIDs[ipVRID.VRID]) {
+		return fmt.Errorf("IP %v is not assigned", ipVRID.IPs)
 	}
 
 	for _, ip := range remain {
@@ -183,27 +176,26 @@ func (m *IPManager) Release(ipVRID IPVRID) error {
 	return nil
 }
 
+// check if ip and vrid is valid in this ip-pools, if not return error
 func (m *IPManager) IsValid(ipvrid IPVRID) error {
-	ips := ipvrid.IPs
-	vrid := ipvrid.VRID
-	if len(ips) == 0 {
+	if len(ipvrid.IPs) == 0 {
 		return fmt.Errorf("IPs is empty")
 	}
 
-	for _, ip := range ips {
+	for _, ip := range ipvrid.IPs {
 		if _, ok := m.ipPools[ip]; !ok {
 			return fmt.Errorf("IP: %s is not found in IP-Pools", ip)
 		}
 	}
 
-	if vrid < 0 || vrid >= VRIDMAXVALUE {
-		return fmt.Errorf("VIRD: %d out of range", vrid)
+	if ipvrid.VRID < 0 || ipvrid.VRID >= VRIDMAXVALUE {
+		return fmt.Errorf("VIRD: %d out of range", ipvrid.VRID)
 	}
 	return nil
 }
 
+// Sync sync ips from vrid, if vrid is not assigned, return error
 func (m *IPManager) Sync(ipVRIDs []IPVRID) error {
-
 	for _, ipVRID := range ipVRIDs {
 		if err := m.IsValid(ipVRID); err != nil {
 			return err
@@ -227,6 +219,7 @@ func (m *IPManager) Sync(ipVRIDs []IPVRID) error {
 	return nil
 }
 
+// findDiffIPs find the difference between des and cur, return the difference between des and cur
 func (m *IPManager) findDiffIPs(des, cur []string) (app, del []string) {
 	for _, dip := range des {
 		if exsit := m.isIPPresent(dip, cur); !exsit {
@@ -243,6 +236,7 @@ func (m *IPManager) findDiffIPs(des, cur []string) (app, del []string) {
 	return
 }
 
+// isIPPresent check if ip is present in ips, if present return true, else return false
 func (m *IPManager) isIPPresent(tip string, ips []string) bool {
 	for _, ip := range ips {
 		if ip == tip {
