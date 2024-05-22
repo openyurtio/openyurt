@@ -60,7 +60,6 @@ type yurtReverseProxy struct {
 	isCoordinatorReady            func() bool
 	workingMode                   hubutil.WorkingMode
 	enableYurtCoordinator         bool
-	lastConnectionStatus          bool
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
