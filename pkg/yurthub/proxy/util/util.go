@@ -331,7 +331,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 					}
 				} else if info.Verb == "get" {
 					query := req.URL.Query()
-					if str, _ := query["timeout"]; len(str) > 0 {
+					if str := query["timeout"]; len(str) > 0 {
 						if t, err := time.ParseDuration(str[0]); err == nil {
 							if t > time.Duration(getAndListTimeoutReduce)*time.Second {
 								timeout = t - time.Duration(getAndListTimeoutReduce)*time.Second
@@ -515,10 +515,6 @@ func ReListWatchReq(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	streamingEncoder := streaming.NewEncoder(framer.NewFrameWriter(rw), streamingSerializer)
-	if err != nil {
-		klog.Errorf("ReListWatchReq %s failed with error = %s", util.ReqString(req), err.Error())
-		return
-	}
 
 	outEvent := &metav1.WatchEvent{
 		Type: string(watch.Error),
