@@ -428,9 +428,13 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				} else {
 					updateObjCnt++
 				}
+				errMsg := cm.updateInMemoryCache(ctx, info, obj)
+				klog.ErrorS(errMsg, "failed to update cache")
 			case watch.Deleted:
 				err = cm.storage.Delete(key)
 				delObjCnt++
+				// for now, If it's a delete request, no need to modify the inmemory cache,
+				// because currently, there shouldn't be any delete requests for nodes or leases.
 			default:
 				// impossible go to here
 			}
@@ -448,8 +452,6 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 		case watch.Error:
 			klog.Infof("unable to understand watch event %#v", obj)
 		}
-		err = cm.updateInMemoryCache(ctx, info, obj)
-		klog.ErrorS(err, "failed to update cache")
 	}
 }
 
