@@ -245,8 +245,12 @@ func WithRequestTrace(handler http.Handler) http.Handler {
 		start := time.Now()
 		defer func() {
 			duration := time.Since(start)
-			klog.Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, duration)
-			// 'watch' & 'proxy' requets don't need to be monitored in metrics
+			if info.Resource == "leases" {
+				klog.V(5).Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, duration)
+			} else {
+				klog.V(2).Infof("%s with status code %d, spent %v", util.ReqString(req), wrapperRW.statusCode, duration)
+			}
+			// 'watch' & 'proxy' requests don't need to be monitored in metrics
 			if info.Verb != "proxy" && info.Verb != "watch" {
 				metrics.Metrics.SetProxyLatencyCollector(client, info.Verb, info.Resource, info.Subresource, metrics.Apiserver_latency, int64(duration))
 			}
@@ -284,9 +288,17 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		info, ok := apirequest.RequestInfoFrom(req.Context())
+		if !ok {
+			info = &apirequest.RequestInfo{}
+		}
 		select {
 		case reqChan <- true:
-			klog.V(2).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+			if info.Resource == "leases" {
+				klog.V(5).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+			} else {
+				klog.V(2).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+			}
 			defer func() {
 				<-reqChan
 				klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))

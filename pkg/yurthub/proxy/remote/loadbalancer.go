@@ -18,6 +18,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -387,7 +388,7 @@ func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 	req = req.WithContext(ctx)
 	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
+		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
 			klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
 		}
 	}(req, prc, ctx.Done())
