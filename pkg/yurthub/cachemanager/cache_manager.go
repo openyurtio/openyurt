@@ -429,7 +429,9 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 					updateObjCnt++
 				}
 				errMsg := cm.updateInMemoryCache(ctx, info, obj)
-				klog.ErrorS(errMsg, "failed to update cache")
+				if errMsg != nil {
+					klog.Errorf("failed to update cache, %v", errMsg)
+				}
 			case watch.Deleted:
 				err = cm.storage.Delete(key)
 				delObjCnt++
