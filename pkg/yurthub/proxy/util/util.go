@@ -331,7 +331,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 					}
 				} else if info.Verb == "get" {
 					query := req.URL.Query()
-					if str, _ := query["timeout"]; len(str) > 0 {
+					if str := query["timeout"]; len(str) > 0 {
 						if t, err := time.ParseDuration(str[0]); err == nil {
 							if t > time.Duration(getAndListTimeoutReduce)*time.Second {
 								timeout = t - time.Duration(getAndListTimeoutReduce)*time.Second
@@ -410,6 +410,18 @@ func IsKubeletLeaseReq(req *http.Request) bool {
 		return false
 	}
 	if info, ok := apirequest.RequestInfoFrom(ctx); !ok || info.Resource != "leases" {
+		return false
+	}
+	return true
+}
+
+// IsKubeletGetNodeReq judge whether the request is a get node request from kubelet
+func IsKubeletGetNodeReq(req *http.Request) bool {
+	ctx := req.Context()
+	if comp, ok := util.ClientComponentFrom(ctx); !ok || comp != "kubelet" {
+		return false
+	}
+	if info, ok := apirequest.RequestInfoFrom(ctx); !ok || info.Resource != "nodes" || info.Verb != "get" {
 		return false
 	}
 	return true
@@ -503,10 +515,6 @@ func ReListWatchReq(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	streamingEncoder := streaming.NewEncoder(framer.NewFrameWriter(rw), streamingSerializer)
-	if err != nil {
-		klog.Errorf("ReListWatchReq %s failed with error = %s", util.ReqString(req), err.Error())
-		return
-	}
 
 	outEvent := &metav1.WatchEvent{
 		Type: string(watch.Error),

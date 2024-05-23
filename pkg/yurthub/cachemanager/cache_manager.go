@@ -50,6 +50,7 @@ import (
 
 var (
 	ErrInMemoryCacheMiss = errors.New("in-memory cache miss")
+	ErrNotNodeOrLease    = errors.New("resource is not node or lease")
 
 	nonCacheableResources = map[string]struct{}{
 		"certificatesigningrequests": {},
@@ -227,20 +228,19 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	// query in-memory cache first
-	var isInMemoryCache = isInMemoryCache(ctx)
 	var isInMemoryCacheMiss bool
-	if isInMemoryCache {
-		if obj, err := cm.queryInMemeryCache(info); err != nil {
-			if err == ErrInMemoryCacheMiss {
-				isInMemoryCacheMiss = true
-				klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
-			} else {
-				klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
-			}
+	if obj, err := cm.queryInMemeryCache(ctx, info); err != nil {
+		if err == ErrInMemoryCacheMiss {
+			isInMemoryCacheMiss = true
+			klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
+		} else if err == ErrNotNodeOrLease {
+			klog.V(4).Infof("resource(%s) is not node or lease, it will be found in the disk not cache", info.Resource)
 		} else {
-			klog.V(4).Infof("in-memory cache hit when handling request %s", util.ReqString(req))
-			return obj, nil
+			klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
 		}
+	} else {
+		klog.V(4).Infof("in-memory cache hit when handling request %s", util.ReqString(req))
+		return obj, nil
 	}
 
 	// fall back to normal query
@@ -269,12 +269,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
 	// such as local disk and yurt-coordinator.
 	if isInMemoryCacheMiss {
-		if inMemoryCacheKey, err := inMemoryCacheKeyFunc(info); err != nil {
-			klog.Errorf("cannot in-memory cache key for req %s, %v", util.ReqString(req), err)
-		} else {
-			cm.inMemoryCacheFor(inMemoryCacheKey, obj)
-			klog.V(4).Infof("use obj from backend storage to update in-memory cache of key %s", inMemoryCacheKey)
-		}
+		return obj, cm.updateInMemoryCache(ctx, info, obj)
 	}
 	return obj, nil
 }
@@ -400,9 +395,15 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				} else {
 					updateObjCnt++
 				}
+				errMsg := cm.updateInMemoryCache(ctx, info, obj)
+				if errMsg != nil {
+					klog.Errorf("failed to update cache, %v", errMsg)
+				}
 			case watch.Deleted:
 				err = cm.storage.Delete(key)
 				delObjCnt++
+				// for now, If it's a delete request, no need to modify the inmemory cache,
+				// because currently, there shouldn't be any delete requests for nodes or leases.
 			default:
 				// impossible go to here
 			}
@@ -573,6 +574,10 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		return err
 	}
 
+	return cm.updateInMemoryCache(ctx, info, obj)
+}
+
+func (cm *cacheManager) updateInMemoryCache(ctx context.Context, info *apirequest.RequestInfo, obj runtime.Object) error {
 	// update the in-memory cache with cloud response
 	if !isInMemoryCache(ctx) {
 		return nil
@@ -770,7 +775,11 @@ func (cm *cacheManager) DeleteKindFor(gvr schema.GroupVersionResource) error {
 	return cm.restMapperManager.DeleteKindFor(gvr)
 }
 
-func (cm *cacheManager) queryInMemeryCache(reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
+func (cm *cacheManager) queryInMemeryCache(ctx context.Context, reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
+	if !isInMemoryCache(ctx) {
+		return nil, ErrNotNodeOrLease
+	}
+
 	key, err := inMemoryCacheKeyFunc(reqInfo)
 	if err != nil {
 		return nil, err
