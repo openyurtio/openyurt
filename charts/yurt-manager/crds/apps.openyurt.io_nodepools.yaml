@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: nodepools.apps.openyurt.io
 spec:
   group: apps.openyurt.io
@@ -91,6 +90,7 @@ spec:
                       description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 taints:
                   description: If specified, the Taints will be added to all nodes.
                   items:
@@ -244,9 +244,3 @@ spec:
           namespace: kube-system
           name: yurt-manager-webhook-service
           path: /convert
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
