@@ -9,7 +9,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
   name: yurt-manager-role
   namespace: {{ .Release.Namespace }}
 rules:
@@ -33,7 +32,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: yurt-manager-role
 rules:
 - apiGroups:
@@ -548,7 +546,6 @@ rules:
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: yurt-manager-mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -760,7 +757,6 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: yurt-manager-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
