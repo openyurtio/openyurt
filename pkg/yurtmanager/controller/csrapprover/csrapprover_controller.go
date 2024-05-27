@@ -27,10 +27,8 @@ import (
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -120,20 +118,13 @@ var _ reconcile.Reconciler = &ReconcileCsrApprover{}
 // ReconcileCsrApprover reconciles a CsrApprover object
 type ReconcileCsrApprover struct {
 	client.Client
-	csrV1Supported    bool
-	csrApproverClient kubernetes.Interface
+	csrV1Supported bool
 }
 
 func NewReconcileCsrApprover(mgr manager.Manager) (*ReconcileCsrApprover, error) {
 	r := &ReconcileCsrApprover{
 		Client: mgr.GetClient(),
 	}
-	client, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		klog.Errorf("could not create kube client, %v", err)
-		return nil, err
-	}
-	r.csrApproverClient = client
 
 	mapper := mgr.GetRESTMapper()
 	if gvk, err := mapper.KindFor(csrV1Resource); err != nil {
@@ -211,14 +202,13 @@ func (r *ReconcileCsrApprover) Reconcile(ctx context.Context, request reconcile.
 }
 
 // updateApproval is used for adding approval info into csr resource
-func (r *ReconcileCsrApprover) updateApproval(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (err error) {
+func (r *ReconcileCsrApprover) updateApproval(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) error {
 	if r.csrV1Supported {
-		_, err = r.csrApproverClient.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, csr.Name, csr, metav1.UpdateOptions{})
+		return r.SubResource("approval").Update(ctx, csr, &client.SubResourceUpdateOptions{})
 	} else {
 		v1beta1Csr := v1Csr2v1beta1Csr(csr)
-		_, err = r.csrApproverClient.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, v1beta1Csr, metav1.UpdateOptions{})
+		return r.SubResource("approval").Update(ctx, v1beta1Csr, &client.SubResourceUpdateOptions{})
 	}
-	return
 }
 
 // isYurtCSR checks if given csr is an openyurt related csr and
