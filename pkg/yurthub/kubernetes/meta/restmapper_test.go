@@ -237,3 +237,31 @@ func dynamicRESTMapperToString(m map[schema.GroupVersionResource]schema.GroupVer
 	}
 	return resultMapper
 }
+
+func TestKindToResource(t *testing.T) {
+	testCases := []struct {
+		Kind             string
+		Plural, Singular string
+	}{
+		{Kind: "Pod", Plural: "pods", Singular: "pod"},
+
+		{Kind: "Gateway", Plural: "gateways", Singular: "gateway"},
+
+		{Kind: "ReplicationController", Plural: "replicationcontrollers", Singular: "replicationcontroller"},
+
+		// Add "ies" when ending with "y"
+		{Kind: "ImageRepository", Plural: "imagerepositories", Singular: "imagerepository"},
+		// Add "es" when ending with "s"
+		{Kind: "miss", Plural: "misses", Singular: "miss"},
+		// Add "s" otherwise
+		{Kind: "lowercase", Plural: "lowercases", Singular: "lowercase"},
+	}
+	for i, testCase := range testCases {
+		version := schema.GroupVersion{}
+
+		plural, singular := specifiedKindToResource(version.WithKind(testCase.Kind))
+		if singular != version.WithResource(testCase.Singular) || plural != version.WithResource(testCase.Plural) {
+			t.Errorf("%d: unexpected plural and singular: %v %v", i, plural, singular)
+		}
+	}
+}

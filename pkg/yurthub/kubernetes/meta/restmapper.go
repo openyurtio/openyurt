@@ -42,6 +42,10 @@ var (
 	// It is not updatable and is only used for the judgment of scheme resources
 	unsafeSchemeRESTMapper = NewDefaultRESTMapperFromScheme()
 	ErrGVRNotRecognized    = errors.New("GroupVersionResource is not recognized")
+
+	specifiedResources = []string{
+		"gateway",
+	}
 )
 
 // RESTMapperManager is responsible for managing different kind of RESTMapper
@@ -141,7 +145,7 @@ func (rm *RESTMapperManager) dynamicKindFor(gvr schema.GroupVersionResource) (sc
 // Used to delete the mapping relationship between GVR and GVK in dynamicRESTMapper
 func (rm *RESTMapperManager) deleteKind(gvk schema.GroupVersionKind) error {
 	kindName := strings.TrimSuffix(gvk.Kind, "List")
-	plural, singular := meta.UnsafeGuessKindToResource(gvk.GroupVersion().WithKind(kindName))
+	plural, singular := specifiedKindToResource(gvk.GroupVersion().WithKind(kindName))
 	rm.Lock()
 	delete(rm.dynamicRESTMapper, plural)
 	delete(rm.dynamicRESTMapper, singular)
@@ -193,7 +197,7 @@ func (rm *RESTMapperManager) DeleteKindFor(gvr schema.GroupVersionResource) erro
 func (rm *RESTMapperManager) UpdateKind(gvk schema.GroupVersionKind) error {
 	kindName := strings.TrimSuffix(gvk.Kind, "List")
 	gvk = gvk.GroupVersion().WithKind(kindName)
-	plural, singular := meta.UnsafeGuessKindToResource(gvk.GroupVersion().WithKind(kindName))
+	plural, singular := specifiedKindToResource(gvk.GroupVersion().WithKind(kindName))
 	// If it is not a built-in resource and it is not stored in DynamicRESTMapper, add it to DynamicRESTMapper
 	isScheme, t := rm.KindFor(singular)
 	if !isScheme && t.Empty() {
@@ -268,4 +272,24 @@ func IsSchemeResource(gvr schema.GroupVersionResource) bool {
 	}
 
 	return false
+}
+
+// specifiedKindToResource converts Kind to a resource name.
+// Broken. This method only "sort of" works when used outside of this package.  It assumes that Kinds and Resources match
+// and they aren't guaranteed to do so.
+func specifiedKindToResource(kind schema.GroupVersionKind) ( /*plural*/ schema.GroupVersionResource /*singular*/, schema.GroupVersionResource) {
+	kindName := kind.Kind
+	if len(kindName) == 0 {
+		return schema.GroupVersionResource{}, schema.GroupVersionResource{}
+	}
+	singularName := strings.ToLower(kindName)
+	singular := kind.GroupVersion().WithResource(singularName)
+
+	for _, skip := range specifiedResources {
+		if strings.HasSuffix(singularName, skip) {
+			return kind.GroupVersion().WithResource(singularName + "s"), singular
+		}
+	}
+
+	return meta.UnsafeGuessKindToResource(kind)
 }
