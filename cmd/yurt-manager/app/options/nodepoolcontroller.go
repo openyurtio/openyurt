@@ -41,6 +41,7 @@ func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
+	fs.BoolVar(&n.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", n.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
 	fs.Int32Var(&n.ConcurrentNodepools, "concurrent-nodepools", n.ConcurrentNodepools, "The number of node pools that are allowed to reconcile concurrently.")
 }
 
