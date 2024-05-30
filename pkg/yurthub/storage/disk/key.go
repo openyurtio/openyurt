@@ -33,7 +33,7 @@ func (k storageKey) Key() string {
 	return k.path
 }
 
-func (k storageKey) isRootKey() bool {
+func (k storageKey) IsRootKey() bool {
 	return k.rootKey
 }
 
@@ -86,7 +86,7 @@ func ExtractKeyBuildInfo(key storage.Key) (*storage.KeyBuildInfo, error) {
 		return nil, storage.ErrUnrecognizedKey
 	}
 
-	if storageKey.isRootKey() {
+	if storageKey.IsRootKey() {
 		return nil, fmt.Errorf("cannot extract KeyBuildInfo from disk key %s, root key is unsupported", key.Key())
 	}
 

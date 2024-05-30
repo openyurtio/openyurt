@@ -336,14 +336,14 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
-	s := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
-	if s == nil {
+	serializer := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+	if serializer == nil {
 		klog.Errorf("could not create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 		return fmt.Errorf("could not create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 	}
 	accessor := meta.NewAccessor()
 
-	d, err := s.WatchDecoder(r)
+	d, err := serializer.WatchDecoder(r)
 	if err != nil {
 		klog.Errorf("saveWatchObject ended with error, %v", err)
 		return err
@@ -484,33 +484,14 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 		return cm.storeObjectWithKey(key, items[0])
 	} else {
 		// list all objects or with fieldselector/labelselector
-		objs := make(map[storage.Key]runtime.Object)
-		comp, _ := util.ClientComponentFrom(ctx)
-		for i := range items {
-			accessor.SetKind(items[i], kind)
-			accessor.SetAPIVersion(items[i], apiVersion)
-			name, _ := accessor.Name(items[i])
-			ns, _ := accessor.Namespace(items[i])
-			if ns == "" {
-				ns = info.Namespace
-			}
-
-			key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
-				Component: comp,
-				Namespace: ns,
-				Name:      name,
-				Resources: info.Resource,
-				Group:     info.APIGroup,
-				Version:   info.APIVersion,
-			})
-			objs[key] = items[i]
-		}
+		key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			Component: comp,
+			Resources: info.Resource,
+			Group:     info.APIGroup,
+			Version:   info.APIVersion,
+		})
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
-			Group:    info.APIGroup,
-			Version:  info.APIVersion,
-			Resource: info.Resource,
-		}, info.Namespace, objs)
+		return cm.storage.Replace(key, items)
 	}
 }
 

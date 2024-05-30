@@ -157,8 +157,8 @@ func TestKeyFunc(t *testing.T) {
 					t.Errorf("unexpected key for case: %s, want: %s, got: %s", c, s.key, storageKey.Key())
 				}
 
-				if storageKey.isRootKey() != s.isRoot {
-					t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, storageKey.isRootKey())
+				if storageKey.IsRootKey() != s.isRoot {
+					t.Errorf("unexpected key type for case: %s, want: %v, got: %v", c, s.isRoot, storageKey.IsRootKey())
 				}
 			}
 		})

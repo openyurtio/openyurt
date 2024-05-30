@@ -103,15 +103,11 @@ func (ds *diskStorage) Name() string {
 }
 
 // Create will create a new file with content. key indicates the path of the file.
-func (ds *diskStorage) Create(key storage.Key, content []byte) error {
+func (ds *diskStorage) Create(key storage.Key, obj runtime.Object) error {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return err
 	}
 	storageKey := key.(storageKey)
-
-	if !storageKey.isRootKey() && len(content) == 0 {
-		return storage.ErrKeyHasNoContent
-	}
 
 	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
@@ -119,7 +115,7 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
-	if storageKey.isRootKey() {
+	if storageKey.IsRootKey() {
 		// If it is rootKey, create the dir for it. Refer to #258.
 		return ds.fsOperator.CreateDir(path)
 	}
@@ -140,6 +136,11 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 	}
 	storageKey := key.(storageKey)
 
+	// delete objects of component resources
+	if key.IsRootKey() {
+
+	}
+
 	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}
@@ -147,7 +148,7 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
 	// TODO: do we need to delete root key
-	if storageKey.isRootKey() {
+	if storageKey.IsRootKey() {
 		return ds.fsOperator.DeleteDir(path)
 	}
 	if err := ds.fsOperator.DeleteFile(path); err != nil {
@@ -238,7 +239,7 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 	}
 	storageKey := key.(storageKey)
 
-	if storageKey.isRootKey() {
+	if storageKey.IsRootKey() {
 		return nil, storage.ErrIsNotObjectKey
 	}
 
@@ -282,17 +283,8 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 
 // ListResourceKeysOfComponent will get all names of files recursively under the dir
 // of the gvr belonging to the component.
-func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error) {
-	rootKey, err := ds.KeyFunc(storage.KeyBuildInfo{
-		Component: component,
-		Resources: gvr.Resource,
-		Group:     gvr.Group,
-		Version:   gvr.Version,
-	})
-	if err != nil {
-		return nil, err
-	}
-	storageKey := rootKey.(storageKey)
+func (ds *diskStorage) ListKeys(key storage.Key) ([]storage.Key, error) {
+	storageKey := key.(storageKey)
 
 	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
@@ -334,7 +326,7 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 // It will first backup the original dir as tmpdir, including all its subdirs, and then clear the
 // original dir and write contents into it. If the yurthub break down and restart, interrupting the previous
 // ReplaceComponentList, the diskStorage will recover the data with backup in the tmpdir.
-func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key][]byte) error {
+func (ds *diskStorage) Replace(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key][]byte) error {
 	rootKey, err := ds.KeyFunc(storage.KeyBuildInfo{
 		Component: component,
 		Resources: gvr.Resource,
@@ -637,7 +629,7 @@ func getTmpKey(key storageKey) storageKey {
 	dir, file := filepath.Split(key.Key())
 	return storageKey{
 		path:    filepath.Join(dir, fmt.Sprintf("%s%s", tmpPrefix, file)),
-		rootKey: key.isRootKey(),
+		rootKey: key.IsRootKey(),
 	}
 }
 

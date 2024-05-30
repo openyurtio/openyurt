@@ -132,7 +132,7 @@ type LoadBalancer interface {
 type loadBalancer struct {
 	backends          []*util.RemoteProxy
 	algo              loadBalancerAlgo
-	localCacheMgr     cachemanager.CacheManager
+	localCacheMgr     cachemanager.CacheHandler
 	filterManager     *manager.Manager
 	coordinatorGetter func() yurtcoordinator.Coordinator
 	workingMode       hubutil.WorkingMode
@@ -143,7 +143,7 @@ type loadBalancer struct {
 func NewLoadBalancer(
 	lbMode string,
 	remoteServers []*url.URL,
-	localCacheMgr cachemanager.CacheManager,
+	localCacheMgr cachemanager.CacheHandler,
 	transportMgr transport.Interface,
 	coordinatorGetter func() yurtcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
@@ -343,7 +343,7 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		}
 		resp.Body = wrapPrc
 
-		var poolCacheManager cachemanager.CacheManager
+		var poolCacheManager cachemanager.CacheHandler
 		var isHealthy bool
 
 		coordinator := lb.coordinatorGetter()
@@ -395,7 +395,7 @@ func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 	resp.Body = rc
 }
 
-func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, poolCacheManager cachemanager.CacheManager) {
+func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, poolCacheManager cachemanager.CacheHandler) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
 	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
@@ -407,7 +407,7 @@ func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, pool
 	resp.Body = rc
 }
 
-func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Response, poolCacheMgr cachemanager.CacheManager) {
+func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Response, poolCacheMgr cachemanager.CacheHandler) {
 	ctx := req.Context()
 	req = req.WithContext(ctx)
 	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, true)
