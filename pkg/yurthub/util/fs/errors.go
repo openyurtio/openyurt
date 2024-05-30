@@ -24,4 +24,5 @@ var (
 	ErrExists      = errors.New("path has already existed")
 	ErrNotExists   = errors.New("path does not exist")
 	ErrInvalidPath = errors.New("invalid path")
+	ErrSysCall     = errors.New("system call failed")
 )

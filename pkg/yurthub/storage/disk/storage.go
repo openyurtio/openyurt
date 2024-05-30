@@ -17,6 +17,8 @@ limitations under the License.
 package disk
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
@@ -114,19 +115,22 @@ func (ds *diskStorage) Create(key storage.Key, obj runtime.Object) error {
 	}
 	defer ds.unLockKey(storageKey)
 
+	content, _ := ds.encode(obj)
+
 	path := filepath.Join(ds.baseDir, storageKey.Key())
 	if storageKey.IsRootKey() {
 		// If it is rootKey, create the dir for it. Refer to #258.
 		return ds.fsOperator.CreateDir(path)
 	}
 	err := ds.fsOperator.CreateFile(path, content)
-	if err == fs.ErrExists {
+	switch {
+	case errors.Is(err, fs.ErrExists):
 		return storage.ErrKeyExists
+	case errors.Is(err, nil):
+		return nil
+	default:
+		return fmt.Errorf("could not create file %s, %w", path, err)
 	}
-	if err != nil {
-		return fmt.Errorf("could not create file %s, %v", path, err)
-	}
-	return nil
 }
 
 // Delete will delete the file that specified by key.
@@ -135,11 +139,6 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 		return err
 	}
 	storageKey := key.(storageKey)
-
-	// delete objects of component resources
-	if key.IsRootKey() {
-
-	}
 
 	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
@@ -160,9 +159,9 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 
 // Get will get content from the regular file that specified by key.
 // If key points to a dir, return ErrKeyHasNoContent.
-func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
+func (ds *diskStorage) Get(key storage.Key) (runtime.Object, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
-		return []byte{}, storage.ErrKeyIsEmpty
+		return nil, storage.ErrKeyIsEmpty
 	}
 	storageKey := key.(storageKey)
 
@@ -174,22 +173,24 @@ func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 	path := filepath.Join(ds.baseDir, storageKey.Key())
 	buf, err := ds.fsOperator.Read(path)
 	switch err {
-	case nil:
-		return buf, nil
 	case fs.ErrNotExists:
 		return nil, storage.ErrStorageNotFound
 	case fs.ErrIsNotFile:
 		return nil, storage.ErrKeyHasNoContent
-	default:
-		return buf, fmt.Errorf("could not read file at %s, %v", path, err)
 	}
+
+	obj, err := ds.decode(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 // List will get contents of all files recursively under the root dir pointed by the rootKey.
 // If the root dir of this rootKey does not exist, return ErrStorageNotFound.
-func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
+func (ds *diskStorage) List(key storage.Key) ([]runtime.Object, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
-		return [][]byte{}, err
+		return nil, err
 	}
 	storageKey := key.(storageKey)
 
@@ -202,16 +203,6 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
 	files, err := ds.fsOperator.List(absPath, fs.ListModeFiles, true)
 	switch err {
-	case nil:
-		// read all files and return
-		for _, filePath := range files {
-			buf, err := ds.fsOperator.Read(filePath)
-			if err != nil {
-				return nil, fmt.Errorf("could not read file at %s, %v", filePath, err)
-			}
-			bb = append(bb, buf)
-		}
-		return bb, nil
 	case fs.ErrNotExists:
 		return nil, storage.ErrStorageNotFound
 	case fs.ErrIsNotDir:
@@ -221,11 +212,26 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 		} else {
 			bb = append(bb, buf)
 		}
-		return bb, nil
-	default:
-		// err != nil
-		return nil, fmt.Errorf("could not get all files under %s, %v", absPath, err)
+		return nil, nil
 	}
+	for _, filePath := range files {
+		buf, err := ds.fsOperator.Read(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("could not read file at %s, %v", filePath, err)
+		}
+		bb = append(bb, buf)
+	}
+
+	objects := make([]runtime.Object, len(bb))
+	for i := 0; i < len(bb); i++ {
+		obj, err := ds.decode(bb[i])
+		if err != nil {
+			klog.Errorf("could not list(%s) because failing to decode object", key.Key())
+			continue
+		}
+		objects[i] = obj
+	}
+	return objects, nil
 }
 
 // Update will update the file pointed by the key. It will check the rv of
@@ -233,8 +239,8 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 // It will return the content that finally stored in the file pointed by key.
 // Update works in a backup way, which means it will first backup the original file, and then
 // write the content into it.
-func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byte, error) {
-	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
+func (ds *diskStorage) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
+	if err := utils.ValidateKV(key, obj, storageKey{}); err != nil {
 		return nil, err
 	}
 	storageKey := key.(storageKey)
@@ -250,8 +256,15 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
 	old, err := ds.fsOperator.Read(absPath)
+	var buf bytes.Buffer
+	ds.serializer.Encode(obj, &buf)
+	content := buf.Bytes()
 	if err == fs.ErrNotExists {
-		return nil, storage.ErrStorageNotFound
+		err := ds.fsOperator.CreateFile(absPath, buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		return obj, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not read file at %s, %v", absPath, err)
@@ -263,7 +276,11 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 		return nil, fmt.Errorf("could not get rv of file %s, %v", absPath, err)
 	}
 	if !ok {
-		return old, storage.ErrUpdateConflict
+		oldObj, err := ds.decode(old)
+		if err != nil {
+			return nil, err
+		}
+		return oldObj, storage.ErrUpdateConflict
 	}
 
 	// update the file
@@ -278,14 +295,13 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 	if err := ds.fsOperator.DeleteFile(tmpPath); err != nil {
 		return nil, fmt.Errorf("could not delete backup file %s, %v", tmpPath, err)
 	}
-	return content, nil
+	return obj, nil
 }
 
 // ListResourceKeysOfComponent will get all names of files recursively under the dir
 // of the gvr belonging to the component.
 func (ds *diskStorage) ListKeys(key storage.Key) ([]storage.Key, error) {
 	storageKey := key.(storageKey)
-
 	if !ds.lockKey(storageKey) {
 		return nil, storage.ErrStorageAccessConflict
 	}
@@ -302,18 +318,17 @@ func (ds *diskStorage) ListKeys(key storage.Key) ([]storage.Key, error) {
 
 	keys := make([]storage.Key, len(files))
 	for i, filePath := range files {
-		_, _, ns, n, err := extractInfoFromPath(ds.baseDir, filePath, false)
+		comp, gvr, ns, n, err := extractInfoFromPath(ds.baseDir, filePath, false)
 		if err != nil {
-			klog.Errorf("failed when list keys of resource %s of component %s, %v", component, gvr, err)
+			klog.Errorf("failed when list keys of resource of %s, %v", key.Key(), err)
 			continue
 		}
-		// We can ensure that component and resource can't be empty
-		// so ignore the err.
+
 		key, _ := ds.KeyFunc(storage.KeyBuildInfo{
-			Component: component,
-			Resources: gvr.Resource,
-			Version:   gvr.Version,
-			Group:     gvr.Group,
+			Component: comp,
+			Resources: gvr,
+			Version:   gvr,
+			Group:     gvr,
 			Namespace: ns,
 			Name:      n,
 		})
@@ -326,25 +341,8 @@ func (ds *diskStorage) ListKeys(key storage.Key) ([]storage.Key, error) {
 // It will first backup the original dir as tmpdir, including all its subdirs, and then clear the
 // original dir and write contents into it. If the yurthub break down and restart, interrupting the previous
 // ReplaceComponentList, the diskStorage will recover the data with backup in the tmpdir.
-func (ds *diskStorage) Replace(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key][]byte) error {
-	rootKey, err := ds.KeyFunc(storage.KeyBuildInfo{
-		Component: component,
-		Resources: gvr.Resource,
-		Group:     gvr.Group,
-		Version:   gvr.Version,
-		Namespace: namespace,
-	})
-	if err != nil {
-		return err
-	}
-	storageKey := rootKey.(storageKey)
-
-	for key := range contents {
-		if !strings.HasPrefix(key.Key(), rootKey.Key()) {
-			return storage.ErrInvalidContent
-		}
-	}
-
+func (ds *diskStorage) Replace(key storage.Key, objs map[storage.Key]runtime.Object) error {
+	storageKey := key.(storageKey)
 	if !ds.lockKey(storageKey) {
 		return storage.ErrStorageAccessConflict
 	}
@@ -358,8 +356,7 @@ func (ds *diskStorage) Replace(component string, gvr schema.GroupVersionResource
 		if err := ds.fsOperator.CreateDir(absPath); err != nil {
 			return fmt.Errorf("could not create dir at %s", absPath)
 		}
-		if len(contents) == 0 {
-			// nothing need to create, so just return
+		if len(objs) == 0 {
 			return nil
 		}
 	}
@@ -375,12 +372,13 @@ func (ds *diskStorage) Replace(component string, gvr schema.GroupVersionResource
 
 	// 2. create new file with contents
 	// TODO: if error happens, we may need retry mechanism, or add some mechanism to do consistency check.
-	for key, data := range contents {
+	for key, obj := range objs {
 		path := filepath.Join(ds.baseDir, key.Key())
 		if err := ds.fsOperator.CreateDir(filepath.Dir(path)); err != nil && err != fs.ErrExists {
 			klog.Errorf("could not create dir at %s, %v", filepath.Dir(path), err)
 			continue
 		}
+		data, _ := ds.encode(obj)
 		if err := ds.fsOperator.CreateFile(path, data); err != nil {
 			klog.Errorf("could not write data to %s, %v", path, err)
 			continue
@@ -390,27 +388,6 @@ func (ds *diskStorage) Replace(component string, gvr schema.GroupVersionResource
 
 	//  3. delete old tmp dir
 	return ds.fsOperator.DeleteDir(tmpPath)
-}
-
-// DeleteComponentResources will delete all resources cached for component.
-func (ds *diskStorage) DeleteComponentResources(component string) error {
-	if component == "" {
-		return storage.ErrEmptyComponent
-	}
-	rootKey := storageKey{
-		path:    component,
-		rootKey: true,
-	}
-	if !ds.lockKey(rootKey) {
-		return storage.ErrStorageAccessConflict
-	}
-	defer ds.unLockKey(rootKey)
-
-	absKey := filepath.Join(ds.baseDir, rootKey.Key())
-	if err := ds.fsOperator.DeleteDir(absKey); err != nil {
-		return fmt.Errorf("could not delete path %s, %v", absKey, err)
-	}
-	return nil
 }
 
 func (ds *diskStorage) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
@@ -684,4 +661,32 @@ func ObjectResourceVersion(obj runtime.Object) (uint64, error) {
 		return 0, nil
 	}
 	return strconv.ParseUint(version, 10, 64)
+}
+
+func (ds *diskStorage) encode(obj runtime.Object) ([]byte, error) {
+	var buf bytes.Buffer
+	err := ds.serializer.Encode(obj, &buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (ds *diskStorage) decode(data []byte) (runtime.Object, error) {
+	gvk, err := json.DefaultMetaFactory.Interpret(data)
+	if err != nil {
+		return nil, err
+	}
+	var obj runtime.Object
+	if scheme.Scheme.Recognizes(*gvk) {
+		obj = nil
+	} else {
+		obj = new(unstructured.Unstructured)
+	}
+
+	obj, gvk, err = ds.serializer.Decode(data, nil, obj)
+	if err == nil {
+		return nil, err
+	}
+	return obj, nil
 }

@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -36,10 +37,10 @@ const (
 type CacheAgent struct {
 	sync.Mutex
 	agents sets.Set[string]
-	store  StorageWrapper
+	store  storage.StorageWrapper
 }
 
-func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
+func NewCacheAgents(informerFactory informers.SharedInformerFactory, store storage.StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
 		agents: sets.New(util.DefaultCacheAgents...),
 		store:  store,
@@ -130,7 +131,10 @@ func (ca *CacheAgent) deleteAgentCache(deletedAgents sets.Set[string]) {
 	if deletedAgents.Len() > 0 {
 		components := deletedAgents.UnsortedList()
 		for i := range components {
-			if err := ca.store.DeleteComponentResources(components[i]); err != nil {
+			key, _ := ca.store.KeyFunc(storage.KeyBuildInfo{
+				Component: components[i],
+			})
+			if err := ca.store.Delete(key); err != nil {
 				klog.Errorf("could not cleanup cache for deleted agent(%s), %v", components[i], err)
 			} else {
 				klog.Infof("cleanup cache for agent(%s) successfully", components[i])

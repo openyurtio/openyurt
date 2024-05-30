@@ -27,7 +27,7 @@ type Interface interface {
 	Replace(items Items)
 	Get() (Key, Items, bool)
 	Len() int
-	Done(item Item)
+	Done(key Key)
 	Shutdown()
 	ShuttingDown() bool
 }
@@ -93,7 +93,10 @@ func (q *Queue) Add(item Item) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	oldItems := q.items[item.Key]
-	newItems := append(oldItems, item)
+	var newItems Items
+	if item.Object != nil {
+		newItems = append(oldItems, item)
+	}
 	if q.dirty.has(item.Key) {
 		q.items[item.Key] = newItems
 		// q.cond.Broadcast()
@@ -126,13 +129,15 @@ func (q *Queue) Len() int {
 	return len(q.queue)
 }
 
-func (q *Queue) Done(item Item) {
+func (q *Queue) Done(key Key) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
-	if q.dirty.has(item.Key) {
-		q.queue = append(q.queue, item.Key)
+	if q.dirty.has(key) {
+		q.queue = append(q.queue, key)
 		q.cond.Signal()
+	} else {
+		delete(q.items, key)
 	}
 }
 

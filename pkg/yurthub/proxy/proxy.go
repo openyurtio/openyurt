@@ -66,7 +66,7 @@ type yurtReverseProxy struct {
 // all of incoming requests.
 func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
-	localCacheMgr cachemanager.CacheHandler,
+	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
 	tenantMgr tenant.Interface,

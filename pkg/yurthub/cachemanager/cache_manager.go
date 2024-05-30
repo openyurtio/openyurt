@@ -68,7 +68,7 @@ type CacheManager interface {
 
 type cacheManager struct {
 	sync.RWMutex
-	storage               StorageWrapper
+	storage               storage.StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           *CacheAgent
@@ -78,7 +78,7 @@ type cacheManager struct {
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	storagewrapper StorageWrapper,
+	storagewrapper storage.StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
@@ -490,8 +490,22 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Group:     info.APIGroup,
 			Version:   info.APIVersion,
 		})
+		objs := make(map[storage.Key]runtime.Object)
+		for i := 0; i < len(items); i++ {
+			ns, _ := accessor.Namespace(items[i])
+			name, _ := accessor.Name(items[i])
+			k, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
+				Component: comp,
+				Resources: info.Resource,
+				Group:     info.APIGroup,
+				Version:   info.APIVersion,
+				Namespace: ns,
+				Name:      name,
+			})
+			objs[k] = items[i]
+		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.Replace(key, items)
+		return cm.storage.Replace(key, objs)
 	}
 }
 

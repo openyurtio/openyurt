@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // TODO: should also valid the key format
@@ -33,11 +34,11 @@ func ValidateKey(key storage.Key, validKeyType interface{}) error {
 	return nil
 }
 
-func ValidateKV(key storage.Key, content []byte, valideKeyType interface{}) error {
+func ValidateKV(key storage.Key, obj runtime.Object, valideKeyType interface{}) error {
 	if err := ValidateKey(key, valideKeyType); err != nil {
 		return err
 	}
-	if len(content) == 0 {
+	if obj == nil {
 		return storage.ErrKeyHasNoContent
 	}
 	return nil

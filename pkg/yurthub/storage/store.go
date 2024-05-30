@@ -18,7 +18,6 @@ package storage
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ClusterInfoKey struct {
@@ -42,9 +41,9 @@ type Store interface {
 
 	clusterInfoHandler
 
-	ListKeys(component string, gvr schema.GroupVersionResource) ([]Key, error)
+	ListKeys(key Key) ([]Key, error)
 
-	Replace(key Key, objs []runtime.Object) error
+	Replace(key Key, objs map[Key]runtime.Object) error
 
 	Create(key Key, obj runtime.Object) error
 

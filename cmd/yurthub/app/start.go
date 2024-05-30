@@ -41,6 +41,7 @@ import (
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -130,12 +131,14 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	}
 	trace++
 
-	var cacheHandler cachemanager.CacheHandler
+	controller := storage.NewController(cfg.Queue, cfg.StorageWrapper)
+	controller.Run(ctx, 5)
+	trace++
+
 	var cacheMgr cachemanager.CacheManager
 	if cfg.WorkingMode == util.WorkingModeEdge {
 		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-		cacheHandler, cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
-		cacheMgr.Start(ctx)
+		cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	} else {
 		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}
@@ -185,7 +188,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	klog.Infof("%d. new reverse proxy handler for remote servers", trace)
 	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
 		cfg,
-		cacheHandler,
+		cacheMgr,
 		transportManager,
 		cloudHealthChecker,
 		tenantMgr,

@@ -403,7 +403,7 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 		return nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
 	}
 	poolCacheManager := cachemanager.NewCacheManager(
-		cachemanager.NewStorageWrapper(etcdStore),
+		storage.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,
 		coordinator.informerFactory,

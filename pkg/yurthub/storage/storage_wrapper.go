@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -97,8 +96,8 @@ func (sw *storageWrapper) Get(key Key) (runtime.Object, error) {
 }
 
 // ListKeys list all keys with key as prefix
-func (sw *storageWrapper) ListKeys(component string, gvr schema.GroupVersionResource) ([]Key, error) {
-	return sw.store.ListKeys(component, gvr)
+func (sw *storageWrapper) ListKeys(key Key) ([]Key, error) {
+	return sw.store.ListKeys(key)
 }
 
 // List get all of runtime objects that specified by key as prefix
@@ -122,14 +121,14 @@ func (sw *storageWrapper) Update(key Key, obj runtime.Object, rv uint64) (runtim
 	return obj, nil
 }
 
-func (sw *storageWrapper) Replace(key Key, objs []runtime.Object) error {
-	items := make([]Item, len(objs))
-	for i := 0; i < len(objs); i++ {
-		items[i] = Item{
+func (sw *storageWrapper) Replace(key Key, objs map[Key]runtime.Object) error {
+	var items []Item
+	for key, obj := range objs {
+		items = append(items, Item{
 			Key:    key,
-			Object: objs[i],
+			Object: obj,
 			Verb:   "list",
-		}
+		})
 	}
 	sw.queue.Replace(items)
 	return nil

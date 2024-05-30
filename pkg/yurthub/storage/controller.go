@@ -18,10 +18,13 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 )
 
 type Controller struct {
@@ -51,15 +54,14 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	err := c.syncHandler(ctx, key, items)
 	c.handleErr(ctx, err, key)
-
 	return true
 }
 
 func (c *Controller) syncHandler(ctx context.Context, key Key, items Items) error {
 	if key.IsRootKey() {
-		objs := make([]runtime.Object, len(items))
-		for i := 0; i < len(objs); i++ {
-			objs[i] = items[i].Object
+		objs := make(map[Key]runtime.Object)
+		for i := 0; i < len(items); i++ {
+			objs[items[i].Key] = items[i].Object
 		}
 		return c.store.Replace(key, objs)
 	}
@@ -78,9 +80,14 @@ func (c *Controller) syncHandler(ctx context.Context, key Key, items Items) erro
 }
 
 func (c *Controller) handleErr(ctx context.Context, err error, key Key) {
-
-}
-
-func (c *Controller) compress(items Items) {
-
+	switch {
+	case errors.Is(err, ErrStorageAccessConflict):
+		c.queue.Add(Item{Key: key})
+	case errors.Is(err, fs.ErrSysCall):
+		klog.ErrorS(err, "system call failed")
+	case errors.Is(err, nil):
+		c.queue.Done(key)
+	default:
+		klog.Errorf("failed to get/store %s: %v", key, err)
+	}
 }
