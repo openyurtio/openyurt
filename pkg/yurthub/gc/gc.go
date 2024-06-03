@@ -30,7 +30,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -42,7 +41,7 @@ var (
 
 // GCManager is responsible for cleanup garbage of yurthub
 type GCManager struct {
-	store             cachemanager.StorageWrapper
+	store             storage.StorageWrapper
 	restConfigManager *rest.RestConfigManager
 	nodeName          string
 	eventsGCFrequency time.Duration

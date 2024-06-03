@@ -62,7 +62,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+	sWrapper := storage.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -239,7 +239,7 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+	sWrapper := storage.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 

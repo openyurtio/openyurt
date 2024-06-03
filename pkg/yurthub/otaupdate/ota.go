@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
@@ -48,7 +47,7 @@ type OTAUpgrader interface {
 }
 
 // GetPods return pod list
-func GetPods(store cachemanager.StorageWrapper) http.Handler {
+func GetPods(store storage.StorageWrapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podsKey, err := store.KeyFunc(storage.KeyBuildInfo{
 			Component: "kubelet",

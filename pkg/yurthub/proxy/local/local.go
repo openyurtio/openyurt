@@ -51,14 +51,14 @@ type IsHealthy func() bool
 
 // LocalProxy is responsible for handling requests when remote servers are unhealthy
 type LocalProxy struct {
-	cacheMgr           manager.CacheHandler
+	cacheMgr           manager.CacheManager
 	isCloudHealthy     IsHealthy
 	isCoordinatorReady IsHealthy
 	minRequestTimeout  time.Duration
 }
 
 // NewLocalProxy creates a *LocalProxy
-func NewLocalProxy(cacheMgr manager.CacheHandler, isCloudHealthy IsHealthy, isCoordinatorHealthy IsHealthy, minRequestTimeout time.Duration) *LocalProxy {
+func NewLocalProxy(cacheMgr manager.CacheManager, isCloudHealthy IsHealthy, isCoordinatorHealthy IsHealthy, minRequestTimeout time.Duration) *LocalProxy {
 	return &LocalProxy{
 		cacheMgr:           cacheMgr,
 		isCloudHealthy:     isCloudHealthy,

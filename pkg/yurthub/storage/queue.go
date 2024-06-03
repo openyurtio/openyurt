@@ -30,6 +30,7 @@ type Interface interface {
 	Done(key Key)
 	Shutdown()
 	ShuttingDown() bool
+	HasSynced() bool
 }
 
 type Item struct {
@@ -154,4 +155,10 @@ func (q *Queue) ShuttingDown() bool {
 	defer q.cond.L.Unlock()
 
 	return q.shuttingDown
+}
+
+func (q *Queue) HasSynced() bool {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	return q.dirty.len() == 0
 }

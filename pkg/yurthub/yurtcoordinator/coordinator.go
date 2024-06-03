@@ -18,7 +18,6 @@ package yurtcoordinator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -28,8 +27,9 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	coordclientset "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	"k8s.io/client-go/rest"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -69,7 +70,7 @@ const (
 // cache and proxy behaviour of yurthub accordingly.
 type Coordinator interface {
 	// Start the Coordinator.
-	Run()
+	Run(ctx context.Context)
 	// IsReady will return the poolCacheManager and true if the yurt-coordinator is ready.
 	// Yurt-Coordinator ready means it is ready to handle request. To be specific, it should
 	// satisfy the following 3 condition:
@@ -214,11 +215,12 @@ func NewCoordinator(
 	return coordinator, nil
 }
 
-func (coordinator *coordinator) Run() {
+func (coordinator *coordinator) Run(ctx context.Context) {
 	// waiting for pool scope resource synced
 	resources.WaitUntilPoolScopeResourcesSync(coordinator.ctx)
 
 	for {
+		var controller *storage.Controller
 		var poolCacheManager cachemanager.CacheManager
 		var cancelEtcdStorage = func() {}
 		var needUploadLocalCache bool
@@ -281,13 +283,13 @@ func (coordinator *coordinator) Run() {
 				etcdStorage = nil
 				poolCacheManager = nil
 			case LeaderHub:
-				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				controller, poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("could not create pool scoped cache store and manager, %v", err)
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
-
+				controller.Run(ctx, storage.ConcurrentWorkers)
 				if err := coordinator.poolCacheSyncManager.EnsureStart(); err != nil {
 					klog.Errorf("could not sync pool-scoped resource, %v", err)
 					cancelEtcdStorage()
@@ -326,13 +328,13 @@ func (coordinator *coordinator) Run() {
 					}
 				}
 			case FollowerHub:
-				poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
+				controller, poolCacheManager, etcdStorage, cancelEtcdStorage, err = coordinator.buildPoolCacheStore()
 				if err != nil {
 					klog.Errorf("could not create pool scoped cache store and manager, %v", err)
 					coordinator.statusInfoChan <- electorStatusInfo
 					continue
 				}
-
+				controller.Run(ctx, storage.ConcurrentWorkers)
 				coordinator.poolCacheSyncManager.EnsureStop()
 				coordinator.delegateNodeLeaseManager.EnsureStop()
 				coordinator.poolCacheSyncedDetector.EnsureStart()
@@ -395,20 +397,23 @@ func (coordinator *coordinator) IsHealthy() (cachemanager.CacheManager, bool) {
 	return nil, false
 }
 
-func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager, storage.Store, func(), error) {
+func (coordinator *coordinator) buildPoolCacheStore() (*storage.Controller, cachemanager.CacheManager, storage.Store, func(), error) {
 	ctx, cancel := context.WithCancel(coordinator.ctx)
 	etcdStore, err := etcd.NewStorage(ctx, coordinator.etcdStorageCfg)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
+		return nil, nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
 	}
+	queue := storage.NewQueueWithOptions()
+	wrapper := storage.NewStorageWrapper(etcdStore, queue)
+	controller := storage.NewController(queue, wrapper)
 	poolCacheManager := cachemanager.NewCacheManager(
-		storage.NewStorageWrapper(etcdStore),
+		wrapper,
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,
 		coordinator.informerFactory,
 	)
-	return poolCacheManager, etcdStore, cancel, nil
+	return controller, poolCacheManager, etcdStore, cancel, nil
 }
 
 func (coordinator *coordinator) getEtcdStore() storage.Store {
@@ -505,7 +510,10 @@ func (p *poolScopedCacheSyncManager) EnsureStart() error {
 		if etcdStore == nil {
 			return fmt.Errorf("got empty etcd storage")
 		}
-		if err := etcdStore.DeleteComponentResources(constants.DefaultPoolScopedUserAgent); err != nil {
+		key, _ := etcdStore.KeyFunc(storage.KeyBuildInfo{
+			Component: constants.DefaultPoolScopedUserAgent,
+		})
+		if err := etcdStore.Delete(key); err != nil {
 			return fmt.Errorf("could not clean old pool-scoped cache, %v", err)
 		}
 
@@ -609,26 +617,25 @@ type localCacheUploader struct {
 }
 
 func (l *localCacheUploader) Upload() {
-	objBytes := l.resourcesToUpload()
-	for k, b := range objBytes {
-		rv, err := getRv(b)
+	objs := l.resourcesToUpload()
+	for k, obj := range objs {
+		rv, err := getRv(obj)
 		if err != nil {
-			klog.Errorf("could not get name from bytes %s, %v", string(b), err)
+			klog.Errorf("could not get name from bytes, %v", err)
 			continue
 		}
-
-		if err := l.createOrUpdate(k, b, rv); err != nil {
+		if err := l.createOrUpdate(k, obj, rv); err != nil {
 			klog.Errorf("could not upload %s, %v", k.Key(), err)
 		}
 	}
 }
 
-func (l *localCacheUploader) createOrUpdate(key storage.Key, objBytes []byte, rv uint64) error {
-	err := l.etcdStorage.Create(key, objBytes)
+func (l *localCacheUploader) createOrUpdate(key storage.Key, obj runtime.Object, rv uint64) error {
+	err := l.etcdStorage.Create(key, obj)
 
 	if err == storage.ErrKeyExists {
 		// try to update
-		_, updateErr := l.etcdStorage.Update(key, objBytes, rv)
+		_, updateErr := l.etcdStorage.Update(key, obj, rv)
 		if updateErr == storage.ErrUpdateConflict {
 			return nil
 		}
@@ -638,22 +645,25 @@ func (l *localCacheUploader) createOrUpdate(key storage.Key, objBytes []byte, rv
 	return err
 }
 
-func (l *localCacheUploader) resourcesToUpload() map[storage.Key][]byte {
-	objBytes := map[storage.Key][]byte{}
+func (l *localCacheUploader) resourcesToUpload() map[storage.Key]runtime.Object {
+	objs := make(map[storage.Key]runtime.Object)
 	for info := range constants.UploadResourcesKeyBuildInfo {
 		gvr := schema.GroupVersionResource{
 			Group:    info.Group,
 			Version:  info.Version,
 			Resource: info.Resources,
 		}
-		localKeys, err := l.diskStorage.ListResourceKeysOfComponent(info.Component, gvr)
+		key, err := l.diskStorage.KeyFunc(storage.KeyBuildInfo{
+			Component: info.Component,
+		})
+		listKeys, err := l.diskStorage.ListKeys(key)
 		if err != nil {
 			klog.Errorf("could not get object keys from disk for %s, %v", gvr.String(), err)
 			continue
 		}
 
-		for _, k := range localKeys {
-			buf, err := l.diskStorage.Get(k)
+		for _, k := range listKeys {
+			obj, err := l.diskStorage.Get(k)
 			if err != nil {
 				klog.Errorf("could not read local cache of key %s, %v", k.Key(), err)
 				continue
@@ -669,10 +679,10 @@ func (l *localCacheUploader) resourcesToUpload() map[storage.Key][]byte {
 				klog.Errorf("could not generate pool cache key from local cache key %s, %v", k.Key(), err)
 				continue
 			}
-			objBytes[poolCacheKey] = buf
+			objs[poolCacheKey] = obj
 		}
 	}
-	return objBytes
+	return objs
 }
 
 // poolCacheSyncedDector will list/watch informer-sync-lease to detect if pool cache can be used.
@@ -746,17 +756,14 @@ func (p *poolCacheSyncedDetector) detectPoolCacheSynced(obj interface{}) {
 	}
 }
 
-func getRv(objBytes []byte) (uint64, error) {
-	obj := &unstructured.Unstructured{}
-	if err := json.Unmarshal(objBytes, obj); err != nil {
-		return 0, fmt.Errorf("could not unmarshal json: %v", err)
-	}
-
-	rv, err := strconv.ParseUint(obj.GetResourceVersion(), 10, 64)
+func getRv(obj runtime.Object) (uint64, error) {
+	accessor := apimeta.NewAccessor()
+	rvStr, _ := accessor.ResourceVersion(obj)
+	rv, err := strconv.ParseUint(rvStr, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse rv %s of pod %s, %v", obj.GetName(), obj.GetResourceVersion(), err)
+		name, err := accessor.Name(obj)
+		return 0, fmt.Errorf("could not parse rv %s of pod %s, %v", name, rvStr, err)
 	}
-
 	return rv, nil
 }
 

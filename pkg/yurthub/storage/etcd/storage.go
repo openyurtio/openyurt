@@ -28,14 +28,13 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/utils"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
-	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/resources"
 )
 
 const (
@@ -73,19 +72,7 @@ type etcdStorage struct {
 	mirrorPrefixMap map[pathType]string
 	client          *clientv3.Client
 	clientConfig    clientv3.Config
-	// localComponentKeyCache persistently records keys owned by different components
-	// It's useful to recover previous state when yurthub restarts.
-	// We need this cache at local host instead of in etcd, because we need to ensure each
-	// operation on etcd is atomic. If we store it in etcd, we have to get it first and then
-	// do the action, such as ReplaceComponentList, which makes it non-atomic.
-	// We assume that for resources listed by components on this node consist of two kinds:
-	// 1. common resources: which are also used by other nodes
-	// 2. special resources: which are only used by this nodes
-	// In local cache, we do not need to bother to distinguish these two kinds.
-	// For special resources, this node absolutely can create/update/delete them.
-	// For common resources, thanks to list/watch we can ensure that resources in yurt-coordinator
-	// are finally consistent with the cloud, though there maybe a little jitter.
-	localComponentKeyCache *componentKeyCache
+	serializer      runtime.Serializer
 	// For etcd storage, we do not need to cache cluster info, because
 	// we can get it form apiserver in yurt-coordinator.
 	doNothingAboutClusterInfo
@@ -94,7 +81,6 @@ type etcdStorage struct {
 func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, error) {
 	var tlsConfig *tls.Config
 	var err error
-	cacheFilePath := filepath.Join(cfg.LocalCacheDir, defaultComponentCacheFileName)
 	if !cfg.UnSecure {
 		tlsInfo := transport.TLSInfo{
 			CertFile:      cfg.CertFile,
@@ -126,27 +112,11 @@ func NewStorage(ctx context.Context, cfg *EtcdStorageConfig) (storage.Store, err
 		prefix:       cfg.Prefix,
 		client:       client,
 		clientConfig: clientConfig,
+		serializer:   json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 		mirrorPrefixMap: map[pathType]string{
 			rvType: "/mirror/rv",
 		},
 	}
-
-	cache := &componentKeyCache{
-		ctx:                       ctx,
-		filePath:                  cacheFilePath,
-		cache:                     map[string]keyCache{},
-		fsOperator:                fs.FileSystemOperator{},
-		keyFunc:                   s.KeyFunc,
-		etcdClient:                client,
-		poolScopedResourcesGetter: resources.GetPoolScopeResources,
-	}
-	if err := cache.Recover(); err != nil {
-		if err := client.Close(); err != nil {
-			return nil, fmt.Errorf("could not close etcd client, %v", err)
-		}
-		return nil, fmt.Errorf("could not recover component key cache from %s, %v", cacheFilePath, err)
-	}
-	s.localComponentKeyCache = cache
 
 	go s.clientLifeCycleManagement()
 
@@ -207,8 +177,12 @@ func (s *etcdStorage) clientLifeCycleManagement() {
 	}
 }
 
-func (s *etcdStorage) Create(key storage.Key, content []byte) error {
-	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
+func (s *etcdStorage) Create(key storage.Key, obj runtime.Object) error {
+	if err := utils.ValidateKV(key, obj, storageKey{}); err != nil {
+		return err
+	}
+	content, err := runtime.Encode(s.serializer, obj)
+	if err != nil {
 		return err
 	}
 
@@ -235,8 +209,6 @@ func (s *etcdStorage) Create(key storage.Key, content []byte) error {
 		return storage.ErrKeyExists
 	}
 
-	storageKey := key.(storageKey)
-	s.localComponentKeyCache.AddKey(storageKey.component(), storageKey)
 	return nil
 }
 
@@ -249,19 +221,17 @@ func (s *etcdStorage) Delete(key storage.Key) error {
 	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
 	defer cancel()
 	_, err := s.client.Txn(ctx).If().Then(
-		clientv3.OpDelete(keyStr),
-		clientv3.OpDelete(s.mirrorPath(keyStr, rvType)),
+		clientv3.OpDelete(keyStr, clientv3.WithPrefix()),
+		clientv3.OpDelete(s.mirrorPath(keyStr, rvType), clientv3.WithPrefix()),
 	).Commit()
 	if err != nil {
 		return err
 	}
 
-	storageKey := key.(storageKey)
-	s.localComponentKeyCache.DeleteKey(storageKey.component(), storageKey)
 	return nil
 }
 
-func (s *etcdStorage) Get(key storage.Key) ([]byte, error) {
+func (s *etcdStorage) Get(key storage.Key) (runtime.Object, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return nil, err
 	}
@@ -277,15 +247,19 @@ func (s *etcdStorage) Get(key storage.Key) ([]byte, error) {
 		return nil, storage.ErrStorageNotFound
 	}
 
-	return getResp.Kvs[0].Value, nil
+	obj, err := runtime.Decode(s.serializer, getResp.Kvs[0].Value)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 // TODO: When using etcd, do we have the case:
 //	"If the rootKey exists in the store but no keys has the prefix of rootKey"?
 
-func (s *etcdStorage) List(key storage.Key) ([][]byte, error) {
+func (s *etcdStorage) List(key storage.Key) ([]runtime.Object, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
-		return [][]byte{}, err
+		return nil, err
 	}
 
 	rootKeyStr := key.Key()
@@ -298,176 +272,118 @@ func (s *etcdStorage) List(key storage.Key) ([][]byte, error) {
 	if len(getResp.Kvs) == 0 {
 		return nil, storage.ErrStorageNotFound
 	}
-
-	values := make([][]byte, 0, len(getResp.Kvs))
+	objs := make([]runtime.Object, 0, len(getResp.Kvs))
 	for _, kv := range getResp.Kvs {
-		values = append(values, kv.Value)
+		obj, err := runtime.Decode(s.serializer, kv.Value)
+		if err != nil {
+			klog.Errorf("failed to decode object %s: %w", string(kv.Key), err)
+			return nil, err
+		}
+		objs = append(objs, obj)
 	}
-	return values, nil
+	return objs, nil
 }
 
-func (s *etcdStorage) Update(key storage.Key, content []byte, rv uint64) ([]byte, error) {
-	if err := utils.ValidateKV(key, content, storageKey{}); err != nil {
+func (s *etcdStorage) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
+	if err := utils.ValidateKV(key, obj, storageKey{}); err != nil {
+		return nil, err
+	}
+	content, err := runtime.Encode(s.serializer, obj)
+	if err != nil {
 		return nil, err
 	}
 
 	keyStr := key.Key()
 	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
 	defer cancel()
+
+	getResp, err := s.client.Get(context.TODO(), s.mirrorPath(keyStr, rvType))
+	if err != nil {
+		return nil, err
+	}
+	if len(getResp.Kvs) == 0 {
+		_, err := s.client.Txn(ctx).If().Then(
+			clientv3.OpPut(keyStr, string(content)),
+			clientv3.OpPut(s.mirrorPath(keyStr, rvType), fixLenRvUint64(rv)),
+		).Commit()
+		if err != nil {
+			return nil, err
+		}
+		return obj, nil
+	}
+
+	oldRv := string(getResp.Kvs[0].Value)
 	txnResp, err := s.client.KV.Txn(ctx).If(
-		found(keyStr),
-		fresherThan(fixLenRvUint64(rv), s.mirrorPath(keyStr, rvType)),
+		fresherThan(fixLenRvUint64(rv), oldRv),
 	).Then(
 		clientv3.OpPut(keyStr, string(content)),
 		clientv3.OpPut(s.mirrorPath(keyStr, rvType), fixLenRvUint64(rv)),
-	).Else(
-		// Possibly we have two cases here:
-		// 1. key does not exist
-		// 2. key exists with a higher rv
-		// We can distinguish them by OpGet. If it gets no value back, it's case 1.
-		// Otherwise is case 2.
-		clientv3.OpGet(keyStr),
 	).Commit()
-
 	if err != nil {
 		return nil, err
 	}
 
 	if !txnResp.Succeeded {
-		getResp := (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-		if len(getResp.Kvs) == 0 {
-			return nil, storage.ErrStorageNotFound
+		oldObj, err := runtime.Decode(s.serializer, getResp.Kvs[0].Value)
+		if err != nil {
+			return obj, nil
 		}
-		return getResp.Kvs[0].Value, storage.ErrUpdateConflict
+		return oldObj, storage.ErrUpdateConflict
 	}
-
-	return content, nil
+	return obj, nil
 }
 
-func (s *etcdStorage) ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error) {
-	if component == "" {
-		return nil, storage.ErrEmptyComponent
+func (s *etcdStorage) ListKeys(key storage.Key) ([]storage.Key, error) {
+	if err := utils.ValidateKey(key, storageKey{}); err != nil {
+		return nil, err
 	}
-	if gvr.Resource == "" {
-		return nil, storage.ErrEmptyResource
-	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
-	keys := []storage.Key{}
-	keyCache, ok := s.localComponentKeyCache.Load(component)
-	if !ok {
+	getResp, err := s.client.Get(ctx, key.Key(), clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+	if len(getResp.Kvs) == 0 {
 		return nil, storage.ErrStorageNotFound
 	}
-	if keyCache.m != nil {
-		for k := range keyCache.m[gvr] {
-			keys = append(keys, k)
-		}
+	keys := make([]storage.Key, 0, len(getResp.Kvs))
+	for k := range getResp.Kvs {
+		keys = append(keys, storageKey{
+			path: string(k),
+		})
 	}
 	return keys, nil
 }
 
-func (s *etcdStorage) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key][]byte) error {
-	if component == "" {
-		return storage.ErrEmptyComponent
-	}
-	rootKey, err := s.KeyFunc(storage.KeyBuildInfo{
-		Component: component,
-		Resources: gvr.Resource,
-		Group:     gvr.Group,
-		Version:   gvr.Version,
-		Namespace: namespace,
-	})
-	if err != nil {
-		return err
-	}
-
-	newKeySet := storageKeySet{}
-	for k := range contents {
-		storageKey, ok := k.(storageKey)
+func (s *etcdStorage) Replace(key storage.Key, objs map[storage.Key]runtime.Object) error {
+	rootKey := key.(storageKey)
+	contents := make(map[storage.Key][]byte)
+	for k, obj := range objs {
+		_, ok := k.(storageKey)
 		if !ok {
 			return storage.ErrUnrecognizedKey
 		}
 		if !strings.HasPrefix(k.Key(), rootKey.Key()) {
 			return storage.ErrInvalidContent
 		}
-		newKeySet[storageKey] = struct{}{}
-	}
-
-	var addedOrUpdated, deleted storageKeySet
-	oldKeySet, loaded := s.localComponentKeyCache.LoadOrStore(component, gvr, newKeySet)
-	addedOrUpdated = newKeySet.Difference(storageKeySet{})
-	if loaded {
-		deleted = oldKeySet.Difference(newKeySet)
-	}
-
-	ops := []clientv3.Op{}
-	for k := range addedOrUpdated {
-		rv, err := getRvOfObject(contents[k])
+		content, err := runtime.Encode(s.serializer, obj)
 		if err != nil {
-			klog.Errorf("could not process %s in list object, %v", k.Key(), err)
-			continue
+			return err
 		}
-		createOrUpdateOp := clientv3.OpTxn(
-			[]clientv3.Cmp{
-				// if
-				found(k.Key()),
-			},
-			[]clientv3.Op{
-				// then
-				clientv3.OpTxn([]clientv3.Cmp{
-					// if
-					fresherThan(fixLenRvString(rv), s.mirrorPath(k.Key(), rvType)),
-				}, []clientv3.Op{
-					// then
-					clientv3.OpPut(k.Key(), string(contents[k])),
-					clientv3.OpPut(s.mirrorPath(k.Key(), rvType), fixLenRvString(rv)),
-				}, []clientv3.Op{
-					// else
-					// do nothing
-				}),
-			},
-			[]clientv3.Op{
-				// else
-				clientv3.OpPut(k.Key(), string(contents[k])),
-				clientv3.OpPut(s.mirrorPath(k.Key(), rvType), fixLenRvString(rv)),
-			},
-		)
-		ops = append(ops, createOrUpdateOp)
-	}
-	for k := range deleted {
-		ops = append(ops,
-			clientv3.OpDelete(k.Key()),
-			clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
-		)
-	}
-
-	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
-	defer cancel()
-	_, err = s.client.Txn(ctx).If().Then(ops...).Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *etcdStorage) DeleteComponentResources(component string) error {
-	if component == "" {
-		return storage.ErrEmptyComponent
-	}
-	keyCache, loaded := s.localComponentKeyCache.LoadAndDelete(component)
-	if !loaded || keyCache.m == nil {
-		// no need to delete
-		return nil
+		contents[k] = content
 	}
 
 	ops := []clientv3.Op{}
-	for _, keySet := range keyCache.m {
-		for k := range keySet {
-			ops = append(ops,
-				clientv3.OpDelete(k.Key()),
-				clientv3.OpDelete(s.mirrorPath(k.Key(), rvType)),
-			)
+	ops = append(ops, clientv3.OpDelete(key.Key(), clientv3.WithPrefix()))
+	for k, content := range contents {
+		rv, err := getRvOfObject(content)
+		if err != nil {
+			return err
 		}
+		ops = append(ops,
+			clientv3.OpPut(k.Key(), string(content)),
+			clientv3.OpPut(s.mirrorPath(k.Key(), rvType), fixLenRvString(rv)))
 	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, defaultTimeout)
@@ -502,10 +418,6 @@ func getRvOfObject(object []byte) (string, error) {
 
 func notFound(key string) clientv3.Cmp {
 	return clientv3.Compare(clientv3.ModRevision(key), "=", 0)
-}
-
-func found(key string) clientv3.Cmp {
-	return clientv3.Compare(clientv3.ModRevision(key), ">", 0)
 }
 
 func fresherThan(rv string, key string) clientv3.Cmp {

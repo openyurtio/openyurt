@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	fakerest "k8s.io/client-go/rest/fake"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -55,7 +54,7 @@ func TestLocalCacheHandler(t *testing.T) {
 		t.Errorf("disk initialize error: %v", err)
 	}
 
-	sw := cachemanager.NewStorageWrapper(dStorage)
+	sw := storage.NewStorageWrapper(dStorage, storage.NewQueueWithOptions())
 	//u, _ := url.Parse("https://10.10.10.113:6443")
 	fakeHealthChecker := healthchecker.NewFakeChecker(false, nil)
 
@@ -135,7 +134,7 @@ func TestNonResourceHandler(t *testing.T) {
 		t.Errorf("disk initialize error: %v", err)
 	}
 
-	sw := cachemanager.NewStorageWrapper(dStorage)
+	sw := storage.NewStorageWrapper(dStorage, storage.NewQueueWithOptions())
 
 	testcases := map[string]struct {
 		path             string

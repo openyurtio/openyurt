@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package yurtcoordinator
-
-import (
-	"context"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-)
-
-type FakeCoordinator struct{}
-
-var _ Coordinator = &FakeCoordinator{}
-
-func (fc *FakeCoordinator) Run(ctx context.Context) {}
-
-func (fc *FakeCoordinator) IsReady() (cachemanager.CacheManager, bool) {
-	return nil, false
-}
-
-func (fc *FakeCoordinator) IsHealthy() (cachemanager.CacheManager, bool) {
-	return nil, false
-}
+package storage

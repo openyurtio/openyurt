@@ -132,7 +132,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	trace++
 
 	controller := storage.NewController(cfg.Queue, cfg.StorageWrapper)
-	controller.Run(ctx, 5)
+	controller.Run(ctx, storage.ConcurrentWorkers)
 	trace++
 
 	var cacheMgr cachemanager.CacheManager
@@ -337,7 +337,7 @@ func coordinatorRun(ctx context.Context,
 			klog.Errorf("coordinator could not create coordinator, %v", err)
 			return
 		}
-		go coor.Run()
+		go coor.Run(ctx)
 
 		coordinatorTransportMgr = coorTransportMgr
 		coordinatorHealthChecker = coorHealthChecker

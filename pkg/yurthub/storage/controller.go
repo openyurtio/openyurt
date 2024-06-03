@@ -27,6 +27,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var (
+	ConcurrentWorkers = 5
+)
+
 type Controller struct {
 	queue Interface
 	store Store
