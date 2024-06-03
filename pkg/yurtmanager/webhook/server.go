@@ -29,7 +29,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
+	controller "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/base"
 	v1alpha1deploymentrender "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"

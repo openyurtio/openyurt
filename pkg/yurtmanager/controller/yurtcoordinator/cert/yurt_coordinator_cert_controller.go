@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	certfactory "github.com/openyurtio/openyurt/pkg/util/certmanager/factory"
@@ -203,7 +204,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new YurtCoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	kubeClient, err := client.NewForConfig(mgr.GetConfig())
+	kubeClient, err := client.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.YurtCoordinatorCertController))
 	if err != nil {
 		klog.Errorf("could not create kube client, %v", err)
 		return err
@@ -296,9 +297,11 @@ type ReconcileYurtCoordinatorCert struct {
 	reuseCA    bool
 }
 
-// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create
-// +kubebuilder:rbac:groups="",namespace=kube-system,resources=secrets,verbs=get;update;create;patch
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;list;watch
+// +kubebuilder:rbac:groups="",namespace=kube-system,resources=secrets,verbs=get;update;create;patch;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;list;create;patch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 
 // todo: make customized certificate for each yurtcoordinator pod
 func (r *ReconcileYurtCoordinatorCert) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {

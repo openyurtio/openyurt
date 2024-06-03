@@ -24,6 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
@@ -32,7 +34,7 @@ import (
 // SetupWebhookWithManager sets up Cluster webhooks.
 func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
-	webhook.Client = mgr.GetClient()
+	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.PlatformAdminController)
 
 	gvk, err := apiutil.GVKForObject(&v1alpha1.PlatformAdmin{}, mgr.GetScheme())
 	if err != nil {

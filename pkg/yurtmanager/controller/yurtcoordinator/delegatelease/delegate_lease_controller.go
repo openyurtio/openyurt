@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
@@ -50,7 +51,7 @@ type ReconcileDelegateLease struct {
 // Add creates a delegatelease controller and add it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	kubeClient, err := kubernetes.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.DelegateLeaseController))
 	if err != nil {
 		klog.Errorf("could not create kube client, %v", err)
 		return err
@@ -59,7 +60,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	r := &ReconcileDelegateLease{
 		ldc:      utils.NewLeaseDelegatedCounter(),
 		delLdc:   utils.NewLeaseDelegatedCounter(),
-		Client:   mgr.GetClient(),
+		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.DelegateLeaseController),
 		dlClient: kubeClient,
 	}
 	c, err := controller.New(names.DelegateLeaseController, mgr, controller.Options{
@@ -72,6 +73,9 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 	return err
 }
+
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcileDelegateLease) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

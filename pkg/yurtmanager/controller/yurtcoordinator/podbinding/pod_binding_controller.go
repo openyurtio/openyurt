@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
@@ -72,7 +73,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcilePodBinding{
-		Client: mgr.GetClient(),
+		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.PodBindingController),
 	}
 }
 
@@ -105,6 +106,9 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	//}
 	//return err
 }
+
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

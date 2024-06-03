@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	calicov3 "github.com/openyurtio/openyurt/pkg/apis/calico/v3"
@@ -88,7 +89,7 @@ type ReconcileGateway struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileGateway{
-		Client:       mgr.GetClient(),
+		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController),
 		scheme:       mgr.GetScheme(),
 		recorder:     mgr.GetEventRecorderFor(names.GatewayPickupController),
 		Configration: c.ComponentConfig.GatewayPickupController,
@@ -117,7 +118,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueGatewayForRavenConfig{client: mgr.GetClient()}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueGatewayForRavenConfig{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController)}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {
@@ -139,11 +140,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 //+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways,verbs=get;list;watch;create;delete;update
 //+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a Gateway object and makes changes based on the state read

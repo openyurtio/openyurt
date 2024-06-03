@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/adapter"
@@ -83,7 +84,7 @@ type ReconcileServiceTopologyEndpointSlice struct {
 
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) *ReconcileServiceTopologyEndpointSlice {
 	r := &ReconcileServiceTopologyEndpointSlice{
-		Client: mgr.GetClient(),
+		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.ServiceTopologyEndpointSliceController),
 	}
 	if gvk, err := mgr.GetRESTMapper().KindFor(v1EndpointSliceGVR); err != nil {
 		klog.Errorf("v1.EndpointSlice is not supported, %v", err)

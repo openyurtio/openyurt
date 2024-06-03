@@ -20,6 +20,8 @@ import (
 	yurtctrlmgrconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/apis/config"
 )
 
+var WorkingNamespace string
+
 // Config is the main context object for the controller manager.
 type Config struct {
 	ComponentConfig yurtctrlmgrconfig.YurtManagerConfiguration

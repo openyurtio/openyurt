@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
@@ -76,7 +77,7 @@ type ReconcileService struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileService{
-		Client:   mgr.GetClient(),
+		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayInternalServiceController),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayInternalServiceController),
 	}
@@ -120,6 +121,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	return nil
 }
+
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;watch;create;update;delete
+// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;watch;create;update;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;watch;list
+// +kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a Gateway object and makes changes based on the state read
 // and what is in the Gateway.Spec

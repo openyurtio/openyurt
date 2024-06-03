@@ -31,6 +31,7 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9
 	go.etcd.io/etcd/client/v3 v3.5.9
 	golang.org/x/net v0.23.0
+	golang.org/x/oauth2 v0.8.0
 	golang.org/x/sys v0.18.0
 	google.golang.org/grpc v1.57.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
@@ -152,7 +153,6 @@ require (
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -62,7 +63,7 @@ func Format(format string, args ...interface{}) string {
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Infof(Format("nodebucket-controller add controller %s", controllerResource.String()))
 	r := &ReconcileNodeBucket{
-		Client:            mgr.GetClient(),
+		Client:            yurtClient.GetClientByControllerNameOrDie(mgr, names.NodeBucketController),
 		maxNodesPerBucket: int(cfg.ComponentConfig.NodeBucketController.MaxNodesPerBucket),
 	}
 
@@ -162,7 +163,7 @@ type ReconcileNodeBucket struct {
 }
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodebuckets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=list;watch
 
 // Reconcile reads that state of the cluster for a NodeBucket object and makes changes based on the state read

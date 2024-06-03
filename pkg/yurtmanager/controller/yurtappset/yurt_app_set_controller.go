@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	unitv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -91,17 +92,17 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppSet{
-		Client: mgr.GetClient(),
+		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController),
 		scheme: mgr.GetScheme(),
 
 		recorder: mgr.GetEventRecorderFor(names.YurtAppSetController),
 		workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
 			workloadmanager.DeploymentTemplateType: &workloadmanager.DeploymentManager{
-				Client: mgr.GetClient(),
+				Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController),
 				Scheme: mgr.GetScheme(),
 			},
 			workloadmanager.StatefulSetTemplateType: &workloadmanager.StatefulSetManager{
-				Client: mgr.GetClient(),
+				Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController),
 				Scheme: mgr.GetScheme(),
 			},
 		},
@@ -146,7 +147,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	nodePoolToYurtAppSet := func(ctx context.Context, nodePool client.Object) (res []reconcile.Request) {
 		res = make([]reconcile.Request, 0)
 		yasList := &unitv1beta1.YurtAppSetList{}
-		if err := mgr.GetClient().List(ctx, yasList); err != nil {
+		if err := yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController).List(ctx, yasList); err != nil {
 			return
 		}
 
@@ -197,7 +198,6 @@ type ReconcileYurtAppSet struct {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppSet object and makes changes based on the state read

@@ -15,11 +15,24 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: yurt-manager-rolebinding
+  name: yurt-manager-webhook-role-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: yurt-manager-role
+  name: yurt-manager-webhook
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-controller-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-basecontroller
 subjects:
 - kind: ServiceAccount
   name: yurt-manager
@@ -28,12 +41,12 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: yurt-manager-role-binding
+  name: yurt-manager-webhook-role-binding
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: yurt-manager-role
+  name: yurt-manager-webhook
 subjects:
   - kind: ServiceAccount
     name: yurt-manager
@@ -140,3 +153,4 @@ spec:
     {{- if .Values.affinity }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}
     {{- end }}
+---
