@@ -17,12 +17,17 @@ limitations under the License.
 package cachemanager
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func TestXxx(t *testing.T) {
@@ -101,4 +106,27 @@ func TestRecover(t *testing.T) {
 	}
 	ek.cancel()
 	os.RemoveAll(AOFPrefix)
+}
+
+func TestCompress(t *testing.T) {
+	keys := NewErrorKeys()
+	for i := 0; i < 100; i++ {
+		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
+	}
+	for i := 0; i < 50; i++ {
+		keys.del(fmt.Sprintf("key-%d", i))
+	}
+	for i := 0; i < 50; i++ {
+		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
+	}
+	err := wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, false,
+		func(ctx context.Context) (bool, error) {
+			if keys.count == 100 {
+				return true, nil
+			}
+			return false, nil
+		})
+	if err != nil {
+		t.Errorf("failed to sync")
+	}
 }

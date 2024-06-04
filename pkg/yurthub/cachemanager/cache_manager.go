@@ -96,8 +96,8 @@ func NewCacheManager(
 		restMapperManager:     restMapperMgr,
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
+		errorKeys:             NewErrorKeys(),
 	}
-	cm.errorKeys = NewErrorKeys()
 	cm.errorKeys.recover()
 	return cm
 }
