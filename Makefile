@@ -26,6 +26,13 @@ CRD_OPTIONS ?= "crd:crdVersions=v1,maxDescLen=1000"
 BUILD_KUSTOMIZE ?= _output/manifest
 GOPROXY ?= $(shell go env GOPROXY)
 
+# Dynamic detection of operating system and architecture
+OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+	ARCH := amd64
+endif
+
 ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
 GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
 else
@@ -65,6 +72,10 @@ KUBECTL ?= $(LOCALBIN)/kubectl
 YQ_VERSION := 4.13.2
 YQ := $(shell command -v $(LOCALBIN)/yq 2> /dev/null)
 
+HELM_VERSION ?= v3.9.3
+HELM ?= $(LOCALBIN)/helm
+HELM_BINARY_URL := https://get.helm.sh/helm-$(HELM_VERSION)-$(OS)-$(ARCH).tar.gz
+
 .PHONY: clean all build test
 
 all: test build
@@ -96,7 +107,7 @@ verify-mod:
 	hack/make-rules/verify_mod.sh
 
 # Start up OpenYurt cluster on local machine based on a Kind cluster
-local-up-openyurt:
+local-up-openyurt: install-helm
 	KUBERNETESVERSION=${KUBERNETESVERSION} YURT_VERSION=$(GIT_VERSION) bash hack/make-rules/local-up-openyurt.sh
 
 # Build all OpenYurt components images and then start up OpenYurt cluster on local machine based on a Kind cluster
@@ -112,6 +123,21 @@ docker-build-and-up-openyurt: docker-build
 #   - on MACBook Pro M1: make e2e-tests TARGET_PLATFORMS=linux/arm64
 e2e-tests:
 	ENABLE_AUTONOMY_TESTS=${ENABLE_AUTONOMY_TESTS} TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/run-e2e-tests.sh
+
+
+install-helm: $(LOCALBIN)
+	@echo "Checking Helm installation..."
+	@HELM_CURRENT_VERSION=$$($(HELM) version --template="{{ .Version }}" 2>/dev/null || echo ""); \
+	if [ "$$HELM_CURRENT_VERSION" != "$(HELM_VERSION)" ]; then \
+		echo "Installing or upgrading Helm to version $(HELM_VERSION) into $(LOCALBIN)"; \
+		curl -fsSL -o helm.tar.gz "$(HELM_BINARY_URL)"; \
+		tar -xzf helm.tar.gz; \
+		mv $(OS)-$(ARCH)/helm $(HELM); \
+		rm -rf $(OS)-$(ARCH); \
+		rm helm.tar.gz; \
+	else \
+		echo "Helm version $(HELM_VERSION) is already installed."; \
+	fi
 
 install-golint: ## check golint if not exist install golint tools
 ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
@@ -222,7 +248,7 @@ kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong ver
 $(KUSTOMIZE): $(LOCALBIN)
 	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
 		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
-		rm -rf $(LOCALBIN)/kustomize; \
+		rm -f $(LOCALBIN)/kustomize; \
 	fi
 	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 

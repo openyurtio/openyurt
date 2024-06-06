@@ -22,19 +22,14 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // Config has the information that required by convert operation
 type Config struct {
-	yurthubImage              string
 	yurthubHealthCheckTimeout time.Duration
-	workingMode               util.WorkingMode
 	joinToken                 string
 	kubeadmConfPaths          []string
 	openyurtDir               string
-	enableDummyIf             bool
-	enableNodePool            bool
 }
 
 // nodeConverter do the convert job
@@ -46,14 +41,10 @@ type nodeConverter struct {
 func NewConverterWithOptions(o *Options) *nodeConverter {
 	return &nodeConverter{
 		Config: Config{
-			yurthubImage:              o.yurthubImage,
 			yurthubHealthCheckTimeout: o.yurthubHealthCheckTimeout,
-			workingMode:               util.WorkingMode(o.workingMode),
 			joinToken:                 o.joinToken,
 			kubeadmConfPaths:          strings.Split(o.kubeadmConfPaths, ","),
 			openyurtDir:               o.openyurtDir,
-			enableDummyIf:             o.enableDummyIf,
-			enableNodePool:            o.enableNodePool,
 		},
 	}
 }
@@ -79,8 +70,7 @@ func (n *nodeConverter) installYurtHub() error {
 	if apiServerAddress == "" {
 		return fmt.Errorf("get apiServerAddress empty")
 	}
-	op := components.NewYurthubOperator(apiServerAddress, n.yurthubImage, n.joinToken,
-		n.workingMode, n.yurthubHealthCheckTimeout, n.enableDummyIf, n.enableNodePool)
+	op := components.NewYurthubOperator(apiServerAddress, n.joinToken, n.yurthubHealthCheckTimeout)
 	return op.Install()
 }
 

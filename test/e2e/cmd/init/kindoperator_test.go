@@ -32,7 +32,7 @@ const (
 
 var operator = NewKindOperator("kind", "")
 
-func execCommand(testFunc string, env map[string]string, name string, args ...string) *exec.Cmd {
+func execTestCommand(testFunc string, env map[string]string, name string, args ...string) *exec.Cmd {
 	cs := []string{fmt.Sprintf("-test.run=%s", testFunc), "--", name}
 	cs = append(cs, args...)
 	cmd := exec.Command(os.Args[0], cs...)
@@ -47,7 +47,7 @@ func execCommand(testFunc string, env map[string]string, name string, args ...st
 
 func TestKindVersion(t *testing.T) {
 	fakeExecCommand := func(name string, args ...string) *exec.Cmd {
-		return execCommand("TestKindVersionStub", map[string]string{
+		return execTestCommand("TestKindVersionStub", map[string]string{
 			"TEST_KIND_VERSION": "1",
 		}, name, args...)
 	}
@@ -83,7 +83,7 @@ func TestKindVersionStub(t *testing.T) {
 
 func TestGoMinorVersion(t *testing.T) {
 	fakeExecCommand := func(name string, args ...string) *exec.Cmd {
-		return execCommand("TestGoMinorVersionStub", map[string]string{
+		return execTestCommand("TestGoMinorVersionStub", map[string]string{
 			"TEST_GO_MINOR_VERSION": "1",
 		}, name, args...)
 	}
@@ -157,7 +157,7 @@ func TestKindOperator_KindLoadDockerImage(t *testing.T) {
 	}
 	for caseName, c := range cases {
 		fakeExecCommand := func(name string, args ...string) *exec.Cmd {
-			return execCommand("TestKindLoadDockerImageStub", map[string]string{
+			return execTestCommand("TestKindLoadDockerImageStub", map[string]string{
 				"TEST_KIND_LOAD_DOCKER_IMAGE": "1",
 				"CASE_NAME":                   caseName,
 				"WANT":                        c.want,

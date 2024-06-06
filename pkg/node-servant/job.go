@@ -84,7 +84,7 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 
 	switch action {
 	case "convert":
-		keysMustHave := []string{"node_servant_image", "yurthub_image", "joinToken"}
+		keysMustHave := []string{"node_servant_image", "joinToken"}
 		return checkKeys(keysMustHave, tmplCtx)
 	case "revert":
 		keysMustHave := []string{"node_servant_image"}

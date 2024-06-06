@@ -17,112 +17,12 @@ limitations under the License.
 package kubernetes
 
 import (
-	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
-	kubeclientset "k8s.io/client-go/kubernetes"
 	kubectlutil "k8s.io/kubectl/pkg/cmd/util"
-
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
 )
-
-// DeployYurthubSetting deploy clusterrole, clusterrolebinding for yurthub static pod.
-func DeployYurthubSetting(client kubeclientset.Interface) error {
-	// 1. create the ClusterRole
-	if err := CreateClusterRoleFromYaml(client, constants.YurthubClusterRole); err != nil {
-		return err
-	}
-
-	// 2. create the ClusterRoleBinding
-	if err := CreateClusterRoleBindingFromYaml(client, constants.YurthubClusterRoleBinding); err != nil {
-		return err
-	}
-
-	// 3. create the Configmap
-	if err := CreateConfigMapFromYaml(client,
-		SystemNamespace,
-		constants.YurthubConfigMap); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// DeleteYurthubSetting rm settings for yurthub pod
-func DeleteYurthubSetting(client kubeclientset.Interface) error {
-
-	// 1. delete the ClusterRoleBinding
-	if err := client.RbacV1().ClusterRoleBindings().
-		Delete(context.Background(), constants.YurthubComponentName,
-			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the clusterrolebinding/%s: %w",
-			constants.YurthubComponentName, err)
-	}
-
-	// 2. delete the ClusterRole
-	if err := client.RbacV1().ClusterRoles().
-		Delete(context.Background(), constants.YurthubComponentName,
-			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the clusterrole/%s: %w",
-			constants.YurthubComponentName, err)
-	}
-
-	// 3. remove the ConfigMap
-	if err := client.CoreV1().ConfigMaps(constants.YurthubNamespace).
-		Delete(context.Background(), constants.YurthubCmName,
-			metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("fail to delete the configmap/%s: %w",
-			constants.YurthubCmName, err)
-	}
-
-	return nil
-}
-
-func CreateYurtManager(client kubeclientset.Interface, yurtManagerImage string) error {
-	if err := CreateSecretFromYaml(client, SystemNamespace, constants.YurtManagerCertsSecret); err != nil {
-		return err
-	}
-
-	if err := CreateServiceAccountFromYaml(client,
-		SystemNamespace, constants.YurtManagerServiceAccount); err != nil {
-		return err
-	}
-
-	// bind the clusterrole
-	if err := CreateClusterRoleBindingFromYaml(client,
-		constants.YurtManagerClusterRoleBinding); err != nil {
-		return err
-	}
-
-	// bind the role
-	if err := CreateRoleBindingFromYaml(client,
-		constants.YurtManagerRoleBinding); err != nil {
-		return err
-	}
-
-	// create the Service
-	if err := CreateServiceFromYaml(client,
-		SystemNamespace,
-		constants.YurtManagerService); err != nil {
-		return err
-	}
-
-	// create the yurt-manager deployment
-	if err := CreateDeployFromYaml(client,
-		SystemNamespace,
-		constants.YurtManagerDeployment,
-		map[string]string{
-			"image":         yurtManagerImage,
-			"edgeNodeLabel": projectinfo.GetEdgeWorkerLabelKey()}); err != nil {
-		return err
-	}
-	return nil
-}
 
 type Builder struct {
 	kubectlutil.Factory

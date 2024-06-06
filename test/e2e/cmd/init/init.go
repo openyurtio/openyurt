@@ -20,8 +20,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -29,15 +32,22 @@ import (
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	kubectllogs "k8s.io/kubectl/pkg/cmd/logs"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/test/e2e/cmd/init/constants"
 	kubeutil "github.com/openyurtio/openyurt/test/e2e/cmd/init/util/kubernetes"
+)
+
+const (
+	flannelYAMLURL    = "https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"
+	cniPluginsBaseURL = "https://github.com/containernetworking/plugins/releases/download/v1.4.1"
 )
 
 var (
@@ -130,7 +140,6 @@ type kindOptions struct {
 	UseLocalImages    bool
 	KubeConfig        string
 	IgnoreError       bool
-	EnableDummyIf     bool
 	DisableDefaultCNI bool
 }
 
@@ -143,7 +152,6 @@ func newKindOptions() *kindOptions {
 		KubernetesVersion: "v1.28",
 		UseLocalImages:    false,
 		IgnoreError:       false,
-		EnableDummyIf:     true,
 		DisableDefaultCNI: false,
 	}
 }
@@ -210,7 +218,6 @@ func (o *kindOptions) Config() *initializerConfig {
 		YurtManagerImage:  fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
 		NodeServantImage:  fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
 		yurtIotDockImage:  fmt.Sprintf(yurtIotDockImageFormat, o.OpenYurtVersion),
-		EnableDummyIf:     o.EnableDummyIf,
 		DisableDefaultCNI: o.DisableDefaultCNI,
 	}
 }
@@ -235,8 +242,6 @@ func addFlags(flagset *pflag.FlagSet, o *kindOptions) {
 		"Path where the kubeconfig file of new cluster will be stored. The default is ${HOME}/.kube/config.")
 	flagset.BoolVar(&o.IgnoreError, "ignore-error", o.IgnoreError,
 		"Ignore error when using openyurt version that is not officially released.")
-	flagset.BoolVar(&o.EnableDummyIf, "enable-dummy-if", o.EnableDummyIf,
-		"Enable dummy interface for yurthub component or not. and recommend to set false on mac env")
 	flagset.BoolVar(&o.DisableDefaultCNI, "disable-default-cni", o.DisableDefaultCNI,
 		"Disable the default cni of kind cluster which is kindnet. "+
 			"If this option is set, you should check the ready status of pods by yourself after installing your CNI.")
@@ -256,15 +261,15 @@ type initializerConfig struct {
 	YurtManagerImage  string
 	NodeServantImage  string
 	yurtIotDockImage  string
-	EnableDummyIf     bool
 	DisableDefaultCNI bool
 }
 
 type Initializer struct {
 	initializerConfig
-	out        io.Writer
-	operator   *KindOperator
-	kubeClient kubeclientset.Interface
+	out               io.Writer
+	operator          *KindOperator
+	kubeClient        kubeclientset.Interface
+	componentsBuilder *kubeutil.Builder
 }
 
 func newKindInitializer(out io.Writer, cfg *initializerConfig) *Initializer {
@@ -297,12 +302,31 @@ func (ki *Initializer) Run() error {
 	}
 
 	klog.Info("Start to prepare kube client")
-	kubeconfig, err := clientcmd.BuildConfigFromFlags("", ki.KubeConfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", ki.KubeConfig)
 	if err != nil {
 		return err
 	}
-	ki.kubeClient, err = kubeclientset.NewForConfig(kubeconfig)
+	ki.componentsBuilder = kubeutil.NewBuilder(ki.KubeConfig)
+
+	ki.kubeClient, err = kubeclientset.NewForConfig(cfg)
 	if err != nil {
+		return err
+	}
+
+	// if default cni is not installed, install flannel instead.
+	if ki.DisableDefaultCNI {
+		klog.Info("Start to install flannel in order to make all nodes ready")
+		err = ki.installFlannel()
+		if err != nil {
+			return err
+		}
+	}
+
+	klog.Info("Waiting all nodes are ready")
+	timeout := 2 * time.Minute
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, allNodesReady(ki.kubeClient))
+	if err != nil {
+		klog.Errorf("Not all nodes are in Ready state: %v", err)
 		return err
 	}
 
@@ -321,6 +345,150 @@ func (ki *Initializer) Run() error {
 		return err
 	}
 	return nil
+}
+
+func (ki *Initializer) installFlannel() error {
+	cniURL := getCNIBinaryURL()
+
+	err := downloadFile("/tmp/cni.tgz", cniURL)
+	if err != nil {
+		klog.Errorf("failed to download %s, %v", cniURL, err)
+		return err
+	}
+
+	nodeContainers := []string{"openyurt-e2e-test-control-plane"}
+	for i := 1; i < ki.NodesNum; i++ {
+		if i == 1 {
+			nodeContainers = append(nodeContainers, "openyurt-e2e-test-worker")
+		} else {
+			workerName := fmt.Sprintf("openyurt-e2e-test-worker%d", i)
+			nodeContainers = append(nodeContainers, workerName)
+		}
+	}
+
+	for _, container := range nodeContainers {
+		if err = copyAndExtractCNIPlugins(container, "/tmp/cni.tgz"); err != nil {
+			klog.Errorf("failed to prepare cni plugin for container %s, %v", container, err)
+			return err
+		}
+	}
+
+	err = downloadFile("/tmp/flannel.yaml", flannelYAMLURL)
+	if err != nil {
+		klog.Errorf("failed to download %s, %v", flannelYAMLURL, err)
+		return err
+	}
+
+	err = ki.componentsBuilder.InstallComponents("/tmp/flannel.yaml", false)
+	if err != nil {
+		klog.Errorf("Error install flannel components, %v", err)
+		return err
+	}
+
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, allFlannelPodReady(ki.kubeClient, "kube-flannel", "kube-flannel-ds"))
+	if err != nil {
+		klog.Errorf("Not all flannel pods are in Ready state: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func downloadFile(filepath string, url string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+func copyAndExtractCNIPlugins(containerName string, cniPluginsTarPath string) error {
+	dockerCPCmd := exec.Command("docker", "cp", cniPluginsTarPath, containerName+":/opt/cni/bin/")
+	if err := execCommand(dockerCPCmd); err != nil {
+		return err
+	}
+
+	dockerExecCmd := exec.Command("docker", "exec", "-t", containerName, "/bin/bash", "-c", "cd /opt/cni/bin && tar -zxf cni.tgz")
+	if err := execCommand(dockerExecCmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func execCommand(cmd *exec.Cmd) error {
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		klog.Errorf("execute command error: %v", err)
+		return err
+	}
+	klog.Infof("Command executed: %s Output: %s", cmd.String(), output)
+	return nil
+}
+
+func getCNIBinaryURL() string {
+	var arch string
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "amd64"
+	case "arm64":
+		arch = "arm64"
+	default:
+		panic("unsupported architecture")
+	}
+	return fmt.Sprintf("%s/cni-plugins-linux-%s-v1.4.1.tgz", cniPluginsBaseURL, arch)
+}
+
+func allFlannelPodReady(clientset kubeclientset.Interface, namespace, dsName string) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		ds, err := clientset.AppsV1().DaemonSets(namespace).Get(context.TODO(), dsName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if ds.Status.DesiredNumberScheduled == ds.Status.NumberReady {
+			return true, nil
+		}
+
+		return false, nil
+	}
+}
+
+func allNodesReady(clientset kubeclientset.Interface) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, node := range nodes.Items {
+			isNodeReady := false
+			for _, condition := range node.Status.Conditions {
+				if condition.Type == "Ready" && condition.Status == "True" {
+					klog.Infof("Now node %s is ready", node.Name)
+					isNodeReady = true
+					break
+				}
+			}
+			if !isNodeReady {
+				url := clientset.CoreV1().RESTClient().Get().Resource("nodes").Name(node.Name).URL()
+				nodeRequest := clientset.CoreV1().RESTClient().Get().AbsPath(url.Path)
+				if err := kubectllogs.DefaultConsumeRequest(nodeRequest, os.Stderr); err != nil {
+					klog.Errorf("failed to print node(%s) info, %v", node.Name, err)
+				}
+				return false, nil
+			}
+		}
+		return true, nil
+	}
 }
 
 func (ki *Initializer) prepareImages() error {
@@ -390,12 +558,11 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 	if err = os.WriteFile(kindConfigPath, []byte(kindConfigContent), constants.FileMode); err != nil {
 		return err
 	}
-	klog.V(1).Infof("generated new kind config file at %s", kindConfigPath)
+	klog.Infof("generated new kind config file at %s, contents: %s", kindConfigPath, kindConfigContent)
 	return nil
 }
 
 func (ki *Initializer) configureAddons() error {
-
 	if err := ki.configureCoreDnsAddon(); err != nil {
 		return err
 	}
@@ -420,33 +587,28 @@ func (ki *Initializer) configureAddons() error {
 		}
 	}
 
-	// If we disable default cni, nodes will not be ready and the coredns pod always be in pending.
-	// The health check for coreDNS should be done by someone who will install CNI.
-	if !ki.DisableDefaultCNI {
-		// wait for coredns pods available
-		for {
-			select {
-			case <-time.After(10 * time.Second):
-				dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
-				}
-
-				if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
-					klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
-					continue
-				}
-
-				if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
-					klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
-					continue
-				}
-				klog.Info("coredns deployment configuration is completed")
-				return nil
+	// wait for coredns pods available
+	for {
+		select {
+		case <-time.After(10 * time.Second):
+			dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
 			}
+
+			if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
+				klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
+				continue
+			}
+
+			if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
+				klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
+				continue
+			}
+			klog.Info("coredns deployment configuration is completed")
+			return nil
 		}
 	}
-	return nil
 }
 
 func (ki *Initializer) configureCoreDnsAddon() error {
@@ -513,7 +675,6 @@ func (ki *Initializer) deployOpenYurt() error {
 	}
 	converter := &ClusterConverter{
 		RootDir:                   dir,
-		ComponentsBuilder:         kubeutil.NewBuilder(ki.KubeConfig),
 		ClientSet:                 ki.kubeClient,
 		CloudNodes:                ki.CloudNodes,
 		EdgeNodes:                 ki.EdgeNodes,
@@ -523,7 +684,6 @@ func (ki *Initializer) deployOpenYurt() error {
 		YurtManagerImage:          ki.YurtManagerImage,
 		NodeServantImage:          ki.NodeServantImage,
 		YurthubImage:              ki.YurtHubImage,
-		EnableDummyIf:             ki.EnableDummyIf,
 	}
 	if err := converter.Run(); err != nil {
 		klog.Errorf("errors occurred when deploying openyurt components")

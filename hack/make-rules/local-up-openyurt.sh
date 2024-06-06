@@ -66,10 +66,6 @@ readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.28"}
 readonly NODES_NUM=${NODES_NUM:-3}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 readonly DISABLE_DEFAULT_CNI=${DISABLE_DEFAULT_CNI:-"false"}
-ENABLE_DUMMY_IF=true
-if [[ "${LOCAL_OS}" == darwin ]]; then
-  ENABLE_DUMMY_IF=false
-fi
 
 function install_kind {
     echo "Begin to install kind"
@@ -134,7 +130,7 @@ function local_up_openyurt {
     $YURT_ROOT/test/e2e/e2e.test init \
       --kubernetes-version=${KUBERNETESVERSION} --kube-config=${KIND_KUBECONFIG} \
       --cluster-name=${CLUSTER_NAME} --openyurt-version=${YURT_VERSION} --use-local-images --ignore-error \
-      --node-num=${NODES_NUM} --enable-dummy-if=${ENABLE_DUMMY_IF} --disable-default-cni=${DISABLE_DEFAULT_CNI}
+      --node-num=${NODES_NUM} --disable-default-cni=${DISABLE_DEFAULT_CNI}
 }
 
 function cleanup {
