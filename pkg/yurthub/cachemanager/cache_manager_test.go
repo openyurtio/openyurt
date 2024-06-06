@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
@@ -3342,6 +3343,67 @@ func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 
 			if isMetadataNameFieldSelector != tc.Expect {
 				t.Errorf("failed at case %s, want: %v, got: %v", k, tc.Expect, isMetadataNameFieldSelector)
+			}
+		})
+	}
+}
+
+func TestSetNodeAutonomyCondition(t *testing.T) {
+	testcases := []struct {
+		name           string
+		node           *v1.Node
+		expectedStatus v1.ConditionStatus
+	}{
+		{
+			name: "case1",
+			node: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedStatus: v1.ConditionTrue,
+		},
+		{
+			name: "case2",
+			node: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   appsv1beta1.NodeAutonomy,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedStatus: v1.ConditionTrue,
+		},
+		{
+			name: "case3",
+			node: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   appsv1beta1.NodeAutonomy,
+							Status: v1.ConditionFalse,
+						},
+					},
+				},
+			},
+			expectedStatus: v1.ConditionTrue,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			setNodeAutonomyCondition(tc.node, tc.expectedStatus, "", "")
+			for _, condition := range tc.node.Status.Conditions {
+				if condition.Type == appsv1beta1.NodeAutonomy && condition.Status != tc.expectedStatus {
+					t.Error("failed to set node autonomy status")
+				}
 			}
 		})
 	}

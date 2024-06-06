@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -47,6 +48,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -78,7 +80,7 @@ type cacheManager struct {
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
 	errorKeys             *errorKeys
-	failedNumber          *int32
+	cacheFailedCount      *int32
 }
 
 // NewCacheManager creates a new CacheManager
@@ -140,8 +142,7 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	if !info.IsResourceRequest {
 		return nil, fmt.Errorf("could not QueryCache for getting non-resource request %s", util.ReqString(req))
 	}
-	comp, _ := util.ClientComponentFrom(ctx)
-	if comp == "kubelet" && info.Resource == "nodes" && info.Verb == "Get" {
+	if proxyutil.IsKubeletGetNodeReq(req) {
 		return cm.updateNodeStatus(req)
 	}
 
@@ -244,10 +245,10 @@ func (cm *cacheManager) updateNodeStatus(req *http.Request) (runtime.Object, err
 	}
 	if cm.errorKeys.length() == 0 {
 		setNodeAutonomyCondition(node, v1.ConditionTrue, "cache successful", "The autonomy is enabled and it works fine")
-		atomic.StoreInt32(cm.failedNumber, 0)
+		atomic.StoreInt32(cm.cacheFailedCount, 0)
 	} else {
-		atomic.AddInt32(cm.failedNumber, 1)
-		if *cm.failedNumber > 3 {
+		atomic.AddInt32(cm.cacheFailedCount, 1)
+		if *cm.cacheFailedCount > 3 {
 			setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
 		}
 	}
