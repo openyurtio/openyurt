@@ -1,7 +1,14 @@
 updated: false
-count: 6
-latestVersion: minnesota
+count: 7
+latestVersion: napa
 versions:
+- name: napa
+  requiredComponents: 
+  - edgex-core-command
+  - edgex-core-consul
+  - edgex-core-metadata
+  - edgex-redis
+  - edgex-core-common-config-bootstrapper
 - name: kamakura
   requiredComponents: 
   - edgex-core-command
