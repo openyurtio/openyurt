@@ -18,5 +18,6 @@ package config
 
 // NodeBucketControllerConfiguration contains elements describing NodeBucketController.
 type NodeBucketControllerConfiguration struct {
-	MaxNodesPerBucket int32
+	MaxNodesPerBucket           int32
+	ConcurrentNodeBucketWorkers int32
 }

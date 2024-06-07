@@ -31,7 +31,8 @@ type NodeBucketControllerOptions struct {
 func NewNodeBucketControllerOptions() *NodeBucketControllerOptions {
 	return &NodeBucketControllerOptions{
 		&config.NodeBucketControllerConfiguration{
-			MaxNodesPerBucket: 100,
+			MaxNodesPerBucket:           100,
+			ConcurrentNodeBucketWorkers: 3,
 		},
 	}
 }
@@ -43,6 +44,7 @@ func (n *NodeBucketControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.Int32Var(&n.MaxNodesPerBucket, "max-nodes-per-bucket", n.MaxNodesPerBucket, "The maximum number of nodes that will be added to a NodeBucket. More nodes per bucket will result in less node buckets, but larger resources. Defaults to 100.")
+	fs.Int32Var(&n.ConcurrentNodeBucketWorkers, "concurrent-node-bucket-workers", n.ConcurrentNodeBucketWorkers, "The number of nodebucket objects that are allowed to reconcile concurrently. Larger number = more responsive nodebuckets, but more CPU (and network) load")
 }
 
 // ApplyTo fills up nodebucket config with options.
@@ -52,6 +54,7 @@ func (o *NodeBucketControllerOptions) ApplyTo(cfg *config.NodeBucketControllerCo
 	}
 
 	cfg.MaxNodesPerBucket = o.MaxNodesPerBucket
+	cfg.ConcurrentNodeBucketWorkers = o.ConcurrentNodeBucketWorkers
 
 	return nil
 }

@@ -18,7 +18,6 @@ package nodebucket
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"sort"
 
@@ -45,13 +44,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "nodebucket-workers", concurrentReconciles, "Max concurrent workers for NodeBucket controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	controllerResource   = appsv1alpha1.SchemeGroupVersion.WithResource("nodebuckets")
+	controllerResource = appsv1alpha1.SchemeGroupVersion.WithResource("nodebuckets")
 )
 
 const (
@@ -74,7 +68,8 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 	// Create a new controller
 	c, err := controller.New(names.NodeBucketController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler:              r,
+		MaxConcurrentReconciles: int(cfg.ComponentConfig.NodeBucketController.ConcurrentNodeBucketWorkers),
 	})
 	if err != nil {
 		return err
