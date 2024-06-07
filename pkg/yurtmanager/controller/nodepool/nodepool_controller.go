@@ -68,7 +68,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 
 	// Create a new controller
 	ctrl, err := controller.New(names.NodePoolController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: int(c.ComponentConfig.NodePoolController.ConcurrentNodepools),
+		Reconciler: r, MaxConcurrentReconciles: int(c.ComponentConfig.NodePoolController.ConcurrentNodePoolWorkers),
 	})
 	if err != nil {
 		return err

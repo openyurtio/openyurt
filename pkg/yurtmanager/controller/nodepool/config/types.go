@@ -19,5 +19,5 @@ package config
 // NodePoolControllerConfiguration contains elements describing NodePoolController.
 type NodePoolControllerConfiguration struct {
 	EnableSyncNodePoolConfigurations bool
-	ConcurrentNodepools              int32
+	ConcurrentNodePoolWorkers        int32
 }

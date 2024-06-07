@@ -30,7 +30,7 @@ func NewNodePoolControllerOptions() *NodePoolControllerOptions {
 	return &NodePoolControllerOptions{
 		&config.NodePoolControllerConfiguration{
 			EnableSyncNodePoolConfigurations: true,
-			ConcurrentNodepools:              3,
+			ConcurrentNodePoolWorkers:        3,
 		},
 	}
 }
@@ -42,7 +42,7 @@ func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.BoolVar(&n.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", n.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
-	fs.Int32Var(&n.ConcurrentNodepools, "concurrent-nodepools", n.ConcurrentNodepools, "The number of node pools that are allowed to reconcile concurrently.")
+	fs.Int32Var(&n.ConcurrentNodePoolWorkers, "concurrent-nodepool-workers", n.ConcurrentNodePoolWorkers, "The number of nodepool objects that are allowed to reconcile concurrently.")
 }
 
 // ApplyTo fills up nodePool config with options.
@@ -51,7 +51,7 @@ func (o *NodePoolControllerOptions) ApplyTo(cfg *config.NodePoolControllerConfig
 		return nil
 	}
 	cfg.EnableSyncNodePoolConfigurations = o.EnableSyncNodePoolConfigurations
-	cfg.ConcurrentNodepools = o.ConcurrentNodepools
+	cfg.ConcurrentNodePoolWorkers = o.ConcurrentNodePoolWorkers
 
 	return nil
 }
