@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // NodeReverter do the revert job
@@ -61,8 +60,7 @@ func (n *nodeReverter) revertKubelet() error {
 }
 
 func (n *nodeReverter) unInstallYurtHub() error {
-	op := components.NewYurthubOperator("", "", "",
-		util.WorkingModeCloud, time.Duration(1), true, true) // params is not important here
+	op := components.NewYurthubOperator("", "", time.Duration(1)) // params is not important here
 	return op.UnInstall()
 }
 

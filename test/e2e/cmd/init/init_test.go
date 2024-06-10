@@ -60,7 +60,6 @@ func TestAddFlags(t *testing.T) {
 		UseLocalImages:    true,
 		KubeConfig:        "/home/root/.kube/config",
 		IgnoreError:       true,
-		EnableDummyIf:     true,
 		DisableDefaultCNI: true,
 	}
 
@@ -417,9 +416,6 @@ func IsConsistent(initPoint1, initPoint2 *initializerConfig) bool {
 	if initPoint1.NodeServantImage != initPoint2.NodeServantImage {
 		return false
 	}
-	if initPoint1.EnableDummyIf != initPoint2.EnableDummyIf {
-		return false
-	}
 	return true
 }
 
@@ -439,7 +435,6 @@ func TestKindOptions_Config(t *testing.T) {
 		YurtHubImage:      "openyurt/yurthub:latest",
 		YurtManagerImage:  "openyurt/yurt-manager:latest",
 		NodeServantImage:  "openyurt/node-servant:latest",
-		EnableDummyIf:     true,
 	}
 	if !IsConsistent(&wants, case1.Config()) {
 		t.Errorf("Failed to configure initializer")

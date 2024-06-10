@@ -38,7 +38,6 @@ func NewClusterConverter(ki *Initializer) *ClusterConverter {
 		YurtManagerImage:          ki.YurtManagerImage,
 		NodeServantImage:          ki.NodeServantImage,
 		YurthubImage:              ki.YurtHubImage,
-		EnableDummyIf:             ki.EnableDummyIf,
 	}
 	return converter
 }
@@ -99,85 +98,4 @@ func TestPrepareYurthubStart(t *testing.T) {
 	if err != case1.want && joinToken == "" {
 		t.Errorf("failed to prepare yurthub start ")
 	}
-}
-
-func TestNodePoolResourceExists(t *testing.T) {
-
-	cases := []struct {
-		apiResourceObj *metav1.APIResourceList
-		want           error
-		isExist        bool
-	}{
-		{
-			apiResourceObj: &metav1.APIResourceList{
-				GroupVersion: "apps.openyurt.io/v1alpha1",
-				APIResources: []metav1.APIResource{
-					{
-						Name: "nodepools",
-						Kind: "NodePool",
-					},
-				},
-			},
-			want:    nil,
-			isExist: true,
-		},
-		{
-			apiResourceObj: &metav1.APIResourceList{
-				GroupVersion: "apps.openyurt.io/v1alpha1",
-				APIResources: []metav1.APIResource{
-					{
-						Name: "nodepools",
-						Kind: "pod",
-					},
-				},
-			},
-			want:    nil,
-			isExist: false,
-		},
-	}
-	for _, v := range cases {
-		fakeKubeClient := clientsetfake.NewSimpleClientset()
-		fakeKubeClient.Fake.Resources = append(fakeKubeClient.Fake.Resources, v.apiResourceObj)
-		isExist, err := nodePoolResourceExists(fakeKubeClient)
-		if err != v.want && isExist != v.isExist {
-			t.Errorf("falied to verify nodes pool is exist")
-		}
-	}
-}
-
-func TestClusterConverter_DeployYurtHub(t *testing.T) {
-	case1 := struct {
-		configObj      *corev1.ConfigMap
-		apiResourceObj *metav1.APIResourceList
-		want           error
-	}{
-		configObj: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-public", Name: "cluster-info"},
-		},
-		apiResourceObj: &metav1.APIResourceList{
-			GroupVersion: "apps.openyurt.io/v1alpha1",
-			APIResources: []metav1.APIResource{
-				{
-					Name: "nodepools",
-					Kind: "NodePool",
-				},
-			},
-		},
-		want: nil,
-	}
-
-	var fakeOut io.Writer
-	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	fakeclient := clientsetfake.NewSimpleClientset(case1.configObj)
-	fakeclient.Fake.Resources = append(fakeclient.Fake.Resources, case1.apiResourceObj)
-	initializer.kubeClient = fakeclient
-	converter := NewClusterConverter(initializer)
-	converter.ComponentsBuilder = yurtutil.NewBuilder(initializer.KubeConfig)
-	converter.CloudNodes = []string{}
-	converter.EdgeNodes = []string{}
-	err := converter.deployYurthub()
-	if err != case1.want {
-		t.Errorf("failed to deploy yurthub")
-	}
-
 }
