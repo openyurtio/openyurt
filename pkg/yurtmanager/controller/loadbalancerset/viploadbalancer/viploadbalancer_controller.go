@@ -424,8 +424,14 @@ func (r *ReconcileVipLoadBalancer) reconcileDelete(ctx context.Context, poolServ
 
 	// Release the IP-VRID
 	r.IPManagers[poolName].Release(*ipvrid)
+	// update the PoolService
+	if err := r.Update(ctx, poolService); err != nil {
+		klog.Errorf(Format("Failed to update PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return reconcile.Result{}, err
+	}
 
-	if canRemoveFinalizer(poolService) {
+	// check if the agent has remove the vip service
+	if r.checkIfVipServiceOffline(ctx, poolService) {
 		// remove the finalizer in the PoolService
 		if err := r.removeFinalizer(ctx, poolService); err != nil {
 			klog.Errorf(Format("Failed to remove finalizer from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
@@ -434,6 +440,41 @@ func (r *ReconcileVipLoadBalancer) reconcileDelete(ctx context.Context, poolServ
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVipLoadBalancer) checkIfVipServiceOffline(ctx context.Context, poolService *netv1alpha1.PoolService) bool {
+	klog.V(4).Infof(Format("CheckIfVipServiceOffline VipLoadBalancer %s/%s", poolService.Namespace, poolService.Name))
+	// Get the reference endpoint
+	listSelector := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			network.LabelServiceName: poolService.Labels[network.LabelServiceName],
+		}),
+		Namespace: poolService.Namespace,
+	}
+
+	endpointSlice := &corev1.EndpointsList{}
+	if err := r.List(ctx, endpointSlice, listSelector); err != nil {
+		klog.Errorf(Format("Failed to get Endpoints from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
+		return false
+	}
+
+	ready := 0
+	target := len(endpointSlice.Items) / 2
+	for _, ep := range endpointSlice.Items {
+		if ep.Annotations == nil {
+			continue
+		}
+
+		if _, ok := ep.Annotations[AnnotationServiceVIPStatus]; !ok {
+			continue
+		}
+
+		if ep.Annotations[AnnotationServiceVIPStatus] == AnnotationServiceVIPStatusReady {
+			ready++
+		}
+	}
+
+	return ready >= target
 }
 
 func (r *ReconcileVipLoadBalancer) addFinalizer(ctx context.Context, poolService *netv1alpha1.PoolService) error {
