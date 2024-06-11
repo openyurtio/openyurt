@@ -551,3 +551,37 @@ func ReListWatchReq(rw http.ResponseWriter, req *http.Request) {
 	klog.Infof("this request write error event back finished.")
 	rw.(http.Flusher).Flush()
 }
+
+func IsMultiplexerRequest(req *http.Request, multiplexerResources []schema.GroupVersionResource) bool {
+	ctx := req.Context()
+
+	if req.UserAgent() == "share-hub" {
+		return false
+	}
+
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok {
+		return false
+	}
+
+	if info.Verb != "list" && info.Verb != "watch" && info.Verb != "get" {
+		return false
+	}
+
+	return isMultiplexerResource(info, multiplexerResources)
+}
+
+func isMultiplexerResource(info *apirequest.RequestInfo, multiplexerResources []schema.GroupVersionResource) bool {
+	gvr := schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	}
+
+	for _, resource := range multiplexerResources {
+		if gvr.String() == resource.String() {
+			return true
+		}
+	}
+	return false
+}
