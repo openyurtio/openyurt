@@ -41,6 +41,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
 	rest *rest.RestConfigManager,
 	stopCh <-chan struct{}) error {
+
 	hubServerHandler := mux.NewRouter()
 	registerHandlers(hubServerHandler, cfg, rest)
 
@@ -72,7 +73,6 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 			return err
 		}
 	}
-
 	return nil
 }
 
