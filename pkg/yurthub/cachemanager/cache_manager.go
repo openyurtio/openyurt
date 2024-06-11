@@ -84,12 +84,13 @@ type cacheManager struct {
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
+	nodeName string,
 	storagewrapper StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
 ) CacheManager {
-	cacheAgents := NewCacheAgents(sharedFactory, storagewrapper)
+	cacheAgents := NewCacheAgents(nodeName, sharedFactory, storagewrapper)
 	cm := &cacheManager{
 		storage:               storagewrapper,
 		serializerManager:     serializerMgr,

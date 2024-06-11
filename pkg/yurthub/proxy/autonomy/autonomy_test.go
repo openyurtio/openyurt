@@ -49,7 +49,7 @@ func TestHttpServeKubeletGetNode(t *testing.T) {
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager("node1", storageWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	autonomyProxy := NewAutonomyProxy(nil, cacheM)
 

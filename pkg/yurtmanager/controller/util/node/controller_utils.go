@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,12 +69,12 @@ var UpdateLabelBackoff = wait.Backoff{
 // DeletePods will delete all pods from master running on given node,
 // and return true if any pods were deleted, or were found pending
 // deletion.
-func DeletePods(ctx context.Context, c client.Client, pods []*v1.Pod, recorder record.EventRecorder, nodeName, nodeUID string) (bool, error) {
+func DeletePods(ctx context.Context, c client.Client, pods []*corev1.Pod, recorder record.EventRecorder, nodeName, nodeUID string) (bool, error) {
 	remaining := false
 	var updateErrList []error
 
 	if len(pods) > 0 {
-		RecordNodeEvent(ctx, recorder, nodeName, nodeUID, v1.EventTypeNormal, "DeletingAllPods", fmt.Sprintf("Deleting all Pods from Node %v.", nodeName))
+		RecordNodeEvent(ctx, recorder, nodeName, nodeUID, corev1.EventTypeNormal, "DeletingAllPods", fmt.Sprintf("Deleting all Pods from Node %v.", nodeName))
 	}
 
 	for i := range pods {
@@ -100,7 +100,7 @@ func DeletePods(ctx context.Context, c client.Client, pods []*v1.Pod, recorder r
 		}
 
 		klog.InfoS("Starting deletion of pod", "pod", klog.KObj(pod))
-		recorder.Eventf(pod, v1.EventTypeNormal, "NodeControllerEviction", "Marking for deletion Pod %s from Node %s", pod.Name, nodeName)
+		recorder.Eventf(pod, corev1.EventTypeNormal, "NodeControllerEviction", "Marking for deletion Pod %s from Node %s", pod.Name, nodeName)
 		//if err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 		if err := c.Delete(ctx, pod); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -122,7 +122,7 @@ func DeletePods(ctx context.Context, c client.Client, pods []*v1.Pod, recorder r
 // SetPodTerminationReason attempts to set a reason and message in the
 // pod status, updates it in the apiserver, and returns an error if it
 // encounters one.
-func SetPodTerminationReason(ctx context.Context, c client.Client, pod *v1.Pod, nodeName string) (*v1.Pod, error) {
+func SetPodTerminationReason(ctx context.Context, c client.Client, pod *corev1.Pod, nodeName string) (*corev1.Pod, error) {
 	if pod.Status.Reason == NodeUnreachablePodReason {
 		return pod, nil
 	}
@@ -140,7 +140,7 @@ func SetPodTerminationReason(ctx context.Context, c client.Client, pod *v1.Pod, 
 
 // MarkPodsNotReady updates ready status of given pods running on
 // given node from master return true if success
-func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.EventRecorder, pods []*v1.Pod, nodeName string) error {
+func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.EventRecorder, pods []*corev1.Pod, nodeName string) error {
 	klog.V(2).InfoS("Update ready status of pods on node", "node", klog.KRef("", nodeName))
 
 	errs := []error{}
@@ -153,11 +153,11 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 		// Pod will be modified, so making copy is required.
 		pod := pods[i].DeepCopy()
 		for _, cond := range pod.Status.Conditions {
-			if cond.Type != v1.PodReady {
+			if cond.Type != corev1.PodReady {
 				continue
 			}
 
-			cond.Status = v1.ConditionFalse
+			cond.Status = corev1.ConditionFalse
 			if !utilpod.UpdatePodCondition(&pod.Status, &cond) {
 				break
 			}
@@ -174,7 +174,7 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 				errs = append(errs, err)
 			}
 			// record NodeNotReady event after updateStatus to make sure pod still exists
-			recorder.Event(pod, v1.EventTypeWarning, "NodeNotReady", "Node is not ready")
+			recorder.Event(pod, corev1.EventTypeWarning, "NodeNotReady", "Node is not ready")
 			break
 		}
 	}
@@ -184,7 +184,7 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 
 // RecordNodeEvent records a event related to a node.
 func RecordNodeEvent(ctx context.Context, recorder record.EventRecorder, nodeName, nodeUID, eventtype, reason, event string) {
-	ref := &v1.ObjectReference{
+	ref := &corev1.ObjectReference{
 		APIVersion: "v1",
 		Kind:       "Node",
 		Name:       nodeName,
@@ -196,8 +196,8 @@ func RecordNodeEvent(ctx context.Context, recorder record.EventRecorder, nodeNam
 }
 
 // RecordNodeStatusChange records a event related to a node status change. (Common to lifecycle and ipam)
-func RecordNodeStatusChange(recorder record.EventRecorder, node *v1.Node, newStatus string) {
-	ref := &v1.ObjectReference{
+func RecordNodeStatusChange(recorder record.EventRecorder, node *corev1.Node, newStatus string) {
+	ref := &corev1.ObjectReference{
 		APIVersion: "v1",
 		Kind:       "Node",
 		Name:       node.Name,
@@ -207,12 +207,12 @@ func RecordNodeStatusChange(recorder record.EventRecorder, node *v1.Node, newSta
 	klog.V(2).InfoS("Recording status change event message for node", "status", newStatus, "node", node.Name)
 	// TODO: This requires a transaction, either both node status is updated
 	// and event is recorded or neither should happen, see issue #6055.
-	recorder.Eventf(ref, v1.EventTypeNormal, newStatus, "Node %s status is now: %s", node.Name, newStatus)
+	recorder.Eventf(ref, corev1.EventTypeNormal, newStatus, "Node %s status is now: %s", node.Name, newStatus)
 }
 
 // SwapNodeControllerTaint returns true in case of success and false
 // otherwise.
-func SwapNodeControllerTaint(ctx context.Context, kubeClient clientset.Interface, taintsToAdd, taintsToRemove []*v1.Taint, node *v1.Node) bool {
+func SwapNodeControllerTaint(ctx context.Context, kubeClient clientset.Interface, taintsToAdd, taintsToRemove []*corev1.Taint, node *corev1.Node) bool {
 	for _, taintToAdd := range taintsToAdd {
 		now := metav1.Now()
 		taintToAdd.TimeAdded = &now
@@ -247,7 +247,7 @@ func SwapNodeControllerTaint(ctx context.Context, kubeClient clientset.Interface
 
 // AddOrUpdateLabelsOnNode updates the labels on the node and returns true on
 // success and false on failure.
-func AddOrUpdateLabelsOnNode(ctx context.Context, kubeClient clientset.Interface, labelsToUpdate map[string]string, node *v1.Node) bool {
+func AddOrUpdateLabelsOnNode(ctx context.Context, kubeClient clientset.Interface, labelsToUpdate map[string]string, node *corev1.Node) bool {
 	if err := addOrUpdateLabelsOnNode(kubeClient, node.Name, labelsToUpdate); err != nil {
 		utilruntime.HandleError(
 			fmt.Errorf(
@@ -263,7 +263,7 @@ func AddOrUpdateLabelsOnNode(ctx context.Context, kubeClient clientset.Interface
 
 // GetNodeCondition extracts the provided condition from the given status and returns that.
 // Returns nil and -1 if the condition is not present, and the index of the located condition.
-func GetNodeCondition(status *v1.NodeStatus, conditionType v1.NodeConditionType) (int, *v1.NodeCondition) {
+func GetNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeConditionType) (int, *corev1.NodeCondition) {
 	if status == nil {
 		return -1, nil
 	}
@@ -277,14 +277,14 @@ func GetNodeCondition(status *v1.NodeStatus, conditionType v1.NodeConditionType)
 
 // AddOrUpdateTaintOnNode add taints to the node. If taint was added into node, it'll issue API calls
 // to update nodes; otherwise, no API calls. Return error if any.
-func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName string, taints ...*v1.Taint) error {
+func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName string, taints ...*corev1.Taint) error {
 	if len(taints) == 0 {
 		return nil
 	}
 	firstTry := true
 	return clientretry.RetryOnConflict(UpdateTaintBackoff, func() error {
 		var err error
-		var oldNode *v1.Node
+		var oldNode *corev1.Node
 		// First we try getting node from the API server cache, as it's cheaper. If it fails
 		// we get it from etcd to be sure to have fresh data.
 		option := metav1.GetOptions{}
@@ -297,7 +297,7 @@ func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName
 			return err
 		}
 
-		var newNode *v1.Node
+		var newNode *corev1.Node
 		oldNodeCopy := oldNode
 		updated := false
 		for _, taint := range taints {
@@ -320,7 +320,7 @@ func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName
 // won't fail if target taint doesn't exist or has been removed.
 // If passed a node it'll check if there's anything to be done, if taint is not present it won't issue
 // any API calls.
-func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName string, node *v1.Node, taints ...*v1.Taint) error {
+func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName string, node *corev1.Node, taints ...*corev1.Taint) error {
 	if len(taints) == 0 {
 		return nil
 	}
@@ -341,7 +341,7 @@ func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName str
 	firstTry := true
 	return clientretry.RetryOnConflict(UpdateTaintBackoff, func() error {
 		var err error
-		var oldNode *v1.Node
+		var oldNode *corev1.Node
 		// First we try getting node from the API server cache, as it's cheaper. If it fails
 		// we get it from etcd to be sure to have fresh data.
 		option := metav1.GetOptions{}
@@ -354,7 +354,7 @@ func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName str
 			return err
 		}
 
-		var newNode *v1.Node
+		var newNode *corev1.Node
 		oldNodeCopy := oldNode
 		updated := false
 		for _, taint := range taints {
@@ -374,7 +374,7 @@ func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName str
 }
 
 // PatchNodeTaints patches node's taints.
-func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string, oldNode *v1.Node, newNode *v1.Node) error {
+func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string, oldNode *corev1.Node, newNode *corev1.Node) error {
 	// Strip base diff node from RV to ensure that our Patch request will set RV to check for conflicts over .spec.taints.
 	// This is needed because .spec.taints does not specify patchMergeKey and patchStrategy and adding them is no longer an option for compatibility reasons.
 	// Using other Patch strategy works for adding new taints, however will not resolve problem with taint removal.
@@ -393,7 +393,7 @@ func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string
 		return fmt.Errorf("could not marshal new node %#v for node %q: %v", newNodeClone, nodeName, err)
 	}
 
-	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldDataNoRV, newData, v1.Node{})
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldDataNoRV, newData, corev1.Node{})
 	if err != nil {
 		return fmt.Errorf("could not create patch for node %q: %v", nodeName, err)
 	}
@@ -406,7 +406,7 @@ func addOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 	firstTry := true
 	return clientretry.RetryOnConflict(UpdateLabelBackoff, func() error {
 		var err error
-		var node *v1.Node
+		var node *corev1.Node
 		// First we try getting node from the API server cache, as it's cheaper. If it fails
 		// we get it from etcd to be sure to have fresh data.
 		option := metav1.GetOptions{}
@@ -436,7 +436,7 @@ func addOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 		if err != nil {
 			return fmt.Errorf("could not marshal the new node %#v: %v", newNode, err)
 		}
-		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &v1.Node{})
+		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, &corev1.Node{})
 		if err != nil {
 			return fmt.Errorf("could not create a two-way merge patch: %v", err)
 		}
@@ -453,7 +453,7 @@ func addOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 // - apps.openyurt.io/binding: "true"
 // - openyurt.beta.io/autonomy: "true"
 // - openyurt.io/autonomy-duration: "duration"
-func IsPodBoundenToNode(node *v1.Node) bool {
+func IsPodBoundenToNode(node *corev1.Node) bool {
 	if node.Annotations == nil {
 		return false
 	}

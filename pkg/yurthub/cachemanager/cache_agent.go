@@ -35,14 +35,16 @@ const (
 
 type CacheAgent struct {
 	sync.Mutex
-	agents sets.Set[string]
-	store  StorageWrapper
+	agents   sets.Set[string]
+	store    StorageWrapper
+	nodeName string
 }
 
-func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
+func NewCacheAgents(nodeName string, informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
-		agents: sets.New(util.DefaultCacheAgents...),
-		store:  store,
+		agents:   sets.New(util.DefaultCacheAgents...).Insert(util.MultiplexerProxyClientUserAgentPrefix + nodeName),
+		store:    store,
+		nodeName: nodeName,
 	}
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -108,7 +110,7 @@ func (ca *CacheAgent) deleteConfigmap(obj interface{}) {
 
 // updateCacheAgents update cache agents
 func (ca *CacheAgent) updateCacheAgents(cacheAgents, action string) sets.Set[string] {
-	newAgents := sets.New(util.DefaultCacheAgents...)
+	newAgents := sets.New(util.DefaultCacheAgents...).Insert(util.MultiplexerProxyClientUserAgentPrefix + ca.nodeName)
 	for _, agent := range strings.Split(cacheAgents, sepForAgent) {
 		agent = strings.TrimSpace(agent)
 		if len(agent) != 0 {

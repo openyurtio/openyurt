@@ -150,6 +150,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			gomega.Eventually(func() string {
 				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'curl -m 2 "+NginxServiceIP+"'").CombinedOutput()
 				if err != nil {
+					klog.Errorf("failed to curl nginx service cluster ip %v", err)
 					return ""
 				}
 				return string(opBytes)
