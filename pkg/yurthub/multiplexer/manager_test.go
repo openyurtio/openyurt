@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -28,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kstorage "k8s.io/apiserver/pkg/storage"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 )
 
 func TestShareCacheManager_ResourceCacheConfig(t *testing.T) {
@@ -121,7 +120,6 @@ func TestShareCacheManager_ResourceCacheConfig(t *testing.T) {
 		})
 	}
 }
-
 func newService(namespace, name string) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{

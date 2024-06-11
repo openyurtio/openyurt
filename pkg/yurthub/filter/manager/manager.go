@@ -111,3 +111,20 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 
 	return nil, false
 }
+
+func (m *Manager) FindObjectFilters(req *http.Request) filter.ObjectFilter {
+	objectFilters := make([]filter.ObjectFilter, 0)
+	approved, filterNames := m.Approver.Approve(req)
+	if !approved {
+		return nil
+	}
+
+	for i := range filterNames {
+		if objectFilter, ok := m.nameToObjectFilter[filterNames[i]]; ok {
+			objectFilters = append(objectFilters, objectFilter)
+		}
+	}
+
+	filters := filter.UnionObjectFilter(objectFilters)
+	return filters
+}

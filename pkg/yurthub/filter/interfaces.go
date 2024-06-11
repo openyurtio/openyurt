@@ -19,10 +19,13 @@ package filter
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 )
 
 type NodesInPoolGetter func(poolName string) ([]string, error)
@@ -59,4 +62,35 @@ type ObjectFilter interface {
 	Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object
 }
 
+type FilterManager interface {
+	FindResponseFilter(req *http.Request) (ResponseFilter, bool)
+	FindObjectFilters(req *http.Request) ObjectFilter
+}
+
 type NodeGetter func(name string) (*v1.Node, error)
+
+type UnionObjectFilter []ObjectFilter
+
+func (chain UnionObjectFilter) Name() string {
+	var names []string
+	for i := range chain {
+		names = append(names, chain[i].Name())
+	}
+	return strings.Join(names, ",")
+}
+
+func (chain UnionObjectFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+	// do nothing
+	return map[string]sets.Set[string]{}
+}
+
+func (chain UnionObjectFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+	for i := range chain {
+		obj = chain[i].Filter(obj, stopCh)
+		if yurtutil.IsNil(obj) {
+			break
+		}
+	}
+
+	return obj
+}

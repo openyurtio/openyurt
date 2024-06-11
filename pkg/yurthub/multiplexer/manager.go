@@ -30,7 +30,7 @@ import (
 	ystorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 )
 
-var keyFunc = func(obj runtime.Object) (string, error) {
+var KeyFunc = func(obj runtime.Object) (string, error) {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return "", err
@@ -48,7 +48,7 @@ var keyFunc = func(obj runtime.Object) (string, error) {
 	return "/" + ns + "/" + name, nil
 }
 
-var attrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
+var AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
 	metadata, err := meta.Accessor(obj)
 	if err != nil {
 		return nil, nil, err
@@ -93,7 +93,6 @@ func NewRequestsMultiplexerManager(
 		cacheDestroyFuncMap: make(map[string]func()),
 	}
 }
-
 func (m *multiplexerManager) ResourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, error) {
 	if config, ok := m.cacheConfigMap[gvr.String()]; ok {
 		return config, nil
@@ -127,7 +126,6 @@ func (m *multiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (sch
 
 func (m *multiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 	listGVK schema.GroupVersionKind) *ResourceCacheConfig {
-
 	resourceCacheConfig := &ResourceCacheConfig{
 		NewFunc: func() runtime.Object {
 			obj, _ := scheme.Scheme.New(gvk)
@@ -137,8 +135,8 @@ func (m *multiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 			objList, _ := scheme.Scheme.New(listGVK)
 			return objList
 		},
-		KeyFunc:      keyFunc,
-		GetAttrsFunc: attrsFunc,
+		KeyFunc:      KeyFunc,
+		GetAttrsFunc: AttrsFunc,
 	}
 
 	return resourceCacheConfig
