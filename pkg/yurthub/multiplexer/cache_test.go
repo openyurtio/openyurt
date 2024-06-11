@@ -48,19 +48,60 @@ var newServiceListFunc = func() runtime.Object {
 }
 
 func TestResourceCache_GetList(t *testing.T) {
-	cache, _, err := NewResourceCache(
-		ystorage.NewFakeServiceStorage([]v1.Service{*newService(metav1.NamespaceSystem, "coredns")}),
+	storage := ystorage.NewFakeServiceStorage(
+		[]v1.Service{
+			*newService(metav1.NamespaceSystem, "coredns"),
+			*newService(metav1.NamespaceDefault, "nginx"),
+		})
+
+	cache, _, _ := NewResourceCache(
+		storage,
 		serviceGVR,
 		&ResourceCacheConfig{
-			keyFunc,
+			KeyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			attrsFunc,
+			AttrsFunc,
 		},
 	)
 
-	assert.Nil(t, err)
-	assertCacheGetList(t, cache)
+	for _, tc := range []struct {
+		name                string
+		key                 string
+		expectedServiceList *v1.ServiceList
+	}{
+		{
+			"all namespace",
+			"",
+			&v1.ServiceList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "100",
+				},
+				Items: []v1.Service{
+					*newService(metav1.NamespaceDefault, "nginx"),
+					*newService(metav1.NamespaceSystem, "coredns"),
+				},
+			},
+		},
+		{
+			"default namespace",
+			"/default",
+			&v1.ServiceList{
+				ListMeta: metav1.ListMeta{
+					ResourceVersion: "100",
+				},
+				Items: []v1.Service{
+					*newService(metav1.NamespaceDefault, "nginx"),
+				},
+			},
+		},
+	} {
+		serviceList := &v1.ServiceList{}
+		err := cache.GetList(context.Background(), tc.key, mockListOptions(), serviceList)
+
+		assert.Nil(t, err)
+		assert.Equal(t, tc.expectedServiceList.Items, serviceList.Items)
+	}
 }
 
 func mockListOptions() storage.ListOptions {
@@ -74,16 +115,6 @@ func mockListOptions() storage.ListOptions {
 	}
 }
 
-func assertCacheGetList(t testing.TB, cache Interface) {
-	t.Helper()
-
-	serviceList := &v1.ServiceList{}
-	err := cache.GetList(context.Background(), "", mockListOptions(), serviceList)
-
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(serviceList.Items))
-}
-
 func TestResourceCache_Watch(t *testing.T) {
 	fakeStorage := ystorage.NewFakeServiceStorage([]v1.Service{*newService(metav1.NamespaceSystem, "coredns")})
 
@@ -91,10 +122,10 @@ func TestResourceCache_Watch(t *testing.T) {
 		fakeStorage,
 		serviceGVR,
 		&ResourceCacheConfig{
-			keyFunc,
+			KeyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			attrsFunc,
+			AttrsFunc,
 		},
 	)
 
@@ -117,7 +148,7 @@ func mockWatchOptions() storage.ListOptions {
 }
 
 func assertCacheWatch(t testing.TB, cache Interface, fs *ystorage.FakeServiceStorage) {
-	receive, err := cache.Watch(context.TODO(), "", mockWatchOptions())
+	receive, err := cache.Watch(context.TODO(), "/kube-system", mockWatchOptions())
 
 	go func() {
 		fs.AddWatchObject(newService(metav1.NamespaceSystem, "coredns2"))
@@ -126,31 +157,4 @@ func assertCacheWatch(t testing.TB, cache Interface, fs *ystorage.FakeServiceSto
 	assert.Nil(t, err)
 	event := <-receive.ResultChan()
 	assert.Equal(t, watch.Added, event.Type)
-}
-
-func TestResourceCache_Get(t *testing.T) {
-	cache, _, err := NewResourceCache(
-		ystorage.NewFakeServiceStorage([]v1.Service{*newService(metav1.NamespaceSystem, "coredns")}),
-		serviceGVR,
-		&ResourceCacheConfig{
-			keyFunc,
-			newServiceFunc,
-			newServiceListFunc,
-			attrsFunc,
-		},
-	)
-	assert.Nil(t, err)
-	assertCacheGet(t, cache)
-}
-
-func assertCacheGet(t testing.TB, cache Interface) {
-	t.Helper()
-
-	service := &v1.Service{}
-	err := cache.Get(context.Background(), "/kube-system/coredns", storage.GetOptions{
-		ResourceVersion: "1",
-	}, service)
-
-	assert.Nil(t, err)
-	assert.Equal(t, "coredns", service.Name)
 }

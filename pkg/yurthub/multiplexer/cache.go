@@ -31,7 +31,6 @@ import (
 
 type Interface interface {
 	Watch(ctx context.Context, key string, opts kstorage.ListOptions) (watch.Interface, error)
-	Get(ctx context.Context, key string, opts kstorage.GetOptions, objPtr runtime.Object) error
 	GetList(ctx context.Context, key string, opts kstorage.ListOptions, listObj runtime.Object) error
 }
 

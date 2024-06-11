@@ -51,18 +51,18 @@ func (sm *storageManager) ResourceStorage(gvr *schema.GroupVersionResource) (sto
 		return nil, errors.Wrapf(err, "failed to get rest client for %v", gvr)
 	}
 
-	rs := &store{
-		resource:   gvr.Resource,
-		restClient: restClient,
-	}
-
+	rs := NewStore(restClient, gvr.Resource)
 	sm.storageMap[gvr.String()] = rs
 
 	return rs, nil
 }
 
 func (sm *storageManager) restClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
-	httpClient, _ := rest.HTTPClientFor(sm.config)
+	httpClient, err := rest.HTTPClientFor(sm.config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get reset http client")
+	}
+
 	configShallowCopy := *sm.config
 	configShallowCopy.APIPath = getAPIPath(gvr)
 
