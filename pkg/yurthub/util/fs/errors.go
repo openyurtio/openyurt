@@ -16,13 +16,16 @@ limitations under the License.
 
 package fs
 
-import "errors"
+import (
+	"errors"
+	"io/fs"
+)
 
 var (
 	ErrIsNotDir    = errors.New("the path is not a directory")
 	ErrIsNotFile   = errors.New("the path is not a regular file")
-	ErrExists      = errors.New("path has already existed")
-	ErrNotExists   = errors.New("path does not exist")
+	ErrExists      = fs.ErrExist
+	ErrNotExists   = fs.ErrNotExist
 	ErrInvalidPath = errors.New("invalid path")
 	ErrSysCall     = errors.New("system call failed")
 )

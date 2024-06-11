@@ -19,6 +19,7 @@ package storage
 import (
 	"context"
 	"errors"
+	iofs "io/fs"
 	"time"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
@@ -87,8 +88,28 @@ func (c *Controller) handleErr(ctx context.Context, err error, key Key) {
 	switch {
 	case errors.Is(err, ErrStorageAccessConflict):
 		c.queue.Add(Item{Key: key})
+
+	case errors.Is(err, iofs.ErrPermission):
+		klog.Errorf("failed to operate %s, permission denied: %v", key, err)
+	case errors.Is(err, iofs.ErrClosed):
+		klog.Errorf("failed to operate %s, file closed: %v", key, err)
+	case errors.Is(err, iofs.ErrInvalid):
+		klog.Errorf("failed to operate %s, invalid argument: %v", key, err)
+
+	case errors.Is(err, fs.ErrExists):
+		klog.Errorf("failed to operate %s, file exists: %v", key, err)
+	case errors.Is(err, fs.ErrNotExists):
+		klog.Errorf("failed to operate %s, file not exists: %v", key, err)
+	case errors.Is(err, fs.ErrIsNotDir):
+		klog.Errorf("failed to operate %s, path points to a file, not dir: %v", key, err)
+	case errors.Is(err, fs.ErrIsNotFile):
+		klog.Errorf("failed to operate %s, path points to a dir, not file: %v", key, err)
+	case errors.Is(err, fs.ErrInvalidPath):
+		klog.Errorf("failed to operate %s, path is invalid: %v", key, err)
 	case errors.Is(err, fs.ErrSysCall):
 		klog.ErrorS(err, "system call failed")
+		c.queue.Add(Item{Key: key})
+
 	case errors.Is(err, nil):
 		c.queue.Done(key)
 	default:
