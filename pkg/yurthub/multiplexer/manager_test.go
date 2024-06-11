@@ -17,6 +17,7 @@ limitations under the License.
 package multiplexer
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -121,7 +122,6 @@ func TestShareCacheManager_ResourceCacheConfig(t *testing.T) {
 		})
 	}
 }
-
 func newService(namespace, name string) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -166,15 +166,26 @@ func newNode() *v1.Node {
 }
 
 func TestShareCacheManager_ResourceCache(t *testing.T) {
-	svcStorage := storage.NewFakeServiceStorage([]v1.Service{*newService(metav1.NamespaceSystem, "coredns")})
+	svcStorage := storage.NewFakeServiceStorage(
+		[]v1.Service{
+			*newService(metav1.NamespaceSystem, "coredns"),
+			*newService(metav1.NamespaceDefault, "nginx"),
+		})
+
 	storageMap := map[string]kstorage.Interface{
 		serviceGVR.String(): svcStorage,
 	}
 
 	dsm := storage.NewDummyStorageManager(storageMap)
 	scm := NewRequestsMultiplexerManager(dsm)
-	cache, _, err := scm.ResourceCache(serviceGVR)
+	cache, _, _ := scm.ResourceCache(serviceGVR)
+
+	serviceList := &v1.ServiceList{}
+	err := cache.GetList(context.Background(), "", mockListOptions(), serviceList)
 
 	assert.Nil(t, err)
-	assertCacheGetList(t, cache)
+	assert.Equal(t, []v1.Service{
+		*newService(metav1.NamespaceDefault, "nginx"),
+		*newService(metav1.NamespaceSystem, "coredns"),
+	}, serviceList.Items)
 }

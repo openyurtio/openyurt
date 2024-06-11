@@ -18,8 +18,11 @@ package storage
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -91,4 +94,42 @@ func (fs *FakeServiceStorage) Watch(ctx context.Context, key string, opts storag
 func (fs *FakeServiceStorage) AddWatchObject(svc *v1.Service) {
 	svc.ResourceVersion = "101"
 	fs.watcher.Add(svc)
+}
+
+type FakeEndpointSliceStorage struct {
+	*CommonFakeStorage
+	items   []discovery.EndpointSlice
+	watcher *watch.FakeWatcher
+}
+
+func NewFakeEndpointSliceStorage(items []discovery.EndpointSlice) *FakeEndpointSliceStorage {
+	return &FakeEndpointSliceStorage{
+		CommonFakeStorage: &CommonFakeStorage{},
+		items:             items,
+		watcher:           watch.NewFake(),
+	}
+}
+
+func (fs *FakeEndpointSliceStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	epsList := listObj.(*discovery.EndpointSliceList)
+	epsList.ListMeta = metav1.ListMeta{
+		ResourceVersion: "100",
+	}
+
+	for _, item := range fs.items {
+		itemKey := fmt.Sprintf("/%s/%s", item.Namespace, item.Name)
+		if strings.HasPrefix(itemKey, key) {
+			epsList.Items = append(epsList.Items, item)
+		}
+	}
+	return nil
+}
+
+func (fs *FakeEndpointSliceStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	return fs.watcher, nil
+}
+
+func (fs *FakeEndpointSliceStorage) AddWatchObject(eps *discovery.EndpointSlice) {
+	eps.ResourceVersion = "101"
+	fs.watcher.Add(eps)
 }

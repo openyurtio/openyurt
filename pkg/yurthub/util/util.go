@@ -86,13 +86,15 @@ const (
 	CacheUserAgentsKey    = "cache_agents"
 	PoolScopeResourcesKey = "pool_scope_resources"
 
+	MultiplexerProxyClientUserAgentPrefix = "multiplexer-proxy-"
+
 	YurtHubProxyPort       = 10261
 	YurtHubPort            = 10267
 	YurtHubProxySecurePort = 10268
 )
 
 var (
-	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", "share-hub", projectinfo.GetAgentName(), projectinfo.GetHubName(), coordinatorconstants.DefaultPoolScopedUserAgent}
+	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", projectinfo.GetAgentName(), projectinfo.GetHubName(), coordinatorconstants.DefaultPoolScopedUserAgent}
 	YurthubConfigMapName = fmt.Sprintf("%s-hub-cfg", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 )
 
