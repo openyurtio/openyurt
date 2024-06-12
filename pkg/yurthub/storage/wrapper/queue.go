@@ -14,27 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage
+package wrapper
 
 import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
 type Interface interface {
 	Add(item Item)
 	Replace(items Items)
-	Get() (Key, Items, bool)
+	Get() (storage.Key, Items, bool)
 	Len() int
-	Done(key Key)
+	Done(key storage.Key)
 	Shutdown()
 	ShuttingDown() bool
 	HasSynced() bool
 }
 
 type Item struct {
-	Key             Key
+	Key             storage.Key
 	Verb            string
 	Object          runtime.Object
 	ResourceVersion uint64
@@ -42,18 +44,18 @@ type Item struct {
 
 type Items []Item
 
-type set map[Key]struct{}
+type set map[storage.Key]struct{}
 
-func (s set) has(item Key) bool {
+func (s set) has(item storage.Key) bool {
 	_, exists := s[item]
 	return exists
 }
 
-func (s set) insert(item Key) {
+func (s set) insert(item storage.Key) {
 	s[item] = struct{}{}
 }
 
-func (s set) delete(item Key) {
+func (s set) delete(item storage.Key) {
 	delete(s, item)
 }
 
@@ -63,20 +65,25 @@ func (s set) len() int {
 
 type Queue struct {
 	cond         *sync.Cond
-	items        map[Key]Items
-	queue        []Key
+	items        map[storage.Key]Items
+	queue        []storage.Key
 	dirty        set
 	shuttingDown bool
 }
 
 func NewQueueWithOptions() *Queue {
-	return &Queue{}
+	return &Queue{
+		cond:  sync.NewCond(&sync.Mutex{}),
+		dirty: set{},
+		items: make(map[storage.Key]Items),
+		queue: make([]storage.Key, 0),
+	}
 }
 
-func (q *Queue) Get() (Key, Items, bool) {
+func (q *Queue) Get() (storage.Key, Items, bool) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
-	for len(q.queue) == 0 {
+	for len(q.queue) == 0 && !q.shuttingDown {
 		q.cond.Wait()
 	}
 	if len(q.queue) == 0 {
@@ -93,6 +100,9 @@ func (q *Queue) Get() (Key, Items, bool) {
 func (q *Queue) Add(item Item) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
+	if q.shuttingDown {
+		return
+	}
 	oldItems := q.items[item.Key]
 	var newItems Items
 	if item.Object != nil {
@@ -112,6 +122,9 @@ func (q *Queue) Add(item Item) {
 func (q *Queue) Replace(items Items) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
+	if q.shuttingDown {
+		return
+	}
 	key := items[0].Key
 
 	if q.dirty.has(key) {
@@ -130,7 +143,7 @@ func (q *Queue) Len() int {
 	return len(q.queue)
 }
 
-func (q *Queue) Done(key Key) {
+func (q *Queue) Done(key storage.Key) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage
+package wrapper
 
 import (
 	"context"
@@ -22,10 +22,12 @@ import (
 	iofs "io/fs"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util/fs"
 )
 
 var (
@@ -34,10 +36,10 @@ var (
 
 type Controller struct {
 	queue Interface
-	store Store
+	store storage.Store
 }
 
-func NewController(queue Interface, store Store) *Controller {
+func NewController(queue Interface, store storage.Store) *Controller {
 	return &Controller{queue: queue, store: store}
 }
 
@@ -62,15 +64,19 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) syncHandler(ctx context.Context, key Key, items Items) error {
+func (c *Controller) syncHandler(ctx context.Context, key storage.Key, items Items) error {
 	if key.IsRootKey() {
-		objs := make(map[Key]runtime.Object)
+		objs := make(map[storage.Key]runtime.Object)
 		for i := 0; i < len(items); i++ {
 			objs[items[i].Key] = items[i].Object
 		}
 		return c.store.Replace(key, objs)
 	}
 
+	if len(items) == 0 {
+		return nil
+	}
+	klog.Infof("key: %s", key.Key())
 	item := items[len(items)-1]
 	var err error
 	switch item.Verb {
@@ -80,13 +86,16 @@ func (c *Controller) syncHandler(ctx context.Context, key Key, items Items) erro
 		_, err = c.store.Update(key, item.Object, item.ResourceVersion)
 	case "delete":
 		err = c.store.Delete(key)
+	default:
+		klog.Errorf("not supported verb: %s", item.Verb)
+		return errors.New("only support create, update, delete, and list")
 	}
 	return err
 }
 
-func (c *Controller) handleErr(ctx context.Context, err error, key Key) {
+func (c *Controller) handleErr(ctx context.Context, err error, key storage.Key) {
 	switch {
-	case errors.Is(err, ErrStorageAccessConflict):
+	case errors.Is(err, storage.ErrStorageAccessConflict):
 		c.queue.Add(Item{Key: key})
 
 	case errors.Is(err, iofs.ErrPermission):

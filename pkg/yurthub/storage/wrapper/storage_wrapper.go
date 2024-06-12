@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage
+package wrapper
 
 import (
 	"sync"
@@ -22,26 +22,28 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
-// StorageWrapper is wrapper for storage.Store interface
+// StorageWrapper is wrapper for  Store interface
 // in order to handle serialize runtime object
 type StorageWrapper interface {
-	Store
-	SaveClusterInfo(key ClusterInfoKey, content []byte) error
-	GetClusterInfo(key ClusterInfoKey) ([]byte, error)
-	GetStorage() Store
+	storage.Store
+	SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
+	GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
+	GetStorage() storage.Store
 }
 
 type storageWrapper struct {
 	sync.RWMutex
-	store             Store
+	store             storage.Store
 	backendSerializer runtime.Serializer
 	queue             Interface
 }
 
 // NewStorageWrapper create a StorageWrapper object
-func NewStorageWrapper(storage Store, queue Interface) StorageWrapper {
+func NewStorageWrapper(storage storage.Store, queue Interface) StorageWrapper {
 	sw := &storageWrapper{
 		store:             storage,
 		backendSerializer: json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
@@ -54,11 +56,11 @@ func (sw *storageWrapper) Name() string {
 	return sw.store.Name()
 }
 
-func (sw *storageWrapper) KeyFunc(info KeyBuildInfo) (Key, error) {
+func (sw *storageWrapper) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	return sw.store.KeyFunc(info)
 }
 
-func (sw *storageWrapper) GetStorage() Store {
+func (sw *storageWrapper) GetStorage() storage.Store {
 	return sw.store
 }
 
@@ -66,7 +68,7 @@ func (sw *storageWrapper) GetStorage() Store {
 // if obj is nil, the storage used to represent the key
 // will be created. for example: for disk storage,
 // a directory that indicates the key will be created.
-func (sw *storageWrapper) Create(key Key, obj runtime.Object) error {
+func (sw *storageWrapper) Create(key storage.Key, obj runtime.Object) error {
 	item := Item{
 		Key:    key,
 		Object: obj,
@@ -77,7 +79,7 @@ func (sw *storageWrapper) Create(key Key, obj runtime.Object) error {
 }
 
 // Delete remove runtime object that by specified key from backend storage
-func (sw *storageWrapper) Delete(key Key) error {
+func (sw *storageWrapper) Delete(key storage.Key) error {
 	item := Item{
 		Key:  key,
 		Verb: "delete",
@@ -87,7 +89,7 @@ func (sw *storageWrapper) Delete(key Key) error {
 }
 
 // Get get the runtime object that specified by key from backend storage
-func (sw *storageWrapper) Get(key Key) (runtime.Object, error) {
+func (sw *storageWrapper) Get(key storage.Key) (runtime.Object, error) {
 	obj, err := sw.store.Get(key)
 	if err != nil {
 		return nil, err
@@ -96,12 +98,12 @@ func (sw *storageWrapper) Get(key Key) (runtime.Object, error) {
 }
 
 // ListKeys list all keys with key as prefix
-func (sw *storageWrapper) ListKeys(key Key) ([]Key, error) {
+func (sw *storageWrapper) ListKeys(key storage.Key) ([]storage.Key, error) {
 	return sw.store.ListKeys(key)
 }
 
 // List get all of runtime objects that specified by key as prefix
-func (sw *storageWrapper) List(key Key) ([]runtime.Object, error) {
+func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 	objects, err := sw.store.List(key)
 	if err != nil {
 		return nil, err
@@ -110,7 +112,7 @@ func (sw *storageWrapper) List(key Key) ([]runtime.Object, error) {
 }
 
 // Update update runtime object in backend storage
-func (sw *storageWrapper) Update(key Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
+func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
 	item := Item{
 		Key:             key,
 		Object:          obj,
@@ -121,7 +123,7 @@ func (sw *storageWrapper) Update(key Key, obj runtime.Object, rv uint64) (runtim
 	return obj, nil
 }
 
-func (sw *storageWrapper) Replace(key Key, objs map[Key]runtime.Object) error {
+func (sw *storageWrapper) Replace(key storage.Key, objs map[storage.Key]runtime.Object) error {
 	var items []Item
 	for key, obj := range objs {
 		items = append(items, Item{
@@ -134,10 +136,10 @@ func (sw *storageWrapper) Replace(key Key, objs map[Key]runtime.Object) error {
 	return nil
 }
 
-func (sw *storageWrapper) SaveClusterInfo(key ClusterInfoKey, content []byte) error {
+func (sw *storageWrapper) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
 	return sw.store.SaveClusterInfo(key, content)
 }
 
-func (sw *storageWrapper) GetClusterInfo(key ClusterInfoKey) ([]byte, error) {
+func (sw *storageWrapper) GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error) {
 	return sw.store.GetClusterInfo(key)
 }

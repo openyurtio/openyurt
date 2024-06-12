@@ -263,7 +263,7 @@ func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error {
 
 func IfExists(path string) bool {
 	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrExist) {
+		if errors.Is(err, os.ErrNotExist) {
 			return false
 		}
 	}

@@ -45,6 +45,7 @@ import (
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -68,7 +69,7 @@ type CacheManager interface {
 
 type cacheManager struct {
 	sync.RWMutex
-	storage               storage.StorageWrapper
+	storage               wrapper.StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           *CacheAgent
@@ -78,7 +79,7 @@ type cacheManager struct {
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	storagewrapper storage.StorageWrapper,
+	storagewrapper wrapper.StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
