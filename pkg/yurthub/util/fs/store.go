@@ -49,7 +49,10 @@ func (fs *FileSystemOperator) Read(path string) ([]byte, error) {
 	}
 
 	data, err := os.ReadFile(path)
-	return data, errors.Join(ErrSysCall, err)
+	if err != nil {
+		return nil, errors.Join(ErrSysCall, err)
+	}
+	return data, nil
 }
 
 // Write will write the content at path.
@@ -75,7 +78,10 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 	if err == nil && n < len(content) {
 		err = io.ErrShortWrite
 	}
-	return errors.Join(ErrSysCall, err)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 // list will list names of entries under the rootDir(except the root dir). If isRecurisive is set, it will
@@ -168,7 +174,10 @@ func (fs *FileSystemOperator) DeleteFile(path string) error {
 	}
 
 	err := os.RemoveAll(path)
-	return errors.Join(ErrSysCall, err)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 // DeleteDir will delete directory at path. All files and subdirs will be deleted.
@@ -238,7 +247,10 @@ func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
 	if err == nil && n < len(content) {
 		err = io.ErrShortWrite
 	}
-	return errors.Join(ErrSysCall, err)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 // Rename will rename file(or directory) at oldPath as newPath.
@@ -258,7 +270,10 @@ func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error {
 		return ErrInvalidPath
 	}
 	err := os.Rename(oldPath, newPath)
-	return errors.Join(ErrSysCall, err)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 func IfExists(path string) bool {

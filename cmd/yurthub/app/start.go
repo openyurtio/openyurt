@@ -41,7 +41,7 @@ import (
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -131,8 +131,8 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	}
 	trace++
 
-	controller := storage.NewController(cfg.Queue, cfg.StorageWrapper)
-	controller.Run(ctx, storage.ConcurrentWorkers)
+	controller := wrapper.NewController(cfg.Queue, cfg.StorageWrapper)
+	controller.Run(ctx, wrapper.ConcurrentWorkers)
 	trace++
 
 	var cacheMgr cachemanager.CacheManager

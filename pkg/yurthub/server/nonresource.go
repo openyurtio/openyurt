@@ -31,6 +31,7 @@ import (
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 var nonResourceReqPaths = map[string]storage.ClusterInfoType{
@@ -41,7 +42,7 @@ var nonResourceReqPaths = map[string]storage.ClusterInfoType{
 	"/apis/raven.openyurt.io/v1beta1":  storage.APIResourcesInfo,
 }
 
-type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw storage.StorageWrapper, path string) http.Handler
+type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw wrapper.StorageWrapper, path string) http.Handler
 
 func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
 	wrapMux := mux.NewRouter()
@@ -56,7 +57,7 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw storage.StorageWrapper, path string) http.Handler {
+func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw wrapper.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
@@ -88,7 +89,7 @@ func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManag
 	})
 }
 
-func nonResourceHandler(kubeClient *kubernetes.Clientset, sw storage.StorageWrapper, path string) http.Handler {
+func nonResourceHandler(kubeClient *kubernetes.Clientset, sw wrapper.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],

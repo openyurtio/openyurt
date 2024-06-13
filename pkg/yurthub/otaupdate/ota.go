@@ -32,6 +32,7 @@ import (
 	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 )
 
@@ -47,7 +48,7 @@ type OTAUpgrader interface {
 }
 
 // GetPods return pod list
-func GetPods(store storage.StorageWrapper) http.Handler {
+func GetPods(store wrapper.StorageWrapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podsKey, err := store.KeyFunc(storage.KeyBuildInfo{
 			Component: "kubelet",

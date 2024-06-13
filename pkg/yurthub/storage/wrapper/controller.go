@@ -76,7 +76,6 @@ func (c *Controller) syncHandler(ctx context.Context, key storage.Key, items Ite
 	if len(items) == 0 {
 		return nil
 	}
-	klog.Infof("key: %s", key.Key())
 	item := items[len(items)-1]
 	var err error
 	switch item.Verb {

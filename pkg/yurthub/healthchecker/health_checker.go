@@ -30,6 +30,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 const (
@@ -44,7 +45,7 @@ type cloudAPIServerHealthChecker struct {
 	remoteServers     []*url.URL
 	probers           map[string]BackendProber
 	latestLease       *coordinationv1.Lease
-	sw                storage.StorageWrapper
+	sw                wrapper.StorageWrapper
 	remoteServerIndex int
 	heartbeatInterval int
 }

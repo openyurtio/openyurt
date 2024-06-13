@@ -35,6 +35,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 func TestGetPods(t *testing.T) {
@@ -43,9 +44,9 @@ func TestGetPods(t *testing.T) {
 	if err != nil {
 		t.Errorf("couldn't to create disk storage, %v", err)
 	}
-	queue := storage.NewQueueWithOptions()
-	sWrapper := storage.NewStorageWrapper(dStorage, queue)
-	controller := storage.NewController(queue, dStorage)
+	queue := wrapper.NewQueueWithOptions()
+	sWrapper := wrapper.NewStorageWrapper(dStorage, queue)
+	controller := wrapper.NewController(queue, dStorage)
 	controller.Run(context.TODO(), 5)
 
 	updatablePod := util.NewPodWithCondition("updatablePod", "", corev1.ConditionTrue)
