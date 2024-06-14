@@ -26,12 +26,16 @@ readonly IMAGE_TARGETS=(
     yurthub
     yurt-manager
     yurt-iot-dock
+)
+
+readonly INIT_IMAGE_TARGETS=(
     crd-upgrader
 )
 
 http_proxy=${http_proxy:-}
 https_proxy=${https_proxy:-}
 targets=${@:-${IMAGE_TARGETS[@]}}
+init_targets=${@:-${INIT_IMAGE_TARGETS[@]}}
 REGION=${REGION:-}
 IMAGE_REPO=${IMAGE_REPO:-"openyurt"}
 IMAGE_TAG=${IMAGE_TAG:-$(get_image_tag)}
@@ -91,6 +95,16 @@ for image in ${targets[@]}; do
         image="node-servant"
     fi 
 
+    docker buildx build \
+    --no-cache \
+    --load ${DOCKER_BUILD_ARGS} \
+    --platform ${TARGET_PLATFORMS} \
+    --file ${YURT_ROOT}/hack/dockerfiles/build/Dockerfile.${image} \
+    --tag ${IMAGE_REPO}/${image}:${IMAGE_TAG} \
+    ${YURT_ROOT}
+done
+
+for image in ${init_targets[@]}; do
     docker buildx build \
     --no-cache \
     --load ${DOCKER_BUILD_ARGS} \
