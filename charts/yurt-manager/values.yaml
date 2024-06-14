@@ -18,6 +18,14 @@ image:
   # pullSecrets:
   #   - name: myRegistryKeySecretName
 
+initImage:
+  registry: openyurt
+  repository: crd-upgrader
+  tag: v1.4.0
+  pullSecrets: []
+  # pullSecrets:
+  #   - name: myRegistryKeySecretName
+
 ports:
   metrics: 10271
   healthProbe: 10272

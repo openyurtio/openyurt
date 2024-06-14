@@ -26,6 +26,7 @@ readonly IMAGE_TARGETS=(
     yurthub
     yurt-manager
     yurt-iot-dock
+    crd-upgrader
 )
 
 http_proxy=${http_proxy:-}
