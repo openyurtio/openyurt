@@ -45,9 +45,11 @@ import (
 const (
 	mockServiceName     = "test"
 	mockPoolServiceName = "test-np123"
+	mockEndpointName    = "test-ep"
 	mockNodePoolLabel   = "app=deploy"
 	mockServiceUid      = "c0af506a-7096-4ef9-b39a-eac2feb5c07g"
 	mockNodePoolUid     = "f47dd9db-d3bc-40f3-8d03-7409930b6289"
+	mockEndpointUid     = "f7a5a351-3e33-47a9-bb00-685b357a62e5"
 	vridLable           = "service.openyurt.io/vrid"
 )
 
@@ -159,8 +161,12 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		adressPool := "192.168.0.1-192.168.2.2"
 		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
+		endpoint.Annotations = map[string]string{
+			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
+		}
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).WithObjects(endpoint).Build()
 
 		rc := viploadbalancer.ReconcileVipLoadBalancer{
 			Client:     c,
@@ -185,8 +191,12 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		adressPool := "192.168.0.1-192.168.2.2"
 		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
+		endpoint.Annotations = map[string]string{
+			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
+		}
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).WithObjects(endpoint).Build()
 
 		rc := viploadbalancer.ReconcileVipLoadBalancer{
 			Client:     c,
@@ -211,8 +221,12 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		adressPool := "192.168.0.1-192.168.2.2, 10.1.0.1-10.1.0.2"
 		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
+		endpoint.Annotations = map[string]string{
+			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
+		}
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).WithObjects(endpoint).Build()
 
 		rc := viploadbalancer.ReconcileVipLoadBalancer{
 			Client:     c,
@@ -346,7 +360,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 			t.Fatalf("Failed to get IPVRID: %v", err)
 		}
 
-		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusReady}
+		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline}
 		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
@@ -383,10 +397,15 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 			t.Fatalf("Failed to get IPVRID: %v", err)
 		}
 
-		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusUnReady}
+		ps1.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: strconv.Itoa(ipvrid.VRID), viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOffline}
 		ps1.DeletionTimestamp = &v1.Time{Time: time.Now()}
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).Build()
+		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
+		endpoint.Annotations = map[string]string{
+			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOffline,
+		}
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(ps1).WithObjects(endpoint).Build()
 
 		rc := viploadbalancer.ReconcileVipLoadBalancer{
 			Client: c,
@@ -429,6 +448,23 @@ func assertErrNil(t testing.TB, err error) {
 
 	if err != nil {
 		t.Errorf("expected err is nil, but got %v", err)
+	}
+}
+
+func newEndpoint(namespace string, name string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Endpoints",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+			Labels: map[string]string{
+				network.LabelServiceName: mockServiceName,
+			},
+			UID: mockEndpointUid,
+		},
 	}
 }
 
@@ -482,7 +518,7 @@ func assertPoolServiceIPAddress(t testing.TB, psl *v1alpha1.PoolServiceList, ips
 	t.Helper()
 
 	for _, ps := range psl.Items {
-		if ps.Status.LoadBalancer.Ingress == nil {
+		if ips != nil && ps.Status.LoadBalancer.Ingress == nil {
 			t.Errorf("expected loadbalancer ingress is not nil, but got %v", ps.Status.LoadBalancer.Ingress)
 			return
 		}

@@ -130,20 +130,20 @@ func (m *IPManager) Assign(ips []string) (IPVRID, error) {
 	if len(noConflictIPs) == 0 {
 		return m.Get()
 	}
-
-	for vrid := 0; vrid < VRIDMAXVALUE; vrid++ {
+	var vrid int
+	for ; vrid < VRIDMAXVALUE; vrid++ {
 		if _, ok := m.ipVRIDs[vrid]; !ok {
-			m.ipVRIDs[vrid] = noConflictIPs
+			m.ipVRIDs[vrid] = append(m.ipVRIDs[vrid], noConflictIPs...)
 
 			for _, ip := range noConflictIPs {
 				m.ipPools[ip] = vrid
 			}
-
-			return IPVRID{IPs: noConflictIPs, VRID: vrid}, nil
+			break
 		}
 	}
 
-	return IPVRID{}, errors.New("no available IPs and VRID combination")
+	// Get fully vrid-ips pair
+	return IPVRID{VRID: vrid, IPs: m.ipVRIDs[vrid]}, nil
 }
 
 // Release release ips from vrid, if vrid is not assigned, return error
