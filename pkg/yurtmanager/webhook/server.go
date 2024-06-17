@@ -143,7 +143,7 @@ type GateFunc func() (enabled bool)
 // +kubebuilder:rbac:groups=core,namespace=kube-system,resources=secrets,verbs=get;update
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update;patch;create
 
 func Initialize(ctx context.Context, cc *config.CompletedConfig, restCfg *rest.Config) error {
 	c, err := webhookcontroller.New(WebhookHandlerPath, cc, restCfg)

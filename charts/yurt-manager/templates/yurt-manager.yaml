@@ -86,7 +86,9 @@ spec:
         - effect: NoSchedule
           key: node-role.kubernetes.io/control-plane
       initContainers:
-        - image: {{ .Values.initImage.registry }}/{{ .Values.initImage.repository }}/{{ .Values.initImage.tag }}
+        - image: {{ .Values.initImage.registry }}/{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}
+          name: crd-upgrader
+          imagePullPolicy: IfNotPresent
       containers:
         - args:
             - --metrics-addr=:{{ .Values.ports.metrics }}

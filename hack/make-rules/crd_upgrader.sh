@@ -21,7 +21,7 @@ CRD_DIR="/crds"
 
 for crd in "$CRD_DIR"/*.yaml; do
     echo "Applying CRD: $crd"
-    kubectl apply -f "$crd"
+    kubectl apply --server-side -f "$crd"
 done
 
 echo "CRDs successfully applied."
