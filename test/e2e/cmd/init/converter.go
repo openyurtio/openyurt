@@ -212,7 +212,7 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 	imageTagParts := strings.Split(parts[len(parts)-1], ":")
 	tag := imageTagParts[1]
 
-	cmd := exec.Command(helmPath, "install", "yurt-manager", yurtManagerChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("image.tag=%s", tag))
+	cmd := exec.Command(helmPath, "install", "yurt-manager", yurtManagerChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("image.tag=%s, initImage.tag=%s", tag, tag))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("couldn't install yurt-manager, %v", err)
