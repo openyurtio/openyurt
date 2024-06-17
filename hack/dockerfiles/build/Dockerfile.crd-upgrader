@@ -2,7 +2,6 @@ FROM bitnami/kubectl:1.29
 
 # Add the CRD installation script to the container
 ADD ./hack/make-rules/crd_upgrader.sh /usr/local/bin/crd-upgrade.sh
-RUN chmod +x /usr/local/bin/crd-upgrade.sh
 
 # Add CRD YAML files to the container
 ADD ./charts/yurt-manager/crds /crds
