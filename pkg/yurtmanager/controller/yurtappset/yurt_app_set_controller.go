@@ -191,14 +191,14 @@ type ReconcileYurtAppSet struct {
 	workloadManagers map[workloadmanager.TemplateType]workloadmanager.WorkloadManager
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppSet object and makes changes based on the state read
 // and what is in the YurtAppSet.Spec

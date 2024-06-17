@@ -111,6 +111,30 @@ func NewControllerInitializers() map[string]InitFunc {
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;create
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=list;watch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=list;watch
+// +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodebuckets,verbs=list;watch
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=list;watch
+// +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=list;watch
+// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=list;watch
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=list;watch
+// +kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=list;watch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch
+// +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=list;watch
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=list;watch
+// +kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=list;watch
 
 func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.Manager) error {
 	for controllerName, fn := range NewControllerInitializers() {

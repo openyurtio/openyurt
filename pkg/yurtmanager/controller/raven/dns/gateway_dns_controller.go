@@ -107,10 +107,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;watch;create;update;delete
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;create;update;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 
 func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.V(4).Info(Format("Reconcile DNS configMap for gateway %s", req.Name))

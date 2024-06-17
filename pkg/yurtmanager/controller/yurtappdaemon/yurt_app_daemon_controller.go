@@ -123,11 +123,11 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	}
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppDaemon object and makes changes based on the state read
 // and what is in the YurtAppDaemon.Spec

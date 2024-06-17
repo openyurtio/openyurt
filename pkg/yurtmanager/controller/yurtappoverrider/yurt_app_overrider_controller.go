@@ -104,10 +104,10 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	return nil
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;watch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get;watch
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;update
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=update
 
 // Reconcile reads that state of the cluster for a YurtAppOverrider object and makes changes based on the state read
 // and what is in the YurtAppOverrider.Spec

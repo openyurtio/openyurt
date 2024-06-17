@@ -85,9 +85,9 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	return nil
 }
 
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;patch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
+// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;patch
 
 // Reconcile reads that state of the cluster for endpoints object and makes changes based on the state read
 func (r *ReconcileServicetopologyEndpoints) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {

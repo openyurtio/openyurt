@@ -178,13 +178,13 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	return nil
 }
 
-// +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=iot.openyurt.io,resources=platformadmins/finalizers,verbs=update
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch;watch
 // +kubebuilder:rbac:groups=core,resources=services/status,verbs=get;update;patch
 

@@ -120,9 +120,10 @@ func GetClientByControllerNameOrDie(mgr manager.Manager, controllerName string) 
 	clientOptions := client.Options{
 		Scheme: mgr.GetScheme(),
 		Mapper: mgr.GetRESTMapper(),
-		// todo: this is just a default option, we should use mgr's cache options
+		// controller client should get/list unstructured resource from cache instead of kube-apiserver,
+		// because only base client has the right privilege to list/watch unstructured resources.
 		Cache: &client.CacheOptions{
-			Unstructured: false,
+			Unstructured: true,
 			Reader:       mgr.GetCache(),
 		},
 	}

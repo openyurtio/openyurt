@@ -75,6 +75,7 @@ subjects:
   namespace: $namespace
 "
             } >> "$tmp_file"
+            echo "Complement ${binding_kind} for ${name}"
             # Reset variables for the next object
             kind=""
             name=""
@@ -92,6 +93,8 @@ metadata:
   namespace: $namespace
 "
         } >> "$tmp_file"
+
+        echo "Complement ServiceAccount for $sa_name"
     done
     # Close file descriptor 3
     exec 3<&-

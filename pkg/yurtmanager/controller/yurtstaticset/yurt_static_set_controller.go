@@ -259,13 +259,13 @@ func nodeTurnReady(evt event.UpdateEvent) bool {
 	return oldReady && newReady
 }
 
-//+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=get;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods/status,verbs=update;patch
-//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtStaticSet object and makes changes based on the state read
 // and what is in the YurtStaticSet.Spec
