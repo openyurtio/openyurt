@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/adapter"
@@ -61,8 +62,8 @@ type ReconcileServicetopologyEndpoints struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileServicetopologyEndpoints{
-		Client:           mgr.GetClient(),
-		endpointsAdapter: adapter.NewEndpointsAdapter(mgr.GetClient()),
+		Client:           yurtClient.GetClientByControllerNameOrDie(mgr, names.ServiceTopologyEndpointsController),
+		endpointsAdapter: adapter.NewEndpointsAdapter(yurtClient.GetClientByControllerNameOrDie(mgr, names.ServiceTopologyEndpointsController)),
 	}
 }
 

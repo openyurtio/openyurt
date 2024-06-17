@@ -90,6 +90,7 @@ func (c *ClusterConverter) Run() error {
 	klog.Info("Running node-servant-convert jobs to deploy the yurt-hub and reset the kubelet service on edge and cloud nodes")
 	if err := c.installYurthubByHelm(); err != nil {
 		klog.Errorf("error occurs when deploying Yurthub, %v", err)
+		c.dumpYurtManagerLog()
 		return err
 	}
 	return nil
@@ -212,7 +213,7 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 	imageTagParts := strings.Split(parts[len(parts)-1], ":")
 	tag := imageTagParts[1]
 
-	cmd := exec.Command(helmPath, "install", "yurt-manager", yurtManagerChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("image.tag=%s", tag))
+	cmd := exec.Command(helmPath, "install", "yurt-manager", yurtManagerChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("image.tag=%s", tag), "--set", "log.level=5")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("couldn't install yurt-manager, %v", err)
@@ -251,24 +252,27 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 
 		return true, nil
 	}); err != nil {
-		// print logs of yurt-manager
-		podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-			LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
-		})
-		if logErr != nil {
-			klog.Errorf("failed to get yurt-manager pod, %v", logErr)
-			return err
-		}
-
-		if len(podList.Items) == 0 {
-			klog.Errorf("yurt-manager pod doesn't exist")
-			return err
-		}
-		if logErr = kubeutil.DumpPod(c.ClientSet, &podList.Items[0], os.Stderr); logErr != nil {
-			return err
-		}
+		c.dumpYurtManagerLog()
 		return err
 	}
 
 	return nil
+}
+
+// print logs of yurt-manager
+func (c *ClusterConverter) dumpYurtManagerLog() {
+	// print logs of yurt-manager
+	podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
+	})
+	if logErr != nil {
+		klog.Errorf("failed to get yurt-manager pod, %v", logErr)
+	}
+
+	if len(podList.Items) == 0 {
+		klog.Errorf("yurt-manager pod doesn't exist")
+	}
+	if logErr = kubeutil.DumpPod(c.ClientSet, &podList.Items[0], os.Stderr); logErr != nil {
+		klog.Warning("failed to dump yurtmanager logs")
+	}
 }

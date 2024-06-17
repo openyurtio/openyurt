@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -33,7 +32,6 @@ const (
 // SetupWebhookWithManager sets up Cluster webhooks. mutate path, validate path, error
 func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
-	webhook.Client = mgr.GetClient()
 
 	gvk, err := apiutil.GVKForObject(&corev1.Pod{}, mgr.GetScheme())
 	if err != nil {
@@ -51,7 +49,6 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 
 // PodHandler implements a validating and defaulting webhook for Cluster.
 type PodHandler struct {
-	Client client.Client
 }
 
 var _ webhook.CustomDefaulter = &PodHandler{}

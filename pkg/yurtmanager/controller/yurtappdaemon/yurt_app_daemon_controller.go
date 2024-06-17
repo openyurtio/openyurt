@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -91,7 +92,7 @@ func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconcile
 	}
 
 	// Watch for changes to NodePool
-	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1alpha1.NodePool{}), &EnqueueYurtAppDaemonForNodePool{client: mgr.GetClient()})
+	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1alpha1.NodePool{}), &EnqueueYurtAppDaemonForNodePool{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController)})
 	if err != nil {
 		return err
 	}
@@ -112,23 +113,20 @@ type ReconcileYurtAppDaemon struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppDaemon{
-		Client:   mgr.GetClient(),
+		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.YurtAppDaemonController),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
-			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
-			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
+			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), scheme: mgr.GetScheme()},
+			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), Scheme: mgr.GetScheme()},
 		},
 	}
 }
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppDaemon object and makes changes based on the state read

@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	k8sutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
@@ -115,12 +116,12 @@ type ReconcileDaemonpodupdater struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) (reconcile.Reconciler, error) {
 	r := &ReconcileDaemonpodupdater{
-		Client:       mgr.GetClient(),
+		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.DaemonPodUpdaterController),
 		expectations: k8sutil.NewControllerExpectations(),
 		recorder:     mgr.GetEventRecorderFor(names.DaemonPodUpdaterController),
 	}
 
-	c, err := kubernetes.NewForConfig(mgr.GetConfig())
+	c, err := kubernetes.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.DaemonPodUpdaterController))
 	if err != nil {
 		klog.Errorf("could not create kube client, %v", err)
 		return nil, err

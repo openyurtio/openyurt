@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -123,7 +124,7 @@ type ReconcileCsrApprover struct {
 
 func NewReconcileCsrApprover(mgr manager.Manager) (*ReconcileCsrApprover, error) {
 	r := &ReconcileCsrApprover{
-		Client: mgr.GetClient(),
+		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.CsrApproverController),
 	}
 
 	mapper := mgr.GetRESTMapper()

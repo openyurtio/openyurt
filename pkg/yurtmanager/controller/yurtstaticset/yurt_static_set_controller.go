@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -143,7 +144,7 @@ type ReconcileYurtStaticSet struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtStaticSet{
-		Client:        mgr.GetClient(),
+		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtStaticSetController),
 		scheme:        mgr.GetScheme(),
 		recorder:      mgr.GetEventRecorderFor(names.YurtStaticSetController),
 		Configuration: c.ComponentConfig.YurtStaticSetController,

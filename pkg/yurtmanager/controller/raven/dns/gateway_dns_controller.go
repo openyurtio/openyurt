@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
@@ -66,7 +67,7 @@ type ReconcileDns struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDns{
-		Client:   mgr.GetClient(),
+		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayDNSController),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayDNSController),
 	}
@@ -105,6 +106,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	return nil
 }
+
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;watch;create;update;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
 
 func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.V(4).Info(Format("Reconcile DNS configMap for gateway %s", req.Name))

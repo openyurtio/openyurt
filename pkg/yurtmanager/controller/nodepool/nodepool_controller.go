@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -63,7 +64,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	r := &ReconcileNodePool{
 		cfg:      c.ComponentConfig.NodePoolController,
 		recorder: mgr.GetEventRecorderFor(names.NodePoolController),
-		Client:   mgr.GetClient(),
+		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController),
 	}
 
 	// Create a new controller

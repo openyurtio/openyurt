@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
@@ -30,7 +32,7 @@ import (
 // SetupWebhookWithManager sets up Cluster webhooks.
 func (webhook *YurtAppSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
-	webhook.Client = mgr.GetClient()
+	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController)
 	webhook.Scheme = mgr.GetScheme()
 
 	gvk, err := apiutil.GVKForObject(&v1beta1.YurtAppSet{}, mgr.GetScheme())

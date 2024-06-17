@@ -54,6 +54,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	taintutils "github.com/openyurtio/openyurt/pkg/util/taints"
@@ -69,6 +70,7 @@ func init() {
 }
 
 var (
+	controllerName = names.NodeLifeCycleController
 	// UnreachableTaintTemplate is the taint for when a node becomes unreachable.
 	UnreachableTaintTemplate = &v1.Taint{
 		Key:    v1.TaintNodeUnreachable,
@@ -285,7 +287,11 @@ type ReconcileNodeLifeCycle struct {
 	podUpdateQueue  workqueue.RateLimitingInterface
 }
 
-// +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=update
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=list;get;watch
+// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;watch;list;delete
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;watch
 
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -295,7 +301,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 		return err
 	}
 	// Create a new controller
-	c, err := util.NewNoReconcileController(names.NodeLifeCycleController, mgr, controller.Options{})
+	c, err := util.NewNoReconcileController(controllerName, mgr, controller.Options{})
 	if err != nil {
 		return err
 	}
@@ -410,8 +416,8 @@ func GenGetPodsAssignedToNode(c client.Client) func(string) ([]*v1.Pod, error) {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(cfg *appconfig.CompletedConfig, mgr manager.Manager) (*ReconcileNodeLifeCycle, error) {
 	nc := &ReconcileNodeLifeCycle{
-		controllerRuntimeClient:     mgr.GetClient(),
-		recorder:                    mgr.GetEventRecorderFor(names.NodeLifeCycleController),
+		controllerRuntimeClient:     yurtClient.GetClientByControllerNameOrDie(mgr, controllerName),
+		recorder:                    mgr.GetEventRecorderFor(controllerName),
 		now:                         metav1.Now,
 		knownNodeSet:                make(map[string]*v1.Node),
 		nodeHealthMap:               newNodeHealthMap(),
@@ -433,7 +439,7 @@ func newReconciler(cfg *appconfig.CompletedConfig, mgr manager.Manager) (*Reconc
 	nc.enterPartialDisruptionFunc = nc.ReducedQPSFunc
 	nc.enterFullDisruptionFunc = nc.HealthyQPSFunc
 	nc.computeZoneStateFunc = nc.ComputeZoneState
-	kubeClient, err := clientset.NewForConfig(mgr.GetConfig())
+	kubeClient, err := clientset.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, controllerName))
 	if err != nil {
 		klog.Errorf("could not create kube client, %v", err)
 		return nil, err

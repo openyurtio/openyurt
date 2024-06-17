@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -94,7 +95,7 @@ type ReconcileLoadBalancerSet struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *ReconcileLoadBalancerSet {
 	return &ReconcileLoadBalancerSet{
-		Client:       mgr.GetClient(),
+		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController),
 		scheme:       mgr.GetScheme(),
 		mapper:       mgr.GetRESTMapper(),
 		recorder:     mgr.GetEventRecorderFor(names.LoadBalancerSetController),
@@ -123,7 +124,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &v1beta1.NodePool{}), NewNodePoolEventHandler(mgr.GetClient()), NewNodePoolPredicated())
+	err = c.Watch(source.Kind(mgr.GetCache(), &v1beta1.NodePool{}), NewNodePoolEventHandler(yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController)), NewNodePoolPredicated())
 	if err != nil {
 		return err
 	}
@@ -131,8 +132,11 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	return nil
 }
 
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=core,resources=services/status,verbs=update
 // +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=list;watch
 
 // Reconcile reads that state of the cluster for a PoolService object and makes changes based on the state read
 // and what is in the PoolService.Spec

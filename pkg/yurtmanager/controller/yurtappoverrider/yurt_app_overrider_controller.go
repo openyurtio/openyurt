@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -77,7 +78,7 @@ type ReconcileYurtAppOverrider struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileYurtAppOverrider{
-		Client:            mgr.GetClient(),
+		Client:            yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppOverriderController),
 		Configuration:     c.ComponentConfig.YurtAppOverriderController,
 		CacheOverriderMap: make(map[string]*appsv1alpha1.YurtAppOverrider),
 		recorder:          mgr.GetEventRecorderFor(names.YurtAppOverriderController),
@@ -104,8 +105,9 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 }
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=get;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=get;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch;update
-// +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a YurtAppOverrider object and makes changes based on the state read
 // and what is in the YurtAppOverrider.Spec

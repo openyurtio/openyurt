@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package base
 
 import (
 	"context"
@@ -107,6 +107,10 @@ func NewControllerInitializers() map[string]InitFunc {
 
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;create
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;create
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts/token,verbs=create
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 
 func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.Manager) error {
 	for controllerName, fn := range NewControllerInitializers() {

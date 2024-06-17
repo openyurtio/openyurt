@@ -44,7 +44,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/util/profile"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller"
+	controller "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/base"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
@@ -137,6 +137,8 @@ current state towards the desired state.`,
 		fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n"+usageFmt, cmd.Long, cmd.UseLine())
 		cliflag.PrintSections(cmd.OutOrStdout(), namedFlagSets, cols)
 	})
+
+	config.WorkingNamespace = s.Generic.WorkingNamespace
 
 	return cmd
 }
@@ -233,6 +235,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	klog.V(5).Info("start manager successfully")
 
 	return nil
 }
