@@ -20,7 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
@@ -37,17 +36,7 @@ func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, s
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController)
 
-	gvk, err := apiutil.GVKForObject(&v1.Node{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1.Node{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterIndependentWebhook(mgr, &v1.Node{}, webhook, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io
