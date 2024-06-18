@@ -105,9 +105,9 @@ type NodePoolRelatedAttributes struct {
 	Taints      []corev1.Taint    `json:"taints,omitempty"`
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a NodePool object and makes changes based on the state read
 // and what is in the NodePool.Spec

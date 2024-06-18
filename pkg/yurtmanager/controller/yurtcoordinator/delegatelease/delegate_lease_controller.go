@@ -74,8 +74,8 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	return err
 }
 
-// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcileDelegateLease) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

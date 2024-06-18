@@ -58,7 +58,7 @@ for dir in "$WEBHOOK_DIR"/*/; do
     found_file=$(grep -lR -e "$PATTERN" "$dir" | head -n 1)
     
     if [ ! -z "$found_file" ]; then
-        echo "Generate RBAC for $dir"
+        echo "Generate RBAC for webhook $dir"
         # If a matching file is found, extract directory base name
         role_name=$(basename "${dir}")
         $CONTROLLER_GEN rbac:roleName="${role_name}" paths=${dir}/... output:rbac:artifacts:config=${OUTPUT_DIR}/rbac && mv ${OUTPUT_DIR}/rbac/role.yaml ${OUTPUT_DIR}/rbac/${role_name}.yaml
@@ -66,11 +66,12 @@ for dir in "$WEBHOOK_DIR"/*/; do
 done
 
 # Loop through ${OUTPUT_DIR}/rbac and generate RoleBinding/ClusterRoleBinding/ServiceAccount
+echo "Complement RoleBinding/ClusterRoleBinding/ServiceAccount"
 for file in ${OUTPUT_DIR}/rbac/*.yaml; do
     complement_rbac "$file"
 done
 
-$CONTROLLER_GEN rbac:roleName=basecontroller paths=$YURT_ROOT/pkg/yurtmanager/controller/... output:rbac:artifacts:config=${OUTPUT_DIR}/rbac && mv ${OUTPUT_DIR}/rbac/role.yaml ${OUTPUT_DIR}/rbac/basecontroller.yaml
+$CONTROLLER_GEN rbac:roleName=basecontroller paths=$YURT_ROOT/pkg/yurtmanager/controller/base/... output:rbac:artifacts:config=${OUTPUT_DIR}/rbac && mv ${OUTPUT_DIR}/rbac/role.yaml ${OUTPUT_DIR}/rbac/basecontroller.yaml
 $CONTROLLER_GEN rbac:roleName=webhook paths=$YURT_ROOT/pkg/yurtmanager/webhook/... output:rbac:artifacts:config=${OUTPUT_DIR}/rbac && mv ${OUTPUT_DIR}/rbac/role.yaml ${OUTPUT_DIR}/rbac/webhook.yaml
 echo "Generate RBAC for base controller/webhook"
 

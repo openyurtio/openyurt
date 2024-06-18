@@ -99,9 +99,9 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) *Reconcile
 	return r
 }
 
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
-// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch;patch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;patch
 
 // Reconcile reads that state of the cluster for endpointslice object and makes changes based on the state read
 func (r *ReconcileServiceTopologyEndpointSlice) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {

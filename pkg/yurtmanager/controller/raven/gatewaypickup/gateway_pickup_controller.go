@@ -138,12 +138,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-//+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways,verbs=get;list;watch;create;delete;update
+//+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways,verbs=get;create;delete;update
 //+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=raven.openyurt.io,resources=gateways/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
-//+kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=nodes,verbs=get
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
+//+kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=get
 
 // Reconcile reads that state of the cluster for a Gateway object and makes changes based on the state read
 // and what is in the Gateway.Spec

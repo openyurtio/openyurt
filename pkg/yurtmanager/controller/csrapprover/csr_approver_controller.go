@@ -139,7 +139,7 @@ func NewReconcileCsrApprover(mgr manager.Manager) (*ReconcileCsrApprover, error)
 	return r, nil
 }
 
-// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/approval,verbs=update
 // +kubebuilder:rbac:groups=certificates.k8s.io,resourceNames=kubernetes.io/kube-apiserver-client;kubernetes.io/kubelet-serving,resources=signers,verbs=approve
 

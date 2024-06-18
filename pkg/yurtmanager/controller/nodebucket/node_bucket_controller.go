@@ -162,9 +162,8 @@ type ReconcileNodeBucket struct {
 	maxNodesPerBucket int
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodebuckets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=list;watch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodebuckets,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 
 // Reconcile reads that state of the cluster for a NodeBucket object and makes changes based on the state read
 // and what is in the NodeBucket.Spec

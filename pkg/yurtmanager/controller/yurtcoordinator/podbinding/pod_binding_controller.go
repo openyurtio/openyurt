@@ -107,8 +107,8 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	//return err
 }
 
-// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;update
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

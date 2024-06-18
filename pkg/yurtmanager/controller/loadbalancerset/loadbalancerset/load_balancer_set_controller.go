@@ -132,11 +132,10 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	return nil
 }
 
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;update
 // +kubebuilder:rbac:groups=core,resources=services/status,verbs=update
-// +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices,verbs=get;create;update;patch;delete
 // +kubebuilder:rbac:groups=network.openyurt.io,resources=poolservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=list;watch
 
 // Reconcile reads that state of the cluster for a PoolService object and makes changes based on the state read
 // and what is in the PoolService.Spec

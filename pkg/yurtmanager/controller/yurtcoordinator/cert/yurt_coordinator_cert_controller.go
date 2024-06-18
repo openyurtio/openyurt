@@ -297,11 +297,10 @@ type ReconcileYurtCoordinatorCert struct {
 	reuseCA    bool
 }
 
-// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;list;watch
-// +kubebuilder:rbac:groups="",namespace=kube-system,resources=secrets,verbs=get;update;create;patch;watch
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;list;create;patch
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;update;create;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get
+// +kubebuilder:rbac:groups="",resources=services,verbs=get
 
 // todo: make customized certificate for each yurtcoordinator pod
 func (r *ReconcileYurtCoordinatorCert) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {

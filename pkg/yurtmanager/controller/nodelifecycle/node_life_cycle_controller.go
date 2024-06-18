@@ -288,10 +288,10 @@ type ReconcileNodeLifeCycle struct {
 }
 
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=update
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=list;get;watch
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;watch;list;delete
-// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;watch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;delete
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get
 
 // Add creates a new CsrApprover Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
