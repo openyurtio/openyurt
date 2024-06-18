@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -57,7 +58,9 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 }
 
 func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileAutonomy{Client: mgr.GetClient()}
+	return &ReconcileAutonomy{
+		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.AutonomyController),
+	}
 }
 
 func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
@@ -76,6 +79,8 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 	return nil
 }
+
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update
 
 func (r *ReconcileAutonomy) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.V(2).Infof("Reconcile Node %s/%s Start.", req.Namespace, req.Name)
