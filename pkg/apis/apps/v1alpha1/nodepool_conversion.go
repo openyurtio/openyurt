@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -32,6 +35,9 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Labels = src.Spec.Labels
 	dst.Spec.Annotations = src.Spec.Annotations
 	dst.Spec.Taints = src.Spec.Taints
+	if strings.EqualFold(src.Annotations[apps.NodePoolHostNetworkLabel], "true") {
+		dst.Spec.HostNetwork = true
+	}
 
 	dst.Status.ReadyNodeNum = src.Status.ReadyNodeNum
 	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
@@ -55,6 +61,13 @@ func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Status.ReadyNodeNum = src.Status.ReadyNodeNum
 	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
 	dst.Status.Nodes = src.Status.Nodes
+
+	if src.Spec.HostNetwork {
+		if dst.Annotations == nil {
+			dst.Annotations = make(map[string]string)
+		}
+		dst.Annotations[apps.NodePoolHostNetworkLabel] = "true"
+	}
 
 	klog.V(4).Infof("convert from v1beta1 to v1alpha1 for nodepool %s", dst.Name)
 	return nil
