@@ -95,16 +95,21 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 		if err != nil {
 			return fmt.Errorf("unable to create webhook %v", err)
 		}
-		if _, ok := WebhookHandlerPath[m]; ok {
-			panic(fmt.Errorf("webhook handler path %s duplicated", m))
+		if len(m) != 0 {
+			if _, ok := WebhookHandlerPath[m]; ok {
+				panic(fmt.Errorf("webhook handler path %s duplicated", m))
+			}
+			WebhookHandlerPath[m] = struct{}{}
+			klog.Infof("Add webhook mutate path %s", m)
 		}
-		WebhookHandlerPath[m] = struct{}{}
-		klog.Infof("Add webhook mutate path %s", m)
-		if _, ok := WebhookHandlerPath[v]; ok {
-			panic(fmt.Errorf("webhook handler path %s duplicated", v))
+
+		if len(v) != 0 {
+			if _, ok := WebhookHandlerPath[v]; ok {
+				panic(fmt.Errorf("webhook handler path %s duplicated", v))
+			}
+			WebhookHandlerPath[v] = struct{}{}
+			klog.Infof("Add webhook validate path %s", v)
 		}
-		WebhookHandlerPath[v] = struct{}{}
-		klog.Infof("Add webhook validate path %s", v)
 
 		return nil
 	}

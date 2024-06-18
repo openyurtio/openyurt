@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
@@ -31,17 +30,7 @@ func (webhook *YurtAppSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (str
 	// init
 	webhook.Scheme = mgr.GetScheme()
 
-	gvk, err := apiutil.GVKForObject(&v1beta1.YurtAppSet{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1beta1.YurtAppSet{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &v1beta1.YurtAppSet{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta1-yurtappset,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=yurtappsets,verbs=create;update,versions=v1beta1,name=vyurtappset.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
