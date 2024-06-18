@@ -19,12 +19,10 @@ package v1alpha1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
@@ -34,17 +32,7 @@ func (webhook *YurtAppDaemonHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController)
 
-	gvk, err := apiutil.GVKForObject(&appsv1alpha1.YurtAppDaemon{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.YurtAppDaemon{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &appsv1alpha1.YurtAppDaemon{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-yurtappdaemon,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=yurtappdaemons,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.yurtappdaemon.openyurt.io

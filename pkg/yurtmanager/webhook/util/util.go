@@ -29,8 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	yurtutil "github.com/openyurtio/openyurt/pkg/util"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
 
 const (
@@ -90,7 +89,7 @@ func GetCertWriter() string {
 	return os.Getenv("WEBHOOK_CERT_WRITER")
 }
 
-func GenerateMutatePath(gvk schema.GroupVersionKind) string {
+func generateMutatePath(gvk schema.GroupVersionKind) string {
 	groupName := gvk.Group
 	if groupName == "" {
 		groupName = emptyGroupName
@@ -100,7 +99,7 @@ func GenerateMutatePath(gvk schema.GroupVersionKind) string {
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
-func GenerateValidatePath(gvk schema.GroupVersionKind) string {
+func generateValidatePath(gvk schema.GroupVersionKind) string {
 	groupName := gvk.Group
 	if groupName == "" {
 		groupName = emptyGroupName
@@ -109,29 +108,42 @@ func GenerateValidatePath(gvk schema.GroupVersionKind) string {
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
 }
 
-func RegisterIndependentWebhook(mgr ctrl.Manager, obj runtime.Object, defaulter admission.CustomDefaulter, validator admission.CustomValidator) (string, string, error) {
+func RegisterWebhook(mgr ctrl.Manager, obj runtime.Object, webhook interface{}) (string, string, error) {
 	var mutatePath, validatorPath string
 	gvk, err := apiutil.GVKForObject(obj, mgr.GetScheme())
 	if err != nil {
 		return mutatePath, validatorPath, err
 	}
 
-	if !yurtutil.IsNil(defaulter) {
+	if defaulter, ok := webhook.(admission.CustomDefaulter); ok {
 		mutateWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), obj, defaulter).WithRecoverPanic(true)
-		mutatePath = GenerateMutatePath(gvk)
+		mutatePath = generateMutatePath(gvk)
 		if !isAlreadyHandled(mgr, mutatePath) {
 			klog.Infof("Registering a mutating webhook, GVK: %s with path: %s", gvk.String(), mutatePath)
 			mgr.GetWebhookServer().Register(mutatePath, mutateWebhook)
 		}
 	}
 
-	if !yurtutil.IsNil(validator) {
+	if validator, ok := webhook.(admission.CustomValidator); ok {
 		validatorWebhook := admission.WithCustomValidator(mgr.GetScheme(), obj, validator).WithRecoverPanic(true)
-		validatorPath = GenerateValidatePath(gvk)
+		validatorPath = generateValidatePath(gvk)
 		if !isAlreadyHandled(mgr, validatorPath) {
 			klog.Infof("Registering a validating webhook, GVK: %s with path: %s", gvk.String(), validatorPath)
 			mgr.GetWebhookServer().Register(validatorPath, validatorWebhook)
 		}
+	}
+
+	ok, err := conversion.IsConvertible(mgr.GetScheme(), obj)
+	if err != nil {
+		klog.ErrorS(err, "conversion check error", "GVK", gvk)
+		return mutatePath, validatorPath, err
+	}
+
+	if ok {
+		if !isAlreadyHandled(mgr, "/convert") {
+			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme()))
+		}
+		klog.InfoS("Conversion webhook enabled", "GVK", gvk)
 	}
 
 	return mutatePath, validatorPath, nil

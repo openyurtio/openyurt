@@ -30,7 +30,7 @@ const (
 
 // SetupWebhookWithManager sets up Cluster webhooks. mutate path, validate path, error
 func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	return util.RegisterIndependentWebhook(mgr, &corev1.Pod{}, webhook, nil)
+	return util.RegisterWebhook(mgr, &corev1.Pod{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=pods,verbs=create,versions=v1,name=mutate.core.v1.pod.openyurt.io

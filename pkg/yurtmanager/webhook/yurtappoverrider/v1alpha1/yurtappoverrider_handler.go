@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
@@ -33,17 +32,7 @@ func (webhook *YurtAppOverriderHandler) SetupWebhookWithManager(mgr ctrl.Manager
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppOverriderController)
 
-	gvk, err := apiutil.GVKForObject(&v1alpha1.YurtAppOverrider{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.YurtAppOverrider{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &v1alpha1.YurtAppOverrider{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-yurtappoverrider,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=yurtappoverriders,verbs=create;update;delete,versions=v1alpha1,name=validate.apps.v1alpha1.yurtappoverrider.openyurt.io

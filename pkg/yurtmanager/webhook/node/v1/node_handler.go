@@ -36,7 +36,7 @@ func (webhook *NodeHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, s
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController)
 
-	return util.RegisterIndependentWebhook(mgr, &v1.Node{}, webhook, webhook)
+	return util.RegisterWebhook(mgr, &v1.Node{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-core-openyurt-io-v1-node,mutating=false,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=nodes,verbs=update,versions=v1,name=validate.core.v1.node.openyurt.io

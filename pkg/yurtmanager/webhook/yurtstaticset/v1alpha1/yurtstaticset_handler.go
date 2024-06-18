@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
@@ -27,17 +26,7 @@ import (
 
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *YurtStaticSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	gvk, err := apiutil.GVKForObject(&v1alpha1.YurtStaticSet{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.YurtStaticSet{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &v1alpha1.YurtStaticSet{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1alpha1-yurtstaticset,mutating=false,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=apps.openyurt.io,resources=yurtstaticsets,verbs=create;update,versions=v1alpha1,name=validate.apps.v1alpha1.yurtstaticset.openyurt.io

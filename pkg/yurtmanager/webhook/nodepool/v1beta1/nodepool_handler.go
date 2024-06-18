@@ -19,7 +19,6 @@ package v1beta1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
@@ -33,17 +32,7 @@ func (webhook *NodePoolHandler) SetupWebhookWithManager(mgr ctrl.Manager) (strin
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController)
 
-	gvk, err := apiutil.GVKForObject(&v1beta1.NodePool{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1beta1.NodePool{}).
-			WithDefaulter(webhook).
-			WithValidator(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &v1beta1.NodePool{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta1-nodepool,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create;update;delete,versions=v1beta1,name=v.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
