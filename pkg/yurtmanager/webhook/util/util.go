@@ -17,12 +17,20 @@ limitations under the License.
 package util
 
 import (
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 )
 
 const (
@@ -99,6 +107,45 @@ func GenerateValidatePath(gvk schema.GroupVersionKind) string {
 	}
 	return "/validate-" + strings.ReplaceAll(groupName, ".", "-") + "-" +
 		gvk.Version + "-" + strings.ToLower(gvk.Kind)
+}
+
+func RegisterIndependentWebhook(mgr ctrl.Manager, obj runtime.Object, defaulter admission.CustomDefaulter, validator admission.CustomValidator) (string, string, error) {
+	var mutatePath, validatorPath string
+	gvk, err := apiutil.GVKForObject(obj, mgr.GetScheme())
+	if err != nil {
+		return mutatePath, validatorPath, err
+	}
+
+	if !yurtutil.IsNil(defaulter) {
+		mutateWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), obj, defaulter).WithRecoverPanic(true)
+		mutatePath = GenerateMutatePath(gvk)
+		if !isAlreadyHandled(mgr, mutatePath) {
+			klog.Infof("Registering a mutating webhook, GVK: %s with path: %s", gvk.String(), mutatePath)
+			mgr.GetWebhookServer().Register(mutatePath, mutateWebhook)
+		}
+	}
+
+	if !yurtutil.IsNil(validator) {
+		validatorWebhook := admission.WithCustomValidator(mgr.GetScheme(), obj, validator).WithRecoverPanic(true)
+		validatorPath = GenerateValidatePath(gvk)
+		if !isAlreadyHandled(mgr, validatorPath) {
+			klog.Infof("Registering a validating webhook, GVK: %s with path: %s", gvk.String(), validatorPath)
+			mgr.GetWebhookServer().Register(validatorPath, validatorWebhook)
+		}
+	}
+
+	return mutatePath, validatorPath, nil
+}
+
+func isAlreadyHandled(mgr ctrl.Manager, path string) bool {
+	if mgr.GetWebhookServer().WebhookMux() == nil {
+		return false
+	}
+	h, p := mgr.GetWebhookServer().WebhookMux().Handler(&http.Request{URL: &url.URL{Path: path}})
+	if p == path && h != nil {
+		return true
+	}
+	return false
 }
 
 // IsWebhookDisabled check if a specified webhook disabled or not.

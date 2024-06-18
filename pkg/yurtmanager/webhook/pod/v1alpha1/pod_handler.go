@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
@@ -31,18 +30,7 @@ const (
 
 // SetupWebhookWithManager sets up Cluster webhooks. mutate path, validate path, error
 func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
-	// init
-
-	gvk, err := apiutil.GVKForObject(&corev1.Pod{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&corev1.Pod{}).
-			WithDefaulter(webhook).
-			Complete()
+	return util.RegisterIndependentWebhook(mgr, &corev1.Pod{}, webhook, nil)
 }
 
 // +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups="",resources=pods,verbs=create,versions=v1,name=mutate.core.v1.pod.openyurt.io
