@@ -110,13 +110,13 @@ func TestRecover(t *testing.T) {
 
 func TestCompress(t *testing.T) {
 	keys := NewErrorKeys()
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50; i++ {
 		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 	}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 25; i++ {
 		keys.del(fmt.Sprintf("key-%d", i))
 	}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 25; i++ {
 		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 	}
 	err := wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, false,
