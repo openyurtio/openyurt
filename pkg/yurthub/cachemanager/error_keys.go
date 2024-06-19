@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	CompressThresh = 50
+	CompressThresh = 20
 )
 
 type errorKeys struct {
@@ -98,6 +98,9 @@ func (ek *errorKeys) put(key string, val string) {
 func (ek *errorKeys) del(key string) {
 	ek.Lock()
 	defer ek.Unlock()
+	if _, ok := ek.keys[key]; !ok {
+		return
+	}
 	delete(ek.keys, key)
 	select {
 	case ek.operations <- operation{Operator: DEL, Key: key}:
@@ -130,7 +133,8 @@ func (ek *errorKeys) sync(ctx context.Context) {
 		case op := <-ek.operations:
 			data, err := json.Marshal(op)
 			if err != nil {
-				klog.Errorf("failed to serialize operation: %v", op)
+				klog.Errorf("failed to serialize and persist operation: %v", op)
+				continue
 			}
 			ek.file.Write(append(data, '\n'))
 			ek.file.Sync()
@@ -143,11 +147,11 @@ func (ek *errorKeys) sync(ctx context.Context) {
 }
 
 func (ek *errorKeys) compress(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	for {
 		select {
 		case <-ticker.C:
-			if ek.count > CompressThresh {
+			if ek.count > len(ek.keys)+CompressThresh {
 				ek.rewrite()
 			}
 		case <-ctx.Done():
