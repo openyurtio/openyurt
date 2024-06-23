@@ -17,22 +17,25 @@ limitations under the License.
 package otaupdate
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 func TestGetPods(t *testing.T) {
@@ -41,7 +44,10 @@ func TestGetPods(t *testing.T) {
 	if err != nil {
 		t.Errorf("couldn't to create disk storage, %v", err)
 	}
-	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+	queue := wrapper.NewQueueWithOptions()
+	sWrapper := wrapper.NewStorageWrapper(dStorage, queue)
+	controller := wrapper.NewController(queue, dStorage)
+	controller.Run(context.TODO(), 5)
 
 	updatablePod := util.NewPodWithCondition("updatablePod", "", corev1.ConditionTrue)
 	notUpdatablePod := util.NewPodWithCondition("notUpdatablePod", "", corev1.ConditionFalse)
@@ -74,6 +80,12 @@ func TestGetPods(t *testing.T) {
 
 	GetPods(sWrapper).ServeHTTP(rr, req)
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	wait.PollUntilContextCancel(ctx, 1*time.Second, true,
+		func(ctx context.Context) (bool, error) {
+			return queue.HasSynced(), nil
+		})
 	expectedCode := http.StatusOK
 	assert.Equal(t, expectedCode, rr.Code)
 }

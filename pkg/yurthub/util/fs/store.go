@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,12 +43,16 @@ func (fs *FileSystemOperator) Read(path string) ([]byte, error) {
 	}
 
 	if ok, err := IsRegularFile(path); err != nil {
-		return nil, err
+		return nil, errors.Join(ErrSysCall, err)
 	} else if !ok {
 		return nil, ErrIsNotFile
 	}
 
-	return os.ReadFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.Join(ErrSysCall, err)
+	}
+	return data, nil
 }
 
 // Write will write the content at path.
@@ -59,24 +64,24 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 	}
 
 	if ok, err := IsRegularFile(path); err != nil {
-		return err
+		return errors.Join(ErrSysCall, err)
 	} else if !ok {
 		return ErrIsNotFile
 	}
 
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0600)
 	if err != nil {
-		return err
+		return errors.Join(ErrSysCall, err)
 	}
+	defer f.Close()
 	n, err := f.Write(content)
 	if err == nil && n < len(content) {
 		err = io.ErrShortWrite
 	}
-	err1 := f.Close()
-	if err == nil {
-		err = err1
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
 	}
-	return err
+	return nil
 }
 
 // list will list names of entries under the rootDir(except the root dir). If isRecurisive is set, it will
@@ -94,7 +99,7 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 		return nil, ErrNotExists
 	}
 	if ok, err := IsDir(rootDir); err != nil {
-		return nil, err
+		return nil, errors.Join(ErrSysCall, err)
 	} else if !ok {
 		return nil, ErrIsNotDir
 	}
@@ -102,16 +107,14 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 	dirs := []string{}
 	files := []string{}
 	if isRecursive {
-		filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
+		err := filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-
 			info, err := d.Info()
 			if err != nil {
-				return fmt.Errorf("could not get info for entry %s, %v", path, err)
+				return err
 			}
-
 			switch {
 			case info.Mode().IsDir():
 				if path == rootDir {
@@ -125,10 +128,13 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 			}
 			return nil
 		})
+		if err != nil {
+			return nil, errors.Join(ErrSysCall, err)
+		}
 	} else {
 		infos, err := os.ReadDir(rootDir)
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(ErrSysCall, err)
 		}
 		for i := range infos {
 			switch {
@@ -141,7 +147,6 @@ func (fs *FileSystemOperator) List(rootDir string, mode ListMode, isRecursive bo
 			}
 		}
 	}
-
 	switch mode {
 	case ListModeDirs:
 		sort.Strings(dirs)
@@ -168,7 +173,11 @@ func (fs *FileSystemOperator) DeleteFile(path string) error {
 		return ErrIsNotFile
 	}
 
-	return os.RemoveAll(path)
+	err := os.RemoveAll(path)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 // DeleteDir will delete directory at path. All files and subdirs will be deleted.
@@ -219,30 +228,29 @@ func (fs *FileSystemOperator) CreateFile(path string, content []byte) error {
 	// ensure the base dir
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			if err := os.MkdirAll(dir, 0755); err != nil {
-				return err
+				return errors.Join(ErrSysCall, err)
 			}
 		} else {
-			return err
+			return errors.Join(ErrSysCall, err)
 		}
 	}
 
 	// create the file with mode and write content into it
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0600)
 	if err != nil {
-		return err
+		return errors.Join(ErrSysCall, err)
 	}
+	defer f.Close()
 	n, err := f.Write(content)
 	if err == nil && n < len(content) {
 		err = io.ErrShortWrite
 	}
-	// close file
-	err1 := f.Close()
-	if err == nil {
-		err = err1
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
 	}
-	return err
+	return nil
 }
 
 // Rename will rename file(or directory) at oldPath as newPath.
@@ -253,23 +261,24 @@ func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error {
 	if !IfExists(oldPath) {
 		return ErrNotExists
 	}
-
 	if ok, err := IsDir(newPath); ok && err == nil {
 		if err := fs.DeleteDir(newPath); err != nil {
-			return err
+			return errors.Join(ErrSysCall, err)
 		}
 	}
-
 	if filepath.Dir(oldPath) != filepath.Dir(newPath) {
 		return ErrInvalidPath
 	}
-
-	return os.Rename(oldPath, newPath)
+	err := os.Rename(oldPath, newPath)
+	if err != nil {
+		return errors.Join(ErrSysCall, err)
+	}
+	return nil
 }
 
 func IfExists(path string) bool {
 	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return false
 		}
 	}
@@ -279,7 +288,7 @@ func IfExists(path string) bool {
 func IsRegularFile(path string) (bool, error) {
 	if info, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return false, ErrNotExists
+			return false, err
 		}
 		return false, err
 	} else {
@@ -290,7 +299,7 @@ func IsRegularFile(path string) (bool, error) {
 func IsDir(path string) (bool, error) {
 	if info, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return false, ErrNotExists
+			return false, err
 		}
 		return false, err
 	} else {

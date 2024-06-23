@@ -54,6 +54,10 @@ func (k storageKey) component() string {
 	return k.comp
 }
 
+func (k storageKey) IsRootKey() bool {
+	return true
+}
+
 func (s *etcdStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	if info.Component == "" {
 		return nil, storage.ErrEmptyComponent

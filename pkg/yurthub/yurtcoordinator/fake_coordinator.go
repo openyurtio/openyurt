@@ -16,13 +16,17 @@ limitations under the License.
 
 package yurtcoordinator
 
-import "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+import (
+	"context"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+)
 
 type FakeCoordinator struct{}
 
 var _ Coordinator = &FakeCoordinator{}
 
-func (fc *FakeCoordinator) Run() {}
+func (fc *FakeCoordinator) Run(ctx context.Context) {}
 
 func (fc *FakeCoordinator) IsReady() (cachemanager.CacheManager, bool) {
 	return nil, false

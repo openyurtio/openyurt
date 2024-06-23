@@ -41,6 +41,7 @@ import (
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -128,6 +129,10 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	if err != nil {
 		return fmt.Errorf("could not new restConfig manager, %w", err)
 	}
+	trace++
+
+	controller := wrapper.NewController(cfg.Queue, cfg.StorageWrapper)
+	controller.Run(ctx, wrapper.ConcurrentWorkers)
 	trace++
 
 	var cacheMgr cachemanager.CacheManager
@@ -332,7 +337,7 @@ func coordinatorRun(ctx context.Context,
 			klog.Errorf("coordinator could not create coordinator, %v", err)
 			return
 		}
-		go coor.Run()
+		go coor.Run(ctx)
 
 		coordinatorTransportMgr = coorTransportMgr
 		coordinatorHealthChecker = coorHealthChecker
