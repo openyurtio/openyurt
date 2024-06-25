@@ -39,7 +39,8 @@ type YurtManagerOptions struct {
 	YurtAppOverriderController *YurtAppOverriderControllerOptions
 	NodeLifeCycleController    *NodeLifecycleControllerOptions
 	NodeBucketController       *NodeBucketControllerOptions
-	EndPointsController        *EndPointsControllerOptions
+	EndpointsController        *EndpointsControllerOptions
+	EndpointSliceController    *EndpointSliceControllerOptions
 	LoadBalancerSetController  *LoadBalancerSetControllerOptions
 }
 
@@ -61,7 +62,8 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		YurtAppOverriderController: NewYurtAppOverriderControllerOptions(),
 		NodeLifeCycleController:    NewNodeLifecycleControllerOptions(),
 		NodeBucketController:       NewNodeBucketControllerOptions(),
-		EndPointsController:        NewEndPointsControllerOptions(),
+		EndpointsController:        NewEndpointsControllerOptions(),
+		EndpointSliceController:    NewEndpointSliceControllerOptions(),
 		LoadBalancerSetController:  NewLoadBalancerSetControllerOptions(),
 	}
 
@@ -83,7 +85,8 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.YurtAppOverriderController.AddFlags(fss.FlagSet("yurtappoverrider controller"))
 	y.NodeLifeCycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
 	y.NodeBucketController.AddFlags(fss.FlagSet("nodebucket controller"))
-	y.EndPointsController.AddFlags(fss.FlagSet("endpoints controller"))
+	y.EndpointsController.AddFlags(fss.FlagSet("endpoints controller"))
+	y.EndpointSliceController.AddFlags(fss.FlagSet("endpointslice controller"))
 	y.LoadBalancerSetController.AddFlags(fss.FlagSet("loadbalancerset controller"))
 	return fss
 }
@@ -104,7 +107,8 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.YurtAppOverriderController.Validate()...)
 	errs = append(errs, y.NodeLifeCycleController.Validate()...)
 	errs = append(errs, y.NodeBucketController.Validate()...)
-	errs = append(errs, y.EndPointsController.Validate()...)
+	errs = append(errs, y.EndpointsController.Validate()...)
+	errs = append(errs, y.EndpointSliceController.Validate()...)
 	errs = append(errs, y.LoadBalancerSetController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
@@ -150,7 +154,10 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 	if err := y.NodeBucketController.ApplyTo(&c.ComponentConfig.NodeBucketController); err != nil {
 		return err
 	}
-	if err := y.EndPointsController.ApplyTo(&c.ComponentConfig.ServiceTopologyEndpointsController); err != nil {
+	if err := y.EndpointsController.ApplyTo(&c.ComponentConfig.ServiceTopologyEndpointsController); err != nil {
+		return err
+	}
+	if err := y.EndpointSliceController.ApplyTo(&c.ComponentConfig.ServiceTopologyEndpointSliceController); err != nil {
 		return err
 	}
 	if err := y.LoadBalancerSetController.ApplyTo(&c.ComponentConfig.LoadBalancerSetController); err != nil {

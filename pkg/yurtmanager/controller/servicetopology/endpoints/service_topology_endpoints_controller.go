@@ -70,7 +70,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.ServiceTopologyEndpointsController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.ServiceTopologyEndpointsController.ConcurrentEndPointsWorkers)})
+	c, err := controller.New(names.ServiceTopologyEndpointsController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.ServiceTopologyEndpointsController.ConcurrentEndpointsWorkers)})
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,6 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 }
 
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;patch
 
 // Reconcile reads that state of the cluster for endpoints object and makes changes based on the state read

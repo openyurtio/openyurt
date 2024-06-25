@@ -817,12 +817,6 @@ metadata:
   name: yurt-manager-service-topology-endpoints-controller
 rules:
 - apiGroups:
-  - apps.openyurt.io
-  resources:
-  - nodepools
-  verbs:
-  - get
-- apiGroups:
   - ""
   resources:
   - endpoints
@@ -841,12 +835,6 @@ kind: ClusterRole
 metadata:
   name: yurt-manager-service-topology-endpointslice-controller
 rules:
-- apiGroups:
-  - apps.openyurt.io
-  resources:
-  - nodepools
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
