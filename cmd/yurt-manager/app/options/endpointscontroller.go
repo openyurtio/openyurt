@@ -19,39 +19,39 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints/config"
 )
 
-type EndPointsControllerOptions struct {
-	*config.ServiceTopologyEndPointsControllerConfiguration
+type EndpointsControllerOptions struct {
+	*config.ServiceTopologyEndpointsControllerConfiguration
 }
 
-func NewEndPointsControllerOptions() *EndPointsControllerOptions {
-	return &EndPointsControllerOptions{
-		&config.ServiceTopologyEndPointsControllerConfiguration{
-			ConcurrentEndPointsWorkers: 3,
+func NewEndpointsControllerOptions() *EndpointsControllerOptions {
+	return &EndpointsControllerOptions{
+		&config.ServiceTopologyEndpointsControllerConfiguration{
+			ConcurrentEndpointsWorkers: 3,
 		},
 	}
 }
 
 // AddFlags adds flags related to servicetopology endpoints for yurt-manager to the specified FlagSet.
-func (n *EndPointsControllerOptions) AddFlags(fs *pflag.FlagSet) {
+func (n *EndpointsControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	if n == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentEndPointsWorkers, "servicetopology-endpoints-workers", n.ConcurrentEndPointsWorkers, "Max concurrent workers for Servicetopology-endpoints controller.")
+	fs.Int32Var(&n.ConcurrentEndpointsWorkers, "concurrent-endpoints-workers", n.ConcurrentEndpointsWorkers, "Max concurrent workers for servicetopology-endpoints controller.")
 }
 
-// ApplyTo fils up servicetopolgy endpoints config with options.
-func (o *EndPointsControllerOptions) ApplyTo(cfg *config.ServiceTopologyEndPointsControllerConfiguration) error {
+// ApplyTo fills up servicetopolgy endpoints config with options.
+func (o *EndpointsControllerOptions) ApplyTo(cfg *config.ServiceTopologyEndpointsControllerConfiguration) error {
 	if o == nil {
 		return nil
 	}
 
-	cfg.ConcurrentEndPointsWorkers = o.ConcurrentEndPointsWorkers
+	cfg.ConcurrentEndpointsWorkers = o.ConcurrentEndpointsWorkers
 	return nil
 }
 
-// Validate checks validation of EndPointsControllerOptions.
-func (o *EndPointsControllerOptions) Validate() []error {
+// Validate checks validation of EndpointsControllerOptions.
+func (o *EndpointsControllerOptions) Validate() []error {
 	if o == nil {
 		return nil
 	}

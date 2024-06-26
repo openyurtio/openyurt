@@ -13,7 +13,7 @@ limitations under the License.
 
 package config
 
-// ServiceTopologyEndpointsControllerConfiguration contains elements describing EndpointsController
-type ServiceTopologyEndpointsControllerConfiguration struct {
-	ConcurrentEndpointsWorkers int32
+// ServiceTopologyEndpointSliceControllerConfiguration contains elements describing EndpointSliceController
+type ServiceTopologyEndpointSliceControllerConfiguration struct {
+	ConcurrentEndpointSliceWorkers int32
 }
