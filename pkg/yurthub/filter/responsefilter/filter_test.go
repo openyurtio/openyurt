@@ -2291,7 +2291,7 @@ func TestResponseFilterForListRequest(t *testing.T) {
 				_, newReadCloser, filterErr = responseFilter.Filter(req, rc, nil)
 			})
 
-			handler = util.WithRequestClientComponent(handler)
+			handler = util.WithRequestClientComponent(handler, hubutil.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -2506,7 +2506,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 				_, newReadCloser, filterErr = responseFilter.Filter(req, rc, nil)
 			})
 
-			handler = util.WithRequestClientComponent(handler)
+			handler = util.WithRequestClientComponent(handler, hubutil.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 

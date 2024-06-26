@@ -42,6 +42,7 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
@@ -121,7 +122,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 				end = time.Now()
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -207,7 +208,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 				end = time.Now()
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -299,7 +300,7 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 				end = time.Now()
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -382,7 +383,7 @@ func TestServeHTTPForPost(t *testing.T) {
 				lp.ServeHTTP(w, req)
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -455,7 +456,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 				lp.ServeHTTP(w, req)
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -574,7 +575,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 				lp.ServeHTTP(w, req)
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 
@@ -773,7 +774,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 				lp.ServeHTTP(w, req)
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 

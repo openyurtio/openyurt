@@ -574,7 +574,7 @@ func TestCacheGetResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -1002,7 +1002,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -1590,7 +1590,7 @@ func TestCacheListResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -2237,7 +2237,7 @@ func TestQueryCacheForGet(t *testing.T) {
 				}
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -2877,7 +2877,7 @@ func TestQueryCacheForList(t *testing.T) {
 				}
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -3277,7 +3277,7 @@ func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[s
 
 	handler = proxyutil.WithListRequestSelector(handler)
 	handler = proxyutil.WithCacheHeaderCheck(handler)
-	handler = proxyutil.WithRequestClientComponent(handler)
+	handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
 	handler = filters.WithRequestInfo(handler, newTestRequestInfoResolver())
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
