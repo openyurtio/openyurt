@@ -53,7 +53,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new Ravendns Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	return add(mgr, c, newReconciler(mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileDns{}
@@ -74,10 +74,10 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayDNSController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.GatewayDNSController.ConcurrentGatewayDNSWorkers),
 	})
 	if err != nil {
 		return err

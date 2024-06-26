@@ -31,7 +31,6 @@ type YurtManagerOptions struct {
 	DaemonPodUpdaterController    *DaemonPodUpdaterControllerOptions
 	CsrApproverController         *CsrApproverControllerOptions
 	NodePoolController            *NodePoolControllerOptions
-	GatewayPickupController       *GatewayPickupControllerOptions
 	YurtStaticSetController       *YurtStaticSetControllerOptions
 	YurtAppSetController          *YurtAppSetControllerOptions
 	YurtAppDaemonController       *YurtAppDaemonControllerOptions
@@ -43,6 +42,10 @@ type YurtManagerOptions struct {
 	EndpointSliceController       *EndpointSliceControllerOptions
 	LoadBalancerSetController     *LoadBalancerSetControllerOptions
 	YurtCoordinatorCertController *YurtCoordinatorCertControllerOptions
+	GatewayPickupController       *GatewayPickupControllerOptions
+	GatewayDNSController          *GatewayDNSControllerOptions
+	GatewayInternalSvcController  *GatewayInternalSvcControllerOptions
+	GatewayPublicSvcController    *GatewayPublicSvcControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -55,7 +58,6 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		DaemonPodUpdaterController:    NewDaemonPodUpdaterControllerOptions(),
 		CsrApproverController:         NewCsrApproverControllerOptions(),
 		NodePoolController:            NewNodePoolControllerOptions(),
-		GatewayPickupController:       NewGatewayPickupControllerOptions(),
 		YurtStaticSetController:       NewYurtStaticSetControllerOptions(),
 		YurtAppSetController:          NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController:       NewYurtAppDaemonControllerOptions(),
@@ -67,6 +69,10 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		EndpointSliceController:       NewEndpointSliceControllerOptions(),
 		LoadBalancerSetController:     NewLoadBalancerSetControllerOptions(),
 		YurtCoordinatorCertController: NewYurtCoordinatorCertControllerOptions(),
+		GatewayPickupController:       NewGatewayPickupControllerOptions(),
+		GatewayDNSController:          NewGatewayDNSControllerOptions(),
+		GatewayInternalSvcController:  NewGatewayInternalSvcControllerOptions(),
+		GatewayPublicSvcController:    NewGatewayPublicSvcControllerOptions(),
 	}
 
 	return &s, nil
@@ -80,7 +86,6 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.DaemonPodUpdaterController.AddFlags(fss.FlagSet("daemonpodupdater controller"))
 	y.CsrApproverController.AddFlags(fss.FlagSet("csrapprover controller"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
-	y.GatewayPickupController.AddFlags(fss.FlagSet("gateway controller"))
 	y.YurtAppSetController.AddFlags(fss.FlagSet("yurtappset controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
@@ -92,6 +97,10 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.EndpointSliceController.AddFlags(fss.FlagSet("endpointslice controller"))
 	y.LoadBalancerSetController.AddFlags(fss.FlagSet("loadbalancerset controller"))
 	y.YurtCoordinatorCertController.AddFlags(fss.FlagSet("yurtcoordinator cert controller"))
+	y.GatewayPickupController.AddFlags(fss.FlagSet("gatewaypickup controller"))
+	y.GatewayDNSController.AddFlags(fss.FlagSet("gatewaydns controller"))
+	y.GatewayInternalSvcController.AddFlags(fss.FlagSet("gatewayinternalsvc controller"))
+	y.GatewayPublicSvcController.AddFlags(fss.FlagSet("gatewaypublicsvc controller"))
 	return fss
 }
 
@@ -104,7 +113,6 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.DaemonPodUpdaterController.Validate()...)
 	errs = append(errs, y.CsrApproverController.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
-	errs = append(errs, y.GatewayPickupController.Validate()...)
 	errs = append(errs, y.YurtAppSetController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
@@ -116,6 +124,10 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.EndpointSliceController.Validate()...)
 	errs = append(errs, y.LoadBalancerSetController.Validate()...)
 	errs = append(errs, y.YurtCoordinatorCertController.Validate()...)
+	errs = append(errs, y.GatewayPickupController.Validate()...)
+	errs = append(errs, y.GatewayDNSController.Validate()...)
+	errs = append(errs, y.GatewayInternalSvcController.Validate()...)
+	errs = append(errs, y.GatewayPublicSvcController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -154,9 +166,6 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 	if err := y.YurtAppOverriderController.ApplyTo(&c.ComponentConfig.YurtAppOverriderController); err != nil {
 		return err
 	}
-	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayPickupController); err != nil {
-		return err
-	}
 	if err := y.NodeLifeCycleController.ApplyTo(&c.ComponentConfig.NodeLifeCycleController); err != nil {
 		return err
 	}
@@ -173,6 +182,18 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.YurtCoordinatorCertController.ApplyTo(&c.ComponentConfig.YurtCoordinatorCertController); err != nil {
+		return err
+	}
+	if err := y.GatewayPickupController.ApplyTo(&c.ComponentConfig.GatewayPickupController); err != nil {
+		return err
+	}
+	if err := y.GatewayDNSController.ApplyTo(&c.ComponentConfig.GatewayDNSController); err != nil {
+		return err
+	}
+	if err := y.GatewayInternalSvcController.ApplyTo(&c.ComponentConfig.GatewayInternalSvcController); err != nil {
+		return err
+	}
+	if err := y.GatewayPublicSvcController.ApplyTo(&c.ComponentConfig.GatewayPublicSvcController); err != nil {
 		return err
 	}
 	return nil

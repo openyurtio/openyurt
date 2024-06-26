@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 const (
-	ConcurrentReconciles           = 1
 	WorkingNamespace               = "kube-system"
 	RavenGlobalConfig              = "raven-cfg"
 	RavenAgentConfig               = "raven-agent-config"
