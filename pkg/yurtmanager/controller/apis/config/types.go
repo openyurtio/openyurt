@@ -27,7 +27,10 @@ import (
 	nodebucketconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 	platformadminconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
+	gatewaydnsconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/dns/config"
+	gatewayinternalsvcconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewayinternalservice/config"
 	gatewaypickupconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
+	gatewaypublicsvcconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypublicservice/config"
 	endpointsconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints/config"
 	endpointsliceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
@@ -59,9 +62,6 @@ type YurtManagerConfiguration struct {
 	// NodePoolControllerConfiguration holds configuration for NodePoolController related features.
 	NodePoolController nodepoolconfig.NodePoolControllerConfiguration
 
-	// GatewayPickupControllerConfiguration holds configuration for GatewayController related features.
-	GatewayPickupController gatewaypickupconfig.GatewayPickupControllerConfiguration
-
 	// YurtAppSetControllerConfiguration holds configuration for YurtAppSetController related features.
 	YurtAppSetController yurtappsetconfig.YurtAppSetControllerConfiguration
 
@@ -79,7 +79,7 @@ type YurtManagerConfiguration struct {
 
 	NodeLifeCycleController v1alpha1.NodeLifecycleControllerConfiguration
 
-	//  NodeBucketController holds configuration for NodeBucketController related features.
+	// NodeBucketController holds configuration for NodeBucketController related features.
 	NodeBucketController nodebucketconfig.NodeBucketControllerConfiguration
 
 	// EndpointsController holds configuration for EndpointsController related features.
@@ -88,11 +88,23 @@ type YurtManagerConfiguration struct {
 	// EndpointSliceController holds configuration for EndpointSliceController related features.
 	ServiceTopologyEndpointSliceController endpointsliceconfig.ServiceTopologyEndpointSliceControllerConfiguration
 
-	//  LoadBalancerSetController holds configuration for LoadBalancerSetController related features.
+	// LoadBalancerSetController holds configuration for LoadBalancerSetController related features.
 	LoadBalancerSetController loadbalancersetconfig.LoadBalancerSetControllerConfiguration
 
 	//  YurtCoordinatorCertController holds configuration for YurtCoordinatorCertController related features.
 	YurtCoordinatorCertController coordinatorcertconfig.YurtCoordinatorCertControllerConfiguration
+
+	// GatewayPickupControllerConfiguration holds configuration for GatewayController related features.
+	GatewayPickupController gatewaypickupconfig.GatewayPickupControllerConfiguration
+
+	// GatewayDNSController holds configuration for GatewayDNSController related features.
+	GatewayDNSController gatewaydnsconfig.GatewayDNSControllerConfiguration
+
+	// GatewayInternalSvcController holds configuration for GatewayInternalSvcController related features.
+	GatewayInternalSvcController gatewayinternalsvcconfig.GatewayInternalSvcControllerConfiguration
+
+	// GatewayPublicSvcController holds configuration for GatewayPublicSvcController related features.
+	GatewayPublicSvcController gatewaypublicsvcconfig.GatewayPublicSvcControllerConfiguration
 }
 
 type GenericConfiguration struct {

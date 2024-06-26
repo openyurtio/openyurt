@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 package config
 
-// GatewayPickupControllerConfiguration contains elements describing GatewayPickController.
-type GatewayPickupControllerConfiguration struct {
-	ConcurrentGatewayPickupWorkers int32
+// GatewayPublicSvcControllerConfiguration contains elements describing GatewayPublicServiceController.
+type GatewayPublicSvcControllerConfiguration struct {
+	ConcurrentGatewayPublicSvcWorkers int32
 }

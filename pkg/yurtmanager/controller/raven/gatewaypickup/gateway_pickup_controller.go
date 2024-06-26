@@ -73,7 +73,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 		return err
 	}
 	klog.Infof("raven-gateway-controller add controller %s", controllerResource.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 var _ reconcile.Reconciler = &ReconcileGateway{}
@@ -97,10 +97,10 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 }
 
 // add is used to add a new Controller to mgr
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(names.GatewayPickupController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: util.ConcurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.GatewayPickupController.ConcurrentGatewayPickupWorkers),
 	})
 	if err != nil {
 		return err

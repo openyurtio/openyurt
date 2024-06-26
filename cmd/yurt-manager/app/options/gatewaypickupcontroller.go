@@ -28,7 +28,9 @@ type GatewayPickupControllerOptions struct {
 
 func NewGatewayPickupControllerOptions() *GatewayPickupControllerOptions {
 	return &GatewayPickupControllerOptions{
-		&config.GatewayPickupControllerConfiguration{},
+		&config.GatewayPickupControllerConfiguration{
+			ConcurrentGatewayPickupWorkers: 1,
+		},
 	}
 }
 
@@ -38,6 +40,8 @@ func (g *GatewayPickupControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
+	fs.Int32Var(&g.ConcurrentGatewayPickupWorkers, "concurrent-gateway-pickup-workers", g.ConcurrentGatewayPickupWorkers, "The number of gateway objects that are allowed to reconcile concurrently. Larger number = more responsive gateway pickup, but more CPU (and network) load")
+
 }
 
 // ApplyTo fills up nodePool config with options.
@@ -46,6 +50,7 @@ func (g *GatewayPickupControllerOptions) ApplyTo(cfg *config.GatewayPickupContro
 		return nil
 	}
 
+	cfg.ConcurrentGatewayPickupWorkers = g.ConcurrentGatewayPickupWorkers
 	return nil
 }
 
