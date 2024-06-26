@@ -267,6 +267,13 @@ func getKeyByRequest(req *http.Request) string {
 		return key
 	}
 
+	if strings.Contains(comp, "/") {
+		index := strings.Index(comp, "/")
+		if index != -1 {
+			comp = comp[:index]
+		}
+	}
+
 	info, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok {
 		return key

@@ -277,6 +277,9 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 		}
 	}
 
+	// wrap response for tracing traffic information of requests
+	resp = hubutil.WrapWithTrafficTrace(req, resp)
+
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusPartialContent {
 		// prepare response content type
 		reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)

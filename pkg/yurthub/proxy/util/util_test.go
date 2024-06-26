@@ -150,7 +150,7 @@ func TestWithRequestClientComponent(t *testing.T) {
 			clientComponent, _ = util.ClientComponentFrom(ctx)
 		})
 
-		handler = WithRequestClientComponent(handler)
+		handler = WithRequestClientComponent(handler, util.WorkingModeEdge)
 		handler = filters.WithRequestInfo(handler, resolver)
 		handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -630,7 +630,7 @@ func TestWithRequestTrace(t *testing.T) {
 
 			})
 
-			handler = WithRequestClientComponent(handler)
+			handler = WithRequestClientComponent(handler, util.WorkingModeCloud)
 			handler = WithRequestTrace(handler)
 			handler = WithRequestTraceFull(handler)
 

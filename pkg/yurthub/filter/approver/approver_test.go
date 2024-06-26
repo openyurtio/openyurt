@@ -37,6 +37,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	util2 "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var supportedResourceAndVerbsForFilter = map[string]map[string]sets.Set[string]{
@@ -66,6 +67,7 @@ func TestApprove(t *testing.T) {
 		path         string
 		approved     bool
 		resultFilter []string
+		workingMode  util2.WorkingMode
 	}{
 		"kubelet list services": {
 			userAgent:    "kubelet/v1.20.11",
@@ -73,6 +75,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/services",
 			approved:     true,
 			resultFilter: []string{masterservice.FilterName},
+			workingMode:  util2.WorkingModeCloud,
 		},
 		"kubelet watch services": {
 			userAgent:    "kubelet/v1.20.11",
@@ -80,6 +83,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
 			resultFilter: []string{masterservice.FilterName},
+			workingMode:  util2.WorkingModeCloud,
 		},
 		"kube-proxy list services": {
 			userAgent:    "kube-proxy/v1.20.11",
@@ -87,6 +91,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/services",
 			approved:     true,
 			resultFilter: []string{discardcloudservice.FilterName},
+			workingMode:  util2.WorkingModeCloud,
 		},
 		"kube-proxy watch services": {
 			userAgent:    "kube-proxy/v1.20.11",
@@ -94,6 +99,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/services?watch=true",
 			approved:     true,
 			resultFilter: []string{discardcloudservice.FilterName},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"kube-proxy list endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
@@ -101,6 +107,7 @@ func TestApprove(t *testing.T) {
 			path:         "/apis/discovery.k8s.io/v1/endpointslices",
 			approved:     true,
 			resultFilter: []string{servicetopology.FilterName},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"kube-proxy watch endpointslices": {
 			userAgent:    "kube-proxy/v1.20.11",
@@ -108,6 +115,7 @@ func TestApprove(t *testing.T) {
 			path:         "/apis/discovery.k8s.io/v1/endpointslices?watch=true",
 			approved:     true,
 			resultFilter: []string{servicetopology.FilterName},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"nginx-ingress-controller list endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
@@ -115,6 +123,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/endpoints",
 			approved:     true,
 			resultFilter: []string{servicetopology.FilterName},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"nginx-ingress-controller watch endpoints": {
 			userAgent:    "nginx-ingress-controller/v1.1.0",
@@ -122,12 +131,14 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/endpoints?watch=true",
 			approved:     true,
 			resultFilter: []string{servicetopology.FilterName},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"list endpoints without user agent": {
 			verb:         "GET",
 			path:         "/api/v1/endpoints",
 			approved:     false,
 			resultFilter: []string{},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"list configmaps by hub agent": {
 			userAgent:    projectinfo.GetHubName(),
@@ -135,6 +146,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/configmaps",
 			approved:     false,
 			resultFilter: []string{},
+			workingMode:  util2.WorkingModeEdge,
 		},
 		"watch configmaps by hub agent": {
 			userAgent:    projectinfo.GetHubName(),
@@ -142,6 +154,7 @@ func TestApprove(t *testing.T) {
 			path:         "/api/v1/configmaps?watch=true",
 			approved:     false,
 			resultFilter: []string{},
+			workingMode:  util2.WorkingModeCloud,
 		},
 	}
 
@@ -170,7 +183,7 @@ func TestApprove(t *testing.T) {
 				approved, filterNames = approver.Approve(req)
 			})
 
-			handler = util.WithRequestClientComponent(handler)
+			handler = util.WithRequestClientComponent(handler, tt.workingMode)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -591,7 +604,7 @@ func TestGetKeyByRequest(t *testing.T) {
 				requestKey = getKeyByRequest(req)
 			})
 
-			handler = util.WithRequestClientComponent(handler)
+			handler = util.WithRequestClientComponent(handler, util2.WorkingModeEdge)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 

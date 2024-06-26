@@ -198,7 +198,6 @@ func NewTripleReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (
 	pr1, pw1 := io.Pipe()
 	pr2, pw2 := io.Pipe()
 	tr := &tripleReadCloser{
-		req: req,
 		rc:  rc,
 		pw1: pw1,
 		pw2: pw2,
@@ -207,7 +206,6 @@ func NewTripleReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (
 }
 
 type tripleReadCloser struct {
-	req *http.Request
 	rc  io.ReadCloser
 	pw1 *io.PipeWriter
 	pw2 *io.PipeWriter
@@ -220,17 +218,6 @@ type tripleReadCloser struct {
 
 // Read read data into p and write into pipe
 func (dr *tripleReadCloser) Read(p []byte) (n int, err error) {
-	defer func() {
-		if dr.req != nil && dr.isRespBody {
-			ctx := dr.req.Context()
-			info, _ := apirequest.RequestInfoFrom(ctx)
-			if info.IsResourceRequest {
-				comp, _ := ClientComponentFrom(ctx)
-				metrics.Metrics.AddProxyTrafficCollector(comp, info.Verb, info.Resource, info.Subresource, n)
-			}
-		}
-	}()
-
 	n, err = dr.rc.Read(p)
 	if n > 0 {
 		var n1, n2 int
@@ -276,7 +263,6 @@ func (dr *tripleReadCloser) Close() error {
 func NewDualReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser) {
 	pr, pw := io.Pipe()
 	dr := &dualReadCloser{
-		req:        req,
 		rc:         rc,
 		pw:         pw,
 		isRespBody: isRespBody,
@@ -286,9 +272,8 @@ func NewDualReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io
 }
 
 type dualReadCloser struct {
-	req *http.Request
-	rc  io.ReadCloser
-	pw  *io.PipeWriter
+	rc io.ReadCloser
+	pw *io.PipeWriter
 	// isRespBody shows rc(is.ReadCloser) is a response.Body
 	// or not(maybe a request.Body). if it is true(it's a response.Body),
 	// we should close the response body in Close func, else not,
@@ -298,17 +283,6 @@ type dualReadCloser struct {
 
 // Read read data into p and write into pipe
 func (dr *dualReadCloser) Read(p []byte) (n int, err error) {
-	defer func() {
-		if dr.req != nil && dr.isRespBody {
-			ctx := dr.req.Context()
-			info, _ := apirequest.RequestInfoFrom(ctx)
-			if info.IsResourceRequest {
-				comp, _ := ClientComponentFrom(ctx)
-				metrics.Metrics.AddProxyTrafficCollector(comp, info.Verb, info.Resource, info.Subresource, n)
-			}
-		}
-	}()
-
 	n, err = dr.rc.Read(p)
 	if n > 0 {
 		if n, err := dr.pw.Write(p[:n]); err != nil {
@@ -470,4 +444,44 @@ func ParseBearerToken(token string) string {
 	}
 
 	return strings.TrimPrefix(token, "Bearer ")
+}
+
+type TrafficTraceReader struct {
+	rc          io.ReadCloser // original response body
+	client      string
+	verb        string
+	resource    string
+	subResource string
+}
+
+// Read overwrite Read function of io.ReadCloser in order to trace traffic for each request
+func (tt *TrafficTraceReader) Read(p []byte) (n int, err error) {
+	n, err = tt.rc.Read(p)
+	metrics.Metrics.AddProxyTrafficCollector(tt.client, tt.verb, tt.resource, tt.subResource, n)
+	return
+}
+
+func (tt *TrafficTraceReader) Close() error {
+	return tt.rc.Close()
+}
+
+func WrapWithTrafficTrace(req *http.Request, resp *http.Response) *http.Response {
+	ctx := req.Context()
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || !info.IsResourceRequest {
+		return resp
+	}
+	comp, ok := ClientComponentFrom(ctx)
+	if !ok || len(comp) == 0 {
+		return resp
+	}
+
+	resp.Body = &TrafficTraceReader{
+		rc:          resp.Body,
+		client:      comp,
+		verb:        info.Verb,
+		resource:    info.Resource,
+		subResource: info.Subresource,
+	}
+	return resp
 }

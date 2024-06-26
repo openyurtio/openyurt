@@ -156,21 +156,24 @@ func WithListRequestSelector(handler http.Handler) http.Handler {
 // WithRequestClientComponent add component field in request context.
 // component is extracted from User-Agent Header, and only the content
 // before the "/" when User-Agent include "/".
-func WithRequestClientComponent(handler http.Handler) http.Handler {
+func WithRequestClientComponent(handler http.Handler, mode util.WorkingMode) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
 
 			if info.IsResourceRequest {
-				var comp string
 				userAgent := strings.ToLower(req.Header.Get("User-Agent"))
-				parts := strings.Split(userAgent, "/")
-				if len(parts) > 0 {
-					comp = strings.ToLower(parts[0])
+				// on edge mode, component name is used as element of cache path, so only the part
+				// before the first forward slash can be recognized as component name.
+				if mode == util.WorkingModeEdge {
+					parts := strings.Split(userAgent, "/")
+					if len(parts) > 0 {
+						userAgent = strings.ToLower(parts[0])
+					}
 				}
 
-				if comp != "" {
-					ctx = util.WithClientComponent(ctx, comp)
+				if userAgent != "" {
+					ctx = util.WithClientComponent(ctx, userAgent)
 					req = req.WithContext(ctx)
 				}
 			}
