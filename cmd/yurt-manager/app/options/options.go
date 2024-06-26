@@ -25,46 +25,48 @@ import (
 
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
-	Generic                    *GenericOptions
-	DelegateLeaseController    *DelegateLeaseControllerOptions
-	PodBindingController       *PodBindingControllerOptions
-	DaemonPodUpdaterController *DaemonPodUpdaterControllerOptions
-	CsrApproverController      *CsrApproverControllerOptions
-	NodePoolController         *NodePoolControllerOptions
-	GatewayPickupController    *GatewayPickupControllerOptions
-	YurtStaticSetController    *YurtStaticSetControllerOptions
-	YurtAppSetController       *YurtAppSetControllerOptions
-	YurtAppDaemonController    *YurtAppDaemonControllerOptions
-	PlatformAdminController    *PlatformAdminControllerOptions
-	YurtAppOverriderController *YurtAppOverriderControllerOptions
-	NodeLifeCycleController    *NodeLifecycleControllerOptions
-	NodeBucketController       *NodeBucketControllerOptions
-	EndpointsController        *EndpointsControllerOptions
-	EndpointSliceController    *EndpointSliceControllerOptions
-	LoadBalancerSetController  *LoadBalancerSetControllerOptions
+	Generic                       *GenericOptions
+	DelegateLeaseController       *DelegateLeaseControllerOptions
+	PodBindingController          *PodBindingControllerOptions
+	DaemonPodUpdaterController    *DaemonPodUpdaterControllerOptions
+	CsrApproverController         *CsrApproverControllerOptions
+	NodePoolController            *NodePoolControllerOptions
+	GatewayPickupController       *GatewayPickupControllerOptions
+	YurtStaticSetController       *YurtStaticSetControllerOptions
+	YurtAppSetController          *YurtAppSetControllerOptions
+	YurtAppDaemonController       *YurtAppDaemonControllerOptions
+	PlatformAdminController       *PlatformAdminControllerOptions
+	YurtAppOverriderController    *YurtAppOverriderControllerOptions
+	NodeLifeCycleController       *NodeLifecycleControllerOptions
+	NodeBucketController          *NodeBucketControllerOptions
+	EndpointsController           *EndpointsControllerOptions
+	EndpointSliceController       *EndpointSliceControllerOptions
+	LoadBalancerSetController     *LoadBalancerSetControllerOptions
+	YurtCoordinatorCertController *YurtCoordinatorCertControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
 func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 
 	s := YurtManagerOptions{
-		Generic:                    NewGenericOptions(),
-		DelegateLeaseController:    NewDelegateLeaseControllerOptions(),
-		PodBindingController:       NewPodBindingControllerOptions(),
-		DaemonPodUpdaterController: NewDaemonPodUpdaterControllerOptions(),
-		CsrApproverController:      NewCsrApproverControllerOptions(),
-		NodePoolController:         NewNodePoolControllerOptions(),
-		GatewayPickupController:    NewGatewayPickupControllerOptions(),
-		YurtStaticSetController:    NewYurtStaticSetControllerOptions(),
-		YurtAppSetController:       NewYurtAppSetControllerOptions(),
-		YurtAppDaemonController:    NewYurtAppDaemonControllerOptions(),
-		PlatformAdminController:    NewPlatformAdminControllerOptions(),
-		YurtAppOverriderController: NewYurtAppOverriderControllerOptions(),
-		NodeLifeCycleController:    NewNodeLifecycleControllerOptions(),
-		NodeBucketController:       NewNodeBucketControllerOptions(),
-		EndpointsController:        NewEndpointsControllerOptions(),
-		EndpointSliceController:    NewEndpointSliceControllerOptions(),
-		LoadBalancerSetController:  NewLoadBalancerSetControllerOptions(),
+		Generic:                       NewGenericOptions(),
+		DelegateLeaseController:       NewDelegateLeaseControllerOptions(),
+		PodBindingController:          NewPodBindingControllerOptions(),
+		DaemonPodUpdaterController:    NewDaemonPodUpdaterControllerOptions(),
+		CsrApproverController:         NewCsrApproverControllerOptions(),
+		NodePoolController:            NewNodePoolControllerOptions(),
+		GatewayPickupController:       NewGatewayPickupControllerOptions(),
+		YurtStaticSetController:       NewYurtStaticSetControllerOptions(),
+		YurtAppSetController:          NewYurtAppSetControllerOptions(),
+		YurtAppDaemonController:       NewYurtAppDaemonControllerOptions(),
+		PlatformAdminController:       NewPlatformAdminControllerOptions(),
+		YurtAppOverriderController:    NewYurtAppOverriderControllerOptions(),
+		NodeLifeCycleController:       NewNodeLifecycleControllerOptions(),
+		NodeBucketController:          NewNodeBucketControllerOptions(),
+		EndpointsController:           NewEndpointsControllerOptions(),
+		EndpointSliceController:       NewEndpointSliceControllerOptions(),
+		LoadBalancerSetController:     NewLoadBalancerSetControllerOptions(),
+		YurtCoordinatorCertController: NewYurtCoordinatorCertControllerOptions(),
 	}
 
 	return &s, nil
@@ -89,6 +91,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.EndpointsController.AddFlags(fss.FlagSet("endpoints controller"))
 	y.EndpointSliceController.AddFlags(fss.FlagSet("endpointslice controller"))
 	y.LoadBalancerSetController.AddFlags(fss.FlagSet("loadbalancerset controller"))
+	y.YurtCoordinatorCertController.AddFlags(fss.FlagSet("yurtcoordinator cert controller"))
 	return fss
 }
 
@@ -112,6 +115,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.EndpointsController.Validate()...)
 	errs = append(errs, y.EndpointSliceController.Validate()...)
 	errs = append(errs, y.LoadBalancerSetController.Validate()...)
+	errs = append(errs, y.YurtCoordinatorCertController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -166,6 +170,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.LoadBalancerSetController.ApplyTo(&c.ComponentConfig.LoadBalancerSetController); err != nil {
+		return err
+	}
+	if err := y.YurtCoordinatorCertController.ApplyTo(&c.ComponentConfig.YurtCoordinatorCertController); err != nil {
 		return err
 	}
 	return nil

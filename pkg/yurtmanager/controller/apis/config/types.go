@@ -33,6 +33,7 @@ import (
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
 	yurtappoverriderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
+	coordinatorcertconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert/config"
 	delegateleaseconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/delegatelease/config"
 	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
@@ -89,6 +90,9 @@ type YurtManagerConfiguration struct {
 
 	//  LoadBalancerSetController holds configuration for LoadBalancerSetController related features.
 	LoadBalancerSetController loadbalancersetconfig.LoadBalancerSetControllerConfiguration
+
+	//  YurtCoordinatorCertController holds configuration for YurtCoordinatorCertController related features.
+	YurtCoordinatorCertController coordinatorcertconfig.YurtCoordinatorCertControllerConfiguration
 }
 
 type GenericConfiguration struct {
