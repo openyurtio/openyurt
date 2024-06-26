@@ -79,6 +79,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.CsrApproverController.AddFlags(fss.FlagSet("csrapprover controller"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.GatewayPickupController.AddFlags(fss.FlagSet("gateway controller"))
+	y.YurtAppSetController.AddFlags(fss.FlagSet("yurtappset controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
@@ -101,6 +102,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.CsrApproverController.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.GatewayPickupController.Validate()...)
+	errs = append(errs, y.YurtAppSetController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
@@ -131,6 +133,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.NodePoolController.ApplyTo(&c.ComponentConfig.NodePoolController); err != nil {
+		return err
+	}
+	if err := y.YurtAppSetController.ApplyTo(&c.ComponentConfig.YurtAppSetController); err != nil {
 		return err
 	}
 	if err := y.YurtStaticSetController.ApplyTo(&c.ComponentConfig.YurtStaticSetController); err != nil {

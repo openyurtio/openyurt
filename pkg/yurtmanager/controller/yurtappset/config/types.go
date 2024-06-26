@@ -17,4 +17,5 @@ limitations under the License.
 package config
 
 type YurtAppSetControllerConfiguration struct {
+	ConcurrentYurtAppSetWorkers int32
 }

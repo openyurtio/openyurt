@@ -28,7 +28,9 @@ type YurtAppSetControllerOptions struct {
 
 func NewYurtAppSetControllerOptions() *YurtAppSetControllerOptions {
 	return &YurtAppSetControllerOptions{
-		&config.YurtAppSetControllerConfiguration{},
+		&config.YurtAppSetControllerConfiguration{
+			ConcurrentYurtAppSetWorkers: 3,
+		},
 	}
 }
 
@@ -38,7 +40,8 @@ func (n *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 
-	//fs.BoolVar(&n.CreateDefaultPool, "create-default-pool", n.CreateDefaultPool, "Create default cloud/edge pools if indicated.")
+	fs.Int32Var(&n.ConcurrentYurtAppSetWorkers, "concurrent-yurtappset-workers", n.ConcurrentYurtAppSetWorkers, "The number of yurtappset objects that are allowed to reconcile concurrently. Larger number = more responsive yurtappsets, but more CPU (and network) load")
+
 }
 
 // ApplyTo fills up nodePool config with options.
@@ -47,6 +50,7 @@ func (o *YurtAppSetControllerOptions) ApplyTo(cfg *config.YurtAppSetControllerCo
 		return nil
 	}
 
+	cfg.ConcurrentYurtAppSetWorkers = o.ConcurrentYurtAppSetWorkers
 	return nil
 }
 
