@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
-	"flag"
 	"fmt"
 	"net"
 
@@ -44,13 +43,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/ip"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "yurtcoordinatorcert-workers", concurrentReconciles, "Max concurrent workers for YurtCoordinatorCert controller.")
-}
-
 var (
-	concurrentReconciles = 1
-	YurtCoordinatorNS    = "kube-system"
+	YurtCoordinatorNS = "kube-system"
 )
 
 const (
@@ -216,7 +210,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 
 	// Create a new controller
 	c, err := controller.New(names.YurtCoordinatorCertController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: concurrentReconciles,
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.YurtCoordinatorCertController.ConcurrentCoordinatorCertWorkers),
 	})
 	if err != nil {
 		return err
