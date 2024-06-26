@@ -24,7 +24,6 @@ package yurtappset
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"reflect"
 	"time"
@@ -57,13 +56,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
-func init() {
-	flag.IntVar(&concurrentReconciles, "yurtappset-workers", concurrentReconciles, "Max concurrent workers for YurtAppSet controller.")
-}
-
 var (
-	concurrentReconciles = 3
-	controllerResource   = unitv1beta1.SchemeGroupVersion.WithResource("yurtappsets")
+	controllerResource = unitv1beta1.SchemeGroupVersion.WithResource("yurtappsets")
 )
 
 const (
@@ -86,7 +80,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	}
 
 	klog.Infof("yurtappset-controller add controller %s", controllerResource.String())
-	return add(mgr, newReconciler(c, mgr))
+	return add(mgr, c, newReconciler(c, mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -110,9 +104,9 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.YurtAppSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: concurrentReconciles})
+	c, err := controller.New(names.YurtAppSetController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.YurtAppSetController.ConcurrentYurtAppSetWorkers)})
 	if err != nil {
 		return err
 	}
