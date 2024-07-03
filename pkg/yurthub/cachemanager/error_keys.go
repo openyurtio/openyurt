@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 )
 
@@ -40,17 +41,16 @@ var (
 
 type errorKeys struct {
 	sync.RWMutex
-	keys       map[string]string
-	operations chan operation
-	file       *os.File
-	count      int
-	cancel     context.CancelFunc
+	keys  map[string]string
+	queue workqueue.RateLimitingInterface
+	file  *os.File
+	count int
 }
 
 func NewErrorKeys() *errorKeys {
 	ek := &errorKeys{
-		keys:       make(map[string]string),
-		operations: make(chan operation, 100),
+		keys:  make(map[string]string),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), "error-keys"),
 	}
 	err := os.MkdirAll(AOFPrefix, 0755)
 	if err != nil {
@@ -63,10 +63,8 @@ func NewErrorKeys() *errorKeys {
 		return ek
 	}
 	ek.file = file
-	ctx, cancel := context.WithCancel(context.TODO())
-	ek.cancel = cancel
-	go ek.sync(ctx)
-	go ek.compress(ctx)
+	go ek.sync()
+	go ek.compress()
 	return ek
 }
 
@@ -87,12 +85,7 @@ func (ek *errorKeys) put(key string, val string) {
 	ek.Lock()
 	defer ek.Unlock()
 	ek.keys[key] = val
-	select {
-	case ek.operations <- operation{Operator: PUT, Key: key, Val: val}:
-		klog.Warningf("failed to cache key %s", key)
-	default:
-		klog.Errorf("failed to persist error keys %s, channel is full", key)
-	}
+	ek.queue.AddRateLimited(operation{Operator: PUT, Key: key, Val: val})
 }
 
 func (ek *errorKeys) del(key string) {
@@ -102,12 +95,7 @@ func (ek *errorKeys) del(key string) {
 		return
 	}
 	delete(ek.keys, key)
-	select {
-	case ek.operations <- operation{Operator: DEL, Key: key}:
-		klog.Infof("delete error key %s successfully", key)
-	default:
-		klog.Errorf("failed to delete error keys %s", key)
-	}
+	ek.queue.AddRateLimited(operation{Operator: DEL, Key: key})
 }
 
 func (ek *errorKeys) aggregate() string {
@@ -127,34 +115,41 @@ func (ek *errorKeys) length() int {
 	return len(ek.keys)
 }
 
-func (ek *errorKeys) sync(ctx context.Context) {
-	for {
-		select {
-		case op := <-ek.operations:
-			data, err := json.Marshal(op)
-			if err != nil {
-				klog.Errorf("failed to serialize and persist operation: %v", op)
-				continue
-			}
-			ek.file.Write(append(data, '\n'))
-			ek.file.Sync()
-			ek.count++
-		case <-ctx.Done():
-			ek.file.Close()
-			return
-		}
+func (ek *errorKeys) sync() {
+	for ek.processNextOperator() {
 	}
 }
 
-func (ek *errorKeys) compress(ctx context.Context) {
+func (ek *errorKeys) processNextOperator() bool {
+	item, quit := ek.queue.Get()
+	if quit {
+		return false
+	}
+	defer ek.queue.Done(item)
+	op, ok := item.(operation)
+	if !ok {
+		ek.queue.Forget(item)
+		return true
+	}
+	data, err := json.Marshal(op)
+	if err != nil {
+		klog.Errorf("failed to serialize and persist operation: %v", op)
+		return false
+	}
+	ek.file.Write(append(data, '\n'))
+	ek.file.Sync()
+	ek.count++
+	return true
+}
+
+func (ek *errorKeys) compress() {
 	ticker := time.NewTicker(30 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
+	for range ticker.C {
+		if !ek.queue.ShuttingDown() {
 			if ek.count > len(ek.keys)+CompressThresh {
 				ek.rewrite()
 			}
-		case <-ctx.Done():
+		} else {
 			return
 		}
 	}
@@ -190,7 +185,7 @@ func (ek *errorKeys) rewrite() {
 	defer cancel()
 	wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			if len(ek.operations) == 0 {
+			if ek.queue.Len() == 0 {
 				return true, nil
 			}
 			return false, nil
@@ -201,7 +196,7 @@ func (ek *errorKeys) rewrite() {
 	}
 	file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0600)
 	if err != nil {
-		ek.cancel()
+		ek.queue.ShutDown()
 		return
 	}
 	ek.file = file

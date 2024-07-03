@@ -75,7 +75,7 @@ func TestXxx(t *testing.T) {
 			if ek.length() != 0 {
 				t.Errorf("expect length %v, got %v", tc.length, ek.length())
 			}
-			ek.cancel()
+			ek.queue.ShutDown()
 			os.RemoveAll(AOFPrefix)
 		})
 	}
@@ -104,7 +104,7 @@ func TestRecover(t *testing.T) {
 	if _, ok := ek.keys[op.Key]; !ok {
 		t.Errorf("failed to recover")
 	}
-	ek.cancel()
+	ek.queue.ShutDown()
 	os.RemoveAll(AOFPrefix)
 }
 
@@ -121,7 +121,7 @@ func TestCompress(t *testing.T) {
 	}
 	err := wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, false,
 		func(ctx context.Context) (bool, error) {
-			if keys.count == 100 {
+			if keys.count == 50 {
 				return true, nil
 			}
 			return false, nil
