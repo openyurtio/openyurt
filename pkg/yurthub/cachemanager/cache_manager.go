@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -242,32 +243,46 @@ func (cm *cacheManager) updateNodeStatus(req *http.Request) (runtime.Object, err
 		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
 		return node, nil
 	}
+	cm.cacheFailedCount = ptr.To(int32(cm.errorKeys.length()))
 	if cm.errorKeys.length() == 0 {
-		setNodeAutonomyCondition(node, v1.ConditionTrue, "cache successful", "The autonomy is enabled and it works fine")
+		setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled sucessfully", "The autonomy is enabled and it works fine")
 		atomic.StoreInt32(cm.cacheFailedCount, 0)
 	} else {
 		atomic.AddInt32(cm.cacheFailedCount, 1)
-		if *cm.cacheFailedCount > 3 {
+		if *cm.cacheFailedCount != 0 {
 			setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
 		}
 	}
+	klog.Infof("node status: %v", node.Status)
 	return node, nil
 }
 
 func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, reason, message string) {
+	updateNodeReadyMessage := func() {
+		for i := range node.Status.Conditions {
+			if node.Status.Conditions[i].Type == v1.NodeReady {
+				node.Status.Conditions[i].Message = "kubelet is posting ready status and autonomy status changed"
+			}
+		}
+	}
 	for i := range node.Status.Conditions {
 		if node.Status.Conditions[i].Type == appsv1beta1.NodeAutonomy {
 			if node.Status.Conditions[i].Status == expectedStatus {
 				return
+			} else {
+				node.Status.Conditions[i].Status = expectedStatus
+				node.Status.Conditions[i].Reason = reason
+				node.Status.Conditions[i].Message = message
+				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+				updateNodeReadyMessage()
+				return
 			}
-			node.Status.Conditions[i].Status = expectedStatus
-			node.Status.Conditions[i].Reason = reason
-			node.Status.Conditions[i].Message = message
-			node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-			node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-			return
+
 		}
 	}
+
+	updateNodeReadyMessage()
 	node.Status.Conditions = append(node.Status.Conditions, v1.NodeCondition{
 		Type:               appsv1beta1.NodeAutonomy,
 		Status:             expectedStatus,

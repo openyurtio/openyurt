@@ -101,11 +101,6 @@ func GetAutonomyAnnotation() string {
 	return fmt.Sprintf("node.beta.%s/autonomy", labelPrefix)
 }
 
-// GetAutonomyStatusLabel returns label key for node autonomy status
-func GetAutonomyStatusLabel() string {
-	return fmt.Sprintf("node.autonomy.%s/status", labelPrefix)
-}
-
 // normalizeGitCommit reserve 7 characters for gitCommit
 func normalizeGitCommit(commit string) string {
 	if len(commit) > 7 {

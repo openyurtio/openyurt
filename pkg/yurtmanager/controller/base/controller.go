@@ -30,7 +30,6 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/autonomy"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset"
@@ -100,7 +99,6 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.NodeLifeCycleController, nodelifecycle.Add)
 	register(names.NodeBucketController, nodebucket.Add)
 	register(names.LoadBalancerSetController, loadbalancerset.Add)
-	register(names.AutonomyController, autonomy.Add)
 
 	return controllers
 }
