@@ -51,6 +51,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
@@ -402,15 +403,10 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 		cancel()
 		return nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
 	}
-	cfg := coordinator.restConfigMgr.GetRestConfig(true)
-	client, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		cancel()
-		return nil, nil, nil, fmt.Errorf("could not create client, %v", err)
-	}
+
 	poolCacheManager := cachemanager.NewCacheManager(
-		client,
-		cachemanager.NewStorageWrapper(etcdStore),
+		coordinator.restConfigMgr,
+		wrapper.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,
 		coordinator.informerFactory,

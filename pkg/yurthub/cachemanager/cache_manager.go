@@ -43,13 +43,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -75,7 +78,7 @@ type CacheManager interface {
 
 type cacheManager struct {
 	sync.RWMutex
-	storage               StorageWrapper
+	storage               wrapper.StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           *CacheAgent
@@ -83,13 +86,13 @@ type cacheManager struct {
 	inMemoryCache         map[string]runtime.Object
 	errorKeys             *errorKeys
 	cacheFailedCount      *int32
-	client                kubernetes.Interface
+	restConfigMgr         *hubrest.RestConfigManager
 }
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	client kubernetes.Interface,
-	storagewrapper StorageWrapper,
+	restConfigMgr *hubrest.RestConfigManager,
+	storagewrapper wrapper.StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
@@ -103,7 +106,8 @@ func NewCacheManager(
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
 		errorKeys:             NewErrorKeys(),
-		client:                client,
+		cacheFailedCount:      ptr.To(int32(0)),
+		restConfigMgr:         restConfigMgr,
 	}
 	cm.errorKeys.recover()
 	return cm
@@ -273,19 +277,29 @@ func (cm *cacheManager) tryUpdateNodeConditions(tryNumber int, req *http.Request
 		if !ok {
 			return nil, fmt.Errorf("could not QueryCache, node is not found")
 		}
-	} else if tryNumber < 3 {
-		// get from apiServer cache
-		opts := metav1.GetOptions{}
-		util.FromApiserverCache(&opts)
-		originalNode, err = cm.client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get node from apiserver cache")
-		}
 	} else {
-		// get from etcd
-		originalNode, err = cm.client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
+		if cm.restConfigMgr == nil {
+			return nil, fmt.Errorf("failed to initialize restConfigMgr")
+		}
+		config := cm.restConfigMgr.GetRestConfig(true)
+		client, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get node from apiserver cache")
+			return nil, err
+		}
+		if tryNumber < 3 {
+			// get from apiServer cache
+			opts := metav1.GetOptions{}
+			util.FromApiserverCache(&opts)
+			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get node from apiserver cache")
+			}
+		} else {
+			// get from etcd
+			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to get node from apiserver cache")
+			}
 		}
 	}
 
@@ -298,7 +312,15 @@ func (cm *cacheManager) tryUpdateNodeConditions(tryNumber int, req *http.Request
 	if !changed {
 		return originalNode, nil
 	}
-	updatedNode, err = cm.client.CoreV1().Nodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
+	if cm.restConfigMgr == nil {
+		return originalNode, fmt.Errorf("failed to initialize restConfigMgr")
+	}
+	config := cm.restConfigMgr.GetRestConfig(true)
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return originalNode, err
+	}
+	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 	if err != nil {
 		return originalNode, err
 	}

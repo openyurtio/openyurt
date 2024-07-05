@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachemanager
+package wrapper
 
 import (
 	"errors"
@@ -51,6 +51,8 @@ var testPod = &v1.Pod{
 		ResourceVersion: "1",
 	},
 }
+
+var rootDir = "/tmp"
 
 func TestStorageWrapper(t *testing.T) {
 	dir := fmt.Sprintf("%s-%d", rootDir, time.Now().Unix())

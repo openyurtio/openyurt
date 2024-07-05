@@ -111,7 +111,16 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
 	if cfg.WorkingMode == util.WorkingModeEdge {
 		klog.Infof("%d. create health checkers for remote servers and yurt coordinator", trace)
-		cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, cloudClients, ctx.Done())
+		cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(
+			cfg.RemoteServers,
+			cfg.StorageWrapper,
+			cfg.HeartbeatIntervalSeconds,
+			cfg.NodeName,
+			cfg.HeartbeatFailedRetry,
+			cfg.HeartbeatHealthyThreshold,
+			cfg.KubeletHealthGracePeriod,
+			cloudClients,
+			ctx.Done())
 		if err != nil {
 			return fmt.Errorf("could not new cloud health checker, %w", err)
 		}
@@ -132,13 +141,8 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	var cacheMgr cachemanager.CacheManager
 	if cfg.WorkingMode == util.WorkingModeEdge {
-		config := restConfigMgr.GetRestConfig(true)
-		client, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			return fmt.Errorf("could not initialize client, %v", err)
-		}
 		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-		cacheMgr = cachemanager.NewCacheManager(client, cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
+		cacheMgr = cachemanager.NewCacheManager(restConfigMgr, cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	} else {
 		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}
@@ -318,7 +322,16 @@ func coordinatorRun(ctx context.Context,
 			return
 		}
 
-		coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(cfg, coordinatorClient, cloudHealthChecker, ctx.Done())
+		coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(
+			cfg.CoordinatorServerURL.String(),
+			cfg.NodeName,
+			cfg.HeartbeatFailedRetry,
+			cfg.HeartbeatHealthyThreshold,
+			cfg.KubeletHealthGracePeriod,
+			cfg.HeartbeatIntervalSeconds,
+			coordinatorClient,
+			cloudHealthChecker,
+			ctx.Done())
 		if err != nil {
 			klog.Errorf("coordinator could not create coordinator health checker, %v", err)
 			return
