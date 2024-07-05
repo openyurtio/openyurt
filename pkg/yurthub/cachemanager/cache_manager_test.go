@@ -71,7 +71,7 @@ func TestCacheGetResponse(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
@@ -672,7 +672,7 @@ func TestCacheWatchResponse(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
@@ -1057,7 +1057,7 @@ func TestCacheListResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		group        string
@@ -1650,7 +1650,7 @@ func TestQueryCacheForGet(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		keyBuildInfo storage.KeyBuildInfo
@@ -2293,7 +2293,7 @@ func TestQueryCacheForGet(t *testing.T) {
 // 	if err != nil {
 // 		t.Errorf("failed to create RESTMapper manager, %v", err)
 // 	}
-// 	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+// 	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 // 	testcases := map[string]struct {
 // 		path         string
@@ -2377,7 +2377,7 @@ func TestQueryCacheForList(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
 		keyBuildInfo storage.KeyBuildInfo
@@ -3219,7 +3219,7 @@ func TestCanCacheFor(t *testing.T) {
 			defer close(stop)
 			client := fake.NewSimpleClientset()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			m := NewCacheManager(s, nil, nil, informerFactory)
+			m := NewCacheManager(client, s, nil, nil, informerFactory)
 			informerFactory.Start(nil)
 			cache.WaitForCacheSync(stop, informerFactory.Core().V1().ConfigMaps().Informer().HasSynced)
 			if tt.preRequest != nil {

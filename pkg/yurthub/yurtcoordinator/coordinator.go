@@ -402,7 +402,14 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 		cancel()
 		return nil, nil, nil, fmt.Errorf("could not create etcd storage, %v", err)
 	}
+	cfg := coordinator.restConfigMgr.GetRestConfig(true)
+	client, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		cancel()
+		return nil, nil, nil, fmt.Errorf("could not create client, %v", err)
+	}
 	poolCacheManager := cachemanager.NewCacheManager(
+		client,
 		cachemanager.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,

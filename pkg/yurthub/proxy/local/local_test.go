@@ -65,7 +65,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false
@@ -157,7 +157,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	cnt := 0
 	fn := func() bool {
@@ -242,7 +242,7 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false
@@ -334,7 +334,7 @@ func TestServeHTTPForPost(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false
@@ -414,7 +414,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false
@@ -481,7 +481,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false
@@ -634,7 +634,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, _ := hubmeta.NewRESTMapperManager(rootDir)
-	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(fake.NewSimpleClientset(), sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	fn := func() bool {
 		return false

@@ -23,8 +23,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -484,4 +488,32 @@ func WrapWithTrafficTrace(req *http.Request, resp *http.Response) *http.Response
 		subResource: info.Subresource,
 	}
 	return resp
+}
+
+func FromApiserverCache(opts *metav1.GetOptions) {
+	opts.ResourceVersion = "0"
+}
+
+func NodeConditionsHaveChanged(originalConditions []v1.NodeCondition, conditions []v1.NodeCondition) bool {
+	if len(originalConditions) != len(conditions) {
+		return true
+	}
+
+	originalConditionsCopy := make([]v1.NodeCondition, 0, len(originalConditions))
+	originalConditionsCopy = append(originalConditionsCopy, originalConditions...)
+	conditionsCopy := make([]v1.NodeCondition, 0, len(conditions))
+	conditionsCopy = append(conditionsCopy, conditions...)
+
+	sort.SliceStable(originalConditionsCopy, func(i, j int) bool { return originalConditionsCopy[i].Type < originalConditionsCopy[j].Type })
+	sort.SliceStable(conditionsCopy, func(i, j int) bool { return conditionsCopy[i].Type < conditionsCopy[j].Type })
+
+	replacedheartbeatTime := metav1.Time{}
+	for i := range conditionsCopy {
+		originalConditionsCopy[i].LastHeartbeatTime = replacedheartbeatTime
+		conditionsCopy[i].LastHeartbeatTime = replacedheartbeatTime
+		if !apiequality.Semantic.DeepEqual(&originalConditionsCopy[i], &conditionsCopy[i]) {
+			return true
+		}
+	}
+	return false
 }

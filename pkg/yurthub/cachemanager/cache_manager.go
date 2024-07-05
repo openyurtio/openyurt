@@ -40,9 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -61,6 +61,8 @@ var (
 		"certificatesigningrequests": {},
 		"subjectaccessreviews":       {},
 	}
+
+	nodeStatusUpdateRetry = 5
 )
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
@@ -81,10 +83,12 @@ type cacheManager struct {
 	inMemoryCache         map[string]runtime.Object
 	errorKeys             *errorKeys
 	cacheFailedCount      *int32
+	client                kubernetes.Interface
 }
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
+	client kubernetes.Interface,
 	storagewrapper StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
@@ -99,6 +103,7 @@ func NewCacheManager(
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
 		errorKeys:             NewErrorKeys(),
+		client:                client,
 	}
 	cm.errorKeys.recover()
 	return cm
@@ -231,40 +236,94 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 }
 
 func (cm *cacheManager) updateNodeStatus(req *http.Request) (runtime.Object, error) {
-	obj, err := cm.queryOneObject(req)
-	if err != nil {
-		return nil, err
-	}
-	node, ok := obj.(*v1.Node)
+	_, ok := apirequest.RequestInfoFrom(req.Context())
 	if !ok {
-		return nil, fmt.Errorf("could not QueryCache, node is not found")
+		return nil, fmt.Errorf("failed to resolve request")
 	}
-	if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
-		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
-		return node, nil
-	}
-	cm.cacheFailedCount = ptr.To(int32(cm.errorKeys.length()))
-	if cm.errorKeys.length() == 0 {
-		setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled sucessfully", "The autonomy is enabled and it works fine")
-		atomic.StoreInt32(cm.cacheFailedCount, 0)
-	} else {
-		atomic.AddInt32(cm.cacheFailedCount, 1)
-		if *cm.cacheFailedCount != 0 {
-			setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
+
+	var node runtime.Object
+	var err error
+	for i := 0; i < nodeStatusUpdateRetry; i++ {
+		if node, err = cm.tryUpdateNodeConditions(i, req); err != nil {
+			klog.ErrorS(err, "Error getting or updating node status, will retry")
+		} else {
+			return node, nil
 		}
 	}
-	klog.Infof("node status: %v", node.Status)
+	if node == nil {
+		return nil, fmt.Errorf("failed to get node")
+	}
+	klog.ErrorS(err, "failed to update node autonomy status")
 	return node, nil
 }
 
-func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, reason, message string) {
-	updateNodeReadyMessage := func() {
-		for i := range node.Status.Conditions {
-			if node.Status.Conditions[i].Type == v1.NodeReady {
-				node.Status.Conditions[i].Message = "kubelet is posting ready status and autonomy status changed"
+func (cm *cacheManager) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
+	var originalNode, updatedNode *v1.Node
+	var err error
+	info, _ := apirequest.RequestInfoFrom(req.Context())
+
+	if tryNumber == 0 {
+		// get from local cache
+		obj, err := cm.queryOneObject(req)
+		if err != nil {
+			return nil, err
+		}
+		ok := false
+		originalNode, ok = obj.(*v1.Node)
+		if !ok {
+			return nil, fmt.Errorf("could not QueryCache, node is not found")
+		}
+	} else if tryNumber < 3 {
+		// get from apiServer cache
+		opts := metav1.GetOptions{}
+		util.FromApiserverCache(&opts)
+		originalNode, err = cm.client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node from apiserver cache")
+		}
+	} else {
+		// get from etcd
+		originalNode, err = cm.client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node from apiserver cache")
+		}
+	}
+
+	if originalNode == nil {
+		return nil, fmt.Errorf("get nil node object: %s", info.Name)
+	}
+
+	node, changed := cm.updateNodeConditions(originalNode)
+
+	if !changed {
+		return originalNode, nil
+	}
+	updatedNode, err = cm.client.CoreV1().Nodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
+	if err != nil {
+		return originalNode, err
+	}
+	return updatedNode, nil
+}
+
+func (cm *cacheManager) updateNodeConditions(originalNode *v1.Node) (*v1.Node, bool) {
+	node := originalNode.DeepCopy()
+	if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
+		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
+	} else {
+		if cm.errorKeys.length() == 0 {
+			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled sucessfully", "The autonomy is enabled and it works fine")
+			atomic.StoreInt32(cm.cacheFailedCount, 0)
+		} else {
+			atomic.AddInt32(cm.cacheFailedCount, 1)
+			if *cm.cacheFailedCount > 3 {
+				setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
 			}
 		}
 	}
+	return node, util.NodeConditionsHaveChanged(originalNode.Status.Conditions, node.Status.Conditions)
+}
+
+func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, reason, message string) {
 	for i := range node.Status.Conditions {
 		if node.Status.Conditions[i].Type == appsv1beta1.NodeAutonomy {
 			if node.Status.Conditions[i].Status == expectedStatus {
@@ -275,14 +334,11 @@ func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, 
 				node.Status.Conditions[i].Message = message
 				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
 				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-				updateNodeReadyMessage()
 				return
 			}
-
 		}
 	}
 
-	updateNodeReadyMessage()
 	node.Status.Conditions = append(node.Status.Conditions, v1.NodeCondition{
 		Type:               appsv1beta1.NodeAutonomy,
 		Status:             expectedStatus,

@@ -132,8 +132,13 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 	var cacheMgr cachemanager.CacheManager
 	if cfg.WorkingMode == util.WorkingModeEdge {
+		config := restConfigMgr.GetRestConfig(true)
+		client, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			return fmt.Errorf("could not initialize client, %v", err)
+		}
 		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-		cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
+		cacheMgr = cachemanager.NewCacheManager(client, cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	} else {
 		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
 	}
