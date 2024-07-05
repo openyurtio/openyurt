@@ -9,12 +9,6 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: yurt-manager-autonomy-controller
-  namespace: {{ .Release.Namespace }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: yurt-manager-csr-approver-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -144,19 +138,6 @@ rules:
   - yurt-manager-webhook-certs
   resources:
   - secrets
-  verbs:
-  - get
-  - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: yurt-manager-autonomy-controller
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
   verbs:
   - get
   - update
@@ -1159,19 +1140,6 @@ rules:
   verbs:
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: yurt-manager-autonomy-controller-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: yurt-manager-autonomy-controller
-subjects:
-- kind: ServiceAccount
-  name: yurt-manager-autonomy-controller
-  namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

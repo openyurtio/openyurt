@@ -234,7 +234,6 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		req = newReq
 	}
 
-	info, ok:=apirequest.RequestInfoFrom(req.Context())
 	rp.ServeHTTP(rw, req)
 }
 
