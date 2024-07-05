@@ -52,7 +52,7 @@ var testPod = &v1.Pod{
 	},
 }
 
-var rootDir = "/tmp"
+var rootDir = "/tmp/storage-wrapper"
 
 func TestStorageWrapper(t *testing.T) {
 	dir := fmt.Sprintf("%s-%d", rootDir, time.Now().Unix())

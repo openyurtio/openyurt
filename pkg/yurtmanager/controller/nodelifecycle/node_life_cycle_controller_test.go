@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	kubeletapis "k8s.io/kubelet/pkg/apis"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	taintutils "github.com/openyurtio/openyurt/pkg/util/taints"
@@ -61,7 +61,7 @@ func createNodeLease(nodeName string, renewTime metav1.MicroTime) *coordv1.Lease
 			Namespace: v1.NamespaceNodeLease,
 		},
 		Spec: coordv1.LeaseSpec{
-			HolderIdentity: pointer.String(nodeName),
+			HolderIdentity: ptr.To(nodeName),
 			RenewTime:      &renewTime,
 		},
 	}
