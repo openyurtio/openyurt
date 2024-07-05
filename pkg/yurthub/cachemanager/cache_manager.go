@@ -311,7 +311,7 @@ func (cm *cacheManager) updateNodeConditions(originalNode *v1.Node) (*v1.Node, b
 		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
 	} else {
 		if cm.errorKeys.length() == 0 {
-			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled sucessfully", "The autonomy is enabled and it works fine")
+			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled successfully", "The autonomy is enabled and it works fine")
 			atomic.StoreInt32(cm.cacheFailedCount, 0)
 		} else {
 			atomic.AddInt32(cm.cacheFailedCount, 1)
