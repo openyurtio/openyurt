@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,17 +39,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
-	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
-	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -64,8 +57,6 @@ var (
 		"certificatesigningrequests": {},
 		"subjectaccessreviews":       {},
 	}
-
-	nodeStatusUpdateRetry = 5
 )
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
@@ -74,6 +65,12 @@ type CacheManager interface {
 	QueryCache(req *http.Request) (runtime.Object, error)
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
+	QueryCacheResult() CacheResult
+}
+
+type CacheResult struct {
+	ErrorKeysLength int
+	ErrMsg          string
 }
 
 type cacheManager struct {
@@ -85,13 +82,10 @@ type cacheManager struct {
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
 	errorKeys             *errorKeys
-	cacheFailedCount      *int32
-	restConfigMgr         *hubrest.RestConfigManager
 }
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	restConfigMgr *hubrest.RestConfigManager,
 	storagewrapper wrapper.StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
@@ -106,11 +100,16 @@ func NewCacheManager(
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
 		errorKeys:             NewErrorKeys(),
-		cacheFailedCount:      ptr.To(int32(0)),
-		restConfigMgr:         restConfigMgr,
 	}
 	cm.errorKeys.recover()
 	return cm
+}
+
+func (cm *cacheManager) QueryCacheResult() CacheResult {
+	return CacheResult{
+		ErrorKeysLength: cm.errorKeys.length(),
+		ErrMsg:          cm.errorKeys.aggregate(),
+	}
 }
 
 // CacheResponse cache response of request into backend storage
@@ -150,9 +149,6 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 	}
 	if !info.IsResourceRequest {
 		return nil, fmt.Errorf("could not QueryCache for getting non-resource request %s", util.ReqString(req))
-	}
-	if proxyutil.IsKubeletGetNodeReq(req) {
-		return cm.updateNodeStatus(req)
 	}
 
 	switch info.Verb {
@@ -237,138 +233,6 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 	return listObj, nil
-}
-
-func (cm *cacheManager) updateNodeStatus(req *http.Request) (runtime.Object, error) {
-	_, ok := apirequest.RequestInfoFrom(req.Context())
-	if !ok {
-		return nil, fmt.Errorf("failed to resolve request")
-	}
-
-	var node runtime.Object
-	var err error
-	for i := 0; i < nodeStatusUpdateRetry; i++ {
-		if node, err = cm.tryUpdateNodeConditions(i, req); err != nil {
-			klog.ErrorS(err, "Error getting or updating node status, will retry")
-		} else {
-			return node, nil
-		}
-	}
-	if node == nil {
-		return nil, fmt.Errorf("failed to get node")
-	}
-	klog.ErrorS(err, "failed to update node autonomy status")
-	return node, nil
-}
-
-func (cm *cacheManager) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
-	var originalNode, updatedNode *v1.Node
-	var err error
-	info, _ := apirequest.RequestInfoFrom(req.Context())
-
-	if tryNumber == 0 {
-		// get from local cache
-		obj, err := cm.queryOneObject(req)
-		if err != nil {
-			return nil, err
-		}
-		ok := false
-		originalNode, ok = obj.(*v1.Node)
-		if !ok {
-			return nil, fmt.Errorf("could not QueryCache, node is not found")
-		}
-	} else {
-		if cm.restConfigMgr == nil {
-			return nil, fmt.Errorf("failed to initialize restConfigMgr")
-		}
-		config := cm.restConfigMgr.GetRestConfig(true)
-		client, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			return nil, err
-		}
-		if tryNumber < 3 {
-			// get from apiServer cache
-			opts := metav1.GetOptions{}
-			util.FromApiserverCache(&opts)
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get node from apiserver cache")
-			}
-		} else {
-			// get from etcd
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get node from apiserver cache")
-			}
-		}
-	}
-
-	if originalNode == nil {
-		return nil, fmt.Errorf("get nil node object: %s", info.Name)
-	}
-
-	node, changed := cm.updateNodeConditions(originalNode)
-
-	if !changed {
-		return originalNode, nil
-	}
-	if cm.restConfigMgr == nil {
-		return originalNode, fmt.Errorf("failed to initialize restConfigMgr")
-	}
-	config := cm.restConfigMgr.GetRestConfig(true)
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return originalNode, err
-	}
-	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
-	if err != nil {
-		return originalNode, err
-	}
-	return updatedNode, nil
-}
-
-func (cm *cacheManager) updateNodeConditions(originalNode *v1.Node) (*v1.Node, bool) {
-	node := originalNode.DeepCopy()
-	if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
-		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
-	} else {
-		if cm.errorKeys.length() == 0 {
-			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled successfully", "The autonomy is enabled and it works fine")
-			atomic.StoreInt32(cm.cacheFailedCount, 0)
-		} else {
-			atomic.AddInt32(cm.cacheFailedCount, 1)
-			if *cm.cacheFailedCount > 3 {
-				setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", cm.errorKeys.aggregate())
-			}
-		}
-	}
-	return node, util.NodeConditionsHaveChanged(originalNode.Status.Conditions, node.Status.Conditions)
-}
-
-func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, reason, message string) {
-	for i := range node.Status.Conditions {
-		if node.Status.Conditions[i].Type == appsv1beta1.NodeAutonomy {
-			if node.Status.Conditions[i].Status == expectedStatus {
-				return
-			} else {
-				node.Status.Conditions[i].Status = expectedStatus
-				node.Status.Conditions[i].Reason = reason
-				node.Status.Conditions[i].Message = message
-				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-				return
-			}
-		}
-	}
-
-	node.Status.Conditions = append(node.Status.Conditions, v1.NodeCondition{
-		Type:               appsv1beta1.NodeAutonomy,
-		Status:             expectedStatus,
-		Reason:             reason,
-		Message:            message,
-		LastHeartbeatTime:  metav1.Now(),
-		LastTransitionTime: metav1.Now(),
-	})
 }
 
 func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error) {
