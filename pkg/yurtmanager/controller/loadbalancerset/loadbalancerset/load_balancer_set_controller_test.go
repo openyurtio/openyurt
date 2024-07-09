@@ -964,7 +964,7 @@ func assertNotFountError(t testing.TB, err error) {
 	t.Helper()
 
 	if !apierrors.IsNotFound(err) {
-		t.Errorf("exptected error is not found, but got %v", err)
+		t.Errorf("expected error is not found, but got %v", err)
 	}
 }
 

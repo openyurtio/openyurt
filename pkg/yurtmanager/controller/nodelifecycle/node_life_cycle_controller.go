@@ -575,7 +575,7 @@ func (nc *ReconcileNodeLifeCycle) doNoScheduleTaintingPass(ctx context.Context, 
 func (nc *ReconcileNodeLifeCycle) doNoExecuteTaintingPass(ctx context.Context) {
 	// Extract out the keys of the map in order to not hold
 	// the evictorLock for the entire function and hold it
-	// only when nescessary.
+	// only when necessary.
 	var zoneNoExecuteTainterKeys []string
 	func() {
 		nc.evictorLock.Lock()

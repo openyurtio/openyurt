@@ -83,8 +83,8 @@ import (
 //
 //				recorder: mgr.GetEventRecorderFor(controllerName),
 //				controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
-//					//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
-//					unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
+//					//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetController{Client: mgr.GetClient(), scheme: mgr.GetScheme()},
+//					unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentController{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
 //				},
 //			},
 //		},

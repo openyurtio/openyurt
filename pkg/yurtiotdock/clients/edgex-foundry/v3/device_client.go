@@ -89,7 +89,7 @@ func (efc *EdgexDeviceClient) Create(ctx context.Context, device *iotv1alpha1.De
 			return nil, fmt.Errorf("create device on edgex foundry failed, the response is : %s", resp.Body())
 		}
 	} else {
-		return nil, fmt.Errorf("edgex BaseWithIdResponse count mismatch device cound, the response is : %s", resp.Body())
+		return nil, fmt.Errorf("edgex BaseWithIdResponse count mismatch device count, the response is : %s", resp.Body())
 	}
 	return createdDevice, err
 }
@@ -246,12 +246,12 @@ func (efc *EdgexDeviceClient) getPropertyState(getURL string) (*resty.Response, 
 
 func (efc *EdgexDeviceClient) UpdatePropertyState(ctx context.Context, propertyName string, d *iotv1alpha1.Device, options clients.UpdateOptions) error {
 	// Get the actual device name
-	acturalDeviceName := getEdgeXName(d)
+	actualDeviceName := getEdgeXName(d)
 
 	dps := d.Spec.DeviceProperties[propertyName]
 	parameterName := dps.Name
 	if dps.PutURL == "" {
-		putCmd, err := efc.getPropertyPut(acturalDeviceName, dps.Name)
+		putCmd, err := efc.getPropertyPut(actualDeviceName, dps.Name)
 		if err != nil {
 			return err
 		}

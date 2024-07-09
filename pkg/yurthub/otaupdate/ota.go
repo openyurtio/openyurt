@@ -89,7 +89,7 @@ func GetPods(store cachemanager.StorageWrapper) http.Handler {
 	})
 }
 
-// UpdatePod update a specifc pod(namespace/podname) to the latest version
+// UpdatePod update a specific pod(namespace/podname) to the latest version
 func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)

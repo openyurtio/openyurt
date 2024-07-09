@@ -52,7 +52,7 @@ const (
 var (
 	// PropagationPolicy defines the propagation policy used when deleting a resource
 	PropagationPolicy = metav1.DeletePropagationBackground
-	// CheckServantJobPeriod defines the time interval between two successive ServantJob statu's inspection
+	// CheckServantJobPeriod defines the time interval between two successive ServantJob status inspection
 	CheckServantJobPeriod = time.Second * 10
 )
 

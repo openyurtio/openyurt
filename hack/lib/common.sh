@@ -17,7 +17,7 @@
 set -x
 
 # get_output_name generates the executable's name. If the $PROJECT_PREFIX
-# is set, it subsitutes the prefix of the executable's name with the env,
+# is set, it substitutes the prefix of the executable's name with the env,
 # otherwise the basename of the target is used
 get_output_name() {
     local oup_name=$(canonicalize_target $1)

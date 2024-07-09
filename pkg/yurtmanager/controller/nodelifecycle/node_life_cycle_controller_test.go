@@ -2983,7 +2983,7 @@ func TestTaintsNodeByCondition(t *testing.T) {
 	for _, test := range tests {
 		_, err := fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, test.Node, metav1.UpdateOptions{})
 		if err != nil {
-			t.Errorf("unxpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 		//if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 		//	t.Errorf("unexpected error: %v", err)

@@ -61,7 +61,7 @@ func NewLabelSelectorForYurtAppSet(yas *v1beta1.YurtAppSet) (*metav1.LabelSelect
 	}, nil
 }
 
-// Get selecetd NodePools from YurtAppSet
+// GetNodePoolsFromYurtAppSet selected NodePools from YurtAppSet
 // return sets for deduplication of NodePools
 func GetNodePoolsFromYurtAppSet(cli client.Client, yas *v1beta1.YurtAppSet) (npNames sets.Set[string], err error) {
 	return getSelectedNodepools(cli, yas.Spec.Pools, yas.Spec.NodePoolSelector)

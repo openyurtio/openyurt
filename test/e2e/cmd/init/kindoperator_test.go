@@ -233,7 +233,7 @@ func TestKindOperator_KindCreateClusterWithConfig(t *testing.T) {
 	for _, v := range cases {
 		err := kindOperator.KindCreateClusterWithConfig(fakeOut, v.configPath)
 		if err != v.err {
-			t.Errorf("falied create cluster with configure using kind")
+			t.Errorf("couldn't create cluster with configure using kind")
 		}
 	}
 

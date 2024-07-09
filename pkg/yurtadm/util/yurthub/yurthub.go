@@ -75,7 +75,7 @@ func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) er
 		ctx["nodePoolName"] = data.NodeRegistration().NodePoolName
 	}
 
-	yurthubTemplate, err := templates.SubsituteTemplate(data.YurtHubTemplate(), ctx)
+	yurthubTemplate, err := templates.SubstituteTemplate(data.YurtHubTemplate(), ctx)
 	if err != nil {
 		return err
 	}

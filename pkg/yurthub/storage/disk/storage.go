@@ -656,9 +656,9 @@ func extractInfoFromPath(baseDir, path string, isRoot bool) (component, gvr, nam
 		err = fmt.Errorf("path %s does not under %s", path, baseDir)
 		return
 	}
-	trimedPath := strings.TrimPrefix(path, baseDir)
-	trimedPath = strings.TrimPrefix(trimedPath, "/")
-	elems := strings.Split(trimedPath, "/")
+	trimmedPath := strings.TrimPrefix(path, baseDir)
+	trimmedPath = strings.TrimPrefix(trimmedPath, "/")
+	elems := strings.Split(trimmedPath, "/")
 	if len(elems) > 4 {
 		err = fmt.Errorf("invalid path %s", path)
 		return

@@ -70,7 +70,7 @@ When deleting a cache-agent, CacheManager should recycle the cache used by this 
 
 #### 3.1.4 the implementation of saving list objects depends on the DiskStorage implementation
 
-As described in [#265](https://github.com/openyurtio/openyurt/pull/265), each cache-agent can only have the cache of one type of list for one resource. Considering that if we update cache using items in list object one by one, it will result in some cache objects not being deleted. Thus, in `saveListObject`, it will replace all objects under the resource directory with the items in the response of the list request. It works well when the CacheManager uses DiskStorage, because cache for different components are stored at different directory, for example, service cache for kubelet is under `/etc/kubernetes/cache/kubelet/services`, service cache for kube-proxy is under `/etc/kubernetes/cache/kube-proxy/services`. Replacing the serivce cache of kubelet has no influence on service cache of kube-proxy. But when using Yurt-Coordinator storage, services for all components are cached under `/registry/services`, if replacing all the entries under `/registry/services` with items in the response of list request from kubelet, the service cache for kube-proxy will be overwritten.
+As described in [#265](https://github.com/openyurtio/openyurt/pull/265), each cache-agent can only have the cache of one type of list for one resource. Considering that if we update cache using items in list object one by one, it will result in some cache objects not being deleted. Thus, in `saveListObject`, it will replace all objects under the resource directory with the items in the response of the list request. It works well when the CacheManager uses DiskStorage, because cache for different components are stored at different directory, for example, service cache for kubelet is under `/etc/kubernetes/cache/kubelet/services`, service cache for kube-proxy is under `/etc/kubernetes/cache/kube-proxy/services`. Replacing the service cache of kubelet has no influence on service cache of kube-proxy. But when using Yurt-Coordinator storage, services for all components are cached under `/registry/services`, if replacing all the entries under `/registry/services` with items in the response of list request from kubelet, the service cache for kube-proxy will be overwritten.
 
 ### 3.2 Definition of Store Interface is not explicit
 
@@ -126,7 +126,7 @@ The **Policy layer** takes the responsibility of cache policy, including determi
 
 The **Serialization layer** takes the responsibility of serialization/unserialization of cached objects. The logic in this layer is related to Kubernetes APIMachinery. The byte formats it needs to concern include json, yaml and protobuf. The types of objects it needs to concern include kubernetes native resources and CRDs. Currently, the component in this layer is StorageWrapper.
 
-The **Storage Frontend** layer serves like a shim between the Serialization layer and Stroage Backend layer. It should provide interface to cache objects shielding the differences among different storages for the upper-layer. It also takes the responsibility of implementation of KeyFunc. Currently, the component in this layer is DiskStorage. We can add more storage in this layer later, such as Yurt-Coordinator Storage.
+The **Storage Frontend** layer serves like a shim between the Serialization layer and Storage Backend layer. It should provide interface to cache objects shielding the differences among different storages for the upper-layer. It also takes the responsibility of implementation of KeyFunc. Currently, the component in this layer is DiskStorage. We can add more storage in this layer later, such as Yurt-Coordinator Storage.
 
 The **Storage Backend layer** is the entity that interacts with the storage to complete the actual storage operation. It can be implemented by ourselves, such as FS Operator, or be provided by third-party, such as clientv3 pkg of etcd.
 
@@ -321,13 +321,13 @@ func (fs *FileSystemOperator) Rename(oldPath string, newPath string) error
 ## 7. How to solve the above problems
 
 | Problem | Solution                                                                                                                                                                                   |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3.1.1   | add rv parameter to Update func in Store interface, the storage will take the responsibility to compare the rv and update the cache, which makes it easy to implement tht atomic operation |
-| 3.1.2   |                                                                                                 |
+| ------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 3.1.1   | add rv parameter to Update func in Store interface, the storage will take the responsibility to compare the rv and update the cache, which makes it easy to implement the atomic operation |
+| 3.1.2   |                                                                                                                                                                                            |
 | 3.1.3   | use DeleteComponentResources instead of DeleteCollection, and pass the component name as argument rather than rootKey                                                                      |
 | 3.1.4   | use ReplaceComponentList instead of Replace, and pass component, resource, namespace as arguments rather than rootKey                                                                      |
 | 3.2.1   | distinguish the responsibility between Create and Update in Store interface                                                                                                                |
 | 3.2.2   | same as 3.1.3, explicitly define that DeleteComponentResources is used to delete the cache of the component                                                                                |
 | 3.3.1   | move the logic of in-memory cache from StorageWrapper to CacheManager                                                                                                                      |
 | 3.3.2   | same as 3.1.2                                                                                                                                                                              |
-| 3.4     | Other non-cache related components should use FS Opeartor instead of DiskStorage                                                                                                           |
+| 3.4     | Other non-cache related components should use FS Operator instead of DiskStorage                                                                                                           |

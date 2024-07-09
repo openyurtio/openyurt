@@ -21,8 +21,8 @@ import (
 	"text/template"
 )
 
-// SubsituteTemplate fills out the kubeconfig templates based on the context
-func SubsituteTemplate(tmpl string, context interface{}) (string, error) {
+// SubstituteTemplate fills out the kubeconfig templates based on the context
+func SubstituteTemplate(tmpl string, context interface{}) (string, error) {
 	t, tmplPrsErr := template.New("test").Option("missingkey=zero").Parse(tmpl)
 	if tmplPrsErr != nil {
 		return "", tmplPrsErr

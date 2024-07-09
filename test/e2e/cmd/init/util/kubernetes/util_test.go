@@ -89,7 +89,7 @@ func TestAddEdgeWorkerLabelAndAutonomyAnnotation(t *testing.T) {
 		fakeKubeClient := clientsetfake.NewSimpleClientset(v.node)
 		res, err := AddEdgeWorkerLabelAndAutonomyAnnotation(fakeKubeClient, v.node, v.lval, v.aval)
 		if err != nil || res.Labels[projectinfo.GetEdgeWorkerLabelKey()] != v.lval || res.Annotations[projectinfo.GetAutonomyAnnotation()] != v.aval {
-			t.Logf("falied to add edge worker label and autonomy annotation")
+			t.Logf("couldn't add edge worker label and autonomy annotation")
 		}
 	}
 }
@@ -141,7 +141,7 @@ func TestRunJobAndCleanup(t *testing.T) {
 		fakeKubeClient := clientsetfake.NewSimpleClientset()
 		err := RunJobAndCleanup(fakeKubeClient, v.jobObj, time.Second*10, time.Second)
 		if err != v.want {
-			t.Logf("falied to run job and cleanup")
+			t.Logf("couldn't run job and cleanup")
 		}
 	}
 }

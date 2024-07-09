@@ -1009,7 +1009,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			if tt.expectResult.err && err == nil {
 				t.Errorf("expect err, but do not got err")
 			} else if err != nil && err != io.EOF {
-				t.Errorf("failed to cache resposne, %v", err)
+				t.Errorf("failed to cache response, %v", err)
 			}
 
 			if len(tt.expectResult.data) == 0 {
@@ -1262,7 +1262,7 @@ func TestCacheListResponse(t *testing.T) {
 			userAgent:  "kubelet",
 			accept:     "application/json",
 			verb:       "GET",
-			path:       "/api/v1/nodes?fieldselector=meatadata.name=mynode",
+			path:       "/api/v1/nodes?fieldselector=metadata.name=mynode",
 			resource:   "nodes",
 			namespaced: false,
 			expectResult: struct {
@@ -3153,7 +3153,7 @@ func TestCanCacheFor(t *testing.T) {
 			},
 			expectCache: false,
 		},
-		"list requests get same resouces but with different path": {
+		"list requests get same resources but with different path": {
 			preRequest: &proxyRequest{
 				userAgent: "kubelet",
 				verb:      "GET",

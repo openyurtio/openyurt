@@ -60,7 +60,7 @@ As a developer of Openyurt, I want to get instant e2e-test-feedback after I made
 As a user of Openyurt,  I want to make it clear, when I debug, whether it's the Openyurt edge-autonomy-modules are designed with problems, or it's other problems such as something wrong with my kubeadm cluster.
 
 ### Implementation Details
-- Ajusting e2e-tests framework
+- Adjusting e2e-tests framework
   The e2e-tests will be carried out in a kind cluster of one cloud node and two edge nodes, the components are organized as follows:
 
   <div align="center">

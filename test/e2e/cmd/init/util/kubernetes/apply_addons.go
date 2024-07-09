@@ -36,7 +36,7 @@ func NewBuilder(kubeconfig string) *Builder {
 }
 
 func (b Builder) InstallComponents(path string, recursive bool) error {
-	fo := resource.FilenameOptions{
+	opts := resource.FilenameOptions{
 		Filenames: []string{path},
 		Recursive: recursive,
 	}
@@ -49,7 +49,7 @@ func (b Builder) InstallComponents(path string, recursive bool) error {
 		Unstructured().
 		ContinueOnError().
 		NamespaceParam(cmdNs).DefaultNamespace().
-		FilenameParam(enforceNs, &fo).
+		FilenameParam(enforceNs, &opts).
 		Flatten().
 		Do()
 	err = r.Err()

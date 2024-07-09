@@ -26,9 +26,9 @@ const (
 	// generating client certificates.
 	KubeletCertificateBootstrapMode = "kubeletcertificate"
 
-	// TokenBoostrapMode means that yurthub uses join token to create client certificates
+	// TokenBootstrapMode means that yurthub uses join token to create client certificates
 	// and bootstrap itself.
-	TokenBoostrapMode = "token"
+	TokenBootstrapMode = "token"
 )
 
 // YurtCertificateManager is responsible for managing node certificate for yurthub

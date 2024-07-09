@@ -89,17 +89,17 @@ type ReconcileLoadBalancerSet struct {
 	recorder record.EventRecorder
 	mapper   meta.RESTMapper
 
-	configration config.LoadBalancerSetControllerConfiguration
+	configuration config.LoadBalancerSetControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *ReconcileLoadBalancerSet {
 	return &ReconcileLoadBalancerSet{
-		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController),
-		scheme:       mgr.GetScheme(),
-		mapper:       mgr.GetRESTMapper(),
-		recorder:     mgr.GetEventRecorderFor(names.LoadBalancerSetController),
-		configration: c.ComponentConfig.LoadBalancerSetController,
+		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController),
+		scheme:        mgr.GetScheme(),
+		mapper:        mgr.GetRESTMapper(),
+		recorder:      mgr.GetEventRecorderFor(names.LoadBalancerSetController),
+		configuration: c.ComponentConfig.LoadBalancerSetController,
 	}
 }
 

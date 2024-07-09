@@ -273,7 +273,7 @@ func WithRequestTraceFull(handler http.Handler) http.Handler {
 		start := time.Now()
 		defer func() {
 			duration := time.Since(start)
-			// 'watch' & 'proxy' requets don't need to be monitored in metrics
+			// 'watch' & 'proxy' requests don't need to be monitored in metrics
 			if info.Verb != "proxy" && info.Verb != "watch" {
 				metrics.Metrics.SetProxyLatencyCollector(client, info.Verb, info.Resource, info.Subresource, metrics.Full_lantency, int64(duration))
 			}
@@ -474,7 +474,7 @@ func Err(err error, w http.ResponseWriter, req *http.Request) {
 	klog.Errorf("request info is not found when err write, %s", util.ReqString(req))
 }
 
-func IsPoolScopedResouceListWatchRequest(req *http.Request) bool {
+func IsPoolScopedResourceListWatchRequest(req *http.Request) bool {
 	ctx := req.Context()
 	info, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok {

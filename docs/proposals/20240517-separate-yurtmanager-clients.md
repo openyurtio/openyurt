@@ -77,7 +77,7 @@ After different RBACs are prepared, we should make sure they are properly used b
 
 1) User impersonation
 
-Kubernets provides a [mechanism](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation) that one user can act as another user through impersonation headers. These let requests manually override the user info a request authenticates as. 
+Kubernetes provides a [mechanism](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation) that one user can act as another user through impersonation headers. These let requests manually override the user info a request authenticates as. 
 
 2) Token override
 

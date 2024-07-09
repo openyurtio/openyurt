@@ -299,7 +299,7 @@ type DeviceServiceCondition string
 
 const (
     Unavailable DeviceServiceCondition = "Unavailable"
-    Available DeviceServiceCondition = "Availale"
+    Available DeviceServiceCondition = "Available"
 )
 
 type Addressable struct {
@@ -403,7 +403,7 @@ The `DeviceProfile` contains one `deviceResources`, i.e., `lightcolor`, which su
   "commands": [
     {
       "created": <created-timestamp>,
-      "modified": <modifed-timestamp>,
+      "modified": <modified-timestamp>,
       "id": "<command-id>",
       "name": "lightcolor",
       "get": {
