@@ -18,6 +18,7 @@ package autonomy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -38,7 +39,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-var nodeStatusUpdateRetry = 5
+var (
+	nodeStatusUpdateRetry = 5
+	ErrRestConfigMgr      = fmt.Errorf("failed to initialize restConfigMgr")
+)
 
 type AutonomyProxy struct {
 	cacheMgr         cachemanager.CacheManager
@@ -74,7 +78,10 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 	var node runtime.Object
 	var err error
 	for i := 0; i < nodeStatusUpdateRetry; i++ {
-		if node, err = ap.tryUpdateNodeConditions(i, req); err != nil {
+		node, err = ap.tryUpdateNodeConditions(i, node, req)
+		if errors.Is(err, ErrRestConfigMgr) {
+			break
+		} else if err != nil {
 			klog.ErrorS(err, "Error getting or updating node status, will retry")
 		} else {
 			return node, nil
@@ -87,66 +94,70 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 	return node, nil
 }
 
-func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
+func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, node runtime.Object, req *http.Request) (runtime.Object, error) {
 	var originalNode, updatedNode *v1.Node
 	var err error
 	info, _ := apirequest.RequestInfoFrom(req.Context())
 
-	if tryNumber == 0 {
-		// get from local cache
-		obj, err := ap.cacheMgr.QueryCache(req)
-		if err != nil {
-			return nil, err
-		}
-		ok := false
-		originalNode, ok = obj.(*v1.Node)
-		if !ok {
-			return nil, fmt.Errorf("could not QueryCache, node is not found")
-		}
-	} else {
-		if ap.restConfigMgr == nil {
-			return nil, fmt.Errorf("failed to initialize restConfigMgr")
-		}
-		config := ap.restConfigMgr.GetRestConfig(true)
-		client, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			return nil, err
-		}
-		if tryNumber < 3 {
-			// get from apiServer cache
-			opts := metav1.GetOptions{}
-			util.FromApiserverCache(&opts)
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+	if node == nil {
+		if tryNumber == 0 {
+			// get from local cache
+			obj, err := ap.cacheMgr.QueryCache(req)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get node from apiserver cache")
+				return nil, err
+			}
+			ok := false
+			originalNode, ok = obj.(*v1.Node)
+			if !ok {
+				return nil, fmt.Errorf("could not QueryCache, node is not found")
 			}
 		} else {
-			// get from etcd
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
+			if ap.restConfigMgr == nil {
+				return nil, fmt.Errorf("failed to initialize restConfigMgr")
+			}
+			config := ap.restConfigMgr.GetRestConfig(true)
+			client, err := kubernetes.NewForConfig(config)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get node from apiserver cache")
+				return nil, err
+			}
+			if tryNumber < 3 {
+				// get from apiServer cache
+				opts := metav1.GetOptions{}
+				util.FromApiserverCache(&opts)
+				originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get node from apiserver cache")
+				}
+			} else {
+				// get from etcd
+				originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get node from apiserver cache")
+				}
 			}
 		}
+	} else {
+		originalNode = node.(*v1.Node)
 	}
 
 	if originalNode == nil {
 		return nil, fmt.Errorf("get nil node object: %s", info.Name)
 	}
 
-	node, changed := ap.updateNodeConditions(originalNode)
-
+	changedNode, changed := ap.updateNodeConditions(originalNode)
 	if !changed {
 		return originalNode, nil
 	}
+
 	if ap.restConfigMgr == nil {
-		return originalNode, fmt.Errorf("failed to initialize restConfigMgr")
+		return originalNode, ErrRestConfigMgr
 	}
 	config := ap.restConfigMgr.GetRestConfig(true)
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return originalNode, err
 	}
-	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
+	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), changedNode, metav1.UpdateOptions{})
 	if err != nil {
 		return originalNode, err
 	}

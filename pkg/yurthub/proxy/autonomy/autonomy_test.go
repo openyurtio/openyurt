@@ -17,12 +17,120 @@ limitations under the License.
 package autonomy
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
+	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
+
+var (
+	rootDir                   = "/tmp/cache-local"
+	fakeClient                = fake.NewSimpleClientset()
+	fakeSharedInformerFactory = informers.NewSharedInformerFactory(fakeClient, 0)
+)
+
+func TestHttpServeKubeletGetNode(t *testing.T) {
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	storageWrapper := wrapper.NewStorageWrapper(dStorage)
+	serializerM := serializer.NewSerializerManager()
+	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, fakeSharedInformerFactory)
+
+	autonomyProxy := NewAutonomyProxy(nil, cacheM)
+
+	testcases := []struct {
+		name string
+		info storage.KeyBuildInfo
+		node *v1.Node
+	}{
+		{
+			name: "case1",
+			info: storage.KeyBuildInfo{
+				Group:     "",
+				Component: "kubelet",
+				Version:   "v1",
+				Resources: "nodes",
+				Namespace: "default",
+				Name:      "node1",
+			},
+			node: &v1.Node{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Node",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "node1",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "case2",
+			info: storage.KeyBuildInfo{
+				Group:     "",
+				Version:   "v1",
+				Component: "kubelet",
+				Resources: "nodes",
+				Namespace: "default",
+				Name:      "node2",
+			},
+			node: &v1.Node{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Node",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "node2",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"node.beta.openyurt.io/autonomy": "true",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			key, _ := dStorage.KeyFunc(tc.info)
+			storageWrapper.Create(key, tc.node)
+			resp := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", "", nil)
+			req.Header.Set("User-Agent", "kubelet")
+			ctx := apirequest.WithRequestInfo(req.Context(), &apirequest.RequestInfo{
+				IsResourceRequest: true,
+				Namespace:         tc.info.Namespace,
+				Resource:          tc.info.Resources,
+				Name:              tc.info.Name,
+				Verb:              "get",
+				APIVersion:        "v1",
+			})
+			handler := proxyutil.WithRequestClientComponent(autonomyProxy, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestContentType(handler)
+			req = req.WithContext(ctx)
+			handler.ServeHTTP(resp, req)
+			if resp.Result().StatusCode != http.StatusOK {
+				t.Errorf("failed to get node, %v", resp.Result().StatusCode)
+			}
+		})
+	}
+}
 
 func TestSetNodeAutonomyCondition(t *testing.T) {
 	testcases := []struct {
