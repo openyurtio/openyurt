@@ -111,16 +111,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
 	if cfg.WorkingMode == util.WorkingModeEdge {
 		klog.Infof("%d. create health checkers for remote servers and yurt coordinator", trace)
-		cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(
-			cfg.RemoteServers,
-			cfg.StorageWrapper,
-			cfg.HeartbeatIntervalSeconds,
-			cfg.NodeName,
-			cfg.HeartbeatFailedRetry,
-			cfg.HeartbeatHealthyThreshold,
-			cfg.KubeletHealthGracePeriod,
-			cloudClients,
-			ctx.Done())
+		cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, cloudClients, ctx.Done())
 		if err != nil {
 			return fmt.Errorf("could not new cloud health checker, %w", err)
 		}
@@ -323,16 +314,7 @@ func coordinatorRun(ctx context.Context,
 			return
 		}
 
-		coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(
-			cfg.CoordinatorServerURL.String(),
-			cfg.NodeName,
-			cfg.HeartbeatFailedRetry,
-			cfg.HeartbeatHealthyThreshold,
-			cfg.KubeletHealthGracePeriod,
-			cfg.HeartbeatIntervalSeconds,
-			coordinatorClient,
-			cloudHealthChecker,
-			ctx.Done())
+		coorHealthChecker, err := healthchecker.NewCoordinatorHealthChecker(cfg, coordinatorClient, cloudHealthChecker, ctx.Done())
 		if err != nil {
 			klog.Errorf("coordinator could not create coordinator health checker, %v", err)
 			return

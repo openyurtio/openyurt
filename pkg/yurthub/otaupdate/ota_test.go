@@ -27,12 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 func TestGetPods(t *testing.T) {
@@ -41,7 +41,7 @@ func TestGetPods(t *testing.T) {
 	if err != nil {
 		t.Errorf("couldn't to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 
 	updatablePod := util.NewPodWithCondition("updatablePod", "", corev1.ConditionTrue)
 	notUpdatablePod := util.NewPodWithCondition("notUpdatablePod", "", corev1.ConditionFalse)

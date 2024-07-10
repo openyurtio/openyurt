@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
@@ -68,7 +68,7 @@ func TestSupportedResourceAndVerbs(t *testing.T) {
 func TestFilter(t *testing.T) {
 	portName := "https"
 
-	readyCondition := ptr.To(true)
+	readyCondition := pointer.Bool(true)
 	var kasPort, masterPort int32
 	kasPort = 6443
 	masterHost := "169.251.2.1"

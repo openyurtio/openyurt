@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/lithammer/dedent"
-	utilpointer "k8s.io/utils/ptr"
+	utilpointer "k8s.io/utils/pointer"
 
 	"github.com/openyurtio/openyurt/pkg/util/iptables"
 )
@@ -136,8 +136,8 @@ func TestParseRule(t *testing.T) {
 				Comment:         &IPTablesValue{Value: "ns1/svc1:p80"},
 				AffinityName:    &IPTablesValue{Value: "KUBE-SEP-SXIVWICOYRO3J4NJ"},
 				AffinitySeconds: &IPTablesValue{Value: "10800"},
-				AffinityCheck:   utilpointer.To(true),
-				AffinityReap:    utilpointer.To(true),
+				AffinityCheck:   utilpointer.Bool(true),
+				AffinityReap:    utilpointer.Bool(true),
 				Jump:            &IPTablesValue{Value: "KUBE-SEP-SXIVWICOYRO3J4NJ"},
 			},
 		},
@@ -197,7 +197,7 @@ func TestParseRule(t *testing.T) {
 			parsed: &Rule{
 				Raw:           `-A TEST -m recent ! --rcheck -j KUBE-SEP-SXIVWICOYRO3J4NJ`,
 				Chain:         iptables.Chain("TEST"),
-				AffinityCheck: utilpointer.To(false),
+				AffinityCheck: utilpointer.Bool(false),
 				Jump:          &IPTablesValue{Value: "KUBE-SEP-SXIVWICOYRO3J4NJ"},
 			},
 		},

@@ -34,8 +34,8 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 var (
@@ -193,16 +193,7 @@ func TestNewCoordinatorHealthChecker(t *testing.T) {
 
 			cloudChecker := &fakeMultipleBackendsHealthChecker{status: !tt.cloudAPIServerUnhealthy}
 			stopCh := make(chan struct{})
-			checker, _ := NewCoordinatorHealthChecker(
-				cfg.CoordinatorServerURL.String(),
-				cfg.NodeName,
-				cfg.HeartbeatFailedRetry,
-				cfg.HeartbeatHealthyThreshold,
-				cfg.KubeletHealthGracePeriod,
-				cfg.HeartbeatIntervalSeconds,
-				cl,
-				cloudChecker,
-				stopCh)
+			checker, _ := NewCoordinatorHealthChecker(cfg, cl, cloudChecker, stopCh)
 
 			initHealthy := checker.IsHealthy()
 			if initHealthy != tt.initHealthy {
@@ -411,7 +402,7 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 			stopCh := make(chan struct{})
 			cfg := &config.YurtHubConfiguration{
 				RemoteServers:             tt.remoteServers,
-				StorageWrapper:            wrapper.NewStorageWrapper(store),
+				StorageWrapper:            cachemanager.NewStorageWrapper(store),
 				NodeName:                  node.Name,
 				HeartbeatFailedRetry:      2,
 				HeartbeatHealthyThreshold: 1,
@@ -428,16 +419,7 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 				fakeClients[tt.remoteServers[i].String()] = cl
 			}
 
-			checker, _ := NewCloudAPIServerHealthChecker(
-				cfg.RemoteServers,
-				cfg.StorageWrapper,
-				cfg.HeartbeatIntervalSeconds,
-				cfg.NodeName,
-				cfg.HeartbeatFailedRetry,
-				cfg.HeartbeatHealthyThreshold,
-				cfg.KubeletHealthGracePeriod,
-				fakeClients,
-				stopCh)
+			checker, _ := NewCloudAPIServerHealthChecker(cfg, fakeClients, stopCh)
 
 			// wait for the probe completed
 			time.Sleep(time.Duration(5*len(tt.remoteServers)) * time.Second)

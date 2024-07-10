@@ -202,7 +202,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsKubeletGetNodeReq(req):
-		if p.localProxy != nil {
+		if p.autonomyProxy != nil {
 			p.autonomyProxy.ServeHTTP(rw, req)
 		} else {
 			p.loadBalancer.ServeHTTP(rw, req)

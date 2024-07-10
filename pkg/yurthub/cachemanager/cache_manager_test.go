@@ -50,7 +50,6 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -69,7 +68,7 @@ func TestCacheGetResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
@@ -670,7 +669,7 @@ func TestCacheWatchResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
@@ -1050,7 +1049,7 @@ func TestCacheListResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := NewStorageWrapper(dStorage)
 
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
@@ -1644,7 +1643,7 @@ func TestQueryCacheForGet(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
 	if err != nil {
@@ -2371,7 +2370,7 @@ func TestQueryCacheForList(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
 	if err != nil {
@@ -2960,7 +2959,7 @@ func TestCanCacheFor(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	s := wrapper.NewStorageWrapper(dStorage)
+	s := NewStorageWrapper(dStorage)
 
 	type proxyRequest struct {
 		userAgent string

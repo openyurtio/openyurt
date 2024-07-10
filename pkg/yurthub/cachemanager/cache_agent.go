@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -37,10 +36,10 @@ const (
 type CacheAgent struct {
 	sync.Mutex
 	agents sets.Set[string]
-	store  wrapper.StorageWrapper
+	store  StorageWrapper
 }
 
-func NewCacheAgents(informerFactory informers.SharedInformerFactory, store wrapper.StorageWrapper) *CacheAgent {
+func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
 		agents: sets.New(util.DefaultCacheAgents...),
 		store:  store,

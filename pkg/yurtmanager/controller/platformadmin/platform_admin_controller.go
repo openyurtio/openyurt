@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -450,7 +450,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			}
 			pool := appsv1alpha1.Pool{
 				Name:     platformAdmin.Spec.PoolName,
-				Replicas: ptr.To(int32(1)),
+				Replicas: pointer.Int32(1),
 			}
 			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 				corev1.NodeSelectorRequirement{
@@ -568,7 +568,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	yas.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelDeployment
 	pool := appsv1alpha1.Pool{
 		Name:     platformAdmin.Spec.PoolName,
-		Replicas: ptr.To(int32(1)),
+		Replicas: pointer.Int32(1),
 	}
 	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
 		corev1.NodeSelectorRequirement{

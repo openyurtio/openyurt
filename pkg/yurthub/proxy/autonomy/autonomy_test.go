@@ -33,7 +33,6 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -48,7 +47,7 @@ func TestHttpServeKubeletGetNode(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	storageWrapper := wrapper.NewStorageWrapper(dStorage)
+	storageWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, fakeSharedInformerFactory)
 

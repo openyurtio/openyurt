@@ -28,8 +28,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 )
 
 const (
@@ -44,7 +45,7 @@ type cloudAPIServerHealthChecker struct {
 	remoteServers     []*url.URL
 	probers           map[string]BackendProber
 	latestLease       *coordinationv1.Lease
-	sw                wrapper.StorageWrapper
+	sw                cachemanager.StorageWrapper
 	remoteServerIndex int
 	heartbeatInterval int
 }
@@ -57,29 +58,18 @@ type coordinatorHealthChecker struct {
 	heartbeatInterval        int
 }
 
-type HealthCheckerOptions struct {
-}
-
 // NewCoordinatorHealthChecker returns a health checker for verifying yurt coordinator status.
-func NewCoordinatorHealthChecker(coordinatorServerURL string,
-	nodeName string,
-	heartbeatFailedRetry int,
-	heartbeatHealthyThreshold int,
-	kubeletHealthGracePeriod time.Duration,
-	heartbeatIntervalSeconds int,
-	checkerClient kubernetes.Interface,
-	cloudServerHealthChecker HealthChecker,
-	stopCh <-chan struct{}) (HealthChecker, error) {
+func NewCoordinatorHealthChecker(cfg *config.YurtHubConfiguration, checkerClient kubernetes.Interface, cloudServerHealthChecker HealthChecker, stopCh <-chan struct{}) (HealthChecker, error) {
 	chc := &coordinatorHealthChecker{
 		cloudServerHealthChecker: cloudServerHealthChecker,
-		heartbeatInterval:        heartbeatIntervalSeconds,
+		heartbeatInterval:        cfg.HeartbeatIntervalSeconds,
 	}
 	chc.coordinatorProber = newProber(checkerClient,
-		coordinatorServerURL,
-		nodeName,
-		heartbeatFailedRetry,
-		heartbeatHealthyThreshold,
-		kubeletHealthGracePeriod,
+		cfg.CoordinatorServerURL.String(),
+		cfg.NodeName,
+		cfg.HeartbeatFailedRetry,
+		cfg.HeartbeatHealthyThreshold,
+		cfg.KubeletHealthGracePeriod,
 		chc.setLastNodeLease,
 		chc.getLastNodeLease)
 	go chc.run(stopCh)
@@ -134,35 +124,26 @@ func (chc *coordinatorHealthChecker) getLastNodeLease() *coordinationv1.Lease {
 }
 
 // NewCloudAPIServerHealthChecker returns a health checker for verifying cloud kube-apiserver status.
-func NewCloudAPIServerHealthChecker(remoteServers []*url.URL,
-	sw wrapper.StorageWrapper,
-	heartbeatIntervalSeconds int,
-	nodeName string,
-	heartbeatFailedRetry int,
-	heartbeatHealthyThreshold int,
-	kubeletHealthGracePeriod time.Duration,
-	healthCheckerClients map[string]kubernetes.Interface,
-	stopCh <-chan struct{}) (MultipleBackendsHealthChecker,
-	error) {
+func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, healthCheckerClients map[string]kubernetes.Interface, stopCh <-chan struct{}) (MultipleBackendsHealthChecker, error) {
 	if len(healthCheckerClients) == 0 {
 		return nil, fmt.Errorf("no remote servers")
 	}
 
 	hc := &cloudAPIServerHealthChecker{
 		probers:           make(map[string]BackendProber),
-		remoteServers:     remoteServers,
+		remoteServers:     cfg.RemoteServers,
 		remoteServerIndex: 0,
-		sw:                sw,
-		heartbeatInterval: heartbeatIntervalSeconds,
+		sw:                cfg.StorageWrapper,
+		heartbeatInterval: cfg.HeartbeatIntervalSeconds,
 	}
 
 	for remoteServer, client := range healthCheckerClients {
 		hc.probers[remoteServer] = newProber(client,
 			remoteServer,
-			nodeName,
-			heartbeatFailedRetry,
-			heartbeatHealthyThreshold,
-			kubeletHealthGracePeriod,
+			cfg.NodeName,
+			cfg.HeartbeatFailedRetry,
+			cfg.HeartbeatHealthyThreshold,
+			cfg.KubeletHealthGracePeriod,
 			hc.setLastNodeLease,
 			hc.getLastNodeLease)
 	}

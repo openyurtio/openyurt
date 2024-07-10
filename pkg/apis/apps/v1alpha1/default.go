@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	v1 "k8s.io/kubernetes/pkg/apis/core/v1"
-	utilpointer "k8s.io/utils/ptr"
+	utilpointer "k8s.io/utils/pointer"
 )
 
 // SetDefaultsNodePool set default values for NodePool.
@@ -38,7 +38,7 @@ func SetDefaultsNodePool(obj *NodePool) {
 func SetDefaultsYurtAppSet(obj *YurtAppSet) {
 
 	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = utilpointer.To(int32(10))
+		obj.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
 	}
 
 	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
@@ -239,7 +239,7 @@ func SetDefaultsYurtStaticSet(obj *YurtStaticSet) {
 func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
 
 	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = utilpointer.To(int32(10))
+		obj.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
 	}
 
 	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {

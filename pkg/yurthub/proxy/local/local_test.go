@@ -42,7 +42,6 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -64,7 +63,7 @@ func TestServeHTTPForWatch(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -156,7 +155,7 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -241,7 +240,7 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -333,7 +332,7 @@ func TestServeHTTPForPost(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -413,7 +412,7 @@ func TestServeHTTPForDelete(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -480,7 +479,7 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, fakeSharedInformerFactory)
 
@@ -632,7 +631,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
 	}
-	sWrapper := wrapper.NewStorageWrapper(dStorage)
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, _ := hubmeta.NewRESTMapperManager(rootDir)
 	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)

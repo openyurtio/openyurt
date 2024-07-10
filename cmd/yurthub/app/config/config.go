@@ -46,6 +46,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
@@ -54,7 +55,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -70,7 +70,7 @@ type YurtHubConfiguration struct {
 	HeartbeatIntervalSeconds        int
 	MaxRequestInFlight              int
 	EnableProfiling                 bool
-	StorageWrapper                  wrapper.StorageWrapper
+	StorageWrapper                  cachemanager.StorageWrapper
 	SerializerManager               *serializer.SerializerManager
 	RESTMapperManager               *meta.RESTMapperManager
 	SharedFactory                   informers.SharedInformerFactory
@@ -120,7 +120,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		klog.Errorf("could not create storage manager, %v", err)
 		return nil, err
 	}
-	storageWrapper := wrapper.NewStorageWrapper(storageManager)
+	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
 	serializerManager := serializer.NewSerializerManager()
 	restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
 	if err != nil {

@@ -45,7 +45,6 @@ import (
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -75,7 +74,7 @@ type CacheResult struct {
 
 type cacheManager struct {
 	sync.RWMutex
-	storage               wrapper.StorageWrapper
+	storage               StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
 	cacheAgents           *CacheAgent
@@ -86,7 +85,7 @@ type cacheManager struct {
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	storagewrapper wrapper.StorageWrapper,
+	storagewrapper StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
 	sharedFactory informers.SharedInformerFactory,
@@ -389,15 +388,14 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				klog.Errorf("could not get namespace of watch object, %v", err)
 				continue
 			}
-			keyBuildInfo := storage.KeyBuildInfo{
+			key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
 				Group:     info.APIGroup,
 				Version:   info.APIVersion,
-			}
-			key, err := cm.storage.KeyFunc(keyBuildInfo)
+			})
 			if err != nil {
 				klog.Errorf("could not get cache path, %v", err)
 				continue
@@ -490,15 +488,14 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 		if ns == "" {
 			ns = info.Namespace
 		}
-		keyBuildInfo := storage.KeyBuildInfo{
+		key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
 			Component: comp,
 			Namespace: ns,
 			Name:      name,
 			Resources: info.Resource,
 			Group:     info.APIGroup,
 			Version:   info.APIVersion,
-		}
-		key, _ := cm.storage.KeyFunc(keyBuildInfo)
+		})
 		err = cm.storeObjectWithKey(key, items[0])
 		if err != nil {
 			cm.errorKeys.put(key.Key(), err.Error())
@@ -518,15 +515,14 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			if ns == "" {
 				ns = info.Namespace
 			}
-			singleKeyInfo := storage.KeyBuildInfo{
+			key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
 				Name:      name,
 				Resources: info.Resource,
 				Group:     info.APIGroup,
 				Version:   info.APIVersion,
-			}
-			key, _ := cm.storage.KeyFunc(singleKeyInfo)
+			})
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
@@ -582,15 +578,14 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 		return nil
 	}
 
-	keyBuildInfo := storage.KeyBuildInfo{
+	key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
 		Component: comp,
 		Namespace: info.Namespace,
 		Name:      name,
 		Resources: info.Resource,
 		Group:     info.APIGroup,
 		Version:   info.APIVersion,
-	}
-	key, err := cm.storage.KeyFunc(keyBuildInfo)
+	})
 	if err != nil {
 		klog.Errorf("could not get cache key(%s:%s:%s:%s), %v", comp, info.Resource, info.Namespace, info.Name, err)
 		return err

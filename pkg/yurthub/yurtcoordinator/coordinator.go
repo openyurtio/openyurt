@@ -51,7 +51,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/etcd"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/wrapper"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/certmanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
@@ -405,7 +404,7 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 	}
 
 	poolCacheManager := cachemanager.NewCacheManager(
-		wrapper.NewStorageWrapper(etcdStore),
+		cachemanager.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,
 		coordinator.informerFactory,
