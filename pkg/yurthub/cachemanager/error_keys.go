@@ -26,17 +26,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 var (
-	AOFPrefix = "/var/lib/" + projectinfo.GetHubName()
+	AOFPrefix = "/var/lib/autonomy/" + projectinfo.GetHubName()
 )
 
-var (
+const (
 	CompressThresh = 20
 )
 
@@ -53,7 +54,7 @@ func NewErrorKeys() *errorKeys {
 		keys:  make(map[string]string),
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), "error-keys"),
 	}
-	err := os.MkdirAll(AOFPrefix, 0644)
+	err := os.MkdirAll(AOFPrefix, 0755)
 	if err != nil {
 		klog.Errorf("failed to create dir: %v", err)
 		return ek
