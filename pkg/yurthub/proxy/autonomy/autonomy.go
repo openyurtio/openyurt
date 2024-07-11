@@ -39,9 +39,13 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-var (
+const (
 	nodeStatusUpdateRetry = 5
-	ErrRestConfigMgr      = fmt.Errorf("failed to initialize restConfigMgr")
+	maxCacheFailures      = 3
+)
+
+var (
+	ErrRestConfigMgr = errors.New("failed to initialize restConfigMgr")
 )
 
 type AutonomyProxy struct {
@@ -75,69 +79,71 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 		return nil, fmt.Errorf("failed to resolve request")
 	}
 
-	var node runtime.Object
+	var node, retNode runtime.Object
 	var err error
 	for i := 0; i < nodeStatusUpdateRetry; i++ {
-		node, err = ap.tryUpdateNodeConditions(i, node, req)
+		node, err = ap.tryUpdateNodeConditions(i, req)
+		if node != nil {
+			retNode = node
+		}
 		if errors.Is(err, ErrRestConfigMgr) {
 			break
 		} else if err != nil {
 			klog.ErrorS(err, "Error getting or updating node status, will retry")
 		} else {
-			return node, nil
+			return retNode, nil
 		}
 	}
-	if node == nil {
+	if retNode == nil {
 		return nil, fmt.Errorf("failed to get node")
 	}
 	klog.ErrorS(err, "failed to update node autonomy status")
-	return node, nil
+	return retNode, nil
 }
 
-func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, node runtime.Object, req *http.Request) (runtime.Object, error) {
+func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
 	var originalNode, updatedNode *v1.Node
 	var err error
 	info, _ := apirequest.RequestInfoFrom(req.Context())
 
-	if node == nil {
-		if tryNumber == 0 {
-			// get from local cache
-			obj, err := ap.cacheMgr.QueryCache(req)
-			if err != nil {
-				return nil, err
-			}
-			ok := false
-			originalNode, ok = obj.(*v1.Node)
-			if !ok {
-				return nil, fmt.Errorf("could not QueryCache, node is not found")
-			}
-		} else {
-			if ap.restConfigMgr == nil {
-				return nil, fmt.Errorf("failed to initialize restConfigMgr")
-			}
-			config := ap.restConfigMgr.GetRestConfig(true)
-			client, err := kubernetes.NewForConfig(config)
-			if err != nil {
-				return nil, err
-			}
-			if tryNumber < 3 {
-				// get from apiServer cache
-				opts := metav1.GetOptions{}
-				util.FromApiserverCache(&opts)
-				originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get node from apiserver cache")
-				}
-			} else {
-				// get from etcd
-				originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, metav1.GetOptions{})
-				if err != nil {
-					return nil, fmt.Errorf("failed to get node from apiserver cache")
-				}
-			}
+	if tryNumber == 0 {
+		// get from local cache
+		obj, err := ap.cacheMgr.QueryCache(req)
+		if err != nil {
+			return nil, err
+		}
+		ok := false
+		originalNode, ok = obj.(*v1.Node)
+		if !ok {
+			return nil, fmt.Errorf("could not QueryCache, node is not found")
 		}
 	} else {
-		originalNode = node.(*v1.Node)
+		// initialize client from restConfigMgr
+		if ap.restConfigMgr == nil {
+			return nil, ErrRestConfigMgr
+		}
+		config := ap.restConfigMgr.GetRestConfig(true)
+		client, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
+
+		// get node from cloud
+		opts := metav1.GetOptions{}
+		if tryNumber == 1 {
+			// get from apiServer cache
+			util.FromApiserverCache(&opts)
+			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get node from apiserver cache: %v", err)
+			}
+		} else {
+			// get from etcd
+			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get node from etcd: %v", err)
+			}
+		}
 	}
 
 	if originalNode == nil {
@@ -157,6 +163,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, node runtime.Obj
 	if err != nil {
 		return originalNode, err
 	}
+
 	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), changedNode, metav1.UpdateOptions{})
 	if err != nil {
 		return originalNode, err
@@ -174,8 +181,8 @@ func (ap *AutonomyProxy) updateNodeConditions(originalNode *v1.Node) (*v1.Node, 
 			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled successfully", "The autonomy is enabled and it works fine")
 			atomic.StoreInt32(ap.cacheFailedCount, 0)
 		} else {
-			atomic.AddInt32(ap.cacheFailedCount, 1)
-			if *ap.cacheFailedCount > 3 {
+			currentFailures := atomic.AddInt32(ap.cacheFailedCount, 1)
+			if int(currentFailures) > maxCacheFailures {
 				setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", res.ErrMsg)
 			}
 		}
