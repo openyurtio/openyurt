@@ -129,20 +129,15 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		}
 
 		// get node from cloud
+		// when tryNumber equals to 1, get from apiServer cache
+		// otherwise, get from etcd
 		opts := metav1.GetOptions{}
 		if tryNumber == 1 {
-			// get from apiServer cache
 			util.FromApiserverCache(&opts)
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get node from apiserver cache: %v", err)
-			}
-		} else {
-			// get from etcd
-			originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get node from etcd: %v", err)
-			}
+		}
+		originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node from cloud: %v", err)
 		}
 	}
 
