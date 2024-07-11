@@ -54,6 +54,8 @@ type HubMetrics struct {
 	yurtCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
 	yurtCoordinatorHealthyStatusCollector *prometheus.GaugeVec
 	yurtCoordinatorReadyStatusCollector   *prometheus.GaugeVec
+	errorKeysPersistencyStatusCollector   prometheus.Gauge
+	errorKeysCountCollector               prometheus.Gauge
 }
 
 func newHubMetrics() *HubMetrics {
@@ -135,6 +137,20 @@ func newHubMetrics() *HubMetrics {
 			Help:      "yurt coordinator ready status 1: ready, 0: notReady",
 		},
 		[]string{})
+	errorKeysPersistencyStatusCollector := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "error_keys_persistency_status",
+			Help:      "error keys persistency status 1: ready, 0: notReady",
+		})
+	errorKeysCountCollector := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "error_keys_count",
+			Help:      "error keys count",
+		})
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
@@ -145,6 +161,8 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(yurtCoordinatorYurthubRoleCollector)
 	prometheus.MustRegister(yurtCoordinatorHealthyStatusCollector)
 	prometheus.MustRegister(yurtCoordinatorReadyStatusCollector)
+	prometheus.MustRegister(errorKeysPersistencyStatusCollector)
+	prometheus.MustRegister(errorKeysCountCollector)
 	return &HubMetrics{
 		serversHealthyCollector:               serversHealthyCollector,
 		inFlightRequestsCollector:             inFlightRequestsCollector,
@@ -156,6 +174,8 @@ func newHubMetrics() *HubMetrics {
 		yurtCoordinatorHealthyStatusCollector: yurtCoordinatorHealthyStatusCollector,
 		yurtCoordinatorReadyStatusCollector:   yurtCoordinatorReadyStatusCollector,
 		yurtCoordinatorYurthubRoleCollector:   yurtCoordinatorYurthubRoleCollector,
+		errorKeysPersistencyStatusCollector:   errorKeysPersistencyStatusCollector,
+		errorKeysCountCollector:               errorKeysCountCollector,
 	}
 }
 
@@ -166,6 +186,8 @@ func (hm *HubMetrics) Reset() {
 	hm.closableConnsCollector.Reset()
 	hm.proxyTrafficCollector.Reset()
 	hm.proxyLatencyCollector.Reset()
+	hm.errorKeysPersistencyStatusCollector.Set(float64(0))
+	hm.errorKeysCountCollector.Set(float64(0))
 }
 
 func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
@@ -218,4 +240,16 @@ func (hm *HubMetrics) AddProxyTrafficCollector(client, verb, resource, subresour
 
 func (hm *HubMetrics) SetProxyLatencyCollector(client, verb, resource, subresource string, latencyType LatencyType, duration int64) {
 	hm.proxyLatencyCollector.WithLabelValues(client, verb, resource, subresource, string(latencyType)).Set(float64(duration))
+}
+
+func (hm *HubMetrics) SetErrorKeysPersistencyStatus(status int) {
+	hm.errorKeysPersistencyStatusCollector.Set(float64(status))
+}
+
+func (hm *HubMetrics) IncErrorKeysCount() {
+	hm.errorKeysCountCollector.Inc()
+}
+
+func (hm *HubMetrics) DecErrorKeysCount() {
+	hm.errorKeysCountCollector.Dec()
 }

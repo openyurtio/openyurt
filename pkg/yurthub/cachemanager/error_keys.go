@@ -31,10 +31,11 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 )
 
 var (
-	AOFPrefix = "/var/lib/autonomy/" + projectinfo.GetHubName()
+	AOFPrefix = "/var/lib/" + projectinfo.GetHubName() + "/autonomy"
 )
 
 const (
@@ -67,6 +68,7 @@ func NewErrorKeys() *errorKeys {
 	ek.file = file
 	go ek.sync()
 	go ek.compress()
+	metrics.Metrics.SetErrorKeysPersistencyStatus(1)
 	return ek
 }
 
@@ -87,6 +89,7 @@ func (ek *errorKeys) put(key string, val string) {
 	ek.Lock()
 	defer ek.Unlock()
 	ek.keys[key] = val
+	metrics.Metrics.IncErrorKeysCount()
 	ek.queue.AddRateLimited(operation{Operator: PUT, Key: key, Val: val})
 }
 
@@ -97,6 +100,7 @@ func (ek *errorKeys) del(key string) {
 		return
 	}
 	delete(ek.keys, key)
+	metrics.Metrics.DecErrorKeysCount()
 	ek.queue.AddRateLimited(operation{Operator: DEL, Key: key})
 }
 
@@ -203,6 +207,8 @@ func (ek *errorKeys) rewrite() {
 	}
 	file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0644)
 	if err != nil {
+		klog.ErrorS(err, "failed to open file", "name", filepath.Join(AOFPrefix, "aof"))
+		metrics.Metrics.SetErrorKeysPersistencyStatus(0)
 		ek.queue.ShutDown()
 		return
 	}
