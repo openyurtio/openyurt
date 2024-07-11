@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 )
 
-const (
-	AOFPrefix = "/tmp/errorkeys"
+var (
+	AOFPrefix = "/var/lib/" + projectinfo.GetHubName()
 )
 
 var (
@@ -52,12 +53,12 @@ func NewErrorKeys() *errorKeys {
 		keys:  make(map[string]string),
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), "error-keys"),
 	}
-	err := os.MkdirAll(AOFPrefix, 0755)
+	err := os.MkdirAll(AOFPrefix, 0644)
 	if err != nil {
 		klog.Errorf("failed to create dir: %v", err)
 		return ek
 	}
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0600)
+	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		klog.Errorf("failed to open file, persistency is disabled: %v", err)
 		return ek
@@ -159,7 +160,7 @@ func (ek *errorKeys) rewrite() {
 	ek.RLock()
 	defer ek.RUnlock()
 	count := 0
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "tmp_aof"), os.O_CREATE|os.O_RDWR, 0600)
+	file, err := os.OpenFile(filepath.Join(AOFPrefix, "tmp_aof"), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
 		klog.Errorf("failed to open file: %v", err)
 		return
@@ -179,22 +180,27 @@ func (ek *errorKeys) rewrite() {
 	}
 	file.Sync()
 	file.Close()
-	ek.file.Close()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true,
+	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			if ek.queue.Len() == 0 {
 				return true, nil
 			}
 			return false, nil
 		})
+	if err != nil {
+		klog.Errorf("failed to wait for queue to be empty")
+		return
+	}
+	ek.file.Close()
+
 	err = os.Rename(filepath.Join(AOFPrefix, "tmp_aof"), filepath.Join(AOFPrefix, "aof"))
 	if err != nil {
 		klog.Errorf("failed to rename tmp_aof to aof, %v", err)
 	}
-	file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0600)
+	file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0644)
 	if err != nil {
 		ek.queue.ShutDown()
 		return
@@ -207,7 +213,7 @@ func (ek *errorKeys) recover() {
 	var file *os.File
 	var err error
 	if ek.file == nil {
-		file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0600)
+		file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0644)
 		if err != nil {
 			return
 		}

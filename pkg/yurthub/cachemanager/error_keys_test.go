@@ -91,8 +91,11 @@ func TestRecover(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to marshal: %v", err)
 	}
-	os.MkdirAll(AOFPrefix, 0755)
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0600)
+	err = os.MkdirAll(AOFPrefix, 0755)
+	if err != nil {
+		t.Errorf("failed to create dir: %v", err)
+	}
+	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		t.Errorf("failed to open file: %v", err)
 	}
@@ -109,6 +112,7 @@ func TestRecover(t *testing.T) {
 }
 
 func TestCompress(t *testing.T) {
+	os.MkdirAll(AOFPrefix, 0644)
 	keys := NewErrorKeys()
 	for i := 0; i < 50; i++ {
 		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
