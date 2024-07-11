@@ -64,6 +64,12 @@ type CacheManager interface {
 	QueryCache(req *http.Request) (runtime.Object, error)
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
+	QueryCacheResult() CacheResult
+}
+
+type CacheResult struct {
+	ErrorKeysLength int
+	ErrMsg          string
 }
 
 type cacheManager struct {
@@ -74,6 +80,7 @@ type cacheManager struct {
 	cacheAgents           *CacheAgent
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
+	errorKeys             *errorKeys
 }
 
 // NewCacheManager creates a new CacheManager
@@ -91,9 +98,17 @@ func NewCacheManager(
 		restMapperManager:     restMapperMgr,
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
+		errorKeys:             NewErrorKeys(),
 	}
-
+	cm.errorKeys.recover()
 	return cm
+}
+
+func (cm *cacheManager) QueryCacheResult() CacheResult {
+	return CacheResult{
+		ErrorKeysLength: cm.errorKeys.length(),
+		ErrMsg:          cm.errorKeys.aggregate(),
+	}
 }
 
 // CacheResponse cache response of request into backend storage
@@ -190,7 +205,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 	} else if len(objs) == 0 {
 		if isKubeletPodRequest(req) {
 			// because at least there will be yurt-hub pod on the node.
-			// if no pods in cache, maybe all of pods have been deleted by accident,
+			// if no pods in cache, maybe all pods have been deleted by accident,
 			// if empty object is returned, pods on node will be deleted by kubelet.
 			// in order to prevent the influence to business, return error here so pods
 			// will be kept on node.
@@ -266,7 +281,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// we need to rebuild the in-memory cache with backend consistent storage.
 	// Note:
 	// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
-	// While cloud-edge network is broken, the inMemoryCache can only be full filled with data from edge cache,
+	// While cloud-edge network is broken, the inMemoryCache can only be fulfilled with data from edge cache,
 	// such as local disk and yurt-coordinator.
 	if isInMemoryCacheMiss {
 		return obj, cm.updateInMemoryCache(ctx, info, obj)
@@ -373,7 +388,6 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				klog.Errorf("could not get namespace of watch object, %v", err)
 				continue
 			}
-
 			key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
@@ -405,7 +419,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				// for now, If it's a delete request, no need to modify the inmemory cache,
 				// because currently, there shouldn't be any delete requests for nodes or leases.
 			default:
-				// impossible go to here
+				// impossible go here
 			}
 
 			if info.Resource == "pods" {
@@ -413,6 +427,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if err != nil {
+				cm.errorKeys.put(key.Key(), err.Error())
 				klog.Errorf("could not process watch object %s, %v", key.Key(), err)
 			}
 		case watch.Bookmark:
@@ -481,7 +496,13 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Group:     info.APIGroup,
 			Version:   info.APIVersion,
 		})
-		return cm.storeObjectWithKey(key, items[0])
+		err = cm.storeObjectWithKey(key, items[0])
+		if err != nil {
+			cm.errorKeys.put(key.Key(), err.Error())
+			return err
+		}
+		cm.errorKeys.del(key.Key())
+		return nil
 	} else {
 		// list all objects or with fieldselector/labelselector
 		objs := make(map[storage.Key]runtime.Object)
@@ -494,7 +515,6 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			if ns == "" {
 				ns = info.Namespace
 			}
-
 			key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
 				Component: comp,
 				Namespace: ns,
@@ -506,11 +526,20 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+		err = cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
 			Group:    info.APIGroup,
 			Version:  info.APIVersion,
 			Resource: info.Resource,
 		}, info.Namespace, objs)
+		if err != nil {
+			for key := range objs {
+				cm.errorKeys.put(key.Key(), err.Error())
+			}
+		}
+		for key := range objs {
+			cm.errorKeys.del(key.Key())
+		}
+		return nil
 	}
 }
 
@@ -570,10 +599,11 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 
 	err = cm.storeObjectWithKey(key, obj)
 	if err != nil {
+		cm.errorKeys.put(key.Key(), err.Error())
 		klog.Errorf("could not store object %s, %v", key.Key(), err)
 		return err
 	}
-
+	cm.errorKeys.del(key.Key())
 	return cm.updateInMemoryCache(ctx, info, obj)
 }
 
@@ -611,19 +641,19 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 	newRvUint, _ := strconv.ParseUint(newRv, 10, 64)
 	_, err = cm.storage.Update(key, obj, newRvUint)
 
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return nil
-	case storage.ErrStorageNotFound:
+	case errors.Is(err, storage.ErrStorageNotFound):
 		klog.V(4).Infof("find no cached obj of key: %s, create it with the coming obj with rv: %s", key.Key(), newRv)
 		if err := cm.storage.Create(key, obj); err != nil {
-			if err == storage.ErrStorageAccessConflict {
+			if errors.Is(err, storage.ErrStorageAccessConflict) {
 				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key.Key())
 				return nil
 			}
 			return fmt.Errorf("could not create obj of key: %s, %v", key.Key(), err)
 		}
-	case storage.ErrStorageAccessConflict:
+	case errors.Is(err, storage.ErrStorageAccessConflict):
 		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
 		return nil
 	default:

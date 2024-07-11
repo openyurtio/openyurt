@@ -26,7 +26,10 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
@@ -427,6 +430,72 @@ func TestReqInfoString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ReqInfoString(tt.args.info); got != tt.want {
 				t.Errorf("ReqInfoString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNodeConditionsHaveChanged(t *testing.T) {
+	tests := []struct {
+		name         string
+		originalNode *v1.Node
+		node         *v1.Node
+		changed      bool
+	}{
+		{
+			name: "test1",
+			originalNode: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:              v1.NodeReady,
+							LastHeartbeatTime: metav1.Now(),
+						},
+					},
+				},
+			},
+			node: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:              v1.NodeReady,
+							LastHeartbeatTime: metav1.NewTime(time.Now().Add(10 * time.Minute)),
+						},
+					},
+				},
+			},
+			changed: false,
+		},
+		{
+			name: "test2",
+			originalNode: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:    v1.NodeReady,
+							Message: "test1",
+						},
+					},
+				},
+			},
+			node: &v1.Node{
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:    v1.NodeReady,
+							Message: "test2",
+						},
+					},
+				},
+			},
+			changed: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := NodeConditionsHaveChanged(test.originalNode.Status.Conditions, test.node.Status.Conditions)
+			if c != test.changed {
+				t.Errorf("%s, expect %v but get %v", test.name, test.changed, c)
 			}
 		})
 	}

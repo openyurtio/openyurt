@@ -184,6 +184,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
 		cfg,
 		cacheMgr,
+		restConfigMgr,
 		transportManager,
 		cloudHealthChecker,
 		tenantMgr,

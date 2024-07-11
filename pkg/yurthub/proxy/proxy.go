@@ -37,6 +37,8 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/autonomy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/pool"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
@@ -55,6 +57,7 @@ type yurtReverseProxy struct {
 	coordinatorHealtCheckerGetter func() healthchecker.HealthChecker
 	localProxy                    http.Handler
 	poolProxy                     http.Handler
+	autonomyProxy                 http.Handler
 	maxRequestsInFlight           int
 	tenantMgr                     tenant.Interface
 	isCoordinatorReady            func() bool
@@ -67,6 +70,7 @@ type yurtReverseProxy struct {
 func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
+	restConfigMgr *hubrest.RestConfigManager,
 	transportMgr transport.Interface,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
 	tenantMgr tenant.Interface,
@@ -94,7 +98,7 @@ func NewYurtReverseProxyHandler(
 		return nil, err
 	}
 
-	var localProxy, poolProxy http.Handler
+	var localProxy, poolProxy, autonomyProxy http.Handler
 	isCoordinatorHealthy := func() bool {
 		coordinator := coordinatorGetter()
 		if coordinator == nil {
@@ -122,6 +126,11 @@ func NewYurtReverseProxyHandler(
 		)
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 
+		autonomyProxy = autonomy.NewAutonomyProxy(
+			restConfigMgr,
+			localCacheMgr,
+		)
+
 		if yurtHubCfg.EnableCoordinator {
 			poolProxy, err = pool.NewYurtCoordinatorProxy(
 				localCacheMgr,
@@ -143,6 +152,7 @@ func NewYurtReverseProxyHandler(
 		coordinatorHealtCheckerGetter: coordinatorHealthCheckerGetter,
 		localProxy:                    localProxy,
 		poolProxy:                     poolProxy,
+		autonomyProxy:                 autonomyProxy,
 		maxRequestsInFlight:           yurtHubCfg.MaxRequestInFlight,
 		isCoordinatorReady:            isCoordinatorReady,
 		enableYurtCoordinator:         yurtHubCfg.EnableCoordinator,
@@ -192,8 +202,8 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsKubeletGetNodeReq(req):
-		if p.localProxy != nil {
-			p.localProxy.ServeHTTP(rw, req)
+		if p.autonomyProxy != nil {
+			p.autonomyProxy.ServeHTTP(rw, req)
 		} else {
 			p.loadBalancer.ServeHTTP(rw, req)
 		}

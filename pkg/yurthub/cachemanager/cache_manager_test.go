@@ -2292,7 +2292,7 @@ func TestQueryCacheForGet(t *testing.T) {
 // 	if err != nil {
 // 		t.Errorf("failed to create RESTMapper manager, %v", err)
 // 	}
-// 	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+// 	yurtCM := NewCacheManager(fakeClient, sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 // 	testcases := map[string]struct {
 // 		path         string
