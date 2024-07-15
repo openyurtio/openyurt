@@ -201,14 +201,18 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 	}
 
 	if buf, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
-		sw.errorKeys.put(key.Key(), err.Error())
-		if err == storage.ErrUpdateConflict {
+		if err == storage.ErrStorageNotFound {
+			return nil, err
+		} else if err == storage.ErrUpdateConflict {
 			obj, _, dErr := sw.backendSerializer.Decode(buf, nil, nil)
 			if dErr != nil {
+				sw.errorKeys.put(key.Key(), err.Error())
 				return nil, fmt.Errorf("could not decode existing obj of key %s, %v", key.Key(), dErr)
 			}
+			sw.errorKeys.put(key.Key(), err.Error())
 			return obj, err
 		}
+		sw.errorKeys.put(key.Key(), err.Error())
 		return nil, err
 	}
 	sw.errorKeys.del(key.Key())
