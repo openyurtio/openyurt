@@ -68,8 +68,8 @@ type CacheManager interface {
 }
 
 type CacheResult struct {
-	ErrorKeysLength int
-	ErrMsg          string
+	Length int
+	Msg    string
 }
 
 type cacheManager struct {
@@ -80,7 +80,6 @@ type cacheManager struct {
 	cacheAgents           *CacheAgent
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
-	errorKeys             *errorKeys
 }
 
 // NewCacheManager creates a new CacheManager
@@ -98,16 +97,15 @@ func NewCacheManager(
 		restMapperManager:     restMapperMgr,
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
-		errorKeys:             NewErrorKeys(),
 	}
-	cm.errorKeys.recover()
 	return cm
 }
 
 func (cm *cacheManager) QueryCacheResult() CacheResult {
+	length, msg := cm.storage.GetCacheResult()
 	return CacheResult{
-		ErrorKeysLength: cm.errorKeys.length(),
-		ErrMsg:          cm.errorKeys.aggregate(),
+		Length: length,
+		Msg:    msg,
 	}
 }
 
@@ -427,7 +425,6 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if err != nil {
-				cm.errorKeys.put(key.Key(), err.Error())
 				klog.Errorf("could not process watch object %s, %v", key.Key(), err)
 			}
 		case watch.Bookmark:
@@ -496,13 +493,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Group:     info.APIGroup,
 			Version:   info.APIVersion,
 		})
-		err = cm.storeObjectWithKey(key, items[0])
-		if err != nil {
-			cm.errorKeys.put(key.Key(), err.Error())
-			return err
-		}
-		cm.errorKeys.del(key.Key())
-		return nil
+		return cm.storeObjectWithKey(key, items[0])
 	} else {
 		// list all objects or with fieldselector/labelselector
 		objs := make(map[storage.Key]runtime.Object)
@@ -526,20 +517,11 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		err = cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
 			Group:    info.APIGroup,
 			Version:  info.APIVersion,
 			Resource: info.Resource,
 		}, info.Namespace, objs)
-		if err != nil {
-			for key := range objs {
-				cm.errorKeys.put(key.Key(), err.Error())
-			}
-		}
-		for key := range objs {
-			cm.errorKeys.del(key.Key())
-		}
-		return nil
 	}
 }
 
@@ -599,11 +581,9 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 
 	err = cm.storeObjectWithKey(key, obj)
 	if err != nil {
-		cm.errorKeys.put(key.Key(), err.Error())
 		klog.Errorf("could not store object %s, %v", key.Key(), err)
 		return err
 	}
-	cm.errorKeys.del(key.Key())
 	return cm.updateInMemoryCache(ctx, info, obj)
 }
 

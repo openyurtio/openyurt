@@ -168,17 +168,19 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 
 func (ap *AutonomyProxy) updateNodeConditions(originalNode *v1.Node) (*v1.Node, bool) {
 	node := originalNode.DeepCopy()
-	if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
+	if _, ok := node.Annotations[projectinfo.GetAutonomyAnnotation()]; !ok {
+		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
+	} else if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
 		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
 	} else {
 		res := ap.cacheMgr.QueryCacheResult()
-		if res.ErrorKeysLength == 0 {
+		if res.Length == 0 {
 			setNodeAutonomyCondition(node, v1.ConditionTrue, "autonomy enabled successfully", "The autonomy is enabled and it works fine")
 			atomic.StoreInt32(ap.cacheFailedCount, 0)
 		} else {
 			currentFailures := atomic.AddInt32(ap.cacheFailedCount, 1)
 			if int(currentFailures) > maxCacheFailures {
-				setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", res.ErrMsg)
+				setNodeAutonomyCondition(node, v1.ConditionUnknown, "cache failed", res.Msg)
 			}
 		}
 	}
