@@ -19,6 +19,7 @@ package cachemanager
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -221,17 +222,12 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 
 func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, objs map[storage.Key]runtime.Object) error {
 	var buf bytes.Buffer
-	key, _ := sw.KeyFunc(storage.KeyBuildInfo{
-		Component: component,
-		Group:     gvr.Group,
-		Version:   gvr.Version,
-		Resources: gvr.Resource,
-		Namespace: namespace,
-	})
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			sw.errorKeys.put(key.Key(), err.Error())
+			for k := range contents {
+				sw.errorKeys.put(k.Key(), err.Error())
+			}
 			klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
 			return err
 		}
@@ -242,10 +238,14 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 
 	err := sw.store.ReplaceComponentList(component, gvr, namespace, contents)
 	if err != nil {
-		sw.errorKeys.put(key.Key(), err.Error())
+		for key := range contents {
+			sw.errorKeys.put(key.Key(), err.Error())
+		}
 		return err
 	}
-	sw.errorKeys.del(key.Key())
+	for key := range contents {
+		sw.errorKeys.del(key.Key())
+	}
 	return nil
 }
 
@@ -253,10 +253,13 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 func (sw *storageWrapper) DeleteComponentResources(component string) error {
 	err := sw.store.DeleteComponentResources(component)
 	if err != nil {
-		sw.errorKeys.put(component, fmt.Sprintf("failed to delete, %v", err.Error()))
 		return err
 	}
-	sw.errorKeys.del(component)
+	for key := range sw.errorKeys.keys {
+		if strings.HasPrefix(key, component) {
+			sw.errorKeys.del(key)
+		}
+	}
 	return nil
 }
 
