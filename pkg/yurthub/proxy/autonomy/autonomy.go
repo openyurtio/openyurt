@@ -168,9 +168,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 
 func (ap *AutonomyProxy) updateNodeConditions(originalNode *v1.Node) (*v1.Node, bool) {
 	node := originalNode.DeepCopy()
-	if _, ok := node.Annotations[projectinfo.GetAutonomyAnnotation()]; !ok {
-		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
-	} else if node.Annotations[projectinfo.GetAutonomyAnnotation()] == "false" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
+	if node.Annotations[projectinfo.GetAutonomyAnnotation()] != "true" || node.Labels[projectinfo.GetEdgeWorkerLabelKey()] == "false" {
 		setNodeAutonomyCondition(node, v1.ConditionFalse, "autonomy disabled", "The autonomy is disabled or this node is not edge node")
 	} else {
 		res := ap.cacheMgr.QueryCacheResult()
