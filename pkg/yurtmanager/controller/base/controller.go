@@ -132,7 +132,6 @@ func NewControllerInitializers() map[string]InitFunc {
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappoverriders,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=list;watch
 // +kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=list;watch
 
