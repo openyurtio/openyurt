@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	runtimewebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -95,6 +96,7 @@ current state towards the desired state.`,
 			if s.Generic.Version {
 				return
 			}
+			projectinfo.RegisterVersionInfo(metrics.Registry, projectinfo.GetYurtManagerName())
 
 			PrintFlags(cmd.Flags())
 

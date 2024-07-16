@@ -62,6 +62,7 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 				return
 			}
 			fmt.Printf("%s version: %#v\n", projectinfo.GetHubName(), projectinfo.Get())
+			projectinfo.RegisterVersionInfo(nil, projectinfo.GetHubName())
 
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
