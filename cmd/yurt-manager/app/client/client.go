@@ -82,6 +82,12 @@ func GetConfigByControllerNameOrDie(mgr manager.Manager, controllerName string) 
 	cfg := rest.CopyConfig(baseCfg)
 	rest.AddUserAgent(cfg, controllerName)
 
+	// clean cert/key info in tls config for ensuring service account will be used.
+	cfg.TLSClientConfig.KeyFile = ""
+	cfg.TLSClientConfig.CertFile = ""
+	cfg.TLSClientConfig.CertData = []byte{}
+	cfg.TLSClientConfig.KeyData = []byte{}
+
 	// add controller-specific token wrapper to cfg
 	cachedTokenSource := transport.NewCachedTokenSource(&tokenSourceImpl{
 		namespace:          namespace,
