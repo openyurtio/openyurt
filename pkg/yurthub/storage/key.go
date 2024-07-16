@@ -16,6 +16,8 @@ limitations under the License.
 
 package storage
 
+import "strings"
+
 type Key interface {
 	Key() string
 }
@@ -27,4 +29,22 @@ type KeyBuildInfo struct {
 	Resources string
 	Group     string
 	Version   string
+}
+
+type ClusterInfoKey struct {
+	ClusterInfoType
+	UrlPath string
+}
+
+type ClusterInfoType string
+
+func (key ClusterInfoKey) Key() string {
+	switch key.ClusterInfoType {
+	case APIsInfo, Version:
+		return string(key.ClusterInfoType)
+	case APIResourcesInfo:
+		return strings.ReplaceAll(key.UrlPath, "/", "_")
+	default:
+		return ""
+	}
 }

@@ -45,8 +45,8 @@ type StorageWrapper interface {
 	ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error)
 	ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key]runtime.Object) error
 	DeleteComponentResources(component string) error
-	SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
-	GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
+	SaveClusterInfo(key storage.Key, content []byte) error
+	GetClusterInfo(key storage.Key) ([]byte, error)
 	GetStorage() storage.Store
 	GetCacheResult() (int, string)
 }
@@ -225,7 +225,7 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
-			for k := range contents {
+			for k := range objs {
 				sw.errorKeys.put(k.Key(), err.Error())
 			}
 			klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
@@ -238,12 +238,12 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 
 	err := sw.store.ReplaceComponentList(component, gvr, namespace, contents)
 	if err != nil {
-		for key := range contents {
+		for key := range objs {
 			sw.errorKeys.put(key.Key(), err.Error())
 		}
 		return err
 	}
-	for key := range contents {
+	for key := range objs {
 		sw.errorKeys.del(key.Key())
 	}
 	return nil
@@ -263,16 +263,16 @@ func (sw *storageWrapper) DeleteComponentResources(component string) error {
 	return nil
 }
 
-func (sw *storageWrapper) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
+func (sw *storageWrapper) SaveClusterInfo(key storage.Key, content []byte) error {
 	err := sw.store.SaveClusterInfo(key, content)
 	if err != nil {
-		sw.errorKeys.put(string(key.ClusterInfoType), fmt.Sprintf("failed to store cluster info, %v", err.Error()))
+		sw.errorKeys.put(key.Key(), fmt.Sprintf("failed to store cluster info, %v", err.Error()))
 		return err
 	}
-	sw.errorKeys.del(string(key.ClusterInfoType))
+	sw.errorKeys.del(key.Key())
 	return nil
 }
 
-func (sw *storageWrapper) GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error) {
+func (sw *storageWrapper) GetClusterInfo(key storage.Key) ([]byte, error) {
 	return sw.store.GetClusterInfo(key)
 }

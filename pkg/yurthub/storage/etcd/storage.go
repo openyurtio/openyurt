@@ -514,9 +514,9 @@ func fresherThan(rv string, key string) clientv3.Cmp {
 
 type doNothingAboutClusterInfo struct{}
 
-func (d doNothingAboutClusterInfo) SaveClusterInfo(_ storage.ClusterInfoKey, _ []byte) error {
+func (d doNothingAboutClusterInfo) SaveClusterInfo(_ storage.Key, _ []byte) error {
 	return nil
 }
-func (d doNothingAboutClusterInfo) GetClusterInfo(_ storage.ClusterInfoKey) ([]byte, error) {
+func (d doNothingAboutClusterInfo) GetClusterInfo(_ storage.Key) ([]byte, error) {
 	return nil, nil
 }

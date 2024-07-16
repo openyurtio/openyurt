@@ -421,50 +421,36 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 	return nil
 }
 
-func (ds *diskStorage) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
-	var path string
-	switch key.ClusterInfoType {
-	case storage.APIsInfo, storage.Version:
-		path = filepath.Join(ds.baseDir, string(key.ClusterInfoType))
-	case storage.APIResourcesInfo:
-		translatedURLPath := strings.ReplaceAll(key.UrlPath, "/", "_")
-		path = filepath.Join(ds.baseDir, translatedURLPath)
-	default:
+func (ds *diskStorage) SaveClusterInfo(key storage.Key, content []byte) error {
+	if key.Key() == "" {
 		return storage.ErrUnknownClusterInfoType
 	}
-
+	path := filepath.Join(ds.baseDir, key.Key())
 	if err := ds.fsOperator.CreateFile(path, content); err != nil {
 		if err == fs.ErrExists {
 			// file exists, overwrite it with content
 			if werr := ds.fsOperator.Write(path, content); werr != nil {
-				return fmt.Errorf("could not update clusterInfo %s at path %s, %v", key.ClusterInfoType, path, werr)
+				return fmt.Errorf("could not update clusterInfo at path %s, %v", path, werr)
 			}
 			return nil
 		}
-		return fmt.Errorf("could not create %s clusterInfo file at path %s, %v", key.ClusterInfoType, path, err)
+		return fmt.Errorf("could not create clusterInfo file at path %s, %v", path, err)
 	}
 	return nil
 }
 
-func (ds *diskStorage) GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error) {
-	var path string
-	switch key.ClusterInfoType {
-	case storage.APIsInfo, storage.Version:
-		path = filepath.Join(ds.baseDir, string(key.ClusterInfoType))
-	case storage.APIResourcesInfo:
-		translatedURLPath := strings.ReplaceAll(key.UrlPath, "/", "_")
-		path = filepath.Join(ds.baseDir, translatedURLPath)
-	default:
+func (ds *diskStorage) GetClusterInfo(key storage.Key) ([]byte, error) {
+	if key.Key() == "" {
 		return nil, storage.ErrUnknownClusterInfoType
 	}
-
+	path := filepath.Join(ds.baseDir, key.Key())
 	var buf []byte
 	var err error
 	if buf, err = ds.fsOperator.Read(path); err != nil {
 		if err == fs.ErrNotExists {
 			return nil, storage.ErrStorageNotFound
 		}
-		return nil, fmt.Errorf("could not read %s clusterInfo file at %s, %v", key.ClusterInfoType, path, err)
+		return nil, fmt.Errorf("could not read clusterInfo file at %s, %v", path, err)
 	}
 	return buf, nil
 }
