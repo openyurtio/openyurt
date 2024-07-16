@@ -1,0 +1,9 @@
+[default.extend-words]
+Ded = "Ded"
+rsource = "rsource"
+
+[default.extend-identifiers]
+ObjectCreater = "ObjectCreater"
+
+[files]
+extend-exclude = ["vendor/", "go.mod", "CHANGELOG.md", "certmanager_test.go", "fake_client.go", "certificate_test.go", "pubkeypin_test.go", "pki_test.go", "token_test.go"]

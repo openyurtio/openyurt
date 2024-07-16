@@ -301,7 +301,7 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
-		"pod with specified annotation, then append new informations to NodeAffinity's RequiredDuringSchedulingIgnoredDuringExecution": {
+		"pod with specified annotation, then append new information to NodeAffinity's RequiredDuringSchedulingIgnoredDuringExecution": {
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pod-test",

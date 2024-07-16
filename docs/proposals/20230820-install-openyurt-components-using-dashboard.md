@@ -92,7 +92,7 @@ Use `https://openyurtio.github.io/openyurt-helm` as the source address for compo
   - pool-coordinator
   - yurt-app-manager
   - yurt-controller-manager
-  - raven-controler-manager
+  - raven-controller-manager
 
 <div align="center">
   <img src = "../img/dashboard-manage-page.png" width="800">

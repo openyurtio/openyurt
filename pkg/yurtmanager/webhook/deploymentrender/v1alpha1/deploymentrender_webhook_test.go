@@ -291,7 +291,7 @@ var overrider2 = &v1alpha1.YurtAppOverrider{
 					Operation: v1alpha1.ADD,
 					Path:      "/spec/template/spec/volumes/-",
 					Value: apiextensionsv1.JSON{
-						Raw: []byte(`{"name":"configmap-{{nodepool}}","configMap":{"name":"demo","items":[{"key": "game.properities","path": "game.properities"}]}}`),
+						Raw: []byte(`{"name":"configmap-{{nodepool}}","configMap":{"name":"demo","items":[{"key": "game.properties","path": "game.properties"}]}}`),
 					},
 				},
 			},

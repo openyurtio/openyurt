@@ -107,7 +107,7 @@ func runProxier(handler http.Handler,
 	klog.Info("start handling request from interceptor")
 	if egressSelectorEnabled {
 		// TODO will support egress selector for apiserver version > 1.18
-		return errors.New("DOESN'T SUPPROT EGRESS SELECTOR YET")
+		return errors.New("DOESN'T SUPPORT EGRESS SELECTOR YET")
 	}
 	// request will be sent from request interceptor on the same host,
 	// so we use UDS protocol to avoid sending request through kernel

@@ -244,7 +244,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	comp, _ := util.ClientComponentFrom(ctx)
 	// query in-memory cache first
 	var isInMemoryCacheMiss bool
-	if obj, err := cm.queryInMemeryCache(ctx, info); err != nil {
+	if obj, err := cm.queryInMemoryCache(ctx, info); err != nil {
 		if err == ErrInMemoryCacheMiss {
 			isInMemoryCacheMiss = true
 			klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
@@ -805,7 +805,7 @@ func (cm *cacheManager) DeleteKindFor(gvr schema.GroupVersionResource) error {
 	return cm.restMapperManager.DeleteKindFor(gvr)
 }
 
-func (cm *cacheManager) queryInMemeryCache(ctx context.Context, reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
+func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequest.RequestInfo) (runtime.Object, error) {
 	if !isInMemoryCache(ctx) {
 		return nil, ErrNotNodeOrLease
 	}

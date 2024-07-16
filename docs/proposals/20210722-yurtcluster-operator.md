@@ -299,7 +299,7 @@ type YurtCluster struct {
 
 The CRD would be enforced to have a cluster singleton CR semantics, through patched name validation for CRD definition. (for kubebuilder, under config/crd/patches)
 
-The controller would listen incomming CR, and analyze the requirements to figure out user's intention, that is, what nodes to convert, and what nodes to revert.
+The controller would listen incoming CR, and analyze the requirements to figure out user's intention, that is, what nodes to convert, and what nodes to revert.
 
 The controller would update status to record converted, reverted, and failed nodes.
 

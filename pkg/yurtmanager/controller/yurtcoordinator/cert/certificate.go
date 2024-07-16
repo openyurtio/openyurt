@@ -248,7 +248,7 @@ func initYurtCoordinatorCert(client client.Interface, cfg CertConfig, caCert *x5
 	return nil
 }
 
-// EncodeCertPEM returns PEM-endcoded certificate data
+// EncodeCertPEM returns PEM-encoded certificate data
 func EncodeCertPEM(c *x509.Certificate) ([]byte, error) {
 
 	if c == nil {

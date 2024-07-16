@@ -81,18 +81,18 @@ var _ reconcile.Reconciler = &ReconcileGateway{}
 // ReconcileGateway reconciles a Gateway object
 type ReconcileGateway struct {
 	client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	Configration config.GatewayPickupControllerConfiguration
+	scheme        *runtime.Scheme
+	recorder      record.EventRecorder
+	Configuration config.GatewayPickupControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileGateway{
-		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(names.GatewayPickupController),
-		Configration: c.ComponentConfig.GatewayPickupController,
+		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController),
+		scheme:        mgr.GetScheme(),
+		recorder:      mgr.GetEventRecorderFor(names.GatewayPickupController),
+		Configuration: c.ComponentConfig.GatewayPickupController,
 	}
 }
 
@@ -227,7 +227,7 @@ func (r *ReconcileGateway) recordEndpointEvent(sourceObj *ravenv1beta1.Gateway, 
 	}
 }
 
-// electActiveEndpoint trys to elect an active Endpoint.
+// electActiveEndpoint tries to elect an active Endpoint.
 // If the current active endpoint remains valid, then we don't change it.
 // Otherwise, try to elect a new one.
 func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *ravenv1beta1.Gateway) []*ravenv1beta1.Endpoint {

@@ -137,7 +137,7 @@ func TestNewFromFilters(t *testing.T) {
 				filterName := tt.inputFilters[i]
 				filters.Register(filterName, func() (filter.ObjectFilter, error) {
 					if filterName == "invalidFilter" {
-						return nil, fmt.Errorf("a invalide filter")
+						return nil, fmt.Errorf("a invalid filter")
 					}
 					return &nopObjectHandler{name: filterName}, nil
 				})

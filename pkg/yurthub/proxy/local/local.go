@@ -185,7 +185,7 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 		timeout = time.Duration(float64(lp.minRequestTimeout) * (rand.Float64() + 1.0))
 	}
 
-	isPoolScopedListWatch := util.IsPoolScopedResouceListWatchRequest(req)
+	isPoolScopedListWatch := util.IsPoolScopedResourceListWatchRequest(req)
 	watchTimer := time.NewTimer(timeout)
 	intervalTicker := time.NewTicker(interval)
 	defer watchTimer.Stop()

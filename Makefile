@@ -101,7 +101,7 @@ verify_manifests:
 verify-license:
 	hack/make-rules/check_license.sh
 
-# verify-mod will check if go.mod has beed tidied.
+# verify-mod will check if go.mod has been tidied.
 verify-mod:
 	hack/make-rules/verify_mod.sh
 

@@ -122,7 +122,7 @@ func TestIsChunked(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			act := isChunked(&tt.resp)
 			if act != tt.exp {
-				t.Errorf("verfify response chunked failed.")
+				t.Errorf("verify response chunked failed.")
 			}
 		})
 	}

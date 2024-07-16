@@ -242,9 +242,9 @@ Step 3: start the container.
 Step 4: execute the post start hook.
 ```
 
-On the basis of the pod start procedure by Kubelet, when the edge nodes restart and Kubelet initialized and start, YurtHub will start to work first. According to YurtHub relys on host network, it can be started without CNI start. There will be 1s between Kubelet started and YurtHub started. Also, there are 1.5s between YurtHub started and YurtHub server work. After YurtHub server work, it plays the role of apiserver  in the weak network condition.
+On the basis of the pod start procedure by Kubelet, when the edge nodes restart and Kubelet initialized and start, YurtHub will start to work first. According to YurtHub relies on host network, it can be started without CNI start. There will be 1s between Kubelet started and YurtHub started. Also, there are 1.5s between YurtHub started and YurtHub server work. After YurtHub server work, it plays the role of apiserver  in the weak network condition.
 
-The recovery of nginx pods are blocked in `createSandBox` because they relys on CNI, and flannel as the CNI plugin is not ready.
+The recovery of nginx pods are blocked in `createSandBox` because they rely on CNI, and flannel as the CNI plugin is not ready.
 
 ```
 Aug 26 16:04:28 openyurt-node-02 kubelet[1193]: E0826 16:04:28.209598    1193 pod_workers.go:191] Error syncing pod 464fc7d4-2a53-4a20-abc3-c51a919f1b1a ("nginx-06-78df84cfc7-b8fc2_default(464fc7d4-2a53-4a20-abc3-c51a919f1b1a)"), skipping: failed to "CreatePodSandbox" for "nginx-06-78df84cfc7-b8fc2_default(464fc7d4-2a53-4a20-abc3-c51a919f1b1a)" with CreatePodSandboxError: "CreatePodSandbox for pod \"nginx-06-78df84cfc7-b8fc2_default(464fc7d4-2a53-4a20-abc3-c51a919f1b1a)\" failed: rpc error: code = Unknown desc = failed to set up sandbox container \"ec15044992d3d0df0185a41d00adaca0fa7895f8ac717399b00f24a68ae3fa3e\" network for pod \"nginx-06-78df84cfc7-b8fc2\": networkPlugin cni failed to set up pod \"nginx-06-78df84cfc7-b8fc2_default\" network: open /run/flannel/subnet.env: no such file or directory"

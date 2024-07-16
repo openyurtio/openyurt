@@ -108,7 +108,7 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.TunnelAgentConnectPort, "tunnel-agent-connect-port", o.TunnelAgentConnectPort, "The port on which to serve tcp packets from tunnel agent")
 	fs.StringVar(&o.SecurePort, "secure-port", o.SecurePort, "The port on which to serve HTTPS requests from cloud clients like prometheus")
 	fs.StringVar(&o.InsecurePort, "insecure-port", o.InsecurePort, "The port on which to serve HTTP requests from cloud clients like metrics-server")
-	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profling, metrics")
+	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profiling, metrics")
 }
 
 func (o *ServerOptions) Config() (*config.Config, error) {

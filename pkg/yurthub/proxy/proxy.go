@@ -51,18 +51,18 @@ import (
 )
 
 type yurtReverseProxy struct {
-	resolver                      apirequest.RequestInfoResolver
-	loadBalancer                  remote.LoadBalancer
-	cloudHealthChecker            healthchecker.MultipleBackendsHealthChecker
-	coordinatorHealtCheckerGetter func() healthchecker.HealthChecker
-	localProxy                    http.Handler
-	poolProxy                     http.Handler
-	autonomyProxy                 http.Handler
-	maxRequestsInFlight           int
-	tenantMgr                     tenant.Interface
-	isCoordinatorReady            func() bool
-	workingMode                   hubutil.WorkingMode
-	enableYurtCoordinator         bool
+	resolver                       apirequest.RequestInfoResolver
+	loadBalancer                   remote.LoadBalancer
+	cloudHealthChecker             healthchecker.MultipleBackendsHealthChecker
+	coordinatorHealthCheckerGetter func() healthchecker.HealthChecker
+	localProxy                     http.Handler
+	poolProxy                      http.Handler
+	autonomyProxy                  http.Handler
+	maxRequestsInFlight            int
+	tenantMgr                      tenant.Interface
+	isCoordinatorReady             func() bool
+	workingMode                    hubutil.WorkingMode
+	enableYurtCoordinator          bool
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -146,18 +146,18 @@ func NewYurtReverseProxyHandler(
 	}
 
 	yurtProxy := &yurtReverseProxy{
-		resolver:                      resolver,
-		loadBalancer:                  lb,
-		cloudHealthChecker:            cloudHealthChecker,
-		coordinatorHealtCheckerGetter: coordinatorHealthCheckerGetter,
-		localProxy:                    localProxy,
-		poolProxy:                     poolProxy,
-		autonomyProxy:                 autonomyProxy,
-		maxRequestsInFlight:           yurtHubCfg.MaxRequestInFlight,
-		isCoordinatorReady:            isCoordinatorReady,
-		enableYurtCoordinator:         yurtHubCfg.EnableCoordinator,
-		tenantMgr:                     tenantMgr,
-		workingMode:                   yurtHubCfg.WorkingMode,
+		resolver:                       resolver,
+		loadBalancer:                   lb,
+		cloudHealthChecker:             cloudHealthChecker,
+		coordinatorHealthCheckerGetter: coordinatorHealthCheckerGetter,
+		localProxy:                     localProxy,
+		poolProxy:                      poolProxy,
+		autonomyProxy:                  autonomyProxy,
+		maxRequestsInFlight:            yurtHubCfg.MaxRequestInFlight,
+		isCoordinatorReady:             isCoordinatorReady,
+		enableYurtCoordinator:          yurtHubCfg.EnableCoordinator,
+		tenantMgr:                      tenantMgr,
+		workingMode:                    yurtHubCfg.WorkingMode,
 	}
 
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
@@ -209,8 +209,8 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		}
 	case util.IsEventCreateRequest(req):
 		p.eventHandler(rw, req)
-	case util.IsPoolScopedResouceListWatchRequest(req):
-		p.poolScopedResouceHandler(rw, req)
+	case util.IsPoolScopedResourceListWatchRequest(req):
+		p.poolScopedResourceHandler(rw, req)
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
 	default:
@@ -226,9 +226,9 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 
 func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) {
 	p.cloudHealthChecker.RenewKubeletLeaseTime()
-	coordinatorHealtChecker := p.coordinatorHealtCheckerGetter()
-	if coordinatorHealtChecker != nil {
-		coordinatorHealtChecker.RenewKubeletLeaseTime()
+	coordinatorHealthChecker := p.coordinatorHealthCheckerGetter()
+	if coordinatorHealthChecker != nil {
+		coordinatorHealthChecker.RenewKubeletLeaseTime()
 	}
 
 	if p.localProxy != nil {
@@ -247,7 +247,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 	}
 }
 
-func (p *yurtReverseProxy) poolScopedResouceHandler(rw http.ResponseWriter, req *http.Request) {
+func (p *yurtReverseProxy) poolScopedResourceHandler(rw http.ResponseWriter, req *http.Request) {
 	agent, ok := hubutil.ClientComponentFrom(req.Context())
 	if ok && agent == coordinatorconstants.DefaultPoolScopedUserAgent {
 		// list/watch request from leader-yurthub
@@ -313,14 +313,14 @@ func isSubjectAccessReviewFromYurtCoordinator(req *http.Request) bool {
 		return false
 	}
 
-	sav := got.(*v1.SubjectAccessReview)
-	for _, g := range sav.Spec.Groups {
+	sar := got.(*v1.SubjectAccessReview)
+	for _, g := range sar.Spec.Groups {
 		if g == "openyurt:yurt-coordinator" {
 			return true
 		}
 	}
 
 	klog.V(4).Infof("SubjectAccessReview in request %s is not for yurt-coordinator, whose group: %s, user: %s",
-		hubutil.ReqString(req), strings.Join(sav.Spec.Groups, ";"), sav.Spec.User)
+		hubutil.ReqString(req), strings.Join(sar.Spec.Groups, ";"), sar.Spec.User)
 	return false
 }

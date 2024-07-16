@@ -97,7 +97,7 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.KubeConfig, "kube-config", o.KubeConfig, "Path to the kubeconfig file.")
 	fs.StringVar(&o.AgentIdentifiers, "agent-identifiers", o.AgentIdentifiers, "The identifiers of the agent, which will be used by the server when choosing agent.")
 	fs.StringVar(&o.MetaHost, "meta-host", o.MetaHost, "The ip address on which listen for --meta-port port.")
-	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profling, metrics")
+	fs.StringVar(&o.MetaPort, "meta-port", o.MetaPort, "The port on which to serve HTTP requests like profiling, metrics")
 	fs.StringVar(&o.CertDir, "cert-dir", o.CertDir, "The directory of certificate stored at.")
 }
 

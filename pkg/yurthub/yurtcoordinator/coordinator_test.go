@@ -189,7 +189,7 @@ func TestInformerSyncLeaseDelete(t *testing.T) {
 			return true, nil
 		})
 		if err != nil {
-			t.Errorf("unexpect err when waitting isPoolCacheSynced to be false, %v", err)
+			t.Errorf("unexpected err when waiting isPoolCacheSynced to be false, %v", err)
 		}
 	})
 }

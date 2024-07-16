@@ -102,12 +102,12 @@ func TestParseIPList(t *testing.T) {
 		ips       []net.IP
 	}{
 		{
-			"list with formated ip",
+			"list with formatted ip",
 			[]string{"1.1.1.1"},
 			[]net.IP{net.IPv4(1, 1, 1, 1)},
 		},
 		{
-			"list with not formated ip",
+			"list with not formatted ip",
 			[]string{"1111"},
 			[]net.IP{nil},
 		},

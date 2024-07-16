@@ -45,7 +45,7 @@ func TestGetTemplateType(t *testing.T) {
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
 
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -84,7 +84,7 @@ func TestApplyTemplate(t *testing.T) {
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
 
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -184,7 +184,7 @@ func TestObjectKey(t *testing.T) {
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
 
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -219,7 +219,7 @@ func TestObjectKey(t *testing.T) {
 	}
 }
 
-func TestDeploymentControllor_CreateWorkload(t *testing.T) {
+func TestDeploymentController_CreateWorkload(t *testing.T) {
 	var four int32 = 4
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
@@ -231,7 +231,7 @@ func TestDeploymentControllor_CreateWorkload(t *testing.T) {
 		return
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -324,7 +324,7 @@ func TestDeploymentControllor_CreateWorkload(t *testing.T) {
 	}
 }
 
-func TestDeploymentControllor_GetAllWorkloads(t *testing.T) {
+func TestDeploymentController_GetAllWorkloads(t *testing.T) {
 	var four int32 = 4
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
@@ -336,7 +336,7 @@ func TestDeploymentControllor_GetAllWorkloads(t *testing.T) {
 		return
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -421,11 +421,11 @@ func TestDeploymentControllor_GetAllWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := dc.CreateWorkload(tt.yad, tt.nodepool, "1")
 			if err != nil {
-				t.Logf("sucessed to create a yurtappdaemon")
+				t.Logf("succeeded to create a yurtappdaemon")
 			}
 			ws, err := dc.GetAllWorkloads(tt.yad)
 			if err != nil {
-				t.Logf("sucessed to get all yurtappdaemon")
+				t.Logf("succeeded to get all yurtappdaemon")
 			}
 			t.Logf("expect: %v, get: %v", tt.expect, err)
 			if len(ws) != 0 && !reflect.DeepEqual(err, tt.expect) {
@@ -436,7 +436,7 @@ func TestDeploymentControllor_GetAllWorkloads(t *testing.T) {
 	}
 }
 
-func TestDeploymentControllor_DeleteWorkload(t *testing.T) {
+func TestDeploymentController_DeleteWorkload(t *testing.T) {
 	var four int32 = 4
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
@@ -448,7 +448,7 @@ func TestDeploymentControllor_DeleteWorkload(t *testing.T) {
 		return
 	}
 	fc := fakeclint.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects().Build()
-	dc := DeploymentControllor{
+	dc := DeploymentController{
 		Client: fc,
 		Scheme: scheme,
 	}
@@ -533,11 +533,11 @@ func TestDeploymentControllor_DeleteWorkload(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := dc.CreateWorkload(tt.yad, tt.nodepool, "1")
 			if err != nil {
-				t.Logf("sucessed to create a yurtappdaemon")
+				t.Logf("succeeded to create a yurtappdaemon")
 			}
 			ws, err := dc.GetAllWorkloads(tt.yad)
 			if err != nil {
-				t.Logf("sucessed to get all yurtappdaemon")
+				t.Logf("succeeded to get all yurtappdaemon")
 			}
 			err = dc.DeleteWorkload(tt.yad, ws[0])
 			t.Logf("expect: %v, get: %v", tt.expect, err)

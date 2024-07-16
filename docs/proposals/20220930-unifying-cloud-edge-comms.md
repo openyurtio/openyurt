@@ -271,7 +271,7 @@ This solution is the best solution till now from the design perspective, it prov
 ![raven-l7-arch](../img/raven-l7-option1.png)
 
 - It requires users to adopt the container network in their production environment
-- Raven controller is responsible to udpate CoreDNS configmap and manage the map between nodename and IP address
+- Raven controller is responsible to update CoreDNS configmap and manage the map between nodename and IP address
 - Adapt to most of the popular CNIs such as flannel/calico
 - No extra L7 proxy
 

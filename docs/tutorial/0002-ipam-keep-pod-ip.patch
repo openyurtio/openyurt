@@ -2,7 +2,7 @@ From ac7569e6e120732a8296e4f6e24b02bcc21911be Mon Sep 17 00:00:00 2001
 From: "openyurt" <openyurt.io>
 Date: Thu, 14 Mar 2019 17:51:27 +0800
 Subject: [PATCH] - function: keep pod ip. - solution:    - add relationship
- between podNs/podName and pod ip and releationship is stored in a disk file
+ between podNs/podName and pod ip and relationship is stored in a disk file
  that named by podIP_podns_podName    - if podName file exists, we will use
  the already reserved ip for the pod    - if podName file do not exists, go
  through the original process.    - fix ip of deleted pod can be reused when
@@ -24,7 +24,7 @@ index 1d2964b..dac9b4b 100644
  	}
  }
  
--// Get alocates an IP
+-// Get allocates an IP
 -func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, error) {
 +// GetByPodNsAndName allocates an IP or used reserved IP for specified pod
 +func (a *IPAllocator) GetByPodNsAndName(id string, requestedIP net.IP, podNs, podName string) (*current.IPConfig, error) {
@@ -74,7 +74,7 @@ index 1d2964b..dac9b4b 100644
 +	return a.Get(id, requestedIP)
 +}
 +
-+// Get alocates an IP
++// Get allocates an IP
 +func (a *IPAllocator) Get(id string, requestedIP net.IP) (*current.IPConfig, error) {
 +	//a.store.Lock()
 +	//defer a.store.Unlock()

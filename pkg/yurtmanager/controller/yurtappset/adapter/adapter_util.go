@@ -104,7 +104,7 @@ func StrategicMergeByPatches(oldobj interface{}, patch *runtime.RawExtension, ne
 	}
 	patchedObjMap, err := strategicpatch.StrategicMergeMapPatch(originalObjMap, patchMap, newPatched)
 	if err != nil {
-		klog.Errorf("StartegicMergeMapPatch error %v", err)
+		klog.Errorf("StrategicMergeMapPatch error %v", err)
 		return err
 	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(patchedObjMap, newPatched); err != nil {

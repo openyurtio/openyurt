@@ -63,8 +63,8 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 	}
 
 	mockReconciler := &ReconcileGateway{
-		Configration: config.GatewayPickupControllerConfiguration{},
-		Client:       fake.NewClientBuilder().WithObjects(obj).Build(),
+		Configuration: config.GatewayPickupControllerConfiguration{},
+		Client:        fake.NewClientBuilder().WithObjects(obj).Build(),
 	}
 	var tt = []struct {
 		name        string
@@ -432,7 +432,7 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 
 func TestReconcileGateway_getPodCIDRs(t *testing.T) {
 	mockReconciler := &ReconcileGateway{
-		Configration: config.GatewayPickupControllerConfiguration{},
+		Configuration: config.GatewayPickupControllerConfiguration{},
 	}
 	var tt = []struct {
 		name          string

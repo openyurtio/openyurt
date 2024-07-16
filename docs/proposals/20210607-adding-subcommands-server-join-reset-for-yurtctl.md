@@ -35,7 +35,7 @@ status: provisional
 Refer to the [OpenYurt Glossary](https://github.com/openyurtio/openyurt/blob/master/docs/proposals/00_openyurt-glossary.md).
 
 ## Summary
-This proposal add three subcommands `init`, `join` and `reset` for yurtctl. The subcommand `init` can create an all-in-one kubernetes cluster, simultaneously convert the kuberntes cluster to an OpenYurt cluster. The subcommand `join` is used to add a new node to an OpenYurt cluster, including cloud nodes and edge nodes. The subcommand `reset` can restore the node to the state before joining OpenYurt cluster.
+This proposal add three subcommands `init`, `join` and `reset` for yurtctl. The subcommand `init` can create an all-in-one kubernetes cluster, simultaneously convert the kubernetes cluster to an OpenYurt cluster. The subcommand `join` is used to add a new node to an OpenYurt cluster, including cloud nodes and edge nodes. The subcommand `reset` can restore the node to the state before joining OpenYurt cluster.
 
 ## Motivation
 

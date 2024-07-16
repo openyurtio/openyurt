@@ -107,7 +107,7 @@ type ReconcilePlatformAdmin struct {
 	scheme         *runtime.Scheme
 	recorder       record.EventRecorder
 	yamlSerializer *kjson.Serializer
-	Configration   config.PlatformAdminControllerConfiguration
+	Configuration  config.PlatformAdminControllerConfiguration
 }
 
 var _ reconcile.Reconciler = &ReconcilePlatformAdmin{}
@@ -131,7 +131,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		scheme:         mgr.GetScheme(),
 		recorder:       mgr.GetEventRecorderFor(names.PlatformAdminController),
 		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
-		Configration:   c.ComponentConfig.PlatformAdminController,
+		Configuration:  c.ComponentConfig.PlatformAdminController,
 	}
 }
 
@@ -769,10 +769,10 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	// Use standard configurations to build the framework
 	platformAdminFramework.security = platformAdmin.Spec.Security
 	if platformAdminFramework.security {
-		platformAdminFramework.ConfigMaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.ConfigMaps = r.Configuration.SecurityConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	} else {
-		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.ConfigMaps = r.Configuration.NoSectyConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
 
@@ -814,7 +814,7 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	desiredComponents := []*config.Component{}
 
 	// Find all the required components from spec and manifest
-	requiredComponentSet := config.ExtractRequiredComponentsName(&r.Configration.Manifest, platformAdmin.Spec.Version)
+	requiredComponentSet := config.ExtractRequiredComponentsName(&r.Configuration.Manifest, platformAdmin.Spec.Version)
 	for _, component := range platformAdmin.Spec.Components {
 		requiredComponentSet.Insert(component.Name)
 	}
@@ -842,13 +842,13 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	// If a component needs to be added,
 	// check whether the corresponding template exists in the standard configuration library
 	if platformAdmin.Spec.Security {
-		for _, component := range r.Configration.SecurityComponents[platformAdmin.Spec.Version] {
+		for _, component := range r.Configuration.SecurityComponents[platformAdmin.Spec.Version] {
 			if addedComponentSet.Has(component.Name) {
 				desiredComponents = append(desiredComponents, component)
 			}
 		}
 	} else {
-		for _, component := range r.Configration.NoSectyComponents[platformAdmin.Spec.Version] {
+		for _, component := range r.Configuration.NoSectyComponents[platformAdmin.Spec.Version] {
 			if addedComponentSet.Has(component.Name) {
 				desiredComponents = append(desiredComponents, component)
 			}

@@ -239,7 +239,7 @@ func TestSecretAdd(t *testing.T) {
 		// that is not yurt-coordinator-yurthub-certs.
 		err = wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			if certMgr.secret != nil {
-				return false, fmt.Errorf("unexpect cert initialization")
+				return false, fmt.Errorf("unexpected cert initialization")
 			}
 
 			if _, err := fileStore.Read(certMgr.GetCaFile()); err == nil {

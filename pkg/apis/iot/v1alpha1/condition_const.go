@@ -46,7 +46,7 @@ const (
 	// DeviceManagingCondition indicates that the device is being managed by cloud and its properties are being reconciled
 	DeviceManagingCondition DeviceConditionType = "DeviceManaging"
 
-	DeviceVistedCoreMetadataSyncedReason = "Failed to visit the EdgeX core-metadata-service"
+	DeviceVisitedCoreMetadataSyncedReason = "Failed to visit the EdgeX core-metadata-service"
 
 	DeviceUpdateStateReason = "Failed to update AdminState or OperatingState of device on edge platform"
 

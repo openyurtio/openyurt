@@ -58,7 +58,7 @@ func mockNode() *corev1.Node {
 	}
 }
 
-func TestEnqueueRequestFoServiceEvent(t *testing.T) {
+func TestEnqueueRequestForServiceEvent(t *testing.T) {
 	h := &EnqueueRequestForServiceEvent{}
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	svc := mockService()

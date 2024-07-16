@@ -93,7 +93,7 @@ func TestEnsureDummyInterface(t *testing.T) {
 			// delete dummy interface
 			err = mgr.DeleteDummyInterface(testDummyIfName)
 			if err != nil {
-				t.Errorf("failed to delte dummy interface, %v", err)
+				t.Errorf("failed to delete dummy interface, %v", err)
 			}
 		})
 	}
