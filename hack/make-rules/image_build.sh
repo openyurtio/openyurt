@@ -80,7 +80,7 @@ docker run \
     --env GOCACHE=/tmp/ \
     ${DOCKER_EXTRA_ENVS} \
     ${BUILD_BASE_IMAGE} \
-    /bin/bash -c "git config --global --add safe.directory /build && ./hack/make-rules/build.sh ${targets[@]}"
+    /bin/bash -c "git config --global --add safe.directory /build && GIT_VERSION=${GIT_VERSION} ./hack/make-rules/build.sh ${targets[@]}"
 
 # build images
 for image in ${targets[@]}; do
