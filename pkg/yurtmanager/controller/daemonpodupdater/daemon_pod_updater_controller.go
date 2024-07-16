@@ -197,7 +197,7 @@ func daemonsetUpdate(evt event.UpdateEvent) bool {
 }
 
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;update
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a DaemonSet object and makes changes based on the state read

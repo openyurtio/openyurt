@@ -288,7 +288,7 @@ type ReconcileNodeLifeCycle struct {
 }
 
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=update
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;patch
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;delete
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get
