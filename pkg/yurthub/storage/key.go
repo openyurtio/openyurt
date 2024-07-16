@@ -38,7 +38,7 @@ type ClusterInfoKey struct {
 
 type ClusterInfoType string
 
-func (key ClusterInfoKey) Key() string {
+func (key *ClusterInfoKey) Key() string {
 	switch key.ClusterInfoType {
 	case APIsInfo, Version:
 		return string(key.ClusterInfoType)

@@ -256,7 +256,7 @@ func (sw *storageWrapper) DeleteComponentResources(component string) error {
 		return err
 	}
 	for key := range sw.errorKeys.keys {
-		if strings.HasPrefix(key, component) {
+		if strings.HasPrefix(key, component+"/") {
 			sw.errorKeys.del(key)
 		}
 	}
