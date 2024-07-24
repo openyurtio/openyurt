@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	unitv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	unitv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
@@ -81,7 +81,7 @@ func (webhook *PlatformAdminHandler) validate(ctx context.Context, platformAdmin
 
 func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(ctx context.Context, platformAdmin *v1alpha1.PlatformAdmin) field.ErrorList {
 	// verify that the poolname is a right nodepool name
-	nodePools := &unitv1alpha1.NodePoolList{}
+	nodePools := &unitv1beta1.NodePoolList{}
 	if err := webhook.Client.List(ctx, nodePools); err != nil {
 		return field.ErrorList{
 			field.Invalid(field.NewPath("spec", "poolName"), platformAdmin.Spec.PoolName, "can not list nodepools, cause"+err.Error()),
