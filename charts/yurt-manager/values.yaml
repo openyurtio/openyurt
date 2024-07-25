@@ -13,7 +13,7 @@ nameOverride: ""
 image:
   registry: openyurt
   repository: yurt-manager
-  tag: v1.4.0
+  tag: ""
   pullSecrets: []
   # pullSecrets:
   #   - name: myRegistryKeySecretName

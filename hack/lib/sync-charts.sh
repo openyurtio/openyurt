@@ -1,5 +1,5 @@
 #!/bin/bash -l
-# Copyright 2020 The OpenYurt Authors.
+# Copyright 2024 The OpenYurt Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,59 +26,59 @@ echo "git clone"
 cd ..
 git config --global user.email "openyurt-bot@openyurt.io"
 git config --global user.name "openyurt-bot"
-git clone --single-branch --depth 1 git@github.com:openyurtio/openyurt-helm.git openyurt-helm
+git clone --single-branch --depth 1 git@github.com:openyurtio/charts.git charts
 
-echo "clear openyurt-helm charts/yurt-coordinator"
+echo "clear charts/yurt-coordinator in openyurtio/charts"
 
-if [ -d "openyurt-helm/charts/yurt-coordinator" ]
+if [ -d "charts/charts/yurt-coordinator" ]
 then
     echo "charts yurt-coordinator exists, remove it"
-    rm -r openyurt-helm/charts/yurt-coordinator/*
+    rm -r charts/charts/yurt-coordinator/*
 else
-    mkdir -p openyurt-helm/charts/yurt-coordinator
+    mkdir -p charts/charts/yurt-coordinator
 fi
 
-echo "clear openyurt-helm charts/yurt-manager"
+echo "clear charts/yurt-manager in openyurtio/charts"
 
-if [ -d "openyurt-helm/charts/yurt-manager" ]
+if [ -d "charts/charts/yurt-manager" ]
 then
     echo "charts yurt-manager exists, remove it"
-    rm -r openyurt-helm/charts/yurt-manager/*
+    rm -r charts/charts/yurt-manager/*
 else
-    mkdir -p openyurt-helm/charts/yurt-manager
+    mkdir -p charts/charts/yurt-manager
 fi
 
-echo "clear openyurt-helm charts/yurthub"
+echo "clear charts/yurthub in openyurtio/charts"
 
-if [ -d "openyurt-helm/charts/yurthub" ]
+if [ -d "charts/charts/yurthub" ]
 then
     echo "charts yurthub exists, remove it"
-    rm -r openyurt-helm/charts/yurthub/*
+    rm -r charts/charts/yurthub/*
 else
-    mkdir -p openyurt-helm/charts/yurthub
+    mkdir -p charts/charts/yurthub
 fi
 
-echo "clear openyurt-helm charts/yurt-iot-dock"
+echo "clear charts/yurt-iot-dock in openyurtio/charts"
 
-if [ -d "openyurt-helm/charts/yurt-iot-dock" ]
+if [ -d "charts/charts/yurt-iot-dock" ]
 then
     echo "charts yurt-iot-dock exists, remove it"
-    rm -r openyurt-helm/charts/yurt-iot-dock/*
+    rm -r charts/charts/yurt-iot-dock/*
 else
-    mkdir -p openyurt-helm/charts/yurt-iot-dock
+    mkdir -p charts/charts/yurt-iot-dock
 fi
 
-echo "copy folder openyurt/charts to openyurt-helm/charts"
+echo "copy folder openyurt/charts to openyurtio/charts/charts"
 
-cp -R openyurt/charts/yurt-coordinator/* openyurt-helm/charts/yurt-coordinator/
-cp -R openyurt/charts/yurt-manager/* openyurt-helm/charts/yurt-manager/
-cp -R openyurt/charts/yurthub/* openyurt-helm/charts/yurthub/
-cp -R openyurt/charts/yurt-iot-dock/* openyurt-helm/charts/yurt-iot-dock/
+cp -R openyurt/charts/yurt-coordinator/* charts/charts/yurt-coordinator/
+cp -R openyurt/charts/yurt-manager/* charts/charts/yurt-manager/
+cp -R openyurt/charts/yurthub/* charts/charts/yurthub/
+cp -R openyurt/charts/yurt-iot-dock/* charts/charts/yurt-iot-dock/
 
-echo "push to openyurt-helm"
-echo "version: $VERSION, commit: $COMMIT_ID, tag: $TAG"
+echo "push to openyurtio/charts"
+echo "version: $VERSION, commit: $COMMIT_ID"
 
-cd openyurt-helm
+cd charts
 
 if [ -z "$(git status --porcelain)" ]; then
   echo "nothing need to push, finished!"
