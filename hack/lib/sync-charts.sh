@@ -75,8 +75,7 @@ cp -R openyurt/charts/yurt-manager/* charts/charts/yurt-manager/
 cp -R openyurt/charts/yurthub/* charts/charts/yurthub/
 cp -R openyurt/charts/yurt-iot-dock/* charts/charts/yurt-iot-dock/
 
-echo "push to openyurtio/charts"
-echo "version: $VERSION, commit: $COMMIT_ID"
+echo "push to openyurtio/charts from commit: $COMMIT_ID"
 
 cd charts
 
@@ -84,7 +83,6 @@ if [ -z "$(git status --porcelain)" ]; then
   echo "nothing need to push, finished!"
 else
   git add .
-  git commit -m "align with openyurt charts $VERSION from commit $COMMIT_ID"
-  git tag "$VERSION"
+  git commit -m "align with openyurt helm charts from commit $COMMIT_ID"
   git push origin main
 fi
