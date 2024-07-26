@@ -15,15 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get the version
-        id: get_version
-        run: |
-          echo "CHART_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
       - name: Sync to openyurtio/charts Repo
         env:
-          SSH_DEPLOY_KEY: ${{ secrets.SYNC_CHARTS_SECRET }}
-          VERSION: ${{ steps.get_version.outputs.CHART_VERSION }}
+          SSH_DEPLOY_KEY: ${{ secrets.SYNC_OPENYURTIO_CHARTS_KEY }}
           COMMIT_ID: ${{ github.sha }}
         run: |
           bash ./hack/lib/sync-charts.sh
