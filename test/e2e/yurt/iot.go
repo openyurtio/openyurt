@@ -92,7 +92,7 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 			},
 			Spec: iotv1alpha2.PlatformAdminSpec{
 				Version:  version,
-				PoolName: nodePoolName,
+				Pools: nodePoolName,
 			},
 		}
 		Eventually(func() error {
@@ -137,7 +137,7 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 					if err := k8sClient.Get(ctx, types.NamespacedName{Name: platformAdminName, Namespace: namespaceName}, testPlatfromAdmin); err != nil {
 						return err
 					}
-					if testPlatfromAdmin.Status.Ready == true {
+					if testPlatfromAdmin.Status.Ready {
 						return nil
 					} else {
 						return fmt.Errorf("The %s version of PlatformAdmin is not ready", version)

@@ -36,7 +36,7 @@ func (src *PlatformAdmin) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Version = src.Spec.Version
 	dst.Spec.Security = false
 	dst.Spec.ImageRegistry = src.Spec.ImageRegistry
-	dst.Spec.PoolName = src.Spec.PoolName
+	dst.Spec.Pools = src.Spec.Pools
 	dst.Spec.Platform = v1alpha2.PlatformAdminPlatformEdgeX
 
 	// Transform status
@@ -79,7 +79,7 @@ func (dst *PlatformAdmin) ConvertFrom(srcRaw conversion.Hub) error {
 	// Transform spec
 	dst.Spec.Version = src.Spec.Version
 	dst.Spec.ImageRegistry = src.Spec.ImageRegistry
-	dst.Spec.PoolName = src.Spec.PoolName
+	dst.Spec.Pools = src.Spec.Pools
 	dst.Spec.ServiceType = corev1.ServiceTypeClusterIP
 
 	// Transform status

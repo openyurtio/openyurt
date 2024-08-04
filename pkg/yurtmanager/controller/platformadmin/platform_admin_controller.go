@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -205,12 +206,13 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 
 	platformAdminStatus := platformAdmin.Status.DeepCopy()
 	isDeleted := false
-
+	klog.Infof("1111111:%v", platformAdminStatus)
 	// Always issue a patch when exiting this function so changes to the
 	// resource are patched back to the API server.
 	defer func(isDeleted *bool) {
 		if !*isDeleted {
 			// Finally check whether PlatformAdmin is Ready
+			klog.Infof("222222:%v", platformAdminStatus)
 			platformAdminStatus.Ready = true
 			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1alpha2.ConfigmapAvailableCondition); cond.Status == corev1.ConditionFalse {
 				platformAdminStatus.Ready = false
@@ -221,11 +223,11 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 			if platformAdminStatus.UnreadyComponentNum != 0 {
 				platformAdminStatus.Ready = false
 			}
-
+			klog.Infof("33333:%v", platformAdminStatus)
 			// Finally update the status of PlatformAdmin
 			platformAdmin.Status = *platformAdminStatus
 			if err := r.Status().Update(ctx, platformAdmin); err != nil {
-				klog.Errorf(Format("Update the status of PlatformAdmin %s/%s failed", platformAdmin.Namespace, platformAdmin.Name))
+				klog.Errorf(Format("Update the status of PlatformAdmin %s/%s failed : %v", platformAdmin.Namespace, platformAdmin.Name, err))
 				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 
@@ -239,7 +241,6 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 		isDeleted = true
 		return r.reconcileDelete(ctx, platformAdmin)
 	}
-
 	return r.reconcileNormal(ctx, platformAdmin, platformAdminStatus)
 }
 
@@ -252,7 +253,6 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
 	}
 	desiredComponents := platformAdminFramework.Components
-
 	additionalComponents, err := annotationToComponent(platformAdmin.Annotations)
 	if err != nil {
 		klog.Errorf(Format("annotationToComponent error %v", err))
@@ -271,10 +271,14 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 
 		oldYas := yas.DeepCopy()
 
+		Pools := strings.Split(platformAdmin.Spec.Pools, ",")
 		for i, pool := range yas.Spec.Topology.Pools {
-			if pool.Name == platformAdmin.Spec.PoolName {
-				yas.Spec.Topology.Pools[i] = yas.Spec.Topology.Pools[len(yas.Spec.Topology.Pools)-1]
-				yas.Spec.Topology.Pools = yas.Spec.Topology.Pools[:len(yas.Spec.Topology.Pools)-1]
+			for _, nodePool := range Pools {
+				if pool.Name == nodePool {
+					yas.Spec.Topology.Pools[i] = yas.Spec.Topology.Pools[len(yas.Spec.Topology.Pools)-1]
+					yas.Spec.Topology.Pools = yas.Spec.Topology.Pools[:len(yas.Spec.Topology.Pools)-1]
+					break
+				}
 			}
 		}
 		if err := r.Client.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
@@ -305,7 +309,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "unexpected error while synchronizing customize framework for %s", platformAdmin.Namespace+"/"+platformAdmin.Name)
 	}
-
+	klog.Infof("%s", platformAdminFramework.Components)
 	// Reconcile configmap of edgex confiruation
 	klog.V(4).Infof(Format("ReconcileConfigmap PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	if ok, err := r.reconcileConfigmap(ctx, platformAdmin, platformAdminStatus, platformAdminFramework); !ok {
@@ -345,8 +349,9 @@ func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platfor
 	var configmaps []corev1.ConfigMap
 	needConfigMaps := make(map[string]struct{})
 	configmaps = platformAdminFramework.ConfigMaps
-
+	klog.Infof("configmaps: %v", configmaps)
 	for i, configmap := range configmaps {
+		klog.Infof("configmap: %v", configmap)
 		configmap.Namespace = platformAdmin.Namespace
 		configmap.Labels = make(map[string]string)
 		configmap.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelConfigmap
@@ -357,7 +362,7 @@ func (r *ReconcilePlatformAdmin) reconcileConfigmap(ctx context.Context, platfor
 		if err != nil {
 			return false, err
 		}
-
+		klog.Infof("configmap: %v", configmap.Labels)
 		needConfigMaps[configmap.Name] = struct{}{}
 	}
 
@@ -401,7 +406,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			return false, err
 		}
 	}
-
+	klog.Infof("%v", platformAdminFramework.Components)
 	// Update the yurtappsets based on the desired components
 	for _, desiredComponent := range platformAdminFramework.Components {
 		readyService := false
@@ -430,6 +435,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			if !apierrors.IsNotFound(err) {
 				return false, err
 			}
+			klog.Infof("ns:%v   name:%v    %v", platformAdmin.Namespace, desiredComponent.Name, err)
 			_, err = r.handleYurtAppSet(ctx, platformAdmin, desiredComponent)
 			if err != nil {
 				return false, err
@@ -439,34 +445,39 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 
 			// Refresh the YurtAppSet according to the user-defined configuration
 			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
-
-			if _, ok := yas.Status.PoolReplicas[platformAdmin.Spec.PoolName]; ok {
-				if yas.Status.ReadyReplicas == yas.Status.Replicas {
-					readyDeployment = true
-					if readyDeployment && readyService {
-						readyComponent++
+			Pools := strings.Split(platformAdmin.Spec.Pools, ",")
+			for _, nodePool := range Pools {
+				if _, ok := yas.Status.PoolReplicas[nodePool]; ok {
+					if yas.Status.ReadyReplicas == yas.Status.Replicas {
+						readyDeployment = true
+						if readyDeployment && readyService {
+							readyComponent++
+							break // As long as one node pool meets the conditions, it can jump out of the loop
+						}
 					}
 				}
 			}
-			pool := appsv1alpha1.Pool{
-				Name:     platformAdmin.Spec.PoolName,
-				Replicas: pointer.Int32(1),
-			}
-			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
-				corev1.NodeSelectorRequirement{
-					Key:      projectinfo.GetNodePoolLabel(),
-					Operator: corev1.NodeSelectorOpIn,
-					Values:   []string{platformAdmin.Spec.PoolName},
-				})
-			flag := false
-			for _, up := range yas.Spec.Topology.Pools {
-				if up.Name == pool.Name {
-					flag = true
-					break
+			for _, nodePool := range Pools {
+				pool := appsv1alpha1.Pool{
+					Name:     nodePool,
+					Replicas: pointer.Int32(1),
 				}
-			}
-			if !flag {
-				yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
+				pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
+					corev1.NodeSelectorRequirement{
+						Key:      projectinfo.GetNodePoolLabel(),
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{nodePool},
+					})
+				flag := false
+				for _, up := range yas.Spec.Topology.Pools {
+					if up.Name == pool.Name {
+						flag = true
+						break
+					}
+				}
+				if !flag {
+					yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
+				}
 			}
 			if err := controllerutil.SetOwnerReference(platformAdmin, yas, r.Scheme()); err != nil {
 				return false, err
@@ -501,7 +512,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 	return readyComponent == int32(len(platformAdminFramework.Components)), nil
 }
 
-func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*corev1.Service, error) {
+func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) ([]*corev1.Service, error) {
 	// It is possible that the component does not need service.
 	// Therefore, you need to be careful when calling this function.
 	// It is still possible for service to be nil when there is no error!
@@ -509,30 +520,36 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 		return nil, nil
 	}
 
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			Name:        component.Name,
-			Namespace:   platformAdmin.Namespace,
-		},
-	}
-	service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
-	service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
+	poolNames := strings.Split(platformAdmin.Spec.Pools, ",")
+	var services []*corev1.Service
 
-	_, err := controllerutil.CreateOrUpdate(
-		ctx,
-		r.Client,
-		service,
-		func() error {
-			service.Spec = *component.Service
-			return controllerutil.SetOwnerReference(platformAdmin, service, r.Scheme())
-		},
-	)
-	if err != nil {
-		return nil, err
+	for _, poolName := range poolNames {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
+				Name:        component.Name + "-" + strings.TrimSpace(poolName),
+				Namespace:   platformAdmin.Namespace,
+			},
+		}
+		service.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelService
+		service.Annotations[AnnotationServiceTopologyKey] = AnnotationServiceTopologyValueNodePool
+
+		_, err := controllerutil.CreateOrUpdate(
+			ctx,
+			r.Client,
+			service,
+			func() error {
+				service.Spec = *component.Service
+				return controllerutil.SetOwnerReference(platformAdmin, service, r.Scheme())
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, service)
 	}
-	return service, nil
+	return services, nil
 }
 
 func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*appsv1alpha1.YurtAppSet, error) {
@@ -566,17 +583,21 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 	}
 
 	yas.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelDeployment
-	pool := appsv1alpha1.Pool{
-		Name:     platformAdmin.Spec.PoolName,
-		Replicas: pointer.Int32(1),
+
+	Pools := strings.Split(platformAdmin.Spec.Pools, ",")
+	for _, nodePool := range Pools {
+		pool := appsv1alpha1.Pool{
+			Name:     nodePool,
+			Replicas: pointer.Int32(1),
+		}
+		pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
+			corev1.NodeSelectorRequirement{
+				Key:      projectinfo.GetNodePoolLabel(),
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   []string{nodePool},
+			})
+		yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
 	}
-	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
-		corev1.NodeSelectorRequirement{
-			Key:      projectinfo.GetNodePoolLabel(),
-			Operator: corev1.NodeSelectorOpIn,
-			Values:   []string{platformAdmin.Spec.PoolName},
-		})
-	yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
 	if err := controllerutil.SetControllerReference(platformAdmin, yas, r.Scheme()); err != nil {
 		return nil, err
 	}
@@ -669,7 +690,10 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 
 	// Check if the configmap that represents framework is found
 	cm := &corev1.ConfigMap{}
+	klog.Infof("platformAdminFramework: %v", platformAdminFramework)
+	klog.Infof("ns:%v name:%v", platformAdmin.Namespace, platformAdminFramework.name)
 	if err := r.Get(ctx, types.NamespacedName{Namespace: platformAdmin.Namespace, Name: platformAdminFramework.name}, cm); err != nil {
+		klog.Infof("%v", err)
 		if apierrors.IsNotFound(err) {
 			// If the configmap that represents framework is not found,
 			// need to create it by standard configuration
@@ -678,6 +702,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 				klog.Errorf(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 				return nil, err
 			}
+			klog.Infof("%v", platformAdminFramework.Components)
 			return platformAdminFramework, nil
 		}
 		klog.Errorf(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
@@ -772,6 +797,8 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		platformAdminFramework.ConfigMaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	} else {
+		klog.Infof("version: %v", platformAdmin.Spec.Version)
+		klog.Infof("config: %v", r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version])
 		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
@@ -801,6 +828,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		controllerutil.AddFinalizer(cm, FrameworkFinalizer)
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
+	klog.Infof("%v", cm)
 	if err != nil {
 		klog.Errorf(Format("could not init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
@@ -848,13 +876,15 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 			}
 		}
 	} else {
+		klog.Infof("%v", r.Configration.NoSectyComponents[platformAdmin.Spec.Version])
 		for _, component := range r.Configration.NoSectyComponents[platformAdmin.Spec.Version] {
+			klog.Infof("%v", component.Name)
 			if addedComponentSet.Has(component.Name) {
 				desiredComponents = append(desiredComponents, component)
 			}
 		}
 	}
-
+	klog.Infof("%v", desiredComponents)
 	// The yurt-iot-dock is maintained by openyurt and is not obtained through an auto-collector.
 	// Therefore, it needs to be handled separately
 	if addedComponentSet.Has(util.IotDockName) {
@@ -871,6 +901,6 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	}
 
 	platformAdminFramework.Components = desiredComponents
-
+	klog.Infof("Components: %v", platformAdminFramework.Components)
 	return needWriteFramework
 }

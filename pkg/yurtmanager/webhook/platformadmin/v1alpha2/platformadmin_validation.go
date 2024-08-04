@@ -107,37 +107,46 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 }
 
 func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(ctx context.Context, platformAdmin *v1alpha2.PlatformAdmin) field.ErrorList {
-	// verify that the poolname is a right nodepool name
+	// verify that the pool names are right nodepool names
 	nodePools := &unitv1alpha1.NodePoolList{}
 	if err := webhook.Client.List(ctx, nodePools); err != nil {
 		return field.ErrorList{
-			field.Invalid(field.NewPath("spec", "poolName"), platformAdmin.Spec.PoolName, "can not list nodepools, cause"+err.Error()),
+			field.Invalid(field.NewPath("spec", "pools"), platformAdmin.Spec.Pools, "can not list nodepools, cause: "+err.Error()),
 		}
 	}
-	ok := false
-	for _, nodePool := range nodePools.Items {
-		if nodePool.ObjectMeta.Name == platformAdmin.Spec.PoolName {
-			ok = true
-			break
+
+	poolNames := strings.Split(platformAdmin.Spec.Pools, ",")
+	for _, poolName := range poolNames {
+		poolName = strings.TrimSpace(poolName)
+		ok := false
+		for _, nodePool := range nodePools.Items {
+			if nodePool.ObjectMeta.Name == poolName {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return field.ErrorList{
+				field.Invalid(field.NewPath("spec", "pools"), poolName, "can not find the nodepool"),
+			}
 		}
 	}
-	if !ok {
-		return field.ErrorList{
-			field.Invalid(field.NewPath("spec", "poolName"), platformAdmin.Spec.PoolName, "can not find the nodepool"),
-		}
-	}
+
 	// verify that no other platformadmin in the nodepool
 	var platformadmins v1alpha2.PlatformAdminList
-	listOptions := client.MatchingFields{util.IndexerPathForNodepool: platformAdmin.Spec.PoolName}
-	if err := webhook.Client.List(ctx, &platformadmins, listOptions); err != nil {
-		return field.ErrorList{
-			field.Invalid(field.NewPath("spec", "poolName"), platformAdmin.Spec.PoolName, "can not list platformadmins, cause "+err.Error()),
-		}
-	}
-	for _, other := range platformadmins.Items {
-		if platformAdmin.Name != other.Name {
+	for _, poolName := range poolNames {
+		poolName = strings.TrimSpace(poolName)
+		listOptions := client.MatchingFields{util.IndexerPathForNodepool: poolName}
+		if err := webhook.Client.List(ctx, &platformadmins, listOptions); err != nil {
 			return field.ErrorList{
-				field.Invalid(field.NewPath("spec", "poolName"), platformAdmin.Spec.PoolName, "already used by other platformadmin instance,"),
+				field.Invalid(field.NewPath("spec", "pools"), poolName, "can not list platformadmins, cause: "+err.Error()),
+			}
+		}
+		for _, other := range platformadmins.Items {
+			if platformAdmin.Name != other.Name {
+				return field.ErrorList{
+					field.Invalid(field.NewPath("spec", "pools"), poolName, "already used by other platformadmin instance"),
+				}
 			}
 		}
 	}

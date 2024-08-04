@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +39,7 @@ func RegisterFieldIndexers(fi client.FieldIndexer) error {
 		if err = fi.IndexField(context.TODO(), &v1alpha2.PlatformAdmin{}, IndexerPathForNodepool, func(rawObj client.Object) []string {
 			platformAdmin, ok := rawObj.(*v1alpha2.PlatformAdmin)
 			if ok {
-				return []string{platformAdmin.Spec.PoolName}
+				return strings.Split(platformAdmin.Spec.Pools, ",")
 			}
 			return []string{}
 		}); err != nil {
