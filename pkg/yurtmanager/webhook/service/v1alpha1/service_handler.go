@@ -37,19 +37,23 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
+const (
+	WebhookName = "service"
+)
+
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
-func (webhook *PoolServiceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
+func (webhook *ServiceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.VipLoadBalancerController)
 
 	return util.RegisterWebhook(mgr, &v1alpha1.PoolService{}, webhook)
 }
 
-// +kubebuilder:webhook:path=/mutate-network-openyurt-io-poolservice,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=network.openyurt.io,resources=poolservices,verbs=create;update,versions=v1alpha1,name=mutate.network.v1alpha1.poolservice.openyurt.io
+// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-service,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=services,verbs=create,versions=v1,name=mutate.core.v1.service.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
-type PoolServiceHandler struct {
+type ServiceHandler struct {
 	Client client.Client
 }
 
-var _ webhook.CustomDefaulter = &PoolServiceHandler{}
+var _ webhook.CustomDefaulter = &ServiceHandler{}

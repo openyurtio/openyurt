@@ -23,11 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/network"
-	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 	viplb "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/viploadbalancer"
 )
 
@@ -38,31 +35,30 @@ func TestDefault(t *testing.T) {
 	)
 
 	testcases := map[string]struct {
-		poolservice   runtime.Object
 		errHappened   bool
-		service       *corev1.Service
+		service       runtime.Object
 		wantedService *corev1.Service
 	}{
-		"pod with specified loadBalancerClass but not viplb": {
-			poolservice: &v1alpha1.PoolService{
-				Spec: v1alpha1.PoolServiceSpec{
+		"service with specified loadBalancerClass but not viplb": {
+			service: &corev1.Service{
+				Spec: corev1.ServiceSpec{
 					LoadBalancerClass: &elbClass,
 				},
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						network.LabelServiceName: "nginx",
-					},
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1alpha1",
+					Kind:       "Service",
 				},
-			},
-			service: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "nginx",
 					ResourceVersion: "1",
 				},
 			},
 			wantedService: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					LoadBalancerClass: &elbClass,
+				},
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
+					APIVersion: "v1alpha1",
 					Kind:       "Service",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -71,31 +67,31 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
-		"pod with specified loadBalancerClass: viplb": {
-			poolservice: &v1alpha1.PoolService{
-				Spec: v1alpha1.PoolServiceSpec{
+		"service with specified loadBalancerClass: viplb": {
+			service: &corev1.Service{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1alpha1",
+					Kind:       "Service",
+				},
+				Spec: corev1.ServiceSpec{
 					LoadBalancerClass: &vipClass,
 				},
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						network.LabelServiceName: "nginx",
-					},
-				},
-			},
-			service: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "nginx",
 					ResourceVersion: "1",
 				},
 			},
 			wantedService: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					LoadBalancerClass: &vipClass,
+				},
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
+					APIVersion: "v1alpha1",
 					Kind:       "Service",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "nginx",
-					ResourceVersion: "2",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						viplb.AnnotationServiceTopologyKey: viplb.AnnotationServiceTopologyValueNodePool,
 					},
@@ -113,14 +109,9 @@ func TestDefault(t *testing.T) {
 			apis.AddToScheme(scheme)
 
 			var c client.Client
-			if tc.service != nil {
-				c = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.service).Build()
-			} else {
-				c = fakeclient.NewClientBuilder().WithScheme(scheme).Build()
-			}
 
-			h := &PoolServiceHandler{Client: c}
-			err := h.Default(context.TODO(), tc.poolservice)
+			h := &ServiceHandler{Client: c}
+			err := h.Default(context.TODO(), tc.service)
 			if tc.errHappened {
 				if err == nil {
 					t.Errorf("expect error, got nil")
@@ -128,15 +119,9 @@ func TestDefault(t *testing.T) {
 			} else if err != nil {
 				t.Errorf("expect no error, but got %v", err)
 			} else {
-				ps := tc.poolservice.(*v1alpha1.PoolService)
-				serviceName := ps.Labels[network.LabelServiceName]
-				currentServices := &corev1.Service{}
-				if err := c.Get(context.TODO(), client.ObjectKey{Name: serviceName}, currentServices); err != nil {
-					t.Errorf("failed to get service %s: %v", serviceName, err)
-				}
-
-				if !reflect.DeepEqual(currentServices, tc.wantedService) {
-					t.Errorf("expect %#+v, got %#+v", tc.wantedService, currentServices)
+				currentService := tc.service.(*corev1.Service)
+				if !reflect.DeepEqual(currentService, tc.wantedService) {
+					t.Errorf("expect %#+v ,\n got %#+v", tc.wantedService, currentService)
 				}
 			}
 		})
