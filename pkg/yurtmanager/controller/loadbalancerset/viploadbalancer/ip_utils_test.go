@@ -22,9 +22,9 @@ import (
 	vip "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/viploadbalancer"
 )
 
-func TestIPMAnager(t *testing.T) {
+func TestIPManager(t *testing.T) {
 	ipRanges := "192.168.0.1-192.168.1.5, 10.0.0.1-10.0.0.3"
-	manager, err := vip.NewIPManager(ipRanges)
+	manager, err := vip.NewIPManager(vip.ParseIP(ipRanges))
 	if err != nil {
 		t.Fatalf("Failed to create IPManager: %v", err)
 	}
@@ -54,7 +54,8 @@ func TestIPMAnager(t *testing.T) {
 
 	t.Run("get ip when none are available", func(t *testing.T) {
 		// Test getting IPVRID when none are available
-		m, err := vip.NewIPManager("192.168.0.1")
+		ipr := "192.168.0.1"
+		m, err := vip.NewIPManager(vip.ParseIP(ipr))
 		if err != nil {
 			t.Errorf("Failed to create IPManager: %v", err)
 		}
@@ -74,13 +75,13 @@ func TestIPMAnager(t *testing.T) {
 		// Test releasing IPVRID that is not in use
 		ipVRID := vip.IPVRID{IPs: []string{"10.0.0.1"}, VRID: 0}
 		err = manager.Release(ipVRID)
-		if err == nil {
+		if err != nil {
 			t.Errorf("Expected error: %v when releasing unused IPVRID", err)
 		}
 	})
 
 	t.Run("release ip that is in use", func(t *testing.T) {
-		// Test releasing IPVRID that is in use
+		// Test releasing IPVRstatID that is in use
 		ipVRID, _ := manager.Get()
 		err = manager.Release(ipVRID)
 		if err != nil {
@@ -88,21 +89,7 @@ func TestIPMAnager(t *testing.T) {
 		}
 	})
 
-	t.Run("sync ip with repeat", func(t *testing.T) {
-		// Test syncing IPVRIDs
-		ipVRIDs := []vip.IPVRID{
-			{IPs: []string{"192.168.0.1"}, VRID: 0},
-			{IPs: []string{"192.168.0.2"}, VRID: 1},
-			{IPs: []string{"10.0.0.1"}, VRID: 0},
-			{IPs: []string{"10.0.0.2"}, VRID: 1},
-		}
-		err = manager.Sync(ipVRIDs)
-		if err != nil {
-			t.Errorf("Failed to sync IPVRIDs: %v", err)
-		}
-	})
-
-	t.Run("sync ip", func(t *testing.T) {
+	t.Run("sync ip with repeat vrid", func(t *testing.T) {
 		// Test syncing IPVRIDs
 		ipVRIDs := []vip.IPVRID{
 			{IPs: []string{"192.168.0.1"}, VRID: 0},

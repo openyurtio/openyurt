@@ -100,19 +100,19 @@ type ReconcileVipLoadBalancer struct {
 	recorder record.EventRecorder
 	mapper   meta.RESTMapper
 
-	Configration config.VipLoadBalancerControllerConfiguration
-	IPManagers   map[string]*IPManager
+	Configuration config.VipLoadBalancerControllerConfiguration
+	IPManagers    map[string]*IPManager
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *ReconcileVipLoadBalancer {
 	return &ReconcileVipLoadBalancer{
-		Client:       mgr.GetClient(),
-		scheme:       mgr.GetScheme(),
-		mapper:       mgr.GetRESTMapper(),
-		recorder:     mgr.GetEventRecorderFor(names.VipLoadBalancerController),
-		Configration: c.ComponentConfig.VipLoadBalancerController,
-		IPManagers:   make(map[string]*IPManager),
+		Client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		mapper:        mgr.GetRESTMapper(),
+		recorder:      mgr.GetEventRecorderFor(names.VipLoadBalancerController),
+		Configuration: c.ComponentConfig.VipLoadBalancerController,
+		IPManagers:    make(map[string]*IPManager),
 	}
 }
 
@@ -154,6 +154,7 @@ func (r *ReconcileVipLoadBalancer) Reconcile(ctx context.Context, request reconc
 
 	copyPoolService := poolService.DeepCopy()
 
+	// Check if the PoolService instance is deleted
 	if poolService.DeletionTimestamp != nil {
 		return r.reconcileDelete(ctx, copyPoolService)
 	}
@@ -185,7 +186,7 @@ func (r *ReconcileVipLoadBalancer) reconcilePoolService(ctx context.Context, poo
 func (r *ReconcileVipLoadBalancer) syncPoolService(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	klog.V(4).Infof(Format("SyncPoolServices VipLoadBalancer %s/%s", poolService.Namespace, poolService.Name))
 
-	// sync VRID from the poolservice
+	// sync IP-VRID pairs from the recently poolservice
 	if err := r.syncIPVRIDs(ctx, poolService); err != nil {
 		klog.Errorf(Format("Failed to sync VRID on Pool Service %s/%s: %v", poolService.Namespace, poolService.Name, err))
 		return err
@@ -206,12 +207,28 @@ func (r *ReconcileVipLoadBalancer) syncPoolService(ctx context.Context, poolServ
 
 func (r *ReconcileVipLoadBalancer) syncIPVRIDs(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	poolName := poolService.Labels[network.LabelNodePoolName]
-	poolAddress, err := r.getCurrentPoolAddress(ctx, poolService)
-	if err != nil {
-		return fmt.Errorf("failed to get avalible Pool address of nodepool: %v", err)
+	// Get the pool address from nodepool label
+	if err := r.syncIPAddressPools(ctx, poolName); err != nil {
+		return fmt.Errorf("failed to sync ip addresses from nodepool: %v", err)
 	}
 
-	// if nodepool has not address-pools
+	currentIPVRIDs, err := r.getCurrentAssignedIPVRIDs(ctx, poolService)
+	if err != nil {
+		return fmt.Errorf("failed to get current PoolServices: %v", err)
+	}
+
+	// Sync the IPVRIDs
+	r.IPManagers[poolName].Sync(currentIPVRIDs)
+	return nil
+}
+
+func (r *ReconcileVipLoadBalancer) syncIPAddressPools(ctx context.Context, poolName string) error {
+	poolAddress, err := r.getCurrentPoolAddress(ctx, poolName)
+	if err != nil {
+		return fmt.Errorf("failed to get available Pool address of nodepool: %v", err)
+	}
+
+	// check if nodepool has not address-pools
 	if _, ok := r.IPManagers[poolName]; !ok {
 		r.IPManagers[poolName], err = NewIPManager(poolAddress)
 		if err != nil {
@@ -219,32 +236,32 @@ func (r *ReconcileVipLoadBalancer) syncIPVRIDs(ctx context.Context, poolService 
 		}
 	}
 
-	currentIPVRIDs, err := r.getCurrentIPVRIDs(ctx, poolService)
-	if err != nil {
-		return fmt.Errorf("failed to get current PoolServices: %v", err)
+	// TODO: if user update poolAddress label in the nodepool
+	if poolAddress != nil && !r.IPManagers[poolName].IPRanges.HasAll(poolAddress...) {
+		klog.Infof(Format("NodePool: %s 's IP address pool has been updated, please delete it and reconfigure it", poolName))
 	}
-
-	// Sync the IPVRIDs
-	r.IPManagers[poolService.Labels[network.LabelNodePoolName]].Sync(currentIPVRIDs)
 
 	return nil
 }
 
-func (r *ReconcileVipLoadBalancer) getCurrentPoolAddress(ctx context.Context, poolService *netv1alpha1.PoolService) (string, error) {
+func (r *ReconcileVipLoadBalancer) getCurrentPoolAddress(ctx context.Context, poolName string) ([]string, error) {
 	np := &v1beta1.NodePool{}
-	if err := r.Get(ctx, client.ObjectKey{Name: poolService.Labels[network.LabelNodePoolName]}, np); err != nil {
-		return "", err
+
+	// Get All NodePools from the cluster by nodepool name
+	if err := r.Get(ctx, client.ObjectKey{Name: poolName}, np); err != nil {
+		return nil, err
 	}
 
+	// Check if the NodePool has address pools
 	if np.Annotations == nil {
-		return "", fmt.Errorf("NodePool %s doesn't have annotations", np.Name)
+		return nil, fmt.Errorf("NodePool %s doesn't have not available annotations", np.Name)
 	}
 
-	if _, ok := np.Annotations[AnnotationNodePoolAddressPools]; !ok {
-		return "", fmt.Errorf("NodePool %s doesn't have address pools", np.Name)
+	if poolAddress, ok := np.Annotations[AnnotationNodePoolAddressPools]; ok {
+		return ParseIP(poolAddress), nil
 	}
 
-	return np.Annotations[AnnotationNodePoolAddressPools], nil
+	return nil, fmt.Errorf("NodePool %s is not assigned address pools", np.Name)
 }
 
 func (r *ReconcileVipLoadBalancer) syncPoolServiceStatus(ctx context.Context, poolService *netv1alpha1.PoolService) error {
@@ -257,7 +274,7 @@ func (r *ReconcileVipLoadBalancer) syncPoolServiceStatus(ctx context.Context, po
 
 	desiredLbStatus, err := r.desiredLbStatus(poolService)
 	if err != nil {
-		return fmt.Errorf("failed to calculate desire lb stattus for poolservice %s/%s: %v", poolService.Namespace, poolService.Name, err)
+		return fmt.Errorf("failed to calculate desire lb status for poolservice %s/%s: %v", poolService.Namespace, poolService.Name, err)
 	}
 
 	poolService.Status.LoadBalancer = desiredLbStatus
@@ -291,7 +308,7 @@ func (r *ReconcileVipLoadBalancer) desiredLbStatus(poolService *netv1alpha1.Pool
 	}, nil
 }
 
-func (r *ReconcileVipLoadBalancer) getCurrentIPVRIDs(ctx context.Context, poolService *netv1alpha1.PoolService) ([]IPVRID, error) {
+func (r *ReconcileVipLoadBalancer) getCurrentAssignedIPVRIDs(ctx context.Context, poolService *netv1alpha1.PoolService) ([]IPVRID, error) {
 	// Get the poolservice list
 	listSelector := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{
@@ -334,11 +351,7 @@ func filterInvalidPoolService(poolServices []netv1alpha1.PoolService) []IPVRID {
 }
 
 func (r *ReconcileVipLoadBalancer) checkIPVRIDs(poolService netv1alpha1.PoolService) (*IPVRID, error) {
-	if !r.containsVRID(&poolService) {
-		// not have VRID
-		return nil, fmt.Errorf("PoolService %s/%s doesn't have VRID", poolService.Namespace, poolService.Name)
-	}
-
+	// check if the poolservice has vrid-ips
 	ipvrid, err := r.isValidIPVRID(&poolService)
 	if err != nil {
 		// ip-vrid is invalid
@@ -362,10 +375,15 @@ func (r *ReconcileVipLoadBalancer) containsVRID(poolService *netv1alpha1.PoolSer
 }
 
 func (r *ReconcileVipLoadBalancer) isValidIPVRID(poolService *netv1alpha1.PoolService) (*IPVRID, error) {
-	poolName := poolService.Labels[network.LabelNodePoolName]
+	// check if the poolservice has vrid
+	if !r.containsVRID(poolService) {
+		// not have VRID
+		return nil, fmt.Errorf("PoolService %s/%s doesn't have VRID", poolService.Namespace, poolService.Name)
+	}
+
 	vrid, err := strconv.Atoi(poolService.Annotations[AnnotationVipLoadBalancerVRID])
 	if err != nil {
-		return nil, fmt.Errorf("invalid VRID: %v", err)
+		return nil, fmt.Errorf("PoolService %s/%s has invalid VRID: %v", poolService.Namespace, poolService.Name, err)
 	}
 
 	ips := []string{}
@@ -376,7 +394,7 @@ func (r *ReconcileVipLoadBalancer) isValidIPVRID(poolService *netv1alpha1.PoolSe
 	}
 
 	ipvrid := NewIPVRID(ips, vrid)
-	if err := r.IPManagers[poolName].IsValid(ipvrid); err != nil {
+	if err := r.IPManagers[poolService.Labels[network.LabelNodePoolName]].IsValid(ipvrid); err != nil {
 		return nil, fmt.Errorf("VRID: %d is not valid: %v", vrid, err)
 	}
 
@@ -384,9 +402,9 @@ func (r *ReconcileVipLoadBalancer) isValidIPVRID(poolService *netv1alpha1.PoolSe
 }
 
 func (r *ReconcileVipLoadBalancer) handleIPVRIDs(ctx context.Context, poolService *netv1alpha1.PoolService) error {
-	// Check if the PoolService has a VRID
-	_, err := r.checkIPVRIDs(*poolService)
-	if err == nil {
+	// Check if the PoolService has a available VRID
+	if _, err := r.checkIPVRIDs(*poolService); err == nil {
+		// If yes, use the user-specified vrid
 		return nil
 	}
 

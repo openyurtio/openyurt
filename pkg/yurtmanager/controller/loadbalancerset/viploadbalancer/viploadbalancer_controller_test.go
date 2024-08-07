@@ -50,7 +50,7 @@ const (
 	mockServiceUid      = "c0af506a-7096-4ef9-b39a-eac2feb5c07g"
 	mockNodePoolUid     = "f47dd9db-d3bc-40f3-8d03-7409930b6289"
 	mockEndpointUid     = "f7a5a351-3e33-47a9-bb00-685b357a62e5"
-	vridLable           = "service.openyurt.io/vrid"
+	vridLabel           = "service.openyurt.io/vrid"
 )
 
 var (
@@ -74,8 +74,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.1.1"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.1.1"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(poolsvc).Build()
 
 		rc := viploadbalancer.ReconcileVipLoadBalancer{
@@ -100,8 +100,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.1.1"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.1.1"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 
 		poolsvc.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: "6"}
 
@@ -130,8 +130,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.1.1"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.1.1"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 
 		poolsvc.Annotations = map[string]string{viploadbalancer.AnnotationVipLoadBalancerVRID: "256"}
 
@@ -159,8 +159,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc.Annotations = map[string]string{viploadbalancer.AnnotationServiceVIPAddress: "192.168.1.1"}
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.2.2"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.2.2"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
 		endpoint.Annotations = map[string]string{
 			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
@@ -189,8 +189,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc.Annotations = map[string]string{viploadbalancer.AnnotationServiceVIPAddress: svcIPRange}
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.2.2"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.2.2"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
 		endpoint.Annotations = map[string]string{
 			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
@@ -219,8 +219,8 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		svc.Annotations = map[string]string{viploadbalancer.AnnotationServiceVIPAddress: svcIPRange}
 		poolsvc := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		np1 := newNodepool("np123", "name=np123,app=deploy")
-		adressPool := "192.168.0.1-192.168.2.2, 10.1.0.1-10.1.0.2"
-		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: adressPool}
+		addressPool := "192.168.0.1-192.168.2.2, 10.1.0.1-10.1.0.2"
+		np1.Annotations = map[string]string{viploadbalancer.AnnotationNodePoolAddressPools: addressPool}
 		endpoint := newEndpoint(v1.NamespaceDefault, mockEndpointName)
 		endpoint.Annotations = map[string]string{
 			viploadbalancer.AnnotationServiceVIPStatus: viploadbalancer.AnnotationServiceVIPStatusOnline,
@@ -248,7 +248,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 
-		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		ipManage, err := viploadbalancer.NewIPManager(viploadbalancer.ParseIP("192.168.0.1-192.168.1.1"))
 		if err != nil {
 			t.Fatalf("Failed to create IPManager: %v", err)
 		}
@@ -281,7 +281,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil)
 		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 
-		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		ipManage, err := viploadbalancer.NewIPManager(viploadbalancer.ParseIP("192.168.0.1-192.168.1.1"))
 		if err != nil {
 			t.Fatalf("Failed to create IPManager: %v", err)
 		}
@@ -314,7 +314,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
 
-		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		ipManage, err := viploadbalancer.NewIPManager(viploadbalancer.ParseIP("192.168.0.1-192.168.1.1"))
 		if err != nil {
 			t.Fatalf("Failed to create IPManager: %v", err)
 		}
@@ -351,7 +351,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
 
-		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		ipManage, err := viploadbalancer.NewIPManager(viploadbalancer.ParseIP("192.168.0.1-192.168.1.1"))
 		if err != nil {
 			t.Fatalf("Failed to create IPManager: %v", err)
 		}
@@ -388,7 +388,7 @@ func TestReconcileVipLoadBalancer_Reconcile(t *testing.T) {
 		ps1.Finalizers = []string{viploadbalancer.VipLoadBalancerFinalizer}
 		ps1.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "192.168.0.1"}}
 
-		ipManage, err := viploadbalancer.NewIPManager("192.168.0.1-192.168.1.1")
+		ipManage, err := viploadbalancer.NewIPManager(viploadbalancer.ParseIP("192.168.0.1-192.168.1.1"))
 		if err != nil {
 			t.Fatalf("Failed to create IPManager: %v", err)
 		}
@@ -624,8 +624,8 @@ func assertPoolServiceVRIDLabels(t testing.TB, psl *v1alpha1.PoolServiceList, vr
 			return
 		}
 
-		if ps.Annotations[vridLable] != vrid {
-			t.Errorf("expected pool service vird is %s, but got %s", vrid, ps.Annotations[vridLable])
+		if ps.Annotations[vridLabel] != vrid {
+			t.Errorf("expected pool service vird is %s, but got %s", vrid, ps.Annotations[vridLabel])
 		}
 	}
 }

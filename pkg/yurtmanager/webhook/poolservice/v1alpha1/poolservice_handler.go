@@ -29,9 +29,10 @@ package v1alpha1
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
@@ -39,18 +40,9 @@ import (
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *PoolServiceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
-	webhook.Client = mgr.GetClient()
+	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.VipLoadBalancerController)
 
-	gvk, err := apiutil.GVKForObject(&v1alpha1.PoolService{}, mgr.GetScheme())
-	if err != nil {
-		return "", "", err
-	}
-	return util.GenerateMutatePath(gvk),
-		util.GenerateValidatePath(gvk),
-		ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.PoolService{}).
-			WithDefaulter(webhook).
-			Complete()
+	return util.RegisterWebhook(mgr, &v1alpha1.PoolService{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/mutate-network-openyurt-io-poolservice,mutating=true,failurePolicy=fail,sideEffects=None,admissionReviewVersions=v1;v1beta1,groups=network.openyurt.io,resources=poolservices,verbs=create;update,versions=v1alpha1,name=mutate.network.v1alpha1.poolservice.openyurt.io
