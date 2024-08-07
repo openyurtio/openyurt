@@ -44,16 +44,16 @@ func TestIPManager(t *testing.T) {
 	})
 
 	t.Run("release ip", func(t *testing.T) {
-		// Test releasing IPVRID
+		// Test releasing VRRP
 		ipVRID, _ := manager.Get()
 		err = manager.Release(ipVRID)
 		if err != nil {
-			t.Errorf("Failed to release IPVRID: %v", err)
+			t.Errorf("Failed to release VRRP: %v", err)
 		}
 	})
 
 	t.Run("get ip when none are available", func(t *testing.T) {
-		// Test getting IPVRID when none are available
+		// Test getting VRRP when none are available
 		ipr := "192.168.0.1"
 		m, err := vip.NewIPManager(vip.ParseIP(ipr))
 		if err != nil {
@@ -67,16 +67,16 @@ func TestIPManager(t *testing.T) {
 
 		_, err = m.Get()
 		if err == nil {
-			t.Error("Expected error when no IPVRID is available")
+			t.Error("Expected error when no VRRP is available")
 		}
 	})
 
 	t.Run("release ip that is not in use", func(t *testing.T) {
-		// Test releasing IPVRID that is not in use
-		ipVRID := vip.IPVRID{IPs: []string{"10.0.0.1"}, VRID: 0}
+		// Test releasing VRRP that is not in use
+		ipVRID := vip.VRRP{IPs: []string{"10.0.0.1"}, VRID: 0}
 		err = manager.Release(ipVRID)
 		if err != nil {
-			t.Errorf("Expected error: %v when releasing unused IPVRID", err)
+			t.Errorf("Expected error: %v when releasing unused VRRP", err)
 		}
 	})
 
@@ -85,13 +85,13 @@ func TestIPManager(t *testing.T) {
 		ipVRID, _ := manager.Get()
 		err = manager.Release(ipVRID)
 		if err != nil {
-			t.Errorf("Failed to release IPVRID: %v", err)
+			t.Errorf("Failed to release VRRP: %v", err)
 		}
 	})
 
 	t.Run("sync ip with repeat vrid", func(t *testing.T) {
-		// Test syncing IPVRIDs
-		ipVRIDs := []vip.IPVRID{
+		// Test syncing VRRPs
+		ipVRIDs := []vip.VRRP{
 			{IPs: []string{"192.168.0.1"}, VRID: 0},
 			{IPs: []string{"192.168.0.2"}, VRID: 1},
 			{IPs: []string{"10.0.0.1"}, VRID: 0},
@@ -99,30 +99,30 @@ func TestIPManager(t *testing.T) {
 		}
 		err = manager.Sync(ipVRIDs)
 		if err != nil {
-			t.Errorf("Failed to sync IPVRIDs: %v", err)
+			t.Errorf("Failed to sync VRRPs: %v", err)
 		}
 	})
 
 	t.Run("sync ip with invalid vrid", func(t *testing.T) {
-		// Test syncing IPVRIDs with invalid VRID
-		ipVRIDs := []vip.IPVRID{
+		// Test syncing VRRPs with invalid VRID
+		ipVRIDs := []vip.VRRP{
 			{IPs: []string{"192.168.0.3"}, VRID: -1},
 			{IPs: []string{"192.168.0.4"}, VRID: vip.VRIDMAXVALUE},
 		}
 		err = manager.Sync(ipVRIDs)
 		if err == nil {
-			t.Error("Expected error when syncing IPVRIDs with invalid VRID")
+			t.Error("Expected error when syncing VRRPs with invalid VRID")
 		}
 	})
 
 	t.Run("sync ip with ip not found", func(t *testing.T) {
-		// Test syncing IPVRIDs with IP not found
-		ipVRIDs := []vip.IPVRID{
+		// Test syncing VRRPs with IP not found
+		ipVRIDs := []vip.VRRP{
 			{IPs: []string{"192.168.2.1"}, VRID: 0},
 		}
 		err = manager.Sync(ipVRIDs)
 		if err == nil {
-			t.Error("Expected error when syncing IPVRIDs with IP not found")
+			t.Error("Expected error when syncing VRRPs with IP not found")
 		}
 	})
 
