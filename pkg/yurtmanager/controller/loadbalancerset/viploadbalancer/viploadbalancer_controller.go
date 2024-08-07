@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
@@ -519,25 +520,25 @@ func (r *ReconcileVipLoadBalancer) getVipServiceStatus(ctx context.Context, pool
 	// Get the reference endpoint
 	listSelector := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			network.LabelServiceName: poolService.Labels[network.LabelServiceName],
+			discoveryv1.LabelServiceName: poolService.Labels[network.LabelServiceName],
 		}),
 		Namespace: poolService.Namespace,
 	}
 
-	endpointSlice := &corev1.EndpointsList{}
-	if err := r.List(ctx, endpointSlice, listSelector); err != nil {
+	endpointSlices := &discoveryv1.EndpointSliceList{}
+	if err := r.List(ctx, endpointSlices, listSelector); err != nil {
 		klog.Errorf(Format("Failed to get Endpoints from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
 		return ServiceVIPUnknown
 	}
 
-	if len(endpointSlice.Items) == 0 {
+	if len(endpointSlices.Items) == 0 {
 		klog.Errorf(Format("get Endpoints from PoolService %s/%s is empty", poolService.Namespace, poolService.Name))
 		return ServiceVIPUnknown
 	}
 
 	ready := 0
-	target := len(endpointSlice.Items)/2 + 1
-	for _, ep := range endpointSlice.Items {
+	target := len(endpointSlices.Items)/2 + 1
+	for _, ep := range endpointSlices.Items {
 		if ep.Annotations == nil {
 			continue
 		}
