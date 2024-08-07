@@ -115,8 +115,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(ctx cont
 		}
 	}
 
-	poolNames := strings.Split(platformAdmin.Spec.Pools, ",")
-	for _, poolName := range poolNames {
+	for _, poolName := range platformAdmin.Spec.Pools {
 		poolName = strings.TrimSpace(poolName)
 		ok := false
 		for _, nodePool := range nodePools.Items {
@@ -134,7 +133,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(ctx cont
 
 	// verify that no other platformadmin in the nodepool
 	var platformadmins v1alpha2.PlatformAdminList
-	for _, poolName := range poolNames {
+	for _, poolName := range platformAdmin.Spec.Pools {
 		poolName = strings.TrimSpace(poolName)
 		listOptions := client.MatchingFields{util.IndexerPathForNodepool: poolName}
 		if err := webhook.Client.List(ctx, &platformadmins, listOptions); err != nil {

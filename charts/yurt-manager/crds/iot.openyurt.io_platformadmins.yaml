@@ -10217,7 +10217,9 @@ spec:
                 imageRegistry:
                   type: string
                 pools:
-                  type: string
+                  items:
+                    type: string
+                  type: array
                   pattern: "^[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*$"
                 serviceType:
                   description: Service Type string describes ingress methods for a service
@@ -10329,8 +10331,10 @@ spec:
                 platform:
                   type: string
                 pools:
-                  type: string
-                  pattern: '^[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*$'
+                  items:
+                    type: string
+                  type: array
+                  pattern: "^[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*$"
                 security:
                   type: boolean
                 version:

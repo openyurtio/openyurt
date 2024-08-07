@@ -91,8 +91,8 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 				Namespace: namespaceName,
 			},
 			Spec: iotv1alpha2.PlatformAdminSpec{
-				Version:  version,
-				Pools: nodePoolName,
+				Version: version,
+				Pools:   []string{nodePoolName},
 			},
 		}
 		Eventually(func() error {

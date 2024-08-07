@@ -271,9 +271,8 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 
 		oldYas := yas.DeepCopy()
 
-		Pools := strings.Split(platformAdmin.Spec.Pools, ",")
 		for i, pool := range yas.Spec.Topology.Pools {
-			for _, nodePool := range Pools {
+			for _, nodePool := range platformAdmin.Spec.Pools {
 				if pool.Name == nodePool {
 					yas.Spec.Topology.Pools[i] = yas.Spec.Topology.Pools[len(yas.Spec.Topology.Pools)-1]
 					yas.Spec.Topology.Pools = yas.Spec.Topology.Pools[:len(yas.Spec.Topology.Pools)-1]
@@ -445,8 +444,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 
 			// Refresh the YurtAppSet according to the user-defined configuration
 			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
-			Pools := strings.Split(platformAdmin.Spec.Pools, ",")
-			for _, nodePool := range Pools {
+			for _, nodePool := range platformAdmin.Spec.Pools {
 				if _, ok := yas.Status.PoolReplicas[nodePool]; ok {
 					if yas.Status.ReadyReplicas == yas.Status.Replicas {
 						readyDeployment = true
@@ -457,7 +455,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 					}
 				}
 			}
-			for _, nodePool := range Pools {
+			for _, nodePool := range platformAdmin.Spec.Pools {
 				pool := appsv1alpha1.Pool{
 					Name:     nodePool,
 					Replicas: pointer.Int32(1),
@@ -520,10 +518,9 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 		return nil, nil
 	}
 
-	poolNames := strings.Split(platformAdmin.Spec.Pools, ",")
 	var services []*corev1.Service
 
-	for _, poolName := range poolNames {
+	for _, poolName := range platformAdmin.Spec.Pools {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      make(map[string]string),
@@ -584,8 +581,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 
 	yas.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelDeployment
 
-	Pools := strings.Split(platformAdmin.Spec.Pools, ",")
-	for _, nodePool := range Pools {
+	for _, nodePool := range platformAdmin.Spec.Pools {
 		pool := appsv1alpha1.Pool{
 			Name:     nodePool,
 			Replicas: pointer.Int32(1),

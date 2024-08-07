@@ -86,7 +86,7 @@ func TestReconcile(t *testing.T) {
 				Spec: v1alpha2.PlatformAdminSpec{
 					Version:       "minnesota",
 					ImageRegistry: "default",
-					Pools:         "pool1",
+					Pools:         []string{"pool1"},
 					Components: []v1alpha2.Component{
 						{
 							Name: "edgex-core-command",

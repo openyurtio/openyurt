@@ -51,7 +51,7 @@ type PlatformAdminSpec struct {
 
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
-	Pools string `json:"nodepools,omitempty"`
+	Pools []string `json:"pools,omitempty"`
 
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	// +optional
