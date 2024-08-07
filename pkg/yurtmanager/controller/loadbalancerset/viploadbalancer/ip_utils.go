@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -30,21 +31,22 @@ const (
 )
 
 type VRRP struct {
-	IPs  []string
+	IPs  sets.Set[string]
 	VRID int
 }
 
 type IPManager struct {
+	sync.Mutex
 	IPRanges sets.Set[string]
 	// ipPools indicates if ip is assigned
 	IPPools map[string]int
 	// ipVRIDs indicates which IPs are assigned to vrid
-	VRRPs map[int][]string
+	VRRPs map[int]sets.Set[string]
 }
 
 func NewVRRP(ips []string, vrid int) VRRP {
 	return VRRP{
-		IPs:  ips,
+		IPs:  sets.New(ips...),
 		VRID: vrid,
 	}
 }
@@ -57,7 +59,7 @@ func NewIPManager(ipr []string) (*IPManager, error) {
 	manager := &IPManager{
 		IPRanges: sets.New(ipr...),
 		IPPools:  make(map[string]int),
-		VRRPs:    make(map[int][]string),
+		VRRPs:    make(map[int]sets.Set[string]),
 	}
 
 	return manager, nil
@@ -103,23 +105,49 @@ func incrementIP(ip net.IP) net.IP {
 
 // Get return a VRRP with an available IP and VRID combination
 func (m *IPManager) Get() (VRRP, error) {
+	m.Lock()
+	defer m.Unlock()
+
 	for vrid := 0; vrid < VRIDMAXVALUE; vrid++ {
 		if ips, ok := m.VRRPs[vrid]; !ok || len(ips) == 0 {
-			for _, ip := range m.IPRanges.UnsortedList() {
-				if _, exist := m.IPPools[ip]; !exist || m.IPPools[ip] == VRIDEVICTED {
-					m.IPPools[ip] = vrid
-					m.VRRPs[vrid] = []string{ip}
-					return VRRP{IPs: []string{ip}, VRID: vrid}, nil
-				}
+			availableIPs := m.findAvailableIPs()
+			if len(availableIPs) == 0 {
+				break
 			}
+
+			vrrp := NewVRRP(availableIPs, vrid)
+			m.buildVRRP(vrrp)
+			return vrrp, nil
 		}
 	}
 
 	return VRRP{}, errors.New("no available IP and VRID combination")
 }
 
+func (m *IPManager) findAvailableIPs() []string {
+	ips := make([]string, 0, 1)
+	for _, ip := range m.IPRanges.UnsortedList() {
+		if rid, ok := m.IPPools[ip]; !ok || rid == VRIDEVICTED {
+			ips = append(ips, ip)
+			break
+		}
+	}
+
+	return ips
+}
+
+func (m *IPManager) buildVRRP(vrrp VRRP) {
+	m.VRRPs[vrrp.VRID] = vrrp.IPs
+
+	for ip := range vrrp.IPs {
+		m.IPPools[ip] = vrrp.VRID
+	}
+}
+
 // Assign assign ips to a vrid, if no available ip, get a new ipvrid from Get()
 func (m *IPManager) Assign(ips []string) (VRRP, error) {
+	m.Lock()
+
 	noConflictIPs := make([]string, 0, len(ips))
 	for _, ip := range ips {
 		// if conflicted, just use no conflict
@@ -129,61 +157,70 @@ func (m *IPManager) Assign(ips []string) (VRRP, error) {
 		noConflictIPs = append(noConflictIPs, ip)
 	}
 
+	m.Unlock()
+
 	// if no available ip, get a new ipvrid
 	if len(noConflictIPs) == 0 {
 		return m.Get()
 	}
-	var vrid int
-	for ; vrid < VRIDMAXVALUE; vrid++ {
+
+	m.Lock()
+	defer m.Unlock()
+	var vrrp VRRP
+	for vrid := 0; vrid < VRIDMAXVALUE; vrid++ {
 		if ipa, ok := m.VRRPs[vrid]; ok && len(ipa) != 0 {
 			continue
 		}
-
-		m.VRRPs[vrid] = append(m.VRRPs[vrid], noConflictIPs...)
-		for _, ip := range noConflictIPs {
-			m.IPPools[ip] = vrid
-		}
+		// build vrid-ips pair
+		vrrp = NewVRRP(noConflictIPs, vrid)
+		m.buildVRRP(vrrp)
 		break
 	}
 
 	// Get fully vrid-ips pair
-	return VRRP{VRID: vrid, IPs: m.VRRPs[vrid]}, nil
+	return vrrp, nil
 }
 
 // Release ips from vrid, if vrid is not assigned, return error
 func (m *IPManager) Release(dVrrp VRRP) error {
+	m.Lock()
+	defer m.Unlock()
 	if err := m.IsValid(dVrrp); err != nil {
 		return err
 	}
 
 	assignedIPs := m.VRRPs[dVrrp.VRID]
-	for _, ip := range dVrrp.IPs {
-		if m.isIPPresent(ip, assignedIPs) {
+
+	for ip := range dVrrp.IPs {
+		if assignedIPs.Has(ip) {
+			assignedIPs.Delete(ip)
 			m.IPPools[ip] = VRIDEVICTED
 		}
 	}
+
+	m.VRRPs[dVrrp.VRID] = assignedIPs
 
 	return nil
 }
 
 // IsValid check if ip and vrid is valid in this ip-pools, if not return error
-func (m *IPManager) IsValid(ipvrid VRRP) error {
-	if len(ipvrid.IPs) == 0 {
+func (m *IPManager) IsValid(vrrp VRRP) error {
+	if len(vrrp.IPs) == 0 {
 		return fmt.Errorf("[IsValid] IPs is empty")
 	}
 
-	for _, ip := range ipvrid.IPs {
+	for ip := range vrrp.IPs {
 		if !m.IPRanges.Has(ip) {
 			return fmt.Errorf("[IsValid] IP: %s is not found in IP-Ranges", ip)
 		}
 	}
 
-	if ipvrid.VRID < 0 || ipvrid.VRID >= VRIDMAXVALUE {
-		return fmt.Errorf("[IsValid] VIRD: %d out of range", ipvrid.VRID)
+	if vrrp.VRID < 0 || vrrp.VRID >= VRIDMAXVALUE {
+		return fmt.Errorf("[IsValid] VIRD: %d out of range", vrrp.VRID)
 	}
 
-	if _, ok := m.VRRPs[ipvrid.VRID]; !ok {
-		return fmt.Errorf("[IsValid] VRID %d does not assign ips", ipvrid.VRID)
+	if _, ok := m.VRRPs[vrrp.VRID]; !ok {
+		return fmt.Errorf("[IsValid] VRID %d does not assign ips", vrrp.VRID)
 	}
 
 	return nil
@@ -191,6 +228,8 @@ func (m *IPManager) IsValid(ipvrid VRRP) error {
 
 // Sync sync ips from vrid, if vrid is not assigned, return error
 func (m *IPManager) Sync(vrrps []VRRP) error {
+	m.Lock()
+	defer m.Unlock()
 	for _, vrrp := range vrrps {
 		if err := m.IsValid(vrrp); err != nil {
 			return err
@@ -214,28 +253,18 @@ func (m *IPManager) Sync(vrrps []VRRP) error {
 }
 
 // findDiffIPs find the difference between des and cur, return the difference between des and cur
-func (m *IPManager) findDiffIPs(des, cur []string) (app, del []string) {
-	for _, dip := range des {
-		if exist := m.isIPPresent(dip, cur); !exist {
+func (m *IPManager) findDiffIPs(des, cur sets.Set[string]) (app, del []string) {
+	for dip := range des {
+		if !cur.Has(dip) {
 			app = append(app, dip)
 		}
 	}
 
-	for _, cip := range cur {
-		if exist := m.isIPPresent(cip, des); !exist {
+	for cip := range cur {
+		if !des.Has(cip) {
 			del = append(del, cip)
 		}
 	}
 
 	return
-}
-
-// isIPPresent check if ip is present in ips, if present return true, else return false
-func (m *IPManager) isIPPresent(tip string, ips []string) bool {
-	for _, ip := range ips {
-		if ip == tip {
-			return true
-		}
-	}
-	return false
 }

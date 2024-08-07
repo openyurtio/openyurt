@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -352,14 +353,14 @@ func filterInvalidPoolService(poolServices []netv1alpha1.PoolService) []VRRP {
 
 func (r *ReconcileVipLoadBalancer) checkVRRPs(poolService netv1alpha1.PoolService) (*VRRP, error) {
 	// check if the poolservice has vrid-ips
-	ipvrid, err := r.isValidVRRP(&poolService)
+	vrrp, err := r.isValidVRRP(&poolService)
 	if err != nil {
 		// vrrp is invalid
 		klog.Errorf(Format("Get invalid VRRP from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err))
 		return nil, fmt.Errorf("get invalid VRRP from PoolService %s/%s: %v", poolService.Namespace, poolService.Name, err)
 	}
 
-	return ipvrid, nil
+	return vrrp, nil
 }
 
 func (r *ReconcileVipLoadBalancer) containsVRID(poolService *netv1alpha1.PoolService) bool {
@@ -381,29 +382,30 @@ func (r *ReconcileVipLoadBalancer) isValidVRRP(poolService *netv1alpha1.PoolServ
 		return nil, fmt.Errorf("PoolService %s/%s doesn't have VRID", poolService.Namespace, poolService.Name)
 	}
 
+	// get the vrid from annotation
 	vrid, err := strconv.Atoi(poolService.Annotations[AnnotationVipLoadBalancerVRID])
 	if err != nil {
 		return nil, fmt.Errorf("PoolService %s/%s has invalid VRID: %v", poolService.Namespace, poolService.Name, err)
 	}
 
-	ips := []string{}
+	// check if the poolservice has ips
+	ips := make(sets.Set[string], 0)
 	if poolService.Status.LoadBalancer.Ingress != nil {
 		for _, ip := range poolService.Status.LoadBalancer.Ingress {
-			ips = append(ips, ip.IP)
+			ips.Insert(ip.IP)
 		}
 	}
 
-	vrrp := NewVRRP(ips, vrid)
-	if err := r.IPManagers[poolService.Labels[network.LabelNodePoolName]].IsValid(vrrp); err != nil {
-		return nil, fmt.Errorf("VRID: %d is not valid: %v", vrid, err)
-	}
-
-	return &vrrp, nil
+	return &VRRP{
+		IPs:  ips,
+		VRID: vrid,
+	}, nil
 }
 
 func (r *ReconcileVipLoadBalancer) handleVRRPs(ctx context.Context, poolService *netv1alpha1.PoolService) error {
 	// Check if the PoolService has a available VRID
-	if _, err := r.checkVRRPs(*poolService); err == nil {
+	vrrp, err := r.checkVRRPs(*poolService)
+	if err == nil && vrrp.IPs.Len() > 0 {
 		// If yes, use the user-specified vrid
 		return nil
 	}
@@ -449,7 +451,7 @@ func (r *ReconcileVipLoadBalancer) assignVRID(ctx context.Context, poolService *
 	}
 
 	// add ips and vrid in annotions for status sync
-	poolService.Annotations[AnnotationVipLoadBalancerIPS] = strings.Join(vrrp.IPs, ",")
+	poolService.Annotations[AnnotationVipLoadBalancerIPS] = strings.Join(vrrp.IPs.UnsortedList(), ",")
 	poolService.Annotations[AnnotationVipLoadBalancerVRID] = strconv.Itoa(vrrp.VRID)
 
 	// Update the PoolService

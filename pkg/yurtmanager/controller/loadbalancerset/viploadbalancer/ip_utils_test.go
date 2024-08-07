@@ -19,6 +19,8 @@ package viploadbalancer_test
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	vip "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/viploadbalancer"
 )
 
@@ -73,7 +75,7 @@ func TestIPManager(t *testing.T) {
 
 	t.Run("release ip that is not in use", func(t *testing.T) {
 		// Test releasing VRRP that is not in use
-		ipVRID := vip.VRRP{IPs: []string{"10.0.0.1"}, VRID: 0}
+		ipVRID := vip.VRRP{IPs: sets.New([]string{"10.0.0.1"}...), VRID: 0}
 		err = manager.Release(ipVRID)
 		if err != nil {
 			t.Errorf("Expected error: %v when releasing unused VRRP", err)
@@ -92,10 +94,10 @@ func TestIPManager(t *testing.T) {
 	t.Run("sync ip with repeat vrid", func(t *testing.T) {
 		// Test syncing VRRPs
 		ipVRIDs := []vip.VRRP{
-			{IPs: []string{"192.168.0.1"}, VRID: 0},
-			{IPs: []string{"192.168.0.2"}, VRID: 1},
-			{IPs: []string{"10.0.0.1"}, VRID: 0},
-			{IPs: []string{"10.0.0.2"}, VRID: 1},
+			{IPs: sets.New([]string{"192.168.0.1"}...), VRID: 0},
+			{IPs: sets.New([]string{"192.168.0.2"}...), VRID: 1},
+			{IPs: sets.New([]string{"10.0.0.1"}...), VRID: 0},
+			{IPs: sets.New([]string{"10.0.0.2"}...), VRID: 1},
 		}
 		err = manager.Sync(ipVRIDs)
 		if err != nil {
@@ -106,8 +108,8 @@ func TestIPManager(t *testing.T) {
 	t.Run("sync ip with invalid vrid", func(t *testing.T) {
 		// Test syncing VRRPs with invalid VRID
 		ipVRIDs := []vip.VRRP{
-			{IPs: []string{"192.168.0.3"}, VRID: -1},
-			{IPs: []string{"192.168.0.4"}, VRID: vip.VRIDMAXVALUE},
+			{IPs: sets.New([]string{"192.168.0.3"}...), VRID: -1},
+			{IPs: sets.New([]string{"192.168.0.4"}...), VRID: vip.VRIDMAXVALUE},
 		}
 		err = manager.Sync(ipVRIDs)
 		if err == nil {
@@ -118,7 +120,7 @@ func TestIPManager(t *testing.T) {
 	t.Run("sync ip with ip not found", func(t *testing.T) {
 		// Test syncing VRRPs with IP not found
 		ipVRIDs := []vip.VRRP{
-			{IPs: []string{"192.168.2.1"}, VRID: 0},
+			{IPs: sets.New([]string{"192.168.2.1"}...), VRID: 0},
 		}
 		err = manager.Sync(ipVRIDs)
 		if err == nil {
