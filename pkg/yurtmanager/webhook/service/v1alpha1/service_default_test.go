@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	viplb "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/viploadbalancer"
@@ -108,9 +107,7 @@ func TestDefault(t *testing.T) {
 			}
 			apis.AddToScheme(scheme)
 
-			var c client.Client
-
-			h := &ServiceHandler{Client: c}
+			h := &ServiceHandler{}
 			err := h.Default(context.TODO(), tc.service)
 			if tc.errHappened {
 				if err == nil {

@@ -27,13 +27,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
-	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
@@ -44,16 +41,12 @@ const (
 // SetupWebhookWithManager sets up Cluster webhooks. 	mutate path, validatepath, error
 func (webhook *ServiceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, string, error) {
 	// init
-	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.VipLoadBalancerController)
-
-	return util.RegisterWebhook(mgr, &v1alpha1.PoolService{}, webhook)
+	return util.RegisterWebhook(mgr, &corev1.Service{}, webhook)
 }
 
 // +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-service,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=services,verbs=create,versions=v1,name=mutate.core.v1.service.openyurt.io
 
 // Cluster implements a validating and defaulting webhook for Cluster.
-type ServiceHandler struct {
-	Client client.Client
-}
+type ServiceHandler struct{}
 
 var _ webhook.CustomDefaulter = &ServiceHandler{}
