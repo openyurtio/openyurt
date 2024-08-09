@@ -113,6 +113,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
           files: ./cover.out,./yurttunnel-cover.out
+          version: v0.6.0
           fail_ci_if_error: true
           verbose: true
   e2e-tests:
