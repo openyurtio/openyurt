@@ -37,6 +37,7 @@ import (
 	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1alpha1"
 	v1alpha2platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1alpha2"
 	v1alpha1pod "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/pod/v1alpha1"
+	v1alpha1service "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/service/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/controller"
 	v1alpha1yurtappdaemon "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/yurtappdaemon/v1alpha1"
@@ -83,6 +84,7 @@ func init() {
 
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}
 	independentWebhooks[v1alpha1pod.WebhookName] = &v1alpha1pod.PodHandler{}
+	independentWebhooks[v1alpha1service.WebhookName] = &v1alpha1service.ServiceHandler{}
 }
 
 // Note !!! @kadisi
