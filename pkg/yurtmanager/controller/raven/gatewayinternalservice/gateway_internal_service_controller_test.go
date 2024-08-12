@@ -21,11 +21,13 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -208,4 +211,84 @@ func TestReconcileService_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to reconcile service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService)
 	}
+}
+
+// func TestReconcileService_waitElectEndpoints(t *testing.T) {
+// 	r := MockReconcile()
+
+// 	gw := &ravenv1beta1.Gateway{}
+// 	err := r.Client.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gw)
+
+// 	if err != nil {
+// 		t.Fatalf("failed to get gateway: %v", err)
+// 	}
+// 	gw.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{}
+
+// 	err = r.Client.Update(context.Background(), gw)
+// 	if err != nil {
+// 		t.Fatalf("failed to update gateway: %v", err)
+// 	}
+
+// 	_, err = r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: util.GatewayProxyInternalService, Namespace: util.WorkingNamespace}})
+// 	if err != nil {
+// 		t.Errorf("failed to reconcile service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService)
+// 	}
+
+// 	r.Client.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gw)
+
+// 	if !assert.Equal(t, 1, len(gw.Status.ActiveEndpoints)) {
+// 		t.Errorf("failed to elect endpoints, expected %d, but get %d", 1, len(gw.Status.ActiveEndpoints))
+// 	}
+// }
+
+func TestReconcileService_cleanService(t *testing.T) {
+	r := MockReconcile()
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service",
+			Namespace: "default",
+		},
+	}
+	r.Client.Create(context.Background(), service)
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-service",
+			Namespace: "default",
+		},
+	}
+
+	err := r.cleanService(context.TODO(), req)
+	if err != nil {
+		t.Errorf("failed to delete service %s/%s", req.Namespace, req.Name)
+	}
+	svc := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), req.NamespacedName, svc)
+	assert.True(t, apierrs.IsNotFound(err), "expected Service to be deleted")
+}
+
+func TestReconcileService_cleanEndpoint(t *testing.T) {
+	r := MockReconcile()
+	endpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoint",
+			Namespace: "default",
+		},
+	}
+	r.Client.Create(context.Background(), endpoints)
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-endpoint",
+			Namespace: "default",
+		},
+	}
+
+	err := r.cleanEndpoint(context.TODO(), req)
+	assert.NoError(t, err, "expected no error")
+
+	// Check if the Endpoints was deleted
+	ep := &corev1.Endpoints{}
+	err = r.Client.Get(context.TODO(), req.NamespacedName, ep)
+	assert.True(t, apierrs.IsNotFound(err), "expected Endpoints to be deleted")
 }

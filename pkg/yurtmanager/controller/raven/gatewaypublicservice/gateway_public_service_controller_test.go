@@ -157,6 +157,10 @@ func MockReconcile() *ReconcileService {
 							Port:     ravenv1beta1.DefaultProxyServerExposedPort,
 							UnderNAT: false,
 						},
+						{
+							NodeName: Node1Name,
+							Type:     ravenv1beta1.Tunnel,
+						},
 					},
 					ExposeType: ravenv1beta1.ExposeTypeLoadBalancer,
 				},
@@ -184,6 +188,10 @@ func MockReconcile() *ReconcileService {
 							Port:     ravenv1beta1.DefaultProxyServerExposedPort,
 							UnderNAT: false,
 						},
+						{
+							NodeName: Node1Name,
+							Type:     ravenv1beta1.Tunnel,
+						},
 					},
 				},
 			},
@@ -209,6 +217,25 @@ func MockReconcile() *ReconcileService {
 func TestReconcileService_Reconcile(t *testing.T) {
 	r := MockReconcile()
 	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}})
+	if err != nil {
+		t.Errorf("failed to reconcile service %s", MockGateway)
+	}
+
+	cm := &corev1.ConfigMap{}
+	err = r.Client.Get(context.Background(), types.NamespacedName{Name: util.RavenGlobalConfig, Namespace: util.WorkingNamespace}, cm)
+
+	if err != nil {
+		t.Fatalf("failed to get ConfigMap: %v", err)
+	}
+	cm.Data[util.RavenEnableProxy] = "false"
+	cm.Data[util.RavenEnableTunnel] = "false"
+
+	err = r.Client.Update(context.Background(), cm)
+	if err != nil {
+		t.Fatalf("failed to update ConfigMap: %v", err)
+	}
+
+	_, err = r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}})
 	if err != nil {
 		t.Errorf("failed to reconcile service %s", MockGateway)
 	}
