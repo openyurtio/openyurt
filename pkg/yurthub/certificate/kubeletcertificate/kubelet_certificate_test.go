@@ -16,7 +16,14 @@ limitations under the License.
 
 package kubeletcertificate
 
-import "testing"
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestNewKubeletCertManager(t *testing.T) {
 	testcases := map[string]struct {
@@ -56,4 +63,63 @@ func TestNewKubeletCertManager(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStart tests the Start method of kubeletCertManager
+func TestStart(t *testing.T) {
+	kcm := &kubeletCertManager{}
+	kcm.Start()
+	// No assertion needed as Start method does nothing
+}
+
+// TestStop tests the Stop method of kubeletCertManager
+func TestStop(t *testing.T) {
+	kcm := &kubeletCertManager{}
+	kcm.Stop()
+	// No assertion needed as Stop method does nothing
+}
+
+// TestUpdateBootstrapConf tests the UpdateBootstrapConf method of kubeletCertManager
+func TestUpdateBootstrapConf(t *testing.T) {
+	kcm := &kubeletCertManager{}
+	err := kcm.UpdateBootstrapConf("test")
+	assert.NoError(t, err)
+}
+
+// TestGetHubConfFile tests the GetHubConfFile method of kubeletCertManager
+func TestGetHubConfFile(t *testing.T) {
+	expectedFile := "test.conf"
+	kcm := &kubeletCertManager{kubeConfFile: expectedFile}
+	file := kcm.GetHubConfFile()
+	assert.Equal(t, expectedFile, file)
+}
+
+// TestGetCAData tests the GetCAData method of kubeletCertManager
+func TestGetCAData(t *testing.T) {
+	expectedData := []byte("test")
+	kcm := &kubeletCertManager{caData: expectedData}
+	data := kcm.GetCAData()
+	assert.Equal(t, expectedData, data)
+}
+
+// TestGetCaFile tests the GetCaFile method of kubeletCertManager
+func TestGetCaFile(t *testing.T) {
+	expectedFile := "test.ca"
+	kcm := &kubeletCertManager{kubeletCAFile: expectedFile}
+	file := kcm.GetCaFile()
+	assert.Equal(t, expectedFile, file)
+}
+
+// TestGetAPIServerClientCert tests the GetAPIServerClientCert method of kubeletCertManager
+func TestGetAPIServerClientCert(t *testing.T) {
+	kcm := &kubeletCertManager{
+		kubeletPemFile: "test.pem",
+		cert: &tls.Certificate{
+			Leaf: &x509.Certificate{
+				NotAfter: time.Now().Add(time.Hour),
+			},
+		},
+	}
+	cert := kcm.GetAPIServerClientCert()
+	assert.NotNil(t, cert)
 }

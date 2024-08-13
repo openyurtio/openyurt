@@ -17,6 +17,7 @@ limitations under the License.
 package upgrader
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,4 +96,43 @@ func Test_genUpgradeManifest(t *testing.T) {
 		t.Fatalf("Fail to match file content")
 	}
 
+}
+
+func TestPreCheck(t *testing.T) {
+	fakeClientset := fake.NewSimpleClientset()
+
+	// Test Case 1: Successful PreCheck
+	t.Run("success", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: metav1.NamespaceDefault,
+				Name:      spctrlutil.WithConfigMapPrefix("nginx"),
+			},
+		}
+		_, err := fakeClientset.CoreV1().ConfigMaps(metav1.NamespaceDefault).Create(context.TODO(), cm, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("Failed to create configmap: %v", err)
+		}
+
+		ok, staticName, err := PreCheck("nginx-node", "node", metav1.NamespaceDefault, fakeClientset)
+		if err != nil || !ok || staticName != "nginx" {
+			t.Errorf("Expected success, got error: %v, ok: %v, staticName: %s", err, ok, staticName)
+		}
+	})
+
+	// Test Case 2: Pod Name Format Error
+	t.Run("pod_name_format_error", func(t *testing.T) {
+		ok, _, err := PreCheck("wrongformat", "node", metav1.NamespaceDefault, fakeClientset)
+		if err == nil || ok {
+			t.Errorf("Expected error due to wrong pod name format, got ok: %v, error: %v", ok, err)
+		}
+	})
+
+	// Test Case 3: ConfigMap NotFound Error
+	t.Run("configmap_not_found", func(t *testing.T) {
+		ok, _, err := PreCheck("missingpod-node", "node", metav1.NamespaceDefault, fakeClientset)
+		if err != nil || ok {
+			t.Errorf("Expected not found error, got ok: %v, error: %v", ok, err)
+		}
+	})
 }
