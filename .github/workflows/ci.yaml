@@ -107,12 +107,13 @@ jobs:
       - name: Publish Unit Test Coverage
         # only publish result in openyurt repo
         if: github.repository == 'openyurtio/openyurt'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
           files: ./cover.out,./yurttunnel-cover.out
+          version: v0.6.0
           fail_ci_if_error: true
           verbose: true
   e2e-tests:

@@ -14,4 +14,4 @@ organizations: ""
 image:
   registry: openyurt
   repository: yurthub
-  tag: v1.4.0
+  tag: ""
