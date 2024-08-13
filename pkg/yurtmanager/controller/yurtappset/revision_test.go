@@ -390,7 +390,7 @@ func TestCreateControllerRevision(t *testing.T) {
 			cli:       fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(cr2.DeepCopy()).Build(),
 		},
 		{
-			name: "create success with already exist and collison occurs",
+			name: "create success with already exist and collision occurs",
 			yas: &beta1.YurtAppSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-yurtappset",

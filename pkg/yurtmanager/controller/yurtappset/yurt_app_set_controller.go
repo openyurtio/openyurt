@@ -224,7 +224,7 @@ func (r *ReconcileYurtAppSet) Reconcile(_ context.Context, request reconcile.Req
 		return
 	}
 
-	// Conciliate workloads, udpate yas related workloads (deploy/sts)
+	// Conciliate workloads, update yas related workloads (deploy/sts)
 	// this may infect yas appdispatched/appupdated/appdeleted condition
 	expectedNps, curWorkloads, nErr := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
 	if nErr != nil {
@@ -439,15 +439,15 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 	return
 }
 
-func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expectedRevison *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
-	if err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevison, expectedNps, newStatus); err != nil {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSet(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, allRevisions []*apps.ControllerRevision, expectedRevision *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
+	if err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevision, expectedNps, newStatus); err != nil {
 		return err
 	}
 	return cleanRevisions(r.Client, yas, allRevisions)
 }
 
 // update yas status and clean unused revisions
-func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expectedRevison *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
+func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAppSet, curWorkloads []metav1.Object, expectedRevision *appsv1.ControllerRevision, expectedNps sets.Set[string], newStatus *unitv1beta1.YurtAppSetStatus) error {
 
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0
@@ -456,7 +456,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAp
 		if workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
 			readyWorkloads++
 		}
-		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevison.GetName() && workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
+		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevision.GetName() && workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
 			updatedWorkloads++
 		}
 	}
@@ -464,7 +464,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(yas *unitv1beta1.YurtAp
 	newStatus.ReadyWorkloads = int32(readyWorkloads)
 	newStatus.TotalWorkloads = int32(len(curWorkloads))
 	newStatus.UpdatedWorkloads = int32(updatedWorkloads)
-	newStatus.CurrentRevision = expectedRevison.GetName()
+	newStatus.CurrentRevision = expectedRevision.GetName()
 
 	if newStatus.TotalWorkloads == 0 {
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetAppReady, corev1.ConditionFalse, "NoWorkloadFound", ""))

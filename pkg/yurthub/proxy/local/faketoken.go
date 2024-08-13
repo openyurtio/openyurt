@@ -96,7 +96,7 @@ func writeRequestDirectly(w http.ResponseWriter, req *http.Request, data []byte,
 func getTokenRequestWithFakeToken(data []byte, info *apirequest.RequestInfo, req *http.Request, s *serializer.Serializer) (*authv1.TokenRequest, error) {
 	obj, err := s.Decode(data)
 	if err != nil || obj == nil {
-		return nil, errors.Errorf("decode reuqest with error %v", err)
+		return nil, errors.Errorf("decode request with error %v", err)
 	}
 	if tokenRequest, ok := obj.(*authv1.TokenRequest); ok {
 		token, err := getFakeToken(info.Namespace, info.Name)

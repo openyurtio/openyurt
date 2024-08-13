@@ -107,7 +107,7 @@ func getDefaultNodeConfigBytes() (string, error) {
 		"apiVersion":             "kubeadm.k8s.io/v1beta3",
 	}
 
-	kubeadmJoinTemplate, err := templates.SubsituteTemplate(constants.KubeadmJoinConf, ctx)
+	kubeadmJoinTemplate, err := templates.SubstituteTemplate(constants.KubeadmJoinConf, ctx)
 	if err != nil {
 		return "", err
 	}

@@ -33,7 +33,7 @@ const (
 	bridgenf   = "/proc/sys/net/bridge/bridge-nf-call-iptables"
 	bridgenf6  = "/proc/sys/net/bridge/bridge-nf-call-ip6tables"
 
-	kubernetsBridgeSetting = `
+	kubernetesBridgeSetting = `
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1`
 )
@@ -50,7 +50,7 @@ func SetIpv4Forward() error {
 // SetBridgeSetting turn on the node bridge-nf-call-iptables.
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
-	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetsBridgeSetting), 0644); err != nil {
+	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetesBridgeSetting), 0644); err != nil {
 		return fmt.Errorf("Write file %s fail: %w ", constants.SysctlK8sConfig, err)
 	}
 

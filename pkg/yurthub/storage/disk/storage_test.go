@@ -1136,7 +1136,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 
 	Context("Test SaveClusterInfo", func() {
 		It("should create new version content if it does not exists", func() {
-			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
 				UrlPath:         "/version",
 			}, []byte(versionJSONBytes))
@@ -1150,7 +1150,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			path := filepath.Join(baseDir, string(storage.Version))
 			err = writeFileAt(path, []byte(versionJSONBytes))
 			Expect(err).To(BeNil())
-			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
 				UrlPath:         "/version",
 			}, newVersionBytes)
@@ -1160,7 +1160,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(buf).To(Equal([]byte(newVersionBytes)))
 		})
 		It("should return ErrUnknownClusterInfoType if it is unknown ClusterInfoType", func() {
-			err = store.SaveClusterInfo(storage.ClusterInfoKey{
+			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Unknown,
 			}, nil)
 			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))
@@ -1173,7 +1173,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			path := filepath.Join(baseDir, string(storage.Version))
 			err = writeFileAt(path, []byte(versionJSONBytes))
 			Expect(err).To(BeNil())
-			buf, err := store.GetClusterInfo(storage.ClusterInfoKey{
+			buf, err := store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
 				UrlPath:         "/version",
 			})
@@ -1181,14 +1181,14 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(buf).To(Equal([]byte(versionJSONBytes)))
 		})
 		It("should return ErrStorageNotFound if version info has not been cached", func() {
-			_, err = store.GetClusterInfo(storage.ClusterInfoKey{
+			_, err = store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
 				UrlPath:         "/version",
 			})
 			Expect(err).To(Equal(storage.ErrStorageNotFound))
 		})
 		It("should return ErrUnknownClusterInfoType if it is unknown ClusterInfoType", func() {
-			_, err = store.GetClusterInfo(storage.ClusterInfoKey{
+			_, err = store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Unknown,
 			})
 			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))

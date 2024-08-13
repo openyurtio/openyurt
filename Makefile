@@ -18,8 +18,9 @@ GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
 GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
 TARGET_PLATFORMS ?= linux/amd64
+BRANCH_TAG = $(shell git describe --abbrev=0 --tags)
 IMAGE_REPO ?= openyurt
-IMAGE_TAG ?= $(shell git describe --abbrev=0 --tags)
+IMAGE_TAG ?= $(BRANCH_TAG)
 GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 BUILD_KUSTOMIZE ?= _output/manifest
@@ -32,15 +33,13 @@ ifeq ($(ARCH),x86_64)
 	ARCH := amd64
 endif
 
-ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
-GIT_VERSION=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
-else
-GIT_VERSION=$(IMAGE_TAG)
+ifeq ($(IMAGE_TAG),$(BRANCH_TAG))
+	ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
+		IMAGE_TAG :=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
+	endif
 endif
 
-ifneq ($(IMAGE_TAG), $(shell git describe --abbrev=0 --tags))
-GIT_VERSION=$(IMAGE_TAG)
-endif
+GIT_VERSION := $(IMAGE_TAG)
 
 DOCKER_BUILD_ARGS = --build-arg GIT_VERSION=${GIT_VERSION}
 
@@ -75,13 +74,16 @@ HELM_VERSION ?= v3.9.3
 HELM ?= $(LOCALBIN)/helm
 HELM_BINARY_URL := https://get.helm.sh/helm-$(HELM_VERSION)-$(OS)-$(ARCH).tar.gz
 
-.PHONY: clean all build test
+.PHONY: clean all build test print-version
 
 all: test build
 
+print-version:
+	@echo "GIT_VERSION is $(GIT_VERSION), IMAGE_TAG is $(IMAGE_TAG)"
+
 # Build binaries in the host environment
 build:
-	GOPROXY=$(GOPROXY) bash hack/make-rules/build.sh $(WHAT)
+	GOPROXY=$(GOPROXY) GIT_VERSION=$(GIT_VERSION) bash hack/make-rules/build.sh $(WHAT)
 
 # Run test
 test:
@@ -101,7 +103,7 @@ verify_manifests:
 verify-license:
 	hack/make-rules/check_license.sh
 
-# verify-mod will check if go.mod has beed tidied.
+# verify-mod will check if go.mod has been tidied.
 verify-mod:
 	hack/make-rules/verify_mod.sh
 
@@ -168,7 +170,7 @@ lint: install-golint ## Run go lint against code.
 #     - build with proxy, maybe useful for Chinese users
 #       $# REGION=cn make docker-build
 docker-build:
-	TARGET_PLATFORMS=${TARGET_PLATFORMS} hack/make-rules/image_build.sh	$(WHAT)
+	TARGET_PLATFORMS=${TARGET_PLATFORMS} IMAGE_REPO=$(IMAGE_REPO) IMAGE_TAG=$(IMAGE_TAG) GIT_VERSION=$(GIT_VERSION) hack/make-rules/image_build.sh $(WHAT)
 
 
 # Build and Push the docker images with multi-arch
@@ -185,22 +187,22 @@ docker-buildx-builder:
 	docker run --rm --privileged tonistiigi/binfmt --install all
 
 docker-push-yurthub: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurthub . -t ${IMAGE_REPO}/yurthub:${IMAGE_TAG}
 
 docker-push-node-servant: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.node-servant . -t ${IMAGE_REPO}/node-servant:${IMAGE_TAG}
 
 docker-push-yurt-manager: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-manager . -t ${IMAGE_REPO}/yurt-manager:${IMAGE_TAG}
 
 docker-push-yurt-tunnel-server: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-server . -t ${IMAGE_REPO}/yurt-tunnel-server:${IMAGE_TAG}
 
 docker-push-yurt-tunnel-agent: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-tunnel-agent . -t ${IMAGE_REPO}/yurt-tunnel-agent:${IMAGE_TAG}
 
 docker-push-yurt-iot-dock: docker-buildx-builder
-	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-iot-dock . -t ${IMAGE_REPO}/yurt-iot-dock:${GIT_VERSION}
+	docker buildx build --no-cache --push ${DOCKER_BUILD_ARGS}  --platform ${TARGET_PLATFORMS} -f hack/dockerfiles/release/Dockerfile.yurt-iot-dock . -t ${IMAGE_REPO}/yurt-iot-dock:${IMAGE_TAG}
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

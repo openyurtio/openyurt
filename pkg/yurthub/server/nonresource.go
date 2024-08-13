@@ -59,7 +59,7 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 
 func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := storage.ClusterInfoKey{
+		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
 			UrlPath:         path,
 		}
@@ -91,7 +91,7 @@ func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManag
 
 func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key := storage.ClusterInfoKey{
+		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
 			UrlPath:         path,
 		}

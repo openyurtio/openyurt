@@ -83,7 +83,7 @@ func EnsureDir(dirname string) error {
 	return os.MkdirAll(dirname, 0755)
 }
 
-// CopyFile copys sourceFile to destinationFile
+// CopyFile copies sourceFile to destinationFile
 func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error {
 	content, err := os.ReadFile(sourceFile)
 	if err != nil {

@@ -813,7 +813,7 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 			}
 
 			if len(list.Items) != len(tt.expectD.data) {
-				t.Errorf("Got %d pods, but exepect %d pods", len(list.Items), len(tt.expectD.data))
+				t.Errorf("Got %d pods, but expect %d pods", len(list.Items), len(tt.expectD.data))
 			}
 
 			for i := range list.Items {

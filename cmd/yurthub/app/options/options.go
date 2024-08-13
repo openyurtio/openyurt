@@ -107,7 +107,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		HeartbeatTimeoutSeconds:   2,
 		HeartbeatIntervalSeconds:  10,
 		MaxRequestInFlight:        250,
-		BootstrapMode:             certificate.TokenBoostrapMode,
+		BootstrapMode:             certificate.TokenBootstrapMode,
 		RootDir:                   filepath.Join("/var/lib/", projectinfo.GetHubName()),
 		EnableProfiling:           true,
 		EnableDummyIf:             true,

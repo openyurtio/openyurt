@@ -19,6 +19,7 @@ package cachemanager
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,23 +45,28 @@ type StorageWrapper interface {
 	ListResourceKeysOfComponent(component string, gvr schema.GroupVersionResource) ([]storage.Key, error)
 	ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key]runtime.Object) error
 	DeleteComponentResources(component string) error
-	SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error
-	GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error)
+	SaveClusterInfo(key storage.Key, content []byte) error
+	GetClusterInfo(key storage.Key) ([]byte, error)
 	GetStorage() storage.Store
+	GetCacheResult() (int, string)
 }
 
 type storageWrapper struct {
 	sync.RWMutex
 	store             storage.Store
+	errorKeys         *errorKeys
 	backendSerializer runtime.Serializer
 }
 
 // NewStorageWrapper create a StorageWrapper object
 func NewStorageWrapper(storage storage.Store) StorageWrapper {
-	return &storageWrapper{
+	sw := &storageWrapper{
 		store:             storage,
+		errorKeys:         NewErrorKeys(),
 		backendSerializer: json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 	}
+	sw.errorKeys.recover()
+	return sw
 }
 
 func (sw *storageWrapper) Name() string {
@@ -75,6 +81,10 @@ func (sw *storageWrapper) GetStorage() storage.Store {
 	return sw.store
 }
 
+func (sw *storageWrapper) GetCacheResult() (int, string) {
+	return sw.errorKeys.length(), sw.errorKeys.aggregate()
+}
+
 // Create store runtime object into backend storage
 // if obj is nil, the storage used to represent the key
 // will be created. for example: for disk storage,
@@ -83,21 +93,30 @@ func (sw *storageWrapper) Create(key storage.Key, obj runtime.Object) error {
 	var buf bytes.Buffer
 	if obj != nil {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
+			sw.errorKeys.put(key.Key(), err.Error())
 			klog.Errorf("could not encode object in create for %s, %v", key.Key(), err)
 			return err
 		}
 	}
 
 	if err := sw.store.Create(key, buf.Bytes()); err != nil {
+		sw.errorKeys.put(key.Key(), err.Error())
 		return err
 	}
 
+	sw.errorKeys.del(key.Key())
 	return nil
 }
 
 // Delete remove runtime object that by specified key from backend storage
 func (sw *storageWrapper) Delete(key storage.Key) error {
-	return sw.store.Delete(key)
+	err := sw.store.Delete(key)
+	if err != nil {
+		sw.errorKeys.put(key.Key(), fmt.Sprintf("failed to delete, %v", err.Error()))
+		return err
+	}
+	sw.errorKeys.del(key.Key())
+	return nil
 }
 
 // Get get the runtime object that specified by key from backend storage
@@ -108,11 +127,13 @@ func (sw *storageWrapper) Get(key storage.Key) (runtime.Object, error) {
 	} else if len(b) == 0 {
 		return nil, nil
 	}
+
 	//get the gvk from json data
 	gvk, err := json.DefaultMetaFactory.Interpret(b)
 	if err != nil {
 		return nil, err
 	}
+
 	var UnstructuredObj runtime.Object
 	if scheme.Scheme.Recognizes(*gvk) {
 		UnstructuredObj = nil
@@ -175,21 +196,27 @@ func (sw *storageWrapper) List(key storage.Key) ([]runtime.Object, error) {
 func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
 	var buf bytes.Buffer
 	if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
+		sw.errorKeys.put(key.Key(), err.Error())
 		klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
 		return nil, err
 	}
 
 	if buf, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
-		if err == storage.ErrUpdateConflict {
+		if err == storage.ErrStorageNotFound {
+			return nil, err
+		} else if err == storage.ErrUpdateConflict {
 			obj, _, dErr := sw.backendSerializer.Decode(buf, nil, nil)
 			if dErr != nil {
+				sw.errorKeys.put(key.Key(), err.Error())
 				return nil, fmt.Errorf("could not decode existing obj of key %s, %v", key.Key(), dErr)
 			}
+			sw.errorKeys.put(key.Key(), err.Error())
 			return obj, err
 		}
+		sw.errorKeys.put(key.Key(), err.Error())
 		return nil, err
 	}
-
+	sw.errorKeys.del(key.Key())
 	return obj, nil
 }
 
@@ -198,6 +225,9 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 	contents := make(map[storage.Key][]byte, len(objs))
 	for key, obj := range objs {
 		if err := sw.backendSerializer.Encode(obj, &buf); err != nil {
+			for k := range objs {
+				sw.errorKeys.put(k.Key(), err.Error())
+			}
 			klog.Errorf("could not encode object in update for %s, %v", key.Key(), err)
 			return err
 		}
@@ -206,18 +236,43 @@ func (sw *storageWrapper) ReplaceComponentList(component string, gvr schema.Grou
 		buf.Reset()
 	}
 
-	return sw.store.ReplaceComponentList(component, gvr, namespace, contents)
+	err := sw.store.ReplaceComponentList(component, gvr, namespace, contents)
+	if err != nil {
+		for key := range objs {
+			sw.errorKeys.put(key.Key(), err.Error())
+		}
+		return err
+	}
+	for key := range objs {
+		sw.errorKeys.del(key.Key())
+	}
+	return nil
 }
 
 // DeleteCollection will delete all objects under rootKey
 func (sw *storageWrapper) DeleteComponentResources(component string) error {
-	return sw.store.DeleteComponentResources(component)
+	err := sw.store.DeleteComponentResources(component)
+	if err != nil {
+		return err
+	}
+	for key := range sw.errorKeys.keys {
+		if strings.HasPrefix(key, component+"/") {
+			sw.errorKeys.del(key)
+		}
+	}
+	return nil
 }
 
-func (sw *storageWrapper) SaveClusterInfo(key storage.ClusterInfoKey, content []byte) error {
-	return sw.store.SaveClusterInfo(key, content)
+func (sw *storageWrapper) SaveClusterInfo(key storage.Key, content []byte) error {
+	err := sw.store.SaveClusterInfo(key, content)
+	if err != nil {
+		sw.errorKeys.put(key.Key(), fmt.Sprintf("failed to store cluster info, %v", err.Error()))
+		return err
+	}
+	sw.errorKeys.del(key.Key())
+	return nil
 }
 
-func (sw *storageWrapper) GetClusterInfo(key storage.ClusterInfoKey) ([]byte, error) {
+func (sw *storageWrapper) GetClusterInfo(key storage.Key) ([]byte, error) {
 	return sw.store.GetClusterInfo(key)
 }

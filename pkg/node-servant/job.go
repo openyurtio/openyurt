@@ -50,7 +50,7 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 
 	tmplCtx["jobName"] = jobBaseName + "-" + nodeName
 	tmplCtx["nodeName"] = nodeName
-	jobYaml, err := tmplutil.SubsituteTemplate(servantJobTemplate, tmplCtx)
+	jobYaml, err := tmplutil.SubstituteTemplate(servantJobTemplate, tmplCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 		keysMustHave := []string{"node_servant_image"}
 		return checkKeys(keysMustHave, tmplCtx)
 	default:
-		return fmt.Errorf("action invalied: %s ", action)
+		return fmt.Errorf("action invalid: %s ", action)
 	}
 }
 

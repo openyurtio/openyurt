@@ -85,7 +85,7 @@ func TestLocalCacheHandler(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			key := storage.ClusterInfoKey{
+			key := &storage.ClusterInfoKey{
 				ClusterInfoType: nonResourceReqPaths[tt.path],
 				UrlPath:         tt.path,
 			}

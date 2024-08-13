@@ -117,8 +117,8 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.YurtAppDaemonController),
 		controls: map[unitv1alpha1.TemplateType]workloadcontroller.WorkloadController{
-			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetControllor{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), scheme: mgr.GetScheme()},
-			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentControllor{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), Scheme: mgr.GetScheme()},
+			//			unitv1alpha1.StatefulSetTemplateType: &StatefulSetController{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), scheme: mgr.GetScheme()},
+			unitv1alpha1.DeploymentTemplateType: &workloadcontroller.DeploymentController{Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppDaemonController), Scheme: mgr.GetScheme()},
 		},
 	}
 }
@@ -440,15 +440,15 @@ func (r *ReconcileYurtAppDaemon) getNameToNodePools(instance *unitv1alpha1.YurtA
 		return nil, nil
 	}
 
-	indexs := make(map[string]unitv1alpha1.NodePool)
+	indices := make(map[string]unitv1alpha1.NodePool)
 	for i, v := range nodepools.Items {
-		indexs[v.GetName()] = v
+		indices[v.GetName()] = v
 		klog.V(4).Infof("YurtAppDaemon [%s/%s] get %d's associated nodepools %s",
 			instance.Namespace, instance.Name, i, v.Name)
 
 	}
 
-	return indexs, nil
+	return indices, nil
 }
 
 func (r *ReconcileYurtAppDaemon) getTemplateControls(instance *unitv1alpha1.YurtAppDaemon) (workloadcontroller.WorkloadController,

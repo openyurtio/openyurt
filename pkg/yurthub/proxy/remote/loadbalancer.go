@@ -200,7 +200,7 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// If pool-scoped resource request is from leader-yurthub, it should always be sent to the cloud APIServer.
 	// Thus we do not need to start a check routine for it. But for other requests, we need to periodically check
 	// the yurt-coordinator status, and switch the traffic to yurt-coordinator if it is ready.
-	if util.IsPoolScopedResouceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
+	if util.IsPoolScopedResourceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
 		// We get here possibly because the yurt-coordinator is not ready.
 		// We should cancel the watch request when yurt-coordinator becomes ready.
 		klog.Infof("yurt-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))

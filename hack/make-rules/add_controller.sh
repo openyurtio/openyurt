@@ -433,7 +433,7 @@ type Reconcile${KIND_FIRST_UPPER} struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
-	Configration config.${KIND_FIRST_UPPER}ControllerConfiguration
+	Configuration config.${KIND_FIRST_UPPER}ControllerConfiguration
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -442,7 +442,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(controllerName),
-        Configration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller,
+        Configuration: c.ComponentConfig.${KIND_FIRST_UPPER}Controller,
 	}
 }
 

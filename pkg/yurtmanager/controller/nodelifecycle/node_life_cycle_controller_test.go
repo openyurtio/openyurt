@@ -32,6 +32,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	testcore "k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -2983,7 +2984,7 @@ func TestTaintsNodeByCondition(t *testing.T) {
 	for _, test := range tests {
 		_, err := fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, test.Node, metav1.UpdateOptions{})
 		if err != nil {
-			t.Errorf("unxpected error %v", err)
+			t.Errorf("unexpected error %v", err)
 		}
 		//if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
 		//	t.Errorf("unexpected error: %v", err)
@@ -3449,6 +3450,79 @@ func TestTryUpdateNodeHealth(t *testing.T) {
 				t.Errorf("expected %v, got %v", savedStatus, currentStatus)
 			}
 		})
+	}
+}
+func TestPodProcessing(t *testing.T) {
+	fakeNow := metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC)
+	table := []struct {
+		nodes []*v1.Node
+		pods  *v1.PodList
+	}{
+		{
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "node0",
+						CreationTimestamp: metav1.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC),
+					},
+					Status: v1.NodeStatus{
+						Conditions: []v1.NodeCondition{
+							{
+								Type:   v1.NodeReady,
+								Status: v1.ConditionFalse,
+								// Node status has just been updated.
+								LastHeartbeatTime:  fakeNow,
+								LastTransitionTime: fakeNow,
+							},
+						},
+					},
+				},
+			},
+			pods: &v1.PodList{Items: []v1.Pod{*testutil.NewPod("pod0", "node0")}},
+		},
+	}
+	for _, item := range table {
+		fakeNodeHandler := testutil.NewImprovedFakeNodeHandler(item.nodes, item.pods)
+		nodeController, _ := newNodeLifecycleControllerFromClient(
+			context.TODO(),
+			fakeNodeHandler,
+			testRateLimiterQPS,
+			testRateLimiterQPS,
+			testLargeClusterThreshold,
+			testUnhealthyThreshold,
+			testNodeMonitorGracePeriod,
+			testNodeStartupGracePeriod,
+			testNodeMonitorPeriod,
+		)
+
+		for _, node := range item.nodes {
+
+			nodeController.nodeHealthMap.set(node.Name, &nodeHealthData{
+				status:                   &node.Status,
+				probeTimestamp:           node.CreationTimestamp,
+				readyTransitionTimestamp: node.CreationTimestamp,
+			})
+		}
+		nodeController.now = func() metav1.Time { return fakeNow }
+		nodeController.recorder = testutil.NewFakeRecorder()
+		nodeController.podUpdateQueue.Add(podUpdateItem{
+			namespace: "default",
+			name:      "pod0",
+		})
+		nodeController.podUpdateQueue.ShutDown()
+
+		nodeController.doPodProcessingWorker(context.TODO())
+
+		pod := new(v1.Pod)
+		err := nodeController.controllerRuntimeClient.Get(context.TODO(), types.NamespacedName{Namespace: "default", Name: "pod0"}, pod)
+		if err != nil {
+			t.Errorf("fail to get updated pod")
+		}
+		actualCondition := pod.Status.Conditions[0].Status
+
+		if actualCondition != v1.ConditionFalse {
+			t.Errorf("fail to update pod:%s condition, expected value %q, got value %q", pod.Name, v1.ConditionFalse, actualCondition)
+		}
 	}
 }
 

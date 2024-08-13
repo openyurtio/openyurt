@@ -16,14 +16,9 @@ limitations under the License.
 
 package storage
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
-
-type ClusterInfoKey struct {
-	ClusterInfoType
-	UrlPath string
-}
-
-type ClusterInfoType string
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 const (
 	Version          ClusterInfoType = "version"
@@ -45,10 +40,10 @@ type Store interface {
 type clusterInfoHandler interface {
 	// SaveClusterInfo will save content of cluster info into storage.
 	// If the content has already existed in the storage, it will be overwritten with content.
-	SaveClusterInfo(key ClusterInfoKey, content []byte) error
+	SaveClusterInfo(key Key, content []byte) error
 	// GetClusterInfo will get the cluster info of clusterInfoType from storage.
 	// If the cluster info is not found in the storage, return ErrStorageNotFound.
-	GetClusterInfo(key ClusterInfoKey) ([]byte, error)
+	GetClusterInfo(key Key) ([]byte, error)
 }
 
 // objectRelatedHandler contains functions for manipulating resource objects in the format of key-value

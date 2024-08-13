@@ -133,11 +133,11 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 			It(fmt.Sprintf("The %s version of PlatformAdmin should be stable in ready state after it is created", version), func() {
 				By("verify the status of platformadmin")
 				Eventually(func() error {
-					testPlatfromAdmin := &iotv1alpha2.PlatformAdmin{}
-					if err := k8sClient.Get(ctx, types.NamespacedName{Name: platformAdminName, Namespace: namespaceName}, testPlatfromAdmin); err != nil {
+					testPlatformAdmin := &iotv1alpha2.PlatformAdmin{}
+					if err := k8sClient.Get(ctx, types.NamespacedName{Name: platformAdminName, Namespace: namespaceName}, testPlatformAdmin); err != nil {
 						return err
 					}
-					if testPlatfromAdmin.Status.Ready == true {
+					if testPlatformAdmin.Status.Ready == true {
 						return nil
 					} else {
 						return fmt.Errorf("The %s version of PlatformAdmin is not ready", version)

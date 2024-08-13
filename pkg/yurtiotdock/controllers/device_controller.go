@@ -184,7 +184,7 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 		}
 	} else {
 		klog.V(4).ErrorS(err, "could not visit the edge platform")
-		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceVistedCoreMetadataSyncedReason, ""))
+		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceVisitedCoreMetadataSyncedReason, ""))
 		return nil
 	}
 	d.Status = *newDeviceStatus

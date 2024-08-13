@@ -262,7 +262,7 @@ func toKubeProtocols(
 	return ret
 }
 
-// toKubeDeviceProfile create DeviceProfile in cloud according to devicProfile in edge
+// toKubeDeviceProfile create DeviceProfile in cloud according to deviceProfile in edge
 func toKubeDeviceProfile(dp *dtos.DeviceProfile, namespace string) iotv1alpha1.DeviceProfile {
 	return iotv1alpha1.DeviceProfile{
 		ObjectMeta: metav1.ObjectMeta{
@@ -392,7 +392,7 @@ func toKubeProfileProperty(rp dtos.ResourceProperties) iotv1alpha1.ResourcePrope
 	}
 }
 
-// toEdgeXDeviceProfile create DeviceProfile in edge according to devicProfile in cloud
+// toEdgeXDeviceProfile create DeviceProfile in edge according to deviceProfile in cloud
 func toEdgeXDeviceProfile(dp *iotv1alpha1.DeviceProfile) dtos.DeviceProfile {
 	return dtos.DeviceProfile{
 		DeviceProfileBasicInfo: dtos.DeviceProfileBasicInfo{

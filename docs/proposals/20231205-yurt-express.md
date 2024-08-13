@@ -141,7 +141,7 @@ type Tunnel interface {
     Send(id string, reader common.Reader) error
     // Start start receive
     Start(stopCh <-chan struct{}) error
-    // Register regiter a function to receive data
+    // Register register a function to receive data
     Register(handler func(id string, reader common.Reader))
 }
 
@@ -197,7 +197,7 @@ type WaveManager struct {
   compress at edge-tunnel-agent and decompress at edge-tunnel-server
 ```go
 type Compressor interface {
-    // Compress generat an Compressed package and return package key
+    // Compress generate a Compressed package and return package key
     Compress([]*common.Message) (string, error)
     // GetCompressed get compressed package Reader with giving package key
     GetCompressed(string) (common.Reader, error)

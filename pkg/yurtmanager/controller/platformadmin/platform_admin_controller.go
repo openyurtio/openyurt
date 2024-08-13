@@ -35,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -46,10 +47,9 @@ import (
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	util "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/utils"
 )
@@ -107,7 +107,7 @@ type ReconcilePlatformAdmin struct {
 	scheme         *runtime.Scheme
 	recorder       record.EventRecorder
 	yamlSerializer *kjson.Serializer
-	Configration   config.PlatformAdminControllerConfiguration
+	Configuration  config.PlatformAdminControllerConfiguration
 }
 
 var _ reconcile.Reconciler = &ReconcilePlatformAdmin{}
@@ -131,7 +131,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 		scheme:         mgr.GetScheme(),
 		recorder:       mgr.GetEventRecorderFor(names.PlatformAdminController),
 		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
-		Configration:   c.ComponentConfig.PlatformAdminController,
+		Configuration:  c.ComponentConfig.PlatformAdminController,
 	}
 }
 
@@ -163,7 +163,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.YurtAppSet{}),
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.YurtAppSet{}),
 		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 
 func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin) (reconcile.Result, error) {
 	klog.V(4).Infof(Format("ReconcileDelete PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
-	yas := &appsv1alpha1.YurtAppSet{}
+	yas := &appsv1beta1.YurtAppSet{}
 
 	platformAdminFramework, err := r.readFramework(ctx, platformAdmin)
 	if err != nil {
@@ -271,12 +271,31 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 
 		oldYas := yas.DeepCopy()
 
-		for i, pool := range yas.Spec.Topology.Pools {
-			if pool.Name == platformAdmin.Spec.PoolName {
-				yas.Spec.Topology.Pools[i] = yas.Spec.Topology.Pools[len(yas.Spec.Topology.Pools)-1]
-				yas.Spec.Topology.Pools = yas.Spec.Topology.Pools[:len(yas.Spec.Topology.Pools)-1]
+		newPools := make([]string, 0)
+		for _, poolName := range yas.Spec.Pools {
+			if poolName != platformAdmin.Spec.PoolName {
+				newPools = append(newPools, poolName)
 			}
 		}
+		yas.Spec.Pools = newPools
+
+		newTweaks := make([]appsv1beta1.WorkloadTweak, 0)
+		for _, tweak := range yas.Spec.Workload.WorkloadTweaks {
+			newTweakPools := make([]string, 0)
+			for _, poolName := range tweak.Pools {
+				if poolName != platformAdmin.Spec.PoolName {
+					newTweakPools = append(newTweakPools, poolName)
+				}
+			}
+			if len(newTweakPools) > 0 {
+				newTweaks = append(newTweaks, appsv1beta1.WorkloadTweak{
+					Pools:  newTweakPools,
+					Tweaks: tweak.Tweaks,
+				})
+			}
+		}
+		yas.Spec.Workload.WorkloadTweaks = newTweaks
+
 		if err := r.Client.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
 			klog.V(4).ErrorS(err, Format("Patch YurtAppSet %s/%s error", platformAdmin.Namespace, dc.Name))
 			return reconcile.Result{}, err
@@ -413,7 +432,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 		}
 		readyService = true
 
-		yas := &appsv1alpha1.YurtAppSet{
+		yas := &appsv1beta1.YurtAppSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      desiredComponent.Name,
 				Namespace: platformAdmin.Namespace,
@@ -440,33 +459,34 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			// Refresh the YurtAppSet according to the user-defined configuration
 			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
 
-			if _, ok := yas.Status.PoolReplicas[platformAdmin.Spec.PoolName]; ok {
-				if yas.Status.ReadyReplicas == yas.Status.Replicas {
+			if slices.Contains(yas.Spec.Pools, platformAdmin.Spec.PoolName) {
+				if yas.Status.ReadyWorkloads == yas.Status.TotalWorkloads {
 					readyDeployment = true
 					if readyDeployment && readyService {
 						readyComponent++
 					}
 				}
 			}
-			pool := appsv1alpha1.Pool{
-				Name:     platformAdmin.Spec.PoolName,
-				Replicas: pointer.Int32(1),
+
+			pools := []string{platformAdmin.Spec.PoolName}
+			tweaks := []appsv1beta1.WorkloadTweak{
+				{
+					Pools: []string{platformAdmin.Spec.PoolName},
+					Tweaks: appsv1beta1.Tweaks{
+						Replicas: pointer.Int32(1),
+					},
+				},
 			}
-			pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
-				corev1.NodeSelectorRequirement{
-					Key:      projectinfo.GetNodePoolLabel(),
-					Operator: corev1.NodeSelectorOpIn,
-					Values:   []string{platformAdmin.Spec.PoolName},
-				})
 			flag := false
-			for _, up := range yas.Spec.Topology.Pools {
-				if up.Name == pool.Name {
+			for _, name := range yas.Spec.Pools {
+				if name == platformAdmin.Spec.PoolName {
 					flag = true
 					break
 				}
 			}
 			if !flag {
-				yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
+				yas.Spec.Pools = append(yas.Spec.Pools, pools...)
+				yas.Spec.Workload.WorkloadTweaks = append(yas.Spec.Workload.WorkloadTweaks, tweaks...)
 			}
 			if err := controllerutil.SetOwnerReference(platformAdmin, yas, r.Scheme()); err != nil {
 				return false, err
@@ -489,7 +509,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 	}
 
 	// Remove the yurtappset owner that we do not need
-	yurtappsetlist := &appsv1alpha1.YurtAppSetList{}
+	yurtappsetlist := &appsv1beta1.YurtAppSetList{}
 	if err := r.List(ctx, yurtappsetlist, client.InNamespace(platformAdmin.Namespace), client.MatchingLabels{iotv1alpha2.LabelPlatformAdminGenerate: LabelDeployment}); err == nil {
 		for _, s := range yurtappsetlist.Items {
 			if _, ok := needComponents[s.Name]; !ok {
@@ -535,7 +555,7 @@ func (r *ReconcilePlatformAdmin) handleService(ctx context.Context, platformAdmi
 	return service, nil
 }
 
-func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*appsv1alpha1.YurtAppSet, error) {
+func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformAdmin *iotv1alpha2.PlatformAdmin, component *config.Component) (*appsv1beta1.YurtAppSet, error) {
 	// It is possible that the component does not need deployment.
 	// Therefore, you need to be careful when calling this function.
 	// It is still possible for deployment to be nil when there is no error!
@@ -543,40 +563,37 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 		return nil, nil
 	}
 
-	yas := &appsv1alpha1.YurtAppSet{
+	yas := &appsv1beta1.YurtAppSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 			Name:        component.Name,
 			Namespace:   platformAdmin.Namespace,
 		},
-		Spec: appsv1alpha1.YurtAppSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": component.Name},
-			},
-			WorkloadTemplate: appsv1alpha1.WorkloadTemplate{
-				DeploymentTemplate: &appsv1alpha1.DeploymentTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"app": component.Name},
+		Spec: appsv1beta1.YurtAppSetSpec{
+			Workload: appsv1beta1.Workload{
+				WorkloadTemplate: appsv1beta1.WorkloadTemplate{
+					DeploymentTemplate: &appsv1beta1.DeploymentTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": component.Name},
+						},
+						Spec: *component.Deployment,
 					},
-					Spec: *component.Deployment,
 				},
 			},
 		},
 	}
 
 	yas.Labels[iotv1alpha2.LabelPlatformAdminGenerate] = LabelDeployment
-	pool := appsv1alpha1.Pool{
-		Name:     platformAdmin.Spec.PoolName,
-		Replicas: pointer.Int32(1),
+	yas.Spec.Pools = []string{platformAdmin.Spec.PoolName}
+	yas.Spec.Workload.WorkloadTweaks = []appsv1beta1.WorkloadTweak{
+		{
+			Pools: []string{platformAdmin.Spec.PoolName},
+			Tweaks: appsv1beta1.Tweaks{
+				Replicas: pointer.Int32(1),
+			},
+		},
 	}
-	pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
-		corev1.NodeSelectorRequirement{
-			Key:      projectinfo.GetNodePoolLabel(),
-			Operator: corev1.NodeSelectorOpIn,
-			Values:   []string{platformAdmin.Spec.PoolName},
-		})
-	yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
 	if err := controllerutil.SetControllerReference(platformAdmin, yas, r.Scheme()); err != nil {
 		return nil, err
 	}
@@ -769,10 +786,10 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	// Use standard configurations to build the framework
 	platformAdminFramework.security = platformAdmin.Spec.Security
 	if platformAdminFramework.security {
-		platformAdminFramework.ConfigMaps = r.Configration.SecurityConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.ConfigMaps = r.Configuration.SecurityConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	} else {
-		platformAdminFramework.ConfigMaps = r.Configration.NoSectyConfigMaps[platformAdmin.Spec.Version]
+		platformAdminFramework.ConfigMaps = r.Configuration.NoSectyConfigMaps[platformAdmin.Spec.Version]
 		r.calculateDesiredComponents(platformAdmin, platformAdminFramework, nil)
 	}
 
@@ -814,7 +831,7 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	desiredComponents := []*config.Component{}
 
 	// Find all the required components from spec and manifest
-	requiredComponentSet := config.ExtractRequiredComponentsName(&r.Configration.Manifest, platformAdmin.Spec.Version)
+	requiredComponentSet := config.ExtractRequiredComponentsName(&r.Configuration.Manifest, platformAdmin.Spec.Version)
 	for _, component := range platformAdmin.Spec.Components {
 		requiredComponentSet.Insert(component.Name)
 	}
@@ -842,13 +859,13 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	// If a component needs to be added,
 	// check whether the corresponding template exists in the standard configuration library
 	if platformAdmin.Spec.Security {
-		for _, component := range r.Configration.SecurityComponents[platformAdmin.Spec.Version] {
+		for _, component := range r.Configuration.SecurityComponents[platformAdmin.Spec.Version] {
 			if addedComponentSet.Has(component.Name) {
 				desiredComponents = append(desiredComponents, component)
 			}
 		}
 	} else {
-		for _, component := range r.Configration.NoSectyComponents[platformAdmin.Spec.Version] {
+		for _, component := range r.Configuration.NoSectyComponents[platformAdmin.Spec.Version] {
 			if addedComponentSet.Has(component.Name) {
 				desiredComponents = append(desiredComponents, component)
 			}

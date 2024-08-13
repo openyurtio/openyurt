@@ -36,16 +36,16 @@ import (
 
 const updateRetries = 5
 
-type DeploymentControllor struct {
+type DeploymentController struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-func (d *DeploymentControllor) GetTemplateType() v1alpha1.TemplateType {
+func (d *DeploymentController) GetTemplateType() v1alpha1.TemplateType {
 	return v1alpha1.DeploymentTemplateType
 }
 
-func (d *DeploymentControllor) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load *Workload) error {
+func (d *DeploymentController) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load *Workload) error {
 	klog.Infof("YurtAppDaemon[%s/%s] prepare delete Deployment[%s/%s]", yda.GetNamespace(),
 		yda.GetName(), load.Namespace, load.Name)
 
@@ -58,7 +58,7 @@ func (d *DeploymentControllor) DeleteWorkload(yda *v1alpha1.YurtAppDaemon, load 
 }
 
 // ApplyTemplate updates the object to the latest revision, depending on the YurtAppDaemon.
-func (d *DeploymentControllor) ApplyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
+func (d *DeploymentController) ApplyTemplate(scheme *runtime.Scheme, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string, set *appsv1.Deployment) error {
 
 	if set.Labels == nil {
 		set.Labels = map[string]string{}
@@ -110,14 +110,14 @@ func (d *DeploymentControllor) ApplyTemplate(scheme *runtime.Scheme, yad *v1alph
 	return nil
 }
 
-func (d *DeploymentControllor) ObjectKey(load *Workload) client.ObjectKey {
+func (d *DeploymentController) ObjectKey(load *Workload) client.ObjectKey {
 	return types.NamespacedName{
 		Namespace: load.Namespace,
 		Name:      load.Name,
 	}
 }
 
-func (d *DeploymentControllor) UpdateWorkload(load *Workload, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error {
+func (d *DeploymentController) UpdateWorkload(load *Workload, yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error {
 	klog.Infof("YurtAppDaemon[%s/%s] prepare update Deployment[%s/%s]", yad.GetNamespace(),
 		yad.GetName(), load.Namespace, load.Name)
 
@@ -141,7 +141,7 @@ func (d *DeploymentControllor) UpdateWorkload(load *Workload, yad *v1alpha1.Yurt
 	return updateError
 }
 
-func (d *DeploymentControllor) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error {
+func (d *DeploymentController) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodepool v1alpha1.NodePool, revision string) error {
 	klog.Infof("YurtAppDaemon[%s/%s] prepare create new deployment by nodepool %s ", yad.GetNamespace(), yad.GetName(), nodepool.GetName())
 
 	deploy := appsv1.Deployment{}
@@ -153,7 +153,7 @@ func (d *DeploymentControllor) CreateWorkload(yad *v1alpha1.YurtAppDaemon, nodep
 	return d.Client.Create(context.TODO(), &deploy)
 }
 
-func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*Workload, error) {
+func (d *DeploymentController) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*Workload, error) {
 	allDeployments := appsv1.DeploymentList{}
 	// 获得 YurtAppDaemon 对应的 所有Deployment, 根据OwnerRef
 	selector, err := metav1.LabelSelectorAsSelector(yad.Spec.Selector)
@@ -213,4 +213,4 @@ func (d *DeploymentControllor) GetAllWorkloads(yad *v1alpha1.YurtAppDaemon) ([]*
 	return workloads, nil
 }
 
-var _ WorkloadController = &DeploymentControllor{}
+var _ WorkloadController = &DeploymentController{}

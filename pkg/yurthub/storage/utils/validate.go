@@ -33,8 +33,8 @@ func ValidateKey(key storage.Key, validKeyType interface{}) error {
 	return nil
 }
 
-func ValidateKV(key storage.Key, content []byte, valideKeyType interface{}) error {
-	if err := ValidateKey(key, valideKeyType); err != nil {
+func ValidateKV(key storage.Key, content []byte, validKeyType interface{}) error {
+	if err := ValidateKey(key, validKeyType); err != nil {
 		return err
 	}
 	if len(content) == 0 {

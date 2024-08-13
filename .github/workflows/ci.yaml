@@ -19,6 +19,16 @@ env:
   AWS_USR: ${{ secrets.AWS_USR }}
 
 jobs:
+  typos-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Actions Repository
+        uses: actions/checkout@v4
+      - name: Check spelling with custom config file
+        uses: crate-ci/typos@v1.23.2
+        with:
+          config: ./typos.toml
+
   verify:
     runs-on: ubuntu-22.04
     steps:
@@ -49,18 +59,18 @@ jobs:
           skip-cache: true
           mode: readonly
 
-# markdownlint-misspell-shellcheck:
-#   runs-on: ubuntu-22.04
-#   # this image is build from Dockerfile
-#   # https://github.com/pouchcontainer/pouchlinter/blob/master/Dockerfile
-#   container: pouchcontainer/pouchlinter:v0.1.2
-#   steps:
-#     - name: Checkout
-#       uses: actions/checkout@v3
-#     - name: Run misspell
-#       run: find  ./* -name  "*"  | xargs misspell -error
-#     - name: Lint markdown files
-#       run: find  ./ -name  "*.md" | grep -v enhancements |  grep -v .github
+#  markdownlint-misspell-shellcheck:
+#    runs-on: ubuntu-22.04
+#    # this image is build from Dockerfile
+#    # https://github.com/pouchcontainer/pouchlinter/blob/master/Dockerfile
+#    container: pouchcontainer/pouchlinter:v0.1.2
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#      - name: Run misspell
+#        run: find  ./* -name  "*"  | xargs misspell -error
+#      - name: Lint markdown files
+#        run: find  ./ -name  "*.md" | grep -v enhancements |  grep -v .github
 #      - name: Check markdown links
 #        run: |
 #          set +e
@@ -97,12 +107,13 @@ jobs:
       - name: Publish Unit Test Coverage
         # only publish result in openyurt repo
         if: github.repository == 'openyurtio/openyurt'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
           files: ./cover.out,./yurttunnel-cover.out
+          version: v0.6.0
           fail_ci_if_error: true
           verbose: true
   e2e-tests:

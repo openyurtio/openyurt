@@ -113,7 +113,7 @@ func (webhook *DeploymentRenderHandler) Default(ctx context.Context, obj runtime
 	case "YurtAppDaemon":
 		yad := instance.(*v1alpha1.YurtAppDaemon)
 		revision := yad.Status.CurrentRevision
-		yadDeployController := workloadcontroller.DeploymentControllor{
+		yadDeployController := workloadcontroller.DeploymentController{
 			Client: webhook.Client,
 			Scheme: webhook.Scheme,
 		}

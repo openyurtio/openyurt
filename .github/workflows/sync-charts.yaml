@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - 'charts/**'
+  workflow_dispatch: {}
 
 jobs:
   sync-charts:
@@ -15,17 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get the version
-        id: get_version
-        run: |
-          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-          echo ::set-output name=TAG::${GITHUB_REF#refs/tags/}
-
-      - name: Sync to openyurt-helm Repo
+      - name: Sync to openyurtio/charts Repo
         env:
-          SSH_DEPLOY_KEY: ${{ secrets.SYNC_CHARTS_SECRET }}
-          VERSION: ${{ steps.get_version.outputs.VERSION }}
-          TAG: ${{ steps.get_version.outputs.TAG }}
+          SSH_DEPLOY_KEY: ${{ secrets.SYNC_OPENYURTIO_CHARTS_KEY }}
           COMMIT_ID: ${{ github.sha }}
         run: |
           bash ./hack/lib/sync-charts.sh

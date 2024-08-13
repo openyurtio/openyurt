@@ -119,7 +119,7 @@ type coordinator struct {
 	// isPoolCacheSynced as false if the informer sync lease has not been updated for a duration.
 	poolCacheSyncedDetector *poolCacheSyncedDetector
 	// delegateNodeLeaseManager is used to list/watch kube-node-lease from yurtcoordinator. If the
-	// node lease contains DelegateHeartBeat label, it will triger the eventhandler which will
+	// node lease contains DelegateHeartBeat label, it will trigger the eventhandler which will
 	// use cloud client to send it to cloud APIServer.
 	delegateNodeLeaseManager *coordinatorLeaseInformerManager
 }
@@ -685,7 +685,7 @@ type poolCacheSyncedDetector struct {
 	isRunning      bool
 	staleTimeout   time.Duration
 	// syncLeaseManager is used to list/watch the informer-sync-lease, and set the
-	// isPoolCacheSync as ture when it is renewed.
+	// isPoolCacheSync as true when it is renewed.
 	syncLeaseManager      *coordinatorLeaseInformerManager
 	isPoolCacheSyncSetter func(value bool)
 	cancelLoop            func()
@@ -732,7 +732,7 @@ func (p *poolCacheSyncedDetector) loopForChange(ctx context.Context) {
 			t.Reset(p.staleTimeout)
 			p.isPoolCacheSyncSetter(true)
 		case <-t.C:
-			klog.V(4).Infof("timeout waitting for pool cache sync lease being updated, do not use pool cache")
+			klog.V(4).Infof("timeout waiting for pool cache sync lease being updated, do not use pool cache")
 			p.isPoolCacheSyncSetter(false)
 		}
 	}

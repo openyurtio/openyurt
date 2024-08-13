@@ -148,7 +148,7 @@ func (pp *YurtCoordinatorProxy) poolPost(rw http.ResponseWriter, req *http.Reque
 }
 
 func (pp *YurtCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Request) error {
-	if (util.IsPoolScopedResouceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req)) && pp.yurtCoordinatorProxy != nil {
+	if (util.IsPoolScopedResourceListWatchRequest(req) || util.IsSubjectAccessReviewCreateGetRequest(req)) && pp.yurtCoordinatorProxy != nil {
 		pp.yurtCoordinatorProxy.ServeHTTP(rw, req)
 		return nil
 	}
@@ -156,7 +156,7 @@ func (pp *YurtCoordinatorProxy) poolQuery(rw http.ResponseWriter, req *http.Requ
 }
 
 func (pp *YurtCoordinatorProxy) poolWatch(rw http.ResponseWriter, req *http.Request) error {
-	if util.IsPoolScopedResouceListWatchRequest(req) && pp.yurtCoordinatorProxy != nil {
+	if util.IsPoolScopedResourceListWatchRequest(req) && pp.yurtCoordinatorProxy != nil {
 		clientReqCtx := req.Context()
 		poolServeCtx, poolServeCancel := context.WithCancel(clientReqCtx)
 

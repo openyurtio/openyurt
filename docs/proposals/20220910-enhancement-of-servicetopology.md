@@ -51,7 +51,7 @@ If endpointslice or endpoints can be changed along with nodepool or service, the
 To make servicetopology filter in Yurthub work properly when service or nodepool change, we need two controllers, one for endpoints and another for endpointslice.
 
 ### Endpoints controller
-The endpoints contoller will watch the change of service and nodepool, the event handlers will enqueue the necessary endpoints to the workqueue of controller, then the controller can modify the trigger annotation `openyurt.io/updateTrigger` for the endpoints. The value of trigger annotation is a timestamp, when the annotation of endpoints is modified, then the servicetopology filter can sense the change of endpoints and will get the latest service and nodepool when filtering.
+The endpoints controller will watch the change of service and nodepool, the event handlers will enqueue the necessary endpoints to the workqueue of controller, then the controller can modify the trigger annotation `openyurt.io/updateTrigger` for the endpoints. The value of trigger annotation is a timestamp, when the annotation of endpoints is modified, then the servicetopology filter can sense the change of endpoints and will get the latest service and nodepool when filtering.
 
 #### ·Service event handler
 
@@ -123,7 +123,7 @@ func (e *EnqueueEndpointsForNodePool) Update(evt event.UpdateEvent,
 }
 ```
 ### EndpointSlice controller
-The endpointslice contoller will watch the change of service and nodepool, the event handlers will enqueue the necessary endpointslices to the workqueue, then the controller can modify the trigger annotation `openyurt.io/updateTrigger` for those endpointslices.
+The endpointslice controller will watch the change of service and nodepool, the event handlers will enqueue the necessary endpointslices to the workqueue, then the controller can modify the trigger annotation `openyurt.io/updateTrigger` for those endpointslices.
 
 #### ·Service event handler
 When the servicetopology configuration in service.Annotations is modified, the handler will enqueue all the endpointslices of that service.

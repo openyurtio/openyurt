@@ -535,7 +535,7 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 	if err := os.MkdirAll(kindConfigDir, constants.DirMode); err != nil {
 		return err
 	}
-	kindConfigContent, err := tmplutil.SubsituteTemplate(constants.OpenYurtKindConfig, map[string]string{
+	kindConfigContent, err := tmplutil.SubstituteTemplate(constants.OpenYurtKindConfig, map[string]string{
 		"kind_node_image":     ki.NodeImage,
 		"cluster_name":        ki.ClusterName,
 		"disable_default_cni": fmt.Sprintf("%v", ki.DisableDefaultCNI),
@@ -546,7 +546,7 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 
 	// add additional worker entries into kind config file according to NodesNum
 	for num := 1; num < ki.NodesNum; num++ {
-		worker, err := tmplutil.SubsituteTemplate(constants.KindWorkerRole, map[string]string{
+		worker, err := tmplutil.SubstituteTemplate(constants.KindWorkerRole, map[string]string{
 			"kind_node_image": ki.NodeImage,
 		})
 		if err != nil {
@@ -736,7 +736,7 @@ func validateOpenYurtVersion(ver string, ignoreError bool) error {
 }
 
 // getNodeNamesOfKindCluster will generate all nodes will be in the kind cluster.
-// It depends on the naming machanism of kind:
+// It depends on the naming mechanism of kind:
 // one control-plane node: ${clusterName}-control-plane
 // serval worker nodes: ${clusterName}-worker, ${clusterName}-worker2, ${clusterName}-worker3...
 func getNodeNamesOfKindCluster(clusterName string, nodeNum int) (string, []string) {
