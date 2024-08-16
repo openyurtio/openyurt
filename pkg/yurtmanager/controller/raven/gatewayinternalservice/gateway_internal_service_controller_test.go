@@ -20,12 +20,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -208,4 +210,53 @@ func TestReconcileService_Reconcile(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to reconcile service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService)
 	}
+}
+
+func TestReconcileService_cleanService(t *testing.T) {
+	r := MockReconcile()
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service",
+			Namespace: "default",
+		},
+	}
+	_ = r.Client.Create(context.Background(), service)
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-service",
+			Namespace: "default",
+		},
+	}
+
+	err := r.cleanService(context.TODO(), req)
+	assert.NoError(t, err)
+	svc := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), req.NamespacedName, svc)
+	assert.Error(t, err)
+}
+
+func TestReconcileService_cleanEndpoint(t *testing.T) {
+	r := MockReconcile()
+	endpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoint",
+			Namespace: "default",
+		},
+	}
+	_ = r.Client.Create(context.Background(), endpoints)
+
+	req := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "test-endpoint",
+			Namespace: "default",
+		},
+	}
+
+	err := r.cleanEndpoint(context.TODO(), req)
+	assert.NoError(t, err)
+
+	ep := &corev1.Endpoints{}
+	err = r.Client.Get(context.TODO(), req.NamespacedName, ep)
+	assert.Error(t, err)
 }
