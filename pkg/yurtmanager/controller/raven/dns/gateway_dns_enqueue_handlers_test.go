@@ -117,3 +117,12 @@ func TestEnqueueRequestForNodeEvent(t *testing.T) {
 	}
 	clearQueue(queue)
 }
+
+func TestInvalidTypeScene(t *testing.T) {
+	h := &EnqueueRequestForNodeEvent{}
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	h.Create(context.Background(), event.CreateEvent{}, queue)
+	h.Delete(context.Background(), event.DeleteEvent{}, queue)
+	h.Update(context.Background(), event.UpdateEvent{}, queue)
+	assert.Equal(t, 0, queue.Len(), "invalid type work queue should be 0")
+}

@@ -47,11 +47,11 @@ func (webhook *YurtAppOverriderHandler) ValidateCreate(ctx context.Context, obj 
 func (webhook *YurtAppOverriderHandler) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldOverrider, ok := oldObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", newObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", oldObj))
 	}
 	newOverrider, ok := newObj.(*v1alpha1.YurtAppOverrider)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppOverrider but got a %T", newObj))
 	}
 	if oldOverrider.Namespace != newOverrider.Namespace || newOverrider.Name != oldOverrider.Name {
 		return nil, fmt.Errorf("unable to change metadata after %s is created", oldOverrider.Name)
