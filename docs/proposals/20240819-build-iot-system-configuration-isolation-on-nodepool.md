@@ -1,6 +1,6 @@
 |           title           | authors                                | reviewers   | creation-date | last-updated | status |
 |:-------------------------:|----------------------------------------|-------------|---------------|--------------|--------|
-| Build-iot-system-configuration-isolation-on-nodepool | @WoShiZhangmi | @LavenderQAQ | 2024-08-19    |    |        |
+| Build-iot-system-configuration-isolation-on-nodepool | @WoShiZhangmingyu | @LavenderQAQ | 2024-08-19    |    |        |
 
 # Build-iot-system-configuration-isolation-on-nodepool
 ## Table of Contents
