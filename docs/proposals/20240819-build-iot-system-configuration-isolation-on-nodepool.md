@@ -27,12 +27,14 @@ This proposal aims to provide multiple PlatformAdmin deployments within the same
 OpenYurt extends the concept of nodepools on top of k8s, so an ideal deployment is that users can configure each nodepool iot system independently. With [#1435](https://github.com/openyurtio/openyurt/issues/1435) we can manipulate yurtappset to configure each nodepool individually. And service topology allows us to separate the traffic from each nodepool. With these two capabilities we can take a step closer to idealizing the current deployment model.
 Currently, users can customize iot systems in [#1595](https://github.com/openyurtio/openyurt/issues/1595), but it's currently not isolated enough for nodepool.users can only deploy one nodepool through Platformadmin.
 
-- old platformadmin(One Platformadmin handles the Reconcile for one node pool)
+- old platformadmin(A Platformadmin is responsible for reconciling a nodepool)
  
 ![platformadmin-old](../img/20240819-build-iot-system-configuration-isolation-on-nodepool/platformadmin-old.png)
 
 Suppose now you need to expand a node pool with the same configuration, the current plan is to create a new Platformadmin with the same configuration.Obviously, Obviously, the operability and reusability of this solution is poor.
-One potential enhancement involves modifying the mapping between Platformadmin and nodepools to a one-to-many relationship, that is, changing the poolName in PlatformadminSpec to pools to correspond to multiple node pools 
+One potential enhancement involves modifying the mapping between Platformadmin and nodepools to a one-to-many relationship, that is, changing the poolName in PlatformadminSpec to pools to correspond to multiple node pools.
+
+- new platformadmin(One Platformadmin is responsible for reconciling multiple nodepools)
 
 ![platformadmin-new](../img/20240819-build-iot-system-configuration-isolation-on-nodepool/platformadmin-new.png)
 
