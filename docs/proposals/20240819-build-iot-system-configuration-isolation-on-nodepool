@@ -34,7 +34,7 @@ Currently, users can customize iot systems in [#1595](https://github.com/openyur
 Suppose now you need to expand a node pool with the same configuration, the current plan is to create a new Platformadmin with the same configuration.Obviously, Obviously, the operability and reusability of this solution is poor.
 One potential enhancement involves modifying the mapping between Platformadmin and nodepools to a one-to-many relationship, that is, changing the poolName in PlatformadminSpec to pools to correspond to multiple node pools 
 
-![platformadmin-new](../img20240819-build-iot-system-configuration-isolation-on-nodepool/platformadmin-new.png)
+![platformadmin-new](../img/20240819-build-iot-system-configuration-isolation-on-nodepool/platformadmin-new.png)
 
 ### Goals
 
