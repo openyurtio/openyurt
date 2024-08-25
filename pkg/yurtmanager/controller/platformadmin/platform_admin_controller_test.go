@@ -65,10 +65,7 @@ func TestReconcile(t *testing.T) {
 		{
 			name: "Create YurtAppSet with Single Node Pool",
 			configmap: &corev1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "ComfigMaps",
-					APIVersion: "iot.openyurt.io/v1alpha2",
-				},
+				
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "platformadmin-framework",
 					Namespace: "default",
@@ -253,29 +250,9 @@ func TestReconcile(t *testing.T) {
 				scheme:         fakeScheme,
 				recorder:       record.NewFakeRecorder(10), // 使用假的事件记录器
 				yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, fakeScheme, fakeScheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
-				Configration: config.PlatformAdminControllerConfiguration{
-					NoSectyConfigMaps: map[string][]corev1.ConfigMap{
-						"minnesota": {
-							corev1.ConfigMap{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      "common-variables",
-									Namespace: "default",
-								},
-							},
-						},
-					},
-					NoSectyComponents: map[string][]*config.Component{
-						"minnesota": {
-							{Name: "edgex-core-command"},
-							{Name: "edgex-core-consul"},
-							{Name: "edgex-core-metadata"},
-							{Name: "edgex-redis"},
-							{Name: "edgex-core-common-config-bootstrapper"},
-						},
-					},
-				},
+				Configration:   config.PlatformAdminControllerConfiguration{},
 			}
-
+			
 			request := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-platformadmin",
