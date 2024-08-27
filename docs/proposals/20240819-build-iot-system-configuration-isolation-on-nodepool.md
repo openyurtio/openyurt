@@ -24,7 +24,7 @@ This proposal aims to provide multiple PlatformAdmin deployments within the same
 
 ## Motivation
 
-Suppose now you need to expand several nodepools with the same configuration, the current plan is to create several new Platformadmins with the same configuration.Obviously, Obviously, the operability and reusability of this solution is poor.
+Suppose now you need to expand several nodepools with the same configuration, the current plan is to create several new Platformadmins with the same configuration.Obviously, the operability and reusability of this solution is poor.
 One potential enhancement involves modifying the mapping between Platformadmin and nodepools to a one-to-many relationship, that is, changing the poolName in PlatformadminSpec to pools to correspond to multiple nodepools.
 In this proposal, users can deploy multiple node pools with the same configuration by creating a single PlatformAdmin.
 
@@ -45,6 +45,8 @@ In this proposal, users can deploy multiple node pools with the same configurati
 - As a user,I wanted to customize configurations based on the nodepool dimension, thereby achieving the reuse of both custom configurations and Platformadmin.
 
 ### Implementation Details
+
+PlatformAdmin has evolved from the previous version of the EdgeX CRD and serves as an abstraction for the edge device management platform. Users simply input the platform settings, the name of the NodePool to be deployed, the version to be deployed, and so on, to deploy a complete edge device management platform within the node pool. 
 
 The platformadmin-controller, integrated within yurt-manager, is responsible for parsing the PlatformAdmin CR into the corresponding configmap, service, and yurtappset, thereby realizing the deployment of the edge device management platform. 
 
@@ -94,14 +96,14 @@ spec:
 EOF
 ~~~
 #### Modify PlatformAdminSpec
-Also change PoolName to pools:
+Also change PoolName to NodePools:
 ~~~
 type PlatformAdminSpec struct {
 	Version string `json:"version,omitempty"`
 
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
-	Pools []string `json:"pools,omitempty"`
+	NodePools []string `json:"nodepools,omitempty"`
 
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	// +optional
@@ -116,7 +118,7 @@ type PlatformAdminSpec struct {
 Enhance the Reconcile logic of the platformadminController to accommodate multiple nodepools, thereby enabling more refined resource management and scheduling.
 for example:
 ~~~
-for _, nodePool := range platformAdmin.Spec.Pools {
+for _, nodePool := range platformAdmin.Spec.NodePools {
     pool := appsv1alpha1.Pool{
         Name:     nodePool,
         Replicas: pointer.Int32(1),
