@@ -119,26 +119,24 @@ Enhance the Reconcile logic of the platformadminController to accommodate multip
 for example:
 ~~~
 for _, nodePool := range platformAdmin.Spec.NodePools {
-    pool := appsv1alpha1.Pool{
-        Name:     nodePool,
-        Replicas: pointer.Int32(1),
-    }
-    pool.NodeSelectorTerm.MatchExpressions = append(pool.NodeSelectorTerm.MatchExpressions,
-        corev1.NodeSelectorRequirement{
-            Key:      projectinfo.GetNodePoolLabel(),
-            Operator: corev1.NodeSelectorOpIn,
-            Values:   []string{nodePool},
-        })
-    flag := false
-    for _, up := range yas.Spec.Topology.Pools {
-        if up.Name == pool.Name {
-            flag = true
-            break
-        }
-    }
-    if !flag {
-        yas.Spec.Topology.Pools = append(yas.Spec.Topology.Pools, pool)
-    }
+    	exists := false
+	for _, pool := range yas.Spec.Pools {
+		if pool == nodePool {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		yas.Spec.Pools = append(yas.Spec.Pools, nodePool)
+	}
+}
+yas.Spec.Workload.WorkloadTweaks = []appsv1beta1.WorkloadTweak{
+	{
+		Pools: yas.Spec.Pools,
+		Tweaks: appsv1beta1.Tweaks{
+			Replicas: pointer.Int32(1),
+		},
+	},
 }
 ~~~
 ### Test Plan
