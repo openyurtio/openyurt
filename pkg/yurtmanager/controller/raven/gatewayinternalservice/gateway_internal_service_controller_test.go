@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -213,34 +214,6 @@ func TestReconcileService_Reconcile(t *testing.T) {
 	}
 }
 
-// func TestReconcileService_waitElectEndpoints(t *testing.T) {
-// 	r := MockReconcile()
-
-// 	gw := &ravenv1beta1.Gateway{}
-// 	err := r.Client.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gw)
-
-// 	if err != nil {
-// 		t.Fatalf("failed to get gateway: %v", err)
-// 	}
-// 	gw.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{}
-
-// 	err = r.Client.Update(context.Background(), gw)
-// 	if err != nil {
-// 		t.Fatalf("failed to update gateway: %v", err)
-// 	}
-
-// 	_, err = r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: util.GatewayProxyInternalService, Namespace: util.WorkingNamespace}})
-// 	if err != nil {
-// 		t.Errorf("failed to reconcile service %s/%s", util.WorkingNamespace, util.GatewayProxyInternalService)
-// 	}
-
-// 	r.Client.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gw)
-
-// 	if !assert.Equal(t, 1, len(gw.Status.ActiveEndpoints)) {
-// 		t.Errorf("failed to elect endpoints, expected %d, but get %d", 1, len(gw.Status.ActiveEndpoints))
-// 	}
-// }
-
 func TestReconcileService_cleanService(t *testing.T) {
 	r := MockReconcile()
 	service := &corev1.Service{
@@ -249,7 +222,7 @@ func TestReconcileService_cleanService(t *testing.T) {
 			Namespace: "default",
 		},
 	}
-	r.Client.Create(context.Background(), service)
+	_ = r.Client.Create(context.Background(), service)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -275,7 +248,7 @@ func TestReconcileService_cleanEndpoint(t *testing.T) {
 			Namespace: "default",
 		},
 	}
-	r.Client.Create(context.Background(), endpoints)
+	_ = r.Client.Create(context.Background(), endpoints)
 
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{

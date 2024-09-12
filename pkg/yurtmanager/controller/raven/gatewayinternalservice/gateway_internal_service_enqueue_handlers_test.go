@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
@@ -30,14 +31,177 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
 
-const (
-	MockGatewayUpdate    = "gw-mock-update"
-	InsecurePortKey      = "1.1.1.1:80"
-	InsecurePortKeyError = "1.1.1.1"
-	InsecurePortKeyNew   = "1.1.1.1:90"
-	SecurePortKey        = "1.1.1.2:80"
-	SecurePortKeyNew     = "1.1.1.2:90"
-)
+func TestEnqueueRequestForGatewayEvent(t *testing.T) {
+	h := &EnqueueRequestForGatewayEvent{}
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		expectedLen  int
+		eventHandler func()
+	}{
+		{
+			name:        "should get work queue len is 0 when Create Object is not Gateway",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Create(ctx, event.CreateEvent{Object: &unstructured.Unstructured{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Create Gateway not have ExposeType",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Create(ctx, event.CreateEvent{Object: &ravenv1beta1.Gateway{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 1 when Create Gateway",
+			expectedLen: 1,
+			eventHandler: func() {
+				h.Create(ctx, event.CreateEvent{Object: mockGateway()}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when delete Object is not Gateway",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Delete(ctx, event.DeleteEvent{Object: &unstructured.Unstructured{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when delete Gateway not have ExposeType",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Delete(ctx, event.DeleteEvent{Object: &ravenv1beta1.Gateway{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 1 when Delete Gateway",
+			expectedLen: 1,
+			eventHandler: func() {
+				h.Delete(ctx, event.DeleteEvent{Object: mockGateway()}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Update old object is not Gateway",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Update(ctx, event.UpdateEvent{ObjectOld: &unstructured.Unstructured{}, ObjectNew: mockGateway()}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Update new object is not Gateway",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Update(ctx, event.UpdateEvent{ObjectOld: mockGateway(), ObjectNew: &unstructured.Unstructured{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Update Gateway not have ExposeType",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Update(ctx, event.UpdateEvent{ObjectOld: &ravenv1beta1.Gateway{}, ObjectNew: &ravenv1beta1.Gateway{}}, queue)
+			},
+		},
+		{
+			name: "should get work queue len is 1 when Update Gateway success",
+			eventHandler: func() {
+				oldGateWay := mockGateway()
+				newGateWay := oldGateWay.DeepCopy()
+				newGateWay.ObjectMeta.Name = "new" + MockGateway
+				h.Update(ctx, event.UpdateEvent{ObjectOld: oldGateWay, ObjectNew: newGateWay}, queue)
+			},
+			expectedLen: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.eventHandler()
+			assert.Equal(t, tt.expectedLen, queue.Len(), "Unexpected queue length in test: %s", tt.name)
+			clearQueue(queue)
+		})
+	}
+}
+
+func TestEnqueueRequestForConfigEvent(t *testing.T) {
+	h := &EnqueueRequestForConfigEvent{}
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		expectedLen  int
+		eventHandler func()
+	}{
+		{
+			name:        "should get work queue len is 0 when Create Object is not ConfigMap",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Create(ctx, event.CreateEvent{Object: &unstructured.Unstructured{}}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 1 when Create ConfigMap with invalid ProxyServerInsecurePortKey",
+			expectedLen: 1,
+			eventHandler: func() {
+				configMap := mockConfigMap()
+				configMap.Data[util.ProxyServerInsecurePortKey] = "127.0.0.1"
+				h.Create(ctx, event.CreateEvent{Object: configMap}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 1 when Create ConfigMap with valid ProxyServerInsecurePortKey",
+			expectedLen: 1,
+			eventHandler: func() {
+				h.Create(ctx, event.CreateEvent{Object: mockConfigMap()}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Update old object is not ConfigMap",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Update(ctx, event.UpdateEvent{ObjectOld: &unstructured.Unstructured{}, ObjectNew: mockConfigMap()}, queue)
+			},
+		},
+		{
+			name:        "should get work queue len is 0 when Update new object is not ConfigMap",
+			expectedLen: 0,
+			eventHandler: func() {
+				h.Update(ctx, event.UpdateEvent{ObjectOld: mockConfigMap(), ObjectNew: &unstructured.Unstructured{}}, queue)
+			},
+		},
+		{
+			name: "should get work queue len is 1 when update ConfigMap with new InsecurePortKey",
+			eventHandler: func() {
+				oldConfigMap := mockConfigMap()
+				newConfigMap := oldConfigMap.DeepCopy()
+				newConfigMap.Data[util.ProxyServerInsecurePortKey] = "127.0.0.1:90"
+				h.Update(ctx, event.UpdateEvent{ObjectOld: oldConfigMap, ObjectNew: newConfigMap}, queue)
+			},
+			expectedLen: 1,
+		},
+		{
+			name: "should get work queue len is 1 when Update ConfigMap with new SecurePortKey",
+			eventHandler: func() {
+				oldConfigMap := mockConfigMap()
+				newConfigMap := oldConfigMap.DeepCopy()
+				newConfigMap.Data[util.ProxyServerSecurePortKey] = "127.0.0.2:90"
+				h.Update(ctx, event.UpdateEvent{ObjectOld: oldConfigMap, ObjectNew: newConfigMap}, queue)
+			},
+			expectedLen: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.eventHandler()
+			assert.Equal(t, tt.expectedLen, queue.Len(), "Unexpected queue length in test: %s", tt.name)
+			clearQueue(queue)
+		})
+	}
+}
 
 func mockGateway() *ravenv1beta1.Gateway {
 	return &ravenv1beta1.Gateway{
@@ -53,89 +217,21 @@ func mockGateway() *ravenv1beta1.Gateway {
 func mockConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
+			Name:      "test-config",
 			Namespace: "default",
 		},
 		Data: map[string]string{
 			util.RavenEnableProxy:           "true",
 			util.RavenEnableTunnel:          "true",
-			util.ProxyServerInsecurePortKey: InsecurePortKey,
-			util.ProxyServerSecurePortKey:   SecurePortKey,
+			util.ProxyServerInsecurePortKey: "127.0.0.1:80",
+			util.ProxyServerSecurePortKey:   "127.0.0.2:80",
 		},
 	}
 }
 
-func TestEnqueueRequestForGatewayEvent(t *testing.T) {
-	h := &EnqueueRequestForGatewayEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	gw := mockGateway()
-	clearQueue := func(queue workqueue.RateLimitingInterface) {
-		for queue.Len() > 0 {
-			item, _ := queue.Get()
-			queue.Done(item)
-		}
+func clearQueue(queue workqueue.RateLimitingInterface) {
+	for queue.Len() > 0 {
+		item, _ := queue.Get()
+		queue.Done(item)
 	}
-	h.Create(context.Background(), event.CreateEvent{Object: gw}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to create gateway, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-
-	time := metav1.Now()
-	deletedGw := gw.DeepCopy()
-	deletedGw.DeletionTimestamp = &time
-	h.Delete(context.Background(), event.DeleteEvent{Object: deletedGw}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to delete gateway, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-
-	newGw := gw.DeepCopy()
-	newGw.ObjectMeta.Name = MockGatewayUpdate
-	h.Update(context.Background(), event.UpdateEvent{ObjectOld: gw, ObjectNew: newGw}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to update gateway label, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-}
-
-func TestEnqueueRequestForConfigEvent(t *testing.T) {
-	h := &EnqueueRequestForConfigEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	configMap := mockConfigMap()
-	clearQueue := func(queue workqueue.RateLimitingInterface) {
-		for queue.Len() > 0 {
-			item, _ := queue.Get()
-			queue.Done(item)
-		}
-	}
-	h.Create(context.Background(), event.CreateEvent{Object: configMap}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to create config map, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-
-	configMap.Data[util.ProxyServerInsecurePortKey] = InsecurePortKeyError
-	h.Create(context.Background(), event.CreateEvent{Object: configMap}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to create config map, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-	configMap.Data[util.ProxyServerInsecurePortKey] = InsecurePortKey
-
-	newConfigMap := configMap.DeepCopy()
-	newConfigMap.Data[util.ProxyServerInsecurePortKey] = InsecurePortKeyNew
-	h.Update(context.Background(), event.UpdateEvent{ObjectOld: configMap, ObjectNew: newConfigMap}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to update config map, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
-
-	newConfigMap = configMap.DeepCopy()
-	newConfigMap.Data[util.ProxyServerSecurePortKey] = SecurePortKeyNew
-	h.Update(context.Background(), event.UpdateEvent{ObjectOld: configMap, ObjectNew: newConfigMap}, queue)
-	if !assert.Equal(t, 1, queue.Len()) {
-		t.Errorf("failed to update config map, expected %d, but get %d", 1, queue.Len())
-	}
-	clearQueue(queue)
 }

@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -170,12 +169,12 @@ func TestReconcileDns_Reconcile(t *testing.T) {
 func TestReconcileDns_buildRavenDNSConfigMap(t *testing.T) {
 	r := mockReconciler()
 	t.Run("build Raven DNS config map", func(t *testing.T) {
-		r.Client.Delete(context.TODO(), &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: util.RavenProxyNodesConfig, Namespace: util.WorkingNamespace}})
+		r.Client.Delete(context.TODO(), &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: util.RavenProxyNodesConfig, Namespace: util.WorkingNamespace}})
 
 		err := r.buildRavenDNSConfigMap()
 		assert.NoError(t, err, "expected no error")
 
-		cm := &corev1.ConfigMap{}
+		cm := &v1.ConfigMap{}
 		err = r.Client.Get(context.TODO(), client.ObjectKey{
 			Namespace: util.WorkingNamespace,
 			Name:      util.RavenProxyNodesConfig,

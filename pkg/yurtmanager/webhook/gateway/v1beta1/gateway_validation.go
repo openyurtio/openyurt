@@ -49,7 +49,7 @@ func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newOb
 	}
 	oldGw, ok := oldObj.(*v1beta1.Gateway)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", oldObj))
 	}
 
 	if newGw.GetName() != oldGw.GetName() {
@@ -69,7 +69,7 @@ func validate(g *v1beta1.Gateway) (admission.Warnings, error) {
 	if g.Spec.ExposeType != "" {
 		if g.Spec.ExposeType != v1beta1.ExposeTypeLoadBalancer && g.Spec.ExposeType != v1beta1.ExposeTypePublicIP {
 			fldPath := field.NewPath("spec").Child("exposeType")
-			errList = append(errList, field.Invalid(fldPath, g.Spec.ExposeType, "the 'exposeType' field  is irregularity"))
+			errList = append(errList, field.Invalid(fldPath, g.Spec.ExposeType, "the 'exposeType' field is irregularity"))
 		}
 		if g.Spec.ExposeType == v1beta1.ExposeTypeLoadBalancer || g.Spec.ExposeType == v1beta1.ExposeTypePublicIP {
 			for i, ep := range g.Spec.Endpoints {
