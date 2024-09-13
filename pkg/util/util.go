@@ -16,7 +16,12 @@ limitations under the License.
 
 package util
 
-import "reflect"
+import (
+	"reflect"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/tools/cache"
+)
 
 func IsNil(i interface{}) bool {
 	if i == nil {
@@ -28,6 +33,17 @@ func IsNil(i interface{}) bool {
 		return reflect.ValueOf(i).IsNil()
 	}
 	return false
+}
+
+func TransformStripManagedFields() cache.TransformFunc {
+	return func(in any) (any, error) {
+		// Nilcheck managed fields to avoid hitting https://github.com/kubernetes/kubernetes/issues/124337
+		if obj, err := meta.Accessor(in); err == nil && obj.GetManagedFields() != nil {
+			obj.SetManagedFields(nil)
+		}
+
+		return in, nil
+	}
 }
 
 const (

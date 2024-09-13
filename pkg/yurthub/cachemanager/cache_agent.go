@@ -26,7 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
+	"github.com/openyurtio/openyurt/pkg/util"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 const (
@@ -41,10 +42,11 @@ type CacheAgent struct {
 
 func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
-		agents: sets.New(util.DefaultCacheAgents...),
+		agents: sets.New(hubutil.DefaultCacheAgents...),
 		store:  store,
 	}
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
+	configmapInformer.SetTransform(util.TransformStripManagedFields())
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    ca.addConfigmap,
 		UpdateFunc: ca.updateConfigmap,
@@ -65,7 +67,7 @@ func (ca *CacheAgent) addConfigmap(obj interface{}) {
 		return
 	}
 
-	deletedAgents := ca.updateCacheAgents(cfg.Data[util.CacheUserAgentsKey], "add")
+	deletedAgents := ca.updateCacheAgents(cfg.Data[hubutil.CacheUserAgentsKey], "add")
 	ca.deleteAgentCache(deletedAgents)
 }
 
@@ -80,11 +82,11 @@ func (ca *CacheAgent) updateConfigmap(oldObj, newObj interface{}) {
 		return
 	}
 
-	if oldCfg.Data[util.CacheUserAgentsKey] == newCfg.Data[util.CacheUserAgentsKey] {
+	if oldCfg.Data[hubutil.CacheUserAgentsKey] == newCfg.Data[hubutil.CacheUserAgentsKey] {
 		return
 	}
 
-	deletedAgents := ca.updateCacheAgents(newCfg.Data[util.CacheUserAgentsKey], "update")
+	deletedAgents := ca.updateCacheAgents(newCfg.Data[hubutil.CacheUserAgentsKey], "update")
 	ca.deleteAgentCache(deletedAgents)
 }
 
@@ -100,7 +102,7 @@ func (ca *CacheAgent) deleteConfigmap(obj interface{}) {
 
 // updateCacheAgents update cache agents
 func (ca *CacheAgent) updateCacheAgents(cacheAgents, action string) sets.Set[string] {
-	newAgents := sets.New(util.DefaultCacheAgents...)
+	newAgents := sets.New(hubutil.DefaultCacheAgents...)
 	for _, agent := range strings.Split(cacheAgents, sepForAgent) {
 		agent = strings.TrimSpace(agent)
 		if len(agent) != 0 {

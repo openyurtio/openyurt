@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	putil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -49,6 +50,7 @@ func InitPoolScopeResourcesManger(client kubernetes.Interface, factory informers
 		validPoolScopedResources: make(map[string]*verifiablePoolScopeResource),
 	}
 	configmapInformer := factory.Core().V1().ConfigMaps().Informer()
+	configmapInformer.SetTransform(putil.TransformStripManagedFields())
 	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: poolScopeResourcesManger.addConfigmap,
 		// todo: now we do not support update of pool scope resources definition
