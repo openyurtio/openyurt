@@ -17,7 +17,7 @@
 [#1874](https://github.com/openyurtio/openyurt/pull/1874)
 [#1930](https://github.com/openyurtio/openyurt/pull/1930)
 
-**Upgrade `YurtAppSet` to v1beta1 version **
+**Upgrade `YurtAppSet` to v1beta1 version**
 
 YurtAppSet v1beta1 is introduced to facilitate the management of multi-region workloads. Users can use YurtAppSet to distribute the same `WorkloadTemplate` (Deployment/Statefulset) to different nodepools by a label selector `NodePoolSelector` or nodepool name slice (`Pools`). Users can also customize the configuration of workloads in different node pools through `WorkloadTweaks`.
 In this release, we have combined the functionality from the three old crds (YurtAppSet v1alpha1, YurtAppDaemon and YurtAppOverrider) in yurtappset v1beta1. We recommend to use this in favor of the old ones.
