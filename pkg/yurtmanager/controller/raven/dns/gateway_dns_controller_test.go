@@ -104,7 +104,7 @@ func mockKubeClient() client.Client {
 				Status: v1.NodeStatus{
 					Addresses: []v1.NodeAddress{
 						{
-							Type:    v1.NodeInternalIP,
+							Type:    v1.NodeExternalIP,
 							Address: Node4Address,
 						},
 					},
@@ -196,6 +196,7 @@ func TestReconcileDns_getService(t *testing.T) {
 	}
 
 	t.Run("get service", func(t *testing.T) {
+		// Call the method under test
 		svc, err := r.getService(context.TODO(), objectKey)
 		assert.NoError(t, err, "expected no error")
 		assert.NotNil(t, svc, "expected a service to be returned")
