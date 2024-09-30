@@ -39,6 +39,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/locallb"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
@@ -117,7 +118,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			return fmt.Errorf("could not new cloud health checker, %w", err)
 		}
 	} else {
-		klog.Infof("%d. disable health checker for node %s because it is a cloud node", trace, cfg.NodeName)
+		klog.Infof("%d. disable health checker for node %s because it is a cloud or local node", trace, cfg.NodeName)
 		// In cloud mode, cloud health checker is not needed.
 		// This fake checker will always report that the cloud is healthy and yurt coordinator is unhealthy.
 		cloudHealthChecker = healthchecker.NewFakeChecker(true, make(map[string]int))
@@ -136,7 +137,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
 		cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.SharedFactory)
 	} else {
-		klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
+		klog.Infof("%d. disable cache manager for node %s because it is a cloud or local node", trace, cfg.NodeName)
 	}
 	trace++
 
@@ -148,7 +149,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		}
 		gcMgr.Run()
 	} else {
-		klog.Infof("%d. disable gc manager for node %s because it is a cloud node", trace, cfg.NodeName)
+		klog.Infof("%d. disable gc manager for node %s because it is a cloud or local node", trace, cfg.NodeName)
 	}
 	trace++
 
@@ -196,6 +197,18 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		ctx.Done())
 	if err != nil {
 		return fmt.Errorf("could not create reverse proxy handler, %w", err)
+	}
+	trace++
+
+	if cfg.WorkingMode == util.WorkingModeLocal {
+		klog.Infof("%d. new locallb manager for node %s ", trace, cfg.NodeName)
+		locallbMgr, err := locallb.NewLocalLBManager(cfg.SharedFactory)
+		if err != nil {
+			return fmt.Errorf("could not new locallb manager, %w", err)
+		}
+		locallbMgr.Run()
+	} else {
+		klog.Infof("%d. disable locallb manager for node %s because it is not a local node", trace, cfg.NodeName)
 	}
 	trace++
 

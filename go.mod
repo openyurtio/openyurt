@@ -1,6 +1,8 @@
 module github.com/openyurtio/openyurt
 
-go 1.20
+go 1.21
+
+toolchain go1.21.5
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.156
@@ -46,6 +48,7 @@ require (
 	k8s.io/component-base v0.28.9
 	k8s.io/component-helpers v0.28.9
 	k8s.io/controller-manager v0.28.9
+	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-controller-manager v0.28.9
 	k8s.io/kubectl v0.28.9
@@ -83,6 +86,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
+	github.com/coreos/go-iptables v0.8.0
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
