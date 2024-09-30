@@ -64,6 +64,7 @@ func makeupIptablesRules(ifIP, ifPort string) []iptablesRule {
 	}
 }
 
+// 检查os底层iptable，是否和im.rules数据结构预期一样？
 func (im *IptablesManager) EnsureIptablesRules() error {
 	var errs []error
 	for _, rule := range im.rules {
@@ -77,6 +78,7 @@ func (im *IptablesManager) EnsureIptablesRules() error {
 	return utilerrors.NewAggregate(errs)
 }
 
+// 把os底层的iptable清空，为什么im.rules数据结构不清空？
 func (im *IptablesManager) CleanUpIptablesRules() error {
 	var errs []error
 	for _, rule := range im.rules {
