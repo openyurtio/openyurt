@@ -28,7 +28,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
-	putil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/util/profile"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -126,7 +125,6 @@ func readyz(certificateMgr certificate.YurtCertificateManager) http.Handler {
 func getPodList(sharedFactory informers.SharedInformerFactory, nodeName string) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sharedFactory.Core().V1().Pods().Informer().SetTransform(putil.TransformStripManagedFields())
 		podLister := sharedFactory.Core().V1().Pods().Lister()
 		podList, err := podLister.List(labels.Everything())
 		if err != nil {

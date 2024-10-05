@@ -35,6 +35,7 @@ func IsNil(i interface{}) bool {
 	return false
 }
 
+// Dropping `.metadata.managedFields` to improve memory usage
 func TransformStripManagedFields() cache.TransformFunc {
 	return func(in any) (any, error) {
 		// Nilcheck managed fields to avoid hitting https://github.com/kubernetes/kubernetes/issues/124337

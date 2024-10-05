@@ -32,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
@@ -81,6 +82,7 @@ func (stf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.Se
 }
 
 func (stf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
+	factory.Core().V1().Services().Informer().SetTransform(util.TransformStripManagedFields())
 	stf.serviceLister = factory.Core().V1().Services().Lister()
 	stf.serviceSynced = factory.Core().V1().Services().Informer().HasSynced
 
