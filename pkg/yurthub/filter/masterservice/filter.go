@@ -67,7 +67,6 @@ func (msf *masterServiceFilter) SupportedResourceAndVerbs() map[string]sets.Set[
 func (msf *masterServiceFilter) SetMasterServiceHost(host string) error {
 	msf.host = host
 	return nil
-
 }
 
 func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {

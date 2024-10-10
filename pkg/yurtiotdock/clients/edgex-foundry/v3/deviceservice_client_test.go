@@ -18,7 +18,6 @@ package v3
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/edgexfoundry/go-mod-core-contracts/v3/dtos"
@@ -138,7 +137,6 @@ func Test_ConvertServiceSystemEvents(t *testing.T) {
 
 	service, err := serviceClient.Convert(context.TODO(), dsse, clients.GetOptions{Namespace: "default"})
 	assert.Nil(t, err)
-	fmt.Println(service)
 	assert.Equal(t, "device-virtual", service.Name)
 	assert.Equal(t, "http://edgex-device-virtual:59900", service.Spec.BaseAddress)
 }

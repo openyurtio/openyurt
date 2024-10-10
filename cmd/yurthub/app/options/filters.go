@@ -23,12 +23,13 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/inclusterconfig"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/masterservice"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/nodeportisolation"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/podenvupdater"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/servicetopology"
 )
 
 var (
 	// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
-	DisabledInCloudMode = []string{discardcloudservice.FilterName, forwardkubesvctraffic.FilterName}
+	DisabledInCloudMode = []string{discardcloudservice.FilterName, forwardkubesvctraffic.FilterName, podenvupdater.FilterName}
 
 	// SupportedComponentsForFilter is used for specifying which components are supported by filters as default setting.
 	SupportedComponentsForFilter = map[string]string{
@@ -38,6 +39,7 @@ var (
 		inclusterconfig.FilterName:       "kubelet",
 		nodeportisolation.FilterName:     "kube-proxy",
 		forwardkubesvctraffic.FilterName: "kube-proxy",
+		podenvupdater.FilterName:         "kubelet",
 	}
 )
 
@@ -52,4 +54,5 @@ func RegisterAllFilters(filters *base.Filters) {
 	inclusterconfig.Register(filters)
 	nodeportisolation.Register(filters)
 	forwardkubesvctraffic.Register(filters)
+	podenvupdater.Register(filters)
 }
