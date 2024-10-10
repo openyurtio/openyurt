@@ -1,0 +1,19 @@
+{
+  "registry-mirrors": [
+	  "https://cfd18f1af0d14fa4b573927c8eb9e317.mirror.swr.myhuaweicloud.com", 
+	  "https://dockerhub.icu",
+	  "https://docker.m.daocloud.io",
+          "https://noohub.ru",
+          "https://huecker.io",
+          "https://dockerhub.timeweb.cloud" ,
+	  "https://icz9tanv.mirror.aliyuncs.com",
+          "https://registry.docker-cn.com",
+          "http://hub-mirror.c.163.com",
+      	  "https://register.liberx.info",
+    	  "https://dockerpull.com",
+    	  "https://docker.anyhub.us.kg",
+    	  "https://dockerhub.jobcher.com",
+    	  "https://dockerhub.icu",
+     	  "https://docker.awsl9527.cn"
+  ]
+}

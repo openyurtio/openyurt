@@ -17,14 +17,14 @@ limitations under the License.
 package util
 
 import (
-	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 )
 
 const IotDockName = "yurt-iot-dock"
 const IotDockImage = "openyurt/yurt-iot-dock"
 const IotDockControlPlane = "platformadmin-controller"
 
-func DefaultVersion(platformAdmin *iotv1alpha2.PlatformAdmin) (string, string, error) {
+func DefaultVersion(platformAdmin *iotv1beta1.PlatformAdmin) (string, string, error) {
 	var (
 		ver string
 		ns  string
