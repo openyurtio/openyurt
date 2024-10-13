@@ -176,6 +176,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	handler = util.WithRequestTraceFull(handler)
 	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
 	handler = util.WithRequestClientComponent(handler, p.workingMode)
+	handler = util.WithPartialObjectMetadataRequest(handler)
 
 	if p.enableYurtCoordinator {
 		handler = util.WithIfPoolScopedResource(handler)
@@ -276,7 +277,7 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 		} else {
 			err := errors.New("request is from yurt-coordinator but it's currently not healthy")
 			klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
-			util.Err(err, rw, req)
+			hubutil.Err(err, rw, req)
 		}
 	} else {
 		if p.cloudHealthChecker.IsHealthy() {
@@ -284,7 +285,7 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 		} else {
 			err := errors.New("request is from cloud APIServer but it's currently not healthy")
 			klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
-			util.Err(err, rw, req)
+			hubutil.Err(err, rw, req)
 		}
 	}
 }

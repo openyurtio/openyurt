@@ -56,7 +56,15 @@ func NewCacheAgents(informerFactory informers.SharedInformerFactory, store Stora
 }
 
 func (ca *CacheAgent) HasAny(items ...string) bool {
-	return ca.agents.HasAny(items...)
+	newAgents := make([]string, 0, len(items))
+	for i := range items {
+		if n := strings.Index(items[i], "/partialobjectmetadata"); n != -1 {
+			newAgents = append(newAgents, items[i][:n])
+		} else {
+			newAgents = append(newAgents, items[i])
+		}
+	}
+	return ca.agents.HasAny(newAgents...)
 }
 
 func (ca *CacheAgent) addConfigmap(obj interface{}) {

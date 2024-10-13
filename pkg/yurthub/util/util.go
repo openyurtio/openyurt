@@ -28,10 +28,11 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
@@ -66,6 +67,10 @@ const (
 	ProxyListSelector
 	// ProxyPoolScopedResource represents if this request is asking for pool-scoped resources
 	ProxyPoolScopedResource
+	// ProxyPartialObjectMetadataRequest represents if this request is getting partial object metadata
+	ProxyPartialObjectMetadataRequest
+	// ProxyConvertGVK represents the gvk of response when it is a partial object metadata request
+	ProxyConvertGVK
 	// DefaultYurtCoordinatorEtcdSvcName represents default yurt coordinator etcd service
 	DefaultYurtCoordinatorEtcdSvcName = "yurt-coordinator-etcd"
 	// DefaultYurtCoordinatorAPIServerSvcName represents default yurt coordinator apiServer service
@@ -162,6 +167,17 @@ func IfPoolScopedResourceFrom(ctx context.Context) (bool, bool) {
 	return info, ok
 }
 
+// WithConvertGVK returns a copy of parent in which the convert gvk value is set
+func WithConvertGVK(parent context.Context, gvk *schema.GroupVersionKind) context.Context {
+	return WithValue(parent, ProxyConvertGVK, gvk)
+}
+
+// ConvertGVKFrom returns the value of the convert gvk key on the ctx
+func ConvertGVKFrom(ctx context.Context) (*schema.GroupVersionKind, bool) {
+	info, ok := ctx.Value(ProxyConvertGVK).(*schema.GroupVersionKind)
+	return info, ok
+}
+
 // ReqString formats a string for request
 func ReqString(req *http.Request) string {
 	ctx := req.Context()
@@ -182,8 +198,8 @@ func ReqInfoString(info *apirequest.RequestInfo) string {
 	return fmt.Sprintf("%s %s for %s", info.Verb, info.Resource, info.Path)
 }
 
-// WriteObject write object to response writer
-func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) error {
+// Err write err to response writer
+func Err(err error, w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
 		gv := schema.GroupVersion{
@@ -191,12 +207,59 @@ func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req 
 			Version: info.APIVersion,
 		}
 		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
-		responsewriters.WriteObjectNegotiated(negotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj, false)
+		responsewriters.ErrorNegotiated(err, negotiatedSerializer, gv, w, req)
+		return
+	}
+
+	klog.Errorf("request info is not found when err write, %s", ReqString(req))
+}
+
+// WriteObject write object to response writer
+func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) error {
+	ctx := req.Context()
+	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+		gvr := schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}
+
+		convertGVK, ok := ConvertGVKFrom(ctx)
+		if ok && convertGVK != nil {
+			gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+		}
+
+		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gvr)
+		responsewriters.WriteObjectNegotiated(negotiatedSerializer, DefaultHubEndpointRestrictions, gvr.GroupVersion(), w, req, statusCode, obj, false)
 		return nil
 	}
 
 	return fmt.Errorf("request info is not found when write object, %s", ReqString(req))
 }
+
+// DefaultHubEndpointRestrictions is the default EndpointRestrictions which allows
+// content-type negotiation to verify yurthub server support for specific options
+var DefaultHubEndpointRestrictions = hubEndpointRestrictions{}
+
+type hubEndpointRestrictions struct{}
+
+func (hubEndpointRestrictions) AllowsMediaTypeTransform(mimeType string, mimeSubType string, gvk *schema.GroupVersionKind) bool {
+	if gvk == nil {
+		return true
+	}
+
+	if gvk.GroupVersion() == metav1beta1.SchemeGroupVersion || gvk.GroupVersion() == metav1.SchemeGroupVersion {
+		switch gvk.Kind {
+		case "PartialObjectMetadata", "PartialObjectMetadataList":
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+func (hubEndpointRestrictions) AllowsServerVersion(string) bool  { return false }
+func (hubEndpointRestrictions) AllowsStreamSchema(s string) bool { return s == "watch" }
 
 func NewTripleReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser, io.ReadCloser) {
 	pr1, pw1 := io.Pipe()

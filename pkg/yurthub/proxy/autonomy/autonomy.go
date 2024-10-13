@@ -35,7 +35,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
-	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -68,7 +67,7 @@ func NewAutonomyProxy(
 func (ap *AutonomyProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	obj, err := ap.updateNodeStatus(req)
 	if err != nil {
-		proxyutil.Err(err, rw, req)
+		util.Err(err, rw, req)
 	}
 	util.WriteObject(http.StatusOK, obj, rw, req)
 }

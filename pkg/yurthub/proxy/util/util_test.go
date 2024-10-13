@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -39,6 +41,97 @@ func newTestRequestInfoResolver() *request.RequestInfoFactory {
 	return &request.RequestInfoFactory{
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
+	}
+}
+
+func TestWithPartialObjectMetadataRequest(t *testing.T) {
+	testcases := map[string]struct {
+		Verb            string
+		Path            string
+		Header          map[string]string
+		ClientComponent string
+		IsPartialReq    bool
+		ConvertGVK      schema.GroupVersionKind
+	}{
+		"kubelet request": {
+			Verb: "GET",
+			Path: "/api/v1/nodes/mynode",
+			Header: map[string]string{
+				"User-Agent": "kubelet",
+			},
+			ClientComponent: "kubelet",
+			IsPartialReq:    false,
+		},
+		"flanneld list request by partial object metadata request": {
+			Verb: "GET",
+			Path: "/api/v1/nodes",
+			Header: map[string]string{
+				"User-Agent": "flanneld/0.11.0",
+				"Accept":     "application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1",
+			},
+			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
+			IsPartialReq:    true,
+			ConvertGVK: schema.GroupVersionKind{
+				Group:   "meta.k8s.io",
+				Version: "v1",
+				Kind:    "PartialObjectMetadataList",
+			},
+		},
+		"flanneld get request by partial object metadata request": {
+			Verb: "GET",
+			Path: "/api/v1/nodes/mynode",
+			Header: map[string]string{
+				"User-Agent": "flanneld/0.11.0",
+				"Accept":     "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1",
+			},
+			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
+			IsPartialReq:    true,
+			ConvertGVK: schema.GroupVersionKind{
+				Group:   "meta.k8s.io",
+				Version: "v1",
+				Kind:    "PartialObjectMetadata",
+			},
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+			for k, v := range tc.Header {
+				req.Header.Set(k, v)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			var clientComponent string
+			var isPartialReq bool
+			var convertGVK *schema.GroupVersionKind
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := req.Context()
+				clientComponent, _ = util.ClientComponentFrom(ctx)
+				convertGVK, isPartialReq = util.ConvertGVKFrom(ctx)
+			})
+
+			handler = WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = WithPartialObjectMetadataRequest(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if clientComponent != tc.ClientComponent {
+				t.Errorf("expect client component %s, but got %s", tc.ClientComponent, clientComponent)
+			}
+
+			if isPartialReq != tc.IsPartialReq {
+				t.Errorf("expect isPartialReq %v, but got %v", tc.IsPartialReq, isPartialReq)
+			}
+
+			if tc.IsPartialReq {
+				if !reflect.DeepEqual(tc.ConvertGVK, *convertGVK) {
+					t.Errorf("expect convert gvk %v, but got %v", tc.ConvertGVK, *convertGVK)
+				}
+			}
+		})
 	}
 }
 

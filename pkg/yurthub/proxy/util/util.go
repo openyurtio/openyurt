@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/munnerz/goautoneg"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -36,8 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
-	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
-	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
@@ -60,6 +60,33 @@ var needModifyTimeoutVerb = map[string]bool{
 	"watch": true,
 }
 
+// WithPartialObjectMetadataRequest is used for extracting info for partial object metadata request,
+// then these info is used by cache manager.
+func WithPartialObjectMetadataRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
+			if info.IsResourceRequest {
+				var gvk schema.GroupVersionKind
+				acceptHeader := req.Header.Get("Accept")
+				clauses := goautoneg.ParseAccept(acceptHeader)
+				if len(clauses) >= 1 {
+					gvk.Group = clauses[0].Params["g"]
+					gvk.Version = clauses[0].Params["v"]
+					gvk.Kind = clauses[0].Params["as"]
+				}
+
+				if gvk.Kind == "PartialObjectMetadataList" || gvk.Kind == "PartialObjectMetadata" {
+					ctx = util.WithConvertGVK(ctx, &gvk)
+				}
+				req = req.WithContext(ctx)
+			}
+		}
+
+		handler.ServeHTTP(w, req)
+	})
+}
+
 // WithRequestContentType add req-content-type in request context.
 // if no Accept header is set, the request will be reject with a message.
 func WithRequestContentType(handler http.Handler) http.Handler {
@@ -72,6 +99,14 @@ func WithRequestContentType(handler http.Handler) http.Handler {
 				parts := strings.Split(header, ",")
 				if len(parts) >= 1 {
 					contentType = parts[0]
+				}
+
+				subParts := strings.Split(contentType, ";")
+				for i := range subParts {
+					if strings.Contains(subParts[i], "as=") {
+						contentType = subParts[0]
+						break
+					}
 				}
 
 				if len(contentType) != 0 {
@@ -173,6 +208,11 @@ func WithRequestClientComponent(handler http.Handler, mode util.WorkingMode) htt
 				}
 
 				if userAgent != "" {
+					convertGVK, ok := util.ConvertGVKFrom(ctx)
+					if ok && convertGVK != nil {
+						userAgent = filepath.Join(userAgent, strings.Join([]string{"partialobjectmetadatas", convertGVK.Version, convertGVK.Group}, "."))
+					}
+
 					ctx = util.WithClientComponent(ctx, userAgent)
 					req = req.WithContext(ctx)
 				}
@@ -312,7 +352,7 @@ func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
 			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
 			metrics.Metrics.IncRejectedRequestCounter()
 			w.Header().Set("Retry-After", "1")
-			Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
+			util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
 		}
 	})
 }
@@ -334,7 +374,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 					opts := metainternalversion.ListOptions{}
 					if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
 						klog.Errorf("could not decode parameter for list/watch request: %s", util.ReqString(req))
-						Err(errors.NewBadRequest(err.Error()), w, req)
+						util.Err(errors.NewBadRequest(err.Error()), w, req)
 						return
 					}
 					if opts.TimeoutSeconds != nil {
@@ -440,38 +480,6 @@ func IsKubeletGetNodeReq(req *http.Request) bool {
 		return false
 	}
 	return true
-}
-
-// WriteObject write object to response writer
-func WriteObject(statusCode int, obj runtime.Object, w http.ResponseWriter, req *http.Request) error {
-	ctx := req.Context()
-	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
-		gv := schema.GroupVersion{
-			Group:   info.APIGroup,
-			Version: info.APIVersion,
-		}
-		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
-		responsewriters.WriteObjectNegotiated(negotiatedSerializer, negotiation.DefaultEndpointRestrictions, gv, w, req, statusCode, obj, false)
-		return nil
-	}
-
-	return fmt.Errorf("request info is not found when write object, %s", util.ReqString(req))
-}
-
-// Err write err to response writer
-func Err(err error, w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	if info, ok := apirequest.RequestInfoFrom(ctx); ok {
-		gv := schema.GroupVersion{
-			Group:   info.APIGroup,
-			Version: info.APIVersion,
-		}
-		negotiatedSerializer := serializer.YurtHubSerializer.GetNegotiatedSerializer(gv.WithResource(info.Resource))
-		responsewriters.ErrorNegotiated(err, negotiatedSerializer, gv, w, req)
-		return
-	}
-
-	klog.Errorf("request info is not found when err write, %s", util.ReqString(req))
 }
 
 func IsPoolScopedResourceListWatchRequest(req *http.Request) bool {

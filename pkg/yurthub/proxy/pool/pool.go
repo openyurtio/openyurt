@@ -109,7 +109,7 @@ func (pp *YurtCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 	reqInfo, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok || reqInfo == nil {
 		klog.Errorf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req), reqInfo)
-		util.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
+		hubutil.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
 		return
 	}
 	req.Header.Del("Authorization") // delete token with cloud apiServer RBAC and use yurthub authorization
@@ -126,11 +126,11 @@ func (pp *YurtCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 		}
 		if err != nil {
 			klog.Errorf("could not proxy to yurt-coordinator for %s, %v", hubutil.ReqString(req), err)
-			util.Err(errors.NewBadRequest(err.Error()), rw, req)
+			hubutil.Err(errors.NewBadRequest(err.Error()), rw, req)
 		}
 	} else {
 		klog.Errorf("yurt-coordinator does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
-		util.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator does not support request(%s)", hubutil.ReqString(req))), rw, req)
+		hubutil.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator does not support request(%s)", hubutil.ReqString(req))), rw, req)
 	}
 }
 
