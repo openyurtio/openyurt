@@ -386,6 +386,7 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 	// create abspath dir in case that contents is empty
 	if err := ds.fsOperator.CreateDir(absPath); err != nil {
 		klog.Errorf("could not create dir at %s, %v", absPath, err)
+		return err
 	}
 	for key, data := range contents {
 		path := filepath.Join(ds.baseDir, key.Key())
