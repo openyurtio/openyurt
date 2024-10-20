@@ -383,6 +383,11 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 
 	// 2. create new file with contents
 	// TODO: if error happens, we may need retry mechanism, or add some mechanism to do consistency check.
+	// create abspath dir in case that contents is empty
+	if err := ds.fsOperator.CreateDir(absPath); err != nil {
+		klog.Errorf("could not create dir at %s, %v", absPath, err)
+		return err
+	}
 	for key, data := range contents {
 		path := filepath.Join(ds.baseDir, key.Key())
 		if err := ds.fsOperator.CreateDir(filepath.Dir(path)); err != nil && err != fs.ErrExists {
