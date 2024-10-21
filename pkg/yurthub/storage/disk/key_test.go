@@ -136,6 +136,17 @@ func TestKeyFunc(t *testing.T) {
 			},
 			key: "kubelet/namespaces.v1.core/kube-system",
 		},
+		"list partial object metadata of crds": {
+			info: storage.KeyBuildInfo{
+				Component: "cilium-agent/partialobjectmetadata",
+				Resources: "customresourcedefinitions",
+				Group:     "apiextensions.k8s.io",
+				Version:   "v1",
+				Namespace: "",
+			},
+			key:    "cilium-agent/partialobjectmetadata/customresourcedefinitions.v1.apiextensions.k8s.io",
+			isRoot: true,
+		},
 	}
 
 	disk, err := NewDiskStorage(keyFuncTestDir)

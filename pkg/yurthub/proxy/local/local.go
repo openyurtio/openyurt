@@ -86,11 +86,11 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		if err != nil {
 			klog.Errorf("could not proxy local for %s, %v", hubutil.ReqString(req), err)
-			util.Err(err, w, req)
+			hubutil.Err(err, w, req)
 		}
 	} else {
 		klog.Errorf("local proxy does not support request(%s), requestInfo: %s", hubutil.ReqString(req), hubutil.ReqInfoString(reqInfo))
-		util.Err(apierrors.NewBadRequest(fmt.Sprintf("local proxy does not support request(%s)", hubutil.ReqString(req))), w, req)
+		hubutil.Err(apierrors.NewBadRequest(fmt.Sprintf("local proxy does not support request(%s)", hubutil.ReqString(req))), w, req)
 	}
 }
 
@@ -110,8 +110,7 @@ func localDelete(w http.ResponseWriter, req *http.Request) error {
 		Message: "delete request is not supported in local cache",
 	}
 
-	util.WriteObject(http.StatusForbidden, s, w, req)
-	return nil
+	return hubutil.WriteObject(http.StatusForbidden, s, w, req)
 }
 
 // localPost handles Create requests when remote servers are unhealthy
@@ -232,7 +231,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 		return apierrors.NewInternalError(fmt.Errorf("no cache object for %s", hubutil.ReqString(req)))
 	}
 
-	return util.WriteObject(http.StatusOK, obj, w, req)
+	return hubutil.WriteObject(http.StatusOK, obj, w, req)
 }
 
 func copyHeader(dst, src http.Header) {
