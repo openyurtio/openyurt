@@ -177,7 +177,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		metricsServerOpts.ExtraHandlers[path] = handler
 	}
 
-	trim := func(obj interface{}) (interface{}, error) {
+	trimManagedFields := func(obj interface{}) (interface{}, error) {
 		if accessor, err := meta.Accessor(obj); err == nil {
 			if accessor.GetManagedFields() != nil {
 				accessor.SetManagedFields(nil)
@@ -200,7 +200,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		}),
 		Logger: setupLog,
 		Cache: cache.Options{
-			DefaultTransform: trim,
+			DefaultTransform: trimManagedFields,
 		},
 	})
 	if err != nil {

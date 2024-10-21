@@ -312,6 +312,14 @@ func registerInformers(options *options.YurtHubOptions,
 		}
 		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
 	}
+
+	// service informer is used by serviceTopologyFilter
+	newServiceInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+		informer := coreinformers.NewFilteredServiceInformer(client, "", resyncPeriod, nil, nil)
+		informer.SetTransform(pkgutil.TransformStripManagedFields())
+		return informer
+	}
+	informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
