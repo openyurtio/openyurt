@@ -46,6 +46,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	pkgutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
@@ -277,19 +278,24 @@ func registerInformers(options *options.YurtHubOptions,
 	informerFactory informers.SharedInformerFactory,
 	workingMode util.WorkingMode,
 	tenantNs string) {
+
 	// configmap informer is used by Yurthub filter approver
 	newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
 		}
-		return coreinformers.NewFilteredConfigMapInformer(client, options.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+		informer := coreinformers.NewFilteredConfigMapInformer(client, options.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+		informer.SetTransform(pkgutil.TransformStripManagedFields())
+		return informer
 	}
 	informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigmapInformer)
 
 	// secret informer is used by Tenant manager, this feature is not enabled in general.
 	if tenantNs != "" {
 		newSecretInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-			return coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
+			informer := coreinformers.NewFilteredSecretInformer(client, tenantNs, resyncPeriod, nil, nil)
+			informer.SetTransform(pkgutil.TransformStripManagedFields())
+			return informer
 		}
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
@@ -300,10 +306,20 @@ func registerInformers(options *options.YurtHubOptions,
 			listOptions := func(ops *metav1.ListOptions) {
 				ops.FieldSelector = fields.Set{"spec.nodeName": options.NodeName}.String()
 			}
-			return coreinformers.NewFilteredPodInformer(client, "", resyncPeriod, nil, listOptions)
+			informer := coreinformers.NewFilteredPodInformer(client, "", resyncPeriod, nil, listOptions)
+			informer.SetTransform(pkgutil.TransformStripManagedFields())
+			return informer
 		}
 		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
 	}
+
+	// service informer is used by serviceTopologyFilter
+	newServiceInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+		informer := coreinformers.NewFilteredServiceInformer(client, "", resyncPeriod, nil, nil)
+		informer.SetTransform(pkgutil.TransformStripManagedFields())
+		return informer
+	}
+	informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {

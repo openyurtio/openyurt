@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -175,6 +177,14 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 		metricsServerOpts.ExtraHandlers[path] = handler
 	}
 
+	trimManagedFields := func(obj interface{}) (interface{}, error) {
+		if accessor, err := meta.Accessor(obj); err == nil {
+			if accessor.GetManagedFields() != nil {
+				accessor.SetManagedFields(nil)
+			}
+		}
+		return obj, nil
+	}
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                     scheme,
 		Metrics:                    metricsServerOpts,
@@ -189,6 +199,9 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 			CertDir: util.GetCertDir(),
 		}),
 		Logger: setupLog,
+		Cache: cache.Options{
+			DefaultTransform: trimManagedFields,
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
