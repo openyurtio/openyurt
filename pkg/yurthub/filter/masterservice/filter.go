@@ -91,6 +91,7 @@ func (msf *masterServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) ru
 func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) {
 	if svc.Namespace == MasterServiceNamespace && svc.Name == MasterServiceName {
 		svc.Spec.ClusterIP = msf.host
+		svc.Spec.ClusterIPs = []string{msf.host}
 		for j := range svc.Spec.Ports {
 			if svc.Spec.Ports[j].Name == MasterServicePortName {
 				svc.Spec.Ports[j].Port = msf.port

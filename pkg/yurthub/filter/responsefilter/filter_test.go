@@ -769,7 +769,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.0.1",
+							ClusterIP:  "10.96.0.1",
+							ClusterIPs: []string{"10.96.0.1"},
 							Ports: []corev1.ServicePort{
 								{
 									Port: 443,
@@ -784,7 +785,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
+							ClusterIP:  "10.96.105.188",
+							ClusterIPs: []string{"10.96.105.188"},
 							Ports: []corev1.ServicePort{
 								{
 									Port: 80,
@@ -806,7 +808,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: masterHost,
+							ClusterIP:  masterHost,
+							ClusterIPs: []string{masterHost},
 							Ports: []corev1.ServicePort{
 								{
 									Port: masterPortInt,
@@ -821,7 +824,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
+							ClusterIP:  "10.96.105.188",
+							ClusterIPs: []string{"10.96.105.188"},
 							Ports: []corev1.ServicePort{
 								{
 									Port: 80,
@@ -852,7 +856,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
+							ClusterIP:  "10.96.105.188",
+							ClusterIPs: []string{"10.96.105.188"},
 							Ports: []corev1.ServicePort{
 								{
 									Port: 80,
@@ -874,7 +879,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 							Namespace: masterservice.MasterServiceNamespace,
 						},
 						Spec: corev1.ServiceSpec{
-							ClusterIP: "10.96.105.188",
+							ClusterIP:  "10.96.105.188",
+							ClusterIPs: []string{"10.96.105.188"},
 							Ports: []corev1.ServicePort{
 								{
 									Port: 80,
@@ -903,7 +909,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 					Namespace: masterservice.MasterServiceNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.96.105.188",
+					ClusterIP:  "10.96.105.188",
+					ClusterIPs: []string{"10.96.105.188"},
 					Ports: []corev1.ServicePort{
 						{
 							Port: 80,
@@ -922,7 +929,8 @@ func TestResponseFilterForListRequest(t *testing.T) {
 					Namespace: masterservice.MasterServiceNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: masterHost,
+					ClusterIP:  masterHost,
+					ClusterIPs: []string{masterHost},
 					Ports: []corev1.ServicePort{
 						{
 							Port: masterPortInt,
