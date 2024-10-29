@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"gopkg.in/yaml.v3"
@@ -25,7 +25,7 @@ import (
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
@@ -38,7 +38,7 @@ func (webhook *PlatformAdminHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 	if err := webhook.initManifest(); err != nil {
 		return "", "", err
 	}
-	return webhookutil.RegisterWebhook(mgr, &v1alpha1.PlatformAdmin{}, webhook)
+	return webhookutil.RegisterWebhook(mgr, &v1beta1.PlatformAdmin{}, webhook)
 }
 
 func (webhook *PlatformAdminHandler) initManifest() error {

@@ -22,11 +22,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 )
 
 const (
-	IndexerPathForNodepool = "spec.poolName"
+	IndexerPathForNodepools = "spec.nodepools"
+	IndexerPathForNodepool  = "spec.poolName"
 )
 
 var registerOnce sync.Once
@@ -35,10 +36,10 @@ func RegisterFieldIndexers(fi client.FieldIndexer) error {
 	var err error
 	registerOnce.Do(func() {
 		// register the fieldIndexer for device
-		if err = fi.IndexField(context.TODO(), &v1alpha2.PlatformAdmin{}, IndexerPathForNodepool, func(rawObj client.Object) []string {
-			platformAdmin, ok := rawObj.(*v1alpha2.PlatformAdmin)
+		if err = fi.IndexField(context.TODO(), &v1beta1.PlatformAdmin{}, IndexerPathForNodepools, func(rawObj client.Object) []string {
+			platformAdmin, ok := rawObj.(*v1beta1.PlatformAdmin)
 			if ok {
-				return []string{platformAdmin.Spec.PoolName}
+				return platformAdmin.Spec.NodePools
 			}
 			return []string{}
 		}); err != nil {

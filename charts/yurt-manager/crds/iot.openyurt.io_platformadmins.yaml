@@ -9287,6 +9287,107 @@ spec:
                 type: integer
             type: object
         type: object
+    served: false
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: The platformadmin ready status
+      jsonPath: .status.ready
+      name: READY
+      type: boolean
+    - description: The Ready Component.
+      jsonPath: .status.readyComponentNum
+      name: ReadyComponentNum
+      type: integer
+    - description: The Unready Component.
+      jsonPath: .status.unreadyComponentNum
+      name: UnreadyComponentNum
+      type: integer
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: PlatformAdmin is the Schema for the samples API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PlatformAdminSpec defines the desired state of PlatformAdmin
+            properties:
+              components:
+                items:
+                  description: Component defines the components of EdgeX
+                  properties:
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              imageRegistry:
+                type: string
+              nodepools:
+                items:
+                  type: string
+                type: array
+              platform:
+                type: string
+              security:
+                type: boolean
+              version:
+                type: string
+            type: object
+          status:
+            description: PlatformAdminStatus defines the observed state of PlatformAdmin
+            properties:
+              conditions:
+                description: Current PlatformAdmin state
+                items:
+                  description: PlatformAdminCondition describes current state of a
+                    PlatformAdmin.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of in place set condition.
+                      type: string
+                  type: object
+                type: array
+              initialized:
+                type: boolean
+              ready:
+                type: boolean
+              readyComponentNum:
+                format: int32
+                type: integer
+              unreadyComponentNum:
+                format: int32
+                type: integer
+            type: object
+        type: object
     served: true
     storage: true
     subresources:

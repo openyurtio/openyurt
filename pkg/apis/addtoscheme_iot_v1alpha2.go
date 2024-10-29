@@ -16,11 +16,11 @@ limitations under the License.
 
 package apis
 
-import (
-	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
-)
+// import (
+// 	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+// )
 
-func init() {
-	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
-}
+// func init() {
+// 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+// 	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
+// }

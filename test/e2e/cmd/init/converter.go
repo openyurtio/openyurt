@@ -217,6 +217,7 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("couldn't install yurt-manager, %v", err)
+		klog.Errorf("Helm install output: %s", string(output))
 		return err
 	}
 	klog.Infof("start to install yurt-manager, %s", string(output))
