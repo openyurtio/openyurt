@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.156
+	github.com/coreos/go-iptables v0.8.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/edgexfoundry/go-mod-core-contracts/v3 v3.0.0
 	github.com/evanphx/json-patch v5.6.0+incompatible

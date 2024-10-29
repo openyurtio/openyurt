@@ -72,6 +72,7 @@ type YurtHubOptions struct {
 	EnableIptables            bool
 	HubAgentDummyIfIP         string
 	HubAgentDummyIfName       string
+	HostControlPlaneAddr      string
 	DiskCachePath             string
 	EnableResourceFilter      bool
 	DisabledResourceFilters   []string
@@ -149,30 +150,36 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
-		if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
-			return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+	if options.WorkingMode != string(util.WorkingModeLocal) {
+		if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
+			if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
+				return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
+			}
 		}
-	}
 
-	if !util.IsSupportedLBMode(options.LBMode) {
-		return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
-	}
+		if !util.IsSupportedLBMode(options.LBMode) {
+			return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
+		}
 
-	if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
-		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
-	}
+		if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
+			return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
+		}
 
-	if err := options.verifyDummyIP(); err != nil {
-		return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
-	}
+		if err := options.verifyDummyIP(); err != nil {
+			return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
+		}
 
-	if len(options.HubAgentDummyIfName) > 15 {
-		return fmt.Errorf("dummy name %s length should not be more than 15", options.HubAgentDummyIfName)
-	}
+		if len(options.HubAgentDummyIfName) > 15 {
+			return fmt.Errorf("dummy name %s length should not be more than 15", options.HubAgentDummyIfName)
+		}
 
-	if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
-		return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
+		if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
+			return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
+		}
+	} else {
+		if len(options.HostControlPlaneAddr) == 0 {
+			return fmt.Errorf("host-control-plane-address is empty")
+		}
 	}
 
 	return nil
@@ -186,7 +193,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
 	fs.IntVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
 	fs.StringVar(&o.YurtHubNamespace, "namespace", o.YurtHubNamespace, "the namespace of YurtHub Server")
-	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver,the format is: \"server1,server2,...\"")
+	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver, the format is: \"server1,server2,...\"; when yurthub is in local mode, server-addr represents the service address of apiservers, the format is: \"ip:port\".")
 	fs.StringSliceVar(&o.YurtHubCertOrganizations, "hub-cert-organizations", o.YurtHubCertOrganizations, "Organizations that will be added into hub's apiserver client certificate, the format is: certOrg1,certOrg2,...")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs hub agent")
@@ -212,7 +219,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableResourceFilter, "enable-resource-filter", o.EnableResourceFilter, "enable to filter response that comes back from reverse proxy")
 	fs.StringSliceVar(&o.DisabledResourceFilters, "disabled-resource-filters", o.DisabledResourceFilters, "disable resource filters to handle response")
 	fs.StringVar(&o.NodePoolName, "nodepool-name", o.NodePoolName, "the name of node pool that runs hub agent")
-	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud).")
+	fs.StringVar(&o.WorkingMode, "working-mode", o.WorkingMode, "the working mode of yurthub(edge, cloud, local).")
 	fs.DurationVar(&o.KubeletHealthGracePeriod, "kubelet-health-grace-period", o.KubeletHealthGracePeriod, "the amount of time which we allow kubelet to be unresponsive before stop renew node lease")
 	fs.BoolVar(&o.EnableNodePool, "enable-node-pool", o.EnableNodePool, "enable list/watch nodepools resource or not for filters(only used for testing)")
 	fs.MarkDeprecated("enable-node-pool", "It is planned to be removed from OpenYurt in the future version, please use --enable-pool-service-topology instead")
@@ -225,6 +232,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CoordinatorStorageAddr, "coordinator-storage-addr", o.CoordinatorStorageAddr, "Address of Yurt-Coordinator etcd, in the format host:port")
 	bindFlags(&o.LeaderElection, fs)
 	fs.BoolVar(&o.EnablePoolServiceTopology, "enable-pool-service-topology", o.EnablePoolServiceTopology, "enable service topology feature in the node pool.")
+	fs.StringVar(&o.HostControlPlaneAddr, "host-control-plane-address", o.HostControlPlaneAddr, "the address (ip:port) of host kubernetes cluster that used for yurthub local mode.")
 }
 
 // bindFlags binds the LeaderElectionConfiguration struct fields to a flagset

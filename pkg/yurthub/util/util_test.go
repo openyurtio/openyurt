@@ -280,6 +280,7 @@ func TestIsSupportedWorkingMode(t *testing.T) {
 	}{
 		{"working mode cloud", args{WorkingModeCloud}, true},
 		{"working mode edge", args{WorkingModeEdge}, true},
+		{"working mode local", args{WorkingModeLocal}, true},
 		{"no working mode", args{}, false},
 	}
 	for _, tt := range tests {
