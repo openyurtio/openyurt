@@ -54,6 +54,8 @@ const (
 	WorkingModeCloud WorkingMode = "cloud"
 	// WorkingModeEdge represents yurthub is working in edge mode, which means yurthub is deployed on the edge side.
 	WorkingModeEdge WorkingMode = "edge"
+	// WorkingModeLocal represents yurthub is working in local mode, which means yurthub is deployed on the local side.
+	WorkingModeLocal WorkingMode = "local"
 
 	// ProxyReqContentType represents request content type context key
 	ProxyReqContentType ProxyKeyType = iota
@@ -421,7 +423,7 @@ func IsSupportedLBMode(lbMode string) bool {
 // IsSupportedWorkingMode check working mode is supported or not
 func IsSupportedWorkingMode(workingMode WorkingMode) bool {
 	switch workingMode {
-	case WorkingModeCloud, WorkingModeEdge:
+	case WorkingModeCloud, WorkingModeEdge, WorkingModeLocal:
 		return true
 	}
 

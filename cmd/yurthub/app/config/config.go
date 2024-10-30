@@ -63,6 +63,7 @@ import (
 type YurtHubConfiguration struct {
 	LBMode                          string
 	RemoteServers                   []*url.URL
+	TenantKasService                string // ip:port, used in local mode
 	GCFrequency                     int
 	NodeName                        string
 	HeartbeatFailedRetry            int
@@ -99,11 +100,12 @@ type YurtHubConfiguration struct {
 	CoordinatorStorageAddr          string // ip:port
 	CoordinatorClient               kubernetes.Interface
 	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
+	HostControlPlaneAddr            string // ip:port
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
 func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
-	us, err := parseRemoteServers(options.ServerAddr)
+	us, err := parseRemoteServers(options.WorkingMode, options.ServerAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -173,42 +175,53 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
 		CoordinatorStorageAddr:    options.CoordinatorStorageAddr,
 		LeaderElection:            options.LeaderElection,
+		HostControlPlaneAddr:      options.HostControlPlaneAddr,
 	}
 
-	certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
-	if err != nil {
-		return nil, err
-	}
-	certMgr.Start()
-	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 4*time.Minute, true, func(ctx context.Context) (bool, error) {
-		isReady := certMgr.Ready()
-		if isReady {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
-	}
-	cfg.CertManager = certMgr
-
-	if options.EnableDummyIf {
-		klog.V(2).Infof("create dummy network interface %s(%s) and init iptables manager", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
-		networkMgr, err := network.NewNetworkManager(options)
+	// if yurthub is in local mode, certMgr and networkMgr are no need to start
+	if cfg.WorkingMode != util.WorkingModeLocal {
+		certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
 		if err != nil {
-			return nil, fmt.Errorf("could not create network manager, %w", err)
+			return nil, err
 		}
-		cfg.NetworkMgr = networkMgr
-	}
+		certMgr.Start()
+		err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 4*time.Minute, true, func(ctx context.Context) (bool, error) {
+			isReady := certMgr.Ready()
+			if isReady {
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
+		}
+		cfg.CertManager = certMgr
 
-	if err = prepareServerServing(options, certMgr, cfg); err != nil {
-		return nil, err
+		if options.EnableDummyIf {
+			klog.V(2).Infof("create dummy network interface %s(%s) and init iptables manager", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
+			networkMgr, err := network.NewNetworkManager(options)
+			if err != nil {
+				return nil, fmt.Errorf("could not create network manager, %w", err)
+			}
+			cfg.NetworkMgr = networkMgr
+		}
+
+		if err = prepareServerServing(options, certMgr, cfg); err != nil {
+			return nil, err
+		}
+	} else {
+		// if yurthub is in local mode, cfg.TenantKasService is used to represented as the service address (ip:port) of multiple apiserver daemonsets
+		cfg.TenantKasService = options.ServerAddr
 	}
 
 	return cfg, nil
 }
 
-func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
+func parseRemoteServers(workingMode string, serverAddr string) ([]*url.URL, error) {
+	// if yurthub is in local mode, the format of serverAddr is ip:port, skip this function
+	if workingMode == string(util.WorkingModeLocal) {
+		return nil, nil
+	}
 	if serverAddr == "" {
 		return make([]*url.URL, 0), fmt.Errorf("--server-addr should be set for hub agent")
 	}
@@ -242,7 +255,12 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 func createClientAndSharedInformers(options *options.YurtHubOptions) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
 	var kubeConfig *rest.Config
 	var err error
-	kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), "")
+	// If yurthub is in local mode, create kubeconfig for host control plane to prepare	informerFactory.
+	if util.WorkingMode(options.WorkingMode) == util.WorkingModeLocal {
+		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", options.HostControlPlaneAddr), "")
+	} else {
+		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), "")
+	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -273,7 +291,7 @@ func createClientAndSharedInformers(options *options.YurtHubOptions) (kubernetes
 	return client, informers.NewSharedInformerFactory(client, 24*time.Hour), dynamicInformerFactory, nil
 }
 
-// registerInformers reconstruct configmap/secret/pod informers
+// registerInformers reconstruct configmap/secret/pod/endpoints informers
 func registerInformers(options *options.YurtHubOptions,
 	informerFactory informers.SharedInformerFactory,
 	workingMode util.WorkingMode,
@@ -320,6 +338,14 @@ func registerInformers(options *options.YurtHubOptions,
 		return informer
 	}
 	informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
+
+	// endpoints informer is used in local working mode
+	if workingMode == util.WorkingModeLocal {
+		newEndpointsInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+			return coreinformers.NewFilteredEndpointsInformer(client, "kube-public", resyncPeriod, nil, nil)
+		}
+		informerFactory.InformerFor(&corev1.Endpoints{}, newEndpointsInformer)
+	}
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
