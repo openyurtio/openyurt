@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	apiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -54,10 +55,25 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
+
+var DefaultMultiplexerResources = []schema.GroupVersionResource{
+	{
+		Group:    "",
+		Version:  "v1",
+		Resource: "services",
+	},
+	{
+		Group:    "discovery.k8s.io",
+		Version:  "v1",
+		Resource: "endpointslices",
+	},
+}
 
 // YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
@@ -99,6 +115,9 @@ type YurtHubConfiguration struct {
 	CoordinatorStorageAddr          string // ip:port
 	CoordinatorClient               kubernetes.Interface
 	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
+	PostStartHooks                  map[string]func() error
+	MultiplexerCacheManager         multiplexer.MultiplexerManager
+	MultiplexerResources            []schema.GroupVersionResource
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -173,6 +192,8 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
 		CoordinatorStorageAddr:    options.CoordinatorStorageAddr,
 		LeaderElection:            options.LeaderElection,
+		MultiplexerResources:      DefaultMultiplexerResources,
+		MultiplexerCacheManager:   newMultiplexerCacheManager(options),
 	}
 
 	certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
@@ -376,4 +397,18 @@ func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.Y
 	cfg.YurtHubSecureProxyServerServing.DisableHTTP2 = true
 
 	return nil
+}
+
+func newMultiplexerCacheManager(options *options.YurtHubOptions) multiplexer.MultiplexerManager {
+	config := newRestConfig(options.YurtHubProxyHost, options.YurtHubProxyPort)
+	rsm := storage.NewStorageManager(config)
+
+	return multiplexer.NewRequestsMultiplexerManager(rsm)
+}
+
+func newRestConfig(host string, port int) *rest.Config {
+	return &rest.Config{
+		Host:      fmt.Sprintf("http://%s:%d", host, port),
+		UserAgent: "share-hub",
+	}
 }
