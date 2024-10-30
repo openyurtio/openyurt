@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apis
+package util
 
-// import (
-// 	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-// )
-
-// func init() {
-// 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-// 	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
-// }
+// Helper function to check if a slice contains a string
+func Contains(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}

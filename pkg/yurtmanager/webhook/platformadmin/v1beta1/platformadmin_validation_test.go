@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -34,7 +34,8 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	ut "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
-	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 )
 
 // TestValidateCreate tests the ValidateCreate method of PlatformAdminHandler.
@@ -54,41 +55,74 @@ func TestValidateCreate(t *testing.T) {
 			errCode: http.StatusBadRequest,
 		},
 		{
+			name:   "should get StatusUnprocessableEntityError when Platform is invalid",
+			client: NewFakeClient(buildClient(nil, nil)).Build(),
+			obj: &v1beta1.PlatformAdmin{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: "invalid",
+				},
+			},
+			errCode: http.StatusUnprocessableEntity,
+		},
+		{
+			name:   "should get StatusUnprocessableEntityError when version is invalid",
+			client: NewFakeClient(buildClient(nil, nil)).Build(),
+			obj: &v1beta1.PlatformAdmin{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: v1beta1.PlatformAdminPlatformEdgeX,
+					Version:  "invalid version",
+				},
+			},
+			errCode: http.StatusUnprocessableEntity,
+		},
+		{
 			name:   "should get StatusUnprocessableEntityError when list NodePoolList failed",
 			client: NewFakeClient(buildClient(nil, nil)).WithErr(&ut.NodePoolList{}, errors.New("list failed")).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       v1alpha1.PlatformAdminSpec{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: v1beta1.PlatformAdminPlatformEdgeX,
+					Version:  "v2",
+				},
 			},
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
 			name:   "should get StatusUnprocessableEntityError when list NodePoolList is empty",
 			client: NewFakeClient(buildClient(nil, nil)).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec:       v1alpha1.PlatformAdminSpec{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: v1beta1.PlatformAdminPlatformEdgeX,
+					Version:  "v2",
+				},
 			},
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
-			name:   "should get StatusUnprocessableEntityError when find NodePoolList is empty by PlatformAdmin PoolName",
+			name:   "should get StatusUnprocessableEntityError when find NodePoolList is empty by PlatformAdmin NodePools",
 			client: NewFakeClient(buildClient(buildNodePool(), nil)).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "not-exit-poll",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"not-exit-poll"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
 			name:   "should get StatusUnprocessableEntityError when list PlatformAdmin failed",
-			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).WithErr(&v1alpha1.PlatformAdminList{}, errors.New("list failed")).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).WithErr(&v1beta1.PlatformAdminList{}, errors.New("list failed")).Build(),
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: http.StatusUnprocessableEntity,
@@ -96,12 +130,14 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name:   "should get StatusUnprocessableEntityError when get other PlatformAdmin in same node pool",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: http.StatusUnprocessableEntity,
@@ -109,21 +145,35 @@ func TestValidateCreate(t *testing.T) {
 		{
 			name:   "should get no err",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: 0,
 		},
 	}
 
+	manifest := &config.Manifest{
+		Versions: []config.ManifestVersion{
+			{
+				Name:               "v2",
+				RequiredComponents: []string{"edgex-core-data", "edgex-core-metadata"},
+			},
+		},
+	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := &PlatformAdminHandler{Client: tc.client}
+			handler := &PlatformAdminHandler{
+				Client:    tc.client,
+				Manifests: manifest,
+			}
 			_, err := handler.ValidateCreate(context.TODO(), tc.obj)
 			if tc.errCode == 0 {
 				assert.NoError(t, err, "success case result err must be nil")
@@ -148,7 +198,7 @@ func TestValidateUpdate(t *testing.T) {
 		{
 			name:    "should get StatusBadRequestError when invalid new PlatformAdmin type",
 			client:  NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			oldObj:  &v1alpha1.PlatformAdmin{},
+			oldObj:  &v1beta1.PlatformAdmin{},
 			newObj:  &unstructured.Unstructured{},
 			errCode: http.StatusBadRequest,
 		},
@@ -156,33 +206,37 @@ func TestValidateUpdate(t *testing.T) {
 			name:    "should get StatusBadRequestError when invalid old PlatformAdmin type",
 			client:  NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
 			oldObj:  &unstructured.Unstructured{},
-			newObj:  &v1alpha1.PlatformAdmin{},
+			newObj:  &v1beta1.PlatformAdmin{},
 			errCode: http.StatusBadRequest,
 		},
 		{
 			name:   "should get StatusUnprocessableEntityError when old PlatformAdmin is valid and new PlatformAdmin is invalid",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			oldObj: &v1alpha1.PlatformAdmin{
+			oldObj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
-			newObj:  &v1alpha1.PlatformAdmin{},
+			newObj:  &v1beta1.PlatformAdmin{},
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
 			name:   "should get StatusUnprocessableEntityError when old PlatformAdmin is invalid and old PlatformAdmin is valid",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			oldObj: &v1alpha1.PlatformAdmin{},
-			newObj: &v1alpha1.PlatformAdmin{
+			oldObj: &v1beta1.PlatformAdmin{},
+			newObj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: http.StatusUnprocessableEntity,
@@ -190,29 +244,42 @@ func TestValidateUpdate(t *testing.T) {
 		{
 			name:   "should no err when new PlatformAdmin and old PlatformAdmin both valid",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
-			oldObj: &v1alpha1.PlatformAdmin{
+			oldObj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
-			newObj: &v1alpha1.PlatformAdmin{
+			newObj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing-PlatformAdmin",
 				},
-				Spec: v1alpha1.PlatformAdminSpec{
-					PoolName: "beijing",
+				Spec: v1beta1.PlatformAdminSpec{
+					NodePools: []string{"beijing"},
+					Platform:  v1beta1.PlatformAdminPlatformEdgeX,
+					Version:   "v2",
 				},
 			},
 			errCode: 0,
 		},
 	}
 
+	manifest := &config.Manifest{
+		Versions: []config.ManifestVersion{
+			{
+				Name:               "v2",
+				RequiredComponents: []string{"edgex-core-data", "edgex-core-metadata"},
+			},
+		},
+	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := &PlatformAdminHandler{Client: tc.client}
+			handler := &PlatformAdminHandler{Client: tc.client, Manifests: manifest}
 			_, err := handler.ValidateUpdate(context.TODO(), tc.oldObj, tc.newObj)
 			if tc.errCode == 0 {
 				assert.NoError(t, err, "success case result err must be nil")
@@ -236,17 +303,17 @@ func buildClient(nodePools []client.Object, platformAdmin []client.Object) clien
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = apis.AddToScheme(scheme)
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(nodePools...).WithObjects(platformAdmin...).WithIndex(&v1alpha1.PlatformAdmin{}, "spec.poolName", Indexer).Build()
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(nodePools...).WithObjects(platformAdmin...).WithIndex(&v1beta1.PlatformAdmin{}, "spec.nodepools", Indexer).Build()
 }
 
 func buildPlatformAdmin() []client.Object {
 	nodes := []client.Object{
-		&v1alpha1.PlatformAdmin{
+		&v1beta1.PlatformAdmin{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "beijing-PlatformAdmin",
 			},
-			Spec: v1alpha1.PlatformAdminSpec{
-				PoolName: "beijing",
+			Spec: v1beta1.PlatformAdminSpec{
+				NodePools: []string{"beijing"},
 			},
 		},
 	}
@@ -308,12 +375,12 @@ func (f *FakeClient) Build() *FakeClient {
 }
 
 func Indexer(rawObj client.Object) []string {
-	platformAdmin, ok := rawObj.(*v1alpha1.PlatformAdmin)
+	platformAdmin, ok := rawObj.(*v1beta1.PlatformAdmin)
 	if !ok {
 		return []string{}
 	}
-	if len(platformAdmin.Spec.PoolName) == 0 {
+	if len(platformAdmin.Spec.NodePools) == 0 {
 		return []string{}
 	}
-	return []string{platformAdmin.Spec.PoolName}
+	return platformAdmin.Spec.NodePools
 }

@@ -34,8 +34,7 @@ import (
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta1"
-	v1alpha1platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1alpha1"
-	v1alpha2platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1alpha2"
+	v1beta1platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1beta1"
 	v1alpha1pod "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/pod/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	webhookcontroller "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util/controller"
@@ -76,8 +75,8 @@ func init() {
 	addControllerWebhook(names.YurtStaticSetController, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(names.YurtAppSetController, &v1beta1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(names.YurtAppDaemonController, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
-	addControllerWebhook(names.PlatformAdminController, &v1alpha1platformadmin.PlatformAdminHandler{})
-	addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
+	//addControllerWebhook(names.PlatformAdminController, &v1alpha2platformadmin.PlatformAdminHandler{})
+	addControllerWebhook(names.PlatformAdminController, &v1beta1platformadmin.PlatformAdminHandler{})
 	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1yurtappoverrider.YurtAppOverriderHandler{})
 	addControllerWebhook(names.YurtAppOverriderController, &v1alpha1deploymentrender.DeploymentRenderHandler{})
 

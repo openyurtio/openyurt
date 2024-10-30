@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
+	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 )
 
@@ -43,9 +43,9 @@ func TestDefault(t *testing.T) {
 	tests := []testCase{
 		{
 			name: "should get no error when valid PlatformAdmin object with spec empty version",
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1alpha1.PlatformAdminSpec{
+				Spec: v1beta1.PlatformAdminSpec{
 					Version: "",
 				},
 			},
@@ -54,9 +54,9 @@ func TestDefault(t *testing.T) {
 		},
 		{
 			name: "should get no error when valid PlatformAdmin object with spec version is v1",
-			obj: &v1alpha1.PlatformAdmin{
+			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
-				Spec: v1alpha1.PlatformAdminSpec{
+				Spec: v1beta1.PlatformAdminSpec{
 					Version: "v1",
 				},
 			},
@@ -76,8 +76,48 @@ func TestDefault(t *testing.T) {
 			err := handler.Default(context.TODO(), tc.obj)
 			assert.Equal(t, tc.expected, err)
 			if err == nil {
-				assert.Equal(t, tc.version, tc.obj.(*v1alpha1.PlatformAdmin).Spec.Version)
+				assert.Equal(t, tc.version, tc.obj.(*v1beta1.PlatformAdmin).Spec.Version)
 			}
+		})
+	}
+}
+
+func TestDefaultV2(t *testing.T) {
+	type testCase struct {
+		name     string
+		obj      runtime.Object
+		platform string
+	}
+
+	tests := []testCase{
+		{
+			name: "should get default platform when valid PlatformAdmin object with spec empty platform",
+			obj: &v1beta1.PlatformAdmin{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: "",
+				},
+			},
+			platform: v1beta1.PlatformAdminPlatformEdgeX,
+		},
+		{
+			name: "should get no error when valid PlatformAdmin object with spec platform is test",
+			obj: &v1beta1.PlatformAdmin{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: v1beta1.PlatformAdminSpec{
+					Platform: "test",
+				},
+			},
+			platform: "test",
+		},
+	}
+
+	handler := PlatformAdminHandler{Manifests: &config.Manifest{}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := handler.Default(context.TODO(), tc.obj)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.platform, tc.obj.(*v1beta1.PlatformAdmin).Spec.Platform)
 		})
 	}
 }

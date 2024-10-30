@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the License);
 you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@ limitations under the License.
 
 package apis
 
-// import (
-// 	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
-// )
+import (
+	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
+)
 
-// func init() {
-// 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-// 	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
-// }
+func init() {
+	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+	AddToSchemes = append(AddToSchemes, version.SchemeBuilder.AddToScheme)
+}

@@ -20,12 +20,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 )
 
 // NewPlatformAdminCondition creates a new PlatformAdmin condition.
-func NewPlatformAdminCondition(condType iotv1alpha2.PlatformAdminConditionType, status corev1.ConditionStatus, reason, message string) *iotv1alpha2.PlatformAdminCondition {
-	return &iotv1alpha2.PlatformAdminCondition{
+func NewPlatformAdminCondition(condType iotv1beta1.PlatformAdminConditionType, status corev1.ConditionStatus, reason, message string) *iotv1beta1.PlatformAdminCondition {
+	return &iotv1beta1.PlatformAdminCondition{
 		Type:               condType,
 		Status:             status,
 		LastTransitionTime: metav1.Now(),
@@ -35,7 +35,7 @@ func NewPlatformAdminCondition(condType iotv1alpha2.PlatformAdminConditionType, 
 }
 
 // GetPlatformAdminCondition returns the condition with the provided type.
-func GetPlatformAdminCondition(status iotv1alpha2.PlatformAdminStatus, condType iotv1alpha2.PlatformAdminConditionType) *iotv1alpha2.PlatformAdminCondition {
+func GetPlatformAdminCondition(status iotv1beta1.PlatformAdminStatus, condType iotv1beta1.PlatformAdminConditionType) *iotv1beta1.PlatformAdminCondition {
 	for i := range status.Conditions {
 		c := status.Conditions[i]
 		if c.Type == condType {
@@ -47,7 +47,7 @@ func GetPlatformAdminCondition(status iotv1alpha2.PlatformAdminStatus, condType 
 
 // SetPlatformAdminCondition updates the PlatformAdmin to include the provided condition. If the condition that
 // we are about to add already exists and has the same status, reason and message then we are not going to update.
-func SetPlatformAdminCondition(status *iotv1alpha2.PlatformAdminStatus, condition *iotv1alpha2.PlatformAdminCondition) {
+func SetPlatformAdminCondition(status *iotv1beta1.PlatformAdminStatus, condition *iotv1beta1.PlatformAdminCondition) {
 	currentCond := GetPlatformAdminCondition(*status, condition.Type)
 	if currentCond != nil && currentCond.Status == condition.Status && currentCond.Reason == condition.Reason {
 		return
@@ -60,8 +60,8 @@ func SetPlatformAdminCondition(status *iotv1alpha2.PlatformAdminStatus, conditio
 	status.Conditions = append(newConditions, *condition)
 }
 
-func filterOutCondition(conditions []iotv1alpha2.PlatformAdminCondition, condType iotv1alpha2.PlatformAdminConditionType) []iotv1alpha2.PlatformAdminCondition {
-	var newConditions []iotv1alpha2.PlatformAdminCondition
+func filterOutCondition(conditions []iotv1beta1.PlatformAdminCondition, condType iotv1beta1.PlatformAdminConditionType) []iotv1beta1.PlatformAdminCondition {
+	var newConditions []iotv1beta1.PlatformAdminCondition
 	for _, c := range conditions {
 		if c.Type == condType {
 			continue

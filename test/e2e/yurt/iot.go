@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/test/e2e/util"
 	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
@@ -77,7 +77,7 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 	createPlatformAdmin := func(version string) {
 		By(fmt.Sprintf("create the PlatformAdmin named %s for iot e2e test", platformAdminName))
 		Eventually(func() error {
-			return k8sClient.Delete(ctx, &iotv1alpha2.PlatformAdmin{
+			return k8sClient.Delete(ctx, &iotv1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      platformAdminName,
 					Namespace: namespaceName,
@@ -85,14 +85,14 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 			})
 		}, timeout, 500*time.Millisecond).Should(SatisfyAny(BeNil(), &util.NotFoundMatcher{}))
 
-		testPlatformAdmin := iotv1alpha2.PlatformAdmin{
+		testPlatformAdmin := iotv1beta1.PlatformAdmin{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      platformAdminName,
 				Namespace: namespaceName,
 			},
-			Spec: iotv1alpha2.PlatformAdminSpec{
-				Version:  version,
-				PoolName: nodePoolName,
+			Spec: iotv1beta1.PlatformAdminSpec{
+				Version:   version,
+				NodePools: []string{nodePoolName},
 			},
 		}
 		Eventually(func() error {
@@ -127,13 +127,13 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 
 			AfterEach(func() {
 				By(fmt.Sprintf("Delete the platformAdmin %s", platformAdminName))
-				Expect(k8sClient.Delete(ctx, &iotv1alpha2.PlatformAdmin{ObjectMeta: metav1.ObjectMeta{Name: platformAdminName, Namespace: namespaceName}})).Should(BeNil())
+				Expect(k8sClient.Delete(ctx, &iotv1beta1.PlatformAdmin{ObjectMeta: metav1.ObjectMeta{Name: platformAdminName, Namespace: namespaceName}})).Should(BeNil())
 			})
 
 			It(fmt.Sprintf("The %s version of PlatformAdmin should be stable in ready state after it is created", version), func() {
 				By("verify the status of platformadmin")
 				Eventually(func() error {
-					testPlatformAdmin := &iotv1alpha2.PlatformAdmin{}
+					testPlatformAdmin := &iotv1beta1.PlatformAdmin{}
 					if err := k8sClient.Get(ctx, types.NamespacedName{Name: platformAdminName, Namespace: namespaceName}, testPlatformAdmin); err != nil {
 						return err
 					}
