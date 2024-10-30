@@ -38,7 +38,7 @@ func (webhook *PlatformAdminHandler) Default(ctx context.Context, obj runtime.Ob
 	if platformAdmin.Spec.Version == "" {
 		platformAdmin.Spec.Version = webhook.Manifests.LatestVersion
 	}
-	
+
 	if platformAdmin.Spec.Platform == "" {
 		platformAdmin.Spec.Platform = v1beta1.PlatformAdminPlatformEdgeX
 	}

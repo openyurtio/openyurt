@@ -1482,26 +1482,6 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /mutate-iot-openyurt-io-v1alpha2-platformadmin
-  failurePolicy: Fail
-  name: mplatformadmin.kb.io
-  rules:
-  - apiGroups:
-    - iot.openyurt.io
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - platformadmins
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
   - v1beta1
   clientConfig:
     service:
@@ -1604,6 +1584,26 @@ webhooks:
     resources:
     - yurtstaticsets
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-iot-openyurt-io-v1alpha2-platformadmin
+  failurePolicy: Fail
+  name: mplatformadmin.kb.io
+  rules:
+  - apiGroups:
+    - iot.openyurt.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - platformadmins
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -1671,26 +1671,6 @@ webhooks:
     - DELETE
     resources:
     - nodepools
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: yurt-manager-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate-iot-openyurt-io-v1alpha2-platformadmin
-  failurePolicy: Fail
-  name: vplatformadmin.kb.io
-  rules:
-  - apiGroups:
-    - iot.openyurt.io
-    apiVersions:
-    - v1alpha2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - platformadmins
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -1776,4 +1756,24 @@ webhooks:
     - UPDATE
     resources:
     - yurtstaticsets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: yurt-manager-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-iot-openyurt-io-v1alpha2-platformadmin
+  failurePolicy: Fail
+  name: vplatformadmin.kb.io
+  rules:
+  - apiGroups:
+    - iot.openyurt.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - platformadmins
   sideEffects: None

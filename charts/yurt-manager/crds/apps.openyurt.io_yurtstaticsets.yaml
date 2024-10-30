@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: yurtstaticsets.apps.openyurt.io
 spec:
   group: apps.openyurt.io
@@ -41,14 +41,19 @@ spec:
         description: YurtStaticSet is the Schema for the yurtstaticsets API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -56,13 +61,15 @@ spec:
             description: YurtStaticSetSpec defines the desired state of YurtStaticSet
             properties:
               revisionHistoryLimit:
-                description: The number of old history to retain to allow rollback.
+                description: |-
+                  The number of old history to retain to allow rollback.
                   Defaults to 10.
                 format: int32
                 type: integer
               staticPodManifest:
-                description: StaticPodManifest indicates the file name of static pod
-                  manifest. The corresponding manifest file name is `StaticPodManifest.yaml`.
+                description: |-
+                  StaticPodManifest indicates the file name of static pod manifest.
+                  The corresponding manifest file name is `StaticPodManifest.yaml`.
                 type: string
               template:
                 description: An object that describes the desired spec of static pod.

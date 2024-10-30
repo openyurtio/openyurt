@@ -69,7 +69,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 	controllerWebhooks[name] = append(controllerWebhooks[name], handler)
 }
 
-func init() { 
+func init() {
 	addControllerWebhook(names.GatewayPickupController, &v1beta1gateway.GatewayHandler{})
 	addControllerWebhook(names.NodePoolController, &v1beta1nodepool.NodePoolHandler{})
 	addControllerWebhook(names.YurtStaticSetController, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
