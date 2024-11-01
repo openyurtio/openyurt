@@ -37,6 +37,7 @@ const (
 	NodeLifeCycleController                = "node-life-cycle-controller"
 	NodeBucketController                   = "node-bucket-controller"
 	LoadBalancerSetController              = "load-balancer-set-controller"
+	VipLoadBalancerController              = "vip-load-balancer-controller"
 )
 
 func YurtManagerControllerAliases() map[string]string {
@@ -62,5 +63,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"nodelifecycle":                 NodeLifeCycleController,
 		"nodebucket":                    NodeBucketController,
 		"loadbalancerset":               LoadBalancerSetController,
+		"viploadbalancer":               VipLoadBalancerController,
 	}
 }
