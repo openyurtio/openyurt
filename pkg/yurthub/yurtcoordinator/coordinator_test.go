@@ -237,3 +237,44 @@ func TestIfInformerSyncLease(t *testing.T) {
 		})
 	}
 }
+
+func TestIsReady(t *testing.T) {
+	// Create a new coordinator instance
+	coordinator := &coordinator{
+		electStatus:          LeaderHub,
+		isPoolCacheSynced:    true,
+		needUploadLocalCache: false,
+		poolCacheManager:     nil, // Replace with your own cache manager instance
+	}
+
+	// Call the IsReady method
+	cacheManager, ready := coordinator.IsReady()
+
+	// Check the expected values
+	if cacheManager != nil {
+		t.Errorf("Expected cacheManager to be nil, got %v", cacheManager)
+	}
+	if !ready {
+		t.Errorf("Expected ready to be true, got false")
+	}
+}
+func TestIsHealthy(t *testing.T) {
+	// Create a new coordinator instance
+	coordinator := &coordinator{
+		electStatus:          LeaderHub,
+		isPoolCacheSynced:    true,
+		needUploadLocalCache: false,
+		poolCacheManager:     nil, // Replace with your own cache manager instance
+	}
+
+	// Call the IsHealthy method
+	cacheManager, healthy := coordinator.IsHealthy()
+
+	// Check the expected values
+	if cacheManager != nil {
+		t.Errorf("Expected cacheManager to be nil, got %v", cacheManager)
+	}
+	if !healthy {
+		t.Errorf("Expected healthy to be true, got false")
+	}
+}

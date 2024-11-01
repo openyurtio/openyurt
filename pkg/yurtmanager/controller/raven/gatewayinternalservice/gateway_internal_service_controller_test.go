@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +36,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -230,10 +232,12 @@ func TestReconcileService_cleanService(t *testing.T) {
 	}
 
 	err := r.cleanService(context.TODO(), req)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Errorf("failed to delete service %s/%s", req.Namespace, req.Name)
+	}
 	svc := &corev1.Service{}
 	err = r.Client.Get(context.TODO(), req.NamespacedName, svc)
-	assert.Error(t, err)
+	assert.True(t, apierrs.IsNotFound(err), "expected Service to be deleted")
 }
 
 func TestReconcileService_cleanEndpoint(t *testing.T) {
@@ -254,9 +258,10 @@ func TestReconcileService_cleanEndpoint(t *testing.T) {
 	}
 
 	err := r.cleanEndpoint(context.TODO(), req)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "expected no error")
 
+	// Check if the Endpoints was deleted
 	ep := &corev1.Endpoints{}
 	err = r.Client.Get(context.TODO(), req.NamespacedName, ep)
-	assert.Error(t, err)
+	assert.True(t, apierrs.IsNotFound(err), "expected Endpoints to be deleted")
 }
