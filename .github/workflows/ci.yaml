@@ -107,7 +107,7 @@ jobs:
       - name: Publish Unit Test Coverage
         # only publish result in openyurt repo
         if: github.repository == 'openyurtio/openyurt'
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v4.6.0
         with:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}
