@@ -96,7 +96,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to YurtAppOverrider
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.YurtAppOverrider{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1alpha1.YurtAppOverrider{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}

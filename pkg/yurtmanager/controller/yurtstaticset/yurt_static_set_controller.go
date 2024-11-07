@@ -160,7 +160,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// 1. Watch for changes to YurtStaticSet
-	if err := c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.YurtStaticSet{}), &handler.EnqueueRequestForObject{}); err != nil {
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1alpha1.YurtStaticSet{}, &handler.EnqueueRequestForObject{})); err != nil {
 		return err
 	}
 
@@ -197,17 +197,17 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return requests
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}),
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{},
 		handler.EnqueueRequestsFromMapFunc(
 			func(context.Context, client.Object) []reconcile.Request {
 				return reconcileAllYurtStaticSets(mgr.GetClient())
-			}), nodeReadyPredicate); err != nil {
+			}), nodeReadyPredicate)); err != nil {
 		return err
 	}
 
 	// 3. Watch for changes to upgrade worker pods which are created by yurt-static-set-controller
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1alpha1.YurtStaticSet{}, handler.OnlyControllerOwner())); err != nil {
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Pod{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1alpha1.YurtStaticSet{}, handler.OnlyControllerOwner()))); err != nil {
 		return err
 	}
 
@@ -231,10 +231,10 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 
 		return reqs
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), handler.EnqueueRequestsFromMapFunc(
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(
 		func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return reconcileYurtStaticSetForStaticPod(obj)
-		})); err != nil {
+		}))); err != nil {
 		return err
 	}
 

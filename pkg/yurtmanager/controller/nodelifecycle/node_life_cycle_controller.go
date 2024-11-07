@@ -310,57 +310,24 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 		CreateFunc: func(evt event.CreateEvent) bool {
 			pod := evt.Object.(*v1.Pod)
 			nc.podUpdated(nil, pod)
-			if nc.taintManager != nil {
-				nc.taintManager.PodUpdated(nil, pod)
-			}
 			return false
 		},
 		UpdateFunc: func(evt event.UpdateEvent) bool {
 			prevPod := evt.ObjectOld.(*v1.Pod)
 			newPod := evt.ObjectNew.(*v1.Pod)
 			nc.podUpdated(prevPod, newPod)
-			if nc.taintManager != nil {
-				nc.taintManager.PodUpdated(prevPod, newPod)
-			}
 			return false
 		},
 		DeleteFunc: func(evt event.DeleteEvent) bool {
 			pod := evt.Object.(*v1.Pod)
 			nc.podUpdated(pod, nil)
-			if nc.taintManager != nil {
-				nc.taintManager.PodUpdated(pod, nil)
-			}
 			return false
 		},
 		GenericFunc: func(evt event.GenericEvent) bool {
 			return false
 		},
 	}
-	c.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), &handler.Funcs{}, podsPredicate)
-
-	nc.taintManager = scheduler.NewNoExecuteTaintManager(nc.recorder, nc.controllerRuntimeClient, nc.getPodsAssignedToNode)
-	nodesTaintManagerPredicate := predicate.Funcs{
-		CreateFunc: func(evt event.CreateEvent) bool {
-			node := evt.Object.(*v1.Node).DeepCopy()
-			nc.taintManager.NodeUpdated(nil, node)
-			return false
-		},
-		UpdateFunc: func(evt event.UpdateEvent) bool {
-			oldNode := evt.ObjectOld.(*v1.Node).DeepCopy()
-			newNode := evt.ObjectNew.(*v1.Node).DeepCopy()
-			nc.taintManager.NodeUpdated(oldNode, newNode)
-			return false
-		},
-		DeleteFunc: func(evt event.DeleteEvent) bool {
-			node := evt.Object.(*v1.Node).DeepCopy()
-			nc.taintManager.NodeUpdated(node, nil)
-			return false
-		},
-		GenericFunc: func(evt event.GenericEvent) bool {
-			return false
-		},
-	}
-	c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), &handler.Funcs{}, nodesTaintManagerPredicate)
+	c.Watch(source.Kind[client.Object](mgr.GetCache(), &v1.Pod{}, &handler.Funcs{}, podsPredicate))
 
 	nodesUpdateQueuePredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
@@ -382,9 +349,9 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), &handler.Funcs{}, nodesUpdateQueuePredicate)
-	c.Watch(source.Kind(mgr.GetCache(), &apps.DaemonSet{}), &handler.Funcs{})
-	c.Watch(source.Kind(mgr.GetCache(), &coordinationv1.Lease{}), &handler.Funcs{})
+	c.Watch(source.Kind[client.Object](mgr.GetCache(), &v1.Node{}, &handler.Funcs{}, nodesUpdateQueuePredicate))
+	c.Watch(source.Kind[client.Object](mgr.GetCache(), &apps.DaemonSet{}, &handler.Funcs{}))
+	c.Watch(source.Kind[client.Object](mgr.GetCache(), &coordinationv1.Lease{}, &handler.Funcs{}))
 
 	go nc.Run(ctx, c.WaitForStarted)
 	return nil
@@ -462,8 +429,6 @@ func (nc *ReconcileNodeLifeCycle) Run(ctx context.Context, waitForControllerStar
 	if !waitForControllerStarted(ctx) {
 		return
 	}
-
-	go nc.taintManager.Run(ctx)
 
 	// Start workers to reconcile labels and/or update NoSchedule taint for nodes.
 	for i := 0; i < scheduler.UpdateWorkerSize; i++ {

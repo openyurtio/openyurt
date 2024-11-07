@@ -107,18 +107,18 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to Gateway
-	err = c.Watch(source.Kind(mgr.GetCache(), &ravenv1beta1.Gateway{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &ravenv1beta1.Gateway{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to Nodes
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueGatewayForNode{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{}, &EnqueueGatewayForNode{}))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueGatewayForRavenConfig{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController)}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.ConfigMap{}, &EnqueueGatewayForRavenConfig{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController)}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {
@@ -131,7 +131,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 				return false
 			}
 			return true
-		}))
+		})))
 	if err != nil {
 		return err
 	}

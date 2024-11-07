@@ -108,9 +108,9 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 	// Watch for csr changes
 	if r.csrV1Supported {
-		return c.Watch(source.Kind(mgr.GetCache(), &certificatesv1.CertificateSigningRequest{}), &handler.EnqueueRequestForObject{})
+		return c.Watch(source.Kind[client.Object](mgr.GetCache(), &certificatesv1.CertificateSigningRequest{}, &handler.EnqueueRequestForObject{}))
 	} else {
-		return c.Watch(source.Kind(mgr.GetCache(), &certificatesv1beta1.CertificateSigningRequest{}), &handler.EnqueueRequestForObject{})
+		return c.Watch(source.Kind[client.Object](mgr.GetCache(), &certificatesv1beta1.CertificateSigningRequest{}, &handler.EnqueueRequestForObject{}))
 	}
 }
 

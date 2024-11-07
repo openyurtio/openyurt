@@ -84,7 +84,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to service
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueRequestForServiceEvent{}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{}, &EnqueueRequestForServiceEvent{}, predicate.NewPredicateFuncs(
 		func(obj client.Object) bool {
 			svc, ok := obj.(*corev1.Service)
 			if !ok {
@@ -94,12 +94,12 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 				return false
 			}
 			return svc.Namespace == util.WorkingNamespace && svc.Name == util.GatewayProxyInternalService
-		}))
+		})))
 	if err != nil {
 		return err
 	}
 	//Watch for changes to nodes
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueRequestForNodeEvent{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{}, &EnqueueRequestForNodeEvent{}))
 	if err != nil {
 		return err
 	}
