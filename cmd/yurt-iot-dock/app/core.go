@@ -18,6 +18,7 @@ package app
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,10 +32,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
@@ -65,8 +66,8 @@ func NewCmdYurtIoTDock(stopCh <-chan struct{}) *cobra.Command {
 		Short: "Launch yurt-iot-dock",
 		Long:  "Launch yurt-iot-dock",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-				klog.V(1).Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+			cmd.Flags().VisitAll(func(f *pflag.Flag) {
+				klog.V(1).Infof("FLAG: --%s=%q", f.Name, f.Value)
 			})
 			if err := options.ValidateOptions(yurtIoTDockOptions); err != nil {
 				klog.Fatalf("validate options: %v", err)
@@ -75,12 +76,17 @@ func NewCmdYurtIoTDock(stopCh <-chan struct{}) *cobra.Command {
 		},
 	}
 
+	opts := zap.Options{
+		Development: true,
+	}
+	opts.BindFlags(flag.CommandLine)
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
 	yurtIoTDockOptions.AddFlags(cmd.Flags())
 	return cmd
 }
 
 func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
-	ctrl.SetLogger(klogr.New())
 	cfg := ctrl.GetConfigOrDie()
 
 	metricsServerOpts := metricsserver.Options{

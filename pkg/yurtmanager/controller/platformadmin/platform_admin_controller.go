@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -461,7 +461,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 					{
 						Pools: []string{poolName},
 						Tweaks: appsv1beta1.Tweaks{
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 						},
 					},
 				}
@@ -591,7 +591,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 		{
 			Pools: yas.Spec.Pools,
 			Tweaks: appsv1beta1.Tweaks{
-				Replicas: pointer.Int32(1),
+				Replicas: ptr.To[int32](1),
 			},
 		},
 	}

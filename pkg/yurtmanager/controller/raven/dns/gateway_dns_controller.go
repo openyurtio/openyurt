@@ -139,7 +139,7 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 		}
 		if svc != nil {
 			if svc.Spec.ClusterIP == "" {
-				klog.Infoln("the service %s/%s cluster IP is empty", util.WorkingNamespace, util.GatewayProxyInternalService)
+				klog.Infof("the service %s/%s cluster IP is empty", util.WorkingNamespace, util.GatewayProxyInternalService)
 			} else {
 				proxyAddress = svc.Spec.ClusterIP
 			}

@@ -215,7 +215,6 @@ type podUpdateItem struct {
 // ReconcileNodeLifeCycle is the controller that manages node's life cycle.
 type ReconcileNodeLifeCycle struct {
 	controllerRuntimeClient client.Client
-	taintManager            *scheduler.NoExecuteTaintManager
 	kubeClient              clientset.Interface
 
 	// This timestamp is to be used instead of LastProbeTime stored in Condition. We do this

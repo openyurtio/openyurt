@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	utilpointer "k8s.io/utils/pointer"
+	utilpointer "k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -274,7 +274,7 @@ var (
 					},
 					HostNetwork:       true,
 					PriorityClassName: "system-node-critical",
-					Priority:          utilpointer.Int32(2000001000),
+					Priority:          utilpointer.To[int32](2000001000),
 				},
 			},
 		},
@@ -306,7 +306,7 @@ func preparePods() []*corev1.Pod {
 			},
 			HostNetwork:       true,
 			PriorityClassName: "system-node-critical",
-			Priority:          utilpointer.Int32(2000001000),
+			Priority:          utilpointer.To[int32](2000001000),
 			NodeName:          "aaa",
 			SchedulerName:     "default-scheduler",
 			RestartPolicy:     "Always",
@@ -332,7 +332,7 @@ func preparePods() []*corev1.Pod {
 			},
 		},
 		PriorityClassName: "system-node-critical",
-		Priority:          utilpointer.Int32(2000001000),
+		Priority:          utilpointer.To[int32](2000001000),
 		NodeName:          "aaa",
 		SchedulerName:     "default-scheduler",
 		RestartPolicy:     "Always",

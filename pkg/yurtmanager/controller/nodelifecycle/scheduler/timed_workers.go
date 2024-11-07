@@ -121,7 +121,7 @@ func (q *TimedWorkerQueue) AddWork(ctx context.Context, args *WorkArgs, createdA
 	q.Lock()
 	defer q.Unlock()
 	if _, exists := q.workers[key]; exists {
-		klog.Info("Trying to add already existing work(%v), skipping", args)
+		klog.Infof("Trying to add already existing work(%v), skipping", args)
 		return
 	}
 	worker := createWorker(ctx, args, createdAt, fireAt, q.getWrappedWorkerFunc(key), q.clock)

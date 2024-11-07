@@ -264,7 +264,7 @@ func (efc *EdgexDeviceClient) UpdatePropertyState(ctx context.Context, propertyN
 	bodyMap := make(map[string]string)
 	bodyMap[parameterName] = dps.DesiredValue
 	body, _ := json.Marshal(bodyMap)
-	klog.V(5).Infof("setting the property to desired value", "propertyName", parameterName, "desiredValue", string(body))
+	klog.V(5).Info("setting the property to desired value", "propertyName", parameterName, "desiredValue", string(body))
 	rep, err := efc.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(body).

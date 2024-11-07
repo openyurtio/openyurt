@@ -369,7 +369,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 						yas.GetNamespace(), yas.GetName(), templateType, nodepoolName, err.Error())
 				}
 			}
-			klog.Infof("YurtAppSet[%s/%s] create workload %s[%s/%s] success",
+			klog.Infof("YurtAppSet[%s/%s] create workload [%s/%s] success",
 				yas.GetNamespace(), yas.GetName(), templateType, nodepoolName)
 			return nil
 		})

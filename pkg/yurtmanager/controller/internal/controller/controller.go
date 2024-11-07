@@ -28,8 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -83,17 +81,11 @@ type Controller struct {
 	LeaderElected *bool
 }
 
-// watchDescription contains all the information necessary to start a watch.
-type watchDescription struct {
-	src        source.Source
-	handler    handler.EventHandler
-	predicates []predicate.Predicate
-}
-
 // Watch implements controller.Controller.
 func (c *Controller) Watch(src source.Source) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	// Controller hasn't started yet, store the watches locally and return.
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
@@ -150,7 +142,7 @@ func (c *Controller) Start(ctx context.Context) error {
 		}
 
 		// Start the SharedIndexInformer factories to begin populating the SharedIndexInformer caches
-		klog.V(2).InfoS("Starting Controller WatchSource", "controller", c.Name)
+		c.LogConstructor(nil).Info("Starting Controller")
 
 		for _, watch := range c.startWatches {
 			syncingSource, ok := watch.(source.SyncingSource)

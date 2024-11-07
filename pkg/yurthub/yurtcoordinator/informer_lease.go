@@ -29,7 +29,7 @@ import (
 	coordclientset "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // TODO: reuse code of healthchecker.NodeLease
@@ -151,8 +151,8 @@ func (nl *informerLeaseTmpl) newLease(base *coordinationv1.Lease) *coordinationv
 				Namespace: nl.leaseNamespace,
 			},
 			Spec: coordinationv1.LeaseSpec{
-				HolderIdentity:       pointer.String(nl.holderIdentity),
-				LeaseDurationSeconds: pointer.Int32(nl.leaseDurationSeconds),
+				HolderIdentity:       ptr.To(nl.holderIdentity),
+				LeaseDurationSeconds: ptr.To(nl.leaseDurationSeconds),
 			},
 		}
 	} else {

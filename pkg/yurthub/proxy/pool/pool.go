@@ -108,7 +108,7 @@ func (pp *YurtCoordinatorProxy) ServeHTTP(rw http.ResponseWriter, req *http.Requ
 	ctx := req.Context()
 	reqInfo, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok || reqInfo == nil {
-		klog.Errorf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req), reqInfo)
+		klog.Errorf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo: %v", hubutil.ReqString(req), reqInfo)
 		hubutil.Err(errors.NewBadRequest(fmt.Sprintf("yurt-coordinator proxy cannot handle request(%s), cannot get requestInfo", hubutil.ReqString(req))), rw, req)
 		return
 	}
