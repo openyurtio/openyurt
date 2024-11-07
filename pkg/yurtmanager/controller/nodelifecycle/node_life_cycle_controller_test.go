@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,7 +35,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	kubeletapis "k8s.io/kubelet/pkg/apis"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	taintutils "github.com/openyurtio/openyurt/pkg/util/taints"
@@ -53,19 +51,6 @@ const (
 	testLargeClusterThreshold  = 20
 	testUnhealthyThreshold     = float32(0.55)
 )
-
-func createNodeLease(nodeName string, renewTime metav1.MicroTime) *coordv1.Lease {
-	return &coordv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      nodeName,
-			Namespace: v1.NamespaceNodeLease,
-		},
-		Spec: coordv1.LeaseSpec{
-			HolderIdentity: ptr.To(nodeName),
-			RenewTime:      &renewTime,
-		},
-	}
-}
 
 func newNodeLifecycleControllerFromClient(
 	ctx context.Context,
