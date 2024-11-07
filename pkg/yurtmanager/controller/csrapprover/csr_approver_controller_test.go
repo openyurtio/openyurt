@@ -75,10 +75,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
@@ -134,10 +131,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: false,
 			skipRequest:    true,
 			expectedObj: &certificatesv1beta1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1beta1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "node-client-csr",
 					Namespace: "default",
@@ -189,10 +183,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tunnel-server-csr",
 					Namespace: "default",
@@ -238,10 +229,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tunnel-server-proxy-client-csr",
 					Namespace: "default",
@@ -287,10 +275,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tunnel-agent-client-csr",
 					Namespace: "default",
@@ -332,10 +317,7 @@ func TestReconcile(t *testing.T) {
 			},
 			csrV1Supported: true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
@@ -364,10 +346,7 @@ func TestReconcile(t *testing.T) {
 			},
 			csrV1Supported: true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
@@ -399,10 +378,7 @@ func TestReconcile(t *testing.T) {
 			},
 			csrV1Supported: true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
@@ -448,10 +424,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
@@ -507,10 +480,7 @@ func TestReconcile(t *testing.T) {
 			csrV1Supported: true,
 			skipRequest:    true,
 			expectedObj: &certificatesv1.CertificateSigningRequest{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "CertificateSigningRequest",
-					APIVersion: "certificates.k8s.io/v1",
-				},
+				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "server-csr",
 					Namespace: "default",
