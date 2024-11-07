@@ -4,10 +4,12 @@ go 1.22.3
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.156
+	github.com/coreos/go-iptables v0.8.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/edgexfoundry/go-mod-core-contracts/v3 v3.0.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-jose/go-jose/v3 v3.0.3
+	github.com/go-logr/logr v1.4.2
 	github.com/go-resty/resty/v2 v2.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-cmp v0.6.0
@@ -82,7 +84,6 @@ require (
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect

@@ -144,25 +144,25 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to PlatformAdmin
-	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &iotv1alpha2.PlatformAdmin{}, &handler.EnqueueRequestForObject{}))
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &iotv1beta1.PlatformAdmin{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}
 
 	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.ConfigMap{},
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner())))
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
 	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{},
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner())))
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
 	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1beta1.YurtAppSet{},
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1alpha2.PlatformAdmin{}, handler.OnlyControllerOwner())))
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
