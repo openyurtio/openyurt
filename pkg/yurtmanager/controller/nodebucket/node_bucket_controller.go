@@ -82,13 +82,13 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	}
 
 	// Watch for changes to NodeBucket
-	if err = c.Watch(source.Kind(mgr.GetCache(), &appsv1alpha1.NodeBucket{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1beta1.NodePool{}, handler.OnlyControllerOwner())); err != nil {
+	if err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1alpha1.NodeBucket{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1beta1.NodePool{}, handler.OnlyControllerOwner()))); err != nil {
 		return err
 	}
 
 	// Watch nodepool create for nodebucket
-	if err = c.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.NodePool{}), &handler.EnqueueRequestForObject{}, predicate.Funcs{
+	if err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1beta1.NodePool{}, &handler.EnqueueRequestForObject{}, predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
 			return true
 		},
@@ -101,7 +101,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 		GenericFunc: func(genericEvent event.GenericEvent) bool {
 			return false
 		},
-	}); err != nil {
+	})); err != nil {
 		return err
 	}
 
@@ -148,7 +148,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	})
 
 	// Watch for changes to Node
-	if err = c.Watch(source.Kind(mgr.GetCache(), &v1.Node{}), reconcilePool, nodePredicate); err != nil {
+	if err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &v1.Node{}, reconcilePool, nodePredicate)); err != nil {
 		return err
 	}
 	return nil

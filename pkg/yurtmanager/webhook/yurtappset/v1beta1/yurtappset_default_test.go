@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
@@ -44,17 +44,17 @@ func TestYurtAppSetHandler_Default(t *testing.T) {
 					RevisionHistoryLimit: nil,
 				},
 			},
-			expected: pointer.Int32(10),
+			expected: ptr.To[int32](10),
 			wantErr:  false,
 		},
 		{
 			name: "should not change RevisionHistoryLimit when it is already set",
 			obj: &v1beta1.YurtAppSet{
 				Spec: v1beta1.YurtAppSetSpec{
-					RevisionHistoryLimit: pointer.Int32(5),
+					RevisionHistoryLimit: ptr.To[int32](5),
 				},
 			},
-			expected: pointer.Int32(5),
+			expected: ptr.To[int32](5),
 			wantErr:  false,
 		},
 		{

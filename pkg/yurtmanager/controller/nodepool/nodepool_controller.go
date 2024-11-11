@@ -81,16 +81,16 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	}
 
 	// Watch for changes to NodePool
-	err = ctrl.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.NodePool{}), &handler.EnqueueRequestForObject{})
+	err = ctrl.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1beta1.NodePool{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to Node
-	err = ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}), &EnqueueNodePoolForNode{
+	err = ctrl.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{}, &EnqueueNodePoolForNode{
 		EnableSyncNodePoolConfigurations: r.cfg.EnableSyncNodePoolConfigurations,
 		Recorder:                         r.recorder,
-	})
+	}))
 	if err != nil {
 		return err
 	}

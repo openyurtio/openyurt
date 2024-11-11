@@ -142,14 +142,14 @@ func cleanRevisions(cli client.Client, yas *appsbetav1.YurtAppSet, revisions []*
 	}
 
 	if len(revisions) > revisionLimit {
-		klog.V(4).Info("YurtAppSet [%s/%s] clean expired revisions", yas.GetNamespace(), yas.GetName())
+		klog.V(4).Infof("YurtAppSet [%s/%s] clean expired revisions", yas.GetNamespace(), yas.GetName())
 		for i := 0; i < len(revisions)-revisionLimit; i++ {
 			if revisions[i].GetName() == yas.Status.CurrentRevision {
-				klog.Warningf("YurtAppSet [%s/%s] current revision %s is expired, skip")
+				klog.Warningf("YurtAppSet [%s/%s] current revision %s is expired, skip", yas.GetNamespace(), yas.GetName(), yas.Status.CurrentRevision)
 				continue
 			}
 			if err := cli.Delete(context.TODO(), revisions[i]); err != nil {
-				klog.Errorf("YurtAppSet [%s/%s] delete expired revision %s error: %v")
+				klog.Errorf("YurtAppSet [%s/%s] delete expired revision %s error: %v", yas.GetNamespace(), yas.GetName(), yas.Status.CurrentRevision, err)
 				return err
 			}
 			klog.Infof("YurtAppSet [%s/%s] delete expired revision %s", yas.GetNamespace(), yas.GetName(), revisions[i].Name)
@@ -187,7 +187,7 @@ func createControllerRevision(cli client.Client, parent metav1.Object, revision 
 				klog.V(4).Infof("YurtAppSet [%s/%s] createControllerRevision %s: contents are the same with cr already exists", parent.GetNamespace(), parent.GetName(), clone.GetName())
 				return exists, nil
 			}
-			klog.Info("YurtAppSet [%s/%s] createControllerRevision collision exists, collision count increased %d->%d", parent.GetNamespace(), parent.GetName(), *collisionCount, *collisionCount+1)
+			klog.Infof("YurtAppSet [%s/%s] createControllerRevision collision exists, collision count increased %d->%d", parent.GetNamespace(), parent.GetName(), *collisionCount, *collisionCount+1)
 			*collisionCount++
 			continue
 		}

@@ -23,7 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
-	utilpointer "k8s.io/utils/pointer"
+	utilpointer "k8s.io/utils/ptr"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
@@ -36,11 +36,11 @@ func (webhook *YurtAppSetHandler) Default(ctx context.Context, obj runtime.Objec
 	}
 
 	if set.Spec.RevisionHistoryLimit == nil {
-		set.Spec.RevisionHistoryLimit = utilpointer.Int32(10)
+		set.Spec.RevisionHistoryLimit = utilpointer.To[int32](10)
 		klog.V(4).Info("defaulting YurtAppSet.Spec.RevisionHistoryLimit to 10")
 	}
 
-	klog.V(5).Info("received a YurtAppSet: %v", obj)
+	klog.V(5).Infof("received a YurtAppSet: %v", obj)
 
 	return nil
 }

@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: yurtappsets.apps.openyurt.io
 spec:
   group: apps.openyurt.io
@@ -96,11 +96,13 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                           - key
                           - operator
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     matchLabels:
                       additionalProperties:
                         type: string
@@ -159,11 +161,13 @@ spec:
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                     - key
                                     - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchFields:
                                 description: A list of node selector requirements by node's fields.
                                 items:
@@ -189,11 +193,13 @@ spec:
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                     - key
                                     - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                             type: object
                             x-kubernetes-map-type: atomic
                           patch:
@@ -444,11 +450,13 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                           - key
                           - operator
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     matchLabels:
                       additionalProperties:
                         type: string
@@ -533,11 +541,13 @@ spec:
                                       items:
                                         type: string
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                   required:
                                     - key
                                     - operator
                                   type: object
                                 type: array
+                                x-kubernetes-list-type: atomic
                               matchLabels:
                                 additionalProperties:
                                   type: string

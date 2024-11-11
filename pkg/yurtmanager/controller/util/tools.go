@@ -23,11 +23,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/integer"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerimpl "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/internal/controller"
 )
@@ -89,6 +92,10 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
 	}
 
+	log := mgr.GetLogger().WithValues(
+		"controller", name,
+	)
+
 	// Create controller with dependencies set
 	c := &controllerimpl.Controller{
 		MakeQueue: func() workqueue.RateLimitingInterface {
@@ -97,6 +104,16 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 		CacheSyncTimeout: options.CacheSyncTimeout,
 		Name:             name,
 		RecoverPanic:     options.RecoverPanic,
+		LogConstructor: func(req *reconcile.Request) logr.Logger {
+			log := log
+			if req != nil {
+				log = log.WithValues(
+					"object", klog.KRef(req.Namespace, req.Name),
+					"namespace", req.Namespace, "name", req.Name,
+				)
+			}
+			return log
+		},
 	}
 
 	if err := mgr.Add(c); err != nil {

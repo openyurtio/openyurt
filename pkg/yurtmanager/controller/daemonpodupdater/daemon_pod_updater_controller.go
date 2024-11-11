@@ -159,16 +159,16 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		},
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &appsv1.DaemonSet{}), &handler.EnqueueRequestForObject{}, daemonsetUpdatePredicate); err != nil {
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1.DaemonSet{}, &handler.EnqueueRequestForObject{}, daemonsetUpdatePredicate)); err != nil {
 		return err
 	}
 
 	// 2. Watch for deletion of pods. The reason we watch is that we don't want a daemon set to delete
 	// more pods until all the effects (expectations) of a daemon set's delete have been observed.
 	updater := r.(*ReconcileDaemonpodupdater)
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.Funcs{
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Pod{}, &handler.Funcs{
 		DeleteFunc: updater.deletePod,
-	}); err != nil {
+	})); err != nil {
 		return err
 	}
 	return nil

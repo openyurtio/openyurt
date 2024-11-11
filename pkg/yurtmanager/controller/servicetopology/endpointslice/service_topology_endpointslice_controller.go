@@ -57,9 +57,9 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 	}
 
 	// Watch for changes to Service
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueEndpointsliceForService{
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{}, &EnqueueEndpointsliceForService{
 		endpointsliceAdapter: r.endpointsliceAdapter,
-	}); err != nil {
+	})); err != nil {
 		return err
 	}
 

@@ -187,7 +187,7 @@ func findKindPath() (string, error) {
 	} else {
 		goBinPath, err := getGoBinPath()
 		if err != nil {
-			klog.Fatal("failed to get go bin path, %s", err)
+			klog.Fatalf("failed to get go bin path, %s", err)
 		}
 
 		if exist, path := checkIfKindAt(goBinPath + "/kind"); exist {

@@ -25,7 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
@@ -97,7 +97,7 @@ func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.Storag
 		}
 
 		result := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO())
-		code := pointer.Int(0)
+		code := ptr.To(0)
 		result.StatusCode(code)
 		if result.Error() != nil {
 			err := result.Error()

@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -262,6 +263,7 @@ func TestRunMetaServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
+			time.Sleep(5 * time.Second)
 			resp, err := c.Do(tt.req)
 			if err != nil {
 				t.Fatalf("fail to send request to the server: %v", err)

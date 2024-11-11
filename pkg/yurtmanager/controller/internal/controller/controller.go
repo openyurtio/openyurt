@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -65,7 +65,13 @@ type Controller struct {
 	CacheSyncTimeout time.Duration
 
 	// startWatches maintains a list of sources, handlers, and predicates to start when the controller is started.
-	startWatches []watchDescription
+	startWatches []source.Source
+
+	// LogConstructor is used to construct a logger to then log messages to users during reconciliation,
+	// or for example when a watch is started.
+	// Note: LogConstructor has to be able to handle nil requests as we are also using it
+	// outside the context of a reconciliation.
+	LogConstructor func(request *reconcile.Request) logr.Logger
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
 	RecoverPanic *bool
@@ -74,27 +80,21 @@ type Controller struct {
 	LeaderElected *bool
 }
 
-// watchDescription contains all the information necessary to start a watch.
-type watchDescription struct {
-	src        source.Source
-	handler    handler.EventHandler
-	predicates []predicate.Predicate
-}
-
 // Watch implements controller.Controller.
-func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prct ...predicate.Predicate) error {
+func (c *Controller) Watch(src source.Source) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	// Controller hasn't started yet, store the watches locally and return.
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
 	if !c.Started {
-		c.startWatches = append(c.startWatches, watchDescription{src: src, handler: evthdler, predicates: prct})
+		c.startWatches = append(c.startWatches, src)
 		return nil
 	}
 
-	klog.V(2).InfoS("Starting EventSource", "source", src)
-	return src.Start(c.ctx, evthdler, c.Queue, prct...)
+	c.LogConstructor(nil).Info("Starting EventSource", "source", src)
+	return src.Start(c.ctx, c.Queue)
 }
 
 // NeedLeaderElection implements the manager.LeaderElectionRunnable interface.
@@ -133,18 +133,18 @@ func (c *Controller) Start(ctx context.Context) error {
 		// caches to sync so that they have a chance to register their intendeded
 		// caches.
 		for _, watch := range c.startWatches {
-			klog.V(2).InfoS("Starting EventSource", "source", fmt.Sprintf("%s", watch.src), "controller", c.Name)
+			c.LogConstructor(nil).Info("Starting EventSource", "source", fmt.Sprintf("%s", watch))
 
-			if err := watch.src.Start(ctx, watch.handler, c.Queue, watch.predicates...); err != nil {
+			if err := watch.Start(ctx, c.Queue); err != nil {
 				return err
 			}
 		}
 
 		// Start the SharedIndexInformer factories to begin populating the SharedIndexInformer caches
-		klog.V(2).InfoS("Starting Controller WatchSource", "controller", c.Name)
+		c.LogConstructor(nil).Info("Starting Controller")
 
 		for _, watch := range c.startWatches {
-			syncingSource, ok := watch.src.(source.SyncingSource)
+			syncingSource, ok := watch.(source.SyncingSource)
 			if !ok {
 				continue
 			}

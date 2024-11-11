@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -144,25 +144,25 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to PlatformAdmin
-	err = c.Watch(source.Kind(mgr.GetCache(), &iotv1beta1.PlatformAdmin{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &iotv1beta1.PlatformAdmin{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.ConfigMap{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1beta1.YurtAppSet{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1beta1.YurtAppSet{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &iotv1beta1.PlatformAdmin{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
@@ -461,7 +461,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 					{
 						Pools: []string{poolName},
 						Tweaks: appsv1beta1.Tweaks{
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 						},
 					},
 				}
@@ -591,7 +591,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 		{
 			Pools: yas.Spec.Pools,
 			Tweaks: appsv1beta1.Tweaks{
-				Replicas: pointer.Int32(1),
+				Replicas: ptr.To[int32](1),
 			},
 		},
 	}

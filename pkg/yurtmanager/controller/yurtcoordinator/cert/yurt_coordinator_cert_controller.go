@@ -26,8 +26,9 @@ import (
 	"github.com/pkg/errors"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
-	client "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -93,7 +94,7 @@ const (
 	KubeConfigAdminClientCN               = "cluster-admin"
 )
 
-type certInitFunc = func(client.Interface, <-chan struct{}) ([]net.IP, []string, error)
+type certInitFunc = func(kubernetes.Interface, <-chan struct{}) ([]net.IP, []string, error)
 
 type CertConfig struct {
 	// certName should be unique,  will be used as output name ${certName}.crt
@@ -145,7 +146,7 @@ var (
 			},
 			CommonName:   YurtCoordinatorETCDCN,
 			Organization: []string{YurtCoordinatorOrg},
-			certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			certInit: func(i kubernetes.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 				return waitUntilSVCReady(i, YurtCoordinatorETCDSVC, c)
 			},
 		},
@@ -159,7 +160,7 @@ var (
 			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 			CommonName:   YurtCoordinatorAPIServerCN,
 			Organization: []string{YurtCoordinatorOrg},
-			certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			certInit: func(i kubernetes.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 				return waitUntilSVCReady(i, YurtCoordinatorAPIServerSVC, c)
 			},
 		},
@@ -172,7 +173,7 @@ var (
 			Organization: []string{YurtCoordinatorOrg},
 			// As a clientAuth cert, kubeconfig cert don't need IP&DNS to work,
 			// but kubeconfig need this extra information to verify if it's out of date
-			certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			certInit: func(i kubernetes.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 				return waitUntilSVCReady(i, YurtCoordinatorAPIServerSVC, c)
 			},
 		},
@@ -183,7 +184,7 @@ var (
 			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			CommonName:   KubeConfigAdminClientCN,
 			Organization: []string{YurtCoordinatorAdminOrg},
-			certInit: func(i client.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
+			certInit: func(i kubernetes.Interface, c <-chan struct{}) ([]net.IP, []string, error) {
 				return waitUntilSVCReady(i, YurtCoordinatorAPIServerSVC, c)
 			},
 		},
@@ -198,7 +199,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new YurtCoordinatorcert Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	kubeClient, err := client.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.YurtCoordinatorCertController))
+	kubeClient, err := kubernetes.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.YurtCoordinatorCertController))
 	if err != nil {
 		klog.Errorf("could not create kube client, %v", err)
 		return err
@@ -266,7 +267,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return false
 		},
 	}
-	return c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &handler.EnqueueRequestForObject{}, svcReadyPredicates)
+	return c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{}, &handler.EnqueueRequestForObject{}, svcReadyPredicates))
 }
 
 func isYurtCoordinatorSvc(svc *corev1.Service) bool {
@@ -285,7 +286,7 @@ var _ reconcile.Reconciler = &ReconcileYurtCoordinatorCert{}
 
 // ReconcileYurtCoordinatorCert reconciles a YurtCoordinatorcert object
 type ReconcileYurtCoordinatorCert struct {
-	kubeClient client.Interface
+	kubeClient kubernetes.Interface
 	caCert     *x509.Certificate
 	caKey      crypto.Signer
 	reuseCA    bool
@@ -391,7 +392,7 @@ func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []
 
 // initCA is used for preparing CA certs,
 // check if yurt-coordinator CA already exist, if not create one
-func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.Signer, reuse bool, err error) {
+func initCA(clientSet kubernetes.Interface) (caCert *x509.Certificate, caKey crypto.Signer, reuse bool, err error) {
 	// try load CA cert&key from secret
 	caCert, caKey, err = loadCertAndKeyFromSecret(clientSet, CertConfig{
 		SecretName:   YurtCoordinatorCASecretName,
@@ -421,7 +422,7 @@ func initCA(clientSet client.Interface) (caCert *x509.Certificate, caKey crypto.
 	return caCert, caKey, false, nil
 }
 
-func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{}) error {
+func initAPIServerClientCert(clientSet kubernetes.Interface, stopCh <-chan struct{}) error {
 	if cert, _, err := loadCertAndKeyFromSecret(clientSet, CertConfig{
 		SecretName:   YurtCoordinatorStaticSecretName,
 		CertName:     "apiserver-kubelet-client",
@@ -448,7 +449,7 @@ func initAPIServerClientCert(clientSet client.Interface, stopCh <-chan struct{})
 	return WriteCertIntoSecret(clientSet, "apiserver-kubelet-client", YurtCoordinatorStaticSecretName, certMgr, stopCh)
 }
 
-func initNodeLeaseProxyClient(clientSet client.Interface, stopCh <-chan struct{}) error {
+func initNodeLeaseProxyClient(clientSet kubernetes.Interface, stopCh <-chan struct{}) error {
 	if cert, _, err := loadCertAndKeyFromSecret(clientSet, CertConfig{
 		SecretName:   YurtCoordinatorYurthubClientSecretName,
 		CertName:     "node-lease-proxy-client",
@@ -476,7 +477,7 @@ func initNodeLeaseProxyClient(clientSet client.Interface, stopCh <-chan struct{}
 
 // create new public/private key pair for signing service account users
 // and write them into secret
-func initSAKeyPair(clientSet client.Interface, keyName, secretName string) (err error) {
+func initSAKeyPair(clientSet kubernetes.Interface, keyName, secretName string) (err error) {
 	key, err := NewPrivateKey()
 	if err != nil {
 		return errors.Wrap(err, "could not create sa key pair")

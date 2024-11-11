@@ -106,13 +106,13 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to Gateway
-	err = c.Watch(source.Kind(mgr.GetCache(), &ravenv1beta1.Gateway{}), &EnqueueRequestForGatewayEvent{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &ravenv1beta1.Gateway{}, &EnqueueRequestForGatewayEvent{}))
 	if err != nil {
 		return err
 	}
 
 	//Watch for changes to raven agent
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), &EnqueueRequestForConfigEvent{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPublicServiceController)}, predicate.NewPredicateFuncs(
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.ConfigMap{}, &EnqueueRequestForConfigEvent{client: yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPublicServiceController)}, predicate.NewPredicateFuncs(
 		func(object client.Object) bool {
 			cm, ok := object.(*corev1.ConfigMap)
 			if !ok {
@@ -126,7 +126,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 			}
 			return true
 		},
-	))
+	)))
 	if err != nil {
 		return err
 	}

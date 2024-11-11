@@ -29,7 +29,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -60,7 +60,7 @@ func NewAutonomyProxy(
 	return &AutonomyProxy{
 		restConfigMgr:    restConfigMgr,
 		cacheMgr:         cacheMgr,
-		cacheFailedCount: pointer.Int32(0),
+		cacheFailedCount: ptr.To[int32](0),
 	}
 }
 

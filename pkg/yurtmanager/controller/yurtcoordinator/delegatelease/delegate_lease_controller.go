@@ -69,7 +69,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 	if err != nil {
 		return err
 	}
-	err = c.Watch(source.Kind(mgr.GetCache(), &coordv1.Lease{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &coordv1.Lease{}, &handler.EnqueueRequestForObject{}))
 
 	return err
 }

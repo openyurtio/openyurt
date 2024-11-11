@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var leaseGVR = schema.GroupVersionResource{
@@ -208,7 +208,7 @@ func TestIfInformerSyncLease(t *testing.T) {
 					Namespace: namespaceInformerLease,
 				},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.String("leader-yurthub"),
+					HolderIdentity: ptr.To("leader-yurthub"),
 				},
 			},
 			Expect: true,
@@ -221,7 +221,7 @@ func TestIfInformerSyncLease(t *testing.T) {
 					Namespace: "kube-system",
 				},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.String("other-lease"),
+					HolderIdentity: ptr.To("other-lease"),
 				},
 			},
 			Expect: false,

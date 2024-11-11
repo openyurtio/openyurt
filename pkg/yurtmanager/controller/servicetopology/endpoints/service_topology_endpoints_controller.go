@@ -76,9 +76,9 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to Service
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), &EnqueueEndpointsForService{
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{}, &EnqueueEndpointsForService{
 		endpointsAdapter: r.(*ReconcileServicetopologyEndpoints).endpointsAdapter,
-	}); err != nil {
+	})); err != nil {
 		return err
 	}
 

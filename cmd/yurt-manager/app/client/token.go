@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	utilpointer "k8s.io/utils/pointer"
+	utilpointer "k8s.io/utils/ptr"
 )
 
 var (
@@ -68,7 +68,7 @@ func (ts *tokenSourceImpl) Token() (*oauth2.Token, error) {
 
 		tr, inErr := ts.cli.CoreV1().ServiceAccounts(ts.namespace).CreateToken(context.TODO(), ts.serviceAccountName, &v1authenticationapi.TokenRequest{
 			Spec: v1authenticationapi.TokenRequestSpec{
-				ExpirationSeconds: utilpointer.Int64(ts.expirationSeconds),
+				ExpirationSeconds: utilpointer.To(ts.expirationSeconds),
 			},
 		}, metav1.CreateOptions{})
 		if inErr != nil {

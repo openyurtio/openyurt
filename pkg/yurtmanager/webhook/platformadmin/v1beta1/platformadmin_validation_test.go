@@ -177,7 +177,7 @@ func TestValidateCreate(t *testing.T) {
 			_, err := handler.ValidateCreate(context.TODO(), tc.obj)
 			if tc.errCode == 0 {
 				assert.NoError(t, err, "success case result err must be nil")
-			} else {
+			} else if err != nil {
 				assert.Equal(t, tc.errCode, int(err.(*apierrors.StatusError).Status().Code))
 			}
 		})

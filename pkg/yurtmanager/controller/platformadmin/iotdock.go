@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
@@ -109,13 +109,13 @@ func newYurtIoTDockComponent(platformAdmin *iotv1beta1.PlatformAdmin, platformAd
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							AllowPrivilegeEscalation: pointer.Bool(false),
+							AllowPrivilegeEscalation: ptr.To(false),
 						},
 					},
 				},
-				TerminationGracePeriodSeconds: pointer.Int64(10),
+				TerminationGracePeriodSeconds: ptr.To[int64](10),
 				SecurityContext: &corev1.PodSecurityContext{
-					RunAsUser: pointer.Int64(65532),
+					RunAsUser: ptr.To[int64](65532),
 				},
 			},
 		},

@@ -155,18 +155,18 @@ func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconcile
 		return
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1beta1.NodePool{}), handler.EnqueueRequestsFromMapFunc(nodePoolToYurtAppSet), nodePoolPredicate)
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &unitv1beta1.NodePool{}, handler.EnqueueRequestsFromMapFunc(nodePoolToYurtAppSet), nodePoolPredicate))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &unitv1beta1.YurtAppSet{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &unitv1beta1.YurtAppSet{}, &handler.EnqueueRequestForObject{}))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &unitv1beta1.YurtAppSet{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &appsv1.Deployment{},
+		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &unitv1beta1.YurtAppSet{}, handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(yas *unitv1beta1.YurtAppSet, e
 						yas.GetNamespace(), yas.GetName(), templateType, nodepoolName, err.Error())
 				}
 			}
-			klog.Infof("YurtAppSet[%s/%s] create workload %s[%s/%s] success",
+			klog.Infof("YurtAppSet[%s/%s] create workload [%s/%s] success",
 				yas.GetNamespace(), yas.GetName(), templateType, nodepoolName)
 			return nil
 		})
