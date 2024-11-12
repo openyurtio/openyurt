@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,6 +42,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
 	rest *rest.RestConfigManager,
 	stopCh <-chan struct{}) error {
+
 	hubServerHandler := mux.NewRouter()
 	registerHandlers(hubServerHandler, cfg, rest)
 
@@ -73,6 +75,11 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 		}
 	}
 
+	for name, hook := range cfg.PostStartHooks {
+		if err := hook(); err != nil {
+			return errors.Wrapf(err, "failed to run post start hooks: %s", name)
+		}
+	}
 	return nil
 }
 

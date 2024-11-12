@@ -92,7 +92,7 @@ const (
 )
 
 var (
-	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", projectinfo.GetAgentName(), projectinfo.GetHubName(), coordinatorconstants.DefaultPoolScopedUserAgent}
+	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", "share-hub", projectinfo.GetAgentName(), projectinfo.GetHubName(), coordinatorconstants.DefaultPoolScopedUserAgent}
 	YurthubConfigMapName = fmt.Sprintf("%s-hub-cfg", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 )
 
