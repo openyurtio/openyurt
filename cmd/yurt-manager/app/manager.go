@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/term"
@@ -166,14 +165,6 @@ func PrintFlags(flags *pflag.FlagSet) {
 func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	ctx := ctrl.SetupSignalHandler()
 	cfg := ctrl.GetConfigOrDie()
-	if len(c.ComponentConfig.Generic.Kubeconfig) != 0 {
-		config, err := clientcmd.BuildConfigFromFlags("", c.ComponentConfig.Generic.Kubeconfig)
-		if err != nil {
-			klog.Infof("could not build rest config, %v", err)
-			return err
-		}
-		cfg = config
-	}
 	setRestConfig(cfg, c)
 
 	metricsServerOpts := metricsserver.Options{

@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"flag"
 	"fmt"
 	"strings"
 
@@ -98,7 +99,6 @@ func (o *GenericOptions) ApplyTo(cfg *config.GenericConfiguration, controllerAli
 	cfg.RestConfigQPS = o.RestConfigQPS
 	cfg.RestConfigBurst = o.RestConfigBurst
 	cfg.WorkingNamespace = o.WorkingNamespace
-	cfg.Kubeconfig = o.Kubeconfig
 
 	cfg.Controllers = make([]string, len(o.Controllers))
 	for i, initialName := range o.Controllers {
@@ -136,6 +136,20 @@ func (o *GenericOptions) AddFlags(fs *pflag.FlagSet, allControllers, disabledByD
 		strings.Join(allControllers, ", "), strings.Join(disabledByDefaultControllers, ", ")))
 	fs.StringSliceVar(&o.DisabledWebhooks, "disable-independent-webhooks", o.DisabledWebhooks, "A list of webhooks to disable. "+
 		"'*' disables all independent webhooks, 'foo' disables the independent webhook named 'foo'.")
-	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file with authorization and master location information")
 	features.DefaultMutableFeatureGate.AddFlag(fs)
+
+	AddGlobalFlags(fs)
+}
+
+func AddGlobalFlags(fs *pflag.FlagSet) {
+	global := flag.CommandLine
+
+	registry(global, fs, "kubeconfig")
+}
+
+func registry(global *flag.FlagSet, fs *pflag.FlagSet, globalName string) {
+	if f := global.Lookup(globalName); f != nil {
+		pflagFlag := pflag.PFlagFromGoFlag(f)
+		fs.AddFlag(pflagFlag)
+	}
 }
