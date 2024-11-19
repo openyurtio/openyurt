@@ -308,6 +308,10 @@ func (r *ReconcileLoadBalancerSet) desiredPoolServices(svc *corev1.Service) ([]n
 		return nil, errors.Wrapf(err, "failed to list nodepool with service")
 	}
 
+	if len(nps) == 0 {
+		r.recorder.Eventf(svc, corev1.EventTypeWarning, "NoMatchNodePool", "No node pool matches the nodepool label selector on the service")
+	}
+
 	var pss []netv1alpha1.PoolService
 	for _, np := range nps {
 		pss = append(pss, buildPoolService(svc, &np))
