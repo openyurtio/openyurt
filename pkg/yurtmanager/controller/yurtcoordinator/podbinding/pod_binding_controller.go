@@ -19,6 +19,7 @@ package podbinding
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,12 +35,12 @@ import (
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 var (
-	controllerKind           = appsv1.SchemeGroupVersion.WithKind("Node")
-	defaultTolerationSeconds = 300
+	controllerKind = appsv1.SchemeGroupVersion.WithKind("Node")
 
 	notReadyToleration = corev1.Toleration{
 		Key:      corev1.TaintNodeNotReady,
@@ -149,12 +150,8 @@ func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
 
 		// pod binding takes precedence against node autonomy
 		if nodeutil.IsPodBoundenToNode(node) {
-			if err := r.configureTolerationForPod(pod, nil); err != nil {
-				klog.Errorf(Format("could not configure toleration of pod, %v", err))
-			}
-		} else {
-			tolerationSeconds := int64(defaultTolerationSeconds)
-			if err := r.configureTolerationForPod(pod, &tolerationSeconds); err != nil {
+			durationSeconds := getPodTolerationSeconds(node)
+			if err := r.configureTolerationForPod(pod, durationSeconds); err != nil {
 				klog.Errorf(Format("could not configure toleration of pod, %v", err))
 			}
 		}
@@ -246,4 +243,37 @@ func addOrUpdateTolerationInPodSpec(spec *corev1.PodSpec, toleration *corev1.Tol
 
 	spec.Tolerations = newTolerations
 	return true
+}
+
+// getPodTolerationSeconds returns the tolerationSeconds for the pod on the node.
+// The tolerationSeconds is calculated based on the following rules:
+// 1. If the pod is bound to the node, the tolerationSeconds is nil.
+// 2. If the node has autonomy annotation, the tolerationSeconds is nil.
+// 3. If the node has node autonomy duration annotation, the tolerationSeconds is the duration.
+// 4. If the autonomy duration is parsed as 0, the tolerationSeconds is nil which means the pod will not be evicted.
+func getPodTolerationSeconds(node *corev1.Node) *int64 {
+	if node.Annotations == nil {
+		return nil
+	}
+
+	// Pod binding takes precedence against node autonomy
+	if node.Annotations[nodeutil.PodBindingAnnotation] == "true" ||
+		node.Annotations[projectinfo.GetAutonomyAnnotation()] == "true" {
+		return nil
+	}
+
+	// Node autonomy duration has the least precedence
+	duration := node.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()]
+	durationTime, err := time.ParseDuration(duration)
+	if err != nil {
+		klog.Errorf(Format("could not parse duration %s, %v", duration, err))
+		return nil
+	}
+
+	if durationTime == 0 {
+		return nil
+	}
+
+	tolerationSeconds := int64(durationTime.Seconds())
+	return &tolerationSeconds
 }
