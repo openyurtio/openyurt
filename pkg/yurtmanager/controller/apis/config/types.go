@@ -116,7 +116,6 @@ type GenericConfiguration struct {
 	RestConfigQPS    int
 	RestConfigBurst  int
 	WorkingNamespace string
-	Kubeconfig       string
 	// Controllers is the list of controllers to enable or disable
 	// '*' means "all enabled by default controllers"
 	// 'foo' means "enable 'foo'"
