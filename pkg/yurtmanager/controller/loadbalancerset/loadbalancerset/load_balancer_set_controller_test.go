@@ -319,6 +319,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		rc := ReconcileLoadBalancerSet{
 			Client: c,
+			recorder: &record.FakeRecorder{
+				Events: make(chan string, 1),
+			},
 		}
 
 		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
@@ -335,6 +338,28 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		assertFinalizerExist(t, newSvc)
 	})
 
+	t.Run("no match nodepool", func(t *testing.T) {
+		svc := newService(v1.NamespaceDefault, mockServiceName)
+
+		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).Build()
+
+		recorder := &record.FakeRecorder{
+			Events: make(chan string, 1),
+		}
+
+		rc := ReconcileLoadBalancerSet{
+			Client:   c,
+			recorder: recorder,
+		}
+
+		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
+		assertErrNil(t, err)
+
+		eve := <-recorder.Events
+		expected := fmt.Sprintf("%s %s %s%s", corev1.EventTypeWarning, "NoMatchNodePool", "No node pool matches the nodepool label selector on the service", "")
+		assertString(t, expected, eve)
+	})
+
 	t.Run("don't need to add service finalizer", func(t *testing.T) {
 		svc := newService(v1.NamespaceDefault, mockServiceName)
 		controllerutil.AddFinalizer(svc, poolServiceFinalizer)
@@ -343,6 +368,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		rc := ReconcileLoadBalancerSet{
 			Client: c,
+			recorder: &record.FakeRecorder{
+				Events: make(chan string, 1),
+			},
 		}
 
 		_, err := rc.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
@@ -493,6 +521,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		r := ReconcileLoadBalancerSet{
 			Client: c,
+			recorder: &record.FakeRecorder{
+				Events: make(chan string, 1),
+			},
 		}
 
 		r.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
@@ -558,6 +589,9 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		r := ReconcileLoadBalancerSet{
 			Client: c,
+			recorder: &record.FakeRecorder{
+				Events: make(chan string, 1),
+			},
 		}
 		r.Reconcile(context.Background(), newReconcileRequest(v1.NamespaceDefault, mockServiceName))
 
