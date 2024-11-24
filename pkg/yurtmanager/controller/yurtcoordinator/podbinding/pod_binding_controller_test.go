@@ -85,6 +85,20 @@ func prepareNodes() []client.Object {
 				},
 			},
 		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "node7",
+				Annotations: map[string]string{},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node8",
+				Annotations: map[string]string{
+					"other.annotation": "true",
+				},
+			},
+		},
 	}
 	return nodes
 }
@@ -442,6 +456,16 @@ func TestIsPodBoundenToNode(t *testing.T) {
 			node: nodes[5].(*corev1.Node),
 			want: false,
 		},
+		{
+			name: "node7",
+			node: nodes[6].(*corev1.Node),
+			want: false,
+		},
+		{
+			name: "node8",
+			node: nodes[7].(*corev1.Node),
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -454,6 +478,7 @@ func TestIsPodBoundenToNode(t *testing.T) {
 
 func TestGetPodTolerationSeconds(t *testing.T) {
 	expectedToleration := int64(7200)
+	defaultTolerationSeconds := int64(300)
 	nodes := prepareNodes()
 	tests := []struct {
 		name string
@@ -463,7 +488,7 @@ func TestGetPodTolerationSeconds(t *testing.T) {
 		{
 			name: "node1",
 			node: nodes[0].(*corev1.Node),
-			want: nil,
+			want: &defaultTolerationSeconds,
 		},
 		{
 			name: "node2",
@@ -489,6 +514,16 @@ func TestGetPodTolerationSeconds(t *testing.T) {
 			name: "node6",
 			node: nodes[5].(*corev1.Node),
 			want: nil,
+		},
+		{
+			name: "node7",
+			node: nodes[6].(*corev1.Node),
+			want: &defaultTolerationSeconds,
+		},
+		{
+			name: "node8",
+			node: nodes[7].(*corev1.Node),
+			want: &defaultTolerationSeconds,
 		},
 	}
 	for _, tt := range tests {
