@@ -58,6 +58,16 @@ func IsPodReadyConditionTrue(status v1.PodStatus) bool {
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
+// IsPodCrashLoopBackOff returns true if a pod is in CrashLoopBackOff state; false otherwise.
+func IsPodCrashLoopBackOff(status v1.PodStatus) bool {
+	for _, c := range status.ContainerStatuses {
+		if c.State.Waiting != nil && c.State.Waiting.Reason == "CrashLoopBackOff" {
+			return true
+		}
+	}
+	return false
+}
+
 // GetPodReadyCondition extracts the pod ready condition from the given status and returns that.
 // Returns nil if the condition is not present.
 func GetPodReadyCondition(status v1.PodStatus) *v1.PodCondition {
