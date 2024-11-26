@@ -61,6 +61,44 @@ func prepareNodes() []client.Object {
 				},
 			},
 		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node4",
+				Annotations: map[string]string{
+					"node.openyurt.io/autonomy-duration": "0",
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node5",
+				Annotations: map[string]string{
+					"node.openyurt.io/autonomy-duration": "2h",
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node6",
+				Annotations: map[string]string{
+					"node.openyurt.io/autonomy-duration": "",
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "node7",
+				Annotations: map[string]string{},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node8",
+				Annotations: map[string]string{
+					"other.annotation": "true",
+				},
+			},
+		},
 	}
 	return nodes
 }
@@ -403,11 +441,95 @@ func TestIsPodBoundenToNode(t *testing.T) {
 			node: nodes[2].(*corev1.Node),
 			want: true,
 		},
+		{
+			name: "node4",
+			node: nodes[3].(*corev1.Node),
+			want: true,
+		},
+		{
+			name: "node5",
+			node: nodes[4].(*corev1.Node),
+			want: true,
+		},
+		{
+			name: "node6",
+			node: nodes[5].(*corev1.Node),
+			want: false,
+		},
+		{
+			name: "node7",
+			node: nodes[6].(*corev1.Node),
+			want: false,
+		},
+		{
+			name: "node8",
+			node: nodes[7].(*corev1.Node),
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := nodeutil.IsPodBoundenToNode(tt.node); got != tt.want {
 				t.Errorf("IsPodBoundenToNode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetPodTolerationSeconds(t *testing.T) {
+	expectedToleration := int64(7200)
+	defaultTolerationSeconds := int64(300)
+	nodes := prepareNodes()
+	tests := []struct {
+		name string
+		node *corev1.Node
+		want *int64
+	}{
+		{
+			name: "node1",
+			node: nodes[0].(*corev1.Node),
+			want: &defaultTolerationSeconds,
+		},
+		{
+			name: "node2",
+			node: nodes[1].(*corev1.Node),
+			want: nil,
+		},
+		{
+			name: "node3",
+			node: nodes[2].(*corev1.Node),
+			want: nil,
+		},
+		{
+			name: "node4",
+			node: nodes[3].(*corev1.Node),
+			want: nil,
+		},
+		{
+			name: "node5",
+			node: nodes[4].(*corev1.Node),
+			want: &expectedToleration,
+		},
+		{
+			name: "node6",
+			node: nodes[5].(*corev1.Node),
+			want: nil,
+		},
+		{
+			name: "node7",
+			node: nodes[6].(*corev1.Node),
+			want: &defaultTolerationSeconds,
+		},
+		{
+			name: "node8",
+			node: nodes[7].(*corev1.Node),
+			want: &defaultTolerationSeconds,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getPodTolerationSeconds(tt.node); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getPodTolerationSeconds() = %v, want %v", got, tt.want)
 			}
 		})
 	}
