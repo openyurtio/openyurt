@@ -6,8 +6,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/openyurtio/openyurt/badge)](https://scorecard.dev/viewer/?uri=github.com/openyurtio/openyurt)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/7117/badge)](https://bestpractices.coreinfrastructure.org/projects/7117)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7117/badge)](https://www.bestpractices.dev/projects/7117)
 [![](https://img.shields.io/badge/OpenYurt-%E6%9F%A5%E7%9C%8B%E8%B4%A1%E7%8C%AE%E6%8E%92%E8%A1%8C%E6%A6%9C-orange)](https://opensource.alibaba.com/contribution_leaderboard/details?projectValue=openyurt)
 
 [English](./README.md) | 简体中文
