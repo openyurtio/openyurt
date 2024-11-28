@@ -360,7 +360,18 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 
 	comp, _ := util.ClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
-	s := cm.serializerManager.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
+	gvr := schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	}
+
+	convertGVK, ok := util.ConvertGVKFrom(ctx)
+	if ok && convertGVK != nil {
+		gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+	}
+
+	s := cm.serializerManager.CreateSerializer(respContentType, gvr.Group, gvr.Version, gvr.Resource)
 	if s == nil {
 		klog.Errorf("could not create serializer in saveWatchObject, %s", util.ReqInfoString(info))
 		return fmt.Errorf("could not create serializer in saveWatchObject, %s", util.ReqInfoString(info))
