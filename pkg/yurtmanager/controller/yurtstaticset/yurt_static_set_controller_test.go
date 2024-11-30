@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
 
@@ -53,6 +54,9 @@ func prepareStaticPods() []client.Object {
 				Name:            util.Hyphen(TestStaticPodName, node),
 				OwnerReferences: []metav1.OwnerReference{{Kind: "Node"}},
 				Namespace:       metav1.NamespaceDefault,
+				Annotations: map[string]string{
+					podutil.ConfigSourceAnnotationKey: "true",
+				},
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
