@@ -17,13 +17,14 @@ limitations under the License.
 package v1
 
 import (
-	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
-	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
 const (
