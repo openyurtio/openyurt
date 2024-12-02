@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -165,6 +166,52 @@ func TestUpdatePodCondition(t *testing.T) {
 			if got := UpdatePodCondition(tt.status, tt.condition); got != tt.want {
 				t.Errorf("UpdatePodCondition() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestIsPodCrashLoopBackoff(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status v1.PodStatus
+		expect bool
+	}{
+		{
+			name: "yes",
+			status: v1.PodStatus{
+				ContainerStatuses: []v1.ContainerStatus{
+					{
+						State: v1.ContainerState{
+							Waiting: &v1.ContainerStateWaiting{
+								Reason: "CrashLoopBackOff",
+							},
+						},
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "no",
+			status: v1.PodStatus{
+				ContainerStatuses: []v1.ContainerStatus{
+					{
+						State: v1.ContainerState{},
+					},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:   "empty",
+			status: v1.PodStatus{},
+			expect: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expect, IsPodCrashLoopBackOff(tc.status))
 		})
 	}
 }
