@@ -16,14 +16,6 @@ limitations under the License.
 
 package writer
 
-type notFoundError struct {
-	err error
-}
-
-func (e notFoundError) Error() string {
-	return e.err.Error()
-}
-
 type alreadyExistError struct {
 	err error
 }
