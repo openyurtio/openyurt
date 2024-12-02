@@ -77,7 +77,11 @@ func updateIfNotExists(ch certReadWriter) (*generator.Artifacts, bool, error) {
 	certs, err := ch.read()
 	if isNotExist(err) {
 		// Create if not exists
-		certs, err = ch.overwrite(certs.ResourceVersion)
+		var resourceVersion string
+		if certs != nil {
+			resourceVersion = certs.ResourceVersion
+		}
+		certs, err = ch.overwrite(resourceVersion)
 		return certs, true, err
 	}
 	return certs, false, err

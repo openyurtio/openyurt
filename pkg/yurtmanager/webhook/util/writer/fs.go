@@ -188,7 +188,7 @@ func ensureExist(dir string) error {
 		case err == nil:
 			continue
 		case os.IsNotExist(err):
-			return notFoundError{err}
+			return notExistError{err}
 		default:
 			return err
 		}
