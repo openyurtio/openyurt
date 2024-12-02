@@ -33,7 +33,7 @@ import (
 func (webhook *EndpointsHandler) Default(ctx context.Context, obj runtime.Object) error {
 	endpoints, ok := obj.(*corev1.Endpoints)
 	if !ok {
-		return fmt.Errorf("expected an Endpoints object but got %T", obj)
+		apierrors.NewBadRequest(fmt.Sprintf("expected an Endpoints object but got %T", obj))
 	}
 
 	return remapAutonomyEndpoints(ctx, webhook.Client, endpoints)
