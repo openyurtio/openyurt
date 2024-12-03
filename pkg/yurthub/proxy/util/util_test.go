@@ -67,7 +67,7 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 			Path: "/api/v1/nodes",
 			Header: map[string]string{
 				"User-Agent": "flanneld/0.11.0",
-				"Accept":     "application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1",
+				"Accept":     "application/vnd.kubernetes.protobuf;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json",
 			},
 			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
 			IsPartialReq:    true,
@@ -82,7 +82,7 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 			Path: "/api/v1/nodes/mynode",
 			Header: map[string]string{
 				"User-Agent": "flanneld/0.11.0",
-				"Accept":     "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1",
+				"Accept":     "application/vnd.kubernetes.protobuf;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json",
 			},
 			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
 			IsPartialReq:    true,

@@ -77,14 +77,37 @@ func WithPartialObjectMetadataRequest(handler http.Handler) http.Handler {
 				}
 
 				if gvk.Kind == "PartialObjectMetadataList" || gvk.Kind == "PartialObjectMetadata" {
-					ctx = util.WithConvertGVK(ctx, &gvk)
+					if err := ensureValidGroupAndVersion(&gvk); err != nil {
+						klog.Errorf("WithPartialObjectMetadataRequest error: %v", err)
+					} else {
+						ctx = util.WithConvertGVK(ctx, &gvk)
+						req = req.WithContext(ctx)
+					}
 				}
-				req = req.WithContext(ctx)
 			}
 		}
 
 		handler.ServeHTTP(w, req)
 	})
+}
+
+func ensureValidGroupAndVersion(gvk *schema.GroupVersionKind) error {
+	if strings.Contains(gvk.Group, "meta.k8s.io") {
+		gvk.Group = "meta.k8s.io"
+	} else {
+		return fmt.Errorf("unknown group(%s) for partialobjectmetadata request", gvk.Group)
+	}
+
+	switch {
+	case strings.Contains(gvk.Version, "v1"):
+		gvk.Version = "v1"
+	case strings.Contains(gvk.Version, "v1beta1"):
+		gvk.Version = "v1beta1"
+	default:
+		return fmt.Errorf("unknown version(%s) for partialobjectmetadata request", gvk.Version)
+	}
+
+	return nil
 }
 
 // WithRequestContentType add req-content-type in request context.

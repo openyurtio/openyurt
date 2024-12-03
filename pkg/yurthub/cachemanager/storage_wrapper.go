@@ -205,12 +205,22 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 		if err == storage.ErrStorageNotFound {
 			return nil, err
 		} else if err == storage.ErrUpdateConflict {
-			obj, _, dErr := sw.backendSerializer.Decode(buf, nil, nil)
+			// if error is ErrUpdateConflict, it's no need to record this error into errorKeys,
+			// because only old version object is rejected and there is no affect to the local cache.
+			//get the gvk from json data
+			gvk := obj.GetObjectKind().GroupVersionKind()
+
+			var UnstructuredObj runtime.Object
+			var dErr error
+			if scheme.Scheme.Recognizes(gvk) {
+				UnstructuredObj = nil
+			} else {
+				UnstructuredObj = new(unstructured.Unstructured)
+			}
+			obj, _, dErr = sw.backendSerializer.Decode(buf, &gvk, UnstructuredObj)
 			if dErr != nil {
-				sw.errorKeys.put(key.Key(), err.Error())
 				return nil, fmt.Errorf("could not decode existing obj of key %s, %v", key.Key(), dErr)
 			}
-			sw.errorKeys.put(key.Key(), err.Error())
 			return obj, err
 		}
 		sw.errorKeys.put(key.Key(), err.Error())
