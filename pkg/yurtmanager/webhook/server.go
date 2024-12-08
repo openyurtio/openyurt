@@ -32,6 +32,7 @@ import (
 	controller "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/base"
 	v1alpha1deploymentrender "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/deploymentrender/v1alpha1"
 	v1endpoints "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/endpoints/v1"
+	v1endpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/endpointslice/v1"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"
 	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta1"
@@ -84,7 +85,7 @@ func init() {
 	independentWebhooks[v1node.WebhookName] = &v1node.NodeHandler{}
 	independentWebhooks[v1alpha1pod.WebhookName] = &v1alpha1pod.PodHandler{}
 	independentWebhooks[v1endpoints.WebhookName] = &v1endpoints.EndpointsHandler{}
-
+	independentWebhooks[v1endpointslice.WebhookName] = &v1endpointslice.EndpointSliceHandler{}
 }
 
 // Note !!! @kadisi
