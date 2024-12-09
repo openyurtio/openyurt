@@ -20,20 +20,19 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	nodeutils "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	v1 "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/endpointslice/v1"
-	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestDefault_AutonomyAnnotations(t *testing.T) {
