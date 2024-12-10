@@ -610,42 +610,27 @@ func TestCacheWatchResponse(t *testing.T) {
 	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
 
 	testcases := map[string]struct {
-		group        string
-		version      string
-		keyBuildInfo storage.KeyBuildInfo
 		inputObj     []watch.Event
-		userAgent    string
-		accept       string
+		header       map[string]string
 		verb         string
 		path         string
-		resource     string
-		namespaced   bool
 		expectResult struct {
 			err  bool
 			data map[string]struct{}
 		}
 	}{
 		"add pods": {
-			group:   "",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "pods",
-				Namespace: "default",
-				Group:     "",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Added, Object: mkPod("mypod2", "4")},
 				{Type: watch.Added, Object: mkPod("mypod3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/api/v1/namespaces/default/pods?watch=true",
-			resource:   "pods",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -658,26 +643,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"add and delete pods": {
-			group:   "",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "pods",
-				Namespace: "default",
-				Group:     "",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Deleted, Object: mkPod("mypod1", "4")},
 				{Type: watch.Added, Object: mkPod("mypod3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/api/v1/namespaces/default/pods?watch=true",
-			namespaced: true,
-			resource:   "pods",
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -688,26 +664,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"add and update pods": {
-			group:   "",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "pods",
-				Namespace: "default",
-				Group:     "",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "2")},
 				{Type: watch.Modified, Object: mkPod("mypod1", "4")},
 				{Type: watch.Added, Object: mkPod("mypod3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/api/v1/namespaces/default/pods?watch=true",
-			resource:   "pods",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -719,26 +686,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"not update pods": {
-			group:   "",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "pods",
-				Namespace: "default",
-				Group:     "",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkPod("mypod1", "6")},
 				{Type: watch.Modified, Object: mkPod("mypod1", "4")},
 				{Type: watch.Modified, Object: mkPod("mypod1", "2")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/api/v1/namespaces/default/pods?watch=true",
-			resource:   "pods",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -750,26 +708,17 @@ func TestCacheWatchResponse(t *testing.T) {
 		},
 		//used to test whether custom resource's watch-events can be cached correctly
 		"cache response for watch add crontabs": {
-			group:   "stable.example.com",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "crontabs",
-				Namespace: "default",
-				Group:     "stable.example.com",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Added, Object: mkCronTab("crontab2", "4")},
 				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
-			resource:   "crontabs",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -782,26 +731,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"cache response for watch add and delete crontabs": {
-			group:   "stable.example.com",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "crontabs",
-				Namespace: "default",
-				Group:     "stable.example.com",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Deleted, Object: mkCronTab("crontab1", "4")},
 				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
-			resource:   "crontabs",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -812,26 +752,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"cache response for watch add and update crontabs": {
-			group:   "stable.example.com",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "crontabs",
-				Namespace: "default",
-				Group:     "stable.example.com",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "2")},
 				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
 				{Type: watch.Added, Object: mkCronTab("crontab3", "6")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
-			resource:   "crontabs",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -843,26 +774,17 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"cache response for watch not update crontabs": {
-			group:   "stable.example.com",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "crontabs",
-				Namespace: "default",
-				Group:     "stable.example.com",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Added, Object: mkCronTab("crontab1", "6")},
 				{Type: watch.Modified, Object: mkCronTab("crontab1", "4")},
 				{Type: watch.Modified, Object: mkCronTab("crontab1", "2")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
-			resource:   "crontabs",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/apis/stable.example.com/v1/namespaces/default/crontabs?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -873,24 +795,15 @@ func TestCacheWatchResponse(t *testing.T) {
 			},
 		},
 		"should not return error when storing bookmark watch event": {
-			group:   "",
-			version: "v1",
-			keyBuildInfo: storage.KeyBuildInfo{
-				Component: "kubelet",
-				Resources: "pods",
-				Namespace: "default",
-				Group:     "",
-				Version:   "v1",
-			},
 			inputObj: []watch.Event{
 				{Type: watch.Bookmark, Object: mkPod("mypod1", "2")},
 			},
-			userAgent:  "kubelet",
-			accept:     "application/json",
-			verb:       "GET",
-			path:       "/api/v1/namespaces/default/pods?watch=true",
-			resource:   "pods",
-			namespaced: true,
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
 			expectResult: struct {
 				err  bool
 				data map[string]struct{}
@@ -898,47 +811,147 @@ func TestCacheWatchResponse(t *testing.T) {
 				data: map[string]struct{}{},
 			},
 		},
+		"add pods for partial object metadata watch request": {
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: runtime.Object(&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "meta.k8s.io/v1",
+						Kind:       "PartialObjectMetadata",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "mypod1",
+						Namespace:       "default",
+						ResourceVersion: "2",
+						UID:             "4232ad7f-c347-43a3-b64a-1c4bdfeab900",
+					},
+				})},
+				{Type: watch.Added, Object: runtime.Object(&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "meta.k8s.io/v1",
+						Kind:       "PartialObjectMetadata",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "mypod2",
+						Namespace:       "default",
+						ResourceVersion: "3",
+						UID:             "4232ad7f-c347-43a3-b64a-1c4bdfeab901",
+					},
+				})},
+			},
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1",
+			},
+			verb: "GET",
+			path: "/api/v1/namespaces/default/pods?watch=true",
+			expectResult: struct {
+				err  bool
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{
+					"partialobjectmetadata-default-mypod1-2": {},
+					"partialobjectmetadata-default-mypod2-3": {},
+				},
+			},
+		},
+		"add crontabs for partial object metadata watch request": {
+			inputObj: []watch.Event{
+				{Type: watch.Added, Object: runtime.Object(&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "meta.k8s.io/v1",
+						Kind:       "PartialObjectMetadata",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "crontab1",
+						ResourceVersion: "2",
+						UID:             "4232ad7f-c347-43a3-b64a-1c4bdfeab900",
+					},
+				})},
+				{Type: watch.Added, Object: runtime.Object(&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "meta.k8s.io/v1",
+						Kind:       "PartialObjectMetadata",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "crontab2",
+						ResourceVersion: "3",
+						UID:             "4232ad7f-c347-43a3-b64a-1c4bdfeab901",
+					},
+				})},
+			},
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1",
+			},
+			verb: "GET",
+			path: "/apis/stable.example.com/v1/crontabs?watch=true",
+			expectResult: struct {
+				err  bool
+				data map[string]struct{}
+			}{
+				data: map[string]struct{}{
+					"partialobjectmetadata-crontab1-2": {},
+					"partialobjectmetadata-crontab2-3": {},
+				},
+			},
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			s := serializerM.CreateSerializer(tt.accept, tt.group, tt.version, tt.resource)
-			r, w := io.Pipe()
-			go func(w *io.PipeWriter) {
-				//For unregistered GVKs, the normal encoding is used by default and the original GVK information is set
-
-				for i := range tt.inputObj {
-					if _, err := s.WatchEncode(w, &tt.inputObj[i]); err != nil {
-						t.Errorf("%d: encode watch unexpected error: %v", i, err)
-						continue
-					}
-					time.Sleep(100 * time.Millisecond)
-				}
-				w.Close()
-			}(w)
-
 			req, _ := http.NewRequest(tt.verb, tt.path, nil)
-			if len(tt.userAgent) != 0 {
-				req.Header.Set("User-Agent", tt.userAgent)
-			}
-
-			if len(tt.accept) != 0 {
-				req.Header.Set("Accept", tt.accept)
+			for k, v := range tt.header {
+				req.Header.Set(k, v)
 			}
 			req.RemoteAddr = "127.0.0.1"
 
 			var err error
-			rc := io.NopCloser(r)
+			var info *request.RequestInfo
+			var comp string
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
-				ctx = util.WithRespContentType(ctx, tt.accept)
+				info, _ = request.RequestInfoFrom(ctx)
+				// get component
+				comp, _ = util.ClientComponentFrom(ctx)
+
+				// inject response content type by request content type
+				reqContentType, _ := util.ReqContentTypeFrom(ctx)
+				ctx = util.WithRespContentType(ctx, reqContentType)
 				req = req.WithContext(ctx)
+
+				// build response body
+				gvr := schema.GroupVersionResource{
+					Group:    info.APIGroup,
+					Version:  info.APIVersion,
+					Resource: info.Resource,
+				}
+
+				convertGVK, ok := util.ConvertGVKFrom(ctx)
+				if ok && convertGVK != nil {
+					gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+				}
+
+				s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
+				pr, pw := io.Pipe()
+				go func(pw *io.PipeWriter) {
+					//For unregistered GVKs, the normal encoding is used by default and the original GVK information is set
+					for i := range tt.inputObj {
+						if _, err := s.WatchEncode(pw, &tt.inputObj[i]); err != nil {
+							t.Errorf("%d: encode watch unexpected error: %v", i, err)
+							continue
+						}
+						time.Sleep(100 * time.Millisecond)
+					}
+					pw.Close()
+				}(pw)
+				rc := io.NopCloser(pr)
 				err = yurtCM.CacheResponse(req, rc, nil)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
 			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -952,10 +965,19 @@ func TestCacheWatchResponse(t *testing.T) {
 				return
 			}
 
-			rootKey, err := sWrapper.KeyFunc(tt.keyBuildInfo)
+			keyInfo := storage.KeyBuildInfo{
+				Component: comp,
+				Namespace: info.Namespace,
+				Name:      info.Name,
+				Resources: info.Resource,
+				Group:     info.APIGroup,
+				Version:   info.APIVersion,
+			}
+			rootKey, err := sWrapper.KeyFunc(keyInfo)
 			if err != nil {
 				t.Errorf("failed to get key, %v", err)
 			}
+
 			objs, err := sWrapper.List(rootKey)
 			if err != nil || len(objs) == 0 {
 				t.Errorf("failed to get object from storage")
