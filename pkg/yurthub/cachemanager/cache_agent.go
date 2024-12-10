@@ -39,9 +39,9 @@ type CacheAgent struct {
 	store  StorageWrapper
 }
 
-func NewCacheAgents(informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
+func NewCacheAgents(nodeName string, informerFactory informers.SharedInformerFactory, store StorageWrapper) *CacheAgent {
 	ca := &CacheAgent{
-		agents: sets.New(util.DefaultCacheAgents...),
+		agents: sets.New(util.DefaultCacheAgents...).Insert(util.MultiplexerProxyClientUserAgentPrefix + nodeName),
 		store:  store,
 	}
 	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
