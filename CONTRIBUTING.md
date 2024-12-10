@@ -11,15 +11,22 @@ Please do check our [Code of Conduct](CODE_OF_CONDUCT.md) before making contribu
 * [Reporting security issues](#reporting-security-issues)
 * [Reporting general issues](#reporting-general-issues)
 * [Code and doc contribution](#code-and-doc-contribution)
+* [Review](#review)
 * [Engage to help anything](#engage-to-help-anything)
+* [At Last](#at-last)
 
 ## Reporting security issues
 
-We take security issues seriously and discourage anyone to spread security issues. If you find a security issue in OpenYurt, please do not discuss it in public and even do not open a public issue. Instead we encourage you to send us a private email to  [openyurt@gmail.com](mailto:openyurt@gmail.com) to report the security issue.
+We take security issues seriously and discourage anyone to spread security issues. If you find a security issue in OpenYurt, please do not discuss it in public and even do not open a public issue. Instead we encourage you to send us a private email to [security@mail.openyurt.io](mailto:security@mail.openyurt.io) to report the security issue.
 
 ## Reporting general issues
 
-Any OpenYurt user can potentially be a contributor. If you have any feedback for the project, feel free to open an issue via [NEW ISSUE](https://github.com/openyurtio/openyurt/issues/new).
+Any OpenYurt user can potentially be a contributor. If you have any feedback for the project, feel free to open an issue. Steps are as follows:
+
+1. Click `New issue` at [the issue interface](https://github.com/openyurtio/openyurt/issue) to create a new issue.
+2. Select the kind of the issue and `Get started`.
+3. Fill the title of the issue and the content of the given issue template.
+4. Finally `Submit new issue`.
 
 Since OpenYurt development will be collaborated in a distributed manner, we appreciate **WELL-WRITTEN**, **DETAILED**, **EXPLICIT** issue reports. To make communication more efficient, we suggest everyone to search if your issue is an existing one before filing a new issue. If you find it to be existing, please append your details in the issue comments.
 
@@ -51,12 +58,13 @@ Any action that may make OpenYurt better is encouraged. The action can be realiz
 * If you find document incorrect, please fix that!
 
 It is impossible to list them completely, we are looking forward to your pull requests.
+Before coding, in order to avoid duplication of work, you had better to search the community to check if someone has been working on a same problem. 
 Before submitting a PR, we suggest you could take a look at the PR rules here.
 
 * [Workspace Preparation](#workspace-preparation)
 * [Branch Definition](#branch-definition)
 * [Commit Rules](#commit-rules)
-* [PR Description](#pr-description)
+* [PR Guidelines](#pr-guidelines)
 
 ### Workspace Preparation
 
@@ -123,9 +131,32 @@ Commit content represents all content changes included in one commit. We had bet
 * Avoid very large change in a commit;
 * Be complete and reviewable for each commit.
 
-### PR Description
+### PR Guidelines
 
-PR is the only way to make change to OpenYurt project. To help reviewers, we actually encourage contributors to make PR description as detailed as possible.
+PR is the only way to make change to OpenYurt project. Before submitting a Pull Request, you should check your local git repository and keep pace with the OpenYurt repo to avoid the merge conflict. In addition, you should have some knowledge of how does the OpenYurt [CI Workflow](https://openyurt.io/docs/developer-manuals/ci-workflow) work.
+
+After committing to your forked OpenYurt repository, you can submit a pull request to the official OpenYurt repository, asking for the merge of your change. Steps are as follows:
+
+1. Push the code at your local host to your forked OpenYurt repository.
+2. Login the Github and enter your OpenYurt repository.
+3. Click `New pull request` at the pull request interface and select your branch to merge.
+4. Click `Create pull request` and fill the content of the given pull request template.
+5. Finally click `Create pull request` to submit the pull request, and you can find it at [the pull request interface of OpenYurt](https://github.com/openyurtio/openyurt/pulls).
+
+In most cases, one pull request should only focus on one work, such as fixing a bug. Thus, only one commit should be contained in one pull request. You should amend your pull request if you find that there are more than one commits in it, using `git reset` and `git commit` at your local host. After your amending, you can push it to your forked openyurt repository through `git push`(usually need to do forcely, take caution). The submitted pull request will sync with the branch you select to merge(at step 3), and no need to create a new pull request.
+
+You should check the CI workflow after submitting your pull request and make all the check passed. Then, you just need to wait for the review and approval from community members. If the community accepts your pull request, it will be labeled as `lgtm`(looks good to me) and `approve`.
+
+## Review
+
+Review means check others' pull requests. Everyone are welcome to take part in the review work. It's simple than pull request. You can leave your comment at the code you have interest in. Steps are as follows:
+
+1. Select a pull request at [the pull request interface](https://github.com/openyurtio/openyurt/pulls).
+2. Click `Files changed` to check what change the pull request introduced.
+3. Click `+` at the left of the code line and leave your comment. At the first time, you need to click `Start a review`, and later you can click `Add review comment`.
+4. Click `Finish your review` on the top right and `Submit review`.
+
+Then you can just wait for the reply from the author of this pull request.
 
 ## Engage to help anything
 
@@ -140,3 +171,7 @@ GitHub is the primary place for OpenYurt contributors to collaborate. Although c
 * Write blogs on OpenYurt, and so on.
 
 In a word, **ANY HELP CAN BE A CONTRIBUTION.**
+
+## At Last
+
+The openyurt is the only one of the repositories under [the openyurtio organization](https://github.com/openyurtio), all of these repositories consist the OpenYurt. Welcome to explore capabilities of each repository and make OpenYurt better.
