@@ -71,6 +71,7 @@ func isPodCrashLoopBackOff(ctx context.Context, c client.Client, podName, namesp
 	return podutil.IsPodCrashLoopBackOff(pod.Status), nil
 }
 
+// remapAutonomyEndpoints remaps the notReadyAddresses to the readyAddresses
 func remapAutonomyEndpoints(ctx context.Context, client client.Client, slice *discovery.EndpointSlice) error {
 	if slice == nil || len(slice.Endpoints) == 0 {
 		return nil
@@ -79,6 +80,11 @@ func remapAutonomyEndpoints(ctx context.Context, client client.Client, slice *di
 	for _, e := range slice.Endpoints {
 		// If the endpoint is ready, skip
 		if e.Conditions.Ready != nil && *e.Conditions.Ready {
+			continue
+		}
+
+		// If the endpoint is terminating, skip
+		if e.Conditions.Terminating != nil && *e.Conditions.Terminating {
 			continue
 		}
 
@@ -107,8 +113,13 @@ func remapAutonomyEndpoints(ctx context.Context, client client.Client, slice *di
 			continue
 		}
 
-		// Set not ready addresses to ready
-		*e.Conditions.Ready = true
+		// Set not ready addresses to ready & serving
+		if e.Conditions.Ready != nil {
+			*e.Conditions.Ready = true
+		}
+		if e.Conditions.Serving != nil {
+			*e.Conditions.Serving = true
+		}
 	}
 
 	return nil

@@ -241,9 +241,9 @@ func TestDefault_AutonomyAnnotations(t *testing.T) {
 				Endpoints: []discovery.Endpoint{{
 					Addresses: []string{"172.16.0.17", "172.16.0.18"},
 					Conditions: discovery.EndpointConditions{
-						Ready: ptr.To(false),
+						Ready: ptr.To(false), // not updated to Ready
 					},
-				}}, // not updated to Ready
+				}},
 			},
 			expectErr: false,
 		},
@@ -261,6 +261,123 @@ func TestDefault_AutonomyAnnotations(t *testing.T) {
 			},
 			expectedObj: &discovery.EndpointSlice{
 				Endpoints: []discovery.Endpoint{},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Ready condition is nil", // should not happen
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						projectinfo.GetNodeAutonomyDurationAnnotation(): "10m",
+					},
+				},
+			},
+			inputObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       nil,
+						Terminating: ptr.To(false),
+					},
+					NodeName: ptr.To("node1"),
+					TargetRef: &corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "pod1",
+						Namespace: "default",
+					},
+				}},
+			},
+			expectedObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       nil, // no change
+						Terminating: ptr.To(false),
+					},
+					NodeName: ptr.To("node1"),
+					TargetRef: &corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "pod1",
+						Namespace: "default",
+					},
+				}},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Serving condition is nil",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						projectinfo.GetNodeAutonomyDurationAnnotation(): "10m",
+					},
+				},
+			},
+			inputObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       ptr.To(false),
+						Serving:     nil,
+						Terminating: ptr.To(false),
+					},
+					NodeName: ptr.To("node1"),
+					TargetRef: &corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "pod1",
+						Namespace: "default",
+					},
+				}},
+			},
+			expectedObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       ptr.To(true), // updated to Ready
+						Serving:     nil,          // no change
+						Terminating: ptr.To(false),
+					},
+					NodeName: ptr.To("node1"),
+					TargetRef: &corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "pod1",
+						Namespace: "default",
+					},
+				}},
+			},
+			expectErr: false,
+		},
+		{
+			name: "Endpoint is terminating",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						projectinfo.GetNodeAutonomyDurationAnnotation(): "10m",
+					},
+				},
+			},
+			inputObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       ptr.To(false),
+						Serving:     ptr.To(false),
+						Terminating: ptr.To(true),
+					},
+				}},
+			},
+			expectedObj: &discovery.EndpointSlice{
+				Endpoints: []discovery.Endpoint{{
+					Addresses: []string{"172.16.0.17", "172.16.0.18"},
+					Conditions: discovery.EndpointConditions{
+						Ready:       ptr.To(false), // not updated to Ready
+						Serving:     ptr.To(false), // not updated to Serving
+						Terminating: ptr.To(true),
+					},
+				}},
 			},
 			expectErr: false,
 		},
@@ -459,11 +576,13 @@ func TestDefault_PodCrashLoopBack(t *testing.T) {
 	}
 }
 
-func endpoint1(ready bool) discovery.Endpoint {
+func endpoint1(isUp bool) discovery.Endpoint {
 	return discovery.Endpoint{
 		Addresses: []string{"172.16.0.17", "172.16.0.18"},
 		Conditions: discovery.EndpointConditions{
-			Ready: ptr.To(ready),
+			Ready:       ptr.To(isUp),
+			Serving:     ptr.To(isUp),
+			Terminating: ptr.To(false),
 		},
 		NodeName: ptr.To("node1"),
 		TargetRef: &corev1.ObjectReference{
@@ -474,11 +593,13 @@ func endpoint1(ready bool) discovery.Endpoint {
 	}
 }
 
-func endpoint2(ready bool) discovery.Endpoint {
+func endpoint2(isUp bool) discovery.Endpoint {
 	return discovery.Endpoint{
 		Addresses: []string{"10.244.1.2", "10.244.1.3"},
 		Conditions: discovery.EndpointConditions{
-			Ready: ptr.To(ready),
+			Ready:       ptr.To(isUp),
+			Serving:     ptr.To(isUp),
+			Terminating: ptr.To(false),
 		},
 		NodeName: ptr.To("node1"),
 		TargetRef: &corev1.ObjectReference{
@@ -489,11 +610,13 @@ func endpoint2(ready bool) discovery.Endpoint {
 	}
 }
 
-func endpoint2Pod2(ready bool) discovery.Endpoint {
+func endpoint2Pod2(isUp bool) discovery.Endpoint {
 	return discovery.Endpoint{
 		Addresses: []string{"10.244.1.2", "10.244.1.3"},
 		Conditions: discovery.EndpointConditions{
-			Ready: ptr.To(ready),
+			Ready:       ptr.To(isUp),
+			Serving:     ptr.To(isUp),
+			Terminating: ptr.To(false),
 		},
 		NodeName: ptr.To("node1"),
 		TargetRef: &corev1.ObjectReference{
