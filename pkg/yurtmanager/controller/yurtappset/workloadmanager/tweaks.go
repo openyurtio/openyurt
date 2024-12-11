@@ -42,7 +42,8 @@ func GetNodePoolTweaksFromYurtAppSet(cli client.Client, nodepoolName string, yas
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		if isNodePoolRelated(&np, yasTweak.Pools, yasTweak.NodePoolSelector) {
 			klog.V(4).Infof("nodepool %s is related to yurtappset %s/%s, add tweaks", nodepoolName, yas.Namespace, yas.Name)
-			tweaksList = append(tweaksList, &yasTweak.Tweaks)
+			tweaksCopy := yasTweak.Tweaks
+			tweaksList = append(tweaksList, &tweaksCopy)
 		}
 	}
 	return
