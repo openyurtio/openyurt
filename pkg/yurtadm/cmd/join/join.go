@@ -20,6 +20,7 @@ package join
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/util/apiclient"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	yurtphases "github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/phases"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
@@ -52,6 +54,8 @@ type joinOptions struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubBinary            string
+	hostControlPlaneAddr     string // hostControlPlaneAddr is the address (ip:port) of host kubernetes cluster that used for yurthub local mode.
 	namespace                string
 	caCertHashes             []string
 	unsafeSkipCAVerification bool
@@ -124,7 +128,7 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	)
 	flagSet.StringVar(
 		&joinOptions.nodeType, yurtconstants.NodeType, joinOptions.nodeType,
-		"Sets the node is edge or cloud",
+		"Sets the node is edge, cloud or local",
 	)
 	flagSet.StringVar(
 		&joinOptions.nodeName, yurtconstants.NodeName, joinOptions.nodeName,
@@ -153,6 +157,14 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.yurthubImage, yurtconstants.YurtHubImage, joinOptions.yurthubImage,
 		"Sets the image version of yurthub component",
+	)
+	flagSet.StringVar(
+		&joinOptions.yurthubBinary, yurtconstants.YurtHubBinary, joinOptions.yurthubBinary,
+		"Sets the binary path of yurthub, this is used for deploying local mode yurthub in systemd",
+	)
+	flagSet.StringVar(
+		&joinOptions.hostControlPlaneAddr, yurtconstants.HostControlPlaneAddr, joinOptions.hostControlPlaneAddr,
+		"Sets the address of hostControlPlaneAddr, which is the address (ip:port) of host kubernetes cluster that used for yurthub local mode",
 	)
 	flagSet.StringSliceVar(
 		&joinOptions.caCertHashes, yurtconstants.TokenDiscoveryCAHash, joinOptions.caCertHashes,
@@ -227,6 +239,8 @@ type joinData struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubBinary            string
+	hostControlPlaneAddr     string
 	yurthubTemplate          string
 	yurthubManifest          string
 	kubernetesVersion        string
@@ -257,6 +271,25 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		apiServerEndpoint = args[0]
 	}
 
+	if opt.nodeType == constants.LocalNode {
+		// in local mode, it is necessary to prepare yurthub binary file for deploying systemd yurthub.
+		if len(opt.yurthubBinary) == 0 {
+			return nil, errors.New("yurthub binary filepath is empty, so unable to run systemd yurthub in local mode.")
+		}
+		_, err := os.Stat(opt.yurthubBinary)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, errors.New("yurthub binary file does not exist.")
+			}
+			return nil, errors.Wrapf(err, "stat yurthub binary file %s fail", opt.yurthubBinary)
+		}
+
+		// in local mode, hostControlPlaneAddr is needed for systemd yurthub accessing host kubernetes cluster.
+		if len(opt.hostControlPlaneAddr) == 0 {
+			return nil, errors.New("host control plane address is empty, so unable to run systemd yurthub in local mode.")
+		}
+	}
+
 	if len(opt.token) == 0 {
 		return nil, errors.New("join token is empty, so unable to bootstrap worker node.")
 	}
@@ -265,8 +298,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, errors.Errorf("the bootstrap token %s was not of the form %s", opt.token, yurtconstants.BootstrapTokenPattern)
 	}
 
-	if opt.nodeType != yurtconstants.EdgeNode && opt.nodeType != yurtconstants.CloudNode {
-		return nil, errors.Errorf("node type(%s) is invalid, only \"edge and cloud\" are supported", opt.nodeType)
+	if opt.nodeType != yurtconstants.EdgeNode && opt.nodeType != yurtconstants.CloudNode && opt.nodeType != yurtconstants.LocalNode {
+		return nil, errors.Errorf("node type(%s) is invalid, only \"edge, cloud and local\" are supported", opt.nodeType)
 	}
 
 	if opt.unsafeSkipCAVerification && len(opt.caCertHashes) != 0 {
@@ -298,6 +331,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		ignorePreflightErrors: ignoreErrors,
 		pauseImage:            opt.pauseImage,
 		yurthubImage:          opt.yurthubImage,
+		yurthubBinary:         opt.yurthubBinary,
+		hostControlPlaneAddr:  opt.hostControlPlaneAddr,
 		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          opt.caCertHashes,
 		organizations:         opt.organizations,
@@ -437,6 +472,15 @@ func (j *joinData) PauseImage() string {
 // YurtHubImage returns the YurtHub image.
 func (j *joinData) YurtHubImage() string {
 	return j.yurthubImage
+}
+
+// YurtHubBinary returns the YurtHub binary.
+func (j *joinData) YurtHubBinary() string {
+	return j.yurthubBinary
+}
+
+func (j *joinData) HostControlPlaneAddr() string {
+	return j.hostControlPlaneAddr
 }
 
 // YurtHubServer returns the YurtHub server addr.
