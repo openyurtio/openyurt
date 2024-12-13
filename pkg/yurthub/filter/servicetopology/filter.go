@@ -20,7 +20,7 @@ import (
 	"context"
 
 	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,7 +130,7 @@ func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struc
 	}
 
 	switch v := obj.(type) {
-	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discovery.EndpointSlice:
+	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discoveryv1.EndpointSlice:
 		return stf.serviceTopologyHandler(v)
 	default:
 		return obj
@@ -164,9 +164,9 @@ func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object)
 	case *discoveryV1beta1.EndpointSlice:
 		svcNamespace = v.Namespace
 		svcName = v.Labels[discoveryV1beta1.LabelServiceName]
-	case *discovery.EndpointSlice:
+	case *discoveryv1.EndpointSlice:
 		svcNamespace = v.Namespace
-		svcName = v.Labels[discovery.LabelServiceName]
+		svcName = v.Labels[discoveryv1.LabelServiceName]
 	case *v1.Endpoints:
 		svcNamespace = v.Namespace
 		svcName = v.Name
@@ -190,7 +190,7 @@ func (stf *serviceTopologyFilter) nodeTopologyHandler(obj runtime.Object) runtim
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
 		return reassembleV1beta1EndpointSlice(v, stf.nodeName, nil)
-	case *discovery.EndpointSlice:
+	case *discoveryv1.EndpointSlice:
 		return reassembleEndpointSlice(v, stf.nodeName, nil)
 	case *v1.Endpoints:
 		return reassembleEndpoints(v, stf.nodeName, nil)
@@ -215,7 +215,7 @@ func (stf *serviceTopologyFilter) nodePoolTopologyHandler(obj runtime.Object) ru
 	switch v := obj.(type) {
 	case *discoveryV1beta1.EndpointSlice:
 		return reassembleV1beta1EndpointSlice(v, "", nodes)
-	case *discovery.EndpointSlice:
+	case *discoveryv1.EndpointSlice:
 		return reassembleEndpointSlice(v, "", nodes)
 	case *v1.Endpoints:
 		return reassembleEndpoints(v, "", nodes)
@@ -252,13 +252,13 @@ func reassembleV1beta1EndpointSlice(endpointSlice *discoveryV1beta1.EndpointSlic
 }
 
 // reassembleEndpointSlice will discard endpoints that are not on the same node/nodePool for v1.EndpointSlice
-func reassembleEndpointSlice(endpointSlice *discovery.EndpointSlice, nodeName string, nodes []string) *discovery.EndpointSlice {
+func reassembleEndpointSlice(endpointSlice *discoveryv1.EndpointSlice, nodeName string, nodes []string) *discoveryv1.EndpointSlice {
 	if len(nodeName) != 0 && len(nodes) != 0 {
 		klog.Warningf("reassembleEndpointSlice: nodeName(%s) and nodePool can not be set at the same time", nodeName)
 		return endpointSlice
 	}
 
-	var newEps []discovery.Endpoint
+	var newEps []discoveryv1.Endpoint
 	for i := range endpointSlice.Endpoints {
 		if len(nodeName) != 0 {
 			if *endpointSlice.Endpoints[i].NodeName == nodeName {
