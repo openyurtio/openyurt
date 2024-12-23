@@ -2345,7 +2345,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 	//node2, err := fakeNodeHandler.Get(ctx, "node2", metav1.GetOptions{})
 	node2, err := fakeNodeHandler.DelegateNodeHandler.Get(ctx, "node2", metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Can't get current node2...")
+		t.Error("Can't get current node2...")
 		return
 	}
 	if !taintutils.TaintExists(node2.Spec.Taints, NotReadyTaintTemplate) {
@@ -2358,7 +2358,7 @@ func TestApplyNoExecuteTaints(t *testing.T) {
 	//_, err = fakeNodeHandler.UpdateStatus(ctx, node2, metav1.UpdateOptions{})
 	_, err = fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, node2, metav1.UpdateOptions{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 		return
 	}
 	//if err := nodeController.syncNodeStore(fakeNodeHandler); err != nil {
@@ -2512,7 +2512,7 @@ func TestApplyNoExecuteTaintsToNodesEnqueueTwice(t *testing.T) {
 	node0.Status = healthyNodeNewStatus
 	_, err = fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, node0, metav1.UpdateOptions{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 		return
 	}
 
@@ -2750,12 +2750,12 @@ func TestSwapUnreachableNotReadyTaints(t *testing.T) {
 	node1.Status = healthyNodeNewStatus
 	_, err = fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, node0, metav1.UpdateOptions{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 		return
 	}
 	_, err = fakeNodeHandler.DelegateNodeHandler.UpdateStatus(ctx, node1, metav1.UpdateOptions{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 		return
 	}
 

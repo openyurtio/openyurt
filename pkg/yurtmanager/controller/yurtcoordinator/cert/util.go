@@ -59,7 +59,7 @@ func waitUntilSVCReady(clientSet client.Interface, serviceName string, stopCh <-
 	if err = wait.PollUntilContextCancel(context.Background(), 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		serverSVC, err = clientSet.CoreV1().Services(YurtCoordinatorNS).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err == nil {
-			klog.Infof(Format("%s service is ready for yurtcoordinator_cert_manager", serviceName))
+			klog.Info(Format("%s service is ready for yurtcoordinator_cert_manager", serviceName))
 			return true, nil
 		}
 		return false, nil

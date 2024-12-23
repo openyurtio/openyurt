@@ -67,7 +67,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new PoolService Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	klog.Infof(Format("loadbalancerset-controller add controller %s", poolServicesControllerResource.String()))
+	klog.Info(Format("loadbalancerset-controller add controller %s", poolServicesControllerResource.String()))
 	r := newReconciler(c, mgr)
 
 	if _, err := r.mapper.KindFor(poolServicesControllerResource); err != nil {
@@ -144,7 +144,7 @@ func (r *ReconcileLoadBalancerSet) Reconcile(_ context.Context, request reconcil
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile PoolService %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile PoolService %s/%s", request.Namespace, request.Name))
 
 	service := &corev1.Service{}
 	err := r.Get(context.TODO(), request.NamespacedName, service)

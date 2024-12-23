@@ -116,7 +116,7 @@ func (r *ReconcileYurtAppOverrider) Reconcile(_ context.Context, request reconci
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile YurtAppOverrider %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile YurtAppOverrider %s/%s", request.Namespace, request.Name))
 
 	// Fetch the YurtAppOverrider instance
 	instance := &appsv1alpha1.YurtAppOverrider{}

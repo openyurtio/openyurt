@@ -167,9 +167,9 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return err
 	}
 
-	klog.V(4).Infof(Format("registering the field indexers of platformadmin controller"))
+	klog.V(4).Info(Format("registering the field indexers of platformadmin controller"))
 	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		klog.Errorf(Format("could not register field indexers for platformadmin controller, %v", err))
+		klog.Error(Format("could not register field indexers for platformadmin controller, %v", err))
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 // Reconcile reads that state of the cluster for a PlatformAdmin object and makes changes based on the state read
 // and what is in the PlatformAdmin.Spec
 func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcile.Request) (_ reconcile.Result, reterr error) {
-	klog.Infof(Format("Reconcile PlatformAdmin %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile PlatformAdmin %s/%s", request.Namespace, request.Name))
 
 	// Fetch the PlatformAdmin instance
 	platformAdmin := &iotv1beta1.PlatformAdmin{}
@@ -197,7 +197,7 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		klog.Errorf(Format("Get PlatformAdmin %s/%s error %v", request.Namespace, request.Name, err))
+		klog.Error(Format("Get PlatformAdmin %s/%s error %v", request.Namespace, request.Name, err))
 		return reconcile.Result{}, err
 	}
 
@@ -223,7 +223,7 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 			// Finally update the status of PlatformAdmin
 			platformAdmin.Status = *platformAdminStatus
 			if err := r.Status().Update(ctx, platformAdmin); err != nil {
-				klog.Errorf(Format("Update the status of PlatformAdmin %s/%s failed", platformAdmin.Namespace, platformAdmin.Name))
+				klog.Error(Format("Update the status of PlatformAdmin %s/%s failed", platformAdmin.Namespace, platformAdmin.Name))
 				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
 
@@ -242,7 +242,7 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 }
 
 func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAdmin *iotv1beta1.PlatformAdmin) (reconcile.Result, error) {
-	klog.V(4).Infof(Format("ReconcileDelete PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(4).Info(Format("ReconcileDelete PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	yas := &appsv1beta1.YurtAppSet{}
 
 	platformAdminFramework, err := r.readFramework(ctx, platformAdmin)
@@ -295,7 +295,7 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 
 	controllerutil.RemoveFinalizer(platformAdmin, iotv1beta1.PlatformAdminFinalizer)
 	if err := r.Client.Update(ctx, platformAdmin); err != nil {
-		klog.Errorf(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
+		klog.Error(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
 		return reconcile.Result{}, err
 	}
 
@@ -303,7 +303,7 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 }
 
 func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAdmin *iotv1beta1.PlatformAdmin, platformAdminStatus *iotv1beta1.PlatformAdminStatus) (reconcile.Result, error) {
-	klog.V(4).Infof(Format("ReconcileNormal PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(4).Info(Format("ReconcileNormal PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	controllerutil.AddFinalizer(platformAdmin, iotv1beta1.PlatformAdminFinalizer)
 
 	platformAdminStatus.Initialized = true
@@ -317,7 +317,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	}
 
 	// Reconcile configmap of edgex confiruation
-	klog.V(4).Infof(Format("ReconcileConfigmap PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(4).Info(Format("ReconcileConfigmap PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	if ok, err := r.reconcileConfigmap(ctx, platformAdmin, platformAdminStatus, platformAdminFramework); !ok {
 		if err != nil {
 			util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1beta1.ConfigmapAvailableCondition, corev1.ConditionFalse, iotv1beta1.ConfigmapProvisioningFailedReason, err.Error()))
@@ -330,7 +330,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1beta1.ConfigmapAvailableCondition, corev1.ConditionTrue, "", ""))
 
 	// Reconcile component of edgex confiruation
-	klog.V(4).Infof(Format("ReconcileComponent PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(4).Info(Format("ReconcileComponent PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 	if ok, err := r.reconcileComponent(ctx, platformAdmin, platformAdminStatus, platformAdminFramework); !ok {
 		if err != nil {
 			util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1beta1.ComponentAvailableCondition, corev1.ConditionFalse, iotv1beta1.ComponentProvisioningReason, err.Error()))
@@ -344,7 +344,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 
 	// Update the metadata of PlatformAdmin
 	if err := r.Client.Update(ctx, platformAdmin); err != nil {
-		klog.Errorf(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
+		klog.Error(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
 		return reconcile.Result{}, err
 	}
 
@@ -481,7 +481,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 				return false, err
 			}
 			if err := r.Client.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
-				klog.Errorf(Format("Patch yurtappset %s/%s failed: %v", yas.Namespace, yas.Name, err))
+				klog.Error(Format("Patch yurtappset %s/%s failed: %v", yas.Namespace, yas.Name, err))
 				return false, err
 			}
 		}
@@ -624,7 +624,7 @@ func (r *ReconcilePlatformAdmin) removeOwner(ctx context.Context, platformAdmin 
 }
 
 func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmin *iotv1beta1.PlatformAdmin) (*PlatformAdminFramework, error) {
-	klog.V(6).Infof(Format("Synchronize the customize framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(6).Info(Format("Synchronize the customize framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 
 	// Try to get the configmap that represents the framework
 	platformAdminFramework := &PlatformAdminFramework{
@@ -640,19 +640,19 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 			// need to create it by standard configuration
 			err = r.initFramework(ctx, platformAdmin, platformAdminFramework)
 			if err != nil {
-				klog.Errorf(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+				klog.Error(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 				return nil, err
 			}
 			return platformAdminFramework, nil
 		}
-		klog.Errorf(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		klog.Error(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 		return nil, err
 	}
 
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	err := runtime.DecodeInto(r.yamlSerializer, []byte(cm.Data["framework"]), platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("Decode framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		klog.Error(Format("Decode framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 		return nil, err
 	}
 
@@ -666,7 +666,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 			return nil
 		})
 		if err != nil {
-			klog.Errorf(Format("could not remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+			klog.Error(Format("could not remove finalizer of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 			return nil, err
 		}
 	} else {
@@ -681,7 +681,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 				return controllerutil.SetOwnerReference(platformAdmin, cm, r.scheme)
 			})
 			if err != nil {
-				klog.Errorf(Format("could not add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+				klog.Error(Format("could not add owner reference of framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 				return nil, err
 			}
 		}
@@ -694,7 +694,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Error(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -706,12 +706,12 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 			// need to create it by standard configuration
 			err = r.initFramework(ctx, platformAdmin, platformAdminFramework)
 			if err != nil {
-				klog.Errorf(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+				klog.Error(Format("Init framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 				return err
 			}
 			return nil
 		}
-		klog.Errorf(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
+		klog.Error(Format("Get framework for PlatformAdmin %s/%s error %v", platformAdmin.Namespace, platformAdmin.Name, err))
 		return err
 	}
 
@@ -721,7 +721,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("could not write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Error(Format("could not write framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil
@@ -729,7 +729,7 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 
 // initFramework initializes the framework information for PlatformAdmin
 func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmin *iotv1beta1.PlatformAdmin, platformAdminFramework *PlatformAdminFramework) error {
-	klog.V(6).Infof(Format("Initializes the standard framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+	klog.V(6).Info(Format("Initializes the standard framework information for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 
 	// Use standard configurations to build the framework
 	platformAdminFramework.security = platformAdmin.Spec.Security
@@ -744,7 +744,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 	// For better serialization, the serialization method of the Kubernetes runtime library is used
 	data, err := runtime.Encode(r.yamlSerializer, platformAdminFramework)
 	if err != nil {
-		klog.Errorf(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Error(Format("could not marshal framework for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 
@@ -767,7 +767,7 @@ func (r *ReconcilePlatformAdmin) initFramework(ctx context.Context, platformAdmi
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
 	if err != nil {
-		klog.Errorf(Format("could not init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
+		klog.Error(Format("could not init framework configmap for PlatformAdmin %s/%s", platformAdmin.Namespace, platformAdmin.Name))
 		return err
 	}
 	return nil
@@ -825,7 +825,7 @@ func (r *ReconcilePlatformAdmin) calculateDesiredComponents(platformAdmin *iotv1
 	if addedComponentSet.Has(util.IotDockName) {
 		yurtIotDock, err := newYurtIoTDockComponent(platformAdmin, platformAdminFramework)
 		if err != nil {
-			klog.Errorf(Format("newYurtIoTDockComponent error %v", err))
+			klog.Error(Format("newYurtIoTDockComponent error %v", err))
 		}
 		desiredComponents = append(desiredComponents, yurtIotDock)
 	}

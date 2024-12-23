@@ -422,7 +422,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new ${KIND_FIRST_UPPER} Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	klog.Infof(Format("${KIND_ALL_LOWER}-controller add controller %s", controllerKind.String()))
+	klog.Info(Format("${KIND_ALL_LOWER}-controller add controller %s", controllerKind.String()))
 	return add(mgr, newReconciler(c, mgr))
 }
 
@@ -475,7 +475,7 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile ${KIND_FIRST_UPPER} %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile ${KIND_FIRST_UPPER} %s/%s", request.Namespace, request.Name))
 
 	// Fetch the ${KIND_FIRST_UPPER} instance
 	instance := &${GROUP}${VERSION}.${KIND_FIRST_UPPER}{}
@@ -495,14 +495,14 @@ func (r *Reconcile${KIND_FIRST_UPPER}) Reconcile(_ context.Context, request reco
 	if instance.Spec.Foo != instance.Status.Foo {
 		instance.Status.Foo = instance.Spec.Foo
 		if err = r.Status().Update(context.TODO(), instance); err != nil {
-			klog.Errorf(Format("Update ${KIND_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
+			klog.Error(Format("Update ${KIND_FIRST_UPPER} Status %s error %v", klog.KObj(instance), err))
 			return reconcile.Result{Requeue: true}, err
 		}
 	}
 
 	// Update Instance
 	//if err = r.Update(context.TODO(), instance); err != nil {
-	//	klog.Errorf(Format("Update ${KIND_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
+	//	klog.Error(Format("Update ${KIND_FIRST_UPPER} %s error %v", klog.KObj(instance), err))
 	//	return reconcile.Result{Requeue: true}, err
 	//}
 

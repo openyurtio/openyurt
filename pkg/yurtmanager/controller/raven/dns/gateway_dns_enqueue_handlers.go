@@ -40,7 +40,7 @@ func (h *EnqueueRequestForServiceEvent) Create(ctx context.Context, e event.Crea
 		return
 	}
 
-	klog.V(4).Infof(Format("enqueue configmap %s/%s due to service create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	klog.V(4).Info(Format("enqueue configmap %s/%s due to service create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 
@@ -56,7 +56,7 @@ func (h *EnqueueRequestForServiceEvent) Update(ctx context.Context, e event.Upda
 		return
 	}
 	if newSvc.Spec.ClusterIP != oldSvc.Spec.ClusterIP {
-		klog.V(4).Infof(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+		klog.V(4).Info(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
 		util.AddDNSConfigmapToWorkQueue(q)
 	}
 }
@@ -67,7 +67,7 @@ func (h *EnqueueRequestForServiceEvent) Delete(ctx context.Context, e event.Dele
 		klog.Error(Format("could not assert runtime Object to v1.Service"))
 		return
 	}
-	klog.V(4).Infof(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	klog.V(4).Info(Format("enqueue configmap %s/%s due to service update event", util.WorkingNamespace, util.RavenProxyNodesConfig))
 	util.AddDNSConfigmapToWorkQueue(q)
 	return
 }
@@ -84,7 +84,7 @@ func (h *EnqueueRequestForNodeEvent) Create(ctx context.Context, e event.CreateE
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(4).Infof(Format("enqueue configmap %s/%s due to node create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	klog.V(4).Info(Format("enqueue configmap %s/%s due to node create event", util.WorkingNamespace, util.RavenProxyNodesConfig))
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 
@@ -98,7 +98,7 @@ func (h *EnqueueRequestForNodeEvent) Delete(ctx context.Context, e event.DeleteE
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(4).Infof(Format("enqueue configmap %s/%s due to node delete event", util.WorkingNamespace, util.RavenProxyNodesConfig))
+	klog.V(4).Info(Format("enqueue configmap %s/%s due to node delete event", util.WorkingNamespace, util.RavenProxyNodesConfig))
 	util.AddDNSConfigmapToWorkQueue(q)
 }
 

@@ -54,12 +54,12 @@ func NewSecretClient(clientSet client.Interface, ns, name string) (*SecretClient
 		// if this secret already exist, reuse it
 		if kerrors.IsAlreadyExists(err) {
 			secret, _ = clientSet.CoreV1().Secrets(ns).Get(context.TODO(), name, metav1.GetOptions{})
-			klog.V(4).Infof(Format("secret %s already exists", secret.Name))
+			klog.V(4).Info(Format("secret %s already exists", secret.Name))
 		} else {
 			return nil, fmt.Errorf("create secret client %s fail: %v", name, err)
 		}
 	} else {
-		klog.V(4).Infof(Format("secret %s does not exist, create one", secret.Name))
+		klog.V(4).Info(Format("secret %s does not exist, create one", secret.Name))
 	}
 
 	return &SecretClient{

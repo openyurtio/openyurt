@@ -219,7 +219,7 @@ func (r *ReconcileYurtAppDaemon) updateYurtAppDaemon(yad *unitv1alpha1.YurtAppDa
 
 	var getErr, updateErr error
 	for i, obj := 0, yad; ; i++ {
-		klog.V(4).Infof(fmt.Sprintf("YurtAppDaemon[%s/%s] The %d th time updating status for %v[%s/%s], ",
+		klog.V(4).Info(fmt.Sprintf("YurtAppDaemon[%s/%s] The %d th time updating status for %v[%s/%s], ",
 			yad.GetNamespace(), yad.GetName(), i, obj.Kind, obj.Namespace, obj.Name) +
 			fmt.Sprintf("sequence No: %v->%v", obj.Status.ObservedGeneration, newStatus.ObservedGeneration))
 

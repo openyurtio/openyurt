@@ -71,7 +71,7 @@ type ReconcilePodBinding struct {
 // Add creates a PodBingding controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	klog.Infof(Format("podbinding-controller add controller %s", controllerKind.String()))
+	klog.Info(Format("podbinding-controller add controller %s", controllerKind.String()))
 	return add(mgr, c, newReconciler(c, mgr))
 }
 
@@ -107,7 +107,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	//	return []string{}
 	//})
 	//if err != nil {
-	//	klog.Errorf(Format("could not register field indexers for podbinding controller, %v", err))
+	//	klog.Error(Format("could not register field indexers for podbinding controller, %v", err))
 	//}
 	//return err
 }
@@ -120,10 +120,10 @@ func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Reque
 	var err error
 	node := &corev1.Node{}
 	if err = r.Get(ctx, req.NamespacedName, node); err != nil {
-		klog.V(4).Infof(Format("node not found for %q\n", req.NamespacedName))
+		klog.V(4).Info(Format("node not found for %q\n", req.NamespacedName))
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	klog.V(4).Infof(Format("node request: %s\n", node.Name))
+	klog.V(4).Info(Format("node request: %s\n", node.Name))
 
 	if err := r.processNode(node); err != nil {
 		return reconcile.Result{}, err
@@ -141,7 +141,7 @@ func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
 
 	for i := range pods {
 		pod := &pods[i]
-		klog.V(5).Infof(Format("pod %d on node %s: %s", i, node.Name, pod.Name))
+		klog.V(5).Info(Format("pod %d on node %s: %s", i, node.Name, pod.Name))
 		// skip DaemonSet pods and static pod
 		if isDaemonSetPodOrStaticPod(pod) {
 			continue
@@ -156,7 +156,7 @@ func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
 		if nodeutil.IsPodBoundenToNode(node) {
 			durationSeconds := getPodTolerationSeconds(node)
 			if err := r.configureTolerationForPod(pod, durationSeconds); err != nil {
-				klog.Errorf(Format("could not configure toleration of pod, %v", err))
+				klog.Error(Format("could not configure toleration of pod, %v", err))
 			}
 		}
 	}
@@ -173,7 +173,7 @@ func (r *ReconcilePodBinding) getPodsAssignedToNode(name string) ([]corev1.Pod, 
 	podList := &corev1.PodList{}
 	err := r.List(context.TODO(), podList, listOptions)
 	if err != nil {
-		klog.Errorf(Format("could not get podList for node(%s), %v", name, err))
+		klog.Error(Format("could not get podList for node(%s), %v", name, err))
 		return nil, err
 	}
 	return podList.Items, nil
@@ -188,13 +188,13 @@ func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerat
 
 	if toleratesNodeNotReady || toleratesNodeUnreachable {
 		if tolerationSeconds == nil {
-			klog.V(4).Infof(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=0", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable))
+			klog.V(4).Info(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=0", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable))
 		} else {
-			klog.V(4).Infof(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds))
+			klog.V(4).Info(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds))
 		}
 		err := r.Update(context.TODO(), pod, &client.UpdateOptions{})
 		if err != nil {
-			klog.Errorf(Format("could not update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err))
+			klog.Error(Format("could not update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err))
 			return err
 		}
 	}
@@ -275,7 +275,7 @@ func getPodTolerationSeconds(node *corev1.Node) *int64 {
 
 	durationTime, err := time.ParseDuration(duration)
 	if err != nil {
-		klog.Errorf(Format("could not parse duration %s, %v", duration, err))
+		klog.Error(Format("could not parse duration %s, %v", duration, err))
 		return nil
 	}
 

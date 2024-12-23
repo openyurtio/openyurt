@@ -155,13 +155,13 @@ func (r *ReconcileService) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 	svcRecord := newServiceRecord()
 	if err := r.reconcileService(ctx, gw.DeepCopy(), svcRecord, enableTunnel, enableProxy); err != nil {
-		err = fmt.Errorf(Format("unable to reconcile service: %s", err))
+		err = fmt.Errorf("unable to reconcile service: %s", err)
 		klog.Error(err.Error())
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
 
 	if err := r.reconcileEndpoints(ctx, gw.DeepCopy(), svcRecord, enableTunnel, enableProxy); err != nil {
-		err = fmt.Errorf(Format("unable to reconcile endpoint: %s", err))
+		err = fmt.Errorf("unable to reconcile endpoint: %s", err)
 		klog.Error(err.Error())
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
@@ -461,7 +461,7 @@ func (r *ReconcileService) getEndpointsAddress(ctx context.Context, name string)
 	var node corev1.Node
 	err := r.Get(ctx, types.NamespacedName{Name: name}, &node)
 	if err != nil {
-		klog.Errorf(Format("could not get node %s for get active endpoints address, error %s", name, err.Error()))
+		klog.Error(Format("could not get node %s for get active endpoints address, error %s", name, err.Error()))
 		return nil, err
 	}
 	return &corev1.EndpointAddress{NodeName: func(n corev1.Node) *string { return &n.Name }(node), IP: util.GetNodeInternalIP(node)}, nil

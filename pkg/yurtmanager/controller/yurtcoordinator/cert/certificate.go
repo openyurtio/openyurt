@@ -202,7 +202,7 @@ func IsCertFromCA(cert *x509.Certificate, caCert *x509.Certificate) bool {
 	}
 
 	if _, err := cert.Verify(verifyOptions); err != nil {
-		klog.Infof(Format("cert not authorized by current CA: %v", err))
+		klog.Info(Format("cert not authorized by current CA: %v", err))
 		return false
 	}
 
@@ -303,10 +303,10 @@ func GetCertAndKeyFromCertMgr(certManager certificate.Manager, stopCh <-chan str
 	err = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		// keep polling until the certificate is signed
 		if certManager.Current() != nil {
-			klog.Infof(Format("%s certificate signed successfully", ComponentName))
+			klog.Info(Format("%s certificate signed successfully", ComponentName))
 			return true, nil
 		}
-		klog.Infof(Format("waiting for the master to sign the %s certificate", ComponentName))
+		klog.Info(Format("waiting for the master to sign the %s certificate", ComponentName))
 		return false, nil
 	})
 
@@ -351,7 +351,7 @@ func WriteCertIntoSecret(clientSet client.Interface, certName, secretName string
 		return err
 	}
 
-	klog.Infof(Format("successfully write %s cert/key pair into %s", certName, secretName))
+	klog.Info(Format("successfully write %s cert/key pair into %s", certName, secretName))
 
 	return nil
 }
@@ -387,7 +387,7 @@ func WriteCertAndKeyIntoSecret(clientSet client.Interface, certName, secretName 
 		}
 	}
 
-	klog.Infof(Format("successfully write %s cert/key into %s", certName, secretName))
+	klog.Info(Format("successfully write %s cert/key into %s", certName, secretName))
 
 	return nil
 }
@@ -402,7 +402,7 @@ func WriteKubeConfigIntoSecret(clientSet client.Interface, secretName, kubeConfi
 		return err
 	}
 
-	klog.Infof(Format("successfully write kubeconfig into secret %s", secretName))
+	klog.Info(Format("successfully write kubeconfig into secret %s", secretName))
 
 	return nil
 }
@@ -432,7 +432,7 @@ func WriteKeyPairIntoSecret(clientSet client.Interface, secretName, keyName stri
 		return errors.Wrapf(err, "could not write %s.pub into secret %s", keyName, secretName)
 	}
 
-	klog.Infof(Format("successfully write key pair into secret %s", secretName))
+	klog.Info(Format("successfully write key pair into secret %s", secretName))
 
 	return nil
 }

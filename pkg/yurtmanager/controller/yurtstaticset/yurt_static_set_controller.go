@@ -274,7 +274,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Reconcile YurtStaticSet %s", request.Name))
+	klog.V(4).Info(Format("Reconcile YurtStaticSet %s", request.Name))
 
 	// Fetch the YurtStaticSet instance
 	instance := &appsv1alpha1.YurtStaticSet{}
@@ -321,13 +321,13 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// The above hash value will be added to the annotation
 	latestManifest, err := util.GenStaticPodManifest(&instance.Spec.Template, latestHash)
 	if err != nil {
-		klog.Errorf(Format("could not generate static pod manifest of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Error(Format("could not generate static pod manifest of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
 	// Sync the corresponding configmap to the latest state
 	if err := r.syncConfigMap(instance, latestHash, latestManifest); err != nil {
-		klog.Errorf(Format("could not sync the corresponding configmap of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Error(Format("could not sync the corresponding configmap of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 
@@ -337,18 +337,18 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
 		if strings.Contains(err.Error(), "could not init worker pod") {
 			r.recorder.Eventf(instance, corev1.EventTypeWarning, "YurtStaticSet Upgrade Failed", err.Error())
-			klog.Errorf(err.Error())
+			klog.Error(err.Error())
 			return reconcile.Result{}, err
 		}
 
-		klog.Errorf(Format("could not get static pod and worker pod upgrade info for nodes of YurtStaticSet %v, %v",
+		klog.Error(Format("could not get static pod and worker pod upgrade info for nodes of YurtStaticSet %v, %v",
 			request.NamespacedName, err))
 		return ctrl.Result{}, err
 	}
 	totalNumber = int32(len(upgradeInfos))
 	// There are no nodes running target static pods in the cluster
 	if totalNumber == 0 {
-		klog.Infof(Format("No static pods need to be upgraded of YurtStaticSet %v", request.NamespacedName))
+		klog.Info(Format("No static pods need to be upgraded of YurtStaticSet %v", request.NamespacedName))
 		return r.updateYurtStaticSetStatus(instance, totalNumber, totalNumber, totalNumber)
 	}
 
@@ -357,14 +357,14 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 
 	// Clean up unused pods
 	if err := r.removeUnusedPods(deletePods); err != nil {
-		klog.Errorf(Format("could not remove unused pods of YurtStaticSet %v, %v", request.NamespacedName, err))
+		klog.Error(Format("could not remove unused pods of YurtStaticSet %v, %v", request.NamespacedName, err))
 		return reconcile.Result{}, err
 	}
 
 	// If all nodes have been upgraded, just return
 	// Put this here because we need to clean up the worker pods first
 	if totalNumber == upgradedNumber {
-		klog.Infof(Format("All static pods have been upgraded of YurtStaticSet %v", request.NamespacedName))
+		klog.Info(Format("All static pods have been upgraded of YurtStaticSet %v", request.NamespacedName))
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 	}
 
@@ -373,12 +373,12 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// It supports rolling update and the max-unavailable number can be specified by users
 	case strings.ToLower(string(appsv1alpha1.AdvancedRollingUpdateUpgradeStrategyType)):
 		if !allSucceeded {
-			klog.V(5).Infof(Format("Wait last round AdvancedRollingUpdate upgrade to finish of YurtStaticSet %v", request.NamespacedName))
+			klog.V(5).Info(Format("Wait last round AdvancedRollingUpdate upgrade to finish of YurtStaticSet %v", request.NamespacedName))
 			return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
 		}
 
 		if err := r.advancedRollingUpdate(instance, upgradeInfos, latestHash); err != nil {
-			klog.Errorf(Format("could not AdvancedRollingUpdate upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
+			klog.Error(Format("could not AdvancedRollingUpdate upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -387,7 +387,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	// It will set PodNeedUpgrade condition and work with YurtHub component
 	case strings.ToLower(string(appsv1alpha1.OTAUpgradeStrategyType)):
 		if err := r.otaUpgrade(upgradeInfos); err != nil {
-			klog.Errorf(Format("could not OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
+			klog.Error(Format("could not OTA upgrade of YurtStaticSet %v, %v", request.NamespacedName, err))
 			return ctrl.Result{}, err
 		}
 		return r.updateYurtStaticSetStatus(instance, totalNumber, readyNumber, upgradedNumber)
@@ -492,7 +492,7 @@ func (r *ReconcileYurtStaticSet) removeUnusedPods(pods []*corev1.Pod) error {
 		if err := r.Delete(context.TODO(), pod, &client.DeleteOptions{}); err != nil {
 			return err
 		}
-		klog.V(4).Infof(Format("Delete upgrade worker pod %v", pod.Name))
+		klog.V(4).Info(Format("Delete upgrade worker pod %v", pod.Name))
 	}
 	return nil
 }
@@ -525,7 +525,7 @@ func createUpgradeWorker(c client.Client, instance *appsv1alpha1.YurtStaticSet, 
 		if err := c.Create(context.TODO(), pod, &client.CreateOptions{}); err != nil {
 			return err
 		}
-		klog.Infof(Format("Create static pod upgrade worker %s of YurtStaticSet %s", pod.Name, instance.Name))
+		klog.Info(Format("Create static pod upgrade worker %s of YurtStaticSet %s", pod.Name, instance.Name))
 	}
 
 	return nil
@@ -557,6 +557,6 @@ func (r *ReconcileYurtStaticSet) deleteConfigMap(name, namespace string) error {
 	if err := r.Delete(context.TODO(), configMap, &client.DeleteOptions{}); err != nil {
 		return err
 	}
-	klog.Infof(Format("Delete ConfigMap %s from YurtStaticSet %s", configMap.Name, name))
+	klog.Info(Format("Delete ConfigMap %s from YurtStaticSet %s", configMap.Name, name))
 	return nil
 }
