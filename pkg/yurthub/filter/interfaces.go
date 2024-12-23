@@ -59,4 +59,11 @@ type ObjectFilter interface {
 	Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object
 }
 
+type FilterManager interface {
+	FindResponseFilter(req *http.Request) (ResponseFilter, bool)
+	FindObjectFilters(req *http.Request) ObjectFilter
+}
+
 type NodeGetter func(name string) (*v1.Node, error)
+
+type UnionObjectFilter []ObjectFilter
