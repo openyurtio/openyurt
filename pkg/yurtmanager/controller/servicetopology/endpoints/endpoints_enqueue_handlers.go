@@ -45,13 +45,13 @@ func (e *EnqueueEndpointsForService) Update(ctx context.Context, evt event.Updat
 	q workqueue.RateLimitingInterface) {
 	oldSvc, ok := evt.ObjectOld.(*corev1.Service)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Service",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Service",
 			evt.ObjectOld.GetName()))
 		return
 	}
 	newSvc, ok := evt.ObjectNew.(*corev1.Service)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Service",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Service",
 			evt.ObjectNew.GetName()))
 		return
 	}
@@ -72,7 +72,7 @@ func (e *EnqueueEndpointsForService) Generic(ctx context.Context, evt event.Gene
 
 func (e *EnqueueEndpointsForService) enqueueEndpointsForSvc(newSvc *corev1.Service, q workqueue.RateLimitingInterface) {
 	keys := e.endpointsAdapter.GetEnqueueKeysBySvc(newSvc)
-	klog.Infof(Format("the topology configuration of svc %s/%s is changed, enqueue endpoints: %v", newSvc.Namespace, newSvc.Name, keys))
+	klog.Info(Format("the topology configuration of svc %s/%s is changed, enqueue endpoints: %v", newSvc.Namespace, newSvc.Name, keys))
 	for _, key := range keys {
 		ns, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {

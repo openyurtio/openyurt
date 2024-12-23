@@ -238,7 +238,7 @@ func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *rav
 			readyNodes[v.Name] = &v
 		}
 	}
-	klog.V(1).Infof(Format("Ready node has %d, node %v", len(readyNodes), readyNodes))
+	klog.V(1).Info(Format("Ready node has %d, node %v", len(readyNodes), readyNodes))
 	// init a endpoints slice
 	enableProxy, enableTunnel := util.CheckServer(context.TODO(), r.Client)
 	eps := make([]*ravenv1beta1.Endpoint, 0)
@@ -285,12 +285,12 @@ func electEndpoints(gw *ravenv1beta1.Gateway, endpointType string, readyNodes ma
 	for _, aep := range candidates {
 		if len(eps) == replicas {
 			aepInfo, _ := getActiveEndpointsInfo(eps)
-			klog.V(4).InfoS(Format("elect %d active endpoints %s for gateway %s/%s",
+			klog.V(4).Info(Format("elect %d active endpoints %s for gateway %s/%s",
 				len(eps), fmt.Sprintf("[%s]", strings.Join(aepInfo[ActiveEndpointsName], ",")), gw.GetNamespace(), gw.GetName()))
 			return eps
 		}
-		klog.V(1).Infof(Format("node %s is active endpoints, type is %s", aep.NodeName, aep.Type))
-		klog.V(1).Infof(Format("add node %v", aep.DeepCopy()))
+		klog.V(1).Info(Format("node %s is active endpoints, type is %s", aep.NodeName, aep.Type))
+		klog.V(1).Info(Format("add node %v", aep.DeepCopy()))
 		eps = append(eps, aep.DeepCopy())
 	}
 
@@ -302,8 +302,8 @@ func electEndpoints(gw *ravenv1beta1.Gateway, endpointType string, readyNodes ma
 					len(eps), fmt.Sprintf("[%s]", strings.Join(aepInfo[ActiveEndpointsName], ",")), gw.GetNamespace(), gw.GetName()))
 				return eps
 			}
-			klog.V(1).Infof(Format("node %s is active endpoints, type is %s", ep.NodeName, ep.Type))
-			klog.V(1).Infof(Format("add node %v", ep.DeepCopy()))
+			klog.V(1).Info(Format("node %s is active endpoints, type is %s", ep.NodeName, ep.Type))
+			klog.V(1).Info(Format("add node %v", ep.DeepCopy()))
 			eps = append(eps, ep.DeepCopy())
 		}
 	}
@@ -325,7 +325,7 @@ func (r *ReconcileGateway) getPodCIDRs(ctx context.Context, node corev1.Node) ([
 			var blockAffinityList calicov3.BlockAffinityList
 			err := r.List(ctx, &blockAffinityList)
 			if err != nil {
-				err = fmt.Errorf(Format("unable to list calico blockaffinity: %s", err))
+				err = fmt.Errorf("unable to list calico blockaffinity: %s", err)
 				return nil, err
 			}
 			for _, v := range blockAffinityList.Items {

@@ -303,7 +303,7 @@ func (r *ReconcileYurtCoordinatorCert) Reconcile(ctx context.Context, request re
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile YurtCoordinatorCert %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile YurtCoordinatorCert %s/%s", request.Namespace, request.Name))
 	// 1. prepare apiserver-kubelet-client cert
 	if err := initAPIServerClientCert(r.kubeClient, ctx.Done()); err != nil {
 		return reconcile.Result{}, err
@@ -327,7 +327,7 @@ func (r *ReconcileYurtCoordinatorCert) Reconcile(ctx context.Context, request re
 
 func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []CertConfig, stopCh <-chan struct{}) error {
 
-	klog.Infof(Format("init yurtcoordinator started"))
+	klog.Info(Format("init yurtcoordinator started"))
 	// Prepare certs used by yurtcoordinators
 
 	// prepare selfsigned certs
@@ -341,14 +341,14 @@ func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []
 			// 1.1 check if cert exist
 			cert, _, err := loadCertAndKeyFromSecret(r.kubeClient, certConf)
 			if err != nil {
-				klog.Infof(Format("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName))
+				klog.Info(Format("can not load cert %s from %s secret", certConf.CertName, certConf.SecretName))
 				selfSignedCerts = append(selfSignedCerts, certConf)
 				continue
 			}
 
 			// 1.2 check if cert is authorized by current CA
 			if !IsCertFromCA(cert, r.caCert) {
-				klog.Infof(Format("existing cert %s is not authorized by current CA", certConf.CertName))
+				klog.Info(Format("existing cert %s is not authorized by current CA", certConf.CertName))
 				selfSignedCerts = append(selfSignedCerts, certConf)
 				continue
 			}
@@ -359,20 +359,20 @@ func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []
 				ips, _, err := certConf.certInit(r.kubeClient, stopCh)
 				if err != nil {
 					// if cert init failed, skip this cert
-					klog.Errorf(Format("could not init cert %s when checking dynamic attrs: %v", certConf.CertName, err))
+					klog.Error(Format("could not init cert %s when checking dynamic attrs: %v", certConf.CertName, err))
 					continue
 				} else {
 					// check if dynamic IP addresses already exist in cert
 					changed := ip.SearchAllIP(cert.IPAddresses, ips)
 					if changed {
-						klog.Infof(Format("cert %s IP has changed", certConf.CertName))
+						klog.Info(Format("cert %s IP has changed", certConf.CertName))
 						selfSignedCerts = append(selfSignedCerts, certConf)
 						continue
 					}
 				}
 			}
 
-			klog.Infof(Format("cert %s not change, reuse it", certConf.CertName))
+			klog.Info(Format("cert %s not change, reuse it", certConf.CertName))
 		}
 	} else {
 		// create all certs with new CA
@@ -382,7 +382,7 @@ func (r *ReconcileYurtCoordinatorCert) initYurtCoordinator(allSelfSignedCerts []
 	// create selfsigned certs
 	for _, certConf := range selfSignedCerts {
 		if err := initYurtCoordinatorCert(r.kubeClient, certConf, r.caCert, r.caKey, stopCh); err != nil {
-			klog.Errorf(Format("create cert %s fail: %v", certConf.CertName, err))
+			klog.Error(Format("create cert %s fail: %v", certConf.CertName, err))
 			return err
 		}
 	}
@@ -406,7 +406,7 @@ func initCA(clientSet kubernetes.Interface) (caCert *x509.Certificate, caKey cry
 		return caCert, caKey, true, nil
 	} else {
 		// if ca secret does not exist, create new CA certs
-		klog.Infof(Format("secret(%s/%s) is not found, create new CA", YurtCoordinatorNS, YurtCoordinatorCASecretName))
+		klog.Info(Format("secret(%s/%s) is not found, create new CA", YurtCoordinatorNS, YurtCoordinatorCASecretName))
 		// write it into the secret
 		caCert, caKey, err = NewSelfSignedCA()
 		if err != nil {

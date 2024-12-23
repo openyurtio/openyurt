@@ -46,13 +46,13 @@ func (e *EnqueueNodePoolForNode) Create(ctx context.Context, evt event.CreateEve
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(5).Infof(Format("will enqueue nodepool as node(%s) has been created",
+	klog.V(5).Info(Format("will enqueue nodepool as node(%s) has been created",
 		node.GetName()))
 	if np := node.Labels[projectinfo.GetNodePoolLabel()]; len(np) != 0 {
 		addNodePoolToWorkQueue(np, q)
 		return
 	}
-	klog.V(4).Infof(Format("node(%s) does not belong to any nodepool", node.GetName()))
+	klog.V(4).Info(Format("node(%s) does not belong to any nodepool", node.GetName()))
 }
 
 // Update implements EventHandler
@@ -60,13 +60,13 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 	q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectNew.GetName()))
 		return
 	}
 	oldNode, ok := evt.ObjectOld.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectOld.GetName()))
 		return
 	}
@@ -79,7 +79,7 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 		return
 	} else if len(oldNp) == 0 {
 		// add node to the new Pool
-		klog.V(4).Infof(Format("node(%s) is added into pool(%s)", newNode.Name, newNp))
+		klog.V(4).Info(Format("node(%s) is added into pool(%s)", newNode.Name, newNp))
 		addNodePoolToWorkQueue(newNp, q)
 		return
 	} else if oldNp != newNp {
@@ -92,7 +92,7 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 
 	// check node ready status
 	if isNodeReady(*newNode) != isNodeReady(*oldNode) {
-		klog.V(4).Infof(Format("Node ready status has been changed,"+
+		klog.V(4).Info(Format("Node ready status has been changed,"+
 			" will enqueue pool(%s) for node(%s)", newNp, newNode.GetName()))
 		addNodePoolToWorkQueue(newNp, q)
 		return
@@ -104,7 +104,7 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 			!reflect.DeepEqual(newNode.Annotations, oldNode.Annotations) ||
 			!reflect.DeepEqual(newNode.Spec.Taints, oldNode.Spec.Taints) {
 			// TODO only consider the pool related attributes
-			klog.V(5).Infof(Format("NodePool related attributes has been changed,will enqueue pool(%s) for node(%s)", newNp, newNode.Name))
+			klog.V(5).Info(Format("NodePool related attributes has been changed,will enqueue pool(%s) for node(%s)", newNp, newNode.Name))
 			addNodePoolToWorkQueue(newNp, q)
 		}
 	}
@@ -121,11 +121,11 @@ func (e *EnqueueNodePoolForNode) Delete(ctx context.Context, evt event.DeleteEve
 
 	np := node.Labels[projectinfo.GetNodePoolLabel()]
 	if len(np) == 0 {
-		klog.V(4).Infof(Format("A orphan node(%s) is removed", node.Name))
+		klog.V(4).Info(Format("A orphan node(%s) is removed", node.Name))
 		return
 	}
 	// enqueue the nodepool that the node belongs to
-	klog.V(4).Infof(Format("Will enqueue pool(%s) as node(%s) has been deleted",
+	klog.V(4).Info(Format("Will enqueue pool(%s) as node(%s) has been deleted",
 		np, node.GetName()))
 	addNodePoolToWorkQueue(np, q)
 }

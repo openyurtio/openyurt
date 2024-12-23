@@ -39,30 +39,30 @@ func (e *EnqueueGatewayForNode) Create(ctx context.Context, evt event.CreateEven
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
 		return
 	}
-	klog.V(5).Infof(Format("will enqueue gateway as node(%s) has been created",
+	klog.V(5).Info(Format("will enqueue gateway as node(%s) has been created",
 		node.GetName()))
 	if gwName, exist := node.Labels[raven.LabelCurrentGateway]; exist {
 		util.AddGatewayToWorkQueue(gwName, q)
 		return
 	}
-	klog.V(4).Infof(Format("node(%s) does not belong to any gateway", node.GetName()))
+	klog.V(4).Info(Format("node(%s) does not belong to any gateway", node.GetName()))
 }
 
 // Update implements EventHandler
 func (e *EnqueueGatewayForNode) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectNew.GetName()))
 		return
 	}
 	oldNode, ok := evt.ObjectOld.(*corev1.Node)
 	if !ok {
-		klog.Errorf(Format("could not assert runtime Object(%s) to v1.Node",
+		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
 			evt.ObjectOld.GetName()))
 		return
 	}
-	klog.V(5).Infof(Format("Will enqueue gateway as node(%s) has been updated",
+	klog.V(5).Info(Format("Will enqueue gateway as node(%s) has been updated",
 		newNode.GetName()))
 
 	oldGwName := oldNode.Labels[raven.LabelCurrentGateway]
@@ -89,11 +89,11 @@ func (e *EnqueueGatewayForNode) Delete(ctx context.Context, evt event.DeleteEven
 
 	gwName, exist := node.Labels[raven.LabelCurrentGateway]
 	if !exist {
-		klog.V(5).Infof(Format("Node(%s) doesn't belong to any gateway", node.GetName()))
+		klog.V(5).Info(Format("Node(%s) doesn't belong to any gateway", node.GetName()))
 		return
 	}
 	// enqueue the gateway that the node belongs to
-	klog.V(5).Infof(Format("Will enqueue pool(%s) as node(%s) has been deleted",
+	klog.V(5).Info(Format("Will enqueue pool(%s) as node(%s) has been deleted",
 		gwName, node.GetName()))
 	util.AddGatewayToWorkQueue(gwName, q)
 }
@@ -112,7 +112,7 @@ func (e *EnqueueGatewayForRavenConfig) Create(ctx context.Context, evt event.Cre
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
-	klog.V(2).Infof(Format("Will config all gateway as raven-cfg has been created"))
+	klog.V(2).Info(Format("Will config all gateway as raven-cfg has been created"))
 	if err := e.enqueueGateways(q); err != nil {
 		klog.Error(Format("could not config all gateway, error %s", err.Error()))
 		return
@@ -133,7 +133,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.Upd
 	}
 
 	if oldCm.Data[util.RavenEnableProxy] != newCm.Data[util.RavenEnableProxy] {
-		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Info(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
@@ -141,7 +141,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.Upd
 	}
 
 	if oldCm.Data[util.RavenEnableTunnel] != newCm.Data[util.RavenEnableTunnel] {
-		klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been updated"))
+		klog.V(4).Info(Format("Will config all gateway as raven-cfg has been updated"))
 		if err := e.enqueueGateways(q); err != nil {
 			klog.Error(Format("could not config all gateway, error %s", err.Error()))
 			return
@@ -155,7 +155,7 @@ func (e *EnqueueGatewayForRavenConfig) Delete(ctx context.Context, evt event.Del
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
 		return
 	}
-	klog.V(4).Infof(Format("Will config all gateway as raven-cfg has been deleted"))
+	klog.V(4).Info(Format("Will config all gateway as raven-cfg has been deleted"))
 	if err := e.enqueueGateways(q); err != nil {
 		klog.Error(Format("could not config all gateway, error %s", err.Error()))
 		return
