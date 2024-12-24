@@ -22,13 +22,77 @@ package initsystem
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
 // WindowsInitSystem is the windows implementation of InitSystem
 type WindowsInitSystem struct{}
+
+// ServiceStart tries to start a specific service
+// Following Windows documentation: https://docs.microsoft.com/en-us/windows/desktop/Services/starting-a-service
+func (sysd WindowsInitSystem) ServiceStart(service string) error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(service)
+	if err != nil {
+		return errors.Wrapf(err, "could not access service %s", service)
+	}
+	defer s.Close()
+
+	// Check if service is already started
+	status, err := s.Query()
+	if err != nil {
+		return errors.Wrapf(err, "could not query service %s", service)
+	}
+
+	if status.State != svc.Stopped && status.State != svc.StopPending {
+		return nil
+	}
+
+	timeout := time.Now().Add(10 * time.Second)
+	for status.State != svc.Stopped {
+		if timeout.Before(time.Now()) {
+			return errors.Errorf("timeout waiting for %s service to stop", service)
+		}
+		time.Sleep(300 * time.Millisecond)
+		status, err = s.Query()
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve %s service status", service)
+		}
+	}
+
+	// Start the service
+	err = s.Start("is", "manual-started")
+	if err != nil {
+		return errors.Wrapf(err, "could not start service %s", service)
+	}
+
+	// Check that the start was successful
+	status, err = s.Query()
+	if err != nil {
+		return errors.Wrapf(err, "could not query service %s", service)
+	}
+	timeout = time.Now().Add(10 * time.Second)
+	for status.State != svc.Running {
+		if timeout.Before(time.Now()) {
+			return errors.Errorf("timeout waiting for %s service to start", service)
+		}
+		time.Sleep(300 * time.Millisecond)
+		status, err = s.Query()
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve %s service status", service)
+		}
+	}
+	return nil
+}
 
 // ServiceIsEnabled ensures the service is enabled to start on each boot.
 func (sysd WindowsInitSystem) ServiceIsEnabled(service string) bool {
