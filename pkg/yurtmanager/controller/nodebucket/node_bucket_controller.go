@@ -61,7 +61,7 @@ func Format(format string, args ...interface{}) string {
 // Add creates a new NodeBucket Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
-	klog.Infof(Format("nodebucket-controller add controller %s", controllerResource.String()))
+	klog.Info(Format("nodebucket-controller add controller %s", controllerResource.String()))
 	r := &ReconcileNodeBucket{
 		Client:            yurtClient.GetClientByControllerNameOrDie(mgr, names.NodeBucketController),
 		maxNodesPerBucket: int(cfg.ComponentConfig.NodeBucketController.MaxNodesPerBucket),
@@ -168,7 +168,7 @@ type ReconcileNodeBucket struct {
 // Reconcile reads that state of the cluster for a NodeBucket object and makes changes based on the state read
 // and what is in the NodeBucket.Spec
 func (r *ReconcileNodeBucket) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	klog.Infof(Format("Reconcile NodePool for NodeBuckets %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile NodePool for NodeBuckets %s/%s", request.Namespace, request.Name))
 
 	// 1. Fetch the NodePool instance
 	ins := &appsv1beta1.NodePool{}

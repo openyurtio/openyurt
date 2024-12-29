@@ -17,9 +17,8 @@ run:
 
 # output configuration options
 output:
-  # colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
-  # default is "colored-line-number"
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
 
   # print lines of code with issue, default is true
   print-issued-lines: true
@@ -33,7 +32,10 @@ output:
 # all available settings of specific linters
 linters-settings:
   gci:
-    local-prefixes: github.com/openyurtio
+    sections:
+      - standard
+      - prefix(github.com/openyurtio)
+      - default
 
 linters:
   disable-all: true
@@ -44,5 +46,5 @@ linters:
     - ineffassign
     - misspell
     - unused
-    - vet
+    - govet
     - staticcheck

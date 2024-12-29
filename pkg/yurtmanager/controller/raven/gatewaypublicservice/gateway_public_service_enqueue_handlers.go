@@ -41,7 +41,7 @@ func (h *EnqueueRequestForGatewayEvent) Create(ctx context.Context, e event.Crea
 	if gw.Spec.ExposeType != ravenv1beta1.ExposeTypeLoadBalancer {
 		return
 	}
-	klog.V(4).Infof(Format("enqueue gateway %s as create event", gw.GetName()))
+	klog.V(4).Info(Format("enqueue gateway %s as create event", gw.GetName()))
 	util.AddGatewayToWorkQueue(gw.GetName(), q)
 }
 
@@ -57,7 +57,7 @@ func (h *EnqueueRequestForGatewayEvent) Update(ctx context.Context, e event.Upda
 		return
 	}
 	if needUpdate(newGw, oldGw) {
-		klog.V(4).Infof(Format("enqueue gateway %s as update event", newGw.GetName()))
+		klog.V(4).Info(Format("enqueue gateway %s as update event", newGw.GetName()))
 		util.AddGatewayToWorkQueue(newGw.GetName(), q)
 	}
 }
@@ -71,7 +71,7 @@ func (h *EnqueueRequestForGatewayEvent) Delete(ctx context.Context, e event.Dele
 	if gw.Spec.ExposeType != ravenv1beta1.ExposeTypeLoadBalancer {
 		return
 	}
-	klog.V(4).Infof(Format("enqueue gateway %s as delete event", gw.GetName()))
+	klog.V(4).Info(Format("enqueue gateway %s as delete event", gw.GetName()))
 	util.AddGatewayToWorkQueue(gw.GetName(), q)
 }
 
@@ -155,7 +155,7 @@ func addExposedGateway(client client.Client, q workqueue.RateLimitingInterface) 
 	}
 	for _, gw := range gwList.Items {
 		if gw.Spec.ExposeType == ravenv1beta1.ExposeTypeLoadBalancer {
-			klog.V(4).Infof(Format("enqueue gateway %s", gw.GetName()))
+			klog.V(4).Info(Format("enqueue gateway %s", gw.GetName()))
 			util.AddGatewayToWorkQueue(gw.GetName(), q)
 		}
 	}

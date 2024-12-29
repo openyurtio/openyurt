@@ -207,7 +207,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.V(4).Infof(Format("Reconcile DaemonpodUpdater %s", request.Name))
+	klog.V(4).Info(Format("Reconcile DaemonpodUpdater %s", request.Name))
 
 	// Fetch the DaemonSet instance
 	instance := &appsv1.DaemonSet{}
@@ -240,17 +240,17 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	switch strings.ToLower(v) {
 	case strings.ToLower(OTAUpdate):
 		if err := r.otaUpdate(instance); err != nil {
-			klog.Errorf(Format("could not OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
+			klog.Error(Format("could not OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 
 	case strings.ToLower(AutoUpdate), strings.ToLower(AdvancedRollingUpdate):
 		if err := r.advancedRollingUpdate(instance); err != nil {
-			klog.Errorf(Format("could not advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
+			klog.Error(Format("could not advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 	default:
-		klog.Errorf(Format("Unknown update type for DaemonSet %v pod: %v", request.NamespacedName, v))
+		klog.Error(Format("Unknown update type for DaemonSet %v pod: %v", request.NamespacedName, v))
 		return reconcile.Result{}, fmt.Errorf("unknown update type %v", v)
 	}
 

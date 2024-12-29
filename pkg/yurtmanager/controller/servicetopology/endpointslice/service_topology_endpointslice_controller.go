@@ -102,7 +102,7 @@ func (r *ReconcileServiceTopologyEndpointSlice) Reconcile(_ context.Context, req
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile Endpointslice %s/%s", request.Namespace, request.Name))
+	klog.Info(Format("Reconcile Endpointslice %s/%s", request.Namespace, request.Name))
 
 	// Fetch the Endpointslice instance
 	if r.isSupportEndpointslicev1 {
@@ -124,7 +124,7 @@ func (r *ReconcileServiceTopologyEndpointSlice) Reconcile(_ context.Context, req
 	}
 
 	if err := r.syncEndpointslice(request.Namespace, request.Name); err != nil {
-		klog.Errorf(Format("sync endpointslice %v failed with : %v", request.NamespacedName, err))
+		klog.Error(Format("sync endpointslice %v failed with : %v", request.NamespacedName, err))
 		return reconcile.Result{Requeue: true}, err
 	}
 

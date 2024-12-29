@@ -116,7 +116,7 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 	// Note !!!!!!!!!!
 	// We strongly recommend use Format() to  encapsulation because Format() can print logs by module
 	// @kadisi
-	klog.Infof(Format("Reconcile NodePool %s", req.Name))
+	klog.Info(Format("Reconcile NodePool %s", req.Name))
 
 	var nodePool appsv1beta1.NodePool
 	// try to reconcile the NodePool object
@@ -156,7 +156,7 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 			}
 			if updated {
 				if err := r.Update(ctx, &node); err != nil {
-					klog.Errorf(Format("Update Node %s error %v", node.Name, err))
+					klog.Error(Format("Update Node %s error %v", node.Name, err))
 					return ctrl.Result{}, err
 				}
 			}
