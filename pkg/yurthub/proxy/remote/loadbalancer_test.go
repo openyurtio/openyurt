@@ -328,3 +328,66 @@ func TestPriorityLoadBalancerAlgoWithReverseHealthy(t *testing.T) {
 		}
 	}
 }
+
+func TestModifyResponse(t *testing.T) {
+	testCases := []struct {
+		Name     string
+		Response *http.Response
+		Expected error
+	}{
+		{
+			Name: "Valid Response",
+			Response: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{},
+				Body:       nil,
+			},
+			Expected: nil,
+		},
+		{
+			Name: "Invalid Response",
+			Response: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Header:     http.Header{},
+				Body:       nil,
+			},
+			Expected: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			lb := &loadBalancer{}
+			err := lb.modifyResponse(tc.Response)
+			if err != tc.Expected {
+				t.Errorf("Expected error: %v, but got: %v", tc.Expected, err)
+			}
+		})
+	}
+}
+func TestRRLoadBalancerAlgoName(t *testing.T) {
+	rr := &rrLoadBalancerAlgo{}
+	expectedName := "rr algorithm"
+	if rr.Name() != expectedName {
+		t.Errorf("Expected name: %s, but got: %s", expectedName, rr.Name())
+	}
+}
+
+func TestPriorityLoadBalancerAlgoName(t *testing.T) {
+	prio := &priorityLoadBalancerAlgo{}
+	expectedName := "priority algorithm"
+	if prio.Name() != expectedName {
+		t.Errorf("Expected name: %s, but got: %s", expectedName, prio.Name())
+	}
+}
+
+func TestName(t *testing.T) {
+	p := &priorityLoadBalancerAlgo{}
+	expected := "priority algorithm"
+	actual := p.Name()
+
+	if actual != expected {
+		t.Errorf("Expected %s, but got %s", expected, actual)
+	}
+}
+
