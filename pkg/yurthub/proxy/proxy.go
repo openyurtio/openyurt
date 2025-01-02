@@ -19,6 +19,7 @@ package proxy
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -40,6 +41,7 @@ import (
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/autonomy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/pool"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
@@ -49,6 +51,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator"
 	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
+
+const multiplexerProxyPostHookName = "multiplexerProxy"
 
 type yurtReverseProxy struct {
 	resolver                       apirequest.RequestInfoResolver
@@ -63,6 +67,9 @@ type yurtReverseProxy struct {
 	isCoordinatorReady             func() bool
 	workingMode                    hubutil.WorkingMode
 	enableYurtCoordinator          bool
+	multiplexerProxy               http.Handler
+	multiplexerResources           []schema.GroupVersionResource
+	nodeName                       string
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -158,6 +165,21 @@ func NewYurtReverseProxyHandler(
 		enableYurtCoordinator:          yurtHubCfg.EnableCoordinator,
 		tenantMgr:                      tenantMgr,
 		workingMode:                    yurtHubCfg.WorkingMode,
+		multiplexerResources:           yurtHubCfg.MultiplexerResources,
+		nodeName:                       yurtHubCfg.NodeName,
+	}
+
+	if yurtHubCfg.PostStartHooks == nil {
+		yurtHubCfg.PostStartHooks = make(map[string]func() error)
+	}
+	yurtHubCfg.PostStartHooks[multiplexerProxyPostHookName] = func() error {
+		if yurtProxy.multiplexerProxy, err = multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterManager,
+			yurtHubCfg.RequestMultiplexerManager,
+			yurtHubCfg.MultiplexerResources,
+			stopCh); err != nil {
+			return fmt.Errorf("failed to new default share proxy, error: %v", err)
+		}
+		return nil
 	}
 
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
@@ -214,6 +236,10 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		p.poolScopedResourceHandler(rw, req)
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
+	case util.IsMultiplexerRequest(req, p.multiplexerResources, p.nodeName):
+		if p.multiplexerProxy != nil {
+			p.multiplexerProxy.ServeHTTP(rw, req)
+		}
 	default:
 		// For resource request that do not need to be handled by yurt-coordinator,
 		// handling the request with cloud apiserver or local cache.

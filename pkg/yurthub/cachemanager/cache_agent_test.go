@@ -36,38 +36,39 @@ func TestUpdateCacheAgents(t *testing.T) {
 		"two new agents updated": {
 			initAgents:    []string{},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...).Insert("multiplexer-proxy-iz2ze21g5pq9jbesubrksvz"),
 			deletedAgents: sets.Set[string]{},
 		},
 		"two new agents updated but an old agent deleted": {
 			initAgents:    []string{"agent1", "agent2"},
 			cacheAgents:   "agent2,agent3",
-			resultAgents:  sets.New(append([]string{"agent2", "agent3"}, util.DefaultCacheAgents...)...),
+			resultAgents:  sets.New(append([]string{"agent2", "agent3"}, util.DefaultCacheAgents...)...).Insert("multiplexer-proxy-iz2ze21g5pq9jbesubrksvz"),
 			deletedAgents: sets.New("agent1"),
 		},
 		"no agents updated ": {
 			initAgents:    []string{"agent1", "agent2"},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...).Insert("multiplexer-proxy-iz2ze21g5pq9jbesubrksvz"),
 			deletedAgents: sets.New[string](),
 		},
 		"no agents updated with default": {
 			initAgents:    []string{"agent1", "agent2", "kubelet"},
 			cacheAgents:   "agent1,agent2",
-			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...),
+			resultAgents:  sets.New(append([]string{"agent1", "agent2"}, util.DefaultCacheAgents...)...).Insert("multiplexer-proxy-iz2ze21g5pq9jbesubrksvz"),
 			deletedAgents: sets.New[string](),
 		},
 		"empty agents added ": {
 			initAgents:    []string{},
 			cacheAgents:   "",
-			resultAgents:  sets.New(util.DefaultCacheAgents...),
+			resultAgents:  sets.New(util.DefaultCacheAgents...).Insert("multiplexer-proxy-iz2ze21g5pq9jbesubrksvz"),
 			deletedAgents: sets.New[string](),
 		},
 	}
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			m := &CacheAgent{
-				agents: sets.New(tt.initAgents...),
+				agents:   sets.New(tt.initAgents...),
+				nodeName: "iz2ze21g5pq9jbesubrksvz",
 			}
 
 			m.updateCacheAgents(strings.Join(tt.initAgents, ","), "")

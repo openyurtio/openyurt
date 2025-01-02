@@ -29,6 +29,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/approver"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/filterchain"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/responsefilter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
@@ -110,4 +111,21 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 	}
 
 	return nil, false
+}
+
+func (m *Manager) FindObjectFilters(req *http.Request) filter.ObjectFilter {
+	objectFilters := make([]filter.ObjectFilter, 0)
+	approved, filterNames := m.Approver.Approve(req)
+	if !approved {
+		return nil
+	}
+
+	for i := range filterNames {
+		if objectFilter, ok := m.nameToObjectFilter[filterNames[i]]; ok {
+			objectFilters = append(objectFilters, objectFilter)
+		}
+	}
+
+	filters := filterchain.FilterChain(objectFilters)
+	return filters
 }

@@ -404,6 +404,7 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 	}
 
 	poolCacheManager := cachemanager.NewCacheManager(
+		"",
 		cachemanager.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,

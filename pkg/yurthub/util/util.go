@@ -86,6 +86,8 @@ const (
 	CacheUserAgentsKey    = "cache_agents"
 	PoolScopeResourcesKey = "pool_scope_resources"
 
+	MultiplexerProxyClientUserAgentPrefix = "multiplexer-proxy-"
+
 	YurtHubProxyPort       = 10261
 	YurtHubPort            = 10267
 	YurtHubProxySecurePort = 10268
