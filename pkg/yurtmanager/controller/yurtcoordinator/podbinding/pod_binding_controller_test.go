@@ -19,268 +19,18 @@ package podbinding
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
-
-var (
-	TestNodesName = []string{"node1", "node2", "node3", "node4"}
-	TestPodsName  = []string{"pod1", "pod2", "pod3", "pod4"}
-)
-
-func prepareNodes() []client.Object {
-	nodes := []client.Object{
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node1",
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node2",
-				Annotations: map[string]string{
-					"node.beta.openyurt.io/autonomy": "true",
-				},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node3",
-				Annotations: map[string]string{
-					"apps.openyurt.io/binding": "true",
-				},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node4",
-				Annotations: map[string]string{
-					"node.openyurt.io/autonomy-duration": "0",
-				},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node5",
-				Annotations: map[string]string{
-					"node.openyurt.io/autonomy-duration": "2h",
-				},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node6",
-				Annotations: map[string]string{
-					"node.openyurt.io/autonomy-duration": "",
-				},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        "node7",
-				Annotations: map[string]string{},
-			},
-		},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node8",
-				Annotations: map[string]string{
-					"other.annotation": "true",
-				},
-			},
-		},
-	}
-	return nodes
-}
-
-func preparePods() []client.Object {
-	second1 := int64(300)
-	second2 := int64(100)
-	pods := []client.Object{
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pod1",
-				Namespace: metav1.NamespaceDefault,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						Kind: "DaemonSet",
-					},
-				},
-			},
-		},
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pod2",
-				Namespace: metav1.NamespaceDefault,
-				Annotations: map[string]string{
-					corev1.MirrorPodAnnotationKey: "03b446125f489d8b04a90de0899657ca",
-				},
-			},
-			Spec: corev1.PodSpec{
-				Tolerations: []corev1.Toleration{
-					{
-						Key:      corev1.TaintNodeNotReady,
-						Operator: corev1.TolerationOpExists,
-						Effect:   corev1.TaintEffectNoExecute,
-					},
-				},
-				NodeName: "node1",
-			},
-		},
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pod3",
-				Namespace: metav1.NamespaceDefault,
-			},
-			Spec: corev1.PodSpec{
-				Tolerations: []corev1.Toleration{
-					{
-						Key:               corev1.TaintNodeNotReady,
-						Operator:          corev1.TolerationOpExists,
-						Effect:            corev1.TaintEffectNoExecute,
-						TolerationSeconds: &second1,
-					},
-					{
-						Key:               corev1.TaintNodeUnreachable,
-						Operator:          corev1.TolerationOpExists,
-						Effect:            corev1.TaintEffectNoExecute,
-						TolerationSeconds: &second1,
-					},
-				},
-				NodeName: "node1",
-			},
-		},
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pod4",
-				Namespace: metav1.NamespaceDefault,
-			},
-			Spec: corev1.PodSpec{
-				Tolerations: []corev1.Toleration{
-					{
-						Key:               corev1.TaintNodeNotReady,
-						Operator:          corev1.TolerationOpExists,
-						Effect:            corev1.TaintEffectNoExecute,
-						TolerationSeconds: &second2,
-					},
-				},
-			},
-		},
-	}
-
-	return pods
-}
-
-func TestReconcile(t *testing.T) {
-	pods := preparePods()
-	nodes := prepareNodes()
-	scheme := runtime.NewScheme()
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatal("Fail to add kubernetes clint-go custom resource")
-	}
-	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pods...).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer).WithObjects(nodes...).Build()
-
-	for i := range TestNodesName {
-		var req = reconcile.Request{NamespacedName: types.NamespacedName{Name: TestNodesName[i]}}
-		rsp := ReconcilePodBinding{
-			Client: c,
-		}
-
-		_, err := rsp.Reconcile(context.TODO(), req)
-		if err != nil {
-			t.Errorf("Reconcile() error = %v", err)
-			return
-		}
-
-		pod := &corev1.Pod{}
-		err = c.Get(context.TODO(), types.NamespacedName{Namespace: metav1.NamespaceDefault, Name: TestPodsName[i]}, pod)
-		if err != nil {
-			continue
-		}
-		t.Logf("pod %s Tolerations is %+v", TestPodsName[i], pod.Spec.Tolerations)
-	}
-}
-
-func TestConfigureTolerationForPod(t *testing.T) {
-	pods := preparePods()
-	nodes := prepareNodes()
-	c := fakeclient.NewClientBuilder().WithObjects(pods...).WithObjects(nodes...).Build()
-
-	second := int64(300)
-	tests := []struct {
-		name              string
-		pod               *corev1.Pod
-		tolerationSeconds *int64
-		wantErr           bool
-	}{
-		{
-			name:              "test1",
-			pod:               pods[0].(*corev1.Pod),
-			tolerationSeconds: &second,
-			wantErr:           false,
-		},
-		{
-			name:              "test2",
-			pod:               pods[1].(*corev1.Pod),
-			tolerationSeconds: &second,
-			wantErr:           false,
-		},
-		{
-			name:              "test3",
-			pod:               pods[2].(*corev1.Pod),
-			tolerationSeconds: &second,
-			wantErr:           false,
-		},
-		{
-			name:              "test4",
-			pod:               pods[3].(*corev1.Pod),
-			tolerationSeconds: &second,
-			wantErr:           false,
-		},
-		{
-			name: "test5",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pod5",
-					Namespace: metav1.NamespaceDefault,
-				},
-			},
-			tolerationSeconds: &second,
-			wantErr:           true,
-		},
-		{
-			name: "test6",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pod5",
-					Namespace: metav1.NamespaceDefault,
-				},
-			},
-			tolerationSeconds: nil,
-			wantErr:           true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &ReconcilePodBinding{
-				Client: c,
-			}
-			if err := r.configureTolerationForPod(tt.pod, tt.tolerationSeconds); (err != nil) != tt.wantErr {
-				t.Errorf("configureTolerationForPod() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
 
 func podIndexer(rawObj client.Object) []string {
 	pod, ok := rawObj.(*corev1.Pod)
@@ -293,243 +43,529 @@ func podIndexer(rawObj client.Object) []string {
 	return []string{pod.Spec.NodeName}
 }
 
-func TestGetPodsAssignedToNode(t *testing.T) {
-	pods := preparePods()
-	c := fakeclient.NewClientBuilder().WithObjects(pods...).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer).Build()
-	tests := []struct {
-		name     string
-		nodeName string
-		want     []corev1.Pod
-		wantErr  bool
+type FakeCountingClient struct {
+	client.Client
+	UpdateCount int
+}
+
+func (c *FakeCountingClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	c.UpdateCount++
+	return c.Client.Update(ctx, obj, opts...)
+}
+
+func TestReconcile(t *testing.T) {
+	second1 := int64(300)
+	second2 := int64(100)
+	testcases := map[string]struct {
+		pod         *corev1.Pod
+		node        *corev1.Node
+		resultPod   *corev1.Pod
+		resultErr   error
+		resultCount int
 	}{
-		{
-			name:     "test1",
-			nodeName: "node1",
-			want: []corev1.Pod{
-				*pods[1].(*corev1.Pod),
-				*pods[2].(*corev1.Pod),
+		"update pod toleration seconds as node autonomy setting": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
 			},
-			wantErr: false,
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "100s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
+		"update pod toleration seconds with node autonomy duration is 0": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "0s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
+		"restore pod toleration seconds as node autonomy setting": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "100",
+						originalUnreachableTolerationDurationAnnotation: "100",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "100",
+						originalUnreachableTolerationDurationAnnotation: "100",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
+		"pod toleration seconds is not changed with invalid duration": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "invalid duration",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			resultCount: 0,
+		},
+		"pod related node is not found": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "300",
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			resultCount: 0,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &ReconcilePodBinding{
-				Client: c,
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			builder := fakeclient.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(tc.pod).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer)
+			if tc.node != nil {
+				builder.WithObjects(tc.node)
 			}
-			// By the way, the fake client not support ListOptions.FieldSelector, only Namespace and LabelSelector
-			// For more details, see sigs.k8s.io/controller-runtime@v0.10.3/pkg/client/fake/client.go:366
-			got, err := r.getPodsAssignedToNode(tt.nodeName)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getPodsAssignedToNode() error = %v, wantErr %v", err, tt.wantErr)
-				return
+
+			fClient := &FakeCountingClient{
+				Client: builder.Build(),
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPodsAssignedToNode() got = %v\n, want %v\n", got, tt.want)
+
+			reconciler := ReconcilePodBinding{
+				Client: fClient,
+			}
+
+			var req = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: tc.pod.Namespace, Name: tc.pod.Name}}
+
+			_, err := reconciler.Reconcile(context.TODO(), req)
+			if tc.resultErr != nil {
+				if err == nil || !strings.Contains(err.Error(), tc.resultErr.Error()) {
+					t.Errorf("expect error %s, but got %s", tc.resultErr.Error(), err.Error())
+				}
+			}
+
+			if fClient.UpdateCount != tc.resultCount {
+				t.Errorf("expect update count %d, but got %d", tc.resultCount, fClient.UpdateCount)
+			}
+
+			if tc.resultPod != nil {
+				currentPod := &corev1.Pod{}
+				err = reconciler.Get(context.TODO(), types.NamespacedName{Namespace: tc.pod.Namespace, Name: tc.pod.Name}, currentPod)
+				if err != nil {
+					t.Errorf("couldn't get current pod, %v", err)
+					return
+				}
+
+				if !reflect.DeepEqual(tc.resultPod.Annotations, currentPod.Annotations) {
+					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Annotations, currentPod.Annotations)
+				}
+
+				if !reflect.DeepEqual(tc.resultPod.Spec.Tolerations, tc.resultPod.Spec.Tolerations) {
+					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations)
+				}
 			}
 		})
 	}
 }
 
-func TestAddOrUpdateTolerationInPodSpec(t *testing.T) {
-	pods := preparePods()
-	second := int64(300)
-	tests := []struct {
-		name string
-		pod  *corev1.Pod
-		want bool
+func TestGetPodsAssignedToNode(t *testing.T) {
+	testcases := map[string]struct {
+		nodeName   string
+		pods       []client.Object
+		resultPods sets.Set[string]
+		resultErr  error
 	}{
-		{
-			name: "toleration1",
-			pod:  pods[0].(*corev1.Pod),
-			want: true,
+		"all pods are related to node": {
+			nodeName: "node1",
+			pods: []client.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod1",
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node1",
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod2",
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node1",
+					},
+				},
+			},
+			resultPods: sets.New("pod1", "pod2"),
 		},
-		{
-			name: "toleration2",
-			pod:  pods[1].(*corev1.Pod),
-			want: false,
-		},
-		{
-			name: "toleration3",
-			pod:  pods[2].(*corev1.Pod),
-			want: false,
-		},
-		{
-			name: "toleration4",
-			pod:  pods[3].(*corev1.Pod),
-			want: true,
+		"not all pods are related to node": {
+			nodeName: "node1",
+			pods: []client.Object{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod1",
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node1",
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod2",
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node2",
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod3",
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "node1",
+					},
+				},
+			},
+			resultPods: sets.New("pod1", "pod3"),
 		},
 	}
-	for _, tt := range tests {
-		toleration := corev1.Toleration{
-			Key:               corev1.TaintNodeNotReady,
-			Operator:          corev1.TolerationOpExists,
-			Effect:            corev1.TaintEffectNoExecute,
-			TolerationSeconds: &second,
-		}
-		if tt.name == "toleration2" {
-			toleration = corev1.Toleration{
-				Key:      corev1.TaintNodeNotReady,
-				Operator: corev1.TolerationOpExists,
-				Effect:   corev1.TaintEffectNoExecute,
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			builder := fakeclient.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(tc.pods...).WithIndex(&corev1.Pod{}, "spec.nodeName", podIndexer)
+			fClient := &FakeCountingClient{
+				Client: builder.Build(),
 			}
-		}
-		t.Run(tt.name, func(t *testing.T) {
-			if got := addOrUpdateTolerationInPodSpec(&tt.pod.Spec, &toleration); got != tt.want {
-				t.Errorf("addOrUpdateTolerationInPodSpec() = %v, want %v", got, tt.want)
+
+			reconciler := ReconcilePodBinding{
+				Client: fClient,
+			}
+			pods, err := reconciler.getPodsAssignedToNode(tc.nodeName)
+			if tc.resultErr != nil {
+				if err == nil || !strings.Contains(err.Error(), tc.resultErr.Error()) {
+					t.Errorf("expect error %s, but got %s", tc.resultErr.Error(), err.Error())
+				}
+			}
+
+			if len(tc.resultPods) != 0 {
+				if len(pods) != len(tc.resultPods) {
+					t.Errorf("expect pods count %d, but got %d", len(tc.resultPods), len(pods))
+				}
+
+				currentPods := sets.New[string]()
+				for i := range pods {
+					currentPods.Insert(pods[i].Name)
+				}
+				if !currentPods.Equal(tc.resultPods) {
+					t.Errorf("expect pods %v, but got %v", tc.resultPods.UnsortedList(), currentPods.UnsortedList())
+				}
 			}
 		})
 	}
 }
 
 func TestIsDaemonSetPodOrStaticPod(t *testing.T) {
-	pods := preparePods()
-	tests := []struct {
-		name string
-		pod  *corev1.Pod
-		want bool
+	testcases := map[string]struct {
+		pod    *corev1.Pod
+		result bool
 	}{
-		{
-			name: "pod0",
-			pod:  nil,
-			want: false,
+		"normal pod": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+			},
+			result: false,
 		},
-		{
-			name: "pod1",
-			pod:  pods[0].(*corev1.Pod),
-			want: true,
+		"daemon pod": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "DaemonSet",
+							Name:       "kube-proxy",
+						},
+					},
+				},
+			},
+			result: true,
 		},
-		{
-			name: "pod2",
-			pod:  pods[1].(*corev1.Pod),
-			want: true,
-		},
-		{
-			name: "pod3",
-			pod:  pods[2].(*corev1.Pod),
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isDaemonSetPodOrStaticPod(tt.pod); got != tt.want {
-				t.Errorf("isDaemonSetPodOrStaticPod() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsPodBoundenToNode(t *testing.T) {
-	nodes := prepareNodes()
-	tests := []struct {
-		name string
-		node *corev1.Node
-		want bool
-	}{
-		{
-			name: "node1",
-			node: nodes[0].(*corev1.Node),
-			want: false,
-		},
-		{
-			name: "node2",
-			node: nodes[1].(*corev1.Node),
-			want: true,
-		},
-		{
-			name: "node3",
-			node: nodes[2].(*corev1.Node),
-			want: true,
-		},
-		{
-			name: "node4",
-			node: nodes[3].(*corev1.Node),
-			want: true,
-		},
-		{
-			name: "node5",
-			node: nodes[4].(*corev1.Node),
-			want: true,
-		},
-		{
-			name: "node6",
-			node: nodes[5].(*corev1.Node),
-			want: false,
-		},
-		{
-			name: "node7",
-			node: nodes[6].(*corev1.Node),
-			want: false,
-		},
-		{
-			name: "node8",
-			node: nodes[7].(*corev1.Node),
-			want: false,
+		"static pod": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						"kubernetes.io/config.mirror": "abcdef123456789",
+						"kubernetes.io/config.seen":   "2025-01-02",
+						"kubernetes.io/config.source": "file",
+					},
+				},
+			},
+			result: true,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := nodeutil.IsPodBoundenToNode(tt.node); got != tt.want {
-				t.Errorf("IsPodBoundenToNode() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetPodTolerationSeconds(t *testing.T) {
-	expectedToleration := int64(7200)
-	defaultTolerationSeconds := int64(300)
-	nodes := prepareNodes()
-	tests := []struct {
-		name string
-		node *corev1.Node
-		want *int64
-	}{
-		{
-			name: "node1",
-			node: nodes[0].(*corev1.Node),
-			want: &defaultTolerationSeconds,
-		},
-		{
-			name: "node2",
-			node: nodes[1].(*corev1.Node),
-			want: nil,
-		},
-		{
-			name: "node3",
-			node: nodes[2].(*corev1.Node),
-			want: nil,
-		},
-		{
-			name: "node4",
-			node: nodes[3].(*corev1.Node),
-			want: nil,
-		},
-		{
-			name: "node5",
-			node: nodes[4].(*corev1.Node),
-			want: &expectedToleration,
-		},
-		{
-			name: "node6",
-			node: nodes[5].(*corev1.Node),
-			want: nil,
-		},
-		{
-			name: "node7",
-			node: nodes[6].(*corev1.Node),
-			want: &defaultTolerationSeconds,
-		},
-		{
-			name: "node8",
-			node: nodes[7].(*corev1.Node),
-			want: &defaultTolerationSeconds,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getPodTolerationSeconds(tt.node); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPodTolerationSeconds() = %v, want %v", got, tt.want)
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			if got := isDaemonSetPodOrStaticPod(tc.pod); got != tc.result {
+				t.Errorf("isDaemonSetPodOrStaticPod() got = %v, expect %v", got, tc.result)
 			}
 		})
 	}

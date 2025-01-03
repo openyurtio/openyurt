@@ -451,8 +451,8 @@ func addOrUpdateLabelsOnNode(kubeClient clientset.Interface, nodeName string, la
 // If the pod is bound to the node, it will return true; otherwise, it will return false.
 // The pod is bound to the node if the pod has the following annotations:
 // - apps.openyurt.io/binding: "true"
-// - openyurt.beta.io/autonomy: "true"
-// - openyurt.io/autonomy-duration: "duration"
+// - node.beta.openyurt.io/autonomy: "true"
+// - node.openyurt.io/autonomy-duration: "duration"
 func IsPodBoundenToNode(node *corev1.Node) bool {
 	if node.Annotations == nil {
 		return false
