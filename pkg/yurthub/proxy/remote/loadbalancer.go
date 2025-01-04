@@ -32,7 +32,7 @@ import (
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
@@ -133,7 +133,7 @@ type loadBalancer struct {
 	backends          []*util.RemoteProxy
 	algo              loadBalancerAlgo
 	localCacheMgr     cachemanager.CacheManager
-	filterManager     *manager.Manager
+	filterFinder      filter.FilterFinder
 	coordinatorGetter func() yurtcoordinator.Coordinator
 	workingMode       hubutil.WorkingMode
 	stopCh            <-chan struct{}
@@ -147,12 +147,12 @@ func NewLoadBalancer(
 	transportMgr transport.Interface,
 	coordinatorGetter func() yurtcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
-	filterManager *manager.Manager,
+	filterFinder filter.FilterFinder,
 	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{
 		localCacheMgr:     localCacheMgr,
-		filterManager:     filterManager,
+		filterFinder:      filterFinder,
 		coordinatorGetter: coordinatorGetter,
 		workingMode:       workingMode,
 		stopCh:            stopCh,
@@ -291,8 +291,8 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 		req = req.WithContext(ctx)
 
 		// filter response data
-		if lb.filterManager != nil {
-			if responseFilter, ok := lb.filterManager.FindResponseFilter(req); ok {
+		if !yurtutil.IsNil(lb.filterFinder) {
+			if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
 				size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
 				if err != nil {

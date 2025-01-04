@@ -22,17 +22,16 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/objectfilter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -214,38 +213,6 @@ func createSerializer(respContentType string, info *apirequest.RequestInfo, sm *
 	return sm.CreateSerializer(respContentType, info.APIGroup, info.APIVersion, info.Resource)
 }
 
-type filterChain []filter.ObjectFilter
-
-func createFilterChain(objFilters []filter.ObjectFilter) filter.ObjectFilter {
-	chain := make(filterChain, 0)
-	chain = append(chain, objFilters...)
-	return chain
-}
-
-func (chain filterChain) Name() string {
-	var names []string
-	for i := range chain {
-		names = append(names, chain[i].Name())
-	}
-	return strings.Join(names, ",")
-}
-
-func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	// do nothing
-	return map[string]sets.Set[string]{}
-}
-
-func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
-	for i := range chain {
-		obj = chain[i].Filter(obj, stopCh)
-		if yurtutil.IsNil(obj) {
-			break
-		}
-	}
-
-	return obj
-}
-
 type responseFilter struct {
 	objectFilter      filter.ObjectFilter
 	serializerManager *serializer.SerializerManager
@@ -253,7 +220,7 @@ type responseFilter struct {
 
 func CreateResponseFilter(objectFilters []filter.ObjectFilter, serializerManager *serializer.SerializerManager) filter.ResponseFilter {
 	return &responseFilter{
-		objectFilter:      createFilterChain(objectFilters),
+		objectFilter:      objectfilter.CreateFilterChain(objectFilters),
 		serializerManager: serializerManager,
 	}
 }

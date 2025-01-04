@@ -46,11 +46,11 @@ import (
 
 type multiplexerProxy struct {
 	requestsMultiplexerManager multiplexer.MultiplexerManager
-	filterMgr                  filter.FilterFinder
+	filterFinder               filter.FilterFinder
 	stop                       <-chan struct{}
 }
 
-func NewMultiplexerProxy(filterMgr filter.FilterFinder,
+func NewMultiplexerProxy(filterFinder filter.FilterFinder,
 	cacheManager multiplexer.MultiplexerManager,
 	multiplexerResources []schema.GroupVersionResource,
 	stop <-chan struct{}) (*multiplexerProxy, error) {
@@ -58,7 +58,7 @@ func NewMultiplexerProxy(filterMgr filter.FilterFinder,
 	sp := &multiplexerProxy{
 		stop:                       stop,
 		requestsMultiplexerManager: cacheManager,
-		filterMgr:                  filterMgr,
+		filterFinder:               filterFinder,
 	}
 
 	for _, gvr := range multiplexerResources {

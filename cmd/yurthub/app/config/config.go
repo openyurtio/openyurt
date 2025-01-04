@@ -51,6 +51,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
@@ -95,7 +96,7 @@ type YurtHubConfiguration struct {
 	NodePoolInformerFactory         dynamicinformer.DynamicSharedInformerFactory
 	WorkingMode                     util.WorkingMode
 	KubeletHealthGracePeriod        time.Duration
-	FilterManager                   *manager.Manager
+	FilterFinder                    filter.FilterFinder
 	CoordinatorServer               *url.URL
 	MinRequestTimeout               time.Duration
 	TenantNs                        string
@@ -157,7 +158,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(options, sharedFactory, workingMode, tenantNs)
-	filterManager, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager)
+	filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -181,7 +182,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		SharedFactory:             sharedFactory,
 		NodePoolInformerFactory:   dynamicSharedFactory,
 		KubeletHealthGracePeriod:  options.KubeletHealthGracePeriod,
-		FilterManager:             filterManager,
+		FilterFinder:              filterFinder,
 		MinRequestTimeout:         options.MinRequestTimeout,
 		TenantNs:                  tenantNs,
 		YurtHubProxyServerAddr:    fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),

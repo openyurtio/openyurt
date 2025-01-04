@@ -131,8 +131,8 @@ func TestFindResponseFilter(t *testing.T) {
 			stopper := make(chan struct{})
 			defer close(stopper)
 
-			mgr, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager)
-			if tt.mgrIsNil && mgr == nil {
+			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager)
+			if tt.mgrIsNil && finder == nil {
 				return
 			}
 
@@ -152,7 +152,7 @@ func TestFindResponseFilter(t *testing.T) {
 			var isFound bool
 			var responseFilter filter.ResponseFilter
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				responseFilter, isFound = mgr.FindResponseFilter(req)
+				responseFilter, isFound = finder.FindResponseFilter(req)
 			})
 
 			handler = util.WithRequestClientComponent(handler, util2.WorkingModeEdge)
@@ -164,6 +164,137 @@ func TestFindResponseFilter(t *testing.T) {
 			}
 
 			names := strings.Split(responseFilter.Name(), ",")
+			if !tt.names.Equal(sets.New(names...)) {
+				t.Errorf("expect filter names %v, but got %v", sets.List(tt.names), names)
+			}
+		})
+	}
+}
+
+func TestFindObjectFilter(t *testing.T) {
+	fakeClient := &fake.Clientset{}
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	serializerManager := serializer.NewSerializerManager()
+
+	testcases := map[string]struct {
+		enableResourceFilter    bool
+		workingMode             string
+		disabledResourceFilters []string
+		enableDummyIf           bool
+		userAgent               string
+		verb                    string
+		path                    string
+		mgrIsNil                bool
+		isFound                 bool
+		names                   sets.Set[string]
+	}{
+		"disable resource filter": {
+			enableResourceFilter: false,
+			mgrIsNil:             true,
+		},
+		"get master service filter": {
+			enableResourceFilter: true,
+			enableDummyIf:        true,
+			userAgent:            "kubelet",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              true,
+			names:                sets.New("masterservice"),
+		},
+		"get discard cloud service and node port isolation filter": {
+			enableResourceFilter: true,
+			enableDummyIf:        true,
+			userAgent:            "kube-proxy",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              true,
+			names:                sets.New("discardcloudservice", "nodeportisolation"),
+		},
+		"get service topology filter": {
+			enableResourceFilter: true,
+			enableDummyIf:        false,
+			userAgent:            "kube-proxy",
+			verb:                 "GET",
+			path:                 "/api/v1/endpoints",
+			isFound:              true,
+			names:                sets.New("servicetopology"),
+		},
+		"disable service topology filter": {
+			enableResourceFilter:    true,
+			disabledResourceFilters: []string{"servicetopology"},
+			enableDummyIf:           true,
+			userAgent:               "kube-proxy",
+			verb:                    "GET",
+			path:                    "/api/v1/endpoints",
+			isFound:                 false,
+		},
+		"can't get discard cloud service filter in cloud mode": {
+			enableResourceFilter: true,
+			workingMode:          "cloud",
+			userAgent:            "kube-proxy",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              true,
+			names:                sets.New("nodeportisolation"),
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			options := &options.YurtHubOptions{
+				EnableResourceFilter:    tt.enableResourceFilter,
+				WorkingMode:             tt.workingMode,
+				DisabledResourceFilters: make([]string, 0),
+				EnableDummyIf:           tt.enableDummyIf,
+				NodeName:                "test",
+				YurtHubProxySecurePort:  10268,
+				HubAgentDummyIfIP:       "127.0.0.1",
+				YurtHubProxyHost:        "127.0.0.1",
+			}
+			options.DisabledResourceFilters = append(options.DisabledResourceFilters, tt.disabledResourceFilters...)
+
+			sharedFactory, nodePoolFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
+				dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
+
+			stopper := make(chan struct{})
+			defer close(stopper)
+
+			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager)
+			if tt.mgrIsNil && finder == nil {
+				return
+			}
+
+			sharedFactory.Start(stopper)
+			nodePoolFactory.Start(stopper)
+
+			req, err := http.NewRequest(tt.verb, tt.path, nil)
+			if err != nil {
+				t.Errorf("failed to create request, %v", err)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			if len(tt.userAgent) != 0 {
+				req.Header.Set("User-Agent", tt.userAgent)
+			}
+
+			var isFound bool
+			var objectFilter filter.ObjectFilter
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				objectFilter, isFound = finder.FindObjectFilter(req)
+			})
+
+			handler = util.WithRequestClientComponent(handler, util2.WorkingModeEdge)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if !tt.isFound && isFound == tt.isFound {
+				return
+			}
+
+			names := strings.Split(objectFilter.Name(), ",")
 			if !tt.names.Equal(sets.New(names...)) {
 				t.Errorf("expect filter names %v, but got %v", sets.List(tt.names), names)
 			}

@@ -29,8 +29,8 @@ func (fm *EmptyFilterManager) FindResponseFilter(req *http.Request) (filter.Resp
 	return nil, false
 }
 
-func (fm *EmptyFilterManager) FindObjectFilters(req *http.Request) filter.ObjectFilter {
-	return nil
+func (fm *EmptyFilterManager) FindObjectFilter(req *http.Request) (filter.ObjectFilter, bool) {
+	return nil, false
 }
 
 type FakeEndpointSliceFilter struct {
@@ -41,8 +41,8 @@ func (fm *FakeEndpointSliceFilter) FindResponseFilter(req *http.Request) (filter
 	return nil, false
 }
 
-func (fm *FakeEndpointSliceFilter) FindObjectFilters(req *http.Request) filter.ObjectFilter {
+func (fm *FakeEndpointSliceFilter) FindObjectFilter(req *http.Request) (filter.ObjectFilter, bool) {
 	return &IgnoreEndpointslicesWithNodeName{
 		fm.NodeName,
-	}
+	}, true
 }
