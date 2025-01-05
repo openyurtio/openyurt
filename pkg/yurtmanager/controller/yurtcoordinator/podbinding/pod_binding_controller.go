@@ -19,16 +19,22 @@ package podbinding
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -40,29 +46,17 @@ import (
 )
 
 const (
-	defaultTolerationSeconds int64 = 300
+	originalNotReadyTolerationDurationAnnotation    = "apps.openyurt.io/original-not-ready-toleration-duration"
+	originalUnreachableTolerationDurationAnnotation = "apps.openyurt.io/original-unreachable-toleration-duration"
 )
 
 var (
-	controllerKind = appsv1.SchemeGroupVersion.WithKind("Node")
-
-	notReadyToleration = corev1.Toleration{
-		Key:      corev1.TaintNodeNotReady,
-		Operator: corev1.TolerationOpExists,
-		Effect:   corev1.TaintEffectNoExecute,
-	}
-
-	unreachableToleration = corev1.Toleration{
-		Key:      corev1.TaintNodeUnreachable,
-		Operator: corev1.TolerationOpExists,
-		Effect:   corev1.TaintEffectNoExecute,
+	controllerKind            = appsv1.SchemeGroupVersion.WithKind("Node")
+	TolerationKeyToAnnotation = map[string]string{
+		corev1.TaintNodeNotReady:    originalNotReadyTolerationDurationAnnotation,
+		corev1.TaintNodeUnreachable: originalUnreachableTolerationDurationAnnotation,
 	}
 )
-
-func Format(format string, args ...interface{}) string {
-	s := fmt.Sprintf(format, args...)
-	return fmt.Sprintf("%s: %s", names.PodBindingController, s)
-}
 
 type ReconcilePodBinding struct {
 	client.Client
@@ -70,46 +64,129 @@ type ReconcilePodBinding struct {
 
 // Add creates a PodBingding controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
-	klog.Info(Format("podbinding-controller add controller %s", controllerKind.String()))
-	return add(mgr, c, newReconciler(c, mgr))
-}
+func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager) error {
+	klog.Infof("podbinding-controller add controller %s", controllerKind.String())
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePodBinding{
+	reconciler := &ReconcilePodBinding{
 		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.PodBindingController),
 	}
-}
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	c, err := controller.New(names.PodBindingController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.PodBindingController.ConcurrentPodBindingWorkers),
+		Reconciler: reconciler, MaxConcurrentReconciles: int(cfg.ComponentConfig.PodBindingController.ConcurrentPodBindingWorkers),
 	})
 	if err != nil {
 		return err
 	}
 
-	return c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{}, &handler.EnqueueRequestForObject{}))
-	//err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{})
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//klog.V(4).Info(Format("registering the field indexers of podbinding controller"))
-	// IndexField for spec.nodeName is registered in NodeLifeCycle, so we remove it here.
-	//err = mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
-	//	pod, ok := rawObj.(*corev1.Pod)
-	//	if ok {
-	//		return []string{pod.Spec.NodeName}
-	//	}
-	//	return []string{}
-	//})
-	//if err != nil {
-	//	klog.Error(Format("could not register field indexers for podbinding controller, %v", err))
-	//}
-	//return err
+	nodeHandler := handler.Funcs{
+		UpdateFunc: func(ctx context.Context, updateEvent event.TypedUpdateEvent[client.Object], wq workqueue.RateLimitingInterface) {
+			newNode := updateEvent.ObjectNew.(*corev1.Node)
+			pods, err := reconciler.getPodsAssignedToNode(newNode.Name)
+			if err != nil {
+				return
+			}
+
+			for i := range pods {
+				// skip DaemonSet pods and static pod
+				if isDaemonSetPodOrStaticPod(&pods[i]) {
+					continue
+				}
+				if len(pods[i].Spec.NodeName) != 0 {
+					wq.Add(reconcile.Request{NamespacedName: types.NamespacedName{Name: pods[i].Spec.NodeName}})
+				}
+			}
+		},
+	}
+
+	nodePredicate := predicate.Funcs{
+		CreateFunc: func(evt event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(evt event.DeleteEvent) bool {
+			return false
+		},
+		UpdateFunc: func(evt event.UpdateEvent) bool {
+			oldNode, ok := evt.ObjectOld.(*corev1.Node)
+			if !ok {
+				return false
+			}
+			newNode, ok := evt.ObjectNew.(*corev1.Node)
+			if !ok {
+				return false
+			}
+			// only enqueue if autonomy annotations changed
+			if (oldNode.Annotations[projectinfo.GetAutonomyAnnotation()] != newNode.Annotations[projectinfo.GetAutonomyAnnotation()]) ||
+				(oldNode.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()] != newNode.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()]) {
+				return true
+			}
+			return false
+		},
+		GenericFunc: func(evt event.GenericEvent) bool {
+			return false
+		},
+	}
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Node{}, &nodeHandler, nodePredicate)); err != nil {
+		return err
+	}
+
+	podPredicate := predicate.Funcs{
+		CreateFunc: func(evt event.CreateEvent) bool {
+			pod, ok := evt.Object.(*corev1.Pod)
+			if !ok {
+				return false
+			}
+			// skip daemonset pod and static pod
+			if isDaemonSetPodOrStaticPod(pod) {
+				return false
+			}
+
+			// check all pods with node name when yurt-manager restarts
+			if len(pod.Spec.NodeName) != 0 {
+				return true
+			}
+			return false
+		},
+		UpdateFunc: func(evt event.UpdateEvent) bool {
+			oldPod, ok := evt.ObjectOld.(*corev1.Pod)
+			if !ok {
+				return false
+			}
+			newPod, ok := evt.ObjectNew.(*corev1.Pod)
+			if !ok {
+				return false
+			}
+			// skip daemonset pod and static pod
+			if isDaemonSetPodOrStaticPod(newPod) {
+				return false
+			}
+
+			// reconcile pod in the following cases:
+			// 1. pod is assigned to a node
+			// 2. pod tolerations is changed
+			// 3. original not ready toleration of pod is changed
+			// 4. original unreachable toleration of pod is changed
+			if (oldPod.Spec.NodeName != newPod.Spec.NodeName) ||
+				!reflect.DeepEqual(oldPod.Spec.Tolerations, newPod.Spec.Tolerations) ||
+				(oldPod.Annotations[originalNotReadyTolerationDurationAnnotation] != newPod.Annotations[originalNotReadyTolerationDurationAnnotation]) ||
+				(oldPod.Annotations[originalUnreachableTolerationDurationAnnotation] != newPod.Annotations[originalUnreachableTolerationDurationAnnotation]) {
+				return true
+			}
+
+			return false
+		},
+		DeleteFunc: func(evt event.DeleteEvent) bool {
+			return false
+		},
+		GenericFunc: func(evt event.GenericEvent) bool {
+			return false
+		},
+	}
+
+	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Pod{}, &handler.EnqueueRequestForObject{}, podPredicate)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get
@@ -117,47 +194,66 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	var err error
-	node := &corev1.Node{}
-	if err = r.Get(ctx, req.NamespacedName, node); err != nil {
-		klog.V(4).Info(Format("node not found for %q\n", req.NamespacedName))
+	pod := &corev1.Pod{}
+	if err := r.Get(ctx, req.NamespacedName, pod); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	klog.V(4).Info(Format("node request: %s\n", node.Name))
+	klog.Infof("reconcile pod request: %s/%s", pod.Namespace, pod.Name)
 
-	if err := r.processNode(node); err != nil {
+	if err := r.reconcilePod(pod); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcilePodBinding) processNode(node *corev1.Node) error {
-	// if node has autonomy annotation, we need to see if pods on this node except DaemonSet/Static ones need a treat
-	pods, err := r.getPodsAssignedToNode(node.Name)
-	if err != nil {
-		return err
+func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
+	// skip pod which is not assigned to node
+	if len(pod.Spec.NodeName) == 0 {
+		return nil
 	}
 
-	for i := range pods {
-		pod := &pods[i]
-		klog.V(5).Info(Format("pod %d on node %s: %s", i, node.Name, pod.Name))
-		// skip DaemonSet pods and static pod
-		if isDaemonSetPodOrStaticPod(pod) {
-			continue
-		}
+	node := &corev1.Node{}
+	if err := r.Get(context.Background(), client.ObjectKey{Name: pod.Spec.NodeName}, node); err != nil {
+		return client.IgnoreNotFound(err)
+	}
 
-		// skip not running pods
-		if pod.Status.Phase != corev1.PodRunning {
-			continue
-		}
-
-		// pod binding takes precedence against node autonomy
-		if nodeutil.IsPodBoundenToNode(node) {
-			durationSeconds := getPodTolerationSeconds(node)
-			if err := r.configureTolerationForPod(pod, durationSeconds); err != nil {
-				klog.Error(Format("could not configure toleration of pod, %v", err))
+	storedPod := pod.DeepCopy()
+	if isAutonomous, duration := resolveNodeAutonomySetting(node); isAutonomous {
+		// update pod tolerationSeconds according to node autonomy annotation,
+		// store the original toleration seconds into pod annotations.
+		for i := range pod.Spec.Tolerations {
+			if (pod.Spec.Tolerations[i].Key == corev1.TaintNodeNotReady || pod.Spec.Tolerations[i].Key == corev1.TaintNodeUnreachable) &&
+				(pod.Spec.Tolerations[i].Effect == corev1.TaintEffectNoExecute) {
+				if pod.Annotations == nil {
+					pod.Annotations = make(map[string]string)
+				}
+				if _, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; !ok {
+					pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
+				}
+				pod.Spec.Tolerations[i].TolerationSeconds = duration
 			}
+		}
+	} else {
+		// restore toleration seconds from original toleration seconds annotations
+		for i := range pod.Spec.Tolerations {
+			if (pod.Spec.Tolerations[i].Key == corev1.TaintNodeNotReady || pod.Spec.Tolerations[i].Key == corev1.TaintNodeUnreachable) &&
+				(pod.Spec.Tolerations[i].Effect == corev1.TaintEffectNoExecute) {
+				if durationStr, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; ok {
+					duration, err := strconv.ParseInt(durationStr, 10, 64)
+					if err != nil {
+						continue
+					}
+					pod.Spec.Tolerations[i].TolerationSeconds = &duration
+				}
+			}
+		}
+	}
+
+	if !reflect.DeepEqual(storedPod, pod) {
+		if err := r.Update(context.TODO(), pod, &client.UpdateOptions{}); err != nil {
+			klog.Errorf("could not update pod(%s/%s), %v", pod.Namespace, pod.Name, err)
+			return err
 		}
 	}
 	return nil
@@ -173,33 +269,10 @@ func (r *ReconcilePodBinding) getPodsAssignedToNode(name string) ([]corev1.Pod, 
 	podList := &corev1.PodList{}
 	err := r.List(context.TODO(), podList, listOptions)
 	if err != nil {
-		klog.Error(Format("could not get podList for node(%s), %v", name, err))
+		klog.Errorf("could not get podList for node(%s), %v", name, err)
 		return nil, err
 	}
 	return podList.Items, nil
-}
-
-func (r *ReconcilePodBinding) configureTolerationForPod(pod *corev1.Pod, tolerationSeconds *int64) error {
-	// reset toleration seconds
-	notReadyToleration.TolerationSeconds = tolerationSeconds
-	unreachableToleration.TolerationSeconds = tolerationSeconds
-	toleratesNodeNotReady := addOrUpdateTolerationInPodSpec(&pod.Spec, &notReadyToleration)
-	toleratesNodeUnreachable := addOrUpdateTolerationInPodSpec(&pod.Spec, &unreachableToleration)
-
-	if toleratesNodeNotReady || toleratesNodeUnreachable {
-		if tolerationSeconds == nil {
-			klog.V(4).Info(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=0", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable))
-		} else {
-			klog.V(4).Info(Format("pod(%s/%s) => toleratesNodeNotReady=%v, toleratesNodeUnreachable=%v, tolerationSeconds=%d", pod.Namespace, pod.Name, toleratesNodeNotReady, toleratesNodeUnreachable, *tolerationSeconds))
-		}
-		err := r.Update(context.TODO(), pod, &client.UpdateOptions{})
-		if err != nil {
-			klog.Error(Format("could not update toleration of pod(%s/%s), %v", pod.Namespace, pod.Name, err))
-			return err
-		}
-	}
-
-	return nil
 }
 
 func isDaemonSetPodOrStaticPod(pod *corev1.Pod) bool {
@@ -218,71 +291,45 @@ func isDaemonSetPodOrStaticPod(pod *corev1.Pod) bool {
 	return false
 }
 
-// addOrUpdateTolerationInPodSpec tries to add a toleration to the toleration list in PodSpec.
-// Returns true if something was updated, false otherwise.
-func addOrUpdateTolerationInPodSpec(spec *corev1.PodSpec, toleration *corev1.Toleration) bool {
-	podTolerations := spec.Tolerations
-
-	var newTolerations []corev1.Toleration
-	updated := false
-	for i := range podTolerations {
-		if toleration.MatchToleration(&podTolerations[i]) {
-			if (toleration.TolerationSeconds == nil && podTolerations[i].TolerationSeconds == nil) ||
-				(toleration.TolerationSeconds != nil && podTolerations[i].TolerationSeconds != nil &&
-					(*toleration.TolerationSeconds == *podTolerations[i].TolerationSeconds)) {
-				return false
-			}
-
-			newTolerations = append(newTolerations, *toleration)
-			updated = true
-			continue
-		}
-
-		newTolerations = append(newTolerations, podTolerations[i])
-	}
-
-	if !updated {
-		newTolerations = append(newTolerations, *toleration)
-	}
-
-	spec.Tolerations = newTolerations
-	return true
-}
-
-// getPodTolerationSeconds returns the tolerationSeconds for the pod on the node.
-// The tolerationSeconds is calculated based on the following rules:
-// 1. The default tolerationSeconds is 300 if node autonomy and autonomy duration are not set.
-// 2. Node autonomy is set, the tolerationSeconds is nil.
-// 3. If the node has node autonomy duration annotation, the tolerationSeconds is the duration.
-// 4. If the autonomy duration is parsed as 0, the tolerationSeconds is nil which means the pod will not be evicted.
-func getPodTolerationSeconds(node *corev1.Node) *int64 {
-	tolerationSeconds := defaultTolerationSeconds
+// resolveNodeAutonomySetting is used for resolving node autonomy information.
+// The node is configured as autonomous if the node has the following annotations:
+// -[deprecated] apps.openyurt.io/binding: "true"
+// -[deprecated] node.beta.openyurt.io/autonomy: "true"
+// -[recommended] node.openyurt.io/autonomy-duration: "duration"
+//
+// The first return value indicates whether the node has autonomous mode enabled:
+// true means autonomy is enabled, while false means it is not.
+// The second return value is only relevant when the first return value is true and
+// can be ignored otherwise. This value represents the duration of the node's autonomy.
+// If the duration of heartbeat loss is leass then this period, pods on the node will not be evicted.
+// However, if the duration of heartbeat loss exceeds this period, then the pods on the node will be evicted.
+func resolveNodeAutonomySetting(node *corev1.Node) (bool, *int64) {
 	if len(node.Annotations) == 0 {
-		return &tolerationSeconds
+		return false, nil
 	}
 
 	// Pod binding takes precedence against node autonomy
 	if node.Annotations[nodeutil.PodBindingAnnotation] == "true" ||
 		node.Annotations[projectinfo.GetAutonomyAnnotation()] == "true" {
-		return nil
+		return true, nil
 	}
 
 	// Node autonomy duration has the least precedence
 	duration, ok := node.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()]
 	if !ok {
-		return &tolerationSeconds
+		return false, nil
 	}
 
 	durationTime, err := time.ParseDuration(duration)
 	if err != nil {
-		klog.Error(Format("could not parse duration %s, %v", duration, err))
-		return nil
+		klog.Errorf("could not parse autonomy duration %s, %v", duration, err)
+		return false, nil
 	}
 
-	if durationTime == 0 {
-		return nil
+	if durationTime <= 0 {
+		return true, nil
 	}
 
-	tolerationSeconds = int64(durationTime.Seconds())
-	return &tolerationSeconds
+	tolerationSeconds := int64(durationTime.Seconds())
+	return true, &tolerationSeconds
 }
