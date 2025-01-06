@@ -2,7 +2,7 @@
 
 ![](docs/img/OpenYurt.png)
 
-[![Version](https://img.shields.io/badge/OpenYurt-v1.5.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/OpenYurt-v1.6.0-orange)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openyurtio/openyurt)](https://goreportcard.com/report/github.com/openyurtio/openyurt)
 [![codecov](https://codecov.io/gh/openyurtio/openyurt/branch/master/graph/badge.svg)](https://codecov.io/gh/openyurtio/openyurt)
@@ -13,7 +13,7 @@ English | [简体中文](./README.zh.md)
 
 | ![notification](docs/img/bell-outline-badge.svg) What is NEW!                                             |
 |-----------------------------------------------------------------------------------------------------------|
-| Latest Release: July 16th, 2024. OpenYurt v1.5.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
+| Latest Release: July 16th, 2024. OpenYurt v1.6.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
 | First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1                                                     |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
@@ -51,7 +51,7 @@ In addition, OpenYurt also includes auxiliary controllers for integration and cu
 
 ## Getting started
 
-OpenYurt is currently certified to support up to Kubernetes version 1.28. Compatibility with subsequent versions of Kubernetes is expected, but has not yet been verified.
+OpenYurt is currently certified to support up to Kubernetes version 1.30. Compatibility with subsequent versions of Kubernetes is expected, but has not yet been verified.
 OpenYurt installation is divided into two parts:
 
 - [Install OpenYurt Control Plane Components](https://openyurt.io/docs/installation/summary#part-1-install-control-plane-components)
