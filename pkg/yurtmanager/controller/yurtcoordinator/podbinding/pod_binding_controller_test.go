@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func podIndexer(rawObj client.Object) []string {
@@ -90,6 +92,9 @@ func TestReconcile(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
 					Annotations: map[string]string{
 						"node.openyurt.io/autonomy-duration": "100s",
 					},
@@ -151,6 +156,9 @@ func TestReconcile(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
 					Annotations: map[string]string{
 						"node.openyurt.io/autonomy-duration": "0s",
 					},
@@ -214,6 +222,9 @@ func TestReconcile(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
 				},
 			},
 			resultPod: &corev1.Pod{
