@@ -77,7 +77,8 @@ func remapAutonomyEndpoints(ctx context.Context, client client.Client, slice *di
 		return nil
 	}
 
-	for _, e := range slice.Endpoints {
+	readyServing := true
+	for i, e := range slice.Endpoints {
 		// If the endpoint is ready, skip
 		if e.Conditions.Ready != nil && *e.Conditions.Ready {
 			continue
@@ -115,10 +116,10 @@ func remapAutonomyEndpoints(ctx context.Context, client client.Client, slice *di
 
 		// Set not ready addresses to ready & serving
 		if e.Conditions.Ready != nil {
-			*e.Conditions.Ready = true
+			slice.Endpoints[i].Conditions.Ready = &readyServing
 		}
 		if e.Conditions.Serving != nil {
-			*e.Conditions.Serving = true
+			slice.Endpoints[i].Conditions.Serving = &readyServing
 		}
 	}
 
