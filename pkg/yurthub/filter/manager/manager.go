@@ -29,8 +29,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/approver"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/filterchain"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter/objectfilter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/responsefilter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -46,7 +46,7 @@ func NewFilterManager(options *yurtoptions.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
 	dynamicSharedFactory dynamicinformer.DynamicSharedInformerFactory,
 	proxiedClient kubernetes.Interface,
-	serializerManager *serializer.SerializerManager) (*Manager, error) {
+	serializerManager *serializer.SerializerManager) (filter.FilterFinder, error) {
 	if !options.EnableResourceFilter {
 		return nil, nil
 	}
@@ -113,19 +113,22 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 	return nil, false
 }
 
-func (m *Manager) FindObjectFilters(req *http.Request) filter.ObjectFilter {
-	objectFilters := make([]filter.ObjectFilter, 0)
+func (m *Manager) FindObjectFilter(req *http.Request) (filter.ObjectFilter, bool) {
 	approved, filterNames := m.Approver.Approve(req)
 	if !approved {
-		return nil
+		return nil, false
 	}
 
+	objectFilters := make([]filter.ObjectFilter, 0)
 	for i := range filterNames {
 		if objectFilter, ok := m.nameToObjectFilter[filterNames[i]]; ok {
 			objectFilters = append(objectFilters, objectFilter)
 		}
 	}
 
-	filters := filterchain.FilterChain(objectFilters)
-	return filters
+	if len(objectFilters) == 0 {
+		return nil, false
+	}
+
+	return objectfilter.CreateFilterChain(objectFilters), true
 }

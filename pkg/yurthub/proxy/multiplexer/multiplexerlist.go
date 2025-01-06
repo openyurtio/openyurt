@@ -82,8 +82,12 @@ func (sp *multiplexerProxy) listObject(r *http.Request, gvr *schema.GroupVersion
 		return nil, errors.Wrapf(err, "failed to get list from cache")
 	}
 
-	if obj, err = sp.filterListObject(obj, sp.filterMgr.FindObjectFilters(r)); err != nil {
-		return nil, errors.Wrapf(err, "failed to filter list object")
+	if !yurtutil.IsNil(sp.filterFinder) {
+		if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
+			if obj, err = sp.filterListObject(obj, objectFilter); err != nil {
+				return nil, errors.Wrapf(err, "failed to filter list object")
+			}
+		}
 	}
 
 	return obj, nil

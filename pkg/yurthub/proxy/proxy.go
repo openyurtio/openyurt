@@ -98,7 +98,7 @@ func NewYurtReverseProxyHandler(
 		transportMgr,
 		coordinatorGetter,
 		cloudHealthChecker,
-		yurtHubCfg.FilterManager,
+		yurtHubCfg.FilterFinder,
 		yurtHubCfg.WorkingMode,
 		stopCh)
 	if err != nil {
@@ -143,7 +143,7 @@ func NewYurtReverseProxyHandler(
 				localCacheMgr,
 				coordinatorTransportMgrGetter,
 				coordinatorServerURLGetter,
-				yurtHubCfg.FilterManager,
+				yurtHubCfg.FilterFinder,
 				isCoordinatorReady,
 				stopCh)
 			if err != nil {
@@ -173,7 +173,7 @@ func NewYurtReverseProxyHandler(
 		yurtHubCfg.PostStartHooks = make(map[string]func() error)
 	}
 	yurtHubCfg.PostStartHooks[multiplexerProxyPostHookName] = func() error {
-		if yurtProxy.multiplexerProxy, err = multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterManager,
+		if yurtProxy.multiplexerProxy, err = multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterFinder,
 			yurtHubCfg.RequestMultiplexerManager,
 			yurtHubCfg.MultiplexerResources,
 			stopCh); err != nil {

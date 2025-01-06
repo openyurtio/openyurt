@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package filterchain
+package objectfilter
 
 import (
 	"strings"
@@ -26,9 +26,15 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
-type FilterChain []filter.ObjectFilter
+type filterChain []filter.ObjectFilter
 
-func (chain FilterChain) Name() string {
+func CreateFilterChain(objFilters []filter.ObjectFilter) filter.ObjectFilter {
+	chain := make(filterChain, 0)
+	chain = append(chain, objFilters...)
+	return chain
+}
+
+func (chain filterChain) Name() string {
 	var names []string
 	for i := range chain {
 		names = append(names, chain[i].Name())
@@ -36,12 +42,12 @@ func (chain FilterChain) Name() string {
 	return strings.Join(names, ",")
 }
 
-func (chain FilterChain) SupportedResourceAndVerbs() map[string]sets.Set[string] {
+func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.Set[string] {
 	// do nothing
 	return map[string]sets.Set[string]{}
 }
 
-func (chain FilterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	for i := range chain {
 		obj = chain[i].Filter(obj, stopCh)
 		if yurtutil.IsNil(obj) {

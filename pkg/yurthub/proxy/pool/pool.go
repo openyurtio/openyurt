@@ -30,7 +30,7 @@ import (
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -44,7 +44,7 @@ const (
 type YurtCoordinatorProxy struct {
 	yurtCoordinatorProxy *util.RemoteProxy
 	localCacheMgr        cachemanager.CacheManager
-	filterMgr            *manager.Manager
+	filterMgr            filter.FilterFinder
 	isCoordinatorReady   func() bool
 	stopCh               <-chan struct{}
 }
@@ -53,7 +53,7 @@ func NewYurtCoordinatorProxy(
 	localCacheMgr cachemanager.CacheManager,
 	transportMgrGetter func() transport.Interface,
 	coordinatorServerURLGetter func() *url.URL,
-	filterMgr *manager.Manager,
+	filterMgr filter.FilterFinder,
 	isCoordinatorReady func() bool,
 	stopCh <-chan struct{}) (*YurtCoordinatorProxy, error) {
 

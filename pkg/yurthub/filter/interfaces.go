@@ -61,7 +61,7 @@ type ObjectFilter interface {
 
 type FilterFinder interface {
 	FindResponseFilter(req *http.Request) (ResponseFilter, bool)
-	FindObjectFilters(req *http.Request) ObjectFilter
+	FindObjectFilter(req *http.Request) (ObjectFilter, bool)
 }
 
 type NodeGetter func(name string) (*v1.Node, error)

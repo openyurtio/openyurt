@@ -38,6 +38,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -109,7 +110,13 @@ func (sp *multiplexerProxy) multiplexerWatch(w http.ResponseWriter, r *http.Requ
 	}
 
 	klog.V(3).InfoS("Starting watch", "path", r.URL.Path, "resourceVersion", listOpts.ResourceVersion, "labels", listOpts.LabelSelector, "fields", listOpts.FieldSelector, "timeout", timeout)
-	serveWatch(newFilterWatch(watcher, sp.filterMgr.FindObjectFilters(r)), reqScope, outputMediaType, r, w, timeout)
+	if !yurtutil.IsNil(sp.filterFinder) {
+		if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
+			serveWatch(newFilterWatch(watcher, objectFilter), reqScope, outputMediaType, r, w, timeout)
+			return
+		}
+	}
+	serveWatch(watcher, reqScope, outputMediaType, r, w, timeout)
 }
 
 func getTimeout(opts *metainternalversion.ListOptions) time.Duration {
