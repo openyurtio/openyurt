@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-KUBERNETESVERSION ?=v1.28
+KUBERNETESVERSION ?=v1.30
 GOLANGCILINT_VERSION ?= v1.55.2
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
@@ -64,7 +64,7 @@ KUSTOMIZE_VERSION ?= v4.5.7
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 
-KUBECTL_VERSION ?= v1.28.7
+KUBECTL_VERSION ?= v1.30.1
 KUBECTL ?= $(LOCALBIN)/kubectl
 
 YQ_VERSION := 4.13.2

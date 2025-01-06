@@ -65,11 +65,13 @@ var (
 		"v1.27",
 		"v1.28",
 		"v1.29",
+		"v1.30",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
 		"v0.12.0",
 		"v0.22.0",
+		"v0.25.0",
 	}
 	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
@@ -98,6 +100,14 @@ var (
 			"v1.27": "kindest/node:v1.27.11@sha256:681253009e68069b8e01aad36a1e0fa8cf18bb0ab3e5c4069b2e65cafdd70843",
 			"v1.28": "kindest/node:v1.28.7@sha256:9bc6c451a289cf96ad0bbaf33d416901de6fd632415b076ab05f5fa7e4f65c58",
 			"v1.29": "kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245",
+		},
+		"v0.25.0": {
+			"v1.31": "kindest/node:v1.31.2@sha256:18fbefc20a7113353c7b75b5c869d7145a6abd6269154825872dc59c1329912e",
+			"v1.30": "kindest/node:v1.30.6@sha256:b6d08db72079ba5ae1f4a88a09025c0a904af3b52387643c285442afb05ab994",
+			"v1.29": "kindest/node:v1.29.10@sha256:3b2d8c31753e6c8069d4fc4517264cd20e86fd36220671fb7d0a5855103aa84b",
+			"v1.28": "kindest/node:v1.28.15@sha256:a7c05c7ae043a0b8c818f5a06188bc2c4098f6cb59ca7d1856df00375d839251",
+			"v1.27": "kindest/node:v1.27.16@sha256:2d21a61643eafc439905e18705b8186f3296384750a835ad7a005dceb9546d20",
+			"v1.26": "kindest/node:v1.26.15@sha256:c79602a44b4056d7e48dc20f7504350f1e87530fe953428b792def00bc1076dd",
 		},
 	}
 
