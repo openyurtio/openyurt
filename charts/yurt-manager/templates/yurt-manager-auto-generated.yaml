@@ -1444,12 +1444,12 @@ webhooks:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-core-openyurt-io-v1-endpointslice
+      path: /mutate-discovery-k8s-io-v1-endpointslice
   failurePolicy: Ignore
-  name: mutate.core.v1.endpointslice.openyurt.io
+  name: mutate.discovery.v1.endpointslice.k8s.io
   rules:
   - apiGroups:
-    - ""
+    - discovery.k8s.io
     apiVersions:
     - v1
     operations:

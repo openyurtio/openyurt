@@ -44,6 +44,6 @@ func (webhook *EndpointSliceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 	return util.RegisterWebhook(mgr, &v1.EndpointSlice{}, webhook)
 }
 
-// +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-endpointslice,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=endpointslices,verbs=update,versions=v1,name=mutate.core.v1.endpointslice.openyurt.io
+// +kubebuilder:webhook:path=/mutate-discovery-k8s-io-v1-endpointslice,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="discovery.k8s.io",resources=endpointslices,verbs=update,versions=v1,name=mutate.discovery.v1.endpointslice.k8s.io
 
 var _ webhook.CustomDefaulter = &EndpointSliceHandler{}
