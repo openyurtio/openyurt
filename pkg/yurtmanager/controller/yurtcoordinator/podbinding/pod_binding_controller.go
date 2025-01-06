@@ -92,7 +92,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 					continue
 				}
 				if len(pods[i].Spec.NodeName) != 0 {
-					wq.Add(reconcile.Request{NamespacedName: types.NamespacedName{Name: pods[i].Spec.NodeName}})
+					wq.Add(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: pods[i].Namespace, Name: pods[i].Name}})
 				}
 			}
 		},
@@ -114,6 +114,13 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			if !ok {
 				return false
 			}
+
+			// only process edge nodes, and skip nodes with other type.
+			if newNode.Labels[projectinfo.GetEdgeWorkerLabelKey()] != "true" {
+				klog.Infof("node %s is not a edge node, skip node autonomy settings reconcile.", newNode.Name)
+				return false
+			}
+
 			// only enqueue if autonomy annotations changed
 			if (oldNode.Annotations[projectinfo.GetAutonomyAnnotation()] != newNode.Annotations[projectinfo.GetAutonomyAnnotation()]) ||
 				(oldNode.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()] != newNode.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()]) {
@@ -194,11 +201,11 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 
 // Reconcile reads that state of Node in cluster and makes changes if node autonomy state has been changed
 func (r *ReconcilePodBinding) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	klog.Infof("reconcile pod request: %s/%s", req.Namespace, req.Name)
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, req.NamespacedName, pod); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	klog.Infof("reconcile pod request: %s/%s", pod.Namespace, pod.Name)
 
 	if err := r.reconcilePod(pod); err != nil {
 		return reconcile.Result{}, err
@@ -216,6 +223,11 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 	node := &corev1.Node{}
 	if err := r.Get(context.Background(), client.ObjectKey{Name: pod.Spec.NodeName}, node); err != nil {
 		return client.IgnoreNotFound(err)
+	}
+
+	// skip pods which don't run on edge nodes
+	if node.Labels[projectinfo.GetEdgeWorkerLabelKey()] != "true" {
+		return nil
 	}
 
 	storedPod := pod.DeepCopy()
