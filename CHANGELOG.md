@@ -1,5 +1,78 @@
 # CHANGELOG
 
+## v1.6.0
+
+### What's New
+
+**Support Kubernetes up to V1.30**
+
+“k8s.io/xxx” and all its related dependencies are upgraded to version “v0.30.6”, for ensuring OpenYurt is compatible with Kubernetes v1.30 version. This compatibility has been confirmed by an end-to-end (E2E) test where we started a Kubernetes v1.30 cluster using KinD and deployed the latest components of OpenYurt.
+[#2179](https://github.com/openyurtio/openyurt/pull/2179)
+[#2249](https://github.com/openyurtio/openyurt/pull/2249)
+
+**Enhance edge autonomy capabilities**
+
+OpenYurt already offers robust edge autonomy capabilities, ensuring that applications on edge nodes can continue to operate even when the cloud-edge network is disconnected. However, there are several areas where the current edge autonomy capabilities can still be improved. For instance, once nodes are annotated with autonomy annotations, the cloud controller does not automatically evict Pods, regardless of whether the disconnection is due to cloud-edge network issues or node failures, yet users expect automatic Pod eviction during node failures. Additionally, the current edge autonomy capabilities cannot be directly used in managed Kubernetes environments because users cannot disable the NodeLifeCycle controller within the Kube-Controller-Manager component of managed Kubernetes. In this release, new endpoints/endpointslices webhooks are added to ensure that pods are not removed from the backend of the Service. Additionally, a new autonomous annotation is introduced, supporting the configuration of autonomous time.
+[#2155](https://github.com/openyurtio/openyurt/pull/2155)
+[#2201](https://github.com/openyurtio/openyurt/pull/2201)
+[#2211](https://github.com/openyurtio/openyurt/pull/2211)
+[#2218](https://github.com/openyurtio/openyurt/pull/2218)
+[#2241](https://github.com/openyurtio/openyurt/pull/2241)
+
+**Node-level Traffic Reuse Capability**
+
+In an OpenYurt cluster, control components are deployed in the cloud, and edge nodes usually interact with the cloud through the public internet, which can lead to significant consumption of cloud-edge traffic. This problem is more pronounced in large-scale clusters, mainly due to the edge-side components performing full-scale list/watch operations on resources. This not only consumes a large amount of cloud-edge traffic but also places considerable pressure on the apiserver due to the high volume of list operations. In this release, We have added a traffic multiplexing module in YurtHub. When multiple clients request the same resource (services, endpointslices), YurtHub returns data from the local cache, reducing the number of requests to the apiserver.
+[#2060](https://github.com/openyurtio/openyurt/pull/2060)
+[#2141](https://github.com/openyurtio/openyurt/pull/2141)
+[#2242](https://github.com/openyurtio/openyurt/pull/2242)
+
+### Other Notable changes
+
+- Upgrade platformadmin's yurtappset dependencies to v1beta1 by @YTGhost in https://github.com/openyurtio/openyurt/pull/2103
+- Add yurthub service env updater filter by @techworldhello in https://github.com/openyurtio/openyurt/pull/2165
+- set transform to strip managedfields for informer by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2149
+- support cache response for partial object metadata requests。 by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2170
+- build iot system configuration isolation on nodepool by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2147
+- using the kubeconfig flag in controller-runtime. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2193
+- add events when no nodepool match with loadbalancerset services. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2195
+- Modify safety reporting Email by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2214
+
+### Fixes
+
+- fix(iot): the mount type of hostpath for localtime in napa by @LavenderQAQ in https://github.com/openyurtio/openyurt/pull/2110
+- fix: create abspath dir in case that contents is empty by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2164
+- fix: masterservice missing clusterIPs field. by @fungaren in https://github.com/openyurtio/openyurt/pull/2173
+- fix: support cache response for partial object metedata watch request by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2209
+- fix: bug of yurtappset always the last tweaks make effect by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2229
+- fix: CRD WebhookConversion respect WEBHOOK_HOST env by @fungaren in https://github.com/openyurtio/openyurt/pull/2217
+- fix: go lint errors by @luc99hen in https://github.com/openyurtio/openyurt/pull/2235
+
+### Proposals
+
+- proposal: Node-level Traffic Reuse Capability by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2060
+- Proposal: enhancing edge autonomy by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2155
+- proposal: enhance operational efficiency of K8s cluster in user's IDC by @huangchenzhao in https://github.com/openyurtio/openyurt/pull/2124
+- Proposal: build iot system configuration isolation on nodepool(openyurtio#1597) by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2135
+
+### Contributors
+- [@rambohe-ch](https://github.com/rambohe-ch)
+- [@LavenderQAQ](https://github.com/LavenderQAQ)
+- [@YTGhost](https://github.com/YTGhost)
+- [@leossteven](https://github.com/leossteven)
+- [@monikahu](https://github.com/monikahu)
+- [@zyjhtangtang](https://github.com/zyjhtangtang)
+- [@paulzhn](https://github.com/paulzhn)
+- [@techworldhello](https://github.com/techworldhello)
+- [@vie-serendipity](https://github.com/vie-serendipity)
+- [@fengshunli](https://github.com/fengshunli)
+- [@fungaren](https://github.com/fungaren)
+- [@huangchenzhao](https://github.com/huangchenzhao)
+- [@WoShiZhangmingyu](https://github.com/WoShiZhangmingyu)
+- [@tnsimon](https://github.com/tnsimon)
+- [@JameKeal](https://github.com/JameKeal)
+- [@luc99hen](https://github.com/luc99hen)
+
+
 ## v1.5.0
 
 ### What's New
