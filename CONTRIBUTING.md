@@ -23,7 +23,7 @@ We take security issues seriously and discourage anyone to spread security issue
 
 Any OpenYurt user can potentially be a contributor. If you have any feedback for the project, feel free to open an issue. Steps are as follows:
 
-1. Click `New issue` at [the issue interface](https://github.com/openyurtio/openyurt/issue) to create a new issue.
+1. Click `New issue` at [the issue interface](https://github.com/openyurtio/openyurt/issues) to create a new issue.
 2. Select the kind of the issue and `Get started`.
 3. Fill the title of the issue and the content of the given issue template.
 4. Finally `Submit new issue`.
