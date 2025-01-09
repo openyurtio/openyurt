@@ -13,7 +13,7 @@ English | [简体中文](./README.zh.md)
 
 | ![notification](docs/img/bell-outline-badge.svg) What is NEW!                                             |
 |-----------------------------------------------------------------------------------------------------------|
-| Latest Release: July 16th, 2024. OpenYurt v1.6.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
+| Latest Release: Jan 7th, 2025. OpenYurt v1.6.0. Please check the [CHANGELOG](CHANGELOG.md) for details. |
 | First Release: May 29th, 2020. OpenYurt v0.1.0-beta.1                                                     |
 
 [OpenYurt](https://openyurt.io) is built based on upstream Kubernetes and now hosted by the Cloud Native Computing Foundation(CNCF) as a [Sandbox Level Project](https://www.cncf.io/sandbox-projects/).
