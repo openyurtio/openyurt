@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1beta2
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,7 +23,7 @@ import (
 
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
@@ -32,11 +32,11 @@ func (webhook *NodePoolHandler) SetupWebhookWithManager(mgr ctrl.Manager) (strin
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController)
 
-	return util.RegisterWebhook(mgr, &v1beta1.NodePool{}, webhook)
+	return util.RegisterWebhook(mgr, &v1beta2.NodePool{}, webhook)
 }
 
-// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta1-nodepool,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create;update;delete,versions=v1beta1,name=v.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
-// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta1-nodepool,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create,versions=v1beta1,name=m.v1beta1.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:path=/validate-apps-openyurt-io-v1beta2-nodepool,mutating=false,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create;update;delete,versions=v1beta2,name=v.v1beta2.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta2
+// +kubebuilder:webhook:path=/mutate-apps-openyurt-io-v1beta2-nodepool,mutating=true,failurePolicy=fail,groups=apps.openyurt.io,resources=nodepools,verbs=create,versions=v1beta2,name=m.v1beta2.nodepool.kb.io,sideEffects=None,admissionReviewVersions=v1;v1beta2
 
 // NodePoolHandler implements a validating and defaulting webhook for Cluster.
 type NodePoolHandler struct {

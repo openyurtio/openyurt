@@ -23,15 +23,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 )
 
 func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1beta1.NodePool)
+	dst := dstRaw.(*v1beta2.NodePool)
 
 	dst.ObjectMeta = src.ObjectMeta
 
-	dst.Spec.Type = v1beta1.NodePoolType(src.Spec.Type)
+	dst.Spec.Type = v1beta2.NodePoolType(src.Spec.Type)
 	dst.Spec.Labels = src.Spec.Labels
 	dst.Spec.Annotations = src.Spec.Annotations
 	dst.Spec.Taints = src.Spec.Taints
@@ -43,13 +43,17 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
 	dst.Status.Nodes = src.Status.Nodes
 
+	// Set interconnectivity to false which will not use leader election strategy or reuse list/watch events
+	dst.Spec.InterConnectivity = false
+	dst.Spec.LeaderElectionStrategy = string(v1beta2.ElectionStrategyRandom)
+
 	klog.V(4).Infof("convert from v1alpha1 to v1beta1 for nodepool %s", dst.Name)
 
 	return nil
 }
 
 func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta1.NodePool)
+	src := srcRaw.(*v1beta2.NodePool)
 
 	dst.ObjectMeta = src.ObjectMeta
 

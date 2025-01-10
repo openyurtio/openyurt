@@ -287,6 +287,195 @@ spec:
               type: object
           type: object
       served: true
+      storage: false
+      subresources:
+        status: {}
+    - additionalPrinterColumns:
+        - description: The type of nodepool
+          jsonPath: .spec.type
+          name: Type
+          type: string
+        - description: The number of ready nodes in the pool
+          jsonPath: .status.readyNodeNum
+          name: ReadyNodes
+          type: integer
+        - jsonPath: .status.unreadyNodeNum
+          name: NotReadyNodes
+          type: integer
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1beta2
+      schema:
+        openAPIV3Schema:
+          description: NodePool is the Schema for the nodepools API
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: NodePoolSpec defines the desired state of NodePool
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  description: |-
+                    If specified, the Annotations will be added to all nodes.
+                    NOTE: existing labels with samy keys on the nodes will be overwritten.
+                  type: object
+                hostNetwork:
+                  description: |-
+                    HostNetwork is used to specify that cni components(like flannel)
+                    will not be installed on the nodes of this NodePool.
+                    This means all pods on the nodes of this NodePool will use
+                    HostNetwork and share network namespace with host machine.
+                  type: boolean
+                interConnectivity:
+                  description: |-
+                    InterConnectivity represents all nodes in the NodePool can access with each other
+                    through Layer 2 or Layer 3 network or not. If the field is true,
+                    nodepool-level list/watch requests reuse can be applied for this nodepool.
+                    otherwise, only node-level list/watch requests reuse can be applied for the nodepool.
+                    This field cannot be changed after creation.
+                  type: boolean
+                labels:
+                  additionalProperties:
+                    type: string
+                  description: |-
+                    If specified, the Labels will be added to all nodes.
+                    NOTE: existing labels with samy keys on the nodes will be overwritten.
+                  type: object
+                leaderElectionStrategy:
+                  description: |-
+                    LeaderElectionStrategy represents the policy how to elect a leader Yurthub in a nodepool.
+                    random: select one ready node as leader at random.
+                    mark: select one ready node as leader from nodes that are specified by labelselector.
+                    More strategies will be supported according to user's new requirements.
+                  type: string
+                leaderNodeLabelSelector:
+                  additionalProperties:
+                    type: string
+                  description: |-
+                    LeaderNodeLabelSelector is used only when LeaderElectionStrategy is mark. leader Yurhub will be
+                    elected from nodes that filtered by this label selector.
+                  type: object
+                poolScopeMetadata:
+                  description: |-
+                    PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
+                    And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
+                  items:
+                    description: |-
+                      GroupVersionKind unambiguously identifies a kind.  It doesn't anonymously include GroupVersion
+                      to avoid automatic coercion.  It doesn't use a GroupVersion to avoid custom marshalling
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+                      version:
+                        type: string
+                    required:
+                      - group
+                      - kind
+                      - version
+                    type: object
+                  type: array
+                taints:
+                  description: If specified, the Taints will be added to all nodes.
+                  items:
+                    description: |-
+                      The node this Taint is attached to has the "effect" on
+                      any pod that does not tolerate the Taint.
+                    properties:
+                      effect:
+                        description: |-
+                          Required. The effect of the taint on pods
+                          that do not tolerate the taint.
+                          Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                        type: string
+                      key:
+                        description: Required. The taint key to be applied to a node.
+                        type: string
+                      timeAdded:
+                        description: |-
+                          TimeAdded represents the time at which the taint was added.
+                          It is only written for NoExecute taints.
+                        format: date-time
+                        type: string
+                      value:
+                        description: The taint value corresponding to the taint key.
+                        type: string
+                    required:
+                      - effect
+                      - key
+                    type: object
+                  type: array
+                type:
+                  description: The type of the NodePool
+                  type: string
+              type: object
+            status:
+              description: NodePoolStatus defines the observed state of NodePool
+              properties:
+                conditions:
+                  description: |-
+                    Conditions represents the latest available observations of a NodePool's
+                    current state that includes LeaderHubElection status.
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        description: Last time the condition transitioned from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: A human readable message indicating details about the transition.
+                        type: string
+                      reason:
+                        description: The reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                      type:
+                        description: Type of NodePool condition.
+                        type: string
+                    type: object
+                  type: array
+                leaderEndpoints:
+                  description: LeaderEndpoints is used for storing the address of Leader Yurthub.
+                  items:
+                    type: string
+                  type: array
+                nodes:
+                  description: The list of nodes' names in the pool
+                  items:
+                    type: string
+                  type: array
+                readyNodeNum:
+                  description: Total number of ready nodes in the pool.
+                  format: int32
+                  type: integer
+                unreadyNodeNum:
+                  description: Total number of unready nodes in the pool.
+                  format: int32
+                  type: integer
+              type: object
+          type: object
+      served: true
       storage: true
       subresources:
         status: {}
