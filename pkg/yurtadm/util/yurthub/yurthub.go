@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -188,12 +189,15 @@ func CleanHubBootstrapConfig() error {
 func useRealServerAddr(yurthubTemplate string, kubernetesServerAddrs string) (string, error) {
 	scanner := bufio.NewScanner(bytes.NewReader([]byte(yurthubTemplate)))
 	var buffer bytes.Buffer
-	target := fmt.Sprintf("%v=%v", constants.ServerAddr, constants.DefaultServerAddr)
+	// compile ipv4 regex
+	ipRegex := regexp.MustCompile(`https?://(?:[0-9]{1,3}\.){3}[0-9]{1,3}:\d+`)
 
+	// scan template and replace setAddr
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, target) {
-			line = strings.Replace(line, constants.DefaultServerAddr, kubernetesServerAddrs, -1)
+		if strings.Contains(line, fmt.Sprintf("- --%s=", constants.ServerAddr)) {
+			// replace kubernetesServerAddrs by new addr
+			line = ipRegex.ReplaceAllString(line, kubernetesServerAddrs)
 		}
 		buffer.WriteString(line + "\n")
 	}
