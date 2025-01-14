@@ -25,7 +25,6 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	"github.com/openyurtio/openyurt/pkg/util"
@@ -44,24 +43,6 @@ func TestName(t *testing.T) {
 	fkst, _ := NewForwardKubeSVCTrafficFilter()
 	if fkst.Name() != FilterName {
 		t.Errorf("expect %s, but got %s", FilterName, fkst.Name())
-	}
-}
-
-func TestSupportedResourceAndVerbs(t *testing.T) {
-	fkst, _ := NewForwardKubeSVCTrafficFilter()
-	rvs := fkst.SupportedResourceAndVerbs()
-	if len(rvs) != 1 {
-		t.Errorf("supported more than one resources, %v", rvs)
-	}
-
-	for resource, verbs := range rvs {
-		if resource != "endpointslices" {
-			t.Errorf("expect resource is endpointslices, but got %s", resource)
-		}
-
-		if !verbs.Equal(sets.New("list", "watch")) {
-			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
-		}
 	}
 }
 

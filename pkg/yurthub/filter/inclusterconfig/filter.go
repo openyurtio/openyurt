@@ -22,7 +22,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -55,12 +54,6 @@ func NewInClusterConfigFilter() (filter.ObjectFilter, error) {
 
 func (iccf *inClusterConfigFilter) Name() string {
 	return FilterName
-}
-
-func (iccf *inClusterConfigFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"configmaps": sets.New("get", "list", "watch"),
-	}
 }
 
 func (iccf *inClusterConfigFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {

@@ -31,15 +31,56 @@ var (
 	// DisabledInCloudMode contains the filters that should be disabled when yurthub is working in cloud mode.
 	DisabledInCloudMode = []string{discardcloudservice.FilterName, forwardkubesvctraffic.FilterName, serviceenvupdater.FilterName}
 
-	// SupportedComponentsForFilter is used for specifying which components are supported by filters as default setting.
-	SupportedComponentsForFilter = map[string]string{
-		masterservice.FilterName:         "kubelet",
-		discardcloudservice.FilterName:   "kube-proxy",
-		servicetopology.FilterName:       "kube-proxy, coredns, nginx-ingress-controller",
-		inclusterconfig.FilterName:       "kubelet",
-		nodeportisolation.FilterName:     "kube-proxy",
-		forwardkubesvctraffic.FilterName: "kube-proxy",
-		serviceenvupdater.FilterName:     "kubelet",
+	// FilterToComponentsResourcesAndVerbs is used to specify which request with resource and verb from component is supported by the filter.
+	// When adding a new filter, It is essential to update the FilterToComponentsResourcesAndVerbs map
+	// to include this new filter along with the component, resource and request verbs it supports.
+	FilterToComponentsResourcesAndVerbs = map[string]struct {
+		DefaultComponents []string
+		ResourceAndVerbs  map[string][]string
+	}{
+		masterservice.FilterName: {
+			DefaultComponents: []string{"kubelet"},
+			ResourceAndVerbs: map[string][]string{
+				"services": {"list", "watch"},
+			},
+		},
+		discardcloudservice.FilterName: {
+			DefaultComponents: []string{"kube-proxy"},
+			ResourceAndVerbs: map[string][]string{
+				"services": {"list", "watch"},
+			},
+		},
+		servicetopology.FilterName: {
+			DefaultComponents: []string{"kube-proxy", "coredns", "nginx-ingress-controller"},
+			ResourceAndVerbs: map[string][]string{
+				"endpoints":      {"list", "watch"},
+				"endpointslices": {"list", "watch"},
+			},
+		},
+		inclusterconfig.FilterName: {
+			DefaultComponents: []string{"kubelet"},
+			ResourceAndVerbs: map[string][]string{
+				"configmaps": {"get", "list", "watch"},
+			},
+		},
+		nodeportisolation.FilterName: {
+			DefaultComponents: []string{"kube-proxy"},
+			ResourceAndVerbs: map[string][]string{
+				"services": {"list", "watch"},
+			},
+		},
+		forwardkubesvctraffic.FilterName: {
+			DefaultComponents: []string{"kube-proxy"},
+			ResourceAndVerbs: map[string][]string{
+				"endpointslices": {"list", "watch"},
+			},
+		},
+		serviceenvupdater.FilterName: {
+			DefaultComponents: []string{"kubelet"},
+			ResourceAndVerbs: map[string][]string{
+				"pods": {"list", "watch", "get", "patch"},
+			},
+		},
 	}
 )
 

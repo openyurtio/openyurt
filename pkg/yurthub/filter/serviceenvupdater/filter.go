@@ -19,7 +19,6 @@ package serviceenvupdater
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
@@ -52,12 +51,6 @@ func NewServiceEnvUpdaterFilter() (*serviceEnvUpdaterFilter, error) {
 
 func (sef *serviceEnvUpdaterFilter) Name() string {
 	return FilterName
-}
-
-func (sef *serviceEnvUpdaterFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"pods": sets.New("list", "watch", "get", "patch"),
-	}
 }
 
 func (sef *serviceEnvUpdaterFilter) SetMasterServiceHost(host string) error {

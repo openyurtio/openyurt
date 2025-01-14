@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
@@ -56,12 +55,6 @@ func NewMasterServiceFilter() (filter.ObjectFilter, error) {
 
 func (msf *masterServiceFilter) Name() string {
 	return FilterName
-}
-
-func (msf *masterServiceFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"services": sets.New("list", "watch"),
-	}
 }
 
 func (msf *masterServiceFilter) SetMasterServiceHost(host string) error {
