@@ -279,7 +279,8 @@ func createClientAndSharedInformers(options *options.YurtHubOptions) (kubernetes
 	var err error
 	// If yurthub is in local mode, create kubeconfig for host control plane to prepare	informerFactory.
 	if util.WorkingMode(options.WorkingMode) == util.WorkingModeLocal {
-		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", options.HostControlPlaneAddr), "")
+		// kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", options.HostControlPlaneAddr), "")
+		kubeConfig, err = clientcmd.BuildConfigFromFlags("", "/root/ackkubeconfig")
 	} else {
 		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), "")
 	}
