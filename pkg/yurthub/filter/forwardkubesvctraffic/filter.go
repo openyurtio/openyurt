@@ -21,7 +21,6 @@ import (
 
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
 
@@ -58,12 +57,6 @@ type forwardKubeSVCTrafficFilter struct {
 
 func (fkst *forwardKubeSVCTrafficFilter) Name() string {
 	return FilterName
-}
-
-func (fkst *forwardKubeSVCTrafficFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"endpointslices": sets.New("list", "watch"),
-	}
 }
 
 func (fkst *forwardKubeSVCTrafficFilter) SetMasterServiceHost(host string) error {

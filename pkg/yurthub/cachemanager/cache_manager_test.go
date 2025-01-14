@@ -45,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
@@ -54,9 +55,7 @@ import (
 )
 
 var (
-	rootDir                   = "/tmp/cache-manager"
-	fakeClient                = fake.NewSimpleClientset()
-	fakeSharedInformerFactory = informers.NewSharedInformerFactory(fakeClient, 0)
+	rootDir = "/tmp/cache-manager"
 )
 
 func TestCacheGetResponse(t *testing.T) {
@@ -70,7 +69,10 @@ func TestCacheGetResponse(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	testcases := map[string]struct {
 		inputObj     runtime.Object
@@ -607,7 +609,10 @@ func TestCacheWatchResponse(t *testing.T) {
 	}
 	sWrapper := NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	yurtCM := NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	testcases := map[string]struct {
 		inputObj     []watch.Event
@@ -1014,7 +1019,10 @@ func TestCacheListResponse(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	testcases := map[string]struct {
 		inputObj     runtime.Object
@@ -1607,7 +1615,10 @@ func TestQueryCacheForGet(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	testcases := map[string]struct {
 		keyBuildInfo storage.KeyBuildInfo
@@ -2334,7 +2345,10 @@ func TestQueryCacheForList(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create RESTMapper manager, %v", err)
 	}
-	yurtCM := NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	testcases := map[string]struct {
 		keyBuildInfo *storage.KeyBuildInfo
@@ -3158,7 +3172,8 @@ func TestCanCacheFor(t *testing.T) {
 			defer close(stop)
 			client := fake.NewSimpleClientset()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			m := NewCacheManager("node1", s, nil, nil, informerFactory)
+			configManager := configuration.NewConfigurationManager("node1", informerFactory)
+			m := NewCacheManager(s, nil, nil, configManager)
 			informerFactory.Start(nil)
 			cache.WaitForCacheSync(stop, informerFactory.Core().V1().ConfigMaps().Informer().HasSynced)
 			if tt.preRequest != nil {

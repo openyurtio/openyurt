@@ -24,7 +24,6 @@ import (
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listers "k8s.io/client-go/listers/core/v1"
@@ -71,13 +70,6 @@ type serviceTopologyFilter struct {
 
 func (stf *serviceTopologyFilter) Name() string {
 	return FilterName
-}
-
-func (stf *serviceTopologyFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"endpoints":      sets.New("list", "watch"),
-		"endpointslices": sets.New("list", "watch"),
-	}
 }
 
 func (stf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {

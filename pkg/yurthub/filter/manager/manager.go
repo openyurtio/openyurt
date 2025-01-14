@@ -20,12 +20,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
 	yurtoptions "github.com/openyurtio/openyurt/cmd/yurthub/app/options"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/approver"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
@@ -46,7 +46,8 @@ func NewFilterManager(options *yurtoptions.YurtHubOptions,
 	sharedFactory informers.SharedInformerFactory,
 	dynamicSharedFactory dynamicinformer.DynamicSharedInformerFactory,
 	proxiedClient kubernetes.Interface,
-	serializerManager *serializer.SerializerManager) (filter.FilterFinder, error) {
+	serializerManager *serializer.SerializerManager,
+	configManager *configuration.Manager) (filter.FilterFinder, error) {
 	if !options.EnableResourceFilter {
 		return nil, nil
 	}
@@ -72,25 +73,17 @@ func NewFilterManager(options *yurtoptions.YurtHubOptions,
 	initializerChain = append(initializerChain, genericInitializer, nodesInitializer)
 
 	// 4. initialize all object filters
-	objFilters, err := filters.NewFromFilters(initializerChain)
+	nameToFilters, err := filters.NewFromFilters(initializerChain)
 	if err != nil {
 		return nil, err
 	}
 
 	// 5. new filter manager including approver and nameToObjectFilter
-	m := &Manager{
-		nameToObjectFilter: make(map[string]filter.ObjectFilter),
+	return &Manager{
+		Approver:           approver.NewApprover(options.NodeName, configManager),
+		nameToObjectFilter: nameToFilters,
 		serializerManager:  serializerManager,
-	}
-
-	filterSupportedResAndVerbs := make(map[string]map[string]sets.Set[string])
-	for i := range objFilters {
-		m.nameToObjectFilter[objFilters[i].Name()] = objFilters[i]
-		filterSupportedResAndVerbs[objFilters[i].Name()] = objFilters[i].SupportedResourceAndVerbs()
-	}
-	m.Approver = approver.NewApprover(sharedFactory, filterSupportedResAndVerbs)
-
-	return m, nil
+	}, nil
 }
 
 func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, bool) {

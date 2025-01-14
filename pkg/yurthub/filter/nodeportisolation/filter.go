@@ -62,12 +62,6 @@ func (nif *nodePortIsolationFilter) Name() string {
 	return FilterName
 }
 
-func (nif *nodePortIsolationFilter) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return map[string]sets.Set[string]{
-		"services": sets.New("list", "watch"),
-	}
-}
-
 func (nif *nodePortIsolationFilter) SetNodePoolName(name string) error {
 	nif.nodePoolName = name
 	return nil

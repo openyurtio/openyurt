@@ -43,8 +43,8 @@ func NewFilters(disabledFilters []string) *Filters {
 	}
 }
 
-func (fs *Filters) NewFromFilters(initializer filter.Initializer) ([]filter.ObjectFilter, error) {
-	var filters = make([]filter.ObjectFilter, 0)
+func (fs *Filters) NewFromFilters(initializer filter.Initializer) (map[string]filter.ObjectFilter, error) {
+	var filters = make(map[string]filter.ObjectFilter)
 	for _, name := range fs.names {
 		if fs.Enabled(name) {
 			factory, found := fs.registry[name]
@@ -63,7 +63,7 @@ func (fs *Filters) NewFromFilters(initializer filter.Initializer) ([]filter.Obje
 				return nil, err
 			}
 			klog.V(2).Infof("filter %s initialize successfully", name)
-			filters = append(filters, ins)
+			filters[name] = ins
 		} else {
 			klog.V(2).Infof("filter %s is disabled", name)
 		}
