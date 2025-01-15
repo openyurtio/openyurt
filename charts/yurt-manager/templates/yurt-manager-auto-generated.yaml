@@ -1500,19 +1500,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-apps-openyurt-io-v1beta1-nodepool
+      path: /mutate-apps-openyurt-io-v1beta2-nodepool
   failurePolicy: Fail
-  name: m.v1beta1.nodepool.kb.io
+  name: m.v1beta2.nodepool.kb.io
   rules:
   - apiGroups:
     - apps.openyurt.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     resources:
@@ -1690,19 +1690,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: yurt-manager-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-apps-openyurt-io-v1beta1-nodepool
+      path: /validate-apps-openyurt-io-v1beta2-nodepool
   failurePolicy: Fail
-  name: v.v1beta1.nodepool.kb.io
+  name: v.v1beta2.nodepool.kb.io
   rules:
   - apiGroups:
     - apps.openyurt.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE

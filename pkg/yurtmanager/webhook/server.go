@@ -35,7 +35,7 @@ import (
 	v1endpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/endpointslice/v1"
 	v1beta1gateway "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/gateway/v1beta1"
 	v1node "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/node/v1"
-	v1beta1nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta1"
+	v1beta2nodepool "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/nodepool/v1beta2"
 	v1beta1platformadmin "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/platformadmin/v1beta1"
 	v1alpha1pod "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/pod/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
@@ -73,7 +73,7 @@ func addControllerWebhook(name string, handler SetupWebhookWithManager) {
 
 func init() {
 	addControllerWebhook(names.GatewayPickupController, &v1beta1gateway.GatewayHandler{})
-	addControllerWebhook(names.NodePoolController, &v1beta1nodepool.NodePoolHandler{})
+	addControllerWebhook(names.NodePoolController, &v1beta2nodepool.NodePoolHandler{})
 	addControllerWebhook(names.YurtStaticSetController, &v1alpha1yurtstaticset.YurtStaticSetHandler{})
 	addControllerWebhook(names.YurtAppSetController, &v1beta1yurtappset.YurtAppSetHandler{})
 	addControllerWebhook(names.YurtAppDaemonController, &v1alpha1yurtappdaemon.YurtAppDaemonHandler{})
@@ -133,7 +133,11 @@ func SetupWithManager(c *config.CompletedConfig, mgr manager.Manager) error {
 
 	// set up controller webhooks
 	for controllerName, list := range controllerWebhooks {
-		if !app.IsControllerEnabled(controllerName, controller.ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) {
+		if !app.IsControllerEnabled(
+			controllerName,
+			controller.ControllersDisabledByDefault,
+			c.ComponentConfig.Generic.Controllers,
+		) {
 			klog.Warningf("Webhook for %v is disabled", controllerName)
 			continue
 		}
