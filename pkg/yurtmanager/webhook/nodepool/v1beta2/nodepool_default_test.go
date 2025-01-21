@@ -301,6 +301,122 @@ func TestDefault(t *testing.T) {
 							Version: "v1",
 							Kind:    "Endpoints",
 						},
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
+		"nodepool has v1.service pool scope metadata": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+					},
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
+		"nodepool has v1.EndpointSlice pool scope metadata": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+					},
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
 					},
 				},
 				Status: v1beta2.NodePoolStatus{
