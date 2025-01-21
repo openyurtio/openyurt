@@ -43,6 +43,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -57,6 +58,44 @@ var needModifyTimeoutVerb = map[string]bool{
 	"get":   true,
 	"list":  true,
 	"watch": true,
+}
+
+// WithIsRequestForPoolScopeMetadata add a mark in context for specifying whether a request is used for list/watching pool scope metadata or not,
+// request for pool scope metadata will be handled by multiplexer manager instead forwarding to cloud kube-apiserver.
+func WithIsRequestForPoolScopeMetadata(handler http.Handler, multiplexerManager *multiplexer.MultiplexerManager, multiplexerUserAgent string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if isMultiplexerRequest(req, multiplexerManager, multiplexerUserAgent) {
+			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, true)
+		} else {
+			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, false)
+		}
+		req = req.WithContext(ctx)
+		handler.ServeHTTP(w, req)
+	})
+}
+
+func isMultiplexerRequest(req *http.Request, multiplexerManager *multiplexer.MultiplexerManager, multiplexerUserAgent string) bool {
+	// the requests from multiplexer manager
+	if req.UserAgent() == multiplexerUserAgent {
+		return false
+	}
+
+	info, ok := apirequest.RequestInfoFrom(req.Context())
+	if !ok {
+		return false
+	}
+
+	// list/watch requests
+	if info.Verb != "list" && info.Verb != "watch" {
+		return false
+	}
+
+	return multiplexerManager.IsPoolScopeMetadata(&schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	})
 }
 
 // WithPartialObjectMetadataRequest is used for extracting info for partial object metadata request,
@@ -280,12 +319,19 @@ func (wrw *wrapperResponseWriter) WriteHeader(statusCode int) {
 // latency for outward requests redirected from proxyserver to apiserver
 func WithRequestTrace(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		info, ok := apirequest.RequestInfoFrom(req.Context())
-		client, _ := util.ClientComponentFrom(req.Context())
+		ctx := req.Context()
+		info, ok := apirequest.RequestInfoFrom(ctx)
+		client, _ := util.ClientComponentFrom(ctx)
+		isRequestForPoolScopeMetadata, _ := util.IsRequestForPoolScopeMetadataFrom(ctx)
 		if ok {
 			if info.IsResourceRequest {
-				metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
-				defer metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+				if isRequestForPoolScopeMetadata {
+					metrics.Metrics.IncInFlightMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client)
+					defer metrics.Metrics.DecInFlightMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client)
+				} else {
+					metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+					defer metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
+				}
 			}
 		} else {
 			info = &apirequest.RequestInfo{}
@@ -331,35 +377,57 @@ func WithRequestTraceFull(handler http.Handler) http.Handler {
 
 // WithMaxInFlightLimit limits the number of in-flight requests. and when in flight
 // requests exceeds the threshold, the following incoming requests will be rejected.
-func WithMaxInFlightLimit(handler http.Handler, limit int) http.Handler {
-	var reqChan chan bool
+func WithMaxInFlightLimit(handler http.Handler, limit int, nodeName string) http.Handler {
+	var reqChan, multiplexerReqChan chan bool
 	if limit > 0 {
 		reqChan = make(chan bool, limit)
 	}
+	multiplexerReqChan = make(chan bool, 4096)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		info, ok := apirequest.RequestInfoFrom(req.Context())
+		ctx := req.Context()
+		info, ok := apirequest.RequestInfoFrom(ctx)
 		if !ok {
 			info = &apirequest.RequestInfo{}
 		}
-		select {
-		case reqChan <- true:
-			if info.Resource == "leases" {
-				klog.V(5).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
-			} else {
-				klog.V(2).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+		isRequestForPoolScopeMetadata, _ := util.IsRequestForPoolScopeMetadataFrom(ctx)
+		if isRequestForPoolScopeMetadata {
+			select {
+			case multiplexerReqChan <- true:
+				klog.V(2).Infof("%s, in flight requests for pool scope metadata: %d", util.ReqString(req), len(multiplexerReqChan))
+
+				defer func() {
+					<-multiplexerReqChan
+					klog.V(5).Infof("%s request completed, left %d requests for pool scope metadata in flight", util.ReqString(req), len(multiplexerReqChan))
+				}()
+				handler.ServeHTTP(w, req)
+			default:
+				// Return a 429 status indicating "Too Many Requests"
+				klog.Errorf("Too many requests for pool scope metadata, please try again later, %s", util.ReqString(req))
+				metrics.Metrics.IncRejectedMultiplexerRequestCounter()
+				w.Header().Set("Retry-After", "1")
+				util.Err(errors.NewTooManyRequestsError(fmt.Sprintf("Too many multiplexer requests for node(%s), please try again later.", nodeName)), w, req)
 			}
-			defer func() {
-				<-reqChan
-				klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
-			}()
-			handler.ServeHTTP(w, req)
-		default:
-			// Return a 429 status indicating "Too Many Requests"
-			klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
-			metrics.Metrics.IncRejectedRequestCounter()
-			w.Header().Set("Retry-After", "1")
-			util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
+		} else {
+			select {
+			case reqChan <- true:
+				if info.Resource == "leases" {
+					klog.V(5).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+				} else {
+					klog.V(2).Infof("%s, in flight requests: %d", util.ReqString(req), len(reqChan))
+				}
+				defer func() {
+					<-reqChan
+					klog.V(5).Infof("%s request completed, left %d requests in flight", util.ReqString(req), len(reqChan))
+				}()
+				handler.ServeHTTP(w, req)
+			default:
+				// Return a 429 status indicating "Too Many Requests"
+				klog.Errorf("Too many requests, please try again later, %s", util.ReqString(req))
+				metrics.Metrics.IncRejectedRequestCounter()
+				w.Header().Set("Retry-After", "1")
+				util.Err(errors.NewTooManyRequestsError("Too many requests, please try again later."), w, req)
+			}
 		}
 	})
 }
@@ -546,38 +614,4 @@ func ReListWatchReq(rw http.ResponseWriter, req *http.Request) {
 
 	klog.Infof("this request write error event back finished.")
 	rw.(http.Flusher).Flush()
-}
-
-func IsMultiplexerRequest(req *http.Request, multiplexerResources []schema.GroupVersionResource, nodeName string) bool {
-	ctx := req.Context()
-
-	if req.UserAgent() == util.MultiplexerProxyClientUserAgentPrefix+nodeName {
-		return false
-	}
-
-	info, ok := apirequest.RequestInfoFrom(ctx)
-	if !ok {
-		return false
-	}
-
-	if info.Verb != "list" && info.Verb != "watch" {
-		return false
-	}
-
-	return isMultiplexerResource(info, multiplexerResources)
-}
-
-func isMultiplexerResource(info *apirequest.RequestInfo, multiplexerResources []schema.GroupVersionResource) bool {
-	gvr := schema.GroupVersionResource{
-		Group:    info.APIGroup,
-		Version:  info.APIVersion,
-		Resource: info.Resource,
-	}
-
-	for _, resource := range multiplexerResources {
-		if gvr.String() == resource.String() {
-			return true
-		}
-	}
-	return false
 }

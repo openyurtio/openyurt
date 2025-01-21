@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -32,15 +33,92 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	kstorage "k8s.io/apiserver/pkg/storage"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
+
+var serviceGVR = &schema.GroupVersionResource{
+	Group:    "",
+	Version:  "v1",
+	Resource: "services",
+}
 
 func newTestRequestInfoResolver() *request.RequestInfoFactory {
 	return &request.RequestInfoFactory{
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
+	}
+}
+
+func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
+	testcases := map[string]struct {
+		userAgent                     string
+		verb                          string
+		path                          string
+		isRequestForPoolScopeMetadata bool
+	}{
+		"list service resource": {
+			userAgent:                     "kubelet",
+			verb:                          "GET",
+			path:                          "/api/v1/services",
+			isRequestForPoolScopeMetadata: true,
+		},
+
+		"get node resource": {
+			userAgent:                     "flanneld/0.11.0",
+			verb:                          "GET",
+			path:                          "/api/v1/nodes/mynode",
+			isRequestForPoolScopeMetadata: false,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.verb, tc.path, nil)
+			if len(tc.userAgent) != 0 {
+				req.Header.Set("User-Agent", tc.userAgent)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			storageMap := map[string]kstorage.Interface{
+				serviceGVR.String(): nil,
+			}
+			dsm := storage.NewDummyStorageManager(storageMap)
+
+			tmpDir, err := os.MkdirTemp("", "test")
+			if err != nil {
+				t.Fatalf("failed to make temp dir, %v", err)
+			}
+			restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
+
+			poolScopeResources := []schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "services"},
+				{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+			}
+
+			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
+
+			var isRequestForPoolScopeMetadata bool
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := req.Context()
+				isRequestForPoolScopeMetadata, _ = util.IsRequestForPoolScopeMetadataFrom(ctx)
+			})
+
+			handler = WithIsRequestForPoolScopeMetadata(handler, rmm, "test-agent")
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if isRequestForPoolScopeMetadata != tc.isRequestForPoolScopeMetadata {
+				t.Errorf("%s: expect isRequestForPoolScopeMetadata %v, but got %v", k, tc.isRequestForPoolScopeMetadata, isRequestForPoolScopeMetadata)
+			}
+		})
 	}
 }
 
@@ -286,7 +364,7 @@ func TestWithMaxInFlightLimit(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		handler = WithMaxInFlightLimit(handler, 10)
+		handler = WithMaxInFlightLimit(handler, 10, "test-node")
 		handler = filters.WithRequestInfo(handler, resolver)
 
 		respCodes := make([]int, k)

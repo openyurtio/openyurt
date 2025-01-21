@@ -72,6 +72,18 @@ func (stf *serviceTopologyFilter) Name() string {
 	return FilterName
 }
 
+func (stf *serviceTopologyFilter) HasSynced() bool {
+	if stf.nodesSynced == nil || stf.serviceSynced == nil {
+		return false
+	}
+
+	if !stf.nodesSynced() || !stf.serviceSynced() {
+		return false
+	}
+
+	return true
+}
+
 func (stf *serviceTopologyFilter) SetSharedInformerFactory(factory informers.SharedInformerFactory) error {
 	stf.serviceLister = factory.Core().V1().Services().Lister()
 	stf.serviceSynced = factory.Core().V1().Services().Informer().HasSynced
@@ -117,10 +129,6 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 }
 
 func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
-	if ok := cache.WaitForCacheSync(stopCh, stf.serviceSynced, stf.nodesSynced); !ok {
-		return obj
-	}
-
 	switch v := obj.(type) {
 	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discoveryv1.EndpointSlice:
 		return stf.serviceTopologyHandler(v)

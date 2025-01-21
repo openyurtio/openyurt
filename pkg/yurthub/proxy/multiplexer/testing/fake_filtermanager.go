@@ -33,6 +33,10 @@ func (fm *EmptyFilterManager) FindObjectFilter(req *http.Request) (filter.Object
 	return nil, false
 }
 
+func (fm *EmptyFilterManager) HasSynced() bool {
+	return true
+}
+
 type FakeEndpointSliceFilter struct {
 	NodeName string
 }
@@ -45,4 +49,8 @@ func (fm *FakeEndpointSliceFilter) FindObjectFilter(req *http.Request) (filter.O
 	return &IgnoreEndpointslicesWithNodeName{
 		fm.NodeName,
 	}, true
+}
+
+func (fm *FakeEndpointSliceFilter) HasSynced() bool {
+	return true
 }
