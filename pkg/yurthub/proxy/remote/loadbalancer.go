@@ -244,25 +244,23 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 		req = req.WithContext(ctx)
 
 		// filter response data
-		if !yurtutil.IsNil(lb.filterFinder) {
-			if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
-				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
-				if err != nil {
-					klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
-					return err
-				}
-				resp.Body = filterRc
-				if size > 0 {
-					resp.ContentLength = int64(size)
-					resp.Header.Set(yurtutil.HttpHeaderContentLength, fmt.Sprint(size))
-				}
+		if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
+			wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
+			size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
+			if err != nil {
+				klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
+				return err
+			}
+			resp.Body = filterRc
+			if size > 0 {
+				resp.ContentLength = int64(size)
+				resp.Header.Set(yurtutil.HttpHeaderContentLength, fmt.Sprint(size))
+			}
 
-				// after gunzip in filter, the header content encoding should be removed.
-				// because there's no need to gunzip response.body again.
-				if needUncompressed {
-					resp.Header.Del("Content-Encoding")
-				}
+			// after gunzip in filter, the header content encoding should be removed.
+			// because there's no need to gunzip response.body again.
+			if needUncompressed {
+				resp.Header.Del("Content-Encoding")
 			}
 		}
 

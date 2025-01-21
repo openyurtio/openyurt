@@ -104,7 +104,6 @@ func (m *Manager) HasSynced() bool {
 func (m *Manager) ListAllCacheAgents() []string {
 	m.RLock()
 	defer m.RUnlock()
-
 	return m.allCacheAgents.UnsortedList()
 }
 

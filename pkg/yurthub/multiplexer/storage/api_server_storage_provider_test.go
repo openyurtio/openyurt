@@ -38,28 +38,25 @@ var endpointSlicesGVR = &schema.GroupVersionResource{
 }
 
 func TestStorageManager_ResourceStorage(t *testing.T) {
-	sm := NewStorageManager(&rest.Config{
+	sm := NewStorageProvider(&rest.Config{
 		Host:      "http://127.0.0.1:10261",
 		UserAgent: "share-hub",
 	})
 
-	for _, tc := range []struct {
-		tName string
-		gvr   *schema.GroupVersionResource
-		Err   error
+	for k, tc := range map[string]struct {
+		gvr *schema.GroupVersionResource
+		err error
 	}{
-		{
-			"get resource storage for services",
-			serviceGVR,
-			nil,
+		"get resource storage for services": {
+			gvr: serviceGVR,
+			err: nil,
 		},
-		{
-			"get resource storage for endpouintslices",
-			endpointSlicesGVR,
-			nil,
+		"get resource storage for endpouintslices": {
+			gvr: endpointSlicesGVR,
+			err: nil,
 		},
 	} {
-		t.Run(tc.tName, func(t *testing.T) {
+		t.Run(k, func(t *testing.T) {
 			restore, err := sm.ResourceStorage(tc.gvr)
 
 			assert.Nil(t, err)

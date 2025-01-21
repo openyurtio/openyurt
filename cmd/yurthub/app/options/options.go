@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
@@ -81,6 +82,7 @@ type YurtHubOptions struct {
 	UnsafeSkipCAVerification  bool
 	ClientForTest             kubernetes.Interface
 	EnablePoolServiceTopology bool
+	PoolScopeResources        PoolScopeMetadatas
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -116,6 +118,10 @@ func NewYurtHubOptions() *YurtHubOptions {
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
 		EnablePoolServiceTopology: false,
+		PoolScopeResources: []schema.GroupVersionResource{
+			{Group: "", Version: "v1", Resource: "services"},
+			{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+		},
 	}
 	return o
 }
@@ -208,6 +214,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
 	fs.BoolVar(&o.EnablePoolServiceTopology, "enable-pool-service-topology", o.EnablePoolServiceTopology, "enable service topology feature in the node pool.")
 	fs.StringVar(&o.HostControlPlaneAddr, "host-control-plane-address", o.HostControlPlaneAddr, "the address (ip:port) of host kubernetes cluster that used for yurthub local mode.")
+	fs.Var(&o.PoolScopeResources, "pool-scope-resources", "The list/watch requests for these resources will be multiplexered in yurthub in order to reduce overhead of kube-apiserver. comma-separated list of GroupVersionResource in the format Group/Version/Resource")
 }
 
 // verifyDummyIP verify the specified ip is valid or not and set the default ip if empty

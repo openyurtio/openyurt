@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -61,6 +62,10 @@ func TestNewYurtHubOptions(t *testing.T) {
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
 		UnsafeSkipCAVerification:  true,
+		PoolScopeResources: []schema.GroupVersionResource{
+			{Group: "", Version: "v1", Resource: "services"},
+			{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+		},
 	}
 
 	options := NewYurtHubOptions()

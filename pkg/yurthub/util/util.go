@@ -66,10 +66,10 @@ const (
 	ProxyReqCanCache
 	// ProxyListSelector represents label selector and filed selector string for list request
 	ProxyListSelector
-	// ProxyPartialObjectMetadataRequest represents if this request is getting partial object metadata
-	ProxyPartialObjectMetadataRequest
 	// ProxyConvertGVK represents the gvk of response when it is a partial object metadata request
 	ProxyConvertGVK
+	// ProxyPoolScopeMetadata represents a request is going to list/watch pool scope metadata or not.
+	ProxyPoolScopeMetadata
 
 	YurtHubNamespace      = "kube-system"
 	CacheUserAgentsKey    = "cache_agents"
@@ -154,6 +154,17 @@ func WithConvertGVK(parent context.Context, gvk *schema.GroupVersionKind) contex
 // ConvertGVKFrom returns the value of the convert gvk key on the ctx
 func ConvertGVKFrom(ctx context.Context) (*schema.GroupVersionKind, bool) {
 	info, ok := ctx.Value(ProxyConvertGVK).(*schema.GroupVersionKind)
+	return info, ok
+}
+
+// WithIsRequestForPoolScopeMetadata returns a copy of parent in which request for pool scope metadata value is set
+func WithIsRequestForPoolScopeMetadata(parent context.Context, isRequestForPoolScopeMetadata bool) context.Context {
+	return WithValue(parent, ProxyPoolScopeMetadata, isRequestForPoolScopeMetadata)
+}
+
+// IsRequestForPoolScopeMetadataFrom returns the value of the request for pool scope metadata on the ctx
+func IsRequestForPoolScopeMetadataFrom(ctx context.Context) (bool, bool) {
+	info, ok := ctx.Value(ProxyPoolScopeMetadata).(bool)
 	return info, ok
 }
 

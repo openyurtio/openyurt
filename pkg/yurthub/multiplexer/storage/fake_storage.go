@@ -60,6 +60,10 @@ func (fs *CommonFakeStorage) Count(key string) (int64, error) {
 	return 0, nil
 }
 
+func (fs *CommonFakeStorage) ReadinessCheck() error {
+	return nil
+}
+
 func (fs *CommonFakeStorage) RequestWatchProgress(ctx context.Context) error {
 	return nil
 }
@@ -94,10 +98,6 @@ func (fs *FakeServiceStorage) Watch(ctx context.Context, key string, opts storag
 func (fs *FakeServiceStorage) AddWatchObject(svc *v1.Service) {
 	svc.ResourceVersion = "101"
 	fs.watcher.Add(svc)
-}
-
-func (fs *FakeServiceStorage) ReadinessCheck() error {
-	return nil
 }
 
 type FakeEndpointSliceStorage struct {
@@ -136,8 +136,4 @@ func (fs *FakeEndpointSliceStorage) Watch(ctx context.Context, key string, opts 
 func (fs *FakeEndpointSliceStorage) AddWatchObject(eps *discovery.EndpointSlice) {
 	eps.ResourceVersion = "101"
 	fs.watcher.Add(eps)
-}
-
-func (fs *FakeEndpointSliceStorage) ReadinessCheck() error {
-	return nil
 }
