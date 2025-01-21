@@ -290,7 +290,7 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// Note:
 	// When cloud-edge network is healthy, the inMemoryCache can be updated with response from cloud side.
 	// While cloud-edge network is broken, the inMemoryCache can only be fulfilled with data from edge cache,
-	// such as local disk and yurt-coordinator.
+	// such as local disk.
 	if isInMemoryCacheMiss {
 		return obj, cm.updateInMemoryCache(ctx, info, obj)
 	}

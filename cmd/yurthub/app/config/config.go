@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,7 +41,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -111,13 +109,6 @@ type YurtHubConfiguration struct {
 	YurtHubNamespace                string
 	ProxiedClient                   kubernetes.Interface
 	DiskCachePath                   string
-	CoordinatorPKIDir               string
-	EnableCoordinator               bool
-	CoordinatorServerURL            *url.URL
-	CoordinatorStoragePrefix        string
-	CoordinatorStorageAddr          string // ip:port
-	CoordinatorClient               kubernetes.Interface
-	LeaderElection                  componentbaseconfig.LeaderElectionConfiguration
 	HostControlPlaneAddr            string // ip:port
 	PostStartHooks                  map[string]func() error
 	RequestMultiplexerManager       multiplexer.MultiplexerManager
@@ -130,14 +121,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	us, err := parseRemoteServers(options.WorkingMode, options.ServerAddr)
 	if err != nil {
 		return nil, err
-	}
-
-	var coordinatorServerURL *url.URL
-	if options.EnableCoordinator {
-		coordinatorServerURL, err = url.Parse(options.CoordinatorServerAddr)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	storageManager, err := disk.NewDiskStorage(options.DiskCachePath)
@@ -193,12 +176,6 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		YurtHubNamespace:          options.YurtHubNamespace,
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
-		CoordinatorPKIDir:         filepath.Join(options.RootDir, "yurtcoordinator"),
-		EnableCoordinator:         options.EnableCoordinator,
-		CoordinatorServerURL:      coordinatorServerURL,
-		CoordinatorStoragePrefix:  options.CoordinatorStoragePrefix,
-		CoordinatorStorageAddr:    options.CoordinatorStorageAddr,
-		LeaderElection:            options.LeaderElection,
 		HostControlPlaneAddr:      options.HostControlPlaneAddr,
 		MultiplexerResources:      AllowedMultiplexerResources,
 		RequestMultiplexerManager: newMultiplexerCacheManager(options),
