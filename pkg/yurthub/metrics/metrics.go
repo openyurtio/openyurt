@@ -44,18 +44,15 @@ var (
 )
 
 type HubMetrics struct {
-	serversHealthyCollector               *prometheus.GaugeVec
-	inFlightRequestsCollector             *prometheus.GaugeVec
-	inFlightRequestsGauge                 prometheus.Gauge
-	rejectedRequestsCounter               prometheus.Counter
-	closableConnsCollector                *prometheus.GaugeVec
-	proxyTrafficCollector                 *prometheus.CounterVec
-	proxyLatencyCollector                 *prometheus.GaugeVec
-	yurtCoordinatorYurthubRoleCollector   *prometheus.GaugeVec
-	yurtCoordinatorHealthyStatusCollector *prometheus.GaugeVec
-	yurtCoordinatorReadyStatusCollector   *prometheus.GaugeVec
-	errorKeysPersistencyStatusCollector   prometheus.Gauge
-	errorKeysCountCollector               prometheus.Gauge
+	serversHealthyCollector             *prometheus.GaugeVec
+	inFlightRequestsCollector           *prometheus.GaugeVec
+	inFlightRequestsGauge               prometheus.Gauge
+	rejectedRequestsCounter             prometheus.Counter
+	closableConnsCollector              *prometheus.GaugeVec
+	proxyTrafficCollector               *prometheus.CounterVec
+	proxyLatencyCollector               *prometheus.GaugeVec
+	errorKeysPersistencyStatusCollector prometheus.Gauge
+	errorKeysCountCollector             prometheus.Gauge
 }
 
 func newHubMetrics() *HubMetrics {
@@ -113,30 +110,6 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of proxy latency of incoming requests(unit: ms)",
 		},
 		[]string{"client", "verb", "resource", "subresources", "type"})
-	yurtCoordinatorYurthubRoleCollector := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "yurt_coordinator_yurthub_role",
-			Help:      "yurt coordinator status of yurthub. 1: LeaderHub, 2: FollowerHub 3: Pending",
-		},
-		[]string{})
-	yurtCoordinatorHealthyStatusCollector := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "yurt_coordinator_healthy_status",
-			Help:      "yurt coordinator heahty status 1: healthy, 0: unhealthy",
-		},
-		[]string{})
-	yurtCoordinatorReadyStatusCollector := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "yurt_coordinator_ready_status",
-			Help:      "yurt coordinator ready status 1: ready, 0: notReady",
-		},
-		[]string{})
 	errorKeysPersistencyStatusCollector := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -158,24 +131,18 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
 	prometheus.MustRegister(proxyLatencyCollector)
-	prometheus.MustRegister(yurtCoordinatorYurthubRoleCollector)
-	prometheus.MustRegister(yurtCoordinatorHealthyStatusCollector)
-	prometheus.MustRegister(yurtCoordinatorReadyStatusCollector)
 	prometheus.MustRegister(errorKeysPersistencyStatusCollector)
 	prometheus.MustRegister(errorKeysCountCollector)
 	return &HubMetrics{
-		serversHealthyCollector:               serversHealthyCollector,
-		inFlightRequestsCollector:             inFlightRequestsCollector,
-		inFlightRequestsGauge:                 inFlightRequestsGauge,
-		rejectedRequestsCounter:               rejectedRequestsCounter,
-		closableConnsCollector:                closableConnsCollector,
-		proxyTrafficCollector:                 proxyTrafficCollector,
-		proxyLatencyCollector:                 proxyLatencyCollector,
-		yurtCoordinatorHealthyStatusCollector: yurtCoordinatorHealthyStatusCollector,
-		yurtCoordinatorReadyStatusCollector:   yurtCoordinatorReadyStatusCollector,
-		yurtCoordinatorYurthubRoleCollector:   yurtCoordinatorYurthubRoleCollector,
-		errorKeysPersistencyStatusCollector:   errorKeysPersistencyStatusCollector,
-		errorKeysCountCollector:               errorKeysCountCollector,
+		serversHealthyCollector:             serversHealthyCollector,
+		inFlightRequestsCollector:           inFlightRequestsCollector,
+		inFlightRequestsGauge:               inFlightRequestsGauge,
+		rejectedRequestsCounter:             rejectedRequestsCounter,
+		closableConnsCollector:              closableConnsCollector,
+		proxyTrafficCollector:               proxyTrafficCollector,
+		proxyLatencyCollector:               proxyLatencyCollector,
+		errorKeysPersistencyStatusCollector: errorKeysPersistencyStatusCollector,
+		errorKeysCountCollector:             errorKeysCountCollector,
 	}
 }
 
@@ -192,18 +159,6 @@ func (hm *HubMetrics) Reset() {
 
 func (hm *HubMetrics) ObserveServerHealthy(server string, status int) {
 	hm.serversHealthyCollector.WithLabelValues(server).Set(float64(status))
-}
-
-func (hm *HubMetrics) ObserveYurtCoordinatorYurthubRole(status int32) {
-	hm.yurtCoordinatorYurthubRoleCollector.WithLabelValues().Set(float64(status))
-}
-
-func (hm *HubMetrics) ObserveYurtCoordinatorReadyStatus(status int32) {
-	hm.yurtCoordinatorReadyStatusCollector.WithLabelValues().Set(float64(status))
-}
-
-func (hm *HubMetrics) ObserveYurtCoordinatorHealthyStatus(status int32) {
-	hm.yurtCoordinatorHealthyStatusCollector.WithLabelValues().Set(float64(status))
 }
 
 func (hm *HubMetrics) IncInFlightRequests(verb, resource, subresource, client string) {
