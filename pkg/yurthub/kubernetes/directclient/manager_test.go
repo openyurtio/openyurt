@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package directclient
 
 import (
 	"context"
@@ -29,18 +29,18 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
-var (
-	testDir = "/tmp/rest/"
-)
-
-func TestGetRestConfig(t *testing.T) {
+func TestGetDirectClientset(t *testing.T) {
+	testDir, err := os.MkdirTemp("", "test-client")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
 	nodeName := "foo"
 	servers := map[string]int{"https://10.10.10.113:6443": 2}
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
-	fakeHealthyChecker := healthchecker.NewFakeChecker(false, servers)
 
 	client, err := testdata.CreateCertFakeClient("../../certificate/testdata")
 	if err != nil {
@@ -73,32 +73,46 @@ func TestGetRestConfig(t *testing.T) {
 		t.Errorf("certificates are not ready, %v", err)
 	}
 
-	rcm, _ := NewRestConfigManager(certManager, fakeHealthyChecker)
+	transportManager, err := transport.NewTransportManager(certManager, context.Background().Done())
+	if err != nil {
+		t.Fatalf("could not new transport manager, %v", err)
+	}
 
 	testcases := map[string]struct {
+		healthy           bool
 		needHealthyServer bool
-		cfgIsNil          bool
+		clientIsNil       bool
 	}{
-		"do not need healthy server": {
-			needHealthyServer: false,
-			cfgIsNil:          false,
-		},
-		"need healthy server": {
+		"get client from healthy servers": {
+			healthy:           true,
 			needHealthyServer: true,
-			cfgIsNil:          true,
+			clientIsNil:       false,
+		},
+		"get client from unhealthy servers": {
+			healthy:           false,
+			needHealthyServer: true,
+			clientIsNil:       true,
+		},
+		"get client at random": {
+			healthy:           true,
+			needHealthyServer: false,
+			clientIsNil:       false,
 		},
 	}
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			cfg := rcm.GetRestConfig(tc.needHealthyServer)
-			if tc.cfgIsNil {
-				if cfg != nil {
-					t.Errorf("expect rest config is nil, but got %v", cfg)
+			fakeHealthyChecker := healthchecker.NewFakeChecker(tc.healthy, servers)
+			rcm, _ := NewRestClientManager(remoteServers, transportManager, fakeHealthyChecker)
+
+			client := rcm.GetDirectClientset(tc.needHealthyServer)
+			if tc.clientIsNil {
+				if client != nil {
+					t.Errorf("expect rest client is nil, but got %v", client)
 				}
 			} else {
-				if cfg == nil {
-					t.Errorf("expect non nil rest config, but got nil")
+				if client == nil {
+					t.Errorf("expect non nil rest client, but got nil")
 				}
 			}
 		})
