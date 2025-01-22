@@ -42,6 +42,7 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/network"
 	netv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset/config"
@@ -114,17 +115,38 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	}
 
 	// Watch for changes to PoolService
-	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Service{}, &handler.EnqueueRequestForObject{}, NewServicePredicated()))
+	err = c.Watch(
+		source.Kind[client.Object](
+			mgr.GetCache(),
+			&corev1.Service{},
+			&handler.EnqueueRequestForObject{},
+			NewServicePredicated(),
+		),
+	)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &netv1alpha1.PoolService{}, NewPoolServiceEventHandler(), NewPoolServicePredicated()))
+	err = c.Watch(
+		source.Kind[client.Object](
+			mgr.GetCache(),
+			&netv1alpha1.PoolService{},
+			NewPoolServiceEventHandler(),
+			NewPoolServicePredicated(),
+		),
+	)
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &v1beta1.NodePool{}, NewNodePoolEventHandler(yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController)), NewNodePoolPredicated()))
+	err = c.Watch(
+		source.Kind[client.Object](
+			mgr.GetCache(),
+			&v1beta2.NodePool{},
+			NewNodePoolEventHandler(yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController)),
+			NewNodePoolPredicated(),
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -299,7 +321,11 @@ func (r *ReconcileLoadBalancerSet) syncPoolServices(svc *corev1.Service) error {
 
 func (r *ReconcileLoadBalancerSet) desiredPoolServices(svc *corev1.Service) ([]netv1alpha1.PoolService, error) {
 	if !isLoadBalancerSetService(svc) {
-		klog.Warningf("service %s/%s is not multi regional service, set desire pool services is nil", svc.Namespace, svc.Name)
+		klog.Warningf(
+			"service %s/%s is not multi regional service, set desire pool services is nil",
+			svc.Namespace,
+			svc.Name,
+		)
 		return nil, nil
 	}
 
@@ -309,7 +335,12 @@ func (r *ReconcileLoadBalancerSet) desiredPoolServices(svc *corev1.Service) ([]n
 	}
 
 	if len(nps) == 0 {
-		r.recorder.Eventf(svc, corev1.EventTypeWarning, "NoMatchNodePool", "No node pool matches the nodepool label selector on the service")
+		r.recorder.Eventf(
+			svc,
+			corev1.EventTypeWarning,
+			"NoMatchNodePool",
+			"No node pool matches the nodepool label selector on the service",
+		)
 	}
 
 	var pss []netv1alpha1.PoolService
@@ -319,14 +350,14 @@ func (r *ReconcileLoadBalancerSet) desiredPoolServices(svc *corev1.Service) ([]n
 	return pss, nil
 }
 
-func (r *ReconcileLoadBalancerSet) listNodePoolsByLabelSelector(svc *corev1.Service) ([]v1beta1.NodePool, error) {
+func (r *ReconcileLoadBalancerSet) listNodePoolsByLabelSelector(svc *corev1.Service) ([]v1beta2.NodePool, error) {
 	labelStr := svc.Annotations[network.AnnotationNodePoolSelector]
 	labelSelector, err := labels.Parse(labelStr)
 	if err != nil {
 		return nil, err
 	}
 
-	npList := &v1beta1.NodePoolList{}
+	npList := &v1beta2.NodePoolList{}
 	if err := r.List(context.Background(), npList, &client.ListOptions{LabelSelector: labelSelector}); err != nil {
 		return nil, err
 	}
@@ -334,8 +365,8 @@ func (r *ReconcileLoadBalancerSet) listNodePoolsByLabelSelector(svc *corev1.Serv
 	return filterDeletionNodePools(npList.Items), nil
 }
 
-func filterDeletionNodePools(allItems []v1beta1.NodePool) []v1beta1.NodePool {
-	var filterItems []v1beta1.NodePool
+func filterDeletionNodePools(allItems []v1beta2.NodePool) []v1beta2.NodePool {
+	var filterItems []v1beta2.NodePool
 
 	for _, item := range allItems {
 		if !item.DeletionTimestamp.IsZero() {
@@ -347,7 +378,7 @@ func filterDeletionNodePools(allItems []v1beta1.NodePool) []v1beta1.NodePool {
 	return filterItems
 }
 
-func buildPoolService(svc *corev1.Service, np *v1beta1.NodePool) netv1alpha1.PoolService {
+func buildPoolService(svc *corev1.Service, np *v1beta2.NodePool) netv1alpha1.PoolService {
 	isController, isBlockOwnerDeletion := true, true
 	return netv1alpha1.PoolService{
 		TypeMeta: v1.TypeMeta{
@@ -357,7 +388,11 @@ func buildPoolService(svc *corev1.Service, np *v1beta1.NodePool) netv1alpha1.Poo
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: svc.Namespace,
 			Name:      svc.Name + "-" + np.Name,
-			Labels:    map[string]string{network.LabelServiceName: svc.Name, network.LabelNodePoolName: np.Name, labelManageBy: names.LoadBalancerSetController},
+			Labels: map[string]string{
+				network.LabelServiceName:  svc.Name,
+				network.LabelNodePoolName: np.Name,
+				labelManageBy:             names.LoadBalancerSetController,
+			},
 			OwnerReferences: []v1.OwnerReference{
 				{
 					APIVersion:         svc.APIVersion,
@@ -382,7 +417,9 @@ func buildPoolService(svc *corev1.Service, np *v1beta1.NodePool) netv1alpha1.Poo
 	}
 }
 
-func (r *ReconcileLoadBalancerSet) diffPoolServices(desirePoolServices, currentPoolServices []netv1alpha1.PoolService) (applications []netv1alpha1.PoolService, deletions []netv1alpha1.PoolService) {
+func (r *ReconcileLoadBalancerSet) diffPoolServices(
+	desirePoolServices, currentPoolServices []netv1alpha1.PoolService,
+) (applications []netv1alpha1.PoolService, deletions []netv1alpha1.PoolService) {
 	for _, dps := range desirePoolServices {
 		if exist := r.isPoolServicePresent(currentPoolServices, dps); !exist {
 			applications = append(applications, dps)
@@ -398,7 +435,10 @@ func (r *ReconcileLoadBalancerSet) diffPoolServices(desirePoolServices, currentP
 	return
 }
 
-func (r *ReconcileLoadBalancerSet) isPoolServicePresent(poolServices []netv1alpha1.PoolService, ps netv1alpha1.PoolService) bool {
+func (r *ReconcileLoadBalancerSet) isPoolServicePresent(
+	poolServices []netv1alpha1.PoolService,
+	ps netv1alpha1.PoolService,
+) bool {
 	for _, dps := range poolServices {
 		if dps.Name == ps.Name {
 			return true
@@ -424,7 +464,12 @@ func (r *ReconcileLoadBalancerSet) applyPoolService(poolService *netv1alpha1.Poo
 
 	if exist {
 		if err := r.compareAndUpdatePoolService(currentPoolService, poolService); err != nil {
-			return errors.Wrapf(err, "failed to compare and update pool service %s/%s", poolService.Namespace, poolService.Name)
+			return errors.Wrapf(
+				err,
+				"failed to compare and update pool service %s/%s",
+				poolService.Namespace,
+				poolService.Name,
+			)
 		}
 		return nil
 	}
@@ -445,10 +490,20 @@ func (r *ReconcileLoadBalancerSet) tryGetPoolService(namespace, name string) (*n
 	return currentPs, true, err
 }
 
-func (r *ReconcileLoadBalancerSet) compareAndUpdatePoolService(currentPoolService, desirePoolService *netv1alpha1.PoolService) error {
+func (r *ReconcileLoadBalancerSet) compareAndUpdatePoolService(
+	currentPoolService, desirePoolService *netv1alpha1.PoolService,
+) error {
 	if currentPoolService.Labels[labelManageBy] != names.LoadBalancerSetController {
-		r.recorder.Eventf(currentPoolService, corev1.EventTypeWarning, "ManagedConflict", poolServiceManagedConflictEventMsgFormat,
-			currentPoolService.Namespace, currentPoolService.Name, currentPoolService.Namespace, desirePoolService.Labels[network.LabelServiceName])
+		r.recorder.Eventf(
+			currentPoolService,
+			corev1.EventTypeWarning,
+			"ManagedConflict",
+			poolServiceManagedConflictEventMsgFormat,
+			currentPoolService.Namespace,
+			currentPoolService.Name,
+			currentPoolService.Namespace,
+			desirePoolService.Labels[network.LabelServiceName],
+		)
 		return nil
 	}
 
@@ -459,7 +514,14 @@ func (r *ReconcileLoadBalancerSet) compareAndUpdatePoolService(currentPoolServic
 		return nil
 	}
 
-	r.recorder.Eventf(currentPoolService, corev1.EventTypeWarning, "Modified", poolServiceModifiedEventMsgFormat, currentPoolService.Namespace, currentPoolService.Name)
+	r.recorder.Eventf(
+		currentPoolService,
+		corev1.EventTypeWarning,
+		"Modified",
+		poolServiceModifiedEventMsgFormat,
+		currentPoolService.Namespace,
+		currentPoolService.Name,
+	)
 	if err := r.Update(context.Background(), currentPoolService); err != nil {
 		return errors.Wrapf(err, "failed to update pool service")
 	}
@@ -467,7 +529,10 @@ func (r *ReconcileLoadBalancerSet) compareAndUpdatePoolService(currentPoolServic
 	return nil
 }
 
-func compareAndUpdatePoolServiceLabel(currentPoolService *netv1alpha1.PoolService, desireLabels map[string]string) bool {
+func compareAndUpdatePoolServiceLabel(
+	currentPoolService *netv1alpha1.PoolService,
+	desireLabels map[string]string,
+) bool {
 	isUpdate := false
 	if currentPoolService.Labels[network.LabelServiceName] != desireLabels[network.LabelServiceName] {
 		currentPoolService.Labels[network.LabelServiceName] = desireLabels[network.LabelServiceName]
@@ -482,7 +547,10 @@ func compareAndUpdatePoolServiceLabel(currentPoolService *netv1alpha1.PoolServic
 	return isUpdate
 }
 
-func compareAndUpdatePoolServiceOwners(currentPoolService *netv1alpha1.PoolService, desireOwners []v1.OwnerReference) bool {
+func compareAndUpdatePoolServiceOwners(
+	currentPoolService *netv1alpha1.PoolService,
+	desireOwners []v1.OwnerReference,
+) bool {
 	if !reflect.DeepEqual(currentPoolService.OwnerReferences, desireOwners) {
 		currentPoolService.OwnerReferences = desireOwners
 		return true
@@ -503,7 +571,11 @@ func (r *ReconcileLoadBalancerSet) syncService(svc *corev1.Service) error {
 	return r.compareAndUpdateService(svc, aggregatedLabels, aggregatedAnnotations, aggregatedLbStatus)
 }
 
-func (r *ReconcileLoadBalancerSet) compareAndUpdateService(svc *corev1.Service, labels, annotations map[string]string, lbStatus corev1.LoadBalancerStatus) error {
+func (r *ReconcileLoadBalancerSet) compareAndUpdateService(
+	svc *corev1.Service,
+	labels, annotations map[string]string,
+	lbStatus corev1.LoadBalancerStatus,
+) error {
 	isUpdatedLbStatus := compareAndUpdateServiceLbStatus(svc, lbStatus)
 	if isUpdatedLbStatus {
 		return r.Status().Update(context.Background(), svc)

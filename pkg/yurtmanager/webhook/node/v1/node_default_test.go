@@ -31,14 +31,14 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func TestDefault(t *testing.T) {
 	testcases := map[string]struct {
 		node    runtime.Object
-		pool    *appsv1beta1.NodePool
+		pool    *appsv1beta2.NodePool
 		errCode int
 		errMsg  string
 	}{
@@ -71,12 +71,12 @@ func TestDefault(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shanghai",
 				},
-				Spec: appsv1beta1.NodePoolSpec{
-					Type:        appsv1beta1.Edge,
+				Spec: appsv1beta2.NodePoolSpec{
+					Type:        appsv1beta2.Edge,
 					HostNetwork: true,
 				},
 			},

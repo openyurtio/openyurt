@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -150,7 +152,8 @@ func TestGetNodePoolsFromYurtAppSet(t *testing.T) {
 	}
 
 	scheme := runtime.NewScheme()
-	assert.Nil(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, v1beta2.AddToScheme(scheme))
 
 	tests := []struct {
 		name    string
@@ -189,7 +192,7 @@ func TestGetNodePoolsFromYurtAppSet(t *testing.T) {
 // TestIsNodePoolRelated 测试isNodePoolRelated函数
 func TestIsNodePoolRelated(t *testing.T) {
 	// 测试用例1: pools为空，npSelector不为空，匹配成功
-	nodePool := &v1beta1.NodePool{
+	nodePool := &v1beta2.NodePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "nodepool1",
 			Labels: map[string]string{"label": "value"},

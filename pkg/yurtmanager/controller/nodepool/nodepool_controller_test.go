@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	poolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
 )
@@ -100,34 +100,34 @@ func prepareNodes() []client.Object {
 
 func prepareNodePools() []client.Object {
 	pools := []client.Object{
-		&appsv1beta1.NodePool{
+		&appsv1beta2.NodePool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "hangzhou",
 			},
-			Spec: appsv1beta1.NodePoolSpec{
-				Type: appsv1beta1.Edge,
+			Spec: appsv1beta2.NodePoolSpec{
+				Type: appsv1beta2.Edge,
 				Labels: map[string]string{
 					"region": "hangzhou",
 				},
 			},
 		},
-		&appsv1beta1.NodePool{
+		&appsv1beta2.NodePool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "beijing",
 			},
-			Spec: appsv1beta1.NodePoolSpec{
-				Type: appsv1beta1.Edge,
+			Spec: appsv1beta2.NodePoolSpec{
+				Type: appsv1beta2.Edge,
 				Labels: map[string]string{
 					"region": "beijing",
 				},
 			},
 		},
-		&appsv1beta1.NodePool{
+		&appsv1beta2.NodePool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "shanghai",
 			},
-			Spec: appsv1beta1.NodePoolSpec{
-				Type: appsv1beta1.Edge,
+			Spec: appsv1beta2.NodePoolSpec{
+				Type: appsv1beta2.Edge,
 				Labels: map[string]string{
 					"region": "shanghai",
 				},
@@ -146,27 +146,32 @@ func TestReconcile(t *testing.T) {
 	}
 	apis.AddToScheme(scheme)
 
-	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(pools...).WithStatusSubresource(pools...).WithObjects(nodes...).Build()
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(pools...).
+		WithStatusSubresource(pools...).
+		WithObjects(nodes...).
+		Build()
 	testcases := map[string]struct {
 		EnableSyncNodePoolConfigurations bool
 		pool                             string
-		wantedPool                       *appsv1beta1.NodePool
+		wantedPool                       *appsv1beta2.NodePool
 		wantedNodes                      []corev1.Node
 		err                              error
 	}{
 		"reconcile hangzhou pool": {
 			pool: "hangzhou",
-			wantedPool: &appsv1beta1.NodePool{
+			wantedPool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
-				Spec: appsv1beta1.NodePoolSpec{
-					Type: appsv1beta1.Edge,
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
 				},
-				Status: appsv1beta1.NodePoolStatus{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   1,
 					UnreadyNodeNum: 1,
 					Nodes:          []string{"node1", "node2"},
@@ -176,17 +181,17 @@ func TestReconcile(t *testing.T) {
 		"reconcile beijing pool": {
 			EnableSyncNodePoolConfigurations: true,
 			pool:                             "beijing",
-			wantedPool: &appsv1beta1.NodePool{
+			wantedPool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing",
 				},
-				Spec: appsv1beta1.NodePoolSpec{
-					Type: appsv1beta1.Edge,
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
 					Labels: map[string]string{
 						"region": "beijing",
 					},
 				},
-				Status: appsv1beta1.NodePoolStatus{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   1,
 					UnreadyNodeNum: 1,
 					Nodes:          []string{"node3", "node4"},
@@ -229,17 +234,17 @@ func TestReconcile(t *testing.T) {
 		},
 		"reconcile shanghai pool without nodes": {
 			pool: "shanghai",
-			wantedPool: &appsv1beta1.NodePool{
+			wantedPool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shanghai",
 				},
-				Spec: appsv1beta1.NodePoolSpec{
-					Type: appsv1beta1.Edge,
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
 					Labels: map[string]string{
 						"region": "shanghai",
 					},
 				},
-				Status: appsv1beta1.NodePoolStatus{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   0,
 					UnreadyNodeNum: 0,
 				},
@@ -263,7 +268,7 @@ func TestReconcile(t *testing.T) {
 				return
 			}
 
-			var wantedPool appsv1beta1.NodePool
+			var wantedPool appsv1beta2.NodePool
 			if err := r.Get(ctx, req.NamespacedName, &wantedPool); err != nil {
 				t.Errorf("Reconcile() error = %v", err)
 				return

@@ -30,7 +30,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
@@ -53,7 +53,11 @@ func (nop *nopNodeHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) ru
 	return obj
 }
 
-func (nop *nopNodeHandler) SetNodesGetterAndSynced(nodesGetter filter.NodesInPoolGetter, nodesSynced cache.InformerSynced, enablePoolTopology bool) error {
+func (nop *nopNodeHandler) SetNodesGetterAndSynced(
+	nodesGetter filter.NodesInPoolGetter,
+	nodesSynced cache.InformerSynced,
+	enablePoolTopology bool,
+) error {
 	nop.nodesGetter = nodesGetter
 	nop.nodesSynced = nodesSynced
 	nop.enablePoolTopology = enablePoolTopology
@@ -83,14 +87,14 @@ func TestNodesInitializer(t *testing.T) {
 			enablePoolServiceTopology: false,
 			poolName:                  "hangzhou",
 			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: v1beta1.NodePoolSpec{
-						Type: v1beta1.Edge,
+					Spec: v1beta2.NodePoolSpec{
+						Type: v1beta2.Edge,
 					},
-					Status: v1beta1.NodePoolStatus{
+					Status: v1beta2.NodePoolStatus{
 						Nodes: []string{
 							"node1",
 							"node2",

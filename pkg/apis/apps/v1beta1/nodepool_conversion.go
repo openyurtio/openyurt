@@ -47,7 +47,7 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.InterConnectivity = false
 	dst.Spec.LeaderElectionStrategy = string(v1beta2.ElectionStrategyRandom)
 
-	klog.V(4).Infof("convert from v1alpha1 to v1beta1 for nodepool %s", dst.Name)
+	klog.V(4).Infof("convert from v1beta to v1beta2 for nodepool %s", dst.Name)
 
 	return nil
 }
@@ -73,6 +73,6 @@ func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
 		dst.Annotations[apps.NodePoolHostNetworkLabel] = "true"
 	}
 
-	klog.V(4).Infof("convert from v1beta1 to v1alpha1 for nodepool %s", dst.Name)
+	klog.V(4).Infof("convert from v1beta2 to v1beta1 for nodepool %s", dst.Name)
 	return nil
 }

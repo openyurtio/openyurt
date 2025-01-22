@@ -29,19 +29,25 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 )
 
-func GetNodePoolTweaksFromYurtAppSet(cli client.Client, nodepoolName string, yas *v1beta1.YurtAppSet) (tweaksList []*v1beta1.Tweaks, err error) {
+func GetNodePoolTweaksFromYurtAppSet(
+	cli client.Client,
+	nodepoolName string,
+	yas *v1beta1.YurtAppSet,
+) (tweaksList []*v1beta1.Tweaks, err error) {
 	tweaksList = []*v1beta1.Tweaks{}
 
-	np := v1beta1.NodePool{}
+	np := v1beta2.NodePool{}
 	if err = cli.Get(context.TODO(), client.ObjectKey{Name: nodepoolName}, &np); err != nil {
 		return
 	}
 
 	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
 		if isNodePoolRelated(&np, yasTweak.Pools, yasTweak.NodePoolSelector) {
-			klog.V(4).Infof("nodepool %s is related to yurtappset %s/%s, add tweaks", nodepoolName, yas.Namespace, yas.Name)
+			klog.V(4).
+				Infof("nodepool %s is related to yurtappset %s/%s, add tweaks", nodepoolName, yas.Namespace, yas.Name)
 			tweaksCopy := yasTweak.Tweaks
 			tweaksList = append(tweaksList, &tweaksCopy)
 		}
@@ -73,20 +79,23 @@ func ApplyTweaksToStatefulSet(statefulset *v1.StatefulSet, tweaks []*v1beta1.Twe
 func applyBasicTweaksToDeployment(deployment *v1.Deployment, basicTweaks []*v1beta1.Tweaks) {
 	for _, item := range basicTweaks {
 		if item.Replicas != nil {
-			klog.V(4).Infof("Apply BasicTweaks successfully: overwrite replicas to %d in deployment %s/%s", *item.Replicas, deployment.Name, deployment.Namespace)
+			klog.V(4).
+				Infof("Apply BasicTweaks successfully: overwrite replicas to %d in deployment %s/%s", *item.Replicas, deployment.Name, deployment.Namespace)
 			deployment.Spec.Replicas = item.Replicas
 		}
 
 		for _, item := range item.ContainerImages {
 			for i := range deployment.Spec.Template.Spec.Containers {
 				if deployment.Spec.Template.Spec.Containers[i].Name == item.Name {
-					klog.V(5).Infof("Apply BasicTweaks successfully: overwrite container %s 's image to %s in deployment %s/%s", item.Name, item.TargetImage, deployment.Name, deployment.Namespace)
+					klog.V(5).
+						Infof("Apply BasicTweaks successfully: overwrite container %s 's image to %s in deployment %s/%s", item.Name, item.TargetImage, deployment.Name, deployment.Namespace)
 					deployment.Spec.Template.Spec.Containers[i].Image = item.TargetImage
 				}
 			}
 			for i := range deployment.Spec.Template.Spec.InitContainers {
 				if deployment.Spec.Template.Spec.InitContainers[i].Name == item.Name {
-					klog.V(5).Infof("Apply BasicTweaks successfully: overwrite init container %s 's image to %s in deployment %s/%s", item.Name, item.TargetImage, deployment.Name, deployment.Namespace)
+					klog.V(5).
+						Infof("Apply BasicTweaks successfully: overwrite init container %s 's image to %s in deployment %s/%s", item.Name, item.TargetImage, deployment.Name, deployment.Namespace)
 					deployment.Spec.Template.Spec.InitContainers[i].Image = item.TargetImage
 				}
 			}
@@ -98,19 +107,22 @@ func applyBasicTweaksToDeployment(deployment *v1.Deployment, basicTweaks []*v1be
 func applyBasicTweaksToStatefulSet(statefulset *v1.StatefulSet, basicTweaks []*v1beta1.Tweaks) {
 	for _, item := range basicTweaks {
 		if item.Replicas != nil {
-			klog.V(4).Infof("Apply BasicTweaks successfully: overwrite replicas to %d in statefulset %s/%s", *item.Replicas, statefulset.Name, statefulset.Namespace)
+			klog.V(4).
+				Infof("Apply BasicTweaks successfully: overwrite replicas to %d in statefulset %s/%s", *item.Replicas, statefulset.Name, statefulset.Namespace)
 			statefulset.Spec.Replicas = item.Replicas
 		}
 		for _, item := range item.ContainerImages {
 			for i := range statefulset.Spec.Template.Spec.Containers {
 				if statefulset.Spec.Template.Spec.Containers[i].Name == item.Name {
-					klog.V(5).Infof("Apply BasicTweaks successfully: overwrite container %s 's image to %s in statefulset %s/%s", item.Name, item.TargetImage, statefulset.Name, statefulset.Namespace)
+					klog.V(5).
+						Infof("Apply BasicTweaks successfully: overwrite container %s 's image to %s in statefulset %s/%s", item.Name, item.TargetImage, statefulset.Name, statefulset.Namespace)
 					statefulset.Spec.Template.Spec.Containers[i].Image = item.TargetImage
 				}
 			}
 			for i := range statefulset.Spec.Template.Spec.InitContainers {
 				if statefulset.Spec.Template.Spec.InitContainers[i].Name == item.Name {
-					klog.V(5).Infof("Apply BasicTweaks successfully: overwrite init container %s 's image to %s in statefulset %s/%s", item.Name, item.TargetImage, statefulset.Name, statefulset.Namespace)
+					klog.V(5).
+						Infof("Apply BasicTweaks successfully: overwrite init container %s 's image to %s in statefulset %s/%s", item.Name, item.TargetImage, statefulset.Name, statefulset.Namespace)
 					statefulset.Spec.Template.Spec.InitContainers[i].Image = item.TargetImage
 				}
 			}
@@ -196,7 +208,9 @@ func preparePatchOperations(tweaks []*v1beta1.Tweaks, poolName string) []patchOp
 	for _, tweak := range tweaks {
 		for _, patch := range tweak.Patches {
 			if strings.Contains(string(patch.Value.Raw), "{{nodepool-name}}") {
-				patch.Value = apiextensionsv1.JSON{Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", poolName))}
+				patch.Value = apiextensionsv1.JSON{
+					Raw: []byte(strings.ReplaceAll(string(patch.Value.Raw), "{{nodepool-name}}", poolName)),
+				}
 			}
 			patchOperations = append(patchOperations, patchOperation{
 				Op:    string(patch.Operation),

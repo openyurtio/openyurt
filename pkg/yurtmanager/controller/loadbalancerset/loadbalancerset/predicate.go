@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/network"
 	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 )
@@ -215,12 +215,12 @@ func managedByController(ps *v1alpha1.PoolService) bool {
 func NewNodePoolPredicated() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(updateEvent event.UpdateEvent) bool {
-			oldNp, ok := updateEvent.ObjectOld.(*v1beta1.NodePool)
+			oldNp, ok := updateEvent.ObjectOld.(*v1beta2.NodePool)
 			if !ok {
 				return false
 			}
 
-			newNp, ok := updateEvent.ObjectNew.(*v1beta1.NodePool)
+			newNp, ok := updateEvent.ObjectNew.(*v1beta2.NodePool)
 			if !ok {
 				return false
 			}
@@ -228,21 +228,21 @@ func NewNodePoolPredicated() predicate.Predicate {
 			return isNodePoolChange(oldNp, newNp)
 		},
 		CreateFunc: func(createEvent event.CreateEvent) bool {
-			np, ok := createEvent.Object.(*v1beta1.NodePool)
+			np, ok := createEvent.Object.(*v1beta2.NodePool)
 			if !ok {
 				return false
 			}
 			return nodePoolHasLabels(np)
 		},
 		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-			np, ok := deleteEvent.Object.(*v1beta1.NodePool)
+			np, ok := deleteEvent.Object.(*v1beta2.NodePool)
 			if !ok {
 				return false
 			}
 			return nodePoolHasLabels(np)
 		},
 		GenericFunc: func(genericEvent event.GenericEvent) bool {
-			np, ok := genericEvent.Object.(*v1beta1.NodePool)
+			np, ok := genericEvent.Object.(*v1beta2.NodePool)
 			if !ok {
 				return false
 			}
@@ -251,13 +251,13 @@ func NewNodePoolPredicated() predicate.Predicate {
 	}
 }
 
-func isNodePoolChange(oldNp, newNp *v1beta1.NodePool) bool {
+func isNodePoolChange(oldNp, newNp *v1beta2.NodePool) bool {
 	if !reflect.DeepEqual(oldNp.Labels, newNp.Labels) {
 		return true
 	}
 	return false
 }
 
-func nodePoolHasLabels(np *v1beta1.NodePool) bool {
+func nodePoolHasLabels(np *v1beta2.NodePool) bool {
 	return len(np.Labels) != 0
 }

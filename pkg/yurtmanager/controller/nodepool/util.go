@@ -24,13 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 // conciliatePoolRelatedAttrs will update the node's attributes that related to
 // the nodepool
-func conciliateNode(node *corev1.Node, nodePool *appsv1beta1.NodePool) (bool, error) {
+func conciliateNode(node *corev1.Node, nodePool *appsv1beta2.NodePool) (bool, error) {
 	// update node attr
 	newNpra := &NodePoolRelatedAttributes{
 		Labels:      nodePool.Spec.Labels,
@@ -109,7 +109,7 @@ func conciliateNodePoolStatus(
 	readyNode,
 	notReadyNode int32,
 	nodes []string,
-	nodePool *appsv1beta1.NodePool) (needUpdate bool) {
+	nodePool *appsv1beta2.NodePool) (needUpdate bool) {
 
 	if readyNode != nodePool.Status.ReadyNodeNum {
 		nodePool.Status.ReadyNodeNum = readyNode
@@ -208,7 +208,8 @@ func areNodePoolRelatedAttributesEqual(a, b *NodePoolRelatedAttributes) bool {
 	}
 
 	isLabelsEqual := (len(a.Labels) == 0 && len(b.Labels) == 0) || reflect.DeepEqual(a.Labels, b.Labels)
-	isAnnotationsEqual := (len(a.Annotations) == 0 && len(b.Annotations) == 0) || reflect.DeepEqual(a.Annotations, b.Annotations)
+	isAnnotationsEqual := (len(a.Annotations) == 0 && len(b.Annotations) == 0) ||
+		reflect.DeepEqual(a.Annotations, b.Annotations)
 	isTaintsEqual := (len(a.Taints) == 0 && len(b.Taints) == 0) || reflect.DeepEqual(a.Taints, b.Taints)
 
 	return isLabelsEqual && isAnnotationsEqual && isTaintsEqual

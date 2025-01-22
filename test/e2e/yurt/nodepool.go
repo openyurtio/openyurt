@@ -28,7 +28,7 @@ package yurt
 //	"k8s.io/apimachinery/pkg/util/sets"
 //	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 //
-//	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+//	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 //	"github.com/openyurtio/openyurt/test/e2e/util"
 //	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 //)
@@ -39,7 +39,7 @@ package yurt
 //	poolToNodesMap := make(map[string]sets.String)
 //
 //	checkNodePoolStatus := func(poolToNodesMap map[string]sets.String) error {
-//		nps := &v1beta1.NodePoolList{}
+//		nps := &v1beta2.NodePoolList{}
 //		if err := k8sClient.List(ctx, nps); err != nil {
 //			return err
 //		}

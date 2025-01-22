@@ -25,14 +25,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 )
 
 func TestConcilateNode(t *testing.T) {
 	testcases := map[string]struct {
 		initNpra                   *NodePoolRelatedAttributes
 		mockNode                   corev1.Node
-		pool                       appsv1beta1.NodePool
+		pool                       appsv1beta2.NodePool
 		wantedNodeExcludeAttribute corev1.Node
 		updated                    bool
 	}{
@@ -56,8 +56,8 @@ func TestConcilateNode(t *testing.T) {
 					},
 				},
 			},
-			pool: appsv1beta1.NodePool{
-				Spec: appsv1beta1.NodePoolSpec{
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
 					Labels: map[string]string{
 						"poollabel1": "value1",
 						"poollabel2": "value2",
@@ -148,8 +148,8 @@ func TestConcilateNode(t *testing.T) {
 					},
 				},
 			},
-			pool: appsv1beta1.NodePool{
-				Spec: appsv1beta1.NodePoolSpec{
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
 					Labels: map[string]string{
 						"poollabel1": "value1",
 						"poollabel2": "value2",
@@ -243,8 +243,8 @@ func TestConcilateNode(t *testing.T) {
 					},
 				},
 			},
-			pool: appsv1beta1.NodePool{
-				Spec: appsv1beta1.NodePoolSpec{
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
 					Labels: map[string]string{
 						"label2": "value2",
 					},
@@ -312,8 +312,8 @@ func TestConcilateNode(t *testing.T) {
 					},
 				},
 			},
-			pool: appsv1beta1.NodePool{
-				Spec: appsv1beta1.NodePoolSpec{
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
 					Labels: map[string]string{
 						"label2":     "value2",
 						"poollabel2": "value2",
@@ -372,8 +372,8 @@ func TestConcilateNode(t *testing.T) {
 					},
 				},
 			},
-			pool: appsv1beta1.NodePool{
-				Spec: appsv1beta1.NodePoolSpec{
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
 					Labels:      map[string]string{},
 					Annotations: map[string]string{},
 					Taints:      []corev1.Taint{},
@@ -557,15 +557,15 @@ func TestConciliateNodePoolStatus(t *testing.T) {
 		readyNodes    int32
 		notReadyNodes int32
 		nodes         []string
-		pool          *appsv1beta1.NodePool
+		pool          *appsv1beta2.NodePool
 		needUpdated   bool
 	}{
 		"status is needed to update": {
 			readyNodes:    5,
 			notReadyNodes: 2,
 			nodes:         []string{"foo", "bar", "cat", "zxxde"},
-			pool: &appsv1beta1.NodePool{
-				Status: appsv1beta1.NodePoolStatus{
+			pool: &appsv1beta2.NodePool{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   2,
 					UnreadyNodeNum: 3,
 					Nodes:          []string{"foo", "bar", "cat", "zxxde", "lucky"},
@@ -577,8 +577,8 @@ func TestConciliateNodePoolStatus(t *testing.T) {
 			readyNodes:    2,
 			notReadyNodes: 2,
 			nodes:         []string{"foo", "bar", "cat", "zxxde"},
-			pool: &appsv1beta1.NodePool{
-				Status: appsv1beta1.NodePoolStatus{
+			pool: &appsv1beta2.NodePool{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   2,
 					UnreadyNodeNum: 2,
 					Nodes:          []string{"foo", "bar", "cat", "zxxde"},
@@ -590,11 +590,11 @@ func TestConciliateNodePoolStatus(t *testing.T) {
 			readyNodes:    0,
 			notReadyNodes: 0,
 			nodes:         []string{},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Status: appsv1beta1.NodePoolStatus{
+				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   0,
 					UnreadyNodeNum: 0,
 					Nodes:          []string{},
@@ -606,7 +606,7 @@ func TestConciliateNodePoolStatus(t *testing.T) {
 			readyNodes:    0,
 			notReadyNodes: 0,
 			nodes:         []string{},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
@@ -667,7 +667,13 @@ func TestContainTaint(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			gotIndex, gotBool := containTaint(tc.inputTaint, mockTaints)
 			if gotIndex != tc.resultIndex || gotBool != tc.isContained {
-				t.Errorf("Expected index %v and bool %v, got index %v and bool %v", tc.resultIndex, tc.isContained, gotIndex, gotBool)
+				t.Errorf(
+					"Expected index %v and bool %v, got index %v and bool %v",
+					tc.resultIndex,
+					tc.isContained,
+					gotIndex,
+					gotBool,
+				)
 			}
 		})
 	}

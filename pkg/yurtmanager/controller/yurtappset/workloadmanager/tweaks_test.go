@@ -32,6 +32,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 )
 
 var (
@@ -154,7 +155,7 @@ func TestGetNodePoolTweaksFromYurtAppSet(t *testing.T) {
 			name: "nodepool matches yurtappset",
 			args: args{
 				cli: fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(
-					&v1beta1.NodePool{ObjectMeta: metav1.ObjectMeta{
+					&v1beta2.NodePool{ObjectMeta: metav1.ObjectMeta{
 						Name: "test-nodepool",
 					}},
 					&v1beta1.YurtAppSet{
@@ -197,7 +198,7 @@ func TestGetNodePoolTweaksFromYurtAppSet(t *testing.T) {
 			name: "no nodepool selector or pools specified",
 			args: args{
 				cli: fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(
-					&v1beta1.NodePool{ObjectMeta: metav1.ObjectMeta{
+					&v1beta2.NodePool{ObjectMeta: metav1.ObjectMeta{
 						Name: "test-nodepool",
 					}},
 					&v1beta1.YurtAppSet{
@@ -217,7 +218,7 @@ func TestGetNodePoolTweaksFromYurtAppSet(t *testing.T) {
 			name: "nodepool selector match",
 			args: args{
 				cli: fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(
-					&v1beta1.NodePool{
+					&v1beta2.NodePool{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-nodepool",
 							Labels: map[string]string{

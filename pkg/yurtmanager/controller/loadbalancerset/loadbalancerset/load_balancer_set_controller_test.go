@@ -38,7 +38,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/network"
 	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 )
@@ -72,7 +72,13 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 		np3 := newNodepool("np345", "name=np345")
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np3).WithObjects(np2).Build()
+		c := fakeclient.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(svc).
+			WithObjects(np1).
+			WithObjects(np3).
+			WithObjects(np2).
+			Build()
 		rc := ReconcileLoadBalancerSet{
 			Client: c,
 		}
@@ -132,7 +138,14 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		ps1 := newPoolService(v1.NamespaceDefault, "np123", nil, nil, nil)
 		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, nil, nil)
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).WithObjects(ps1).WithObjects(ps2).Build()
+		c := fakeclient.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(svc).
+			WithObjects(np1).
+			WithObjects(np2).
+			WithObjects(ps1).
+			WithObjects(ps2).
+			Build()
 
 		rc := ReconcileLoadBalancerSet{
 			Client: c,
@@ -157,7 +170,15 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		ps2 := newPoolService(v1.NamespaceDefault, "np234", nil, nil, []corev1.LoadBalancerIngress{{IP: "1.2.3.4"}})
 		ps3 := newPoolService(v1.NamespaceSystem, "np234", nil, nil, []corev1.LoadBalancerIngress{{IP: "3.4.5.6"}})
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).WithObjects(ps1).WithObjects(ps2).WithObjects(ps3).Build()
+		c := fakeclient.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(svc).
+			WithObjects(np1).
+			WithObjects(np2).
+			WithObjects(ps1).
+			WithObjects(ps2).
+			WithObjects(ps3).
+			Build()
 
 		rc := ReconcileLoadBalancerSet{
 			Client: c,
@@ -182,10 +203,34 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		np1 := newNodepool("np123", "name=np123,app=deploy")
 		np2 := newNodepool("np234", "name=np234,app=deploy")
 
-		ps1 := newPoolService(v1.NamespaceDefault, "np123", map[string]string{"lb-id": "lb34567"}, map[string]string{"lb-id": "lb34567"}, nil)
-		ps2 := newPoolService(v1.NamespaceDefault, "np234", map[string]string{"lb-id": "lb23456"}, map[string]string{"lb-id": "lb23456"}, nil)
-		ps3 := newPoolService(v1.NamespaceDefault, "np345", map[string]string{"lb-id": "lb12345"}, map[string]string{"lb-id": "lb12345"}, nil)
-		ps4 := newPoolService(v1.NamespaceDefault, "np456", map[string]string{"lb-id": "lb12345"}, map[string]string{"lb-id": "lb12345"}, nil)
+		ps1 := newPoolService(
+			v1.NamespaceDefault,
+			"np123",
+			map[string]string{"lb-id": "lb34567"},
+			map[string]string{"lb-id": "lb34567"},
+			nil,
+		)
+		ps2 := newPoolService(
+			v1.NamespaceDefault,
+			"np234",
+			map[string]string{"lb-id": "lb23456"},
+			map[string]string{"lb-id": "lb23456"},
+			nil,
+		)
+		ps3 := newPoolService(
+			v1.NamespaceDefault,
+			"np345",
+			map[string]string{"lb-id": "lb12345"},
+			map[string]string{"lb-id": "lb12345"},
+			nil,
+		)
+		ps4 := newPoolService(
+			v1.NamespaceDefault,
+			"np456",
+			map[string]string{"lb-id": "lb12345"},
+			map[string]string{"lb-id": "lb12345"},
+			nil,
+		)
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).WithObjects(np1).WithObjects(np2).
 			WithObjects(ps1).WithObjects(ps2).WithObjects(ps3).WithObjects(ps4).Build()
@@ -356,7 +401,13 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		assertErrNil(t, err)
 
 		eve := <-recorder.Events
-		expected := fmt.Sprintf("%s %s %s%s", corev1.EventTypeWarning, "NoMatchNodePool", "No node pool matches the nodepool label selector on the service", "")
+		expected := fmt.Sprintf(
+			"%s %s %s%s",
+			corev1.EventTypeWarning,
+			"NoMatchNodePool",
+			"No node pool matches the nodepool label selector on the service",
+			"",
+		)
 		assertString(t, expected, eve)
 	})
 
@@ -654,7 +705,13 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		assertOwnerReferences(t, expectedOwnerReferences, newPs.OwnerReferences)
 
 		eve := <-recorder.Events
-		expected := fmt.Sprintf("%s %s %s%s", corev1.EventTypeWarning, "Modified", "PoolService default/test-np123 resource is manually modified, the controller will overwrite this modification", "")
+		expected := fmt.Sprintf(
+			"%s %s %s%s",
+			corev1.EventTypeWarning,
+			"Modified",
+			"PoolService default/test-np123 resource is manually modified, the controller will overwrite this modification",
+			"",
+		)
 		assertString(t, expected, eve)
 	})
 
@@ -669,7 +726,13 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 
 		np := newNodepool("np123", "name=np123,app=deploy")
 
-		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc1).WithObjects(svc2).WithObjects(ps).WithObjects(np).Build()
+		c := fakeclient.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(svc1).
+			WithObjects(svc2).
+			WithObjects(ps).
+			WithObjects(np).
+			Build()
 		recorder := &record.FakeRecorder{
 			Events: make(chan string, 1),
 		}
@@ -748,7 +811,13 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 		assertString(t, newPs.Labels[network.LabelServiceName], "mock")
 
 		eve := <-recorder.Events
-		expected := fmt.Sprintf("%s %s %s%s", corev1.EventTypeWarning, "ManagedConflict", "PoolService default/test-np123 is not managed by pool-service-controller, but the nodepool-labelselector of service default/test include it", "")
+		expected := fmt.Sprintf(
+			"%s %s %s%s",
+			corev1.EventTypeWarning,
+			"ManagedConflict",
+			"PoolService default/test-np123 is not managed by pool-service-controller, but the nodepool-labelselector of service default/test include it",
+			"",
+		)
 		assertString(t, expected, eve)
 	})
 }
@@ -800,7 +869,7 @@ func newService(namespace string, name string) *corev1.Service {
 	}
 }
 
-func newNodepool(name string, labelStr string) *v1beta1.NodePool {
+func newNodepool(name string, labelStr string) *v1beta2.NodePool {
 	var splitLabels []string
 	if labelStr != "" {
 		splitLabels = strings.Split(labelStr, ",")
@@ -812,7 +881,7 @@ func newNodepool(name string, labelStr string) *v1beta1.NodePool {
 		labels[kv[0]] = kv[1]
 	}
 
-	return &v1beta1.NodePool{
+	return &v1beta2.NodePool{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "NodePool",
 			APIVersion: "apps.openyurt.io/v1beta1",
@@ -877,7 +946,12 @@ func assertPoolServiceLabels(t testing.TB, psl *v1alpha1.PoolServiceList, servic
 	}
 }
 
-func newPoolService(namespace string, poolName string, aggregatedLabels, aggregatedAnnotations map[string]string, lbIngress []corev1.LoadBalancerIngress) *v1alpha1.PoolService {
+func newPoolService(
+	namespace string,
+	poolName string,
+	aggregatedLabels, aggregatedAnnotations map[string]string,
+	lbIngress []corev1.LoadBalancerIngress,
+) *v1alpha1.PoolService {
 	blockOwnerDeletion := true
 	controller := true
 	return &v1alpha1.PoolService{
@@ -888,7 +962,11 @@ func newPoolService(namespace string, poolName string, aggregatedLabels, aggrega
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: namespace,
 			Name:      mockServiceName + "-" + poolName,
-			Labels:    map[string]string{network.LabelServiceName: mockServiceName, network.LabelNodePoolName: poolName, labelManageBy: names.LoadBalancerSetController},
+			Labels: map[string]string{
+				network.LabelServiceName:  mockServiceName,
+				network.LabelNodePoolName: poolName,
+				labelManageBy:             names.LoadBalancerSetController,
+			},
 			OwnerReferences: []v1.OwnerReference{
 				{
 					APIVersion:         "v1",
