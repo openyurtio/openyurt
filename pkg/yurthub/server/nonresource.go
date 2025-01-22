@@ -30,7 +30,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
@@ -44,12 +44,12 @@ var nonResourceReqPaths = map[string]storage.ClusterInfoType{
 
 type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler
 
-func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, restMgr *rest.RestConfigManager) http.Handler {
+func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, manager *directclient.DirectClientManager) http.Handler {
 	wrapMux := mux.NewRouter()
 
 	// register handler for non resource requests
 	for path := range nonResourceReqPaths {
-		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, restMgr, config.StorageWrapper, path)).Methods("GET")
+		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, manager, config.StorageWrapper, path)).Methods("GET")
 	}
 
 	// register handler for other requests
@@ -57,14 +57,14 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManager, sw cachemanager.StorageWrapper, path string) http.Handler {
+func localCacheHandler(handler NonResourceHandler, manager *directclient.DirectClientManager, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
 			UrlPath:         path,
 		}
-		restCfg := restMgr.GetRestConfig(true)
-		if restCfg == nil {
+		kubeClient := manager.GetDirectClientset(true)
+		if kubeClient == nil {
 			klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
 			if nonResourceData, err := sw.GetClusterInfo(key); err == nil {
 				w.WriteHeader(http.StatusOK)
@@ -79,12 +79,6 @@ func localCacheHandler(handler NonResourceHandler, restMgr *rest.RestConfigManag
 			return
 		}
 
-		kubeClient, err := kubernetes.NewForConfig(restCfg)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			writeErrResponse(path, err, w)
-			return
-		}
 		handler(kubeClient, sw, path).ServeHTTP(w, r)
 	})
 }
