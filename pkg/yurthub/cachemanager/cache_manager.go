@@ -359,7 +359,7 @@ func generateEmptyListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object,
 	return listObj, nil
 }
 
-func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, stopCh <-chan struct{}) error {
+func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, _ <-chan struct{}) error {
 	delObjCnt := 0
 	updateObjCnt := 0
 	addObjCnt := 0

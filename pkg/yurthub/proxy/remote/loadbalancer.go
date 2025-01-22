@@ -58,10 +58,12 @@ func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 	if len(rr.backends) == 0 {
 		return nil
 	} else if len(rr.backends) == 1 {
-		if rr.checker.BackendHealthyStatus(rr.backends[0].RemoteServer()) {
-			return rr.backends[0]
+		if !yurtutil.IsNil(rr.checker) {
+			if !rr.checker.BackendHealthyStatus(rr.backends[0].RemoteServer()) {
+				return nil
+			}
 		}
-		return nil
+		return rr.backends[0]
 	} else {
 		// round robin
 		rr.Lock()
@@ -70,10 +72,14 @@ func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 		selected := rr.next
 		for i := 0; i < len(rr.backends); i++ {
 			selected = (rr.next + i) % len(rr.backends)
-			if rr.checker.BackendHealthyStatus(rr.backends[selected].RemoteServer()) {
-				hasFound = true
-				break
+			if !yurtutil.IsNil(rr.checker) {
+				if !rr.checker.BackendHealthyStatus(rr.backends[selected].RemoteServer()) {
+					// use checker until get a healthy backend
+					continue
+				}
 			}
+			hasFound = true
+			break
 		}
 
 		if hasFound {
@@ -99,19 +105,24 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 	if len(prio.backends) == 0 {
 		return nil
 	} else if len(prio.backends) == 1 {
-		if prio.checker.BackendHealthyStatus(prio.backends[0].RemoteServer()) {
-			return prio.backends[0]
+		if !yurtutil.IsNil(prio.checker) {
+			if !prio.checker.BackendHealthyStatus(prio.backends[0].RemoteServer()) {
+				return nil
+			}
 		}
-		return nil
+		return prio.backends[0]
 	} else {
 		prio.Lock()
 		defer prio.Unlock()
 		for i := 0; i < len(prio.backends); i++ {
-			if prio.checker.BackendHealthyStatus(prio.backends[i].RemoteServer()) {
+			if !yurtutil.IsNil(prio.checker) {
+				if prio.checker.BackendHealthyStatus(prio.backends[i].RemoteServer()) {
+					return prio.backends[i]
+				}
+			} else {
 				return prio.backends[i]
 			}
 		}
-
 		return nil
 	}
 }

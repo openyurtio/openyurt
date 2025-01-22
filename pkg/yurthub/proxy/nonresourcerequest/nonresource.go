@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package nonresourcerequest
 
 import (
 	"context"
@@ -30,8 +30,9 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
 var nonResourceReqPaths = map[string]storage.ClusterInfoType{
@@ -44,12 +45,14 @@ var nonResourceReqPaths = map[string]storage.ClusterInfoType{
 
 type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler
 
-func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, manager *directclient.DirectClientManager) http.Handler {
+func WrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, healthChecker healthchecker.MultipleBackendsHealthChecker) http.Handler {
 	wrapMux := mux.NewRouter()
 
 	// register handler for non resource requests
-	for path := range nonResourceReqPaths {
-		wrapMux.Handle(path, localCacheHandler(nonResourceHandler, manager, config.StorageWrapper, path)).Methods("GET")
+	if !yurtutil.IsNil(healthChecker) && !yurtutil.IsNil(config.StorageWrapper) {
+		for path := range nonResourceReqPaths {
+			wrapMux.Handle(path, localCacheHandler(nonResourceHandler, healthChecker, config.TransportAndDirectClientManager, config.StorageWrapper, path)).Methods("GET")
+		}
 	}
 
 	// register handler for other requests
@@ -57,29 +60,37 @@ func wrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func localCacheHandler(handler NonResourceHandler, manager *directclient.DirectClientManager, sw cachemanager.StorageWrapper, path string) http.Handler {
+func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.MultipleBackendsHealthChecker, clientManager transport.Interface, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// if cloud kube-apiserver is healthy, forward non resource request to cloud kube-apiserver
+		// otherwise serve non resource request by local cache.
+		u, err := healthChecker.PickHealthyServer()
+		if err == nil && u != nil {
+			kubeClient := clientManager.GetDirectClientset(u)
+			if kubeClient != nil {
+				clientset, ok := kubeClient.(*kubernetes.Clientset)
+				if ok {
+					handler(clientset, sw, path).ServeHTTP(w, r)
+					return
+				}
+			}
+		}
+
+		klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
 		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
 			UrlPath:         path,
 		}
-		kubeClient := manager.GetDirectClientset(true)
-		if kubeClient == nil {
-			klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
-			if nonResourceData, err := sw.GetClusterInfo(key); err == nil {
-				w.WriteHeader(http.StatusOK)
-				writeRawJSON(nonResourceData, w)
-			} else if err == storage.ErrStorageNotFound {
-				w.WriteHeader(http.StatusNotFound)
-				writeErrResponse(path, err, w)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-				writeErrResponse(path, err, w)
-			}
-			return
+		if nonResourceData, err := sw.GetClusterInfo(key); err == nil {
+			w.WriteHeader(http.StatusOK)
+			writeRawJSON(nonResourceData, w)
+		} else if err == storage.ErrStorageNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			writeErrResponse(path, err, w)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			writeErrResponse(path, err, w)
 		}
-
-		handler(kubeClient, sw, path).ServeHTTP(w, r)
 	})
 }
 

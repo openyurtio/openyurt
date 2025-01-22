@@ -19,13 +19,9 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/klog/v2"
 
@@ -35,12 +31,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/locallb"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
-	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
-	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -67,7 +61,7 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 				klog.Fatalf("validate options: %v", err)
 			}
 
-			yurtHubCfg, err := config.Complete(yurtHubOptions)
+			yurtHubCfg, err := config.Complete(yurtHubOptions, ctx.Done())
 			if err != nil {
 				klog.Fatalf("complete %s configuration error, %v", projectinfo.GetHubName(), err)
 			}
@@ -89,99 +83,12 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 
 // Run runs the YurtHubConfiguration. This should never exit
 func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
-	if cfg.WorkingMode != util.WorkingModeLocal {
-		defer cfg.CertManager.Stop()
-		trace := 1
-		klog.Infof("%d. new transport manager", trace)
-		transportManager, err := transport.NewTransportManager(cfg.CertManager, ctx.Done())
-		if err != nil {
-			return fmt.Errorf("could not new transport manager, %w", err)
-		}
-		trace++
+	klog.Infof("%s works in %s mode", projectinfo.GetHubName(), string(cfg.WorkingMode))
 
-		klog.Infof("%d. prepare cloud kube clients", trace)
-		cloudClients, err := createClients(cfg.HeartbeatTimeoutSeconds, cfg.RemoteServers, transportManager)
-		if err != nil {
-			return fmt.Errorf("could not create cloud clients, %w", err)
-		}
-		trace++
-
-		var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
-		if cfg.WorkingMode == util.WorkingModeEdge {
-			klog.Infof("%d. create health checkers for remote servers", trace)
-			cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, cloudClients, ctx.Done())
-			if err != nil {
-				return fmt.Errorf("could not new cloud health checker, %w", err)
-			}
-		} else {
-			klog.Infof("%d. disable health checker for node %s because it is a cloud node", trace, cfg.NodeName)
-			// In cloud mode, cloud health checker is not needed.
-			// This fake checker will always report that the cloud is healthy is unhealthy.
-			cloudHealthChecker = healthchecker.NewFakeChecker(true, make(map[string]int))
-		}
-		trace++
-
-		klog.Infof("%d. new direct client manager", trace)
-		directClientManager, err := directclient.NewRestClientManager(cfg.RemoteServers, transportManager, cloudHealthChecker)
-		if err != nil {
-			return fmt.Errorf("could not new restConfig manager, %w", err)
-		}
-		trace++
-
-		var cacheMgr cachemanager.CacheManager
-		if cfg.WorkingMode == util.WorkingModeEdge {
-			klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
-			cacheMgr = cachemanager.NewCacheManager(cfg.StorageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.ConfigManager)
-		} else {
-			klog.Infof("%d. disable cache manager for node %s because it is a cloud node", trace, cfg.NodeName)
-		}
-		trace++
-
-		if cfg.WorkingMode == util.WorkingModeEdge {
-			klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-			gcMgr, err := gc.NewGCManager(cfg, directClientManager, ctx.Done())
-			if err != nil {
-				return fmt.Errorf("could not new gc manager, %w", err)
-			}
-			gcMgr.Run()
-		} else {
-			klog.Infof("%d. disable gc manager for node %s because it is a cloud node", trace, cfg.NodeName)
-		}
-		trace++
-
-		klog.Infof("%d. new tenant sa manager", trace)
-		tenantMgr := tenant.New(cfg.TenantNs, cfg.SharedFactory, ctx.Done())
-		trace++
-
-		// Start the informer factory if all informers have been registered
-		cfg.SharedFactory.Start(ctx.Done())
-		cfg.NodePoolInformerFactory.Start(ctx.Done())
-
-		klog.Infof("%d. new reverse proxy handler for remote servers", trace)
-		yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
-			cfg,
-			cacheMgr,
-			directClientManager,
-			transportManager,
-			cloudHealthChecker,
-			tenantMgr,
-			ctx.Done())
-		if err != nil {
-			return fmt.Errorf("could not create reverse proxy handler, %w", err)
-		}
-		trace++
-
-		if cfg.NetworkMgr != nil {
-			cfg.NetworkMgr.Run(ctx.Done())
-		}
-
-		klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
-		if err := server.RunYurtHubServers(cfg, yurtProxyHandler, directClientManager, ctx.Done()); err != nil {
-			return fmt.Errorf("could not run hub servers, %w", err)
-		}
-	} else {
+	switch cfg.WorkingMode {
+	case util.WorkingModeLocal:
 		klog.Infof("new locallb manager for node %s ", cfg.NodeName)
-		locallbMgr, err := locallb.NewLocalLBManager(cfg, cfg.SharedFactory)
+		locallbMgr, err := locallb.NewLocalLBManager(cfg.TenantKasService, cfg.SharedFactory)
 		// when local mode yurthub exits, we need to clean configured iptables
 		defer locallbMgr.CleanIptables()
 		if err != nil {
@@ -189,27 +96,76 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		}
 		// Start the informer factory if all informers have been registered
 		cfg.SharedFactory.Start(ctx.Done())
+
+	case util.WorkingModeCloud, util.WorkingModeEdge:
+		defer cfg.CertManager.Stop()
+		trace := 1
+		// compare cloud working mode, edge working mode need following preparations:
+		// 1. cache manager: used for caching response on local disk.
+		// 2. health checker: periodically check the health status of cloud kube-apiserver
+		// 3. gc: used for garbaging collect unused cache on local disk.
+		var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
+		var storageWrapper cachemanager.StorageWrapper
+		var cacheManager cachemanager.CacheManager
+		var err error
+		if cfg.WorkingMode == util.WorkingModeEdge {
+			klog.Infof("%d. new cache manager with storage wrapper and serializer manager", trace)
+			storageManager, err := disk.NewDiskStorage(cfg.DiskCachePath)
+			if err != nil {
+				klog.Errorf("could not create storage manager, %v", err)
+				return err
+			}
+			storageWrapper = cachemanager.NewStorageWrapper(storageManager)
+			cacheManager = cachemanager.NewCacheManager(storageWrapper, cfg.SerializerManager, cfg.RESTMapperManager, cfg.ConfigManager)
+			cfg.StorageWrapper = storageWrapper
+			trace++
+
+			klog.Infof("%d. create health checkers for remote servers", trace)
+			cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, ctx.Done())
+			if err != nil {
+				return fmt.Errorf("could not new health checker for cloud kube-apiserver, %w", err)
+			}
+			trace++
+
+			klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
+			gcMgr, err := gc.NewGCManager(cfg, cloudHealthChecker, ctx.Done())
+			if err != nil {
+				return fmt.Errorf("could not new gc manager, %w", err)
+			}
+			gcMgr.Run()
+			trace++
+		}
+
+		if cfg.NetworkMgr != nil {
+			klog.Infof("%d. start network manager for ensuing dummy interface", trace)
+			cfg.NetworkMgr.Run(ctx.Done())
+			trace++
+		}
+
+		// Start the informer factory if all informers have been registered
+		cfg.SharedFactory.Start(ctx.Done())
+		cfg.DynamicSharedFactory.Start(ctx.Done())
+
+		// Start to prepare proxy handler and start server serving.
+		klog.Infof("%d. new reverse proxy handler for forwarding requests", trace)
+		yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
+			cfg,
+			cacheManager,
+			cloudHealthChecker,
+			ctx.Done())
+		if err != nil {
+			return fmt.Errorf("could not create reverse proxy handler, %w", err)
+		}
+		trace++
+
+		klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
+		if err := server.RunYurtHubServers(cfg, yurtProxyHandler, cloudHealthChecker, ctx.Done()); err != nil {
+			return fmt.Errorf("could not run hub servers, %w", err)
+		}
+	default:
+
 	}
 	<-ctx.Done()
 	klog.Info("hub agent exited")
 	return nil
-}
-
-// createClients will create clients for all cloud APIServer
-// It will return a map, mapping cloud APIServer URL to its client
-func createClients(heartbeatTimeoutSeconds int, remoteServers []*url.URL, tp transport.Interface) (map[string]kubernetes.Interface, error) {
-	cloudClients := make(map[string]kubernetes.Interface)
-	for i := range remoteServers {
-		restConf := &rest.Config{
-			Host:      remoteServers[i].String(),
-			Transport: tp.CurrentTransport(),
-			Timeout:   time.Duration(heartbeatTimeoutSeconds) * time.Second,
-		}
-		c, err := kubernetes.NewForConfig(restConf)
-		if err != nil {
-			return cloudClients, err
-		}
-		cloudClients[remoteServers[i].String()] = c
-	}
-	return cloudClients, nil
 }

@@ -151,7 +151,7 @@ func (nl *nodeLeaseImpl) newLease(base *coordinationv1.Lease) *coordinationv1.Le
 	}
 
 	lease.Spec.RenewTime = &metav1.MicroTime{Time: nl.clock.Now()}
-	if lease.OwnerReferences == nil || len(lease.OwnerReferences) == 0 {
+	if len(lease.OwnerReferences) == 0 {
 		if node, err := nl.client.CoreV1().Nodes().Get(context.Background(), nl.holderIdentity, metav1.GetOptions{}); err == nil {
 			lease.OwnerReferences = []metav1.OwnerReference{
 				{

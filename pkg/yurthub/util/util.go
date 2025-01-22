@@ -63,8 +63,6 @@ const (
 	ProxyRespContentType
 	// ProxyClientComponent represents client component context key
 	ProxyClientComponent
-	// ProxyReqCanCache represents request can cache context key
-	ProxyReqCanCache
 	// ProxyListSelector represents label selector and filed selector string for list request
 	ProxyListSelector
 	// ProxyConvertGVK represents the gvk of response when it is a partial object metadata request
@@ -125,7 +123,7 @@ func ClientComponentFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-// TruncatedClientComponentFrom returns the value of the client component key without slash on the ctx
+// TruncatedClientComponentFrom returns the value of the client component key without slash on the ctx.
 // only return the content before the first slash if user agent header includes slash.
 func TruncatedClientComponentFrom(ctx context.Context) (string, bool) {
 	comp, ok := ctx.Value(ProxyClientComponent).(string)

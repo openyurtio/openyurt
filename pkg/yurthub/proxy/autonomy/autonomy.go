@@ -27,13 +27,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -47,19 +50,22 @@ var (
 )
 
 type AutonomyProxy struct {
-	cacheMgr            cachemanager.CacheManager
-	directClientManager *directclient.DirectClientManager
-	cacheFailedCount    *int32
+	cacheMgr         cachemanager.CacheManager
+	healthChecker    healthchecker.MultipleBackendsHealthChecker
+	clientManager    transport.Interface
+	cacheFailedCount *int32
 }
 
 func NewAutonomyProxy(
-	manager *directclient.DirectClientManager,
+	healthChecker healthchecker.MultipleBackendsHealthChecker,
+	clientManager transport.Interface,
 	cacheMgr cachemanager.CacheManager,
 ) *AutonomyProxy {
 	return &AutonomyProxy{
-		directClientManager: manager,
-		cacheMgr:            cacheMgr,
-		cacheFailedCount:    ptr.To[int32](0),
+		healthChecker:    healthChecker,
+		clientManager:    clientManager,
+		cacheMgr:         cacheMgr,
+		cacheFailedCount: ptr.To[int32](0),
 	}
 }
 
@@ -116,10 +122,13 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 			return nil, fmt.Errorf("could not QueryCache, node is not found")
 		}
 	} else {
-		if ap.directClientManager == nil {
-			return nil, ErrDirectClientMgr
+		var client kubernetes.Interface
+		if yurtutil.IsNil(ap.healthChecker) {
+			return originalNode, ErrDirectClientMgr
+		} else if u, err := ap.healthChecker.PickHealthyServer(); u != nil && err == nil {
+			client = ap.clientManager.GetDirectClientset(u)
 		}
-		client := ap.directClientManager.GetDirectClientset(true)
+
 		if client == nil {
 			return nil, fmt.Errorf("no healthy remote server can be found for direct client")
 		}
@@ -146,10 +155,13 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		return originalNode, nil
 	}
 
-	if ap.directClientManager == nil {
+	var client kubernetes.Interface
+	if yurtutil.IsNil(ap.healthChecker) {
 		return originalNode, ErrDirectClientMgr
+	} else if u, err := ap.healthChecker.PickHealthyServer(); u != nil && err == nil {
+		client = ap.clientManager.GetDirectClientset(u)
 	}
-	client := ap.directClientManager.GetDirectClientset(true)
+
 	if client == nil {
 		return nil, fmt.Errorf("no healthy remote server can be found for updating node condition")
 	}

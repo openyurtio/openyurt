@@ -22,35 +22,17 @@ import (
 	"net/url"
 	"testing"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
-var neverStop <-chan struct{} = context.Background().Done()
-
-type nopRoundTrip struct{}
-
-func (n *nopRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
-	return &http.Response{
-		Status:     http.StatusText(http.StatusOK),
-		StatusCode: http.StatusOK,
-	}, nil
-}
-
-type fakeTransportManager struct{}
-
-func (f *fakeTransportManager) CurrentTransport() http.RoundTripper {
-	return &nopRoundTrip{}
-}
-
-func (f *fakeTransportManager) BearerTransport() http.RoundTripper {
-	return &nopRoundTrip{}
-}
-
-func (f *fakeTransportManager) Close(_ string) {}
-
-var transportMgr transport.Interface = &fakeTransportManager{}
+var (
+	neverStop    <-chan struct{}     = context.Background().Done()
+	transportMgr transport.Interface = transport.NewFakeTransportManager(http.StatusOK, map[string]kubernetes.Interface{})
+)
 
 type PickBackend struct {
 	DeltaRequestsCnt int

@@ -49,7 +49,6 @@ func (fc *fakeChecker) IsHealthy() bool {
 }
 
 func (fc *fakeChecker) RenewKubeletLeaseTime() {
-	return
 }
 
 func (fc *fakeChecker) PickHealthyServer() (*url.URL, error) {

@@ -28,21 +28,21 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/util/profile"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 // RunYurtHubServers is used to start up all servers for yurthub
 func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
-	manager *directclient.DirectClientManager,
+	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	stopCh <-chan struct{}) error {
 
 	hubServerHandler := mux.NewRouter()
-	registerHandlers(hubServerHandler, cfg, manager)
+	registerHandlers(hubServerHandler, cfg, healthChecker)
 
 	// start yurthub http server for serving metrics, pprof.
 	if cfg.YurtHubServerServing != nil {
@@ -52,9 +52,6 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	}
 
 	// start yurthub proxy servers for forwarding requests to cloud kube-apiserver
-	if cfg.WorkingMode == util.WorkingModeEdge {
-		proxyHandler = wrapNonResourceHandler(proxyHandler, cfg, manager)
-	}
 	if cfg.YurtHubProxyServerServing != nil {
 		if err := cfg.YurtHubProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
 			return err
@@ -76,7 +73,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, manager *directclient.DirectClientManager) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChecker healthchecker.MultipleBackendsHealthChecker) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(cfg.CertManager)).Methods("POST", "PUT")
 
@@ -93,13 +90,14 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, manager *
 	c.Handle("/metrics", promhttp.Handler())
 
 	// register handler for ota upgrade
-	if cfg.WorkingMode == util.WorkingModeEdge {
+	if !yurtutil.IsNil(cfg.StorageWrapper) {
 		c.Handle("/pods", ota.GetPods(cfg.StorageWrapper)).Methods("GET")
 	} else {
+		// cloud mode, storageWrapper is not prepared, get pods from kube-apiserver directly.
 		c.Handle("/pods", getPodList(cfg.SharedFactory)).Methods("GET")
 	}
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
-		ota.HealthyCheck(manager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
+		ota.HealthyCheck(healthChecker, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
 }
 
 // healthz returns ok for healthz request

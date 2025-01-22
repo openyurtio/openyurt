@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package nonresourcerequest
 
 import (
 	"bytes"
@@ -44,7 +44,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
@@ -75,7 +74,7 @@ func TestLocalCacheHandler(t *testing.T) {
 		t.Fatalf("failed to make temp dir, %v", err)
 	}
 	nodeName := "foo"
-	client, err := testdata.CreateCertFakeClient("../certificate/testdata")
+	client, err := testdata.CreateCertFakeClient("../../certificate/testdata")
 	if err != nil {
 		t.Errorf("failed to create cert fake client, %v", err)
 		return
@@ -106,14 +105,9 @@ func TestLocalCacheHandler(t *testing.T) {
 		t.Errorf("certificates are not ready, %v", err)
 	}
 
-	transportManager, err := transport.NewTransportManager(certManager, context.Background().Done())
+	transportManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager, context.Background().Done())
 	if err != nil {
 		t.Fatalf("could not new transport manager, %v", err)
-	}
-
-	rcm, err := directclient.NewRestClientManager(remoteServers, transportManager, fakeHealthChecker)
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	testcases := map[string]struct {
@@ -150,7 +144,7 @@ func TestLocalCacheHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 			resp := httptest.NewRecorder()
-			localCacheHandler(nonResourceHandler, rcm, sw, tt.path).ServeHTTP(resp, req)
+			localCacheHandler(nonResourceHandler, fakeHealthChecker, transportManager, sw, tt.path).ServeHTTP(resp, req)
 
 			if resp.Code != tt.statusCode {
 				t.Errorf("expect status code %d, but got %d", tt.statusCode, resp.Code)

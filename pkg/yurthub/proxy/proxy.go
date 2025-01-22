@@ -33,15 +33,14 @@ import (
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	basemultiplexer "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/autonomy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/nonresourcerequest"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
-	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -64,10 +63,7 @@ type yurtReverseProxy struct {
 func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
-	manager *directclient.DirectClientManager,
-	transportMgr transport.Interface,
 	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
-	tenantMgr tenant.Interface,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -78,7 +74,7 @@ func NewYurtReverseProxyHandler(
 		yurtHubCfg.LBMode,
 		yurtHubCfg.RemoteServers,
 		localCacheMgr,
-		transportMgr,
+		yurtHubCfg.TransportAndDirectClientManager,
 		cloudHealthChecker,
 		yurtHubCfg.FilterFinder,
 		stopCh)
@@ -88,8 +84,8 @@ func NewYurtReverseProxyHandler(
 
 	var localProxy, autonomyProxy http.Handler
 	if !yurtutil.IsNil(cloudHealthChecker) && !yurtutil.IsNil(localCacheMgr) {
-		// When yurthub works in Edge mode, we may use local proxy or pool proxy to handle
-		// the request when offline.
+		// When yurthub works in Edge mode, health checker and cache manager are prepared.
+		// so we may use local proxy and autonomy proxy to handle the request when offline.
 		localProxy = local.NewLocalProxy(localCacheMgr,
 			cloudHealthChecker.IsHealthy,
 			yurtHubCfg.MinRequestTimeout,
@@ -97,7 +93,8 @@ func NewYurtReverseProxyHandler(
 		localProxy = local.WithFakeTokenInject(localProxy, yurtHubCfg.SerializerManager)
 
 		autonomyProxy = autonomy.NewAutonomyProxy(
-			manager,
+			cloudHealthChecker,
+			yurtHubCfg.TransportAndDirectClientManager,
 			localCacheMgr,
 		)
 	}
@@ -116,12 +113,13 @@ func NewYurtReverseProxyHandler(
 		autonomyProxy:        autonomyProxy,
 		multiplexerProxy:     multiplexerProxy,
 		multiplexerManager:   yurtHubCfg.RequestMultiplexerManager,
-		tenantMgr:            tenantMgr,
+		tenantMgr:            yurtHubCfg.TenantManager,
 		nodeName:             yurtHubCfg.NodeName,
 		multiplexerUserAgent: hubutil.MultiplexerProxyClientUserAgentPrefix + yurtHubCfg.NodeName,
 	}
 
-	return yurtProxy.buildHandlerChain(yurtProxy), nil
+	// warp non resource proxy handler
+	return yurtProxy.buildHandlerChain(nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker)), nil
 }
 
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
@@ -129,13 +127,16 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	handler = util.WithRequestContentType(handler)
 	handler = util.WithRequestTimeout(handler)
 	if !yurtutil.IsNil(p.localProxy) {
+		// local cache can not support multiple list requests for same resource from single client,
+		// because cache will be overlapped for this client. so we need to use this handler to
+		// prevent this case.
 		handler = util.WithListRequestSelector(handler)
 	}
 	handler = util.WithRequestClientComponent(handler)
 	handler = util.WithPartialObjectMetadataRequest(handler)
 	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager, p.multiplexerUserAgent)
 
-	if p.tenantMgr != nil && p.tenantMgr.GetTenantNs() != "" {
+	if !yurtutil.IsNil(p.tenantMgr) && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
 	} else {
 		klog.V(2).Info("tenant ns is empty, no need to substitute ")

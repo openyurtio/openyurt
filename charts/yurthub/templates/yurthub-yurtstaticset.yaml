@@ -58,8 +58,8 @@ spec:
               host: {{ .Values.yurthubBindingAddr }}
               path: /v1/readyz
               port: 10267
-            initialDelaySeconds: 120
-            periodSeconds: 20
+            initialDelaySeconds: 30
+            periodSeconds: 15
             failureThreshold: 3
           resources:
             requests:
