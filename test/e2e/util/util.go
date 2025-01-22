@@ -35,6 +35,7 @@ import (
 
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/test/e2e/yurtconfig"
@@ -48,6 +49,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(appsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(appsv1beta1.AddToScheme(scheme))
+	utilruntime.Must(appsv1beta2.AddToScheme(scheme))
 	utilruntime.Must(iotv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(iotv1beta1.AddToScheme(scheme))
 }
@@ -60,13 +62,22 @@ const (
 	PodStartTimeout = 5 * time.Minute
 )
 
-var EnableYurtAutonomy = flag.Bool("enable-yurt-autonomy", false, "switch of yurt node autonomy. If set to true, yurt node autonomy test can be run normally")
+var EnableYurtAutonomy = flag.Bool(
+	"enable-yurt-autonomy",
+	false,
+	"switch of yurt node autonomy. If set to true, yurt node autonomy test can be run normally",
+)
 var RegionID = flag.String("region-id", "", "aliyun region id for ailunyun:ecs/ens")
 var NodeType = flag.String("node-type", "minikube", "node type such as ailunyun:ecs/ens, minikube and user_self")
 var AccessKeyID = flag.String("access-key-id", "", "aliyun AccessKeyId  for ailunyun:ecs/ens")
 var AccessKeySecret = flag.String("access-key-secret", "", "aliyun AccessKeySecret  for ailunyun:ecs/ens")
 var Kubeconfig = flag.String("kubeconfig", "", "kubeconfig file path for OpenYurt cluster")
-var ReportDir = flag.String("report-dir", "", "Path to the directory where the JUnit XML reports should be saved. Default is empty, which doesn't generate these reports.")
+
+var ReportDir = flag.String(
+	"report-dir",
+	"",
+	"Path to the directory where the JUnit XML reports should be saved. Default is empty, which doesn't generate these reports.",
+)
 
 // LoadRestConfigAndClientset returns rest config and  clientset for connecting to kubernetes clusters.
 func LoadRestConfigAndClientset(kubeconfig string) (*restclient.Config, *clientset.Clientset, error) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2024 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1beta2
 
 import (
 	v1 "k8s.io/api/core/v1"
@@ -23,9 +23,19 @@ import (
 
 type NodePoolType string
 
+// LeaderElectionStrategy represents the policy how to elect a leader Yurthub in a nodepool.
+type LeaderElectionStrategy string
+
 const (
 	Edge  NodePoolType = "Edge"
 	Cloud NodePoolType = "Cloud"
+
+	ElectionStrategyMark   LeaderElectionStrategy = "mark"
+	ElectionStrategyRandom LeaderElectionStrategy = "random"
+
+	// LeaderStatus means the status of leader yurthub election.
+	// If it's ready the leader elected, otherwise no leader is elected.
+	LeaderStatus NodePoolConditionType = "LeaderReady"
 )
 
 // NodePoolSpec defines the desired state of NodePool
@@ -53,6 +63,27 @@ type NodePoolSpec struct {
 	// If specified, the Taints will be added to all nodes.
 	// +optional
 	Taints []v1.Taint `json:"taints,omitempty"`
+
+	// InterConnectivity represents all nodes in the NodePool can access with each other
+	// through Layer 2 or Layer 3 network or not. If the field is true,
+	// nodepool-level list/watch requests reuse can be applied for this nodepool.
+	// otherwise, only node-level list/watch requests reuse can be applied for the nodepool.
+	// This field cannot be changed after creation.
+	InterConnectivity bool `json:"interConnectivity,omitempty"`
+
+	// LeaderElectionStrategy represents the policy how to elect a leader Yurthub in a nodepool.
+	// random: select one ready node as leader at random.
+	// mark: select one ready node as leader from nodes that are specified by labelselector.
+	// More strategies will be supported according to user's new requirements.
+	LeaderElectionStrategy string `json:"leaderElectionStrategy,omitempty"`
+
+	// LeaderNodeLabelSelector is used only when LeaderElectionStrategy is mark. leader Yurhub will be
+	// elected from nodes that filtered by this label selector.
+	LeaderNodeLabelSelector map[string]string `json:"leaderNodeLabelSelector,omitempty"`
+
+	// PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
+	// And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
+	PoolScopeMetadata []metav1.GroupVersionKind `json:"poolScopeMetadata,omitempty"`
 }
 
 // NodePoolStatus defines the observed state of NodePool
@@ -68,6 +99,35 @@ type NodePoolStatus struct {
 	// The list of nodes' names in the pool
 	// +optional
 	Nodes []string `json:"nodes,omitempty"`
+
+	// LeaderEndpoints is used for storing the address of Leader Yurthub.
+	// +optional
+	LeaderEndpoints []string `json:"leaderEndpoints,omitempty"`
+
+	// Conditions represents the latest available observations of a NodePool's
+	// current state that includes LeaderHubElection status.
+	// +optional
+	Conditions []NodePoolCondition `json:"conditions,omitempty"`
+}
+
+// NodePoolConditionType represents a NodePool condition value.
+type NodePoolConditionType string
+
+type NodePoolCondition struct {
+	// Type of NodePool condition.
+	Type NodePoolConditionType `json:"type,omitempty"`
+
+	// Status of the condition, one of True, False, Unknown.
+	Status v1.ConditionStatus `json:"status,omitempty"`
+
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// The reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+
+	// A human readable message indicating details about the transition.
+	Message string `json:"message,omitempty"`
 }
 
 // +genclient
@@ -79,6 +139,7 @@ type NodePoolStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +genclient:nonNamespaced
+// +kubebuilder:storageversion
 
 // NodePool is the Schema for the nodepools API
 type NodePool struct {

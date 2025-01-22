@@ -26,6 +26,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 )
 
 var stsYAS = &v1beta1.YurtAppSet{
@@ -88,11 +89,11 @@ var stsYAS = &v1beta1.YurtAppSet{
 	},
 }
 
-var stsNp = &v1beta1.NodePool{
+var stsNp = &v1beta2.NodePool{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: "test-nodepool",
 	},
-	Spec: v1beta1.NodePoolSpec{
+	Spec: v1beta2.NodePoolSpec{
 		HostNetwork: false,
 	},
 }

@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 )
 
@@ -49,7 +49,10 @@ type nodesInitializer struct {
 }
 
 // NewNodesInitializer creates an filterInitializer object
-func NewNodesInitializer(enableNodePool, enablePoolServiceTopology bool, dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory) filter.Initializer {
+func NewNodesInitializer(
+	enableNodePool, enablePoolServiceTopology bool,
+	dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory,
+) filter.Initializer {
 	var nodesGetter filter.NodesInPoolGetter
 	var nodesSynced cache.InformerSynced
 	var enablePoolTopology bool
@@ -76,7 +79,9 @@ func NewNodesInitializer(enableNodePool, enablePoolServiceTopology bool, dynamic
 	}
 }
 
-func createNodeGetterAndSyncedByNodeBucket(dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory) (filter.NodesInPoolGetter, cache.InformerSynced) {
+func createNodeGetterAndSyncedByNodeBucket(
+	dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory,
+) (filter.NodesInPoolGetter, cache.InformerSynced) {
 	gvr := v1alpha1.GroupVersion.WithResource("nodebuckets")
 	nodesSynced := dynamicInformerFactory.ForResource(gvr).Informer().HasSynced
 	lister := dynamicInformerFactory.ForResource(gvr).Lister()
@@ -114,8 +119,10 @@ func createNodeGetterAndSyncedByNodeBucket(dynamicInformerFactory dynamicinforme
 	return nodesGetter, nodesSynced
 }
 
-func createNodeGetterAndSyncedByNodePool(dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory) (filter.NodesInPoolGetter, cache.InformerSynced) {
-	gvr := v1beta1.GroupVersion.WithResource("nodepools")
+func createNodeGetterAndSyncedByNodePool(
+	dynamicInformerFactory dynamicinformer.DynamicSharedInformerFactory,
+) (filter.NodesInPoolGetter, cache.InformerSynced) {
+	gvr := v1beta2.GroupVersion.WithResource("nodepools")
 	nodesSynced := dynamicInformerFactory.ForResource(gvr).Informer().HasSynced
 	lister := dynamicInformerFactory.ForResource(gvr).Lister()
 	nodesGetter := func(poolName string) ([]string, error) {
@@ -125,14 +132,14 @@ func createNodeGetterAndSyncedByNodePool(dynamicInformerFactory dynamicinformer.
 			klog.Warningf("could not get nodepool %s, err: %v", poolName, err)
 			return nodes, err
 		}
-		var nodePool *v1beta1.NodePool
+		var nodePool *v1beta2.NodePool
 		switch poolObj := runtimeObj.(type) {
-		case *v1beta1.NodePool:
+		case *v1beta2.NodePool:
 			nodePool = poolObj
 		case *unstructured.Unstructured:
-			nodePool = new(v1beta1.NodePool)
+			nodePool = new(v1beta2.NodePool)
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(poolObj.UnstructuredContent(), nodePool); err != nil {
-				klog.Warningf("object(%s) is not a v1beta1.NodePool, %v", poolObj.GetName(), err)
+				klog.Warningf("object(%s) is not a v1beta2.NodePool, %v", poolObj.GetName(), err)
 				return nodes, err
 			}
 		default:

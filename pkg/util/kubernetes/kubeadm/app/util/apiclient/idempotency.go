@@ -33,7 +33,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientsetretry "k8s.io/client-go/util/retry"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/constants"
 )
 
@@ -73,20 +73,26 @@ func CreateOrUpdateSecret(client clientset.Interface, secret *v1.Secret) error {
 // CreateOrUpdateRole creates a Role if the target resource doesn't exist. If the resource exists already, this function will update the resource instead.
 func CreateOrUpdateRole(client clientset.Interface, role *rbac.Role) error {
 	var lastError error
-	err := wait.PollUntilContextTimeout(context.Background(), constants.APICallRetryInterval, constants.APICallWithWriteTimeout, true, func(ctx context.Context) (bool, error) {
-		if _, err := client.RbacV1().Roles(role.ObjectMeta.Namespace).Create(context.TODO(), role, metav1.CreateOptions{}); err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				lastError = errors.Wrap(err, "unable to create RBAC role")
-				return false, nil
-			}
+	err := wait.PollUntilContextTimeout(
+		context.Background(),
+		constants.APICallRetryInterval,
+		constants.APICallWithWriteTimeout,
+		true,
+		func(ctx context.Context) (bool, error) {
+			if _, err := client.RbacV1().Roles(role.ObjectMeta.Namespace).Create(context.TODO(), role, metav1.CreateOptions{}); err != nil {
+				if !apierrors.IsAlreadyExists(err) {
+					lastError = errors.Wrap(err, "unable to create RBAC role")
+					return false, nil
+				}
 
-			if _, err := client.RbacV1().Roles(role.ObjectMeta.Namespace).Update(context.TODO(), role, metav1.UpdateOptions{}); err != nil {
-				lastError = errors.Wrap(err, "unable to update RBAC role")
-				return false, nil
+				if _, err := client.RbacV1().Roles(role.ObjectMeta.Namespace).Update(context.TODO(), role, metav1.UpdateOptions{}); err != nil {
+					lastError = errors.Wrap(err, "unable to update RBAC role")
+					return false, nil
+				}
 			}
-		}
-		return true, nil
-	})
+			return true, nil
+		},
+	)
 	if err == nil {
 		return nil
 	}
@@ -96,20 +102,26 @@ func CreateOrUpdateRole(client clientset.Interface, role *rbac.Role) error {
 // CreateOrUpdateRoleBinding creates a RoleBinding if the target resource doesn't exist. If the resource exists already, this function will update the resource instead.
 func CreateOrUpdateRoleBinding(client clientset.Interface, roleBinding *rbac.RoleBinding) error {
 	var lastError error
-	err := wait.PollUntilContextTimeout(context.Background(), constants.APICallRetryInterval, constants.APICallWithWriteTimeout, true, func(ctx context.Context) (bool, error) {
-		if _, err := client.RbacV1().RoleBindings(roleBinding.ObjectMeta.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{}); err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				lastError = errors.Wrap(err, "unable to create RBAC rolebinding")
-				return false, nil
-			}
+	err := wait.PollUntilContextTimeout(
+		context.Background(),
+		constants.APICallRetryInterval,
+		constants.APICallWithWriteTimeout,
+		true,
+		func(ctx context.Context) (bool, error) {
+			if _, err := client.RbacV1().RoleBindings(roleBinding.ObjectMeta.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{}); err != nil {
+				if !apierrors.IsAlreadyExists(err) {
+					lastError = errors.Wrap(err, "unable to create RBAC rolebinding")
+					return false, nil
+				}
 
-			if _, err := client.RbacV1().RoleBindings(roleBinding.ObjectMeta.Namespace).Update(context.TODO(), roleBinding, metav1.UpdateOptions{}); err != nil {
-				lastError = errors.Wrap(err, "unable to update RBAC rolebinding")
-				return false, nil
+				if _, err := client.RbacV1().RoleBindings(roleBinding.ObjectMeta.Namespace).Update(context.TODO(), roleBinding, metav1.UpdateOptions{}); err != nil {
+					lastError = errors.Wrap(err, "unable to update RBAC rolebinding")
+					return false, nil
+				}
 			}
-		}
-		return true, nil
-	})
+			return true, nil
+		},
+	)
 	if err == nil {
 		return nil
 	}
@@ -138,8 +150,8 @@ func GetConfigMapWithRetry(client clientset.Interface, namespace, name string) (
 	return nil, lastError
 }
 
-func GetNodePoolInfoWithRetry(cfg *clientcmdapi.Config, name string) (*v1beta1.NodePool, error) {
-	gvr := v1beta1.GroupVersion.WithResource("nodepools")
+func GetNodePoolInfoWithRetry(cfg *clientcmdapi.Config, name string) (*v1beta2.NodePool, error) {
+	gvr := v1beta2.GroupVersion.WithResource("nodepools")
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{})
 	restConfig, err := clientConfig.ClientConfig()
@@ -166,7 +178,7 @@ func GetNodePoolInfoWithRetry(cfg *clientcmdapi.Config, name string) (*v1beta1.N
 		return false, nil
 	})
 	if err == nil {
-		np := new(v1beta1.NodePool)
+		np := new(v1beta2.NodePool)
 		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), np); err != nil {
 			return nil, err
 		}

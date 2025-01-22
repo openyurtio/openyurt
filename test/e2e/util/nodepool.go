@@ -25,12 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
 func CleanupNodePool(ctx context.Context, k8sClient client.Client) error {
-	nps := &v1beta1.NodePoolList{}
+	nps := &v1beta2.NodePoolList{}
 	if err := k8sClient.List(ctx, nps); err != nil {
 		return err
 	}
@@ -68,7 +68,11 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 	return nil
 }
 
-func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNodesMap map[string]sets.Set[string]) error {
+func InitNodeAndNodePool(
+	ctx context.Context,
+	k8sClient client.Client,
+	poolToNodesMap map[string]sets.Set[string],
+) error {
 	nodeToPoolMap := make(map[string]string)
 	for k, v := range poolToNodesMap {
 		for _, n := range sets.List(v) {
@@ -77,12 +81,12 @@ func InitNodeAndNodePool(ctx context.Context, k8sClient client.Client, poolToNod
 	}
 
 	for k := range poolToNodesMap {
-		if err := k8sClient.Create(ctx, &v1beta1.NodePool{
+		if err := k8sClient.Create(ctx, &v1beta2.NodePool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: k,
 			},
-			Spec: v1beta1.NodePoolSpec{
-				Type: v1beta1.Edge,
+			Spec: v1beta2.NodePoolSpec{
+				Type: v1beta2.Edge,
 			}}); err != nil {
 			return err
 		}
@@ -120,18 +124,18 @@ const (
 // PrepareNodePoolWithNode will create a edge nodepool named "nodepool-with-node" and add the "openyurt-e2e-test-worker" node to this nodepool.
 // In order for Pods to be successfully deployed in e2e tests, a nodepool with nodes needs to be created
 func PrepareNodePoolWithNode(ctx context.Context, k8sClient client.Client, nodeName string) error {
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: NodePoolName}, &v1beta1.NodePool{}); err == nil {
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: NodePoolName}, &v1beta2.NodePool{}); err == nil {
 		return nil
 	} else if !errors.IsNotFound(err) {
 		return err
 	}
 
-	if err := k8sClient.Create(ctx, &v1beta1.NodePool{
+	if err := k8sClient.Create(ctx, &v1beta2.NodePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: NodePoolName,
 		},
-		Spec: v1beta1.NodePoolSpec{
-			Type: v1beta1.Edge,
+		Spec: v1beta2.NodePoolSpec{
+			Type: v1beta2.Edge,
 		}}); err != nil {
 		return err
 	}

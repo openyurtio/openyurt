@@ -32,7 +32,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	appsalphav1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -71,7 +71,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -123,7 +123,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -193,7 +193,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -279,7 +279,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -349,7 +349,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -408,7 +408,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -491,7 +491,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},
@@ -577,7 +577,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			pool: &appsv1beta1.NodePool{
+			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
 				},

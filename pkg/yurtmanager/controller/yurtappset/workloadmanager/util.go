@@ -28,6 +28,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -69,11 +70,15 @@ func GetNodePoolsFromYurtAppSet(cli client.Client, yas *v1beta1.YurtAppSet) (npN
 
 // Get NodePools selected by pools and npSelector
 // If specified pool does not exist, it will skip
-func getSelectedNodepools(cli client.Client, pools []string, npSelector *metav1.LabelSelector) (selectedNps sets.Set[string], err error) {
+func getSelectedNodepools(
+	cli client.Client,
+	pools []string,
+	npSelector *metav1.LabelSelector,
+) (selectedNps sets.Set[string], err error) {
 	selectedNps = sets.New[string]()
 
 	// get all nodepools
-	allNps := v1beta1.NodePoolList{}
+	allNps := v1beta2.NodePoolList{}
 	err = cli.List(context.TODO(), &allNps)
 	if err != nil {
 		return nil, err

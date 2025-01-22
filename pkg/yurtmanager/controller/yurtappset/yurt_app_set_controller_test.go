@@ -32,6 +32,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
@@ -143,7 +144,12 @@ func (f *fakeEventRecorder) Event(object runtime.Object, eventtype, reason, mess
 func (f *fakeEventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 }
 
-func (f *fakeEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+func (f *fakeEventRecorder) AnnotatedEventf(
+	object runtime.Object,
+	annotations map[string]string,
+	eventtype, reason, messageFmt string,
+	args ...interface{},
+) {
 }
 
 func TestReconcile(t *testing.T) {
@@ -189,12 +195,12 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			npList: []client.Object{
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-np1",
 					},
 				},
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-np2",
 					},
@@ -279,7 +285,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			npList: []client.Object{
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-np1",
 					},
@@ -336,7 +342,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			npList: []client.Object{
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-np1",
 					},
@@ -396,7 +402,11 @@ func TestReconcile(t *testing.T) {
 
 			if tt.isUpdated {
 				for _, deploy := range deployList.Items {
-					assert.NotEqual(t, deploy.Labels[apps.ControllerRevisionHashLabelKey], tt.yas.Status.CurrentRevision)
+					assert.NotEqual(
+						t,
+						deploy.Labels[apps.ControllerRevisionHashLabelKey],
+						tt.yas.Status.CurrentRevision,
+					)
 				}
 			}
 		})

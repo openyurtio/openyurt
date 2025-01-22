@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
-	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
@@ -47,7 +47,7 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object) err
 		}
 	}
 
-	var np appsv1beta1.NodePool
+	var np appsv1beta2.NodePool
 	if err := webhook.Client.Get(ctx, types.NamespacedName{Name: npName}, &np); err != nil {
 		return err
 	}

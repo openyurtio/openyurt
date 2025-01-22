@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/network"
 	"github.com/openyurtio/openyurt/pkg/apis/network/v1alpha1"
 )
@@ -83,7 +83,13 @@ func handlePoolServiceUpdate(oldObject, newObject client.Object, q workqueue.Rat
 	newServiceName := getServiceNameFromPoolService(newPs)
 
 	if oldServiceName != newServiceName {
-		klog.Warningf("service name of %s/%s is changed from %s to %s", oldPs.Namespace, oldPs.Name, oldServiceName, newServiceName)
+		klog.Warningf(
+			"service name of %s/%s is changed from %s to %s",
+			oldPs.Namespace,
+			oldPs.Name,
+			oldServiceName,
+			newServiceName,
+		)
 		enqueueService(oldPs.Namespace, oldServiceName, q)
 		enqueueService(newPs.Namespace, newServiceName, q)
 		return
@@ -126,7 +132,7 @@ func allLoadBalancerSetServicesEnqueue(c client.Client, q workqueue.RateLimiting
 }
 
 func nodePoolRelatedServiceEnqueue(c client.Client, object client.Object, q workqueue.RateLimitingInterface) {
-	np := object.(*v1beta1.NodePool)
+	np := object.(*v1beta2.NodePool)
 	poolServiceList := &v1alpha1.PoolServiceList{}
 
 	listSelector := client.MatchingLabels{

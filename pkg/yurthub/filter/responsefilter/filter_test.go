@@ -45,7 +45,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
@@ -1449,28 +1449,28 @@ func TestResponseFilterForListRequest(t *testing.T) {
 				},
 			),
 			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "hangzhou",
 					},
-					Spec: v1beta1.NodePoolSpec{
-						Type: v1beta1.Edge,
+					Spec: v1beta2.NodePoolSpec{
+						Type: v1beta2.Edge,
 					},
-					Status: v1beta1.NodePoolStatus{
+					Status: v1beta2.NodePoolStatus{
 						Nodes: []string{
 							"node1",
 							"node3",
 						},
 					},
 				},
-				&v1beta1.NodePool{
+				&v1beta2.NodePool{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "shanghai",
 					},
-					Spec: v1beta1.NodePoolSpec{
-						Type: v1beta1.Edge,
+					Spec: v1beta2.NodePoolSpec{
+						Type: v1beta2.Edge,
 					},
-					Status: v1beta1.NodePoolStatus{
+					Status: v1beta2.NodePoolStatus{
 						Nodes: []string{
 							"node2",
 						},
@@ -2603,8 +2603,19 @@ func TestResponseFilterForListRequest(t *testing.T) {
 			factory = informers.NewSharedInformerFactory(tc.kubeClient, 24*time.Hour)
 			yurtFactory = dynamicinformer.NewDynamicSharedInformerFactory(tc.yurtClient, 24*time.Hour)
 
-			nodesInitializer = initializer.NewNodesInitializer(tc.enableNodePool, tc.enablePoolServiceTopology, yurtFactory)
-			genericInitializer = initializer.New(factory, tc.kubeClient, tc.nodeName, tc.poolName, tc.masterHost, tc.masterPort)
+			nodesInitializer = initializer.NewNodesInitializer(
+				tc.enableNodePool,
+				tc.enablePoolServiceTopology,
+				yurtFactory,
+			)
+			genericInitializer = initializer.New(
+				factory,
+				tc.kubeClient,
+				tc.nodeName,
+				tc.poolName,
+				tc.masterHost,
+				tc.masterPort,
+			)
 			initializerChain := base.Initializers{}
 			initializerChain = append(initializerChain, genericInitializer, nodesInitializer)
 

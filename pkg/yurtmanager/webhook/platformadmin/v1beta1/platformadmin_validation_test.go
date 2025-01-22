@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
-	ut "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	ut "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 )
@@ -115,8 +115,11 @@ func TestValidateCreate(t *testing.T) {
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
-			name:   "should get StatusUnprocessableEntityError when list PlatformAdmin failed",
-			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).WithErr(&v1beta1.PlatformAdminList{}, errors.New("list failed")).Build(),
+			name: "should get StatusUnprocessableEntityError when list PlatformAdmin failed",
+			client: NewFakeClient(
+				buildClient(buildNodePool(), buildPlatformAdmin()),
+			).WithErr(&v1beta1.PlatformAdminList{}, errors.New("list failed")).
+				Build(),
 			obj: &v1beta1.PlatformAdmin{
 				ObjectMeta: metav1.ObjectMeta{},
 				Spec: v1beta1.PlatformAdminSpec{
@@ -303,7 +306,12 @@ func buildClient(nodePools []client.Object, platformAdmin []client.Object) clien
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = apis.AddToScheme(scheme)
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(nodePools...).WithObjects(platformAdmin...).WithIndex(&v1beta1.PlatformAdmin{}, "spec.nodepools", Indexer).Build()
+	return fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(nodePools...).
+		WithObjects(platformAdmin...).
+		WithIndex(&v1beta1.PlatformAdmin{}, "spec.nodepools", Indexer).
+		Build()
 }
 
 func buildPlatformAdmin() []client.Object {
