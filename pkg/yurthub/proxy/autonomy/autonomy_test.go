@@ -29,6 +29,7 @@ import (
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -37,9 +38,7 @@ import (
 )
 
 var (
-	rootDir                   = "/tmp/cache-local"
-	fakeClient                = fake.NewSimpleClientset()
-	fakeSharedInformerFactory = informers.NewSharedInformerFactory(fakeClient, 0)
+	rootDir = "/tmp/cache-local"
 )
 
 func TestHttpServeKubeletGetNode(t *testing.T) {
@@ -49,7 +48,9 @@ func TestHttpServeKubeletGetNode(t *testing.T) {
 	}
 	storageWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", storageWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, configManager)
 
 	autonomyProxy := NewAutonomyProxy(nil, cacheM)
 

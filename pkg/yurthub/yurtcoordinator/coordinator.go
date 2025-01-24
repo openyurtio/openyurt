@@ -43,6 +43,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	yurtrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
@@ -122,6 +123,7 @@ type coordinator struct {
 	// node lease contains DelegateHeartBeat label, it will trigger the eventhandler which will
 	// use cloud client to send it to cloud APIServer.
 	delegateNodeLeaseManager *coordinatorLeaseInformerManager
+	configManager            *configuration.Manager
 }
 
 func NewCoordinator(
@@ -164,6 +166,7 @@ func NewCoordinator(
 		restMapperMgr:      cfg.RESTMapperManager,
 		hubElector:         elector,
 		statusInfoChan:     make(chan statusInfo, 10),
+		configManager:      cfg.ConfigManager,
 	}
 
 	poolCacheSyncedDetector := &poolCacheSyncedDetector{
@@ -404,11 +407,10 @@ func (coordinator *coordinator) buildPoolCacheStore() (cachemanager.CacheManager
 	}
 
 	poolCacheManager := cachemanager.NewCacheManager(
-		"",
 		cachemanager.NewStorageWrapper(etcdStore),
 		coordinator.serializerMgr,
 		coordinator.restMapperMgr,
-		coordinator.informerFactory,
+		coordinator.configManager,
 	)
 	return poolCacheManager, etcdStore, cancel, nil
 }

@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
@@ -41,24 +40,6 @@ func TestName(t *testing.T) {
 	dcsf, _ := NewDiscardCloudServiceFilter()
 	if dcsf.Name() != FilterName {
 		t.Errorf("expect %s, but got %s", FilterName, dcsf.Name())
-	}
-}
-
-func TestSupportedResourceAndVerbs(t *testing.T) {
-	dcsf, _ := NewDiscardCloudServiceFilter()
-	rvs := dcsf.SupportedResourceAndVerbs()
-	if len(rvs) != 1 {
-		t.Errorf("supported more than one resources, %v", rvs)
-	}
-
-	for resource, verbs := range rvs {
-		if resource != "services" {
-			t.Errorf("expect resource is services, but got %s", resource)
-		}
-
-		if !verbs.Equal(sets.New("list", "watch")) {
-			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
-		}
 	}
 }
 

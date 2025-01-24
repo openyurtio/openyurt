@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
@@ -58,24 +57,6 @@ func TestName(t *testing.T) {
 	stf, _ := NewServiceTopologyFilter()
 	if stf.Name() != FilterName {
 		t.Errorf("expect %s, but got %s", FilterName, stf.Name())
-	}
-}
-
-func TestSupportedResourceAndVerbs(t *testing.T) {
-	stf, _ := NewServiceTopologyFilter()
-	rvs := stf.SupportedResourceAndVerbs()
-	if len(rvs) != 2 {
-		t.Errorf("supported not two resources, %v", rvs)
-	}
-
-	for resource, verbs := range rvs {
-		if resource != "endpoints" && resource != "endpointslices" {
-			t.Errorf("expect resource is endpoints/endpointslices, but got %s", resource)
-		}
-
-		if !verbs.Equal(sets.New("list", "watch")) {
-			t.Errorf("expect verbs are list/watch, but got %v", verbs.UnsortedList())
-		}
 	}
 }
 

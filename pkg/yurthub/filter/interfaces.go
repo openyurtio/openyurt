@@ -22,7 +22,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type NodesInPoolGetter func(poolName string) ([]string, error)
@@ -51,9 +50,6 @@ type ResponseFilter interface {
 // Every Filter need to implement ObjectFilter interface.
 type ObjectFilter interface {
 	Name() string
-	// SupportedResourceAndVerbs is used to specify which resource and request verb is supported by the filter.
-	// Because each filter can make sure what requests with resource and verb can be handled.
-	SupportedResourceAndVerbs() map[string]sets.Set[string]
 	// Filter is used for filtering runtime object
 	// all filter logic should be located in it.
 	Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object
