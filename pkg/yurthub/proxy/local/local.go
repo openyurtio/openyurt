@@ -37,7 +37,6 @@ import (
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	manager "github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
-	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -51,19 +50,17 @@ type IsHealthy func() bool
 
 // LocalProxy is responsible for handling requests when remote servers are unhealthy
 type LocalProxy struct {
-	cacheMgr           manager.CacheManager
-	isCloudHealthy     IsHealthy
-	isCoordinatorReady IsHealthy
-	minRequestTimeout  time.Duration
+	cacheMgr          manager.CacheManager
+	isCloudHealthy    IsHealthy
+	minRequestTimeout time.Duration
 }
 
 // NewLocalProxy creates a *LocalProxy
-func NewLocalProxy(cacheMgr manager.CacheManager, isCloudHealthy IsHealthy, isCoordinatorHealthy IsHealthy, minRequestTimeout time.Duration) *LocalProxy {
+func NewLocalProxy(cacheMgr manager.CacheManager, isCloudHealthy IsHealthy, minRequestTimeout time.Duration) *LocalProxy {
 	return &LocalProxy{
-		cacheMgr:           cacheMgr,
-		isCloudHealthy:     isCloudHealthy,
-		isCoordinatorReady: isCoordinatorHealthy,
-		minRequestTimeout:  minRequestTimeout,
+		cacheMgr:          cacheMgr,
+		isCloudHealthy:    isCloudHealthy,
+		minRequestTimeout: minRequestTimeout,
 	}
 }
 
@@ -184,7 +181,6 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 		timeout = time.Duration(float64(lp.minRequestTimeout) * (rand.Float64() + 1.0))
 	}
 
-	isPoolScopedListWatch := util.IsPoolScopedResourceListWatchRequest(req)
 	watchTimer := time.NewTimer(timeout)
 	intervalTicker := time.NewTicker(interval)
 	defer watchTimer.Stop()
@@ -200,11 +196,6 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 		case <-intervalTicker.C:
 			// if cluster becomes healthy, exit the watch wait
 			if lp.isCloudHealthy() {
-				return nil
-			}
-
-			// if yurtcoordinator becomes healthy, exit the watch wait
-			if isPoolScopedListWatch && lp.isCoordinatorReady() {
 				return nil
 			}
 		}

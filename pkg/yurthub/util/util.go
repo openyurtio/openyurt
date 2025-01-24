@@ -40,7 +40,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
 )
 
 // ProxyKeyType represents the key in proxy request context
@@ -67,20 +66,10 @@ const (
 	ProxyReqCanCache
 	// ProxyListSelector represents label selector and filed selector string for list request
 	ProxyListSelector
-	// ProxyPoolScopedResource represents if this request is asking for pool-scoped resources
-	ProxyPoolScopedResource
 	// ProxyPartialObjectMetadataRequest represents if this request is getting partial object metadata
 	ProxyPartialObjectMetadataRequest
 	// ProxyConvertGVK represents the gvk of response when it is a partial object metadata request
 	ProxyConvertGVK
-	// DefaultYurtCoordinatorEtcdSvcName represents default yurt coordinator etcd service
-	DefaultYurtCoordinatorEtcdSvcName = "yurt-coordinator-etcd"
-	// DefaultYurtCoordinatorAPIServerSvcName represents default yurt coordinator apiServer service
-	DefaultYurtCoordinatorAPIServerSvcName = "yurt-coordinator-apiserver"
-	// DefaultYurtCoordinatorEtcdSvcPort represents default yurt coordinator etcd port
-	DefaultYurtCoordinatorEtcdSvcPort = "2379"
-	// DefaultYurtCoordinatorAPIServerSvcPort represents default yurt coordinator apiServer port
-	DefaultYurtCoordinatorAPIServerSvcPort = "443"
 
 	YurtHubNamespace      = "kube-system"
 	CacheUserAgentsKey    = "cache_agents"
@@ -94,7 +83,6 @@ const (
 )
 
 var (
-	DefaultCacheAgents   = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", projectinfo.GetAgentName(), projectinfo.GetHubName(), coordinatorconstants.DefaultPoolScopedUserAgent}
 	YurthubConfigMapName = fmt.Sprintf("%s-hub-cfg", strings.TrimRightFunc(projectinfo.GetProjectPrefix(), func(c rune) bool { return c == '-' }))
 )
 
@@ -155,19 +143,6 @@ func WithListSelector(parent context.Context, selector string) context.Context {
 // ListSelectorFrom returns the value of the list request selector string on the ctx
 func ListSelectorFrom(ctx context.Context) (string, bool) {
 	info, ok := ctx.Value(ProxyListSelector).(string)
-	return info, ok
-}
-
-// WithIfPoolScopedResource returns a copy of parent in which IfPoolScopedResource is set,
-// indicating whether this request is asking for pool-scoped resources.
-func WithIfPoolScopedResource(parent context.Context, ifPoolScoped bool) context.Context {
-	return WithValue(parent, ProxyPoolScopedResource, ifPoolScoped)
-}
-
-// IfPoolScopedResourceFrom returns the value of IfPoolScopedResource indicating whether this request
-// is asking for pool-scoped resource.
-func IfPoolScopedResourceFrom(ctx context.Context) (bool, bool) {
-	info, ok := ctx.Value(ProxyPoolScopedResource).(bool)
 	return info, ok
 }
 
@@ -264,71 +239,6 @@ func (hubEndpointRestrictions) AllowsMediaTypeTransform(mimeType string, mimeSub
 }
 func (hubEndpointRestrictions) AllowsServerVersion(string) bool  { return false }
 func (hubEndpointRestrictions) AllowsStreamSchema(s string) bool { return s == "watch" }
-
-func NewTripleReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser, io.ReadCloser) {
-	pr1, pw1 := io.Pipe()
-	pr2, pw2 := io.Pipe()
-	tr := &tripleReadCloser{
-		rc:  rc,
-		pw1: pw1,
-		pw2: pw2,
-	}
-	return tr, pr1, pr2
-}
-
-type tripleReadCloser struct {
-	rc  io.ReadCloser
-	pw1 *io.PipeWriter
-	pw2 *io.PipeWriter
-	// isRespBody shows rc(is.ReadCloser) is a response.Body
-	// or not(maybe a request.Body). if it is true(it's a response.Body),
-	// we should close the response body in Close func, else not,
-	// it(request body) will be closed by http request caller
-	isRespBody bool
-}
-
-// Read read data into p and write into pipe
-func (dr *tripleReadCloser) Read(p []byte) (n int, err error) {
-	n, err = dr.rc.Read(p)
-	if n > 0 {
-		var n1, n2 int
-		var err error
-		if n1, err = dr.pw1.Write(p[:n]); err != nil {
-			klog.Errorf("tripleReader: could not write to pw1 %v", err)
-			return n1, err
-		}
-		if n2, err = dr.pw2.Write(p[:n]); err != nil {
-			klog.Errorf("tripleReader: could not write to pw2 %v", err)
-			return n2, err
-		}
-	}
-
-	return
-}
-
-// Close close two readers
-func (dr *tripleReadCloser) Close() error {
-	errs := make([]error, 0)
-	if dr.isRespBody {
-		if err := dr.rc.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if err := dr.pw1.Close(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if err := dr.pw2.Close(); err != nil {
-		errs = append(errs, err)
-	}
-
-	if len(errs) != 0 {
-		return fmt.Errorf("could not close dualReader, %v", errs)
-	}
-
-	return nil
-}
 
 // NewDualReadCloser create an dualReadCloser object
 func NewDualReadCloser(req *http.Request, rc io.ReadCloser, isRespBody bool) (io.ReadCloser, io.ReadCloser) {
