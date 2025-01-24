@@ -23,6 +23,7 @@ import (
 
 	csrapproverconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover/config"
 	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
+	hubleaderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader/config"
 	loadbalancersetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset/config"
 	nodebucketconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
@@ -105,6 +106,9 @@ type YurtManagerConfiguration struct {
 
 	// GatewayPublicSvcController holds configuration for GatewayPublicSvcController related features.
 	GatewayPublicSvcController gatewaypublicsvcconfig.GatewayPublicSvcControllerConfiguration
+
+	// HubLeaderController holds configuration for HubLeaderController related features.
+	HubLeaderController hubleaderconfig.HubLeaderControllerConfiguration
 }
 
 type GenericConfiguration struct {

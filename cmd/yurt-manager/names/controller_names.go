@@ -37,6 +37,7 @@ const (
 	NodeLifeCycleController                = "node-life-cycle-controller"
 	NodeBucketController                   = "node-bucket-controller"
 	LoadBalancerSetController              = "load-balancer-set-controller"
+	HubLeaderController                    = "hubleader-controller"
 )
 
 func YurtManagerControllerAliases() map[string]string {

@@ -46,6 +46,7 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	// Set interconnectivity to false which will not use leader election strategy or reuse list/watch events
 	dst.Spec.InterConnectivity = false
 	dst.Spec.LeaderElectionStrategy = string(v1beta2.ElectionStrategyRandom)
+	dst.Spec.LeaderReplicas = 1
 
 	klog.V(4).Infof("convert from v1alpha1 to v1beta1 for nodepool %s", dst.Name)
 

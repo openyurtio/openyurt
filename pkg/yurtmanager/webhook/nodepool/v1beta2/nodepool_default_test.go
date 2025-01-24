@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The OpenYurt Authors.
+Copyright 2025 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,7 +45,8 @@ func TestDefault(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v1beta2.NodePoolSpec{
-					HostNetwork: true,
+					HostNetwork:    true,
+					LeaderReplicas: 3,
 				},
 			},
 			wantedNodePool: &v1beta2.NodePool{
@@ -59,6 +60,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Edge,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -88,8 +90,9 @@ func TestDefault(t *testing.T) {
 					},
 				},
 				Spec: v1beta2.NodePoolSpec{
-					HostNetwork: true,
-					Type:        v1beta2.Cloud,
+					HostNetwork:    true,
+					Type:           v1beta2.Cloud,
+					LeaderReplicas: 3,
 				},
 			},
 			wantedNodePool: &v1beta2.NodePool{
@@ -104,6 +107,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -136,6 +140,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: "",
+					LeaderReplicas:         3,
 				},
 			},
 			wantedNodePool: &v1beta2.NodePool{
@@ -150,6 +155,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -182,6 +188,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 				},
 			},
 			wantedNodePool: &v1beta2.NodePool{
@@ -196,6 +203,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -228,6 +236,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 				},
 			},
 			wantedNodePool: &v1beta2.NodePool{
@@ -242,6 +251,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -274,6 +284,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "discovery.k8s.io",
@@ -295,6 +306,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "discovery.k8s.io",
@@ -332,6 +344,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -353,6 +366,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "core",
@@ -385,6 +399,7 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "discovery.k8s.io",
@@ -406,6 +421,115 @@ func TestDefault(t *testing.T) {
 					HostNetwork:            true,
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
+		"nodepool has leader replicas": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         2,
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         2,
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
+		"nodepool has no leader replicas": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         0,
+					PoolScopeMetadata: []metav1.GroupVersionKind{
+						{
+							Group:   "discovery.k8s.io",
+							Version: "v1",
+							Kind:    "EndpointSlice",
+						},
+						{
+							Group:   "core",
+							Version: "v1",
+							Kind:    "Service",
+						},
+					},
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         1,
 					PoolScopeMetadata: []metav1.GroupVersionKind{
 						{
 							Group:   "discovery.k8s.io",

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2025 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,6 +59,11 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 	// Set default election strategy
 	if np.Spec.LeaderElectionStrategy == "" {
 		np.Spec.LeaderElectionStrategy = string(v1beta2.ElectionStrategyRandom)
+	}
+
+	// Set default LeaderReplicas
+	if np.Spec.LeaderReplicas <= 0 {
+		np.Spec.LeaderReplicas = 1
 	}
 
 	// Set default PoolScopeMetadata

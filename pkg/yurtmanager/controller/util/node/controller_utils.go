@@ -69,12 +69,26 @@ var UpdateLabelBackoff = wait.Backoff{
 // DeletePods will delete all pods from master running on given node,
 // and return true if any pods were deleted, or were found pending
 // deletion.
-func DeletePods(ctx context.Context, c client.Client, pods []*corev1.Pod, recorder record.EventRecorder, nodeName, nodeUID string) (bool, error) {
+func DeletePods(
+	ctx context.Context,
+	c client.Client,
+	pods []*corev1.Pod,
+	recorder record.EventRecorder,
+	nodeName, nodeUID string,
+) (bool, error) {
 	remaining := false
 	var updateErrList []error
 
 	if len(pods) > 0 {
-		RecordNodeEvent(ctx, recorder, nodeName, nodeUID, corev1.EventTypeNormal, "DeletingAllPods", fmt.Sprintf("Deleting all Pods from Node %v.", nodeName))
+		RecordNodeEvent(
+			ctx,
+			recorder,
+			nodeName,
+			nodeUID,
+			corev1.EventTypeNormal,
+			"DeletingAllPods",
+			fmt.Sprintf("Deleting all Pods from Node %v.", nodeName),
+		)
 	}
 
 	for i := range pods {
@@ -100,7 +114,14 @@ func DeletePods(ctx context.Context, c client.Client, pods []*corev1.Pod, record
 		}
 
 		klog.InfoS("Starting deletion of pod", "pod", klog.KObj(pod))
-		recorder.Eventf(pod, corev1.EventTypeNormal, "NodeControllerEviction", "Marking for deletion Pod %s from Node %s", pod.Name, nodeName)
+		recorder.Eventf(
+			pod,
+			corev1.EventTypeNormal,
+			"NodeControllerEviction",
+			"Marking for deletion Pod %s from Node %s",
+			pod.Name,
+			nodeName,
+		)
 		//if err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 		if err := c.Delete(ctx, pod); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -122,7 +143,12 @@ func DeletePods(ctx context.Context, c client.Client, pods []*corev1.Pod, record
 // SetPodTerminationReason attempts to set a reason and message in the
 // pod status, updates it in the apiserver, and returns an error if it
 // encounters one.
-func SetPodTerminationReason(ctx context.Context, c client.Client, pod *corev1.Pod, nodeName string) (*corev1.Pod, error) {
+func SetPodTerminationReason(
+	ctx context.Context,
+	c client.Client,
+	pod *corev1.Pod,
+	nodeName string,
+) (*corev1.Pod, error) {
 	if pod.Status.Reason == NodeUnreachablePodReason {
 		return pod, nil
 	}
@@ -140,7 +166,13 @@ func SetPodTerminationReason(ctx context.Context, c client.Client, pod *corev1.P
 
 // MarkPodsNotReady updates ready status of given pods running on
 // given node from master return true if success
-func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.EventRecorder, pods []*corev1.Pod, nodeName string) error {
+func MarkPodsNotReady(
+	ctx context.Context,
+	c client.Client,
+	recorder record.EventRecorder,
+	pods []*corev1.Pod,
+	nodeName string,
+) error {
 	klog.V(2).InfoS("Update ready status of pods on node", "node", klog.KRef("", nodeName))
 
 	errs := []error{}
@@ -183,7 +215,11 @@ func MarkPodsNotReady(ctx context.Context, c client.Client, recorder record.Even
 }
 
 // RecordNodeEvent records a event related to a node.
-func RecordNodeEvent(ctx context.Context, recorder record.EventRecorder, nodeName, nodeUID, eventtype, reason, event string) {
+func RecordNodeEvent(
+	ctx context.Context,
+	recorder record.EventRecorder,
+	nodeName, nodeUID, eventtype, reason, event string,
+) {
 	ref := &corev1.ObjectReference{
 		APIVersion: "v1",
 		Kind:       "Node",
@@ -212,7 +248,12 @@ func RecordNodeStatusChange(recorder record.EventRecorder, node *corev1.Node, ne
 
 // SwapNodeControllerTaint returns true in case of success and false
 // otherwise.
-func SwapNodeControllerTaint(ctx context.Context, kubeClient clientset.Interface, taintsToAdd, taintsToRemove []*corev1.Taint, node *corev1.Node) bool {
+func SwapNodeControllerTaint(
+	ctx context.Context,
+	kubeClient clientset.Interface,
+	taintsToAdd, taintsToRemove []*corev1.Taint,
+	node *corev1.Node,
+) bool {
 	for _, taintToAdd := range taintsToAdd {
 		now := metav1.Now()
 		taintToAdd.TimeAdded = &now
@@ -247,7 +288,12 @@ func SwapNodeControllerTaint(ctx context.Context, kubeClient clientset.Interface
 
 // AddOrUpdateLabelsOnNode updates the labels on the node and returns true on
 // success and false on failure.
-func AddOrUpdateLabelsOnNode(ctx context.Context, kubeClient clientset.Interface, labelsToUpdate map[string]string, node *corev1.Node) bool {
+func AddOrUpdateLabelsOnNode(
+	ctx context.Context,
+	kubeClient clientset.Interface,
+	labelsToUpdate map[string]string,
+	node *corev1.Node,
+) bool {
 	if err := addOrUpdateLabelsOnNode(kubeClient, node.Name, labelsToUpdate); err != nil {
 		utilruntime.HandleError(
 			fmt.Errorf(
@@ -277,7 +323,12 @@ func GetNodeCondition(status *corev1.NodeStatus, conditionType corev1.NodeCondit
 
 // AddOrUpdateTaintOnNode add taints to the node. If taint was added into node, it'll issue API calls
 // to update nodes; otherwise, no API calls. Return error if any.
-func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName string, taints ...*corev1.Taint) error {
+func AddOrUpdateTaintOnNode(
+	ctx context.Context,
+	c clientset.Interface,
+	nodeName string,
+	taints ...*corev1.Taint,
+) error {
 	if len(taints) == 0 {
 		return nil
 	}
@@ -320,7 +371,13 @@ func AddOrUpdateTaintOnNode(ctx context.Context, c clientset.Interface, nodeName
 // won't fail if target taint doesn't exist or has been removed.
 // If passed a node it'll check if there's anything to be done, if taint is not present it won't issue
 // any API calls.
-func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName string, node *corev1.Node, taints ...*corev1.Taint) error {
+func RemoveTaintOffNode(
+	ctx context.Context,
+	c clientset.Interface,
+	nodeName string,
+	node *corev1.Node,
+	taints ...*corev1.Taint,
+) error {
 	if len(taints) == 0 {
 		return nil
 	}
@@ -374,7 +431,13 @@ func RemoveTaintOffNode(ctx context.Context, c clientset.Interface, nodeName str
 }
 
 // PatchNodeTaints patches node's taints.
-func PatchNodeTaints(ctx context.Context, c clientset.Interface, nodeName string, oldNode *corev1.Node, newNode *corev1.Node) error {
+func PatchNodeTaints(
+	ctx context.Context,
+	c clientset.Interface,
+	nodeName string,
+	oldNode *corev1.Node,
+	newNode *corev1.Node,
+) error {
 	// Strip base diff node from RV to ensure that our Patch request will set RV to check for conflicts over .spec.taints.
 	// This is needed because .spec.taints does not specify patchMergeKey and patchStrategy and adding them is no longer an option for compatibility reasons.
 	// Using other Patch strategy works for adding new taints, however will not resolve problem with taint removal.
@@ -461,4 +524,21 @@ func IsPodBoundenToNode(node *corev1.Node) bool {
 	return node.Annotations[PodBindingAnnotation] == "true" ||
 		node.Annotations[projectinfo.GetAutonomyAnnotation()] == "true" ||
 		node.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()] != ""
+}
+
+// GetInternalIP returns the internal IP of the node.
+func GetInternalIP(node *corev1.Node) (string, bool) {
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == corev1.NodeInternalIP {
+			return addr.Address, true
+		}
+	}
+	return "", false
+}
+
+// IsNodeReady checks if the `node` is `corev1.NodeReady`
+func IsNodeReady(node corev1.Node) bool {
+	_, nc := GetNodeCondition(&node.Status, corev1.NodeReady)
+	// GetNodeCondition will return nil and -1 if the condition is not present
+	return nc != nil && nc.Status == corev1.ConditionTrue
 }

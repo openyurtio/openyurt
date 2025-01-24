@@ -37,6 +37,7 @@ import (
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	poolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
+	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 var (
@@ -144,7 +145,7 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 	for _, node := range currentNodeList.Items {
 		// prepare nodepool status
 		nodes = append(nodes, node.GetName())
-		if isNodeReady(node) {
+		if nodeutil.IsNodeReady(node) {
 			readyNode += 1
 		} else {
 			notReadyNode += 1

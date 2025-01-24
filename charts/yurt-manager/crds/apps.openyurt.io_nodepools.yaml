@@ -373,6 +373,12 @@ spec:
                     LeaderNodeLabelSelector is used only when LeaderElectionStrategy is mark. leader Yurhub will be
                     elected from nodes that filtered by this label selector.
                   type: object
+                leaderReplicas:
+                  description: |-
+                    LeaderReplicas is used for specifying the number of leader replicas in the nodepool.
+                    If the field is not specified, the default value is 1.
+                  format: int32
+                  type: integer
                 poolScopeMetadata:
                   description: |-
                     PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.

@@ -31,6 +31,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 type EnqueueNodePoolForNode struct {
@@ -91,7 +92,7 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 	}
 
 	// check node ready status
-	if isNodeReady(*newNode) != isNodeReady(*oldNode) {
+	if nodeutil.IsNodeReady(*newNode) != nodeutil.IsNodeReady(*oldNode) {
 		klog.V(4).Info(Format("Node ready status has been changed,"+
 			" will enqueue pool(%s) for node(%s)", newNp, newNode.GetName()))
 		addNodePoolToWorkQueue(newNp, q)
@@ -104,7 +105,8 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 			!reflect.DeepEqual(newNode.Annotations, oldNode.Annotations) ||
 			!reflect.DeepEqual(newNode.Spec.Taints, oldNode.Spec.Taints) {
 			// TODO only consider the pool related attributes
-			klog.V(5).Info(Format("NodePool related attributes has been changed,will enqueue pool(%s) for node(%s)", newNp, newNode.Name))
+			klog.V(5).
+				Info(Format("NodePool related attributes has been changed,will enqueue pool(%s) for node(%s)", newNp, newNode.Name))
 			addNodePoolToWorkQueue(newNp, q)
 		}
 	}
