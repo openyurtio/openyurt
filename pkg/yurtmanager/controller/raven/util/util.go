@@ -49,7 +49,7 @@ func GetNodeInternalIP(node corev1.Node) string {
 
 // AddGatewayToWorkQueue adds the Gateway the reconciler's workqueue
 func AddGatewayToWorkQueue(gwName string,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if gwName != "" {
 		q.Add(reconcile.Request{
 			NamespacedName: types.NamespacedName{Name: gwName},
@@ -74,13 +74,13 @@ func CheckServer(ctx context.Context, client client.Client) (enableProxy, enable
 	return enableProxy, enableTunnel
 }
 
-func AddDNSConfigmapToWorkQueue(q workqueue.RateLimitingInterface) {
+func AddDNSConfigmapToWorkQueue(q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: RavenProxyNodesConfig},
 	})
 }
 
-func AddGatewayProxyInternalService(q workqueue.RateLimitingInterface) {
+func AddGatewayProxyInternalService(q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Namespace: WorkingNamespace, Name: GatewayProxyInternalService},
 	})

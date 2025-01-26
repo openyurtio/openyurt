@@ -175,7 +175,7 @@ func TestAddNode(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient: tt.kubeClient,
-				queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:      workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 			}
 
 			if len(tt.defaultTunnelServerIP) != 0 {
@@ -403,7 +403,7 @@ func TestUpdateNode(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient: tt.kubeClient,
-				queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:      workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 			}
 
 			dnsCtl.updateNode(tt.oldNode, tt.newNode)
@@ -526,7 +526,7 @@ func TestDeleteNode(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient: tt.kubeClient,
-				queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:      workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 			}
 
 			dnsCtl.deleteNode(tt.node)
@@ -649,7 +649,7 @@ func TestAddConfigMap(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient:         tt.kubeClient,
-				queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 				listenInsecureAddr: "127.0.0.1:10264",
 				listenSecureAddr:   "127.0.0.1:10263",
 			}
@@ -902,7 +902,7 @@ func TestUpdateConfigMap(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient:         tt.kubeClient,
-				queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 				listenInsecureAddr: "127.0.0.1:10264",
 				listenSecureAddr:   "127.0.0.1:10263",
 			}
@@ -1004,7 +1004,7 @@ func TestDeleteConfigMap(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient:         tt.kubeClient,
-				queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 				listenInsecureAddr: "127.0.0.1:10264",
 				listenSecureAddr:   "127.0.0.1:10263",
 			}
@@ -1121,7 +1121,7 @@ func TestAddService(t *testing.T) {
 			dnsCtl := &coreDNSRecordController{
 				kubeClient: tt.kubeClient,
 				nodeLister: nodeLister,
-				queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+				queue:      workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 			}
 
 			dnsCtl.addService(tt.svc)

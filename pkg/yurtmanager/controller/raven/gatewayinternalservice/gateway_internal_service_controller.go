@@ -75,7 +75,7 @@ type ReconcileService struct {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileService{
 		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayInternalServiceController),
 		scheme:   mgr.GetScheme(),

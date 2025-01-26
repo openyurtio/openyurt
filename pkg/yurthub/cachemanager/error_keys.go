@@ -45,7 +45,7 @@ const (
 type errorKeys struct {
 	sync.RWMutex
 	keys  map[string]string
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[operation]
 	file  *os.File
 	count int
 }
@@ -53,7 +53,7 @@ type errorKeys struct {
 func NewErrorKeys() *errorKeys {
 	ek := &errorKeys{
 		keys:  make(map[string]string),
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), "error-keys"),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedItemBasedRateLimiter[operation](), workqueue.TypedRateLimitingQueueConfig[operation]{Name: "error-keys"}),
 	}
 	err := os.MkdirAll(AOFPrefix, 0755)
 	if err != nil {
@@ -127,16 +127,12 @@ func (ek *errorKeys) sync() {
 }
 
 func (ek *errorKeys) processNextOperator() bool {
-	item, quit := ek.queue.Get()
+	op, quit := ek.queue.Get()
 	if quit {
 		return false
 	}
-	defer ek.queue.Done(item)
-	op, ok := item.(operation)
-	if !ok {
-		ek.queue.Forget(item)
-		return true
-	}
+	defer ek.queue.Done(op)
+
 	data, err := json.Marshal(op)
 	if err != nil {
 		klog.Errorf("failed to serialize and persist operation: %v", op)

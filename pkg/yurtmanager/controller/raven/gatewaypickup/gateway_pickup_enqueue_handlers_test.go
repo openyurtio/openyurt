@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
@@ -38,7 +39,8 @@ import (
 // TestEnqueueGatewayForNode tests the method of EnqueueGatewayForNode.
 func TestEnqueueGatewayForNode(t *testing.T) {
 	h := &EnqueueGatewayForNode{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+
 	ctx := context.Background()
 
 	tests := []struct {
@@ -143,7 +145,7 @@ func TestEnqueueGatewayForRavenConfig(t *testing.T) {
 		client: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(mockObjs()...).Build(),
 	}
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	ctx := context.Background()
 
 	tests := []struct {
@@ -293,7 +295,7 @@ func mockConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func clearQueue(queue workqueue.RateLimitingInterface) {
+func clearQueue(queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for queue.Len() > 0 {
 		item, _ := queue.Get()
 		queue.Done(item)

@@ -257,7 +257,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileDaemonpodupdater) deletePod(ctx context.Context, evt event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+func (r *ReconcileDaemonpodupdater) deletePod(ctx context.Context, evt event.DeleteEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	pod, ok := evt.Object.(*corev1.Pod)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("deletepod could not deal with object that is not a pod %#v", evt.Object))

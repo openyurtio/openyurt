@@ -370,7 +370,6 @@ func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1
 		default:
 		}
 	}
-	return
 }
 
 func (r *ReconcileGateway) addExtraAllowedSubnet(gw *ravenv1beta1.Gateway) {
