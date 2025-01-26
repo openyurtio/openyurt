@@ -40,7 +40,7 @@ type EnqueueNodePoolForNode struct {
 
 // Create implements EventHandler
 func (e *EnqueueNodePoolForNode) Create(ctx context.Context, evt event.CreateEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -57,7 +57,7 @@ func (e *EnqueueNodePoolForNode) Create(ctx context.Context, evt event.CreateEve
 
 // Update implements EventHandler
 func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
@@ -112,7 +112,7 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 
 // Delete implements EventHandler
 func (e *EnqueueNodePoolForNode) Delete(ctx context.Context, evt event.DeleteEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -132,12 +132,12 @@ func (e *EnqueueNodePoolForNode) Delete(ctx context.Context, evt event.DeleteEve
 
 // Generic implements EventHandler
 func (e *EnqueueNodePoolForNode) Generic(ctx context.Context, evt event.GenericEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 // addNodePoolToWorkQueue adds the nodepool the reconciler's workqueue
 func addNodePoolToWorkQueue(npName string,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{Name: npName},
 	})

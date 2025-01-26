@@ -79,7 +79,7 @@ func SlowStartBatch(count int, initialBatchSize int, fn func(index int) error) (
 	return successes, nil
 }
 
-func NewNoReconcileController(name string, mgr manager.Manager, options controller.Options) (*controllerimpl.Controller, error) {
+func NewNoReconcileController(name string, mgr manager.Manager, options controller.Options) (*controllerimpl.Controller[reconcile.Request], error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("must specify Name for Controller")
 	}
@@ -89,7 +89,7 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 	}
 
 	if options.RateLimiter == nil {
-		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
+		options.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]()
 	}
 
 	log := mgr.GetLogger().WithValues(
@@ -97,12 +97,13 @@ func NewNoReconcileController(name string, mgr manager.Manager, options controll
 	)
 
 	// Create controller with dependencies set
-	c := &controllerimpl.Controller{
-		MakeQueue: func() workqueue.RateLimitingInterface {
-			return workqueue.NewNamedRateLimitingQueue(options.RateLimiter, name)
+	c := &controllerimpl.Controller[reconcile.Request]{
+		NewQueue: func(controllerName string, rateLimiter workqueue.TypedRateLimiter[reconcile.Request]) workqueue.TypedRateLimitingInterface[reconcile.Request] {
+			return workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: controllerName})
 		},
 		CacheSyncTimeout: options.CacheSyncTimeout,
 		Name:             name,
+		RateLimiter:      options.RateLimiter,
 		RecoverPanic:     options.RecoverPanic,
 		LogConstructor: func(req *reconcile.Request) logr.Logger {
 			log := log

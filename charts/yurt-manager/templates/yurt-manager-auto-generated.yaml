@@ -148,29 +148,48 @@ metadata:
   name: yurt-manager-basecontroller
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - nodes
+  - pods
+  - services
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
   - apps
   resources:
   - controllerrevisions
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
   - daemonsets
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
   - deployments
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
   - statefulsets
   verbs:
   - list
@@ -179,40 +198,10 @@ rules:
   - apps.openyurt.io
   resources:
   - nodebuckets
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - nodepools
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappdaemons
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappoverriders
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappsets
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtstaticsets
   verbs:
   - list
@@ -241,73 +230,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - endpoints
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts/token
-  verbs:
-  - create
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - list
   - watch
 - apiGroups:
   - crd.projectcalico.org
@@ -378,13 +300,6 @@ metadata:
   name: yurt-manager-daemon-pod-updater-controller
 rules:
 - apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  verbs:
-  - get
-  - update
-- apiGroups:
   - ""
   resources:
   - nodes
@@ -401,22 +316,10 @@ rules:
   - get
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: yurt-manager-delegate-lease-controller
-rules:
 - apiGroups:
-  - coordination.k8s.io
+  - apps
   resources:
-  - leases
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - nodes
+  - daemonsets
   verbs:
   - get
   - update
@@ -424,14 +327,27 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: yurt-manager-gateway-dns-controller
+  name: yurt-manager-delegate-lease-controller
 rules:
 - apiGroups:
-  - apps.openyurt.io
+  - ""
   resources:
-  - nodepools
+  - nodes
   verbs:
   - get
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-manager-gateway-dns-controller
+rules:
 - apiGroups:
   - ""
   resources:
@@ -445,12 +361,13 @@ rules:
   - ""
   resources:
   - nodes
+  - services
   verbs:
   - get
 - apiGroups:
-  - ""
+  - apps.openyurt.io
   resources:
-  - services
+  - nodepools
   verbs:
   - get
 ---
@@ -469,14 +386,6 @@ rules:
   - ""
   resources:
   - endpoints
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
   - services
   verbs:
   - create
@@ -499,11 +408,6 @@ rules:
   - ""
   resources:
   - configmaps
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - nodes
   verbs:
   - get
@@ -552,14 +456,6 @@ rules:
   - ""
   resources:
   - endpoints
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
   - services
   verbs:
   - create
@@ -638,12 +534,6 @@ metadata:
   name: yurt-manager-node-life-cycle-controller
 rules:
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-- apiGroups:
   - ""
   resources:
   - nodes
@@ -654,6 +544,7 @@ rules:
   - ""
   resources:
   - nodes/status
+  - pods/status
   verbs:
   - update
 - apiGroups:
@@ -664,11 +555,11 @@ rules:
   - delete
   - get
 - apiGroups:
-  - ""
+  - coordination.k8s.io
   resources:
-  - pods/status
+  - leases
   verbs:
-  - update
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -676,25 +567,18 @@ metadata:
   name: yurt-manager-nodepool-controller
 rules:
 - apiGroups:
-  - apps.openyurt.io
-  resources:
-  - nodepools
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps.openyurt.io
-  resources:
-  - nodepools/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - ""
   resources:
   - nodes
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - nodepools
+  - nodepools/status
   verbs:
   - get
   - patch
@@ -706,27 +590,10 @@ metadata:
   name: yurt-manager-platform-admin-controller
 rules:
 - apiGroups:
-  - apps.openyurt.io
-  resources:
-  - yurtappsets
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps.openyurt.io
-  resources:
-  - yurtappsets/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - ""
   resources:
   - configmaps
+  - services
   verbs:
   - create
   - delete
@@ -745,7 +612,15 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - services
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - yurtappsets
   verbs:
   - create
   - delete
@@ -753,9 +628,9 @@ rules:
   - patch
   - update
 - apiGroups:
-  - ""
+  - apps.openyurt.io
   resources:
-  - services/status
+  - yurtappsets/status
   verbs:
   - get
   - patch
@@ -851,15 +726,6 @@ rules:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
   - validatingwebhookconfigurations
   verbs:
   - get
@@ -887,15 +753,6 @@ rules:
   - apps
   resources:
   - controllerrevisions
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resources:
   - deployments
   verbs:
   - create
@@ -945,17 +802,7 @@ rules:
   - apps.openyurt.io
   resources:
   - yurtappdaemons
-  verbs:
-  - get
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappoverriders
-  verbs:
-  - get
-- apiGroups:
-  - apps.openyurt.io
-  resources:
   - yurtappsets
   verbs:
   - get
@@ -969,33 +816,7 @@ rules:
   - apps
   resources:
   - controllerrevisions
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resources:
   - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resources:
-  - deployments/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resources:
   - statefulsets
   verbs:
   - create
@@ -1006,6 +827,7 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - deployments/status
   - statefulsets/status
   verbs:
   - get
@@ -1045,6 +867,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - services
   verbs:
   - get
 - apiGroups:
@@ -1057,12 +880,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - get
-- apiGroups:
   - certificates.k8s.io
   resources:
   - certificatesigningrequests
@@ -1074,6 +891,32 @@ kind: ClusterRole
 metadata:
   name: yurt-manager-yurt-static-set-controller
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - patch
+  - update
 - apiGroups:
   - apps.openyurt.io
   resources:
@@ -1096,41 +939,6 @@ rules:
   - yurtstaticsets/status
   verbs:
   - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods/status
-  verbs:
   - patch
   - update
 ---

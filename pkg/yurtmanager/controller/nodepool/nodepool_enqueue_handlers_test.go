@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
@@ -63,7 +64,7 @@ func TestCreate(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			handler := &EnqueueNodePoolForNode{}
-			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 			handler.Create(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {
@@ -265,7 +266,7 @@ func TestUpdate(t *testing.T) {
 				EnableSyncNodePoolConfigurations: true,
 				Recorder:                         record.NewFakeRecorder(100),
 			}
-			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 			handler.Update(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {
@@ -309,7 +310,7 @@ func TestDelete(t *testing.T) {
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			handler := &EnqueueNodePoolForNode{}
-			q := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 			handler.Delete(context.Background(), tc.event, q)
 
 			if q.Len() != tc.wantedNum {

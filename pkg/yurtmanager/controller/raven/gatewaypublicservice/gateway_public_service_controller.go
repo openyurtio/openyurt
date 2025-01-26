@@ -186,7 +186,6 @@ func recordServiceNames(services []corev1.Service, record *serviceRecord) {
 		}
 		record.write(formatKey(epName, epType), svc.GetName())
 	}
-	return
 }
 
 func (r *ReconcileService) reconcileService(ctx context.Context, gw *ravenv1beta1.Gateway, record *serviceRecord, enableTunnel, enableProxy bool) error {

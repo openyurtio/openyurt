@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kstorage "k8s.io/apiserver/pkg/storage"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
@@ -179,6 +181,12 @@ func TestShareCacheManager_ResourceCache(t *testing.T) {
 	dsm := storage.NewDummyStorageManager(storageMap)
 	scm := NewRequestsMultiplexerManager(dsm)
 	cache, _, _ := scm.ResourceCache(serviceGVR)
+	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
+		if cache.ReadinessCheck() == nil {
+			return true, nil
+		}
+		return false, nil
+	})
 
 	serviceList := &v1.ServiceList{}
 	err := cache.GetList(context.Background(), "", mockListOptions(), serviceList)

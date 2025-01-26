@@ -36,7 +36,7 @@ func TestPoolServiceEventHandler(t *testing.T) {
 	f := NewPoolServiceEventHandler()
 	t.Run("create pool service", func(t *testing.T) {
 		ps := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Create(context.Background(), event.CreateEvent{
 			Object: ps,
@@ -48,7 +48,7 @@ func TestPoolServiceEventHandler(t *testing.T) {
 	t.Run("create pool service not service name", func(t *testing.T) {
 		ps := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
 		delete(ps.Labels, network.LabelServiceName)
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Create(context.Background(), event.CreateEvent{
 			Object: ps,
@@ -60,7 +60,7 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		oldPs := newPoolServiceWithServiceNameAndNodepoolName("mock1", "np123")
 		newPs := newPoolServiceWithServiceNameAndNodepoolName("mock2", "np123")
 
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Update(context.Background(), event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
 
@@ -75,7 +75,7 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		newPs := newPoolServiceWithServiceNameAndNodepoolName("mock1", "np123")
 		delete(newPs.Labels, network.LabelServiceName)
 
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Update(context.Background(), event.UpdateEvent{ObjectOld: oldPs, ObjectNew: newPs}, q)
 
@@ -87,7 +87,7 @@ func TestPoolServiceEventHandler(t *testing.T) {
 		newPs := newPoolServiceWithServiceNameAndNodepoolName(mockServiceName, "np123")
 		newPs.Annotations = map[string]string{"test": "app"}
 
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Update(context.Background(), event.UpdateEvent{
 			ObjectOld: oldPs,
@@ -116,7 +116,7 @@ func newPoolServiceWithServiceNameAndNodepoolName(serviceName string, poolName s
 	}
 }
 
-func assertAndDoneQueue(t testing.TB, q workqueue.Interface, expectedItemNames []string) {
+func assertAndDoneQueue(t testing.TB, q workqueue.TypedInterface[reconcile.Request], expectedItemNames []string) {
 	t.Helper()
 
 	if q.Len() != len(expectedItemNames) {
@@ -125,17 +125,12 @@ func assertAndDoneQueue(t testing.TB, q workqueue.Interface, expectedItemNames [
 	}
 
 	for _, expectedItem := range expectedItemNames {
-		gotItem, _ := q.Get()
-		r, ok := gotItem.(reconcile.Request)
-
-		if !ok {
-			t.Errorf("expected item is reconcile request, but not")
-		}
+		r, _ := q.Get()
 
 		if r.String() != expectedItem {
 			t.Errorf("expected request is %s, but got %s", expectedItem, r.String())
 		}
-		q.Done(gotItem)
+		q.Done(r)
 	}
 }
 
@@ -151,7 +146,7 @@ func TestNodePoolEventHandler(t *testing.T) {
 
 		c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc1).WithObjects(svc2).Build()
 		f := NewNodePoolEventHandler(c)
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Create(context.Background(), event.CreateEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{v1.NamespaceDefault + "/" + mockServiceName})
@@ -170,7 +165,7 @@ func TestNodePoolEventHandler(t *testing.T) {
 		f := NewNodePoolEventHandler(c)
 
 		np := newNodepool("np123", "name=np123,app=deploy")
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Delete(context.Background(), event.DeleteEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{
@@ -194,7 +189,7 @@ func TestNodePoolEventHandler(t *testing.T) {
 		f := NewNodePoolEventHandler(c)
 
 		np := newNodepool("np234", "name=np234,app=deploy")
-		q := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "pool_services"})
+		q := workqueue.NewTypedRateLimitingQueueWithConfig[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[reconcile.Request]{Name: "pool_services"})
 
 		f.Create(context.Background(), event.CreateEvent{Object: np}, q)
 		assertAndDoneQueue(t, q, []string{})

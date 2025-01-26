@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
@@ -37,7 +38,7 @@ import (
 // TestEnqueueRequestForGatewayEvent tests the method of EnqueueRequestForGatewayEvent.
 func TestEnqueueRequestForGatewayEvent(t *testing.T) {
 	h := &EnqueueRequestForGatewayEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	deletionTime := metav1.Now()
 
 	tests := []struct {
@@ -147,7 +148,7 @@ func TestEnqueueRequestForConfigEvent(t *testing.T) {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	h := EnqueueRequestForConfigEvent{client: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(mockObjs()...).Build()}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 
 	tests := []struct {
 		name         string
@@ -269,7 +270,7 @@ func mockObjs() []runtime.Object {
 	return []runtime.Object{nodeList, gateways, configmaps}
 }
 
-func clearQueue(queue workqueue.RateLimitingInterface) {
+func clearQueue(queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	for queue.Len() > 0 {
 		item, _ := queue.Get()
 		queue.Done(item)

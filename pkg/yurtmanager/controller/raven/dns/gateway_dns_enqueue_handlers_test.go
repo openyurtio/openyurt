@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
 )
@@ -60,9 +61,9 @@ func mockNode() *corev1.Node {
 
 func TestEnqueueRequestForServiceEvent(t *testing.T) {
 	h := &EnqueueRequestForServiceEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	svc := mockService()
-	clearQueue := func(queue workqueue.RateLimitingInterface) {
+	clearQueue := func(queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 		for queue.Len() > 0 {
 			item, _ := queue.Get()
 			queue.Done(item)
@@ -94,9 +95,9 @@ func TestEnqueueRequestForServiceEvent(t *testing.T) {
 
 func TestEnqueueRequestForNodeEvent(t *testing.T) {
 	h := &EnqueueRequestForNodeEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	node := mockNode()
-	clearQueue := func(queue workqueue.RateLimitingInterface) {
+	clearQueue := func(queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 		for queue.Len() > 0 {
 			item, _ := queue.Get()
 			queue.Done(item)
@@ -120,7 +121,7 @@ func TestEnqueueRequestForNodeEvent(t *testing.T) {
 
 func TestInvalidTypeScene(t *testing.T) {
 	h := &EnqueueRequestForNodeEvent{}
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	h.Create(context.Background(), event.CreateEvent{}, queue)
 	h.Delete(context.Background(), event.DeleteEvent{}, queue)
 	h.Update(context.Background(), event.UpdateEvent{}, queue)

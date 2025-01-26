@@ -282,8 +282,8 @@ type ReconcileNodeLifeCycle struct {
 	largeClusterThreshold       int32
 	unhealthyZoneThreshold      float32
 
-	nodeUpdateQueue workqueue.Interface
-	podUpdateQueue  workqueue.RateLimitingInterface
+	nodeUpdateQueue workqueue.TypedInterface[string]
+	podUpdateQueue  workqueue.TypedRateLimitingInterface[podUpdateItem]
 }
 
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=update
@@ -398,8 +398,12 @@ func newReconciler(cfg *appconfig.CompletedConfig, mgr manager.Manager) (*Reconc
 		secondaryEvictionLimiterQPS: cfg.ComponentConfig.NodeLifeCycleController.SecondaryNodeEvictionRate,
 		largeClusterThreshold:       cfg.ComponentConfig.NodeLifeCycleController.LargeClusterSizeThreshold,
 		unhealthyZoneThreshold:      cfg.ComponentConfig.NodeLifeCycleController.UnhealthyZoneThreshold,
-		nodeUpdateQueue:             workqueue.NewNamed("node_lifecycle_controller"),
-		podUpdateQueue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "node_lifecycle_controller_pods"),
+		nodeUpdateQueue:             workqueue.NewTypedWithConfig(workqueue.TypedQueueConfig[string]{Name: "node_lifecycle_controller"}),
+		podUpdateQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[podUpdateItem](),
+			workqueue.TypedRateLimitingQueueConfig[podUpdateItem]{
+				Name: "node_lifecycle_controller_pods",
+			}),
 	}
 	nc.getPodsAssignedToNode = GenGetPodsAssignedToNode(nc.controllerRuntimeClient)
 	nc.enterPartialDisruptionFunc = nc.ReducedQPSFunc
@@ -464,7 +468,7 @@ func (nc *ReconcileNodeLifeCycle) doNodeProcessingPassWorker(ctx context.Context
 		if shutdown {
 			return
 		}
-		nodeName := obj.(string)
+		nodeName := obj
 		if err := nc.doNoScheduleTaintingPass(ctx, nodeName); err != nil {
 			klog.ErrorS(err, "could not taint NoSchedule on node, requeue it", "node", klog.KRef("", nodeName))
 			// TODO(k82cn): Add nodeName back to the queue
@@ -1056,7 +1060,7 @@ func (nc *ReconcileNodeLifeCycle) doPodProcessingWorker(ctx context.Context) {
 			return
 		}
 
-		podItem := obj.(podUpdateItem)
+		podItem := obj
 		nc.processPod(ctx, podItem)
 	}
 }

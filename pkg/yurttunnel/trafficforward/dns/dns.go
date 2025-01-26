@@ -81,7 +81,7 @@ type coreDNSRecordController struct {
 	nodeListerSynced     cache.InformerSynced
 	svcInformerSynced    cache.InformerSynced
 	cmInformerSynced     cache.InformerSynced
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[*Event]
 	tunnelServerIP       string
 	syncPeriod           int
 	listenInsecureAddr   string
@@ -100,7 +100,7 @@ func NewCoreDNSRecordController(client clientset.Interface,
 		listenInsecureAddr:   listenInsecureAddr,
 		listenSecureAddr:     listenSecureAddr,
 		sharedInformerFactor: informerFactory,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "tunnel-dns"),
+		queue:                workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[*Event](), workqueue.TypedRateLimitingQueueConfig[*Event]{Name: "tunnel-dns"}),
 	}
 
 	nodeInformer := informerFactory.Core().V1().Nodes()
@@ -228,7 +228,7 @@ func (dnsctl *coreDNSRecordController) processNextWorkItem() bool {
 	}
 	defer dnsctl.queue.Done(event)
 
-	err := dnsctl.dispatch(event.(*Event))
+	err := dnsctl.dispatch(event)
 	dnsctl.handleErr(err, event)
 
 	return true
@@ -259,7 +259,7 @@ func (dnsctl *coreDNSRecordController) dispatch(event *Event) error {
 	}
 }
 
-func (dnsctl *coreDNSRecordController) handleErr(err error, event interface{}) {
+func (dnsctl *coreDNSRecordController) handleErr(err error, event *Event) {
 	if err == nil {
 		dnsctl.queue.Forget(event)
 		return

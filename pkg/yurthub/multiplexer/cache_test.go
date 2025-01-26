@@ -19,6 +19,7 @@ package multiplexer
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 
@@ -64,14 +66,18 @@ func TestResourceCache_GetList(t *testing.T) {
 			AttrsFunc,
 		},
 	)
+	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
+		if cache.ReadinessCheck() == nil {
+			return true, nil
+		}
+		return false, nil
+	})
 
-	for _, tc := range []struct {
-		name                string
+	for k, tc := range map[string]struct {
 		key                 string
 		expectedServiceList *v1.ServiceList
 	}{
-		{
-			"all namespace",
+		"all namespace": {
 			"",
 			&v1.ServiceList{
 				ListMeta: metav1.ListMeta{
@@ -83,8 +89,7 @@ func TestResourceCache_GetList(t *testing.T) {
 				},
 			},
 		},
-		{
-			"default namespace",
+		"default namespace": {
 			"/default",
 			&v1.ServiceList{
 				ListMeta: metav1.ListMeta{
@@ -96,11 +101,13 @@ func TestResourceCache_GetList(t *testing.T) {
 			},
 		},
 	} {
-		serviceList := &v1.ServiceList{}
-		err := cache.GetList(context.Background(), tc.key, mockListOptions(), serviceList)
+		t.Run(k, func(t *testing.T) {
+			serviceList := &v1.ServiceList{}
+			err := cache.GetList(context.Background(), tc.key, mockListOptions(), serviceList)
 
-		assert.Nil(t, err)
-		assert.Equal(t, tc.expectedServiceList.Items, serviceList.Items)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expectedServiceList.Items, serviceList.Items)
+		})
 	}
 }
 
@@ -128,6 +135,12 @@ func TestResourceCache_Watch(t *testing.T) {
 			AttrsFunc,
 		},
 	)
+	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
+		if cache.ReadinessCheck() == nil {
+			return true, nil
+		}
+		return false, nil
+	})
 
 	assert.Nil(t, err)
 	assertCacheWatch(t, cache, fakeStorage)
