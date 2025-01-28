@@ -32,6 +32,7 @@ import (
 type Interface interface {
 	Watch(ctx context.Context, key string, opts kstorage.ListOptions) (watch.Interface, error)
 	GetList(ctx context.Context, key string, opts kstorage.ListOptions, listObj runtime.Object) error
+	ReadinessCheck() error
 }
 
 type ResourceCacheConfig struct {

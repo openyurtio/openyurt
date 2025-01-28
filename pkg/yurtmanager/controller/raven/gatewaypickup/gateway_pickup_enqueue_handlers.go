@@ -24,6 +24,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
@@ -33,7 +34,7 @@ import (
 type EnqueueGatewayForNode struct{}
 
 // Create implements EventHandler
-func (e *EnqueueGatewayForNode) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -49,7 +50,7 @@ func (e *EnqueueGatewayForNode) Create(ctx context.Context, evt event.CreateEven
 }
 
 // Update implements EventHandler
-func (e *EnqueueGatewayForNode) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	newNode, ok := evt.ObjectNew.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object(%s) to v1.Node",
@@ -80,7 +81,7 @@ func (e *EnqueueGatewayForNode) Update(ctx context.Context, evt event.UpdateEven
 }
 
 // Delete implements EventHandler
-func (e *EnqueueGatewayForNode) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	node, ok := evt.Object.(*corev1.Node)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.Node"))
@@ -99,14 +100,14 @@ func (e *EnqueueGatewayForNode) Delete(ctx context.Context, evt event.DeleteEven
 }
 
 // Generic implements EventHandler
-func (e *EnqueueGatewayForNode) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForNode) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 type EnqueueGatewayForRavenConfig struct {
 	client client.Client
 }
 
-func (e *EnqueueGatewayForRavenConfig) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -119,7 +120,7 @@ func (e *EnqueueGatewayForRavenConfig) Create(ctx context.Context, evt event.Cre
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	oldCm, ok := evt.ObjectOld.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -149,7 +150,7 @@ func (e *EnqueueGatewayForRavenConfig) Update(ctx context.Context, evt event.Upd
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	_, ok := evt.Object.(*corev1.ConfigMap)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object to v1.ConfigMap"))
@@ -162,11 +163,11 @@ func (e *EnqueueGatewayForRavenConfig) Delete(ctx context.Context, evt event.Del
 	}
 }
 
-func (e *EnqueueGatewayForRavenConfig) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *EnqueueGatewayForRavenConfig) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 
 }
 
-func (e *EnqueueGatewayForRavenConfig) enqueueGateways(q workqueue.RateLimitingInterface) error {
+func (e *EnqueueGatewayForRavenConfig) enqueueGateways(q workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
 	var gwList ravenv1beta1.GatewayList
 	err := e.client.List(context.TODO(), &gwList)
 	if err != nil {

@@ -109,8 +109,7 @@ import (
 
 func TestUpdateStatus(t *testing.T) {
 	var int1 int32 = 11
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 
 	tests := []struct {
@@ -185,8 +184,7 @@ func TestUpdateStatus(t *testing.T) {
 
 func TestUpdateYurtAppDaemon(t *testing.T) {
 	var int1 int32 = 11
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 
 	tests := []struct {
@@ -253,8 +251,7 @@ func TestUpdateYurtAppDaemon(t *testing.T) {
 
 func TestCalculateStatus(t *testing.T) {
 	var int1 int32 = 11
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 	var cr appsv1.ControllerRevision
 	cr.Name = "a"
@@ -328,8 +325,7 @@ func TestCalculateStatus(t *testing.T) {
 }
 
 func TestManageWorkloads(t *testing.T) {
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 
 	tests := []struct {
@@ -375,8 +371,7 @@ func TestManageWorkloads(t *testing.T) {
 }
 
 func TestManageWorkloadsProvision(t *testing.T) {
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 
 	tests := []struct {
@@ -422,8 +417,7 @@ func TestManageWorkloadsProvision(t *testing.T) {
 }
 
 func TestClassifyWorkloads(t *testing.T) {
-	var yad *unitv1alpha1.YurtAppDaemon
-	yad = &unitv1alpha1.YurtAppDaemon{}
+	yad := &unitv1alpha1.YurtAppDaemon{}
 	yad.Generation = 1
 
 	tests := []struct {

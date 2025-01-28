@@ -27,20 +27,21 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
 )
 
-func createQueue() workqueue.RateLimitingInterface {
-	return workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond, 1*time.Second))
+func createQueue() workqueue.TypedRateLimitingInterface[reconcile.Request] {
+	return workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](1*time.Millisecond, 1*time.Second))
 }
 
 func TestAddYurtAppDaemonToWorkQueue(t *testing.T) {
 	tests := []struct {
 		namespace string
 		name      string
-		q         workqueue.RateLimitingInterface
+		q         workqueue.TypedRateLimitingInterface[reconcile.Request]
 		added     int // the items in queue
 	}{
 		{
@@ -82,7 +83,7 @@ func TestCreate(t *testing.T) {
 	tests := []struct {
 		name              string
 		event             event.CreateEvent
-		limitingInterface workqueue.RateLimitingInterface
+		limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]
 		expect            string
 	}{
 		{
@@ -135,7 +136,7 @@ func TestUpdate(t *testing.T) {
 	tests := []struct {
 		name              string
 		event             event.UpdateEvent
-		limitingInterface workqueue.RateLimitingInterface
+		limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]
 		expect            string
 	}{
 		{
@@ -197,7 +198,7 @@ func TestDelete(t *testing.T) {
 	tests := []struct {
 		name              string
 		event             event.DeleteEvent
-		limitingInterface workqueue.RateLimitingInterface
+		limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]
 		expect            string
 	}{
 		{
@@ -251,7 +252,7 @@ func TestGeneric(t *testing.T) {
 	tests := []struct {
 		name              string
 		event             event.GenericEvent
-		limitingInterface workqueue.RateLimitingInterface
+		limitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]
 		expect            string
 	}{
 		{

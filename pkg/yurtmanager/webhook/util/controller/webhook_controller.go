@@ -81,7 +81,7 @@ type Controller struct {
 	extensionsInformerFactory apiextensionsinformers.SharedInformerFactory
 	synced                    []cache.InformerSynced
 
-	queue       workqueue.RateLimitingInterface
+	queue       workqueue.TypedRateLimitingInterface[string]
 	webhookPort int
 }
 
@@ -93,7 +93,7 @@ func New(handlers map[string]struct{}, cc *config.CompletedConfig, restCfg *rest
 	c := &Controller{
 		kubeClient:  kubeClient,
 		handlers:    handlers,
-		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhook-controller"),
+		queue:       workqueue.NewTypedRateLimitingQueueWithConfig[string](workqueue.DefaultTypedControllerRateLimiter[string](), workqueue.TypedRateLimitingQueueConfig[string]{Name: "webhook-controller"}),
 		webhookPort: cc.ComponentConfig.Generic.WebhookPort,
 	}
 
@@ -199,7 +199,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 	defer c.queue.Done(key)
 
-	err := c.sync(key.(string))
+	err := c.sync(key)
 	if err == nil {
 		c.queue.AddAfter(key, defaultResyncPeriod)
 		c.queue.Forget(key)

@@ -37,12 +37,12 @@ type EnqueueEndpointsliceForService struct {
 
 // Create implements EventHandler
 func (e *EnqueueEndpointsliceForService) Create(ctx context.Context, evt event.CreateEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 // Update implements EventHandler
 func (e *EnqueueEndpointsliceForService) Update(ctx context.Context, evt event.UpdateEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	oldSvc, ok := evt.ObjectOld.(*corev1.Service)
 	if !ok {
 		klog.Error(Format("could not assert runtime Object(%s) to v1.Service",
@@ -62,15 +62,15 @@ func (e *EnqueueEndpointsliceForService) Update(ctx context.Context, evt event.U
 
 // Delete implements EventHandler
 func (e *EnqueueEndpointsliceForService) Delete(ctx context.Context, evt event.DeleteEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
 // Generic implements EventHandler
 func (e *EnqueueEndpointsliceForService) Generic(ctx context.Context, evt event.GenericEvent,
-	q workqueue.RateLimitingInterface) {
+	q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
-func (e *EnqueueEndpointsliceForService) enqueueEndpointsliceForSvc(newSvc *corev1.Service, q workqueue.RateLimitingInterface) {
+func (e *EnqueueEndpointsliceForService) enqueueEndpointsliceForSvc(newSvc *corev1.Service, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	keys := e.endpointsliceAdapter.GetEnqueueKeysBySvc(newSvc)
 	klog.Info(Format("the topology configuration of svc %s/%s is changed, enqueue endpointslices: %v", newSvc.Namespace, newSvc.Name, keys))
 	for _, key := range keys {
