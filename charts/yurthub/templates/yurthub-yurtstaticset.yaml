@@ -50,8 +50,16 @@ spec:
               host: {{ .Values.yurthubBindingAddr }}
               path: /v1/healthz
               port: 10267
-            initialDelaySeconds: 300
-            periodSeconds: 5
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              host: {{ .Values.yurthubBindingAddr }}
+              path: /v1/readyz
+              port: 10267
+            initialDelaySeconds: 120
+            periodSeconds: 20
             failureThreshold: 3
           resources:
             requests:

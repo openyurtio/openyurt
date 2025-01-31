@@ -182,16 +182,16 @@ func hubHealthcheck(timeout time.Duration) error {
 	if err != nil {
 		return err
 	}
-	serverHealthzURL.Path = constants.ServerHealthzURLPath
+	serverHealthzURL.Path = constants.ServerReadyzURLPath
 
 	start := time.Now()
 	return wait.PollUntilContextTimeout(context.Background(), hubHealthzCheckFrequency, timeout, true, func(ctx context.Context) (bool, error) {
 		_, err := pingClusterHealthz(http.DefaultClient, serverHealthzURL.String())
 		if err != nil {
-			klog.Infof("yurt-hub is not ready, ping cluster healthz with result: %v", err)
+			klog.Infof("yurt-hub is not ready, ping cluster readyz with result: %v", err)
 			return false, nil
 		}
-		klog.Infof("yurt-hub healthz is OK after %f seconds", time.Since(start).Seconds())
+		klog.Infof("yurt-hub readyz is OK after %f seconds", time.Since(start).Seconds())
 		return true, nil
 	})
 }

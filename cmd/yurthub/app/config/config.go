@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	apiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -62,19 +61,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
-
-var AllowedMultiplexerResources = []schema.GroupVersionResource{
-	{
-		Group:    "",
-		Version:  "v1",
-		Resource: "services",
-	},
-	{
-		Group:    "discovery.k8s.io",
-		Version:  "v1",
-		Resource: "endpointslices",
-	},
-}
 
 // YurtHubConfiguration represents configuration of yurthub
 type YurtHubConfiguration struct {
@@ -111,9 +97,7 @@ type YurtHubConfiguration struct {
 	ProxiedClient                   kubernetes.Interface
 	DiskCachePath                   string
 	HostControlPlaneAddr            string // ip:port
-	PostStartHooks                  map[string]func() error
-	RequestMultiplexerManager       multiplexer.MultiplexerManager
-	MultiplexerResources            []schema.GroupVersionResource
+	RequestMultiplexerManager       *multiplexer.MultiplexerManager
 	ConfigManager                   *configuration.Manager
 }
 
@@ -178,8 +162,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		ProxiedClient:             proxiedClient,
 		DiskCachePath:             options.DiskCachePath,
 		HostControlPlaneAddr:      options.HostControlPlaneAddr,
-		MultiplexerResources:      AllowedMultiplexerResources,
-		RequestMultiplexerManager: newMultiplexerCacheManager(options),
+		RequestMultiplexerManager: newRequestMultiplexerManager(options, restMapperManager),
 		ConfigManager:             configManager,
 	}
 
@@ -302,7 +285,7 @@ func registerInformers(options *options.YurtHubOptions,
 	workingMode util.WorkingMode,
 	tenantNs string) {
 
-	// configmap informer is used by Yurthub filter approver
+	// configmap informer is used by Yurthub filter approver/cache manager
 	newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
@@ -409,16 +392,28 @@ func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.Y
 	return nil
 }
 
-func newMultiplexerCacheManager(options *options.YurtHubOptions) multiplexer.MultiplexerManager {
-	config := newRestConfig(options.NodeName, options.YurtHubProxyHost, options.YurtHubProxyPort)
-	rsm := storage.NewStorageManager(config)
+func newRequestMultiplexerManager(options *options.YurtHubOptions, restMapperManager *meta.RESTMapperManager) *multiplexer.MultiplexerManager {
+	config := &rest.Config{
+		Host:      fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+		UserAgent: util.MultiplexerProxyClientUserAgentPrefix + options.NodeName,
+	}
+	storageProvider := storage.NewStorageProvider(config)
 
-	return multiplexer.NewRequestsMultiplexerManager(rsm)
+	return multiplexer.NewRequestMultiplexerManager(storageProvider, restMapperManager, options.PoolScopeResources)
 }
 
-func newRestConfig(nodeName string, host string, port int) *rest.Config {
-	return &rest.Config{
-		Host:      fmt.Sprintf("http://%s:%d", host, port),
-		UserAgent: util.MultiplexerProxyClientUserAgentPrefix + nodeName,
+func ReadinessCheck(cfg *YurtHubConfiguration) error {
+	if ready := cfg.CertManager.Ready(); !ready {
+		return fmt.Errorf("certificates are not ready")
 	}
+
+	if ready := cfg.ConfigManager.HasSynced(); !ready {
+		return fmt.Errorf("yurt-hub-cfg configmap is not synced")
+	}
+
+	if synced := cfg.FilterFinder.HasSynced(); !synced {
+		return fmt.Errorf("resources needed by filters are not synced")
+	}
+
+	return nil
 }

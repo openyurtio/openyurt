@@ -56,13 +56,17 @@ func TestFindResponseFilter(t *testing.T) {
 		userAgent               string
 		verb                    string
 		path                    string
-		mgrIsNil                bool
 		isFound                 bool
 		names                   sets.Set[string]
 	}{
 		"disable resource filter": {
 			enableResourceFilter: false,
-			mgrIsNil:             true,
+			enableDummyIf:        true,
+			userAgent:            "kubelet",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              false,
+			names:                sets.New[string](),
 		},
 		"get master service filter": {
 			enableResourceFilter: true,
@@ -109,6 +113,15 @@ func TestFindResponseFilter(t *testing.T) {
 			isFound:              true,
 			names:                sets.New("nodeportisolation"),
 		},
+		"reject by approver for unknown component": {
+			enableResourceFilter: true,
+			enableDummyIf:        true,
+			userAgent:            "unknown-agent",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              false,
+			names:                sets.New[string](),
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
@@ -134,9 +147,6 @@ func TestFindResponseFilter(t *testing.T) {
 			defer close(stopper)
 
 			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, configManager)
-			if tt.mgrIsNil && finder == nil {
-				return
-			}
 
 			sharedFactory.Start(stopper)
 			nodePoolFactory.Start(stopper)
@@ -161,7 +171,10 @@ func TestFindResponseFilter(t *testing.T) {
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
-			if !tt.isFound && isFound == tt.isFound {
+			if isFound != tt.isFound {
+				t.Errorf("expect found result %v, but got %v", tt.isFound, isFound)
+			} else if !tt.isFound {
+				// skip checking filter names because no filter is found.
 				return
 			}
 
@@ -188,13 +201,17 @@ func TestFindObjectFilter(t *testing.T) {
 		userAgent               string
 		verb                    string
 		path                    string
-		mgrIsNil                bool
 		isFound                 bool
 		names                   sets.Set[string]
 	}{
 		"disable resource filter": {
 			enableResourceFilter: false,
-			mgrIsNil:             true,
+			enableDummyIf:        true,
+			userAgent:            "kubelet",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              false,
+			names:                sets.New[string](),
 		},
 		"get master service filter": {
 			enableResourceFilter: true,
@@ -241,6 +258,15 @@ func TestFindObjectFilter(t *testing.T) {
 			isFound:              true,
 			names:                sets.New("nodeportisolation"),
 		},
+		"reject by approver for unknown component": {
+			enableResourceFilter: true,
+			enableDummyIf:        true,
+			userAgent:            "unknown-agent",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			isFound:              false,
+			names:                sets.New[string](),
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
@@ -266,9 +292,6 @@ func TestFindObjectFilter(t *testing.T) {
 			defer close(stopper)
 
 			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, configManager)
-			if tt.mgrIsNil && finder == nil {
-				return
-			}
 
 			sharedFactory.Start(stopper)
 			nodePoolFactory.Start(stopper)
@@ -293,7 +316,10 @@ func TestFindObjectFilter(t *testing.T) {
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
-			if !tt.isFound && isFound == tt.isFound {
+			if isFound != tt.isFound {
+				t.Errorf("expect found result %v, but got %v", tt.isFound, isFound)
+			} else if !tt.isFound {
+				// skip checking filter names because no filter is found.
 				return
 			}
 
@@ -310,4 +336,75 @@ func newTestRequestInfoResolver() *request.RequestInfoFactory {
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
+}
+
+func TestHasSynced(t *testing.T) {
+	fakeClient := &fake.Clientset{}
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	fakeDynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+	serializerManager := serializer.NewSerializerManager()
+
+	testcases := map[string]struct {
+		enableResourceFilter    bool
+		workingMode             string
+		disabledResourceFilters []string
+		enableDummyIf           bool
+		userAgent               string
+		verb                    string
+		path                    string
+		hasSynced               bool
+	}{
+		"has synced by disabling resource filter": {
+			enableResourceFilter: false,
+			enableDummyIf:        true,
+			userAgent:            "kubelet",
+			verb:                 "GET",
+			path:                 "/api/v1/services",
+			hasSynced:            true,
+		},
+		"has synced by disabling service topology filter": {
+			enableResourceFilter:    true,
+			disabledResourceFilters: []string{"servicetopology"},
+			enableDummyIf:           true,
+			userAgent:               "kube-proxy",
+			verb:                    "GET",
+			path:                    "/api/v1/endpoints",
+			hasSynced:               true,
+		},
+		"not synced by setting service topology filter": {
+			enableResourceFilter: true,
+			enableDummyIf:        false,
+			userAgent:            "kube-proxy",
+			verb:                 "GET",
+			path:                 "/api/v1/endpoints",
+			hasSynced:            false,
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			options := &options.YurtHubOptions{
+				EnableResourceFilter:    tc.enableResourceFilter,
+				WorkingMode:             tc.workingMode,
+				DisabledResourceFilters: make([]string, 0),
+				EnableDummyIf:           tc.enableDummyIf,
+				NodeName:                "test",
+				YurtHubProxySecurePort:  10268,
+				HubAgentDummyIfIP:       "127.0.0.1",
+				YurtHubProxyHost:        "127.0.0.1",
+			}
+			options.DisabledResourceFilters = append(options.DisabledResourceFilters, tc.disabledResourceFilters...)
+			sharedFactory, nodePoolFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
+				dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
+			configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
+
+			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, configManager)
+			hasSynced := finder.HasSynced()
+			if hasSynced != tc.hasSynced {
+				t.Errorf("expect synced result: %v, but got %v", tc.hasSynced, hasSynced)
+			}
+		})
+	}
+
 }

@@ -21,7 +21,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/util/profile"
-	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
@@ -74,12 +72,6 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 			return err
 		}
 	}
-
-	for name, hook := range cfg.PostStartHooks {
-		if err := hook(); err != nil {
-			return errors.Wrapf(err, "failed to run post start hooks: %s", name)
-		}
-	}
 	return nil
 }
 
@@ -90,7 +82,7 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 
 	// register handler for health check
 	c.HandleFunc("/v1/healthz", healthz).Methods("GET")
-	c.Handle("/v1/readyz", readyz(cfg.CertManager)).Methods("GET")
+	c.Handle("/v1/readyz", readyz(cfg)).Methods("GET")
 
 	// register handler for profile
 	if cfg.EnableProfiling {
@@ -104,7 +96,7 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 	if cfg.WorkingMode == util.WorkingModeEdge {
 		c.Handle("/pods", ota.GetPods(cfg.StorageWrapper)).Methods("GET")
 	} else {
-		c.Handle("/pods", getPodList(cfg.SharedFactory, cfg.NodeName)).Methods("GET")
+		c.Handle("/pods", getPodList(cfg.SharedFactory)).Methods("GET")
 	}
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
 		ota.HealthyCheck(rest, cfg.NodeName, ota.UpdatePod)).Methods("POST")
@@ -116,21 +108,20 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
-// readyz is used for checking certificates are ready or not
-func readyz(certificateMgr certificate.YurtCertificateManager) http.Handler {
+// readyz is used for checking yurthub is ready to proxy requests or not
+func readyz(cfg *config.YurtHubConfiguration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ready := certificateMgr.Ready()
-		if ready {
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, "OK")
-		} else {
-			http.Error(w, "certificates are not ready", http.StatusInternalServerError)
+		if err := config.ReadinessCheck(cfg); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "OK")
 	})
 }
 
-func getPodList(sharedFactory informers.SharedInformerFactory, nodeName string) http.Handler {
-
+func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podLister := sharedFactory.Core().V1().Pods().Lister()
 		podList, err := podLister.List(labels.Everything())

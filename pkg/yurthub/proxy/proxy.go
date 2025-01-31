@@ -18,10 +18,10 @@ package proxy
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
+	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -29,9 +29,11 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	basemultiplexer "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/autonomy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/local"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer"
@@ -42,20 +44,20 @@ import (
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-const multiplexerProxyPostHookName = "multiplexerProxy"
-
 type yurtReverseProxy struct {
-	resolver             apirequest.RequestInfoResolver
-	loadBalancer         remote.LoadBalancer
+	cfg                  *config.YurtHubConfiguration
 	cloudHealthChecker   healthchecker.MultipleBackendsHealthChecker
+	resolver             apirequest.RequestInfoResolver
+	loadBalancer         http.Handler
 	localProxy           http.Handler
 	autonomyProxy        http.Handler
+	multiplexerProxy     http.Handler
+	multiplexerManager   *basemultiplexer.MultiplexerManager
 	maxRequestsInFlight  int
 	tenantMgr            tenant.Interface
 	workingMode          hubutil.WorkingMode
-	multiplexerProxy     http.Handler
-	multiplexerResources []schema.GroupVersionResource
 	nodeName             string
+	multiplexerUserAgent string
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -87,7 +89,6 @@ func NewYurtReverseProxyHandler(
 	}
 
 	var localProxy, autonomyProxy http.Handler
-
 	if yurtHubCfg.WorkingMode == hubutil.WorkingModeEdge {
 		// When yurthub works in Edge mode, we may use local proxy or pool proxy to handle
 		// the request when offline.
@@ -103,30 +104,25 @@ func NewYurtReverseProxyHandler(
 		)
 	}
 
+	multiplexerProxy := multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterFinder,
+		yurtHubCfg.RequestMultiplexerManager,
+		yurtHubCfg.RESTMapperManager,
+		stopCh)
+
 	yurtProxy := &yurtReverseProxy{
+		cfg:                  yurtHubCfg,
 		resolver:             resolver,
 		loadBalancer:         lb,
 		cloudHealthChecker:   cloudHealthChecker,
 		localProxy:           localProxy,
 		autonomyProxy:        autonomyProxy,
+		multiplexerProxy:     multiplexerProxy,
+		multiplexerManager:   yurtHubCfg.RequestMultiplexerManager,
 		maxRequestsInFlight:  yurtHubCfg.MaxRequestInFlight,
 		tenantMgr:            tenantMgr,
 		workingMode:          yurtHubCfg.WorkingMode,
-		multiplexerResources: yurtHubCfg.MultiplexerResources,
 		nodeName:             yurtHubCfg.NodeName,
-	}
-
-	if yurtHubCfg.PostStartHooks == nil {
-		yurtHubCfg.PostStartHooks = make(map[string]func() error)
-	}
-	yurtHubCfg.PostStartHooks[multiplexerProxyPostHookName] = func() error {
-		if yurtProxy.multiplexerProxy, err = multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterFinder,
-			yurtHubCfg.RequestMultiplexerManager,
-			yurtHubCfg.MultiplexerResources,
-			stopCh); err != nil {
-			return fmt.Errorf("failed to new default share proxy, error: %v", err)
-		}
-		return nil
+		multiplexerUserAgent: hubutil.MultiplexerProxyClientUserAgentPrefix + yurtHubCfg.NodeName,
 	}
 
 	return yurtProxy.buildHandlerChain(yurtProxy), nil
@@ -143,9 +139,10 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 		handler = util.WithListRequestSelector(handler)
 	}
 	handler = util.WithRequestTraceFull(handler)
-	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight)
+	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight, p.nodeName)
 	handler = util.WithRequestClientComponent(handler, p.workingMode)
 	handler = util.WithPartialObjectMetadataRequest(handler)
+	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager, p.multiplexerUserAgent)
 
 	if p.tenantMgr != nil && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
@@ -159,28 +156,39 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	// allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing,
+	// and reject all requests from outside of yurthub when yurthub is not ready.
+	if !p.IsRequestFromHubSelf(req) {
+		if err := config.ReadinessCheck(p.cfg); err != nil {
+			klog.Errorf("could not handle request(%s) because hub is not ready for %s", hubutil.ReqString(req), err.Error())
+			hubutil.Err(apierrors.NewServiceUnavailable(err.Error()), rw, req)
+			return
+		}
+	}
+
+	// pool scope metadata requests should be handled by multiplexer for both cloud and edge mode.
+	isRequestForPoolScopeMetadata, ok := hubutil.IsRequestForPoolScopeMetadataFrom(req.Context())
+	if ok && isRequestForPoolScopeMetadata {
+		p.multiplexerProxy.ServeHTTP(rw, req)
+		return
+	}
+
+	// requests should be forwarded to cloud kube-apiserver for cloud mode
 	if p.workingMode == hubutil.WorkingModeCloud {
 		p.loadBalancer.ServeHTTP(rw, req)
 		return
 	}
 
+	// handle requests for edge mode
 	switch {
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsKubeletGetNodeReq(req):
-		if p.autonomyProxy != nil {
-			p.autonomyProxy.ServeHTTP(rw, req)
-		} else {
-			p.loadBalancer.ServeHTTP(rw, req)
-		}
+		p.autonomyProxy.ServeHTTP(rw, req)
 	case util.IsEventCreateRequest(req):
 		p.eventHandler(rw, req)
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
-	case util.IsMultiplexerRequest(req, p.multiplexerResources, p.nodeName):
-		if p.multiplexerProxy != nil {
-			p.multiplexerProxy.ServeHTTP(rw, req)
-		}
 	default:
 		// handling the request with cloud apiserver or local cache.
 		if p.cloudHealthChecker.IsHealthy() {
@@ -214,5 +222,19 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 		err := errors.New("request is from cloud APIServer but it's currently not healthy")
 		klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
 		hubutil.Err(err, rw, req)
+	}
+}
+
+func (p *yurtReverseProxy) IsRequestFromHubSelf(req *http.Request) bool {
+	userAgent := req.UserAgent()
+
+	if userAgent == p.multiplexerUserAgent {
+		// requests from multiplexer manager in yurthub
+		return true
+	} else if strings.HasPrefix(userAgent, projectinfo.GetHubName()) {
+		// requests from sharedInformer for filter and configuration manager in yurthub
+		return true
+	} else {
+		return false
 	}
 }

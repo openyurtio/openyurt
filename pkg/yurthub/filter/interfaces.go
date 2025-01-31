@@ -58,6 +58,14 @@ type ObjectFilter interface {
 type FilterFinder interface {
 	FindResponseFilter(req *http.Request) (ResponseFilter, bool)
 	FindObjectFilter(req *http.Request) (ObjectFilter, bool)
+	ResourceSyncer
 }
 
 type NodeGetter func(name string) (*v1.Node, error)
+
+// ResourceSyncer is used for verifying the resources which filter depends on has been synced or not.
+// For example: servicetopology filter depends on service and nodebucket metadata, filter can be worked
+// before all these metadata has been synced completely.
+type ResourceSyncer interface {
+	HasSynced() bool
+}

@@ -18,10 +18,11 @@ limitations under the License.
 package multiplexer
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/pkg/errors"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -37,42 +38,45 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	kstorage "k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 type multiplexerProxy struct {
-	requestsMultiplexerManager multiplexer.MultiplexerManager
+	requestsMultiplexerManager *multiplexer.MultiplexerManager
 	filterFinder               filter.FilterFinder
+	restMapperManager          *hubmeta.RESTMapperManager
 	stop                       <-chan struct{}
 }
 
 func NewMultiplexerProxy(filterFinder filter.FilterFinder,
-	cacheManager multiplexer.MultiplexerManager,
-	multiplexerResources []schema.GroupVersionResource,
-	stop <-chan struct{}) (*multiplexerProxy, error) {
-
-	sp := &multiplexerProxy{
+	multiplexerManager *multiplexer.MultiplexerManager,
+	restMapperMgr *hubmeta.RESTMapperManager,
+	stop <-chan struct{}) http.Handler {
+	return &multiplexerProxy{
 		stop:                       stop,
-		requestsMultiplexerManager: cacheManager,
+		requestsMultiplexerManager: multiplexerManager,
 		filterFinder:               filterFinder,
+		restMapperManager:          restMapperMgr,
 	}
-
-	for _, gvr := range multiplexerResources {
-		if _, _, err := sp.requestsMultiplexerManager.ResourceCache(&gvr); err != nil {
-			return sp, errors.Wrapf(err, "failed to init resource cache for %s", gvr.String())
-		}
-	}
-
-	return sp, nil
 }
 
 func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqInfo, _ := request.RequestInfoFrom(r.Context())
-	gvr := sp.getRequestGVR(reqInfo)
+	gvr := &schema.GroupVersionResource{
+		Group:    reqInfo.APIGroup,
+		Version:  reqInfo.APIVersion,
+		Resource: reqInfo.Resource,
+	}
+
+	if !sp.requestsMultiplexerManager.Ready(gvr) {
+		w.Header().Set("Retry-After", "1")
+		util.Err(apierrors.NewTooManyRequestsError(fmt.Sprintf("cacher for gvr(%s) is initializing, please try again later.", gvr.String())), w, r)
+		return
+	}
 
 	switch reqInfo.Verb {
 	case "list":
@@ -84,18 +88,10 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (sp *multiplexerProxy) getRequestGVR(reqInfo *request.RequestInfo) *schema.GroupVersionResource {
-	return &schema.GroupVersionResource{
-		Group:    reqInfo.APIGroup,
-		Version:  reqInfo.APIVersion,
-		Resource: reqInfo.Resource,
-	}
-}
-
 func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*handlers.RequestScope, error) {
-	fqKindToRegister, err := sp.findKind(gvr)
-	if err != nil {
-		return nil, err
+	_, fqKindToRegister := sp.restMapperManager.KindFor(*gvr)
+	if fqKindToRegister.Empty() {
+		return nil, fmt.Errorf("gvk is not found for gvr: %v", *gvr)
 	}
 
 	return &handlers.RequestScope{
@@ -127,33 +123,13 @@ func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*hand
 	}, nil
 }
 
-func (sp *multiplexerProxy) findKind(gvr *schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	object, err := sp.newListObject(gvr)
-	if err != nil {
-		return schema.GroupVersionKind{}, errors.Wrapf(err, "failed to new list object")
-	}
-
-	fqKinds, _, err := scheme.Scheme.ObjectKinds(object)
-	if err != nil {
-		return schema.GroupVersionKind{}, err
-	}
-
-	for _, fqKind := range fqKinds {
-		if fqKind.Group == gvr.Group {
-			return fqKind, nil
-		}
-	}
-
-	return schema.GroupVersionKind{}, nil
-}
-
 func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers.RequestScope) (opts metainternalversion.ListOptions, err error) {
 	if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
 		return opts, err
 	}
 
 	if errs := validation.ValidateListOptions(&opts, false); len(errs) > 0 {
-		err := kerrors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "ListOptions"}, "", errs)
+		err := apierrors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "ListOptions"}, "", errs)
 		return opts, err
 	}
 
@@ -162,7 +138,7 @@ func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers
 			return scope.Convertor.ConvertFieldLabel(scope.Kind, label, value)
 		}
 		if opts.FieldSelector, err = opts.FieldSelector.Transform(fn); err != nil {
-			return opts, kerrors.NewBadRequest(err.Error())
+			return opts, apierrors.NewBadRequest(err.Error())
 		}
 	}
 
@@ -177,7 +153,7 @@ func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers
 		if opts.FieldSelector != nil && !opts.FieldSelector.Empty() {
 			selectedName, ok := opts.FieldSelector.RequiresExactMatch("metadata.name")
 			if !ok || name != selectedName {
-				return opts, kerrors.NewBadRequest("fieldSelector metadata.name doesn't match requested name")
+				return opts, apierrors.NewBadRequest("fieldSelector metadata.name doesn't match requested name")
 			}
 		} else {
 			opts.FieldSelector = nameSelector
@@ -187,8 +163,8 @@ func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers
 	return opts, nil
 }
 
-func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions, gvr *schema.GroupVersionResource) (*kstorage.ListOptions, error) {
-	p := sp.selectionPredicate(listOpts, gvr)
+func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions) (*kstorage.ListOptions, error) {
+	p := sp.selectionPredicate(listOpts)
 
 	return &kstorage.ListOptions{
 		ResourceVersion:      getResourceVersion(listOpts),
@@ -199,7 +175,7 @@ func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions
 	}, nil
 }
 
-func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.ListOptions, gvr *schema.GroupVersionResource) kstorage.SelectionPredicate {
+func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.ListOptions) kstorage.SelectionPredicate {
 	label := labels.Everything()
 	if listOpts.LabelSelector != nil {
 		label = listOpts.LabelSelector
@@ -215,7 +191,7 @@ func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.List
 		Field:               field,
 		Limit:               listOpts.Limit,
 		Continue:            listOpts.Continue,
-		GetAttrs:            sp.getAttrFunc(gvr),
+		GetAttrs:            multiplexer.AttrsFunc,
 		AllowWatchBookmarks: listOpts.AllowWatchBookmarks,
 	}
 }
@@ -232,14 +208,4 @@ func isRecursive(p kstorage.SelectionPredicate) bool {
 		return false
 	}
 	return true
-}
-
-func (sp *multiplexerProxy) getAttrFunc(gvr *schema.GroupVersionResource) kstorage.AttrFunc {
-	rcc, err := sp.requestsMultiplexerManager.ResourceCacheConfig(gvr)
-	if err != nil {
-		klog.Errorf("failed to get cache config for %v, error: %v", gvr, err)
-		return nil
-	}
-
-	return rcc.GetAttrsFunc
 }

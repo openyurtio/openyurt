@@ -38,7 +38,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
-	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -76,7 +75,7 @@ func (sp *multiplexerProxy) multiplexerWatch(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	storageOpts, err := sp.storageOpts(listOpts, gvr)
+	storageOpts, err := sp.storageOpts(listOpts)
 	if err != nil {
 		util.Err(err, w, r)
 	}
@@ -110,11 +109,9 @@ func (sp *multiplexerProxy) multiplexerWatch(w http.ResponseWriter, r *http.Requ
 	}
 
 	klog.V(3).InfoS("Starting watch", "path", r.URL.Path, "resourceVersion", listOpts.ResourceVersion, "labels", listOpts.LabelSelector, "fields", listOpts.FieldSelector, "timeout", timeout)
-	if !yurtutil.IsNil(sp.filterFinder) {
-		if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
-			serveWatch(newFilterWatch(watcher, objectFilter), reqScope, outputMediaType, r, w, timeout)
-			return
-		}
+	if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
+		serveWatch(newFilterWatch(watcher, objectFilter), reqScope, outputMediaType, r, w, timeout)
+		return
 	}
 	serveWatch(watcher, reqScope, outputMediaType, r, w, timeout)
 }
@@ -170,7 +167,7 @@ func serveWatchHandler(watcher watch.Interface, scope *handlers.RequestScope, me
 
 	// locate the appropriate embedded encoder based on the transform
 	var embeddedEncoder runtime.Encoder
-	contentKind, contentSerializer, transform := targetEncodingForTransform(scope, mediaTypeOptions, req)
+	contentKind, contentSerializer, transform := targetEncodingForTransform(scope, mediaTypeOptions)
 	if transform {
 		info, ok := runtime.SerializerInfoForMediaType(contentSerializer.SupportedMediaTypes(), serializer.MediaType)
 		if !ok {
@@ -242,7 +239,7 @@ func optionsForTransform(mediaType negotiation.MediaTypeOptions, req *http.Reque
 	return nil, nil
 }
 
-func targetEncodingForTransform(scope *handlers.RequestScope, mediaType negotiation.MediaTypeOptions, req *http.Request) (schema.GroupVersionKind, runtime.NegotiatedSerializer, bool) {
+func targetEncodingForTransform(scope *handlers.RequestScope, mediaType negotiation.MediaTypeOptions) (schema.GroupVersionKind, runtime.NegotiatedSerializer, bool) {
 	switch target := mediaType.Convert; {
 	case target == nil:
 	case (target.Kind == "PartialObjectMetadata" || target.Kind == "PartialObjectMetadataList" || target.Kind == "Table") &&

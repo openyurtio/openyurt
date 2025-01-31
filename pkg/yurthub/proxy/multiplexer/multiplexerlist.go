@@ -18,6 +18,7 @@ limitations under the License.
 package multiplexer
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 	kstorage "k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
@@ -47,7 +49,7 @@ func (sp *multiplexerProxy) multiplexerList(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	storageOpts, err := sp.storageOpts(listOpts, gvr)
+	storageOpts, err := sp.storageOpts(listOpts)
 	if err != nil {
 		util.Err(err, w, r)
 		return
@@ -68,7 +70,16 @@ func (sp *multiplexerProxy) listObject(r *http.Request, gvr *schema.GroupVersion
 		return nil, errors.Wrap(err, "failed to get resource cache")
 	}
 
-	obj, err := sp.newListObject(gvr)
+	_, gvk := sp.restMapperManager.KindFor(*gvr)
+	if gvk.Empty() {
+		return nil, fmt.Errorf("list object: failed to get gvk for gvr %v", gvr)
+	}
+
+	obj, err := scheme.Scheme.New(schema.GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind + "List",
+	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to new list object")
 	}
@@ -82,24 +93,13 @@ func (sp *multiplexerProxy) listObject(r *http.Request, gvr *schema.GroupVersion
 		return nil, errors.Wrapf(err, "failed to get list from cache")
 	}
 
-	if !yurtutil.IsNil(sp.filterFinder) {
-		if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
-			if obj, err = sp.filterListObject(obj, objectFilter); err != nil {
-				return nil, errors.Wrapf(err, "failed to filter list object")
-			}
+	if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {
+		if obj, err = sp.filterListObject(obj, objectFilter); err != nil {
+			return nil, errors.Wrapf(err, "failed to filter list object")
 		}
 	}
 
 	return obj, nil
-}
-
-func (sp *multiplexerProxy) newListObject(gvr *schema.GroupVersionResource) (runtime.Object, error) {
-	rcc, err := sp.requestsMultiplexerManager.ResourceCacheConfig(gvr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get resource cache config")
-	}
-
-	return rcc.NewListFunc(), nil
 }
 
 func (sp *multiplexerProxy) getCacheKey(r *http.Request, storageOpts *kstorage.ListOptions) (string, error) {
