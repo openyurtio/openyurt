@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	upgrade "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/upgrader"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -175,19 +175,12 @@ func preCheck(clientset kubernetes.Interface, namespace, podName, nodeName strin
 }
 
 // HealthyCheck checks if cloud-edge is disconnected before ota update handle, ota update is not allowed when disconnected
-func HealthyCheck(rest *rest.RestConfigManager, nodeName string, handler OTAHandler) http.Handler {
+func HealthyCheck(manager *directclient.DirectClientManager, nodeName string, handler OTAHandler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		restCfg := rest.GetRestConfig(true)
-		if restCfg == nil {
-			klog.Infof("Get pod list is not allowed when edge is disconnected to cloud")
-			util.WriteErr(w, "OTA update is not allowed when edge is disconnected to cloud", http.StatusForbidden)
-			return
-		}
-
-		clientSet, err := kubernetes.NewForConfig(restCfg)
-		if err != nil {
-			klog.Errorf("Get client set failed: %v", err)
-			util.WriteErr(w, "Get client set failed", http.StatusInternalServerError)
+		clientSet := manager.GetDirectClientset(true)
+		if clientSet == nil {
+			klog.Infof("OTA upgrade is not allowed when node is disconnected to cloud")
+			util.WriteErr(w, "OTA upgrade is not allowed when node is disconnected to cloud", http.StatusServiceUnavailable)
 			return
 		}
 

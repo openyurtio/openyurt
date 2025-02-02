@@ -18,28 +18,36 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	fakerest "k8s.io/client-go/rest/fake"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
 var rootDir = "/tmp/cache-local"
@@ -59,7 +67,51 @@ func TestLocalCacheHandler(t *testing.T) {
 	//u, _ := url.Parse("https://10.10.10.113:6443")
 	fakeHealthChecker := healthchecker.NewFakeChecker(false, nil)
 
-	rcm, err := rest.NewRestConfigManager(nil, fakeHealthChecker)
+	u, _ := url.Parse("https://10.10.10.113:6443")
+	remoteServers := []*url.URL{u}
+
+	testDir, err := os.MkdirTemp("", "test-client")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	nodeName := "foo"
+	client, err := testdata.CreateCertFakeClient("../certificate/testdata")
+	if err != nil {
+		t.Errorf("failed to create cert fake client, %v", err)
+		return
+	}
+	certManager, err := manager.NewYurtHubCertManager(&options.YurtHubOptions{
+		NodeName:      nodeName,
+		RootDir:       testDir,
+		YurtHubHost:   "127.0.0.1",
+		JoinToken:     "123456.abcdef1234567890",
+		ClientForTest: client,
+	}, remoteServers)
+	if err != nil {
+		t.Errorf("failed to create certManager, %v", err)
+		return
+	}
+	certManager.Start()
+	defer certManager.Stop()
+	defer os.RemoveAll(testDir)
+
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
+		if certManager.Ready() {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		t.Errorf("certificates are not ready, %v", err)
+	}
+
+	transportManager, err := transport.NewTransportManager(certManager, context.Background().Done())
+	if err != nil {
+		t.Fatalf("could not new transport manager, %v", err)
+	}
+
+	rcm, err := directclient.NewRestClientManager(remoteServers, transportManager, fakeHealthChecker)
 	if err != nil {
 		t.Fatal(err)
 	}

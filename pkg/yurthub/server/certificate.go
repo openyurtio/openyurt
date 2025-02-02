@@ -59,6 +59,5 @@ func updateTokenHandler(certificateMgr certificate.YurtCertificateManager) http.
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
 		fmt.Fprintf(w, "update bootstrap token successfully")
-		return
 	})
 }
