@@ -246,7 +246,7 @@ func buildDNSRecords(nodeList *corev1.NodeList, needProxy bool, proxyIp string) 
 
 func getHostIP(node *corev1.Node) (string, error) {
 	// get InternalIPs first and then ExternalIPs
-	var internalIP, externalIP net.IP
+	var externalIP net.IP
 	for _, addr := range node.Status.Addresses {
 		switch addr.Type {
 		case corev1.NodeInternalIP:
@@ -261,7 +261,7 @@ func getHostIP(node *corev1.Node) (string, error) {
 			}
 		}
 	}
-	if internalIP == nil && externalIP == nil {
+	if externalIP == nil {
 		return "", fmt.Errorf("host IP unknown; known addresses: %v", node.Status.Addresses)
 	}
 	return externalIP.String(), nil

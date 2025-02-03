@@ -96,6 +96,10 @@ func (fs *FakeServiceStorage) AddWatchObject(svc *v1.Service) {
 	fs.watcher.Add(svc)
 }
 
+func (fs *FakeServiceStorage) ReadinessCheck() error {
+	return nil
+}
+
 type FakeEndpointSliceStorage struct {
 	*CommonFakeStorage
 	items   []discovery.EndpointSlice
@@ -132,4 +136,8 @@ func (fs *FakeEndpointSliceStorage) Watch(ctx context.Context, key string, opts 
 func (fs *FakeEndpointSliceStorage) AddWatchObject(eps *discovery.EndpointSlice) {
 	eps.ResourceVersion = "101"
 	fs.watcher.Add(eps)
+}
+
+func (fs *FakeEndpointSliceStorage) ReadinessCheck() error {
+	return nil
 }

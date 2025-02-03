@@ -98,6 +98,10 @@ func (rs *apiServerStorage) Count(key string) (int64, error) {
 	return 0, ErrNoSupport
 }
 
+func (rs *apiServerStorage) ReadinessCheck() error {
+	return ErrNoSupport
+}
+
 func (rs *apiServerStorage) RequestWatchProgress(ctx context.Context) error {
 	return ErrNoSupport
 }

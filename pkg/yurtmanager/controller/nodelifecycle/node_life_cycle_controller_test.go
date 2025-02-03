@@ -82,8 +82,8 @@ func newNodeLifecycleControllerFromClient(
 		secondaryEvictionLimiterQPS: secondaryEvictionLimiterQPS,
 		largeClusterThreshold:       largeClusterThreshold,
 		unhealthyZoneThreshold:      unhealthyZoneThreshold,
-		nodeUpdateQueue:             workqueue.NewNamed("node_lifecycle_controller"),
-		podUpdateQueue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "node_lifecycle_controller_pods"),
+		nodeUpdateQueue:             workqueue.NewTypedWithConfig[string](workqueue.TypedQueueConfig[string]{Name: "node_lifecycle_controller"}),
+		podUpdateQueue:              workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[podUpdateItem](), workqueue.TypedRateLimitingQueueConfig[podUpdateItem]{Name: "node_lifecycle_controller_pods"}),
 	}
 	nc.enterPartialDisruptionFunc = nc.ReducedQPSFunc
 	nc.enterFullDisruptionFunc = nc.HealthyQPSFunc

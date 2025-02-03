@@ -171,7 +171,7 @@ func (r *ReconcileYurtAppDaemon) Reconcile(_ context.Context, request reconcile.
 	}
 
 	if control == nil {
-		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("YurtAppDaemon[%s/%s] could not get control", instance.Namespace, instance.Name), fmt.Sprintf("could not find control"))
+		r.recorder.Event(instance.DeepCopy(), corev1.EventTypeWarning, fmt.Sprintf("YurtAppDaemon[%s/%s] could not get control", instance.Namespace, instance.Name), "could not find control")
 		return reconcile.Result{}, fmt.Errorf("could not find control")
 	}
 
@@ -460,7 +460,7 @@ func (r *ReconcileYurtAppDaemon) getTemplateControls(instance *unitv1alpha1.Yurt
 		return r.controls[unitv1alpha1.DeploymentTemplateType], unitv1alpha1.DeploymentTemplateType, nil
 	default:
 		klog.Errorf("The appropriate WorkloadTemplate was not found")
-		return nil, "", fmt.Errorf("The appropriate WorkloadTemplate was not found, Now Support(%s/%s)",
+		return nil, "", fmt.Errorf("the appropriate WorkloadTemplate was not found, Now Support(%s/%s)",
 			unitv1alpha1.StatefulSetTemplateType, unitv1alpha1.DeploymentTemplateType)
 	}
 }

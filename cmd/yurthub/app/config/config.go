@@ -46,6 +46,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	pkgutil "github.com/openyurtio/openyurt/pkg/util"
+	utiloptions "github.com/openyurtio/openyurt/pkg/util/kubernetes/apiserver/options"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
@@ -353,7 +354,7 @@ func registerInformers(options *options.YurtHubOptions,
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
-	if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+	if err := (&utiloptions.InsecureServingOptions{
 		BindAddress: net.ParseIP(options.YurtHubHost),
 		BindPort:    options.YurtHubPort,
 		BindNetwork: "tcp",
@@ -361,7 +362,7 @@ func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.Y
 		return err
 	}
 
-	if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+	if err := (&utiloptions.InsecureServingOptions{
 		BindAddress: net.ParseIP(options.YurtHubProxyHost),
 		BindPort:    options.YurtHubProxyPort,
 		BindNetwork: "tcp",
@@ -372,7 +373,7 @@ func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.Y
 	yurtHubSecureProxyHost := options.YurtHubProxyHost
 	if options.EnableDummyIf {
 		yurtHubSecureProxyHost = options.HubAgentDummyIfIP
-		if err := (&apiserveroptions.DeprecatedInsecureServingOptions{
+		if err := (&utiloptions.InsecureServingOptions{
 			BindAddress: net.ParseIP(options.HubAgentDummyIfIP),
 			BindPort:    options.YurtHubProxyPort,
 			BindNetwork: "tcp",

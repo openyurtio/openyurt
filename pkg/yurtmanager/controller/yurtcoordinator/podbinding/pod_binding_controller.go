@@ -79,7 +79,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 	}
 
 	nodeHandler := handler.Funcs{
-		UpdateFunc: func(ctx context.Context, updateEvent event.TypedUpdateEvent[client.Object], wq workqueue.RateLimitingInterface) {
+		UpdateFunc: func(ctx context.Context, updateEvent event.TypedUpdateEvent[client.Object], wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			newNode := updateEvent.ObjectNew.(*corev1.Node)
 			pods, err := reconciler.getPodsAssignedToNode(newNode.Name)
 			if err != nil {
