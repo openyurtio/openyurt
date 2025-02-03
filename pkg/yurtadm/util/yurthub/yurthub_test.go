@@ -185,6 +185,84 @@ spec:
       name: kubernetes
 status: {}
 `
+	setAddr2 = `apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    openyurt.io/static-pod-hash: 76f4f955b6
+  creationTimestamp: null
+  labels:
+    k8s-app: yurt-hub
+  name: yurt-hub
+  namespace: kube-system
+spec:
+  containers:
+    - command:
+      - yurthub
+      - --v=2
+      - --bind-address=127.0.0.1
+      - --server-addr=https://192.0.0.2:6443
+      - --node-name=$(NODE_NAME)
+      - --bootstrap-file=/var/lib/yurthub/bootstrap-hub.conf
+      - --working-mode=edge
+      - --namespace=kube-system
+      env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+      image: openyurt/yurthub:v1.3.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          host: 127.0.0.1
+          path: /v1/healthz
+          port: 10267
+          scheme: HTTP
+        initialDelaySeconds: 300
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: yurt-hub
+      resources:
+        limits:
+          memory: 300Mi
+        requests:
+          cpu: 150m
+          memory: 150Mi
+      securityContext:
+        capabilities:
+          add:
+            - NET_ADMIN
+            - NET_RAW
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+        - mountPath: /var/lib/yurthub
+          name: hub-dir
+        - mountPath: /etc/kubernetes
+          name: kubernetes
+  dnsPolicy: ClusterFirst
+  hostNetwork: true
+  priority: 2000001000
+  priorityClassName: system-node-critical
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  terminationGracePeriodSeconds: 30
+  volumes:
+    - hostPath:
+        path: /var/lib/yurthub
+        type: DirectoryOrCreate
+      name: hub-dir
+    - hostPath:
+        path: /etc/kubernetes
+        type: Directory
+      name: kubernetes
+status: {}
+`
 
 	serverAddrsA = "https://192.0.0.1:6443"
 	serverAddrsB = "https://192.0.0.2:6443"
@@ -214,7 +292,7 @@ func Test_useRealServerAddr(t *testing.T) {
 				yurthubTemplate:       setAddr,
 				kubernetesServerAddrs: serverAddrsB,
 			},
-			want: setAddr,
+			want: setAddr2,
 		},
 	}
 
