@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -37,12 +36,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator"
-	coordinatorconstants "github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/constants"
-)
-
-const (
-	watchCheckInterval = 5 * time.Second
 )
 
 type loadBalancerAlgo interface {
@@ -130,13 +123,12 @@ type LoadBalancer interface {
 }
 
 type loadBalancer struct {
-	backends          []*util.RemoteProxy
-	algo              loadBalancerAlgo
-	localCacheMgr     cachemanager.CacheManager
-	filterFinder      filter.FilterFinder
-	coordinatorGetter func() yurtcoordinator.Coordinator
-	workingMode       hubutil.WorkingMode
-	stopCh            <-chan struct{}
+	backends      []*util.RemoteProxy
+	algo          loadBalancerAlgo
+	localCacheMgr cachemanager.CacheManager
+	filterFinder  filter.FilterFinder
+	workingMode   hubutil.WorkingMode
+	stopCh        <-chan struct{}
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
@@ -145,17 +137,15 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	coordinatorGetter func() yurtcoordinator.Coordinator,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterFinder filter.FilterFinder,
 	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{
-		localCacheMgr:     localCacheMgr,
-		filterFinder:      filterFinder,
-		coordinatorGetter: coordinatorGetter,
-		workingMode:       workingMode,
-		stopCh:            stopCh,
+		localCacheMgr: localCacheMgr,
+		filterFinder:  filterFinder,
+		workingMode:   workingMode,
+		stopCh:        stopCh,
 	}
 	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
 	for i := range remoteServers {
@@ -196,43 +186,6 @@ func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
-
-	// If pool-scoped resource request is from leader-yurthub, it should always be sent to the cloud APIServer.
-	// Thus we do not need to start a check routine for it. But for other requests, we need to periodically check
-	// the yurt-coordinator status, and switch the traffic to yurt-coordinator if it is ready.
-	if util.IsPoolScopedResourceListWatchRequest(req) && !isRequestFromLeaderYurthub(req) {
-		// We get here possibly because the yurt-coordinator is not ready.
-		// We should cancel the watch request when yurt-coordinator becomes ready.
-		klog.Infof("yurt-coordinator is not ready, we use cloud APIServer to temporarily handle the req: %s", hubutil.ReqString(req))
-		clientReqCtx := req.Context()
-		cloudServeCtx, cloudServeCancel := context.WithCancel(clientReqCtx)
-
-		go func() {
-			t := time.NewTicker(watchCheckInterval)
-			defer t.Stop()
-			for {
-				select {
-				case <-t.C:
-					coordinator := lb.coordinatorGetter()
-					if coordinator == nil {
-						continue
-					}
-					if _, isReady := coordinator.IsReady(); isReady {
-						klog.Infof("notified the yurt coordinator is ready, cancel the req %s making it handled by yurt coordinator", hubutil.ReqString(req))
-						util.ReListWatchReq(rw, req)
-						cloudServeCancel()
-						return
-					}
-				case <-clientReqCtx.Done():
-					klog.Infof("watch req %s is canceled by client, when yurt coordinator is not ready", hubutil.ReqString(req))
-					return
-				}
-			}
-		}()
-
-		newReq := req.Clone(cloudServeCtx)
-		req = newReq
-	}
 
 	rp.ServeHTTP(rw, req)
 }
@@ -337,7 +290,6 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 
 func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 	if lb.localCacheMgr.CanCacheFor(req) {
-		ctx := req.Context()
 		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 		// after gunzip in filter, the header content encoding should be removed.
 		// because there's no need to gunzip response.body again.
@@ -346,42 +298,7 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		}
 		resp.Body = wrapPrc
 
-		var poolCacheManager cachemanager.CacheManager
-		var isHealthy bool
-
-		coordinator := lb.coordinatorGetter()
-		if coordinator == nil {
-			isHealthy = false
-		} else {
-			poolCacheManager, isHealthy = coordinator.IsHealthy()
-		}
-
-		if isHealthy && poolCacheManager != nil {
-			if !isLeaderHubUserAgent(ctx) {
-				if isRequestOfNodeAndPod(ctx) {
-					// Currently, for request that does not come from "leader-yurthub",
-					// we only cache pod and node resources to yurt-coordinator.
-					// Note: We do not allow the non-leader yurthub to cache pool-scoped resources
-					// into yurt-coordinator to ensure that only one yurthub can update pool-scoped
-					// cache to avoid inconsistency of data.
-					lb.cacheToLocalAndPool(req, resp, poolCacheManager)
-				} else {
-					lb.cacheToLocal(req, resp)
-				}
-			} else {
-				if isPoolScopedCtx(ctx) {
-					// Leader Yurthub will always list/watch all resources, which contain may resource this
-					// node does not need.
-					lb.cacheToPool(req, resp, poolCacheManager)
-				} else {
-					klog.Errorf("could not cache response for request %s, leader yurthub does not cache non-poolscoped resources.", hubutil.ReqString(req))
-				}
-			}
-			return
-		}
-
-		// When yurt-coordinator is not healthy or not be enabled, we can
-		// only cache the response at local.
+		// cache the response at local.
 		lb.cacheToLocal(req, resp)
 	}
 }
@@ -396,65 +313,4 @@ func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
 		}
 	}(req, prc, ctx.Done())
 	resp.Body = rc
-}
-
-func (lb *loadBalancer) cacheToPool(req *http.Request, resp *http.Response, poolCacheManager cachemanager.CacheManager) {
-	ctx := req.Context()
-	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
-	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-		if err := poolCacheManager.CacheResponse(req, prc, stopCh); err != nil {
-			klog.Errorf("lb could not cache req %s in pool cache, %v", hubutil.ReqString(req), err)
-		}
-	}(req, prc, ctx.Done())
-	resp.Body = rc
-}
-
-func (lb *loadBalancer) cacheToLocalAndPool(req *http.Request, resp *http.Response, poolCacheMgr cachemanager.CacheManager) {
-	ctx := req.Context()
-	req = req.WithContext(ctx)
-	rc, prc1, prc2 := hubutil.NewTripleReadCloser(req, resp.Body, true)
-	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-			klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
-		}
-	}(req, prc1, ctx.Done())
-
-	if poolCacheMgr != nil {
-		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-			if err := poolCacheMgr.CacheResponse(req, prc, stopCh); err != nil {
-				klog.Errorf("lb could not cache req %s in pool cache, %v", hubutil.ReqString(req), err)
-			}
-		}(req, prc2, ctx.Done())
-	}
-	resp.Body = rc
-}
-
-func isLeaderHubUserAgent(reqCtx context.Context) bool {
-	comp, hasComp := hubutil.ClientComponentFrom(reqCtx)
-	return hasComp && comp == coordinatorconstants.DefaultPoolScopedUserAgent
-}
-
-func isPoolScopedCtx(reqCtx context.Context) bool {
-	poolScoped, hasPoolScoped := hubutil.IfPoolScopedResourceFrom(reqCtx)
-	return hasPoolScoped && poolScoped
-}
-
-func isRequestOfNodeAndPod(reqCtx context.Context) bool {
-	reqInfo, ok := apirequest.RequestInfoFrom(reqCtx)
-	if !ok {
-		return false
-	}
-
-	return (reqInfo.Resource == "nodes" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1") ||
-		(reqInfo.Resource == "pods" && reqInfo.APIGroup == "" && reqInfo.APIVersion == "v1")
-}
-
-func isRequestFromLeaderYurthub(req *http.Request) bool {
-	ctx := req.Context()
-	agent, ok := hubutil.ClientComponentFrom(ctx)
-	if !ok {
-		return false
-	}
-	return agent == coordinatorconstants.DefaultPoolScopedUserAgent
 }

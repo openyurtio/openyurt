@@ -45,7 +45,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/yurtcoordinator/resources"
 )
 
 const (
@@ -242,21 +241,6 @@ func WithRequestClientComponent(handler http.Handler, mode util.WorkingMode) htt
 			}
 		}
 
-		handler.ServeHTTP(w, req)
-	})
-}
-
-func WithIfPoolScopedResource(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		ctx := req.Context()
-		if info, ok := apirequest.RequestInfoFrom(ctx); ok {
-			var ifPoolScopedResource bool
-			if info.IsResourceRequest && resources.IsPoolScopeResources(info) {
-				ifPoolScopedResource = true
-			}
-			ctx = util.WithIfPoolScopedResource(ctx, ifPoolScopedResource)
-			req = req.WithContext(ctx)
-		}
 		handler.ServeHTTP(w, req)
 	})
 }
@@ -503,17 +487,6 @@ func IsKubeletGetNodeReq(req *http.Request) bool {
 		return false
 	}
 	return true
-}
-
-func IsPoolScopedResourceListWatchRequest(req *http.Request) bool {
-	ctx := req.Context()
-	info, ok := apirequest.RequestInfoFrom(ctx)
-	if !ok {
-		return false
-	}
-
-	isPoolScopedResource, ok := util.IfPoolScopedResourceFrom(ctx)
-	return ok && isPoolScopedResource && (info.Verb == "list" || info.Verb == "watch")
 }
 
 func IsSubjectAccessReviewCreateGetRequest(req *http.Request) bool {
