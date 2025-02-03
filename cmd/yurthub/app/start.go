@@ -35,7 +35,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	hubrest "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/rest"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/locallb"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
@@ -121,8 +121,8 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		}
 		trace++
 
-		klog.Infof("%d. new restConfig manager", trace)
-		restConfigMgr, err := hubrest.NewRestConfigManager(cfg.CertManager, cloudHealthChecker)
+		klog.Infof("%d. new direct client manager", trace)
+		directClientManager, err := directclient.NewRestClientManager(cfg.RemoteServers, transportManager, cloudHealthChecker)
 		if err != nil {
 			return fmt.Errorf("could not new restConfig manager, %w", err)
 		}
@@ -139,7 +139,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 
 		if cfg.WorkingMode == util.WorkingModeEdge {
 			klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-			gcMgr, err := gc.NewGCManager(cfg, restConfigMgr, ctx.Done())
+			gcMgr, err := gc.NewGCManager(cfg, directClientManager, ctx.Done())
 			if err != nil {
 				return fmt.Errorf("could not new gc manager, %w", err)
 			}
@@ -161,7 +161,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		yurtProxyHandler, err := proxy.NewYurtReverseProxyHandler(
 			cfg,
 			cacheMgr,
-			restConfigMgr,
+			directClientManager,
 			transportManager,
 			cloudHealthChecker,
 			tenantMgr,
@@ -176,7 +176,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		}
 
 		klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
-		if err := server.RunYurtHubServers(cfg, yurtProxyHandler, restConfigMgr, ctx.Done()); err != nil {
+		if err := server.RunYurtHubServers(cfg, yurtProxyHandler, directClientManager, ctx.Done()); err != nil {
 			return fmt.Errorf("could not run hub servers, %w", err)
 		}
 	} else {
