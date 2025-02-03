@@ -51,6 +51,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	certificatemgr "github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/initializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter/manager"
@@ -121,6 +122,7 @@ type YurtHubConfiguration struct {
 	PostStartHooks                  map[string]func() error
 	RequestMultiplexerManager       multiplexer.MultiplexerManager
 	MultiplexerResources            []schema.GroupVersionResource
+	ConfigManager                   *configuration.Manager
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
@@ -158,7 +160,9 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	}
 	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 	registerInformers(options, sharedFactory, workingMode, tenantNs)
-	filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager)
+
+	configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
+	filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager, configManager)
 	if err != nil {
 		klog.Errorf("could not create filter manager, %v", err)
 		return nil, err
@@ -198,6 +202,7 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		HostControlPlaneAddr:      options.HostControlPlaneAddr,
 		MultiplexerResources:      AllowedMultiplexerResources,
 		RequestMultiplexerManager: newMultiplexerCacheManager(options),
+		ConfigManager:             configManager,
 	}
 
 	// if yurthub is in local mode, certMgr and networkMgr are no need to start

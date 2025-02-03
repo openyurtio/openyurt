@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
@@ -46,9 +47,7 @@ import (
 )
 
 var (
-	rootDir                   = "/tmp/cache-local"
-	fakeClient                = fake.NewSimpleClientset()
-	fakeSharedInformerFactory = informers.NewSharedInformerFactory(fakeClient, 0)
+	rootDir = "/tmp/cache-local"
 )
 
 func newTestRequestInfoResolver() *request.RequestInfoFactory {
@@ -65,7 +64,9 @@ func TestServeHTTPForWatch(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	fn := func() bool {
 		return false
@@ -157,7 +158,9 @@ func TestServeHTTPForWatchWithHealthyChange(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	cnt := 0
 	fn := func() bool {
@@ -242,7 +245,9 @@ func TestServeHTTPForWatchWithMinRequestTimeout(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	fn := func() bool {
 		return false
@@ -334,7 +339,9 @@ func TestServeHTTPForPost(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	fn := func() bool {
 		return false
@@ -414,7 +421,9 @@ func TestServeHTTPForDelete(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	fn := func() bool {
 		return false
@@ -481,7 +490,9 @@ func TestServeHTTPForGetReqCache(t *testing.T) {
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, nil, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
 
 	fn := func() bool {
 		return false
@@ -630,11 +641,14 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 	dStorage, err := disk.NewDiskStorage(rootDir)
 	if err != nil {
 		t.Errorf("failed to create disk storage, %v", err)
+		return
 	}
 	sWrapper := cachemanager.NewStorageWrapper(dStorage)
 	serializerM := serializer.NewSerializerManager()
 	restRESTMapperMgr, _ := hubmeta.NewRESTMapperManager(rootDir)
-	cacheM := cachemanager.NewCacheManager("node1", sWrapper, serializerM, restRESTMapperMgr, fakeSharedInformerFactory)
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
 
 	fn := func() bool {
 		return false

@@ -422,12 +422,10 @@ func TestResponseFilterForListRequest(t *testing.T) {
 	poolName := "foo"
 	masterHost := "169.254.2.1"
 	masterPort := "10268"
-	var masterPortInt int32
-	masterPortInt = 10268
+	masterPortInt := int32(10268)
 	readyCondition := true
 	portName := "https"
-	var kasPort int32
-	kasPort = 443
+	kasPort := int32(443)
 	scheme := runtime.NewScheme()
 	apis.AddToScheme(scheme)
 	nodeBucketGVRToListKind := map[schema.GroupVersionResource]string{
@@ -2612,9 +2610,13 @@ func TestResponseFilterForListRequest(t *testing.T) {
 			baseFilters := base.NewFilters([]string{})
 			options.RegisterAllFilters(baseFilters)
 
-			objectFilters, err := baseFilters.NewFromFilters(initializerChain)
+			nameToFilter, err := baseFilters.NewFromFilters(initializerChain)
 			if err != nil {
 				t.Errorf("couldn't new object filters, %v", err)
+			}
+			objectFilters := make([]filter.ObjectFilter, 0, len(nameToFilter))
+			for _, objFilter := range nameToFilter {
+				objectFilters = append(objectFilters, objFilter)
 			}
 
 			s := serializerManager.CreateSerializer(tc.accept, tc.group, tc.version, tc.resource)

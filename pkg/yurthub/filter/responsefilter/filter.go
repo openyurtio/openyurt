@@ -94,24 +94,21 @@ func newFilterReadCloser(
 
 // Read get data into p and write into pipe
 func (frc *filterReadCloser) Read(p []byte) (int, error) {
-	var ok bool
-	if frc.isWatch {
-		if frc.filterCache.Len() != 0 {
-			return frc.filterCache.Read(p)
-		} else {
-			frc.filterCache.Reset()
-		}
-
-		select {
-		case frc.filterCache, ok = <-frc.watchDataCh:
-			if !ok {
-				return 0, io.EOF
-			}
-			return frc.filterCache.Read(p)
-		}
-	} else {
+	// direct read if not watching or if cache has data
+	if !frc.isWatch || frc.filterCache.Len() != 0 {
 		return frc.filterCache.Read(p)
 	}
+
+	// frc.isWatch is true and cache is empty
+	frc.filterCache.Reset()
+
+	var ok bool
+	if frc.filterCache, ok = <-frc.watchDataCh; !ok {
+		return 0, io.EOF
+	}
+
+	// read from the filterCache after receiving new data
+	return frc.filterCache.Read(p)
 }
 
 // Close will close readers

@@ -38,10 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
@@ -77,25 +77,23 @@ type cacheManager struct {
 	storage               StorageWrapper
 	serializerManager     *serializer.SerializerManager
 	restMapperManager     *hubmeta.RESTMapperManager
-	cacheAgents           *CacheAgent
+	configManager         *configuration.Manager
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
 }
 
 // NewCacheManager creates a new CacheManager
 func NewCacheManager(
-	nodeName string,
 	storagewrapper StorageWrapper,
 	serializerMgr *serializer.SerializerManager,
 	restMapperMgr *hubmeta.RESTMapperManager,
-	sharedFactory informers.SharedInformerFactory,
+	configManager *configuration.Manager,
 ) CacheManager {
-	cacheAgents := NewCacheAgents(nodeName, sharedFactory, storagewrapper)
 	cm := &cacheManager{
 		storage:               storagewrapper,
 		serializerManager:     serializerMgr,
-		cacheAgents:           cacheAgents,
 		restMapperManager:     restMapperMgr,
+		configManager:         configManager,
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
 	}
@@ -747,12 +745,9 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	if ok && canCache {
 		// request with Edge-Cache header, continue verification
 	} else {
-		cm.RLock()
-		if !cm.cacheAgents.HasAny("*", comp) {
-			cm.RUnlock()
+		if !cm.configManager.IsCacheable(comp) {
 			return false
 		}
-		cm.RUnlock()
 	}
 
 	info, ok := apirequest.RequestInfoFrom(ctx)

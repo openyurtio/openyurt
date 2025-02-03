@@ -34,6 +34,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
@@ -128,10 +129,11 @@ func TestFindResponseFilter(t *testing.T) {
 			sharedFactory, nodePoolFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
 				dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
 
+			configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
 			stopper := make(chan struct{})
 			defer close(stopper)
 
-			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager)
+			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, configManager)
 			if tt.mgrIsNil && finder == nil {
 				return
 			}
@@ -259,10 +261,11 @@ func TestFindObjectFilter(t *testing.T) {
 			sharedFactory, nodePoolFactory := informers.NewSharedInformerFactory(fakeClient, 24*time.Hour),
 				dynamicinformer.NewDynamicSharedInformerFactory(fakeDynamicClient, 24*time.Hour)
 
+			configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
 			stopper := make(chan struct{})
 			defer close(stopper)
 
-			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager)
+			finder, _ := NewFilterManager(options, sharedFactory, nodePoolFactory, fakeClient, serializerManager, configManager)
 			if tt.mgrIsNil && finder == nil {
 				return
 			}
