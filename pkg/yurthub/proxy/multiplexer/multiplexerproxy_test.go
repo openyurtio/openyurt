@@ -19,8 +19,11 @@ package multiplexer
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -32,11 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
-	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
+	multiplexerstorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	ctesting "github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer/testing"
 )
 
@@ -61,29 +67,14 @@ var mockEndpoints = []discovery.Endpoint{
 	},
 }
 
-func mockCacheMap() map[string]multiplexer.Interface {
-	return map[string]multiplexer.Interface{
-		endpointSliceGVR.String(): storage.NewFakeEndpointSliceStorage(
+func mockCacheMap() map[string]storage.Interface {
+	return map[string]storage.Interface{
+		endpointSliceGVR.String(): multiplexerstorage.NewFakeEndpointSliceStorage(
 			[]discovery.EndpointSlice{
 				*newEndpointSlice(metav1.NamespaceSystem, "coredns-12345", "", mockEndpoints),
 				*newEndpointSlice(metav1.NamespaceDefault, "nginx", "", mockEndpoints),
 			},
 		),
-	}
-}
-
-func mockResourceCacheMap() map[string]*multiplexer.ResourceCacheConfig {
-	return map[string]*multiplexer.ResourceCacheConfig{
-		endpointSliceGVR.String(): {
-			KeyFunc: multiplexer.KeyFunc,
-			NewListFunc: func() runtime.Object {
-				return &discovery.EndpointSliceList{}
-			},
-			NewFunc: func() runtime.Object {
-				return &discovery.EndpointSlice{}
-			},
-			GetAttrsFunc: multiplexer.AttrsFunc,
-		},
 	}
 }
 
@@ -114,55 +105,76 @@ func (wr *wrapResponse) Write(buf []byte) (int, error) {
 }
 
 func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
-	for _, tc := range []struct {
-		tName                     string
-		filterManager             filter.FilterFinder
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
+
+	poolScopeResources := []schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "services"},
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+	}
+
+	for k, tc := range map[string]struct {
+		filterFinder              filter.FilterFinder
 		url                       string
 		expectedEndPointSliceList *discovery.EndpointSliceList
 		err                       error
 	}{
-		{
-			"test list endpoint slices no filter",
-			&ctesting.EmptyFilterManager{},
-			"/apis/discovery.k8s.io/v1/endpointslices",
-			expectEndpointSliceListNoFilter(),
-
-			nil,
+		"test list endpoint slices no filter": {
+			filterFinder:              &ctesting.EmptyFilterManager{},
+			url:                       "/apis/discovery.k8s.io/v1/endpointslices",
+			expectedEndPointSliceList: expectEndpointSliceListNoFilter(),
+			err:                       nil,
 		},
-		{
-			"test list endpoint slice with filter",
-			&ctesting.FakeEndpointSliceFilter{
+		"test list endpoint slice with filter": {
+			filterFinder: &ctesting.FakeEndpointSliceFilter{
 				NodeName: "node1",
 			},
-			"/apis/discovery.k8s.io/v1/endpointslices",
-			expectEndpointSliceListWithFilter(),
-			nil,
+			url:                       "/apis/discovery.k8s.io/v1/endpointslices",
+			expectedEndPointSliceList: expectEndpointSliceListWithFilter(),
+			err:                       nil,
 		},
-		{
-			"test list endpoint slice with namespace",
-			&ctesting.FakeEndpointSliceFilter{
+		"test list endpoint slice with namespace": {
+			filterFinder: &ctesting.FakeEndpointSliceFilter{
 				NodeName: "node1",
 			},
-			"/apis/discovery.k8s.io/v1/namespaces/default/endpointslices",
-			expectEndpointSliceListWithNamespace(),
-			nil,
+			url:                       "/apis/discovery.k8s.io/v1/namespaces/default/endpointslices",
+			expectedEndPointSliceList: expectEndpointSliceListWithNamespace(),
+			err:                       nil,
 		},
 	} {
-		t.Run(tc.tName, func(t *testing.T) {
+		t.Run(k, func(t *testing.T) {
 			w := &httptest.ResponseRecorder{
 				Body: &bytes.Buffer{},
 			}
 
-			sp, err := NewMultiplexerProxy(tc.filterManager,
-				multiplexer.NewFakeCacheManager(mockCacheMap(), mockResourceCacheMap()),
-				[]schema.GroupVersionResource{endpointSliceGVR},
-				make(<-chan struct{}))
+			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
+			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
 
-			assert.Equal(t, tc.err, err)
+			informerSynced := func() bool {
+				return rmm.Ready(&schema.GroupVersionResource{
+					Group:    "discovery.k8s.io",
+					Version:  "v1",
+					Resource: "endpointslices",
+				})
+			}
+			stopCh := make(chan struct{})
+			if ok := cache.WaitForCacheSync(stopCh, informerSynced); !ok {
+				t.Errorf("configuration manager is not ready")
+				return
+			}
+
+			sp := NewMultiplexerProxy(tc.filterFinder,
+				rmm,
+				restMapperManager,
+				make(<-chan struct{}))
 
 			sp.ServeHTTP(w, newEndpointSliceListRequest(tc.url))
 
-			assert.Equal(t, string(encodeEndpointSliceList(tc.expectedEndPointSliceList)), w.Body.String())
+			result := equalEndpointSliceLists(tc.expectedEndPointSliceList, decodeEndpointSliceList(w.Body.Bytes()))
+			assert.True(t, result, w.Body.String())
 		})
 	}
 }
@@ -258,43 +270,71 @@ func resolverRequestInfo(req *http.Request) *request.RequestInfo {
 	return info
 }
 
-func encodeEndpointSliceList(endpointSliceList *discovery.EndpointSliceList) []byte {
+func decodeEndpointSliceList(b []byte) *discovery.EndpointSliceList {
 	discoveryv1Codec := scheme.Codecs.CodecForVersions(scheme.Codecs.LegacyCodec(discoveryGV), scheme.Codecs.UniversalDecoder(discoveryGV), discoveryGV, discoveryGV)
 
-	str := runtime.EncodeOrDie(discoveryv1Codec, endpointSliceList)
-	return []byte(str)
+	epsList := &discovery.EndpointSliceList{}
+	err := runtime.DecodeInto(discoveryv1Codec, b, epsList)
+	if err != nil {
+		return nil
+	}
+	return epsList
 }
 
 func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
-	for _, tc := range []struct {
-		tName              string
-		filterManager      filter.FilterFinder
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
+
+	poolScopeResources := []schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "services"},
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+	}
+
+	for k, tc := range map[string]struct {
+		filterFinder       filter.FilterFinder
 		url                string
 		expectedWatchEvent *metav1.WatchEvent
-		Err                error
+		err                error
 	}{
-		{"test watch endpointslice no filter",
-			&ctesting.EmptyFilterManager{},
-			"/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=0&&timeoutSeconds=3",
-			expectedWatchEventNoFilter(),
-			nil,
+		"test watch endpointslice no filter": {
+			filterFinder:       &ctesting.EmptyFilterManager{},
+			url:                "/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=100&&timeoutSeconds=3",
+			expectedWatchEvent: expectedWatchEventNoFilter(),
+			err:                nil,
 		},
-		{"test watch endpointslice with filter",
-			&ctesting.FakeEndpointSliceFilter{
+		"test watch endpointslice with filter": {
+			filterFinder: &ctesting.FakeEndpointSliceFilter{
 				NodeName: "node1",
 			},
-			"/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=0&&timeoutSeconds=3",
-			expectedWatchEventWithFilter(),
-			nil,
+			url:                "/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=100&&timeoutSeconds=3",
+			expectedWatchEvent: expectedWatchEventWithFilter(),
+			err:                nil,
 		},
 	} {
-		t.Run(tc.tName, func(t *testing.T) {
-			fcm := multiplexer.NewFakeCacheManager(mockCacheMap(), mockResourceCacheMap())
+		t.Run(k, func(t *testing.T) {
+			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
+			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
 
-			sp, _ := NewMultiplexerProxy(
-				tc.filterManager,
-				fcm,
-				[]schema.GroupVersionResource{endpointSliceGVR},
+			informerSynced := func() bool {
+				return rmm.Ready(&schema.GroupVersionResource{
+					Group:    "discovery.k8s.io",
+					Version:  "v1",
+					Resource: "endpointslices",
+				})
+			}
+			stopCh := make(chan struct{})
+			if ok := cache.WaitForCacheSync(stopCh, informerSynced); !ok {
+				t.Errorf("configuration manager is not ready")
+				return
+			}
+
+			sp := NewMultiplexerProxy(
+				tc.filterFinder,
+				rmm,
+				restMapperManager,
 				make(<-chan struct{}),
 			)
 
@@ -304,7 +344,7 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 			go func() {
 				sp.ServeHTTP(w, req)
 			}()
-			generateWatchEvent(fcm)
+			generateWatchEvent(dsm)
 
 			assertWatchResp(t, tc.expectedWatchEvent, w)
 		})
@@ -357,11 +397,16 @@ func newWatchResponse() *wrapResponse {
 	}
 }
 
-func generateWatchEvent(fcm *multiplexer.FakeCacheManager) {
-	fs, _, _ := fcm.ResourceCache(&endpointSliceGVR)
+func generateWatchEvent(sp multiplexerstorage.StorageProvider) {
+	fs, err := sp.ResourceStorage(&endpointSliceGVR)
+	if err != nil {
+		return
+	}
 
-	fess, _ := fs.(*storage.FakeEndpointSliceStorage)
-	fess.AddWatchObject(newEndpointSlice(metav1.NamespaceSystem, "coredns-23456", "102", mockEndpoints))
+	fess, ok := fs.(*multiplexerstorage.FakeEndpointSliceStorage)
+	if ok {
+		fess.AddWatchObject(newEndpointSlice(metav1.NamespaceSystem, "coredns-23456", "102", mockEndpoints))
+	}
 }
 
 func assertWatchResp(t testing.TB, expectedWatchEvent *metav1.WatchEvent, w *wrapResponse) {
@@ -380,4 +425,63 @@ func encodeWatchEventList(watchEvent *metav1.WatchEvent) []byte {
 
 	str := runtime.EncodeOrDie(metav1Codec, watchEvent)
 	return []byte(str)
+}
+
+func equalEndpointSlice(a, b discovery.EndpointSlice) bool {
+	if len(a.Endpoints) != len(b.Endpoints) {
+		return false
+	}
+
+	countA := make(map[string]int)
+	for _, endpoint := range a.Endpoints {
+		key := endpointKey(endpoint)
+		countA[key]++
+	}
+
+	for _, endpoint := range b.Endpoints {
+		key := endpointKey(endpoint)
+		if countA[key] == 0 {
+			return false
+		}
+
+		countA[key]--
+		if countA[key] == 0 {
+			delete(countA, key)
+		}
+	}
+
+	return len(countA) == 0
+}
+
+func endpointKey(endpoint discovery.Endpoint) string {
+	return fmt.Sprintf("%v/%s", endpoint.Addresses, *endpoint.NodeName)
+}
+
+func equalEndpointSliceLists(a, b *discovery.EndpointSliceList) bool {
+	if len(a.Items) != len(b.Items) {
+		return false
+	}
+
+	sort.Slice(a.Items, func(i, j int) bool {
+		return endpointSliceKey(a.Items[i]) < endpointSliceKey(a.Items[j])
+	})
+	sort.Slice(b.Items, func(i, j int) bool {
+		return endpointSliceKey(b.Items[i]) < endpointSliceKey(b.Items[j])
+	})
+
+	for i := range a.Items {
+		if !equalEndpointSlice(a.Items[i], b.Items[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func endpointSliceKey(slice discovery.EndpointSlice) string {
+	keys := make([]string, len(slice.Endpoints))
+	for i, endpoint := range slice.Endpoints {
+		keys[i] = endpointKey(endpoint)
+	}
+	sort.Strings(keys)
+	return fmt.Sprint(keys)
 }

@@ -19,6 +19,7 @@ package storage
 import (
 	"context"
 	"math/rand"
+	"time"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const minWatchRequestSeconds = 300
+const minWatchTimeout = 5 * time.Minute
 
 var ErrNoSupport = errors.New("Don't Support Method ")
 
@@ -57,12 +58,13 @@ func (rs *apiServerStorage) GetList(ctx context.Context, key string, opts storag
 }
 
 func (rs *apiServerStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	timeoutSeconds := int64(float64(minWatchRequestSeconds) * (rand.Float64() + 1.0))
+	timeoutSeconds := int64(minWatchTimeout.Seconds() * (rand.Float64() + 1.0))
 
 	listOpts := &metav1.ListOptions{
-		ResourceVersion: opts.ResourceVersion,
-		Watch:           true,
-		TimeoutSeconds:  &timeoutSeconds,
+		ResourceVersion:     opts.ResourceVersion,
+		Watch:               true,
+		TimeoutSeconds:      &timeoutSeconds,
+		AllowWatchBookmarks: true,
 	}
 
 	w, err := rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Watch(ctx)

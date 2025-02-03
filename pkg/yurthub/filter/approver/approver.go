@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
@@ -57,10 +56,6 @@ func (a *approver) Approve(req *http.Request) (bool, []string) {
 		if a.skipRequestUserAgentList.Has(comp) {
 			return false, []string{}
 		}
-	}
-
-	if ok := cache.WaitForCacheSync(a.stopCh, a.configManager.HasSynced); !ok {
-		return false, []string{}
 	}
 
 	filterNames := a.configManager.FindFiltersFor(req)

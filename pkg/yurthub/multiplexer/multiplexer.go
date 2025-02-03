@@ -17,6 +17,7 @@ limitations under the License.
 package multiplexer
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -26,9 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 
-	kmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
+	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	ystorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 )
 
@@ -71,67 +74,97 @@ var AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
 	return labels.Set(metadata.GetLabels()), fieldSet, nil
 }
 
-type MultiplexerManager interface {
-	ResourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, error)
-	ResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), error)
+type MultiplexerManager struct {
+	restStoreProvider  ystorage.StorageProvider
+	restMapper         *hubmeta.RESTMapperManager
+	poolScopeMetadatas sets.Set[string]
+
+	cacheLock                     sync.RWMutex
+	lazyLoadedGVRCache            map[string]Interface
+	lazyLoadedGVRCacheDestroyFunc map[string]func()
 }
 
-type multiplexerManager struct {
-	restStoreManager ystorage.StorageProvider
-	restMapper       meta.RESTMapper
+func NewRequestMultiplexerManager(
+	restStoreProvider ystorage.StorageProvider,
+	restMapperMgr *hubmeta.RESTMapperManager,
+	poolScopeResources []schema.GroupVersionResource) *MultiplexerManager {
 
-	cacheLock             sync.RWMutex
-	gvrToCache            map[string]Interface
-	gvrToCacheDestroyFunc map[string]func()
+	poolScopeMetadatas := sets.New[string]()
+	for i := range poolScopeResources {
+		poolScopeMetadatas.Insert(poolScopeResources[i].String())
+	}
+	klog.Infof("pool scope resources: %v", poolScopeMetadatas)
 
-	cacheConfigLock  sync.RWMutex
-	gvrToCacheConfig map[string]*ResourceCacheConfig
-}
-
-func NewRequestsMultiplexerManager(
-	restStoreManager ystorage.StorageProvider) MultiplexerManager {
-
-	return &multiplexerManager{
-		restStoreManager:      restStoreManager,
-		restMapper:            kmeta.NewDefaultRESTMapperFromScheme(),
-		gvrToCache:            make(map[string]Interface),
-		gvrToCacheConfig:      make(map[string]*ResourceCacheConfig),
-		gvrToCacheDestroyFunc: make(map[string]func()),
-		cacheLock:             sync.RWMutex{},
-		cacheConfigLock:       sync.RWMutex{},
+	return &MultiplexerManager{
+		restStoreProvider:             restStoreProvider,
+		restMapper:                    restMapperMgr,
+		poolScopeMetadatas:            poolScopeMetadatas,
+		lazyLoadedGVRCache:            make(map[string]Interface),
+		lazyLoadedGVRCacheDestroyFunc: make(map[string]func()),
+		cacheLock:                     sync.RWMutex{},
 	}
 }
-func (m *multiplexerManager) ResourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, error) {
-	if config, ok := m.tryGetResourceCacheConfig(gvr); ok {
-		return config, nil
+
+func (m *MultiplexerManager) IsPoolScopeMetadata(gvr *schema.GroupVersionResource) bool {
+	return m.poolScopeMetadatas.Has(gvr.String())
+}
+
+func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {
+	rc, _, err := m.ResourceCache(gvr)
+	if err != nil {
+		klog.Errorf("failed to get resource cache for gvr %s, %v", gvr.String(), err)
+		return false
 	}
 
+	return rc.ReadinessCheck() == nil
+}
+
+// ResourceCache is used for preparing cache for specified gvr.
+// The cache is loaded in a lazy mode, this means cache will not be loaded when yurthub initializes,
+// and cache will only be loaded when corresponding request is received.
+func (m *MultiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), error) {
+	m.cacheLock.Lock()
+	defer m.cacheLock.Unlock()
+
+	if rc, ok := m.lazyLoadedGVRCache[gvr.String()]; ok {
+		return rc, m.lazyLoadedGVRCacheDestroyFunc[gvr.String()], nil
+	}
+
+	klog.Infof("start initializing multiplexer cache for gvr: %s", gvr.String())
+	restStore, err := m.restStoreProvider.ResourceStorage(gvr)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to get rest store")
+	}
+
+	resourceCacheConfig, err := m.resourceCacheConfig(gvr)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to generate resource cache config")
+	}
+
+	rc, destroy, err := NewResourceCache(restStore, gvr, resourceCacheConfig)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to new resource cache")
+	}
+
+	m.lazyLoadedGVRCache[gvr.String()] = rc
+	m.lazyLoadedGVRCacheDestroyFunc[gvr.String()] = destroy
+
+	return rc, destroy, nil
+}
+
+func (m *MultiplexerManager) resourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, error) {
 	gvk, listGVK, err := m.convertToGVK(gvr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert to gvk from gvr %s", gvr.String())
 	}
 
-	config := m.newResourceCacheConfig(gvk, listGVK)
-
-	m.saveResourceCacheConfig(gvr, config)
-	return config, nil
+	return m.newResourceCacheConfig(gvk, listGVK), nil
 }
 
-func (m *multiplexerManager) tryGetResourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, bool) {
-	m.cacheConfigLock.RLock()
-	defer m.cacheConfigLock.RUnlock()
-
-	if config, ok := m.gvrToCacheConfig[gvr.String()]; ok {
-		return config, true
-	}
-
-	return nil, false
-}
-
-func (m *multiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
-	gvk, err := m.restMapper.KindFor(*gvr)
-	if err != nil {
-		return schema.GroupVersionKind{}, schema.GroupVersionKind{}, errors.Wrapf(err, "failed to convert gvk from gvr %s", gvr.String())
+func (m *MultiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
+	_, gvk := m.restMapper.KindFor(*gvr)
+	if gvk.Empty() {
+		return schema.GroupVersionKind{}, schema.GroupVersionKind{}, fmt.Errorf("failed to convert gvk from gvr %s", gvr.String())
 	}
 
 	listGvk := schema.GroupVersionKind{
@@ -143,9 +176,9 @@ func (m *multiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (sch
 	return gvk, listGvk, nil
 }
 
-func (m *multiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
+func (m *MultiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 	listGVK schema.GroupVersionKind) *ResourceCacheConfig {
-	resourceCacheConfig := &ResourceCacheConfig{
+	return &ResourceCacheConfig{
 		NewFunc: func() runtime.Object {
 			obj, _ := scheme.Scheme.New(gvk)
 			return obj
@@ -157,56 +190,4 @@ func (m *multiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 		KeyFunc:      KeyFunc,
 		GetAttrsFunc: AttrsFunc,
 	}
-
-	return resourceCacheConfig
-}
-
-func (m *multiplexerManager) saveResourceCacheConfig(gvr *schema.GroupVersionResource, config *ResourceCacheConfig) {
-	m.cacheConfigLock.Lock()
-	defer m.cacheConfigLock.Unlock()
-
-	m.gvrToCacheConfig[gvr.String()] = config
-}
-
-func (m *multiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), error) {
-	if sc, destroy, ok := m.tryGetResourceCache(gvr); ok {
-		return sc, destroy, nil
-	}
-
-	restStore, err := m.restStoreManager.ResourceStorage(gvr)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to get rest store")
-	}
-
-	resourceCacheConfig, err := m.ResourceCacheConfig(gvr)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to generate resource cache config")
-	}
-
-	sc, destroy, err := NewResourceCache(restStore, gvr, resourceCacheConfig)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to new resource cache")
-	}
-
-	m.saveResourceCache(gvr, sc, destroy)
-
-	return sc, destroy, nil
-}
-
-func (m *multiplexerManager) tryGetResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), bool) {
-	m.cacheLock.RLock()
-	defer m.cacheLock.RUnlock()
-
-	if sc, ok := m.gvrToCache[gvr.String()]; ok {
-		return sc, m.gvrToCacheDestroyFunc[gvr.String()], true
-	}
-	return nil, nil, false
-}
-
-func (m *multiplexerManager) saveResourceCache(gvr *schema.GroupVersionResource, sc Interface, destroy func()) {
-	m.cacheLock.Lock()
-	defer m.cacheLock.Unlock()
-
-	m.gvrToCache[gvr.String()] = sc
-	m.gvrToCacheDestroyFunc[gvr.String()] = destroy
 }

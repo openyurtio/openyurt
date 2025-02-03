@@ -19,7 +19,6 @@ package testing
 import (
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type IgnoreEndpointslicesWithNodeName struct {
@@ -28,10 +27,6 @@ type IgnoreEndpointslicesWithNodeName struct {
 
 func (ie *IgnoreEndpointslicesWithNodeName) Name() string {
 	return "ignoreendpointsliceswithname"
-}
-
-func (ie *IgnoreEndpointslicesWithNodeName) SupportedResourceAndVerbs() map[string]sets.Set[string] {
-	return nil
 }
 
 // Filter is used for filtering runtime object

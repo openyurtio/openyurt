@@ -33,7 +33,7 @@ type apiServerStorageProvider struct {
 	gvrToStorage map[string]storage.Interface
 }
 
-func NewStorageManager(config *rest.Config) StorageProvider {
+func NewStorageProvider(config *rest.Config) StorageProvider {
 	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	return &apiServerStorageProvider{
 		config:       config,
