@@ -29,16 +29,29 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
 
-func CleanupNodePool(ctx context.Context, k8sClient client.Client) error {
-	nps := &v1beta2.NodePoolList{}
-	if err := k8sClient.List(ctx, nps); err != nil {
+// GetNodepool will get the nodepool with the given name
+func GetNodepool(ctx context.Context, k8sClient client.Client, name string) (*v1beta2.NodePool, error) {
+	pool := &v1beta2.NodePool{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, pool); err != nil {
+		return nil, err
+	}
+	return pool, nil
+}
+
+// DeleteNodePool will delete the nodepool with the given name
+func DeleteNodePool(ctx context.Context, k8sClient client.Client, name string) error {
+	pool, err := GetNodepool(ctx, k8sClient, name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
-	for _, tmp := range nps.Items {
-		if err := k8sClient.Delete(ctx, &tmp); err != nil {
-			return err
-		}
+
+	if err := k8sClient.Delete(ctx, pool); err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -68,6 +81,7 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 	return nil
 }
 
+// InitNodeAndNodePool will create nodepools and add labels to nodes according to the poolToNodesMap
 func InitNodeAndNodePool(
 	ctx context.Context,
 	k8sClient client.Client,
