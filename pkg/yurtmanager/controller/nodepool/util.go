@@ -25,7 +25,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
-	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 // conciliatePoolRelatedAttrs will update the node's attributes that related to
@@ -142,13 +141,6 @@ func containTaint(taint corev1.Taint, taints []corev1.Taint) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-// isNodeReady checks if the `node` is `corev1.NodeReady`
-func isNodeReady(node corev1.Node) bool {
-	_, nc := nodeutil.GetNodeCondition(&node.Status, corev1.NodeReady)
-	// GetNodeCondition will return nil and -1 if the condition is not present
-	return nc != nil && nc.Status == corev1.ConditionTrue
 }
 
 func mergeMap(m1, m2 map[string]string) map[string]string {

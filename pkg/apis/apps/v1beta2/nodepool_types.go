@@ -84,6 +84,11 @@ type NodePoolSpec struct {
 	// PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
 	// And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
 	PoolScopeMetadata []metav1.GroupVersionKind `json:"poolScopeMetadata,omitempty"`
+
+	// LeaderReplicas is used for specifying the number of leader replicas in the nodepool.
+	// If the field is not specified, the default value is 1.
+	// + optional
+	LeaderReplicas int32 `json:"leaderReplicas,omitempty"`
 }
 
 // NodePoolStatus defines the observed state of NodePool
