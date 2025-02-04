@@ -17,6 +17,7 @@ limitations under the License.
 package hubleader
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"testing"
@@ -266,7 +267,12 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity:      true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.1"},
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP",
+							Endpoint: "10.0.0.1",
+						},
+					},
 				},
 			},
 			expectErr: false,
@@ -306,7 +312,16 @@ func TestReconcile(t *testing.T) {
 					LeaderReplicas:    2,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.5"},
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Endpoint: "10.0.0.5",
+						},
+					},
 				},
 			},
 			expectErr: false,
@@ -465,7 +480,12 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2"}, // leader already set
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2", // leader already set
+						},
+					},
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -485,7 +505,12 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2"}, // should not change leader as replicas met
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2", // should not change leader as replicas met
+						},
+					},
 				},
 			},
 			expectErr: false,
@@ -508,7 +533,16 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.4"}, // .4 was leader (node not ready)
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "not ready with internal IP marked as leader",
+							Endpoint: "10.0.0.4", // .4 was leader (node not ready)
+						},
+					},
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -528,7 +562,16 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.5"}, // new leader is .5
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Endpoint: "10.0.0.5", // new leader is .5
+						},
+					},
 				},
 			},
 			expectErr: false,
@@ -568,7 +611,16 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.5"}, // multiple marked leaders
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Endpoint: "10.0.0.5",
+						}, // multiple marked leaders
+					},
 				},
 			},
 			expectErr: false,
@@ -602,7 +654,20 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity:      true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.3", "10.0.0.5"}, // multiple marked leaders
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and not marked as leader",
+							Endpoint: "10.0.0.3",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Endpoint: "10.0.0.5",
+						}, // multiple marked leaders,
+					},
 				},
 			},
 			expectErr: false,
@@ -625,7 +690,16 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2", "10.0.0.5"}, // 2 leaders set, last should be dropped
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Endpoint: "10.0.0.5",
+						}, // 2 leaders set, last should be dropped
+					},
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -645,7 +719,12 @@ func TestReconcile(t *testing.T) {
 					InterConnectivity: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
-					LeaderEndpoints: []string{"10.0.0.2"},
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Endpoint: "10.0.0.2",
+						},
+					},
 				},
 			},
 			expectErr: false,
@@ -682,7 +761,12 @@ func TestReconcile(t *testing.T) {
 			// Reset resource version - it's not important for the test
 			actualPool.ResourceVersion = ""
 			// Sort leader endpoints for comparison - it is not important for the order
-			slices.Sort(actualPool.Status.LeaderEndpoints)
+			slices.SortStableFunc(actualPool.Status.LeaderEndpoints, func(a, b appsv1beta2.Leader) int {
+				return cmp.Compare(
+					a.Endpoint,
+					b.Endpoint,
+				)
+			})
 
 			require.Equal(t, *tc.expectedNodePool, actualPool)
 		})

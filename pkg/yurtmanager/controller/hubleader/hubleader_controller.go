@@ -179,9 +179,9 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 	// Copy the nodepool to update
 	updatedNodePool := nodepool.DeepCopy()
 
-	// Cache nodes in the list by internalIP -> Node
+	// Cache nodes in the list by Leader -> Node
 	// if they are ready and have internal IP
-	endpointsMap := make(map[string]*corev1.Node)
+	endpointsMap := make(map[appsv1beta2.Leader]*corev1.Node)
 	for _, n := range currentNodeList.Items {
 		internalIP, ok := nodeutil.GetInternalIP(&n)
 		if !ok {
@@ -196,12 +196,15 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 			continue
 		}
 
-		endpointsMap[internalIP] = &n
+		endpointsMap[appsv1beta2.Leader{
+			Endpoint: internalIP,
+			NodeName: n.Name,
+		}] = &n
 	}
 
 	// Delete leader endpoints that are not in endpoints map
 	// They are either not ready or not longer the node list and need to be removed
-	leaderDeleteFn := func(endpoint string) bool {
+	leaderDeleteFn := func(endpoint appsv1beta2.Leader) bool {
 		_, ok := endpointsMap[endpoint]
 		return !ok
 	}
@@ -246,12 +249,12 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 }
 
 // hasLeadersChanged checks if the leader endpoints have changed
-func hasLeadersChanged(old, new []string) bool {
+func hasLeadersChanged(old, new []appsv1beta2.Leader) bool {
 	if len(old) != len(new) {
 		return true
 	}
 
-	oldSet := make(map[string]struct{}, len(old))
+	oldSet := make(map[appsv1beta2.Leader]struct{}, len(old))
 
 	for i := range old {
 		oldSet[old[i]] = struct{}{}
@@ -270,9 +273,9 @@ func hasLeadersChanged(old, new []string) bool {
 func electNLeaders(
 	strategy string,
 	numLeaders int,
-	candidates map[string]*corev1.Node,
-) ([]string, bool) {
-	leaderEndpoints := make([]string, 0, len(candidates))
+	candidates map[appsv1beta2.Leader]*corev1.Node,
+) ([]appsv1beta2.Leader, bool) {
+	leaderEndpoints := make([]appsv1beta2.Leader, 0, len(candidates))
 
 	switch strategy {
 	case string(appsv1beta2.ElectionStrategyMark), string(appsv1beta2.ElectionStrategyRandom):

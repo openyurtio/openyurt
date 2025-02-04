@@ -107,12 +107,21 @@ type NodePoolStatus struct {
 
 	// LeaderEndpoints is used for storing the address of Leader Yurthub.
 	// +optional
-	LeaderEndpoints []string `json:"leaderEndpoints,omitempty"`
+	LeaderEndpoints []Leader `json:"leaderEndpoints,omitempty"`
 
 	// Conditions represents the latest available observations of a NodePool's
 	// current state that includes LeaderHubElection status.
 	// +optional
 	Conditions []NodePoolCondition `json:"conditions,omitempty"`
+}
+
+// Leader represents the hub leader in a nodepool
+type Leader struct {
+	// The node name of the leader yurthub
+	NodeName string `json:"nodeName"`
+
+	// The address of the leader yurthub
+	Endpoint string `json:"endpoint"`
 }
 
 // NodePoolConditionType represents a NodePool condition value.
