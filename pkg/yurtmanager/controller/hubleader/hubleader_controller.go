@@ -275,6 +275,11 @@ func electNLeaders(
 	numLeaders int,
 	candidates map[appsv1beta2.Leader]*corev1.Node,
 ) ([]appsv1beta2.Leader, bool) {
+	// No candidates to elect leaders from
+	if len(candidates) == 0 {
+		return nil, true
+	}
+
 	leaderEndpoints := make([]appsv1beta2.Leader, 0, numLeaders)
 
 	switch strategy {
