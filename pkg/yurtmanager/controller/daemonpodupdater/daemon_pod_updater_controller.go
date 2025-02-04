@@ -376,7 +376,7 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 			}
 		}
 	}
-	// Use any of the candidates we can, including the allowedReplacemnntPods
+	// Use any of the candidates we can, including the allowedReplacementPods
 	klog.V(5).Infof("DaemonSet %s/%s allowing %d replacements, up to %d unavailable, %d are unavailable, %d candidates", ds.Namespace, ds.Name, len(allowedReplacementPods), maxUnavailable, numUnavailable, len(candidatePodsToDelete))
 	remainingUnavailable := maxUnavailable - numUnavailable
 	if remainingUnavailable < 0 {
