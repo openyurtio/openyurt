@@ -35,7 +35,6 @@ type YurtManagerOptions struct {
 	YurtAppSetController          *YurtAppSetControllerOptions
 	YurtAppDaemonController       *YurtAppDaemonControllerOptions
 	PlatformAdminController       *PlatformAdminControllerOptions
-	YurtAppOverriderController    *YurtAppOverriderControllerOptions
 	NodeLifeCycleController       *NodeLifecycleControllerOptions
 	NodeBucketController          *NodeBucketControllerOptions
 	EndpointsController           *EndpointsControllerOptions
@@ -63,7 +62,6 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		YurtAppSetController:          NewYurtAppSetControllerOptions(),
 		YurtAppDaemonController:       NewYurtAppDaemonControllerOptions(),
 		PlatformAdminController:       NewPlatformAdminControllerOptions(),
-		YurtAppOverriderController:    NewYurtAppOverriderControllerOptions(),
 		NodeLifeCycleController:       NewNodeLifecycleControllerOptions(),
 		NodeBucketController:          NewNodeBucketControllerOptions(),
 		EndpointsController:           NewEndpointsControllerOptions(),
@@ -92,7 +90,6 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
 	y.YurtAppDaemonController.AddFlags(fss.FlagSet("yurtappdaemon controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
-	y.YurtAppOverriderController.AddFlags(fss.FlagSet("yurtappoverrider controller"))
 	y.NodeLifeCycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
 	y.NodeBucketController.AddFlags(fss.FlagSet("nodebucket controller"))
 	y.EndpointsController.AddFlags(fss.FlagSet("endpoints controller"))
@@ -120,7 +117,6 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
 	errs = append(errs, y.YurtAppDaemonController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
-	errs = append(errs, y.YurtAppOverriderController.Validate()...)
 	errs = append(errs, y.NodeLifeCycleController.Validate()...)
 	errs = append(errs, y.NodeBucketController.Validate()...)
 	errs = append(errs, y.EndpointsController.Validate()...)
@@ -165,9 +161,6 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {
-		return err
-	}
-	if err := y.YurtAppOverriderController.ApplyTo(&c.ComponentConfig.YurtAppOverriderController); err != nil {
 		return err
 	}
 	if err := y.NodeLifeCycleController.ApplyTo(&c.ComponentConfig.NodeLifeCycleController); err != nil {

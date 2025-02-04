@@ -35,7 +35,6 @@ import (
 	endpointsconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints/config"
 	endpointsliceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice/config"
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
-	yurtappoverriderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappoverrider/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	coordinatorcertconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert/config"
 	delegateleaseconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/delegatelease/config"
@@ -75,9 +74,7 @@ type YurtManagerConfiguration struct {
 	// PlatformAdminControllerConfiguration holds configuration for PlatformAdminController related features.
 	PlatformAdminController platformadminconfig.PlatformAdminControllerConfiguration
 
-	// YurtAppOverriderControllerConfiguration holds configuration for YurtAppOverriderController related features.
-	YurtAppOverriderController yurtappoverriderconfig.YurtAppOverriderControllerConfiguration
-
+	// NodeLifeCycleControllerConfiguration holds configuration for NodeLifeCycleController related features.
 	NodeLifeCycleController v1alpha1.NodeLifecycleControllerConfiguration
 
 	// NodeBucketController holds configuration for NodeBucketController related features.
