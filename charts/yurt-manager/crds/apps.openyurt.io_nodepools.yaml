@@ -464,7 +464,18 @@ spec:
                 leaderEndpoints:
                   description: LeaderEndpoints is used for storing the address of Leader Yurthub.
                   items:
-                    type: string
+                    description: Leader represents the hub leader in a nodepool
+                    properties:
+                      address:
+                        description: The address of the leader yurthub
+                        type: string
+                      nodeName:
+                        description: The node name of the leader yurthub
+                        type: string
+                    required:
+                      - address
+                      - nodeName
+                    type: object
                   type: array
                 nodes:
                   description: The list of nodes' names in the pool
