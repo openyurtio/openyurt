@@ -270,7 +270,7 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP",
-							Endpoint: "10.0.0.1",
+							Address:  "10.0.0.1",
 						},
 					},
 				},
@@ -315,11 +315,11 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "ready with internal IP and marked as 2nd leader",
-							Endpoint: "10.0.0.5",
+							Address:  "10.0.0.5",
 						},
 					},
 				},
@@ -483,7 +483,7 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2", // leader already set
+							Address:  "10.0.0.2", // leader already set
 						},
 					},
 				},
@@ -508,7 +508,7 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2", // should not change leader as replicas met
+							Address:  "10.0.0.2", // should not change leader as replicas met
 						},
 					},
 				},
@@ -536,11 +536,11 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "not ready with internal IP marked as leader",
-							Endpoint: "10.0.0.4", // .4 was leader (node not ready)
+							Address:  "10.0.0.4", // .4 was leader (node not ready)
 						},
 					},
 				},
@@ -565,11 +565,11 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "ready with internal IP and marked as 2nd leader",
-							Endpoint: "10.0.0.5", // new leader is .5
+							Address:  "10.0.0.5", // new leader is .5
 						},
 					},
 				},
@@ -614,11 +614,11 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "ready with internal IP and marked as 2nd leader",
-							Endpoint: "10.0.0.5",
+							Address:  "10.0.0.5",
 						}, // multiple marked leaders
 					},
 				},
@@ -657,15 +657,15 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "ready with internal IP and not marked as leader",
-							Endpoint: "10.0.0.3",
+							Address:  "10.0.0.3",
 						},
 						{
 							NodeName: "ready with internal IP and marked as 2nd leader",
-							Endpoint: "10.0.0.5",
+							Address:  "10.0.0.5",
 						}, // multiple marked leaders,
 					},
 				},
@@ -693,11 +693,11 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 						{
 							NodeName: "ready with internal IP and marked as 2nd leader",
-							Endpoint: "10.0.0.5",
+							Address:  "10.0.0.5",
 						}, // 2 leaders set, last should be dropped
 					},
 				},
@@ -722,7 +722,7 @@ func TestReconcile(t *testing.T) {
 					LeaderEndpoints: []appsv1beta2.Leader{
 						{
 							NodeName: "ready with internal IP and marked as leader",
-							Endpoint: "10.0.0.2",
+							Address:  "10.0.0.2",
 						},
 					},
 				},
@@ -763,8 +763,8 @@ func TestReconcile(t *testing.T) {
 			// Sort leader endpoints for comparison - it is not important for the order
 			slices.SortStableFunc(actualPool.Status.LeaderEndpoints, func(a, b appsv1beta2.Leader) int {
 				return cmp.Compare(
-					a.Endpoint,
-					b.Endpoint,
+					a.Address,
+					b.Address,
 				)
 			})
 

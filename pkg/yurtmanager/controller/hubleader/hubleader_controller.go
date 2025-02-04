@@ -181,7 +181,7 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 
 	// Cache nodes in the list by Leader -> Node
 	// if they are ready and have internal IP
-	endpointsMap := make(map[appsv1beta2.Leader]*corev1.Node)
+	leadersMap := make(map[appsv1beta2.Leader]*corev1.Node)
 	for _, n := range currentNodeList.Items {
 		internalIP, ok := nodeutil.GetInternalIP(&n)
 		if !ok {
@@ -196,16 +196,16 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 			continue
 		}
 
-		endpointsMap[appsv1beta2.Leader{
-			Endpoint: internalIP,
+		leadersMap[appsv1beta2.Leader{
+			Address:  internalIP,
 			NodeName: n.Name,
 		}] = &n
 	}
 
-	// Delete leader endpoints that are not in endpoints map
+	// Delete leaders that are not in leaders map
 	// They are either not ready or not longer the node list and need to be removed
-	leaderDeleteFn := func(endpoint appsv1beta2.Leader) bool {
-		_, ok := endpointsMap[endpoint]
+	leaderDeleteFn := func(leader appsv1beta2.Leader) bool {
+		_, ok := leadersMap[leader]
 		return !ok
 	}
 	updatedLeaders := slices.DeleteFunc(updatedNodePool.Status.LeaderEndpoints, leaderDeleteFn)
@@ -214,13 +214,13 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 	if len(updatedLeaders) < int(nodepool.Spec.LeaderReplicas) {
 		// Remove current leaders from candidates
 		for _, leader := range updatedLeaders {
-			delete(endpointsMap, leader)
+			delete(leadersMap, leader)
 		}
 
 		leaders, ok := electNLeaders(
 			nodepool.Spec.LeaderElectionStrategy,
 			int(nodepool.Spec.LeaderReplicas)-len(updatedLeaders),
-			endpointsMap,
+			leadersMap,
 		)
 		if !ok {
 			klog.Errorf("Failed to elect a leader for NodePool %s", nodepool.Name)
@@ -275,7 +275,7 @@ func electNLeaders(
 	numLeaders int,
 	candidates map[appsv1beta2.Leader]*corev1.Node,
 ) ([]appsv1beta2.Leader, bool) {
-	leaderEndpoints := make([]appsv1beta2.Leader, 0, len(candidates))
+	leaderEndpoints := make([]appsv1beta2.Leader, 0, numLeaders)
 
 	switch strategy {
 	case string(appsv1beta2.ElectionStrategyMark), string(appsv1beta2.ElectionStrategyRandom):

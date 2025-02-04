@@ -466,14 +466,14 @@ spec:
                   items:
                     description: Leader represents the hub leader in a nodepool
                     properties:
-                      endpoint:
+                      address:
                         description: The address of the leader yurthub
                         type: string
                       nodeName:
                         description: The node name of the leader yurthub
                         type: string
                     required:
-                      - endpoint
+                      - address
                       - nodeName
                     type: object
                   type: array

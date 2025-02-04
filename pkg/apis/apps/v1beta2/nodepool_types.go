@@ -121,7 +121,7 @@ type Leader struct {
 	NodeName string `json:"nodeName"`
 
 	// The address of the leader yurthub
-	Endpoint string `json:"endpoint"`
+	Address string `json:"address"`
 }
 
 // NodePoolConditionType represents a NodePool condition value.
