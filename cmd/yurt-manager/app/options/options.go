@@ -46,6 +46,7 @@ type YurtManagerOptions struct {
 	GatewayInternalSvcController  *GatewayInternalSvcControllerOptions
 	GatewayPublicSvcController    *GatewayPublicSvcControllerOptions
 	HubLeaderController           *HubLeaderControllerOptions
+	HubLeaderConfigController     *HubLeaderConfigControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -73,6 +74,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		GatewayInternalSvcController:  NewGatewayInternalSvcControllerOptions(),
 		GatewayPublicSvcController:    NewGatewayPublicSvcControllerOptions(),
 		HubLeaderController:           NewHubLeaderControllerOptions(),
+		HubLeaderConfigController:     NewHubLeaderConfigControllerOptions(),
 	}
 
 	return &s, nil
@@ -101,6 +103,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.GatewayInternalSvcController.AddFlags(fss.FlagSet("gatewayinternalsvc controller"))
 	y.GatewayPublicSvcController.AddFlags(fss.FlagSet("gatewaypublicsvc controller"))
 	y.HubLeaderController.AddFlags(fss.FlagSet("hubleader controller"))
+	y.HubLeaderConfigController.AddFlags(fss.FlagSet("hubleaderconfig controller"))
 	return fss
 }
 
@@ -128,6 +131,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.GatewayInternalSvcController.Validate()...)
 	errs = append(errs, y.GatewayPublicSvcController.Validate()...)
 	errs = append(errs, y.HubLeaderController.Validate()...)
+	errs = append(errs, y.HubLeaderConfigController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -194,6 +198,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.HubLeaderController.ApplyTo(&c.ComponentConfig.HubLeaderController); err != nil {
+		return err
+	}
+	if err := y.HubLeaderConfigController.ApplyTo(&c.ComponentConfig.HubLeaderConfigController); err != nil {
 		return err
 	}
 	return nil

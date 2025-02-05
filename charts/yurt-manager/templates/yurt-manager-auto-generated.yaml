@@ -57,6 +57,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: yurt-manager-hubleaderconfig-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: yurt-manager-load-balancer-set-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -482,6 +488,19 @@ rules:
   - get
   - patch
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-manager-hubleaderconfig-controller
+rules:
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - nodepool
+  - nodepool/status
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1038,6 +1057,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager-hubleader-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-hubleaderconfig-controller-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-hubleaderconfig-controller
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager-hubleaderconfig-controller
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
