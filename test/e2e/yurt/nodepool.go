@@ -24,9 +24,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/test/e2e/util"
 	ycfg "github.com/openyurtio/openyurt/test/e2e/yurtconfig"
 )
@@ -38,19 +40,18 @@ var _ = Describe("nodepool test", func() {
 	// checkNodePoolStatus checks the status of the nodepool in poolToNodesMap
 	// The nodepool is fetched from the k8sClient and the ready node number is checked
 	// with the number of nodes expected in the pool
-	checkNodePoolStatus := func(poolToNodesMap map[string]sets.Set[string]) error {
-		for npName, nodes := range poolToNodesMap {
-			// Get the node pool
-			pool, err := util.GetNodepool(ctx, k8sClient, npName)
-			if err != nil {
-				return err
-			}
-
-			// Compare length with the number of nodes in map
-			if int(pool.Status.ReadyNodeNum) != nodes.Len() {
-				return errors.New("nodepool size not match")
-			}
+	checkNodePoolStatus := func(pool util.TestNodePool) error {
+		// Get the node pool
+		actualPool, err := util.GetNodepool(ctx, k8sClient, pool.NodePool.Name)
+		if err != nil {
+			return err
 		}
+
+		// Compare length with the number of nodes in map
+		if int(actualPool.Status.ReadyNodeNum) != pool.Nodes.Len() {
+			return errors.New("nodepool size not match")
+		}
+
 		return nil
 	}
 
@@ -65,19 +66,26 @@ var _ = Describe("nodepool test", func() {
 		By("Run creating an empty nodepool and then deleting it")
 		// We can delete an empty nodepool
 		npName := fmt.Sprintf("test-%d", time.Now().Unix())
-		poolToNodesMap := map[string]sets.Set[string]{
-			npName: {},
+		pool := util.TestNodePool{
+			NodePool: v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: npName,
+				},
+				Spec: v1beta2.NodePoolSpec{
+					Type: v1beta2.Edge,
+				},
+			},
 		}
 
 		Eventually(
 			func() error {
-				return util.InitNodeAndNodePool(ctx, k8sClient, poolToNodesMap)
+				return util.InitTestNodePool(ctx, k8sClient, pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 
 		Eventually(
 			func() error {
-				return checkNodePoolStatus(poolToNodesMap)
+				return checkNodePoolStatus(pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 
@@ -91,19 +99,27 @@ var _ = Describe("nodepool test", func() {
 	It("Test NodePool create not empty", func() {
 		By("Run nodepool create with worker 2") // worker 1 is already mapped to a pool
 		npName := fmt.Sprintf("test-%d", time.Now().Unix())
-		poolToNodesMap := map[string]sets.Set[string]{
-			npName: sets.New("openyurt-e2e-test-worker2"), // we will use this worker in the nodepool
+		pool := util.TestNodePool{
+			NodePool: v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: npName,
+				},
+				Spec: v1beta2.NodePoolSpec{
+					Type: v1beta2.Edge,
+				},
+			},
+			Nodes: sets.New("openyurt-e2e-test-worker2"), // we will use this worker in the nodepool
 		}
 
 		Eventually(
 			func() error {
-				return util.InitNodeAndNodePool(ctx, k8sClient, poolToNodesMap)
+				return util.InitTestNodePool(ctx, k8sClient, pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 
 		Eventually(
 			func() error {
-				return checkNodePoolStatus(poolToNodesMap)
+				return checkNodePoolStatus(pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 	})

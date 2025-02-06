@@ -81,29 +81,23 @@ func CleanupNodePoolLabel(ctx context.Context, k8sClient client.Client) error {
 	return nil
 }
 
-// InitNodeAndNodePool will create nodepools and add labels to nodes according to the poolToNodesMap
-func InitNodeAndNodePool(
+type TestNodePool struct {
+	NodePool v1beta2.NodePool
+	Nodes    sets.Set[string]
+}
+
+// InitTestNodePool will create nodepools and add labels to nodes according to the pools
+func InitTestNodePool(
 	ctx context.Context,
 	k8sClient client.Client,
-	poolToNodesMap map[string]sets.Set[string],
+	pool TestNodePool,
 ) error {
-	nodeToPoolMap := make(map[string]string)
-	for k, v := range poolToNodesMap {
-		for _, n := range sets.List(v) {
-			nodeToPoolMap[n] = k
+	err := k8sClient.Create(ctx, &pool.NodePool)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			return nil
 		}
-	}
-
-	for k := range poolToNodesMap {
-		if err := k8sClient.Create(ctx, &v1beta2.NodePool{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: k,
-			},
-			Spec: v1beta2.NodePoolSpec{
-				Type: v1beta2.Edge,
-			}}); err != nil {
-			return err
-		}
+		return err
 	}
 
 	nodes := &corev1.NodeList{}
@@ -118,11 +112,11 @@ func InitNodeAndNodePool(
 			nodeLabels = map[string]string{}
 		}
 
-		if _, ok := nodeToPoolMap[originNode.Name]; !ok {
+		if !pool.Nodes.Has(originNode.Name) {
 			continue
 		}
 
-		nodeLabels[projectinfo.GetNodePoolLabel()] = nodeToPoolMap[originNode.Name]
+		nodeLabels[projectinfo.GetNodePoolLabel()] = pool.NodePool.Name
 		newNode.Labels = nodeLabels
 		if err := k8sClient.Patch(ctx, newNode, client.MergeFrom(&originNode)); err != nil {
 			return err
