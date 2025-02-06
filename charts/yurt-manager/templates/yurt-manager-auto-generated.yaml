@@ -482,8 +482,8 @@ rules:
 - apiGroups:
   - apps.openyurt.io
   resources:
-  - nodepool
-  - nodepool/status
+  - nodepools
+  - nodepools/status
   verbs:
   - get
   - patch

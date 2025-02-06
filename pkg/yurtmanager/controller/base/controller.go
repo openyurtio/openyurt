@@ -138,7 +138,11 @@ func NewControllerInitializers() map[string]InitFunc {
 
 func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.Manager) error {
 	for controllerName, fn := range NewControllerInitializers() {
-		if !app.IsControllerEnabled(controllerName, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) {
+		if !app.IsControllerEnabled(
+			controllerName,
+			ControllersDisabledByDefault,
+			c.ComponentConfig.Generic.Controllers,
+		) {
 			klog.Warningf("Controller %v is disabled", controllerName)
 			continue
 		}

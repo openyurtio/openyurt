@@ -131,8 +131,8 @@ type ReconcileHubLeader struct {
 	Configuration config.HubLeaderControllerConfiguration
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a HubLeader object and makes changes based on the state read
 // and what is in the HubLeader.Spec
