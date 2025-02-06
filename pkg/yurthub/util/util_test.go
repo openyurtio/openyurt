@@ -74,19 +74,6 @@ func TestContext(t *testing.T) {
 		return
 	}
 
-	reqCanCacheFrom, ok := ReqCanCacheFrom(ctx)
-	if ok {
-		t.Errorf("want clean context, got value %v, ok:%v", reqCanCacheFrom, ok)
-		return
-	}
-	testReqCanCacheFrom := true
-	ctxWithReqCanCache := WithReqCanCache(ctx, testReqCanCacheFrom)
-	reqCanCacheFrom, ok = ReqCanCacheFrom(ctxWithReqCanCache)
-	if !ok || reqCanCacheFrom != testReqCanCacheFrom {
-		t.Errorf("reqCanCacheFrom, got value %v, ok:%v", reqCanCacheFrom, ok)
-		return
-	}
-
 	listSelectorFrom, ok := ListSelectorFrom(ctx)
 	if ok || listSelectorFrom != "" {
 		t.Errorf("want clean context, got value %v, ok:%v", listSelectorFrom, ok)

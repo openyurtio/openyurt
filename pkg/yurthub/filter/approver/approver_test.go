@@ -178,7 +178,7 @@ func TestApprove(t *testing.T) {
 				approved, filterNames = approver.Approve(req)
 			})
 
-			handler = util.WithRequestClientComponent(handler, tt.workingMode)
+			handler = util.WithRequestClientComponent(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 

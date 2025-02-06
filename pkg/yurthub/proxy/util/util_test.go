@@ -24,7 +24,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -124,12 +123,11 @@ func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
 
 func TestWithPartialObjectMetadataRequest(t *testing.T) {
 	testcases := map[string]struct {
-		Verb            string
-		Path            string
-		Header          map[string]string
-		ClientComponent string
-		IsPartialReq    bool
-		ConvertGVK      schema.GroupVersionKind
+		Verb         string
+		Path         string
+		Header       map[string]string
+		IsPartialReq bool
+		ConvertGVK   schema.GroupVersionKind
 	}{
 		"kubelet request": {
 			Verb: "GET",
@@ -137,8 +135,7 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 			Header: map[string]string{
 				"User-Agent": "kubelet",
 			},
-			ClientComponent: "kubelet",
-			IsPartialReq:    false,
+			IsPartialReq: false,
 		},
 		"flanneld list request by partial object metadata request": {
 			Verb: "GET",
@@ -147,8 +144,7 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 				"User-Agent": "flanneld/0.11.0",
 				"Accept":     "application/vnd.kubernetes.protobuf;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1,application/json",
 			},
-			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
-			IsPartialReq:    true,
+			IsPartialReq: true,
 			ConvertGVK: schema.GroupVersionKind{
 				Group:   "meta.k8s.io",
 				Version: "v1",
@@ -162,8 +158,7 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 				"User-Agent": "flanneld/0.11.0",
 				"Accept":     "application/vnd.kubernetes.protobuf;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1,application/json",
 			},
-			ClientComponent: "flanneld/partialobjectmetadatas.v1.meta.k8s.io",
-			IsPartialReq:    true,
+			IsPartialReq: true,
 			ConvertGVK: schema.GroupVersionKind{
 				Group:   "meta.k8s.io",
 				Version: "v1",
@@ -182,23 +177,17 @@ func TestWithPartialObjectMetadataRequest(t *testing.T) {
 			}
 			req.RemoteAddr = "127.0.0.1"
 
-			var clientComponent string
 			var isPartialReq bool
 			var convertGVK *schema.GroupVersionKind
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
-				clientComponent, _ = util.ClientComponentFrom(ctx)
 				convertGVK, isPartialReq = util.ConvertGVKFrom(ctx)
 			})
 
-			handler = WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = WithRequestClientComponent(handler)
 			handler = WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
-
-			if clientComponent != tc.ClientComponent {
-				t.Errorf("expect client component %s, but got %s", tc.ClientComponent, clientComponent)
-			}
 
 			if isPartialReq != tc.IsPartialReq {
 				t.Errorf("expect isPartialReq %v, but got %v", tc.IsPartialReq, isPartialReq)
@@ -280,23 +269,26 @@ func TestWithRequestContentType(t *testing.T) {
 
 func TestWithRequestClientComponent(t *testing.T) {
 	testcases := map[string]struct {
-		UserAgent       string
-		Verb            string
-		Path            string
-		ClientComponent string
+		UserAgent          string
+		Verb               string
+		Path               string
+		ClientComponent    string
+		TruncatedComponent string
 	}{
 		"kubelet request": {
-			UserAgent:       "kubelet",
-			Verb:            "GET",
-			Path:            "/api/v1/nodes/mynode",
-			ClientComponent: "kubelet",
+			UserAgent:          "kubelet123",
+			Verb:               "GET",
+			Path:               "/api/v1/nodes/mynode",
+			ClientComponent:    "kubelet123",
+			TruncatedComponent: "kubelet123",
 		},
 
 		"flanneld request": {
-			UserAgent:       "flanneld/0.11.0",
-			Verb:            "GET",
-			Path:            "/api/v1/nodes/mynode",
-			ClientComponent: "flanneld",
+			UserAgent:          "flanneld/0.11.0",
+			Verb:               "GET",
+			Path:               "/api/v1/nodes/mynode",
+			ClientComponent:    "flanneld/0.11.0",
+			TruncatedComponent: "flanneld",
 		},
 		"not resource request": {
 			UserAgent:       "kubelet",
@@ -309,88 +301,32 @@ func TestWithRequestClientComponent(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 
 	for k, tc := range testcases {
-		req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
-		if len(tc.UserAgent) != 0 {
-			req.Header.Set("User-Agent", tc.UserAgent)
-		}
-		req.RemoteAddr = "127.0.0.1"
-
-		var clientComponent string
-		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			ctx := req.Context()
-			clientComponent, _ = util.ClientComponentFrom(ctx)
-		})
-
-		handler = WithRequestClientComponent(handler, util.WorkingModeEdge)
-		handler = filters.WithRequestInfo(handler, resolver)
-		handler.ServeHTTP(httptest.NewRecorder(), req)
-
-		if clientComponent != tc.ClientComponent {
-			t.Errorf("%s: expect client component %s, but got %s", k, tc.ClientComponent, clientComponent)
-		}
-	}
-}
-
-func TestWithMaxInFlightLimit(t *testing.T) {
-	testcases := map[int]struct {
-		Verb            string
-		Path            string
-		ClientComponent string
-		TwoManyRequests int
-	}{
-		10: {
-			Verb:            "GET",
-			Path:            "/api/v1/nodes/mynode",
-			ClientComponent: "kubelet",
-			TwoManyRequests: 0,
-		},
-
-		11: {
-			Verb:            "GET",
-			Path:            "/api/v1/nodes/mynode",
-			ClientComponent: "flanneld",
-			TwoManyRequests: 1,
-		},
-	}
-
-	resolver := newTestRequestInfoResolver()
-
-	for k, tc := range testcases {
-		req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
-		req.RemoteAddr = "127.0.0.1"
-
-		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			time.Sleep(3 * time.Second)
-			w.WriteHeader(http.StatusOK)
-		})
-
-		handler = WithMaxInFlightLimit(handler, 10, "test-node")
-		handler = filters.WithRequestInfo(handler, resolver)
-
-		respCodes := make([]int, k)
-		var wg sync.WaitGroup
-		for i := 0; i < k; i++ {
-			wg.Add(1)
-			go func(idx int) {
-				resp := httptest.NewRecorder()
-				handler.ServeHTTP(resp, req)
-				result := resp.Result()
-				respCodes[idx] = result.StatusCode
-				wg.Done()
-			}(i)
-
-		}
-
-		wg.Wait()
-		execssRequests := 0
-		for i := range respCodes {
-			if respCodes[i] == http.StatusTooManyRequests {
-				execssRequests++
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
+			if len(tc.UserAgent) != 0 {
+				req.Header.Set("User-Agent", tc.UserAgent)
 			}
-		}
-		if execssRequests != tc.TwoManyRequests {
-			t.Errorf("%d requests: expect %d requests overflow, but got %d", k, tc.TwoManyRequests, execssRequests)
-		}
+			req.RemoteAddr = "127.0.0.1"
+
+			var clientComponent, truncatedComponent string
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := req.Context()
+				clientComponent, _ = util.ClientComponentFrom(ctx)
+				truncatedComponent, _ = util.TruncatedClientComponentFrom(ctx)
+			})
+
+			handler = WithRequestClientComponent(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if clientComponent != tc.ClientComponent {
+				t.Errorf("expect client component %s, but got %s", tc.ClientComponent, clientComponent)
+			}
+
+			if truncatedComponent != tc.TruncatedComponent {
+				t.Errorf("expect truncated component %s, but got %s", tc.TruncatedComponent, truncatedComponent)
+			}
+		})
 	}
 }
 
@@ -740,84 +676,6 @@ func TestWithSaTokenSubstituteTenantTokenEmpty(t *testing.T) {
 
 		})
 	}
-}
-
-func TestWithRequestTrace(t *testing.T) {
-	testcases := map[string]struct {
-		Verb           string
-		Path           string
-		UserAgent      string
-		HasRequestInfo bool
-	}{
-		"GET request": {
-			Verb:           "GET",
-			Path:           "/api/v1/nodes/mynode",
-			UserAgent:      "kubelet",
-			HasRequestInfo: true,
-		},
-
-		"WATCH request": {
-			Verb:           "WATCH",
-			Path:           "/api/v1/nodes/mynode",
-			UserAgent:      "flanneld",
-			HasRequestInfo: true,
-		},
-		"not resource request": {
-			Verb:           "POST",
-			Path:           "/healthz",
-			UserAgent:      "",
-			HasRequestInfo: true,
-		},
-		"no request info": {
-			Verb:           "POST",
-			Path:           "/healthz",
-			UserAgent:      "",
-			HasRequestInfo: false,
-		},
-		// TODO: It is removed temporarily for merge conflict. We can revise these cases
-		// to make them work again.
-		// "api-resources info request": {
-		// 	path:         "/apis/discovery.k8s.io/v1",
-		// 	expectType:   storage.APIResourcesInfo,
-		// 	expectResult: true,
-		// },
-		// "api-versions info request": {
-		// 	path:         "/apis",
-		// 	expectType:   storage.APIsInfo,
-		// 	expectResult: true,
-		// },
-	}
-
-	resolver := newTestRequestInfoResolver()
-
-	for k, tc := range testcases {
-		t.Run(k, func(t *testing.T) {
-			req, _ := http.NewRequest(tc.Verb, tc.Path, nil)
-
-			req.RemoteAddr = "127.0.0.1"
-			req.Header.Set("User-Agent", tc.UserAgent)
-
-			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-
-			})
-
-			handler = WithRequestClientComponent(handler, util.WorkingModeCloud)
-			handler = WithRequestTrace(handler)
-			handler = WithRequestTraceFull(handler)
-
-			if tc.HasRequestInfo {
-				handler = filters.WithRequestInfo(handler, resolver)
-			}
-
-			resp := httptest.NewRecorder()
-			handler.ServeHTTP(resp, req)
-			if status := resp.Code; status != http.StatusOK {
-				t.Errorf("Trace request returns non `200` code: %v", status)
-			}
-
-		})
-	}
-
 }
 
 func TestIsListRequestWithNameFieldSelector(t *testing.T) {

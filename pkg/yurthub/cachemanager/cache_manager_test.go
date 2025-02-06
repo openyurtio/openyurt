@@ -470,7 +470,7 @@ func TestCacheGetResponse(t *testing.T) {
 				ctx := req.Context()
 				info, _ = request.RequestInfoFrom(ctx)
 				// get component
-				comp, _ = util.ClientComponentFrom(ctx)
+				comp, _ = util.TruncatedClientComponentFrom(ctx)
 
 				// inject response content type by request content type
 				reqContentType, _ := util.ReqContentTypeFrom(ctx)
@@ -487,6 +487,7 @@ func TestCacheGetResponse(t *testing.T) {
 				convertGVK, ok := util.ConvertGVKFrom(ctx)
 				if ok && convertGVK != nil {
 					gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+					comp = util.AttachConvertGVK(comp, convertGVK)
 				}
 
 				s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -506,7 +507,7 @@ func TestCacheGetResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestClientComponent(handler)
 			handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -918,7 +919,7 @@ func TestCacheWatchResponse(t *testing.T) {
 				ctx := req.Context()
 				info, _ = request.RequestInfoFrom(ctx)
 				// get component
-				comp, _ = util.ClientComponentFrom(ctx)
+				comp, _ = util.TruncatedClientComponentFrom(ctx)
 
 				// inject response content type by request content type
 				reqContentType, _ := util.ReqContentTypeFrom(ctx)
@@ -935,6 +936,7 @@ func TestCacheWatchResponse(t *testing.T) {
 				convertGVK, ok := util.ConvertGVKFrom(ctx)
 				if ok && convertGVK != nil {
 					gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+					comp = util.AttachConvertGVK(comp, convertGVK)
 				}
 
 				s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -955,7 +957,7 @@ func TestCacheWatchResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestClientComponent(handler)
 			handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -1508,7 +1510,7 @@ func TestCacheListResponse(t *testing.T) {
 				ctx := req.Context()
 				info, _ = request.RequestInfoFrom(ctx)
 				// get component
-				comp, _ = util.ClientComponentFrom(ctx)
+				comp, _ = util.TruncatedClientComponentFrom(ctx)
 
 				// inject response content type by request content type
 				reqContentType, _ := util.ReqContentTypeFrom(ctx)
@@ -1525,6 +1527,7 @@ func TestCacheListResponse(t *testing.T) {
 				convertGVK, ok := util.ConvertGVKFrom(ctx)
 				if ok && convertGVK != nil {
 					gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+					comp = util.AttachConvertGVK(comp, convertGVK)
 				}
 
 				s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -1545,7 +1548,7 @@ func TestCacheListResponse(t *testing.T) {
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
-			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestClientComponent(handler)
 			handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -2206,7 +2209,7 @@ func TestQueryCacheForGet(t *testing.T) {
 				}
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestClientComponent(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -2821,7 +2824,7 @@ func TestQueryCacheForList(t *testing.T) {
 				}
 			})
 
-			handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+			handler = proxyutil.WithRequestClientComponent(handler)
 			handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
@@ -2975,30 +2978,11 @@ func TestCanCacheFor(t *testing.T) {
 			},
 			expectCache: true,
 		},
-		"with cache header": {
-			request: &proxyRequest{
-				userAgent: "test1",
-				verb:      "GET",
-				path:      "/api/v1/nodes/mynode",
-				header:    map[string]string{"Edge-Cache": "true"},
-			},
-			expectCache: true,
-		},
-		"with cache header false": {
-			request: &proxyRequest{
-				userAgent: "test2",
-				verb:      "GET",
-				path:      "/api/v1/nodes/mynode",
-				header:    map[string]string{"Edge-Cache": "false"},
-			},
-			expectCache: false,
-		},
 		"not resource request": {
 			request: &proxyRequest{
 				userAgent: "test2",
 				verb:      "GET",
 				path:      "/healthz",
-				header:    map[string]string{"Edge-Cache": "true"},
 			},
 			expectCache: false,
 		},
@@ -3231,8 +3215,7 @@ func checkReqCanCache(m CacheManager, userAgent, verb, path string, header map[s
 	})
 
 	handler = proxyutil.WithListRequestSelector(handler)
-	handler = proxyutil.WithCacheHeaderCheck(handler)
-	handler = proxyutil.WithRequestClientComponent(handler, util.WorkingModeEdge)
+	handler = proxyutil.WithRequestClientComponent(handler)
 	handler = proxyutil.WithPartialObjectMetadataRequest(handler)
 	handler = filters.WithRequestInfo(handler, newTestRequestInfoResolver())
 	handler.ServeHTTP(httptest.NewRecorder(), req)

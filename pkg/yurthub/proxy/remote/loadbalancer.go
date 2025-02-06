@@ -127,7 +127,6 @@ type loadBalancer struct {
 	algo          loadBalancerAlgo
 	localCacheMgr cachemanager.CacheManager
 	filterFinder  filter.FilterFinder
-	workingMode   hubutil.WorkingMode
 	stopCh        <-chan struct{}
 }
 
@@ -139,12 +138,10 @@ func NewLoadBalancer(
 	transportMgr transport.Interface,
 	healthChecker healthchecker.MultipleBackendsHealthChecker,
 	filterFinder filter.FilterFinder,
-	workingMode hubutil.WorkingMode,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{
 		localCacheMgr: localCacheMgr,
 		filterFinder:  filterFinder,
-		workingMode:   workingMode,
 		stopCh:        stopCh,
 	}
 	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
@@ -264,7 +261,7 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 			}
 		}
 
-		if lb.workingMode == hubutil.WorkingModeEdge {
+		if !yurtutil.IsNil(lb.localCacheMgr) {
 			// cache resp with storage interface
 			lb.cacheResponse(req, resp)
 		}
@@ -297,18 +294,12 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		resp.Body = wrapPrc
 
 		// cache the response at local.
-		lb.cacheToLocal(req, resp)
+		rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
+		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
+			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+				klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
+			}
+		}(req, prc, req.Context().Done())
+		resp.Body = rc
 	}
-}
-
-func (lb *loadBalancer) cacheToLocal(req *http.Request, resp *http.Response) {
-	ctx := req.Context()
-	req = req.WithContext(ctx)
-	rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
-	go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-		if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
-			klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
-		}
-	}(req, prc, ctx.Done())
-	resp.Body = rc
 }

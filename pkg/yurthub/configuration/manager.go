@@ -258,16 +258,9 @@ func (m *Manager) updateFilterSettings(cmData map[string]string, action string) 
 func getKeyByRequest(req *http.Request) string {
 	var key string
 	ctx := req.Context()
-	comp, ok := util.ClientComponentFrom(ctx)
+	comp, ok := util.TruncatedClientComponentFrom(ctx)
 	if !ok {
 		return key
-	}
-
-	if strings.Contains(comp, "/") {
-		index := strings.Index(comp, "/")
-		if index != -1 {
-			comp = comp[:index]
-		}
 	}
 
 	info, ok := apirequest.RequestInfoFrom(ctx)

@@ -53,7 +53,6 @@ type HubMetrics struct {
 	rejectedMultiplexerRequestsCounter   prometheus.Counter
 	closableConnsCollector               *prometheus.GaugeVec
 	proxyTrafficCollector                *prometheus.CounterVec
-	proxyLatencyCollector                *prometheus.GaugeVec
 	errorKeysPersistencyStatusCollector  prometheus.Gauge
 	errorKeysCountCollector              prometheus.Gauge
 }
@@ -127,14 +126,6 @@ func newHubMetrics() *HubMetrics {
 			Help:      "collector of proxy response traffic by hub agent(unit: byte)",
 		},
 		[]string{"client", "verb", "resource", "subresources"})
-	proxyLatencyCollector := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "proxy_latency_collector",
-			Help:      "collector of proxy latency of incoming requests(unit: ms)",
-		},
-		[]string{"client", "verb", "resource", "subresources", "type"})
 	errorKeysPersistencyStatusCollector := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -158,7 +149,6 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(rejectedMultiplexerRequestsCounter)
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
-	prometheus.MustRegister(proxyLatencyCollector)
 	prometheus.MustRegister(errorKeysPersistencyStatusCollector)
 	prometheus.MustRegister(errorKeysCountCollector)
 	return &HubMetrics{
@@ -171,7 +161,6 @@ func newHubMetrics() *HubMetrics {
 		rejectedMultiplexerRequestsCounter:   rejectedMultiplexerRequestsCounter,
 		closableConnsCollector:               closableConnsCollector,
 		proxyTrafficCollector:                proxyTrafficCollector,
-		proxyLatencyCollector:                proxyLatencyCollector,
 		errorKeysPersistencyStatusCollector:  errorKeysPersistencyStatusCollector,
 		errorKeysCountCollector:              errorKeysCountCollector,
 	}
@@ -185,7 +174,6 @@ func (hm *HubMetrics) Reset() {
 	hm.inFlightMultiplexerRequestsGauge.Set(float64(0))
 	hm.closableConnsCollector.Reset()
 	hm.proxyTrafficCollector.Reset()
-	hm.proxyLatencyCollector.Reset()
 	hm.errorKeysPersistencyStatusCollector.Set(float64(0))
 	hm.errorKeysCountCollector.Set(float64(0))
 }
@@ -238,10 +226,6 @@ func (hm *HubMetrics) AddProxyTrafficCollector(client, verb, resource, subresour
 	if size > 0 {
 		hm.proxyTrafficCollector.WithLabelValues(client, verb, resource, subresource).Add(float64(size))
 	}
-}
-
-func (hm *HubMetrics) SetProxyLatencyCollector(client, verb, resource, subresource string, latencyType LatencyType, duration int64) {
-	hm.proxyLatencyCollector.WithLabelValues(client, verb, resource, subresource, string(latencyType)).Set(float64(duration))
 }
 
 func (hm *HubMetrics) SetErrorKeysPersistencyStatus(status int) {

@@ -18,7 +18,6 @@ package approver
 
 import (
 	"net/http"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -44,15 +43,9 @@ func NewApprover(nodeName string, configManager *configuration.Manager) filter.A
 }
 
 func (a *approver) Approve(req *http.Request) (bool, []string) {
-	if comp, ok := util.ClientComponentFrom(req.Context()); !ok {
+	if comp, ok := util.TruncatedClientComponentFrom(req.Context()); !ok {
 		return false, []string{}
 	} else {
-		if strings.Contains(comp, "/") {
-			index := strings.Index(comp, "/")
-			if index != -1 {
-				comp = comp[:index]
-			}
-		}
 		if a.skipRequestUserAgentList.Has(comp) {
 			return false, []string{}
 		}
