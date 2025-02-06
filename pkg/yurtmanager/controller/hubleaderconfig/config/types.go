@@ -19,4 +19,6 @@ package config
 // HubLeaderConfigControllerConfiguration contains elements describing HubLeaderConfigController.
 type HubLeaderConfigControllerConfiguration struct {
 	ConcurrentHubLeaderConfigWorkers int32
+
+	HubLeaderNamespace string
 }

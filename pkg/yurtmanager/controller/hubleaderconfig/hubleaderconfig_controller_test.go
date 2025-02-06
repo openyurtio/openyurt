@@ -88,7 +88,8 @@ func TestReconcile(t *testing.T) {
 			existingConfigMap: nil,
 			expectedConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "leader-hub-hangzhou",
+					Name:      "leader-hub-hangzhou",
+					Namespace: metav1.NamespaceSystem,
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1",
@@ -139,7 +140,8 @@ func TestReconcile(t *testing.T) {
 			existingConfigMap: nil,
 			expectedConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "leader-hub-shanghai",
+					Name:      "leader-hub-shanghai",
+					Namespace: metav1.NamespaceSystem,
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
@@ -189,7 +191,8 @@ func TestReconcile(t *testing.T) {
 			},
 			existingConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "leader-hub-shanghai",
+					Name:      "leader-hub-shanghai",
+					Namespace: metav1.NamespaceSystem,
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1",
@@ -198,7 +201,8 @@ func TestReconcile(t *testing.T) {
 			},
 			expectedConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "leader-hub-shanghai",
+					Name:      "leader-hub-shanghai",
+					Namespace: metav1.NamespaceSystem,
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
@@ -271,7 +275,8 @@ func TestReconcile(t *testing.T) {
 			existingConfigMap: nil,
 			expectedConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "leader-hub-beijing",
+					Name:      "leader-hub-beijing",
+					Namespace: metav1.NamespaceSystem,
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
@@ -327,9 +332,11 @@ func TestReconcile(t *testing.T) {
 			}
 
 			r := &ReconcileHubLeaderConfig{
-				Client:        c.Build(),
-				Configuration: config.HubLeaderConfigControllerConfiguration{},
-				recorder:      record.NewFakeRecorder(1000),
+				Client: c.Build(),
+				Configuration: config.HubLeaderConfigControllerConfiguration{
+					HubLeaderNamespace: metav1.NamespaceSystem,
+				},
+				recorder: record.NewFakeRecorder(1000),
 			}
 			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: tc.pool.Name}}
 			_, err := r.Reconcile(ctx, req)
@@ -343,7 +350,7 @@ func TestReconcile(t *testing.T) {
 			if tc.expectedConfigMap == nil {
 				err = r.Get(ctx, types.NamespacedName{
 					Name:      "leader-hub-" + tc.pool.Name,
-					Namespace: tc.pool.Namespace,
+					Namespace: metav1.NamespaceSystem,
 				}, &actualConfig)
 				require.True(t, errors.IsNotFound(err))
 				return

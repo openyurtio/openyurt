@@ -32,6 +32,8 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodelifecycle"
@@ -97,6 +99,8 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.NodeLifeCycleController, nodelifecycle.Add)
 	register(names.NodeBucketController, nodebucket.Add)
 	register(names.LoadBalancerSetController, loadbalancerset.Add)
+	register(names.HubLeaderController, hubleader.Add)
+	register(names.HubLeaderConfigController, hubleaderconfig.Add)
 
 	return controllers
 }
@@ -150,8 +154,16 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 		}
 	}
 
-	if app.IsControllerEnabled(names.NodeLifeCycleController, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) ||
-		app.IsControllerEnabled(names.PodBindingController, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers) {
+	if app.IsControllerEnabled(
+		names.NodeLifeCycleController,
+		ControllersDisabledByDefault,
+		c.ComponentConfig.Generic.Controllers,
+	) ||
+		app.IsControllerEnabled(
+			names.PodBindingController,
+			ControllersDisabledByDefault,
+			c.ComponentConfig.Generic.Controllers,
+		) {
 		// Register spec.NodeName field indexers
 		if err := m.GetFieldIndexer().IndexField(context.TODO(), &v1.Pod{}, "spec.nodeName", func(rawObj client.Object) []string {
 			pod, ok := rawObj.(*v1.Pod)

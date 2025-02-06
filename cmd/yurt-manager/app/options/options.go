@@ -51,9 +51,9 @@ type YurtManagerOptions struct {
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
 func NewYurtManagerOptions() (*YurtManagerOptions, error) {
-
+	genericOptions := NewGenericOptions()
 	s := YurtManagerOptions{
-		Generic:                       NewGenericOptions(),
+		Generic:                       genericOptions,
 		DelegateLeaseController:       NewDelegateLeaseControllerOptions(),
 		PodBindingController:          NewPodBindingControllerOptions(),
 		DaemonPodUpdaterController:    NewDaemonPodUpdaterControllerOptions(),
@@ -74,7 +74,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		GatewayInternalSvcController:  NewGatewayInternalSvcControllerOptions(),
 		GatewayPublicSvcController:    NewGatewayPublicSvcControllerOptions(),
 		HubLeaderController:           NewHubLeaderControllerOptions(),
-		HubLeaderConfigController:     NewHubLeaderConfigControllerOptions(),
+		HubLeaderConfigController:     NewHubLeaderConfigControllerOptions(genericOptions.WorkingNamespace),
 	}
 
 	return &s, nil

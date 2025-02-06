@@ -495,10 +495,19 @@ metadata:
   name: yurt-manager-hubleaderconfig-controller
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+- apiGroups:
   - apps.openyurt.io
   resources:
-  - nodepool
-  - nodepool/status
+  - nodepools
+  - nodepools/status
   verbs:
   - get
 ---

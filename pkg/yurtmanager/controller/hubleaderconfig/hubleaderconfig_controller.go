@@ -137,8 +137,9 @@ type ReconcileHubLeaderConfig struct {
 	Configuration config.HubLeaderConfigControllerConfiguration
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool,verbs=get
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool/status,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;update;patch;create
 
 // Reconcile reads that state of the cluster nodepool leader status and updates the leader configmap object
 func (r *ReconcileHubLeaderConfig) Reconcile(
@@ -177,13 +178,12 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 
 	// Define the name and namespace for the ConfigMap
 	configMapName := fmt.Sprintf("leader-hub-%s", nodepool.Name)
-	configMapNamespace := nodepool.Namespace
 
 	// Get the leader ConfigMap for the nodepool
 	leaderConfigMap := &v1.ConfigMap{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      configMapName,
-		Namespace: configMapNamespace,
+		Namespace: r.Configuration.HubLeaderNamespace,
 	}, leaderConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		// Error retrieving the ConfigMap
@@ -213,7 +213,7 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 		leaderConfigMap = &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      configMapName,
-				Namespace: configMapNamespace,
+				Namespace: r.Configuration.HubLeaderNamespace,
 			},
 			Data: data,
 		}

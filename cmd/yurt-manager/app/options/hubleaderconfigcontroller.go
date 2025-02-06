@@ -26,10 +26,11 @@ type HubLeaderConfigControllerOptions struct {
 	*config.HubLeaderConfigControllerConfiguration
 }
 
-func NewHubLeaderConfigControllerOptions() *HubLeaderConfigControllerOptions {
+func NewHubLeaderConfigControllerOptions(hubleaderNamespace string) *HubLeaderConfigControllerOptions {
 	return &HubLeaderConfigControllerOptions{
 		&config.HubLeaderConfigControllerConfiguration{
 			ConcurrentHubLeaderConfigWorkers: 3,
+			HubLeaderNamespace:               hubleaderNamespace,
 		},
 	}
 }
@@ -55,6 +56,7 @@ func (h *HubLeaderConfigControllerOptions) ApplyTo(cfg *config.HubLeaderConfigCo
 	}
 
 	cfg.ConcurrentHubLeaderConfigWorkers = h.ConcurrentHubLeaderConfigWorkers
+	cfg.HubLeaderNamespace = h.HubLeaderNamespace
 
 	return nil
 }
