@@ -154,6 +154,21 @@ func (r *ReconcileHubLeaderConfig) Reconcile(
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if !nodepool.ObjectMeta.DeletionTimestamp.IsZero() {
+		// If the NodePool is being deleted, delete the leader configmap
+		configMapName := fmt.Sprintf("leader-hub-%s", nodepool.Name)
+		err := r.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configMapName,
+				Namespace: r.Configuration.HubLeaderNamespace,
+			},
+		})
+		if err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
 	if !nodepool.Spec.InterConnectivity {
 		// If the NodePool is not using interconnectivity, it should not reconcile
 		return reconcile.Result{}, nil
