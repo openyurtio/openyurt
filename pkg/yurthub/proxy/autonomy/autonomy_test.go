@@ -34,7 +34,6 @@ import (
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
-	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
@@ -121,7 +120,7 @@ func TestHttpServeKubeletGetNode(t *testing.T) {
 				Verb:              "get",
 				APIVersion:        "v1",
 			})
-			handler := proxyutil.WithRequestClientComponent(autonomyProxy, util.WorkingModeEdge)
+			handler := proxyutil.WithRequestClientComponent(autonomyProxy)
 			handler = proxyutil.WithRequestContentType(handler)
 			req = req.WithContext(ctx)
 			handler.ServeHTTP(resp, req)

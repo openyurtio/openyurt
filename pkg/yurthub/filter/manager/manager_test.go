@@ -38,7 +38,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
-	util2 "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 func TestFindResponseFilter(t *testing.T) {
@@ -167,7 +166,7 @@ func TestFindResponseFilter(t *testing.T) {
 				responseFilter, isFound = finder.FindResponseFilter(req)
 			})
 
-			handler = util.WithRequestClientComponent(handler, util2.WorkingModeEdge)
+			handler = util.WithRequestClientComponent(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -312,7 +311,7 @@ func TestFindObjectFilter(t *testing.T) {
 				objectFilter, isFound = finder.FindObjectFilter(req)
 			})
 
-			handler = util.WithRequestClientComponent(handler, util2.WorkingModeEdge)
+			handler = util.WithRequestClientComponent(handler)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 

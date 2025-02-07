@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -124,15 +125,19 @@ func ClientComponentFrom(ctx context.Context) (string, bool) {
 	return info, ok
 }
 
-// WithReqCanCache returns a copy of parent in which the request can cache value is set
-func WithReqCanCache(parent context.Context, canCache bool) context.Context {
-	return WithValue(parent, ProxyReqCanCache, canCache)
-}
-
-// ReqCanCacheFrom returns the value of the request can cache key on the ctx
-func ReqCanCacheFrom(ctx context.Context) (bool, bool) {
-	info, ok := ctx.Value(ProxyReqCanCache).(bool)
-	return info, ok
+// TruncatedClientComponentFrom returns the value of the client component key without slash on the ctx
+// only return the content before the first slash if user agent header includes slash.
+func TruncatedClientComponentFrom(ctx context.Context) (string, bool) {
+	comp, ok := ctx.Value(ProxyClientComponent).(string)
+	if ok {
+		if strings.Contains(comp, "/") {
+			index := strings.Index(comp, "/")
+			if index != -1 {
+				comp = comp[:index]
+			}
+		}
+	}
+	return comp, ok
 }
 
 // WithListSelector returns a copy of parent in which the list request selector string is set
@@ -504,4 +509,10 @@ func NodeConditionsHaveChanged(originalConditions []v1.NodeCondition, conditions
 		}
 	}
 	return false
+}
+
+// AttachConvertGVK is used for adding partialobjectmetadata information into comp, because the response of partial
+// object metadata request should be stored in a unique path for response is different with common requests.
+func AttachConvertGVK(comp string, convertGVK *schema.GroupVersionKind) string {
+	return filepath.Join(comp, strings.Join([]string{"partialobjectmetadatas", convertGVK.Version, convertGVK.Group}, "."))
 }

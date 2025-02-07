@@ -30,6 +30,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	yurtutil "github.com/openyurtio/openyurt/pkg/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
@@ -53,9 +54,7 @@ type yurtReverseProxy struct {
 	autonomyProxy        http.Handler
 	multiplexerProxy     http.Handler
 	multiplexerManager   *basemultiplexer.MultiplexerManager
-	maxRequestsInFlight  int
 	tenantMgr            tenant.Interface
-	workingMode          hubutil.WorkingMode
 	nodeName             string
 	multiplexerUserAgent string
 }
@@ -82,14 +81,13 @@ func NewYurtReverseProxyHandler(
 		transportMgr,
 		cloudHealthChecker,
 		yurtHubCfg.FilterFinder,
-		yurtHubCfg.WorkingMode,
 		stopCh)
 	if err != nil {
 		return nil, err
 	}
 
 	var localProxy, autonomyProxy http.Handler
-	if yurtHubCfg.WorkingMode == hubutil.WorkingModeEdge {
+	if !yurtutil.IsNil(cloudHealthChecker) && !yurtutil.IsNil(localCacheMgr) {
 		// When yurthub works in Edge mode, we may use local proxy or pool proxy to handle
 		// the request when offline.
 		localProxy = local.NewLocalProxy(localCacheMgr,
@@ -118,9 +116,7 @@ func NewYurtReverseProxyHandler(
 		autonomyProxy:        autonomyProxy,
 		multiplexerProxy:     multiplexerProxy,
 		multiplexerManager:   yurtHubCfg.RequestMultiplexerManager,
-		maxRequestsInFlight:  yurtHubCfg.MaxRequestInFlight,
 		tenantMgr:            tenantMgr,
-		workingMode:          yurtHubCfg.WorkingMode,
 		nodeName:             yurtHubCfg.NodeName,
 		multiplexerUserAgent: hubutil.MultiplexerProxyClientUserAgentPrefix + yurtHubCfg.NodeName,
 	}
@@ -131,16 +127,11 @@ func NewYurtReverseProxyHandler(
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
 	handler = util.WithRequestTrace(handler)
 	handler = util.WithRequestContentType(handler)
-	if p.workingMode == hubutil.WorkingModeEdge {
-		handler = util.WithCacheHeaderCheck(handler)
-	}
 	handler = util.WithRequestTimeout(handler)
-	if p.workingMode == hubutil.WorkingModeEdge {
+	if !yurtutil.IsNil(p.localProxy) {
 		handler = util.WithListRequestSelector(handler)
 	}
-	handler = util.WithRequestTraceFull(handler)
-	handler = util.WithMaxInFlightLimit(handler, p.maxRequestsInFlight, p.nodeName)
-	handler = util.WithRequestClientComponent(handler, p.workingMode)
+	handler = util.WithRequestClientComponent(handler)
 	handler = util.WithPartialObjectMetadataRequest(handler)
 	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager, p.multiplexerUserAgent)
 
@@ -173,8 +164,8 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	// requests should be forwarded to cloud kube-apiserver for cloud mode
-	if p.workingMode == hubutil.WorkingModeCloud {
+	// requests should be forwarded to cloud kube-apiserver for cloud mode(cloudHealthChecker==nil)
+	if yurtutil.IsNil(p.cloudHealthChecker) {
 		p.loadBalancer.ServeHTTP(rw, req)
 		return
 	}

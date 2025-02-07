@@ -160,20 +160,10 @@ func (cm *cacheManager) QueryCache(req *http.Request) (runtime.Object, error) {
 // TODO: Consider if we need accelerate the list query with in-memory cache. Currently, we only
 // use in-memory cache in queryOneObject.
 func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, error) {
+	var err error
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
-	comp, _ := util.ClientComponentFrom(ctx)
-	key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
-		Component: comp,
-		Namespace: info.Namespace,
-		Name:      info.Name,
-		Resources: info.Resource,
-		Group:     info.APIGroup,
-		Version:   info.APIVersion,
-	})
-	if err != nil {
-		return nil, err
-	}
+	comp, _ := util.TruncatedClientComponentFrom(ctx)
 
 	var listGvk schema.GroupVersionKind
 	convertGVK, ok := util.ConvertGVKFrom(ctx)
@@ -183,6 +173,7 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 			Version: convertGVK.Version,
 			Kind:    convertGVK.Kind,
 		}
+		comp = util.AttachConvertGVK(comp, convertGVK)
 	} else {
 		listGvk, err = cm.prepareGvkForListObj(schema.GroupVersionResource{
 			Group:    info.APIGroup,
@@ -202,6 +193,17 @@ func (cm *cacheManager) queryListObject(req *http.Request) (runtime.Object, erro
 		return nil, err
 	}
 
+	key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+		Component: comp,
+		Namespace: info.Namespace,
+		Name:      info.Name,
+		Resources: info.Resource,
+		Group:     info.APIGroup,
+		Version:   info.APIVersion,
+	})
+	if err != nil {
+		return nil, err
+	}
 	objs, err := cm.storage.List(key)
 	if err == storage.ErrStorageNotFound && isListRequestWithNameFieldSelector(req) {
 		// When the request is a list request with FieldSelector "metadata.name", we should not return error
@@ -249,7 +251,6 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 		return nil, fmt.Errorf("could not get request info for request %s", util.ReqString(req))
 	}
 
-	comp, _ := util.ClientComponentFrom(ctx)
 	// query in-memory cache first
 	var isInMemoryCacheMiss bool
 	if obj, err := cm.queryInMemoryCache(ctx, info); err != nil {
@@ -264,6 +265,12 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	} else {
 		klog.V(4).Infof("in-memory cache hit when handling request %s", util.ReqString(req))
 		return obj, nil
+	}
+
+	comp, _ := util.TruncatedClientComponentFrom(ctx)
+	convertGVK, ok := util.ConvertGVKFrom(ctx)
+	if ok && convertGVK != nil {
+		comp = util.AttachConvertGVK(comp, convertGVK)
 	}
 
 	// fall back to normal query
@@ -357,7 +364,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	updateObjCnt := 0
 	addObjCnt := 0
 
-	comp, _ := util.ClientComponentFrom(ctx)
+	comp, _ := util.TruncatedClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 	gvr := schema.GroupVersionResource{
 		Group:    info.APIGroup,
@@ -368,6 +375,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	convertGVK, ok := util.ConvertGVKFrom(ctx)
 	if ok && convertGVK != nil {
 		gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+		comp = util.AttachConvertGVK(comp, convertGVK)
 	}
 
 	s := cm.serializerManager.CreateSerializer(respContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -458,7 +466,7 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 }
 
 func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
-	comp, _ := util.ClientComponentFrom(ctx)
+	comp, _ := util.TruncatedClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 	gvr := schema.GroupVersionResource{
 		Group:    info.APIGroup,
@@ -469,6 +477,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	convertGVK, ok := util.ConvertGVKFrom(ctx)
 	if ok && convertGVK != nil {
 		gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+		comp = util.AttachConvertGVK(comp, convertGVK)
 	}
 
 	s := cm.serializerManager.CreateSerializer(respContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -527,7 +536,6 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 	} else {
 		// list all objects or with fieldselector/labelselector
 		objs := make(map[storage.Key]runtime.Object)
-		comp, _ := util.ClientComponentFrom(ctx)
 		for i := range items {
 			accessor.SetKind(items[i], kind)
 			accessor.SetAPIVersion(items[i], groupVersion)
@@ -556,7 +564,7 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 }
 
 func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
-	comp, _ := util.ClientComponentFrom(ctx)
+	comp, _ := util.TruncatedClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 	gvr := schema.GroupVersionResource{
 		Group:    info.APIGroup,
@@ -567,6 +575,7 @@ func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.Requ
 	convertGVK, ok := util.ConvertGVKFrom(ctx)
 	if ok && convertGVK != nil {
 		gvr, _ = meta.UnsafeGuessKindToResource(*convertGVK)
+		comp = util.AttachConvertGVK(comp, convertGVK)
 	}
 
 	s := cm.serializerManager.CreateSerializer(respContentType, gvr.Group, gvr.Version, gvr.Resource)
@@ -736,18 +745,13 @@ func isCreate(ctx context.Context) bool {
 func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	ctx := req.Context()
 
-	comp, ok := util.ClientComponentFrom(ctx)
+	comp, ok := util.TruncatedClientComponentFrom(ctx)
 	if !ok || len(comp) == 0 {
 		return false
 	}
 
-	canCache, ok := util.ReqCanCacheFrom(ctx)
-	if ok && canCache {
-		// request with Edge-Cache header, continue verification
-	} else {
-		if !cm.configManager.IsCacheable(comp) {
-			return false
-		}
+	if !cm.configManager.IsCacheable(comp) {
+		return false
 	}
 
 	info, ok := apirequest.RequestInfoFrom(ctx)
@@ -774,6 +778,10 @@ func (cm *cacheManager) CanCacheFor(req *http.Request) bool {
 	cm.Lock()
 	defer cm.Unlock()
 	if info.Verb == "list" && info.Name == "" {
+		convertGVK, ok := util.ConvertGVKFrom(ctx)
+		if ok && convertGVK != nil {
+			comp = util.AttachConvertGVK(comp, convertGVK)
+		}
 		key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
 			Component: comp,
 			Resources: info.Resource,
@@ -844,7 +852,7 @@ func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequ
 
 func isKubeletPodRequest(req *http.Request) bool {
 	ctx := req.Context()
-	comp, ok := util.ClientComponentFrom(ctx)
+	comp, ok := util.TruncatedClientComponentFrom(ctx)
 	if !ok || comp != "kubelet" {
 		return false
 	}
@@ -862,7 +870,7 @@ func isInMemoryCache(reqCtx context.Context) bool {
 	var comp, resource string
 	var reqInfo *apirequest.RequestInfo
 	var ok bool
-	if comp, ok = util.ClientComponentFrom(reqCtx); !ok {
+	if comp, ok = util.TruncatedClientComponentFrom(reqCtx); !ok {
 		return false
 	}
 	if reqInfo, ok = apirequest.RequestInfoFrom(reqCtx); !ok {
