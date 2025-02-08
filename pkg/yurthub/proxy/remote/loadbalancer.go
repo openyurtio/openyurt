@@ -34,7 +34,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -162,8 +161,8 @@ func (prio *PriorityStrategy) PickOne() Backend {
 // LoadBalancer is an interface for proxying http request to remote server
 // based on the load balance mode(round-robin or priority)
 type LoadBalancer interface {
-	ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	UpdateBackends(remoteServers []*url.URL)
+	PickOne() Backend
 	CurrentStrategy() LoadBalancingStrategy
 }
 
@@ -205,7 +204,7 @@ func NewLoadBalancer(
 func (lb *loadBalancer) UpdateBackends(remoteServers []*url.URL) {
 	newBackends := make([]Backend, 0, len(remoteServers))
 	for _, server := range remoteServers {
-		proxy, err := util.NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr, lb.stopCh)
+		proxy, err := NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr, lb.stopCh)
 		if err != nil {
 			klog.Errorf("could not create proxy for backend %s, %v", server.String(), err)
 			continue
@@ -225,21 +224,12 @@ func (lb *loadBalancer) UpdateBackends(remoteServers []*url.URL) {
 	lb.strategy.UpdateBackends(newBackends)
 }
 
-func (lb *loadBalancer) CurrentStrategy() LoadBalancingStrategy {
-	return lb.strategy
+func (lb *loadBalancer) PickOne() Backend {
+	return lb.strategy.PickOne()
 }
 
-// ServeHTTP forwards the request to a backend.
-func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	rp := lb.strategy.PickOne()
-	if rp == nil {
-		klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
-		http.Error(rw, "no healthy backends available.", http.StatusBadGateway)
-		return
-	}
-	klog.V(3).Infof("forwarding request %s to backend %s", hubutil.ReqString(req), rp.Name())
-
-	rp.ServeHTTP(rw, req)
+func (lb *loadBalancer) CurrentStrategy() LoadBalancingStrategy {
+	return lb.strategy
 }
 
 // errorHandler handles errors and tries to serve from local cache.
@@ -297,23 +287,25 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 		req = req.WithContext(ctx)
 
 		// filter response data
-		if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
-			wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-			size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
-			if err != nil {
-				klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
-				return err
-			}
-			resp.Body = filterRc
-			if size > 0 {
-				resp.ContentLength = int64(size)
-				resp.Header.Set(yurtutil.HttpHeaderContentLength, fmt.Sprint(size))
-			}
+		if !yurtutil.IsNil(lb.filterFinder) {
+			if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
+				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
+				size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
+				if err != nil {
+					klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
+					return err
+				}
+				resp.Body = filterRc
+				if size > 0 {
+					resp.ContentLength = int64(size)
+					resp.Header.Set(yurtutil.HttpHeaderContentLength, fmt.Sprint(size))
+				}
 
-			// after gunzip in filter, the header content encoding should be removed.
-			// because there's no need to gunzip response.body again.
-			if needUncompressed {
-				resp.Header.Del("Content-Encoding")
+				// after gunzip in filter, the header content encoding should be removed.
+				// because there's no need to gunzip response.body again.
+				if needUncompressed {
+					resp.Header.Del("Content-Encoding")
+				}
 			}
 		}
 

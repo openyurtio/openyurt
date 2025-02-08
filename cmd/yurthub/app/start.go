@@ -19,9 +19,12 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/rest"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/klog/v2"
 
@@ -32,10 +35,15 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/leaderhub"
 	"github.com/openyurtio/openyurt/pkg/yurthub/locallb"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
+	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -137,6 +145,18 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			trace++
 		}
 
+		// no leader hub servers for transport manager at startup time.
+		// and don't filter response of request for pool scope metadata from leader hub.
+		transportManagerForLeaderHub, err := transport.NewTransportAndClientManager([]*url.URL{}, 2, cfg.CertManager, ctx.Done())
+		if err != nil {
+			return fmt.Errorf("could not new transport manager for leader hub, %w", err)
+		}
+		healthCheckerForLeaderHub := leaderhub.NewLeaderHubHealthChecker(20*time.Second, nil, ctx.Done())
+		loadBalancerForLeaderHub := remote.NewLoadBalancer("round-robin", []*url.URL{}, cacheManager, transportManagerForLeaderHub, healthCheckerForLeaderHub, nil, ctx.Done())
+
+		cfg.LoadBalancerForLeaderHub = loadBalancerForLeaderHub
+		requestMultiplexerManager := newRequestMultiplexerManager(cfg, healthCheckerForLeaderHub)
+
 		if cfg.NetworkMgr != nil {
 			klog.Infof("%d. start network manager for ensuing dummy interface", trace)
 			cfg.NetworkMgr.Run(ctx.Done())
@@ -153,6 +173,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			cfg,
 			cacheManager,
 			cloudHealthChecker,
+			requestMultiplexerManager,
 			ctx.Done())
 		if err != nil {
 			return fmt.Errorf("could not create reverse proxy handler, %w", err)
@@ -169,4 +190,16 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 	<-ctx.Done()
 	klog.Info("hub agent exited")
 	return nil
+}
+
+func newRequestMultiplexerManager(cfg *config.YurtHubConfiguration, healthCheckerForLeaderHub healthchecker.Interface) *multiplexer.MultiplexerManager {
+	insecureHubProxyAddress := cfg.YurtHubProxyServerServing.Listener.Addr().String()
+	klog.Infof("hub insecure proxy address: %s", insecureHubProxyAddress)
+	config := &rest.Config{
+		Host:      fmt.Sprintf("http://%s", insecureHubProxyAddress),
+		UserAgent: util.MultiplexerProxyClientUserAgentPrefix + cfg.NodeName,
+	}
+	storageProvider := storage.NewStorageProvider(config)
+
+	return multiplexer.NewRequestMultiplexerManager(cfg, storageProvider, healthCheckerForLeaderHub)
 }

@@ -102,6 +102,7 @@ metadata:
   name: yurt-hub-cfg
   namespace: {{ .Release.Namespace }}
   labels:
+    openyurt.io/configmap-name: yurt-hub-cfg
     {{- include "yurthub.labels" . | nindent 4 }}
 data:
   cache_agents: {{ .Values.cacheAgents | quote }}

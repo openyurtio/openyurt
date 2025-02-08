@@ -99,7 +99,7 @@ func (hc *leaderHubHealthChecker) PickOneHealthyBackend() *url.URL {
 	return nil
 }
 
-func (hc *leaderHubHealthChecker) UpdateServers(servers []*url.URL) {
+func (hc *leaderHubHealthChecker) UpdateBackends(servers []*url.URL) {
 	hc.serverMutex.Lock()
 	defer hc.serverMutex.Unlock()
 	newStatus := make(map[string]bool)

@@ -98,24 +98,24 @@ var _ = Describe("nodepool test", func() {
 
 	It("Test NodePool create not empty", func() {
 		By("Run nodepool create with worker 2") // worker 1 is already mapped to a pool
-		npName := fmt.Sprintf("test-%d", time.Now().Unix())
+		// npName := fmt.Sprintf("test-%d", time.Now().Unix())
 		pool := util.TestNodePool{
 			NodePool: v1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: npName,
+					Name: "yurt-pool2",
 				},
 				Spec: v1beta2.NodePoolSpec{
 					Type: v1beta2.Edge,
 				},
 			},
-			Nodes: sets.New("openyurt-e2e-test-worker2"), // we will use this worker in the nodepool
+			Nodes: sets.New("openyurt-e2e-test-worker", "openyurt-e2e-test-worker2"), // we will use this worker in the nodepool
 		}
 
-		Eventually(
-			func() error {
-				return util.InitTestNodePool(ctx, k8sClient, pool)
-			},
-			time.Second*5, time.Millisecond*500).Should(BeNil())
+		// Eventually(
+		// 	func() error {
+		// 		return util.InitTestNodePool(ctx, k8sClient, pool)
+		// 	},
+		// 	time.Second*5, time.Millisecond*500).Should(BeNil())
 
 		Eventually(
 			func() error {

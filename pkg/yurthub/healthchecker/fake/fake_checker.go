@@ -14,20 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloudapiserver
+package fake
 
 import (
 	"net/url"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
-type fakeChecker struct {
+type FakeChecker struct {
 	servers map[*url.URL]bool
 }
 
 // BackendHealthyStatus returns healthy status of server
-func (fc *fakeChecker) BackendIsHealthy(server *url.URL) bool {
+func (fc *FakeChecker) BackendIsHealthy(server *url.URL) bool {
 	if server != nil {
 		for s, healthy := range fc.servers {
 			if s.Host == server.Host {
@@ -38,7 +40,7 @@ func (fc *fakeChecker) BackendIsHealthy(server *url.URL) bool {
 	return false
 }
 
-func (fc *fakeChecker) IsHealthy() bool {
+func (fc *FakeChecker) IsHealthy() bool {
 	for _, isHealthy := range fc.servers {
 		if isHealthy {
 			return true
@@ -47,10 +49,10 @@ func (fc *fakeChecker) IsHealthy() bool {
 	return false
 }
 
-func (fc *fakeChecker) RenewKubeletLeaseTime() {
+func (fc *FakeChecker) RenewKubeletLeaseTime() {
 }
 
-func (fc *fakeChecker) PickOneHealthyBackend() *url.URL {
+func (fc *FakeChecker) PickOneHealthyBackend() *url.URL {
 	for u, isHealthy := range fc.servers {
 		if isHealthy {
 			return u
@@ -60,13 +62,27 @@ func (fc *fakeChecker) PickOneHealthyBackend() *url.URL {
 	return nil
 }
 
-func (fc *fakeChecker) UpdateServers(servers []*url.URL) {
-	// do nothing
+func (fc *FakeChecker) UpdateBackends(servers []*url.URL) {
+	serverMap := make(map[*url.URL]bool, len(servers))
+	for i := range servers {
+		serverMap[servers[i]] = false
+	}
+
+	fc.servers = serverMap
+}
+
+func (fc *FakeChecker) ListServerHosts() sets.Set[string] {
+	hosts := sets.New[string]()
+	for server := range fc.servers {
+		hosts.Insert(server.Host)
+	}
+
+	return hosts
 }
 
 // NewFakeChecker creates a fake checker
 func NewFakeChecker(servers map[*url.URL]bool) healthchecker.Interface {
-	return &fakeChecker{
+	return &FakeChecker{
 		servers: servers,
 	}
 }

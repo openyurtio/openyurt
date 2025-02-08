@@ -30,6 +30,7 @@ type Config struct {
 	joinToken                 string
 	kubeadmConfPaths          []string
 	openyurtDir               string
+	nodePoolName              string
 }
 
 // nodeConverter do the convert job
@@ -45,6 +46,7 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 			joinToken:                 o.joinToken,
 			kubeadmConfPaths:          strings.Split(o.kubeadmConfPaths, ","),
 			openyurtDir:               o.openyurtDir,
+			nodePoolName:              o.nodePoolName,
 		},
 	}
 }
@@ -70,7 +72,7 @@ func (n *nodeConverter) installYurtHub() error {
 	if apiServerAddress == "" {
 		return fmt.Errorf("get apiServerAddress empty")
 	}
-	op := components.NewYurthubOperator(apiServerAddress, n.joinToken, n.yurthubHealthCheckTimeout)
+	op := components.NewYurthubOperator(apiServerAddress, n.joinToken, n.nodePoolName, n.yurthubHealthCheckTimeout)
 	return op.Install()
 }
 

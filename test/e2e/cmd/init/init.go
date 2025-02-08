@@ -31,13 +31,21 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	kubectllogs "k8s.io/kubectl/pkg/cmd/logs"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
+	iotv1alpha2 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
+	iotv1beta1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
@@ -115,7 +123,42 @@ var (
 	yurtManagerImageFormat = "openyurt/yurt-manager:%s"
 	nodeServantImageFormat = "openyurt/node-servant:%s"
 	yurtIotDockImageFormat = "openyurt/yurt-iot-dock:%s"
+
+	NodeNameToPool = map[string]string{
+		"openyurt-e2e-test-control-plane": "yurt-pool1",
+		"openyurt-e2e-test-worker":        "yurt-pool2",
+		"openyurt-e2e-test-worker2":       "yurt-pool2",
+		"openyurt-e2e-test-worker3":       "yurt-pool3",
+		"openyurt-e2e-test-worker4":       "yurt-pool3",
+	}
+	DefaultPools = map[string]struct {
+		Kind                 appsv1beta2.NodePoolType
+		EnableLeaderElection bool
+		LeaderReplicas       int
+	}{
+		"yurt-pool1": {
+			Kind:                 appsv1beta2.Cloud,
+			EnableLeaderElection: false,
+		},
+		"yurt-pool2": {
+			Kind:                 appsv1beta2.Edge,
+			EnableLeaderElection: true,
+			LeaderReplicas:       1,
+		},
+		"yurt-pool3": {
+			Kind:                 appsv1beta2.Edge,
+			EnableLeaderElection: false,
+		},
+	}
 )
+
+func init() {
+	utilruntime.Must(appsv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(appsv1beta1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(appsv1beta2.AddToScheme(scheme.Scheme))
+	utilruntime.Must(iotv1alpha2.AddToScheme(scheme.Scheme))
+	utilruntime.Must(iotv1beta1.AddToScheme(scheme.Scheme))
+}
 
 func NewInitCMD(out io.Writer) *cobra.Command {
 	o := newKindOptions()
@@ -279,6 +322,7 @@ type Initializer struct {
 	out               io.Writer
 	operator          *KindOperator
 	kubeClient        kubeclientset.Interface
+	runtimeClient     client.Client
 	componentsBuilder *kubeutil.Builder
 }
 
@@ -319,6 +363,11 @@ func (ki *Initializer) Run() error {
 	ki.componentsBuilder = kubeutil.NewBuilder(ki.KubeConfig)
 
 	ki.kubeClient, err = kubeclientset.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	ki.runtimeClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return err
 	}
@@ -686,6 +735,7 @@ func (ki *Initializer) deployOpenYurt() error {
 	converter := &ClusterConverter{
 		RootDir:                   dir,
 		ClientSet:                 ki.kubeClient,
+		RuntimeClient:             ki.runtimeClient,
 		CloudNodes:                ki.CloudNodes,
 		EdgeNodes:                 ki.EdgeNodes,
 		WaitServantJobTimeout:     kubeutil.DefaultWaitServantJobTimeout,

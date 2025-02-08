@@ -38,6 +38,7 @@ func TestComplete(t *testing.T) {
 	options.NodeName = "foo"
 	options.EnableDummyIf = false
 	options.HubAgentDummyIfIP = "169.254.2.1"
+	options.NodeIP = "127.0.0.1"
 	cfg, err := Complete(options, nil)
 	if err != nil {
 		t.Errorf("expect no err, but got %v", err)

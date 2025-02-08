@@ -112,7 +112,7 @@ func (hc *cloudAPIServerHealthChecker) BackendIsHealthy(server *url.URL) bool {
 	return false
 }
 
-func (hc *cloudAPIServerHealthChecker) UpdateServers(servers []*url.URL) {
+func (hc *cloudAPIServerHealthChecker) UpdateBackends(servers []*url.URL) {
 	// do nothing
 }
 

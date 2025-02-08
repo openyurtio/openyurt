@@ -36,7 +36,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
+	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -116,7 +116,7 @@ func TestHealthyCheck(t *testing.T) {
 	}
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
-	fakeHealthchecker := cloudapiserver.NewFakeChecker(servers)
+	fakeHealthchecker := fakeHealthChecker.NewFakeChecker(servers)
 
 	client, err := testdata.CreateCertFakeClient("../certificate/testdata")
 	if err != nil {

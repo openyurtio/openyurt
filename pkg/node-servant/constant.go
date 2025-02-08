@@ -54,7 +54,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - "/usr/local/bin/entry.sh convert {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout={{.yurthub_healthcheck_timeout}} {{end}}--join-token={{.joinToken}}"
+        - "/usr/local/bin/entry.sh convert {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout={{.yurthub_healthcheck_timeout}} {{end}}--join-token={{.joinToken}} --nodepool-name={{.nodePoolName}}"
         securityContext:
           privileged: true
         volumeMounts:

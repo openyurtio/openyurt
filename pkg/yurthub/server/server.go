@@ -69,6 +69,12 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 			return err
 		}
 	}
+
+	if cfg.YurtHubMultiplexerServerServing != nil {
+		if _, _, err := cfg.YurtHubMultiplexerServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
