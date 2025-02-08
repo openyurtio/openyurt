@@ -80,6 +80,14 @@ func GetHubName() string {
 	return projectPrefix + "hub"
 }
 
+func ShortHubVersion() string {
+	commit := gitCommit
+	if len(gitCommit) > 7 {
+		commit = gitCommit[:7]
+	}
+	return GetHubName() + "/" + gitVersion + "-" + commit
+}
+
 // GetEdgeEnableTunnelLabelKey returns the tunnel agent label ("openyurt.io/edge-enable-reverseTunnel-client"),
 // which is used to identify if tunnel agent is running on the node or not.
 func GetEdgeEnableTunnelLabelKey() string {

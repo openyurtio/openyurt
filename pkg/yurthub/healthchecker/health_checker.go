@@ -25,7 +25,6 @@ import (
 
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
@@ -51,11 +50,7 @@ type cloudAPIServerHealthChecker struct {
 }
 
 // NewCloudAPIServerHealthChecker returns a health checker for verifying cloud kube-apiserver status.
-func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, healthCheckerClients map[string]kubernetes.Interface, stopCh <-chan struct{}) (MultipleBackendsHealthChecker, error) {
-	if len(healthCheckerClients) == 0 {
-		return nil, fmt.Errorf("no remote servers")
-	}
-
+func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) (MultipleBackendsHealthChecker, error) {
 	hc := &cloudAPIServerHealthChecker{
 		probers:           make(map[string]BackendProber),
 		remoteServers:     cfg.RemoteServers,
@@ -64,7 +59,7 @@ func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, healthChec
 		heartbeatInterval: cfg.HeartbeatIntervalSeconds,
 	}
 
-	for remoteServer, client := range healthCheckerClients {
+	for remoteServer, client := range cfg.TransportAndDirectClientManager.ListDirectClientset() {
 		hc.probers[remoteServer] = newProber(client,
 			remoteServer,
 			cfg.NodeName,
@@ -74,7 +69,9 @@ func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, healthChec
 			hc.setLastNodeLease,
 			hc.getLastNodeLease)
 	}
-	go hc.run(stopCh)
+	if len(hc.probers) != 0 {
+		go hc.run(stopCh)
+	}
 	return hc, nil
 }
 

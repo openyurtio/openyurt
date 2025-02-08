@@ -51,7 +51,7 @@ func TestHttpServeKubeletGetNode(t *testing.T) {
 	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
 	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, configManager)
 
-	autonomyProxy := NewAutonomyProxy(nil, cacheM)
+	autonomyProxy := NewAutonomyProxy(nil, nil, cacheM)
 
 	testcases := []struct {
 		name string

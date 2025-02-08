@@ -18,7 +18,6 @@ package network
 
 import (
 	"net"
-	"strconv"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -31,23 +30,18 @@ const (
 )
 
 type NetworkManager struct {
-	ifController    DummyInterfaceController
-	iptablesManager *IptablesManager
-	dummyIfIP       net.IP
-	dummyIfName     string
-	enableIptables  bool
+	ifController DummyInterfaceController
+	dummyIfIP    net.IP
+	dummyIfName  string
 }
 
 func NewNetworkManager(options *options.YurtHubOptions) (*NetworkManager, error) {
 	m := &NetworkManager{
-		ifController:    NewDummyInterfaceController(),
-		iptablesManager: NewIptablesManager(options.HubAgentDummyIfIP, strconv.Itoa(options.YurtHubProxyPort)),
-		dummyIfIP:       net.ParseIP(options.HubAgentDummyIfIP),
-		dummyIfName:     options.HubAgentDummyIfName,
-		enableIptables:  options.EnableIptables,
+		ifController: NewDummyInterfaceController(),
+		dummyIfIP:    net.ParseIP(options.HubAgentDummyIfIP),
+		dummyIfName:  options.HubAgentDummyIfName,
 	}
-	// secure port
-	m.iptablesManager.rules = append(m.iptablesManager.rules, makeupIptablesRules(options.HubAgentDummyIfIP, strconv.Itoa(options.YurtHubProxySecurePort))...)
+
 	if err := m.configureNetwork(); err != nil {
 		return nil, err
 	}
@@ -64,11 +58,6 @@ func (m *NetworkManager) Run(stopCh <-chan struct{}) {
 			select {
 			case <-stopCh:
 				klog.Infof("exit network manager run goroutine normally")
-				if m.enableIptables {
-					if err := m.iptablesManager.CleanUpIptablesRules(); err != nil {
-						klog.Errorf("could not cleanup iptables, %v", err)
-					}
-				}
 				err := m.ifController.DeleteDummyInterface(m.dummyIfName)
 				if err != nil {
 					klog.Errorf("could not delete dummy interface %s, %v", m.dummyIfName, err)
@@ -91,14 +80,6 @@ func (m *NetworkManager) configureNetwork() error {
 	if err != nil {
 		klog.Errorf("ensure dummy interface failed, %v", err)
 		return err
-	}
-
-	if m.enableIptables {
-		err := m.iptablesManager.EnsureIptablesRules()
-		if err != nil {
-			klog.Errorf("ensure iptables for dummy interface failed, %v", err)
-			return err
-		}
 	}
 
 	return nil

@@ -58,7 +58,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/network"
-	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
@@ -73,101 +74,79 @@ type YurtHubConfiguration struct {
 	HeartbeatHealthyThreshold       int
 	HeartbeatTimeoutSeconds         int
 	HeartbeatIntervalSeconds        int
-	MaxRequestInFlight              int
 	EnableProfiling                 bool
 	StorageWrapper                  cachemanager.StorageWrapper
 	SerializerManager               *serializer.SerializerManager
 	RESTMapperManager               *meta.RESTMapperManager
 	SharedFactory                   informers.SharedInformerFactory
-	NodePoolInformerFactory         dynamicinformer.DynamicSharedInformerFactory
+	DynamicSharedFactory            dynamicinformer.DynamicSharedInformerFactory
 	WorkingMode                     util.WorkingMode
 	KubeletHealthGracePeriod        time.Duration
 	FilterFinder                    filter.FilterFinder
-	CoordinatorServer               *url.URL
 	MinRequestTimeout               time.Duration
-	TenantNs                        string
 	NetworkMgr                      *network.NetworkManager
 	CertManager                     certificate.YurtCertificateManager
 	YurtHubServerServing            *apiserver.DeprecatedInsecureServingInfo
 	YurtHubProxyServerServing       *apiserver.DeprecatedInsecureServingInfo
 	YurtHubDummyProxyServerServing  *apiserver.DeprecatedInsecureServingInfo
 	YurtHubSecureProxyServerServing *apiserver.SecureServingInfo
-	YurtHubProxyServerAddr          string
-	YurtHubNamespace                string
-	ProxiedClient                   kubernetes.Interface
 	DiskCachePath                   string
-	HostControlPlaneAddr            string // ip:port
 	RequestMultiplexerManager       *multiplexer.MultiplexerManager
 	ConfigManager                   *configuration.Manager
+	TenantManager                   tenant.Interface
+	TransportAndDirectClientManager transport.Interface
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
-func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
-	us, err := parseRemoteServers(options.WorkingMode, options.ServerAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	storageManager, err := disk.NewDiskStorage(options.DiskCachePath)
-	if err != nil {
-		klog.Errorf("could not create storage manager, %v", err)
-		return nil, err
-	}
-	storageWrapper := cachemanager.NewStorageWrapper(storageManager)
-	serializerManager := serializer.NewSerializerManager()
-	restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
-	if err != nil {
-		klog.Errorf("could not create restMapperManager at path %s, %v", options.DiskCachePath, err)
-		return nil, err
-	}
-
-	workingMode := util.WorkingMode(options.WorkingMode)
-	proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformers(options)
-	if err != nil {
-		return nil, err
-	}
-	tenantNs := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
-	registerInformers(options, sharedFactory, workingMode, tenantNs)
-
-	configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
-	filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, serializerManager, configManager)
-	if err != nil {
-		klog.Errorf("could not create filter manager, %v", err)
-		return nil, err
-	}
-
+func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHubConfiguration, error) {
 	cfg := &YurtHubConfiguration{
-		LBMode:                    options.LBMode,
-		RemoteServers:             us,
-		GCFrequency:               options.GCFrequency,
-		NodeName:                  options.NodeName,
-		HeartbeatFailedRetry:      options.HeartbeatFailedRetry,
-		HeartbeatHealthyThreshold: options.HeartbeatHealthyThreshold,
-		HeartbeatTimeoutSeconds:   options.HeartbeatTimeoutSeconds,
-		HeartbeatIntervalSeconds:  options.HeartbeatIntervalSeconds,
-		MaxRequestInFlight:        options.MaxRequestInFlight,
-		EnableProfiling:           options.EnableProfiling,
-		WorkingMode:               workingMode,
-		StorageWrapper:            storageWrapper,
-		SerializerManager:         serializerManager,
-		RESTMapperManager:         restMapperManager,
-		SharedFactory:             sharedFactory,
-		NodePoolInformerFactory:   dynamicSharedFactory,
-		KubeletHealthGracePeriod:  options.KubeletHealthGracePeriod,
-		FilterFinder:              filterFinder,
-		MinRequestTimeout:         options.MinRequestTimeout,
-		TenantNs:                  tenantNs,
-		YurtHubProxyServerAddr:    fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
-		YurtHubNamespace:          options.YurtHubNamespace,
-		ProxiedClient:             proxiedClient,
-		DiskCachePath:             options.DiskCachePath,
-		HostControlPlaneAddr:      options.HostControlPlaneAddr,
-		RequestMultiplexerManager: newRequestMultiplexerManager(options, restMapperManager),
-		ConfigManager:             configManager,
+		NodeName:        options.NodeName,
+		WorkingMode:     util.WorkingMode(options.WorkingMode),
+		EnableProfiling: options.EnableProfiling,
 	}
 
-	// if yurthub is in local mode, certMgr and networkMgr are no need to start
-	if cfg.WorkingMode != util.WorkingModeLocal {
+	switch cfg.WorkingMode {
+	case util.WorkingModeLocal:
+		// if yurthub is in local mode, cfg.TenantKasService is used to represented as the service address (ip:port) of multiple apiserver daemonsets
+		cfg.TenantKasService = options.ServerAddr
+		_, sharedFactory, _, err := createClientAndSharedInformerFactories(options.HostControlPlaneAddr, "")
+		if err != nil {
+			return nil, err
+		}
+
+		// list/watch endpoints from host cluster in order to resolve tenant cluster address.
+		newEndpointsInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+			return coreinformers.NewFilteredEndpointsInformer(client, "kube-public", resyncPeriod, nil, nil)
+		}
+		sharedFactory.InformerFor(&corev1.Endpoints{}, newEndpointsInformer)
+		cfg.SharedFactory = sharedFactory
+	case util.WorkingModeCloud, util.WorkingModeEdge:
+		us, err := parseRemoteServers(options.ServerAddr)
+		if err != nil {
+			return nil, err
+		}
+		cfg.RemoteServers = us
+		cfg.LBMode = options.LBMode
+		tenantNamespce := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
+
+		// prepare some basic configurations as following:
+		// - serializer manager: used for managing serializer for encoding or decoding response from kube-apiserver.
+		// - restMapper manager: used for recording mappings between GVK and GVR, and CRD information.
+		// - sharedInformers/dynamicSharedInformers: used for list/watch resources(such as yurt-hub-cfg configmap, nodebucket, etc.) which needed by yurthub itself.
+		// - certificate manager: used for managing client certificate(accessing kube-apiserver) and server certificate(provide serving on the node).
+		// - transport manager: used for managing the underlay transport which connecting to cloud kube-apiserver.
+		restMapperManager, err := meta.NewRESTMapperManager(options.DiskCachePath)
+		if err != nil {
+			klog.Errorf("could not create restMapperManager at path %s, %v", options.DiskCachePath, err)
+			return nil, err
+		}
+
+		proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformerFactories(fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.NodePoolName)
+		if err != nil {
+			return nil, err
+		}
+		registerInformers(sharedFactory, options.YurtHubNamespace, options.NodeName, (cfg.WorkingMode == util.WorkingModeCloud), tenantNamespce)
+
 		certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
 		if err != nil {
 			return nil, err
@@ -183,10 +162,39 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
 		}
+
+		transportAndClientManager, err := transport.NewTransportAndClientManager(us, options.HeartbeatTimeoutSeconds, certMgr, stopCh)
+		if err != nil {
+			return nil, fmt.Errorf("could not new transport manager, %w", err)
+		}
+
+		cfg.SerializerManager = serializer.NewSerializerManager()
+		cfg.RESTMapperManager = restMapperManager
+		cfg.SharedFactory = sharedFactory
+		cfg.DynamicSharedFactory = dynamicSharedFactory
 		cfg.CertManager = certMgr
+		cfg.TransportAndDirectClientManager = transportAndClientManager
+		cfg.TenantManager = tenant.New(tenantNamespce, sharedFactory, stopCh)
+
+		// create feature configurations for both cloud and edge working mode as following:
+		// - configuration manager: monitor yurt-hub-cfg configmap and adopting changes dynamically.
+		// - filter finder: filter response from kube-apiserver according to request.
+		// - multiplexer: aggregating requests for pool scope metadata in order to reduce overhead of cloud kube-apiserver
+		// - network manager: ensuring a dummy interface in order to serve tls requests on the node.
+		// - others: prepare server servings.
+		configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
+		filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, cfg.SerializerManager, configManager)
+		if err != nil {
+			klog.Errorf("could not create filter manager, %v", err)
+			return nil, err
+		}
+
+		cfg.ConfigManager = configManager
+		cfg.FilterFinder = filterFinder
+		cfg.RequestMultiplexerManager = newRequestMultiplexerManager(options, restMapperManager)
 
 		if options.EnableDummyIf {
-			klog.V(2).Infof("create dummy network interface %s(%s) and init iptables manager", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
+			klog.V(2).Infof("create dummy network interface %s(%s)", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
 			networkMgr, err := network.NewNetworkManager(options)
 			if err != nil {
 				return nil, fmt.Errorf("could not create network manager, %w", err)
@@ -197,19 +205,24 @@ func Complete(options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 		if err = prepareServerServing(options, certMgr, cfg); err != nil {
 			return nil, err
 		}
-	} else {
-		// if yurthub is in local mode, cfg.TenantKasService is used to represented as the service address (ip:port) of multiple apiserver daemonsets
-		cfg.TenantKasService = options.ServerAddr
+
+		// following parameter is only used on edge working mode
+		cfg.DiskCachePath = options.DiskCachePath
+		cfg.GCFrequency = options.GCFrequency
+		cfg.HeartbeatFailedRetry = options.HeartbeatFailedRetry
+		cfg.HeartbeatHealthyThreshold = options.HeartbeatHealthyThreshold
+		cfg.HeartbeatTimeoutSeconds = options.HeartbeatTimeoutSeconds
+		cfg.HeartbeatIntervalSeconds = options.HeartbeatIntervalSeconds
+		cfg.KubeletHealthGracePeriod = options.KubeletHealthGracePeriod
+		cfg.MinRequestTimeout = options.MinRequestTimeout
+	default:
+		return nil, fmt.Errorf("unsupported working mode(%s)", options.WorkingMode)
 	}
 
 	return cfg, nil
 }
 
-func parseRemoteServers(workingMode string, serverAddr string) ([]*url.URL, error) {
-	// if yurthub is in local mode, the format of serverAddr is ip:port, skip this function
-	if workingMode == string(util.WorkingModeLocal) {
-		return nil, nil
-	}
+func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	if serverAddr == "" {
 		return make([]*url.URL, 0), fmt.Errorf("--server-addr should be set for hub agent")
 	}
@@ -239,19 +252,13 @@ func parseRemoteServers(workingMode string, serverAddr string) ([]*url.URL, erro
 	return us, nil
 }
 
-// createClientAndSharedInformers create kubeclient and sharedInformers from the given proxyAddr.
-func createClientAndSharedInformers(options *options.YurtHubOptions) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
-	var kubeConfig *rest.Config
-	var err error
-	// If yurthub is in local mode, create kubeconfig for host control plane to prepare	informerFactory.
-	if util.WorkingMode(options.WorkingMode) == util.WorkingModeLocal {
-		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", options.HostControlPlaneAddr), "")
-	} else {
-		kubeConfig, err = clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), "")
-	}
+// createClientAndSharedInformerFactories create client and sharedInformers from the given proxyAddr.
+func createClientAndSharedInformerFactories(serverAddr, nodePoolName string) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", serverAddr), "")
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	kubeConfig.UserAgent = projectinfo.ShortHubVersion()
 
 	client, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
@@ -264,33 +271,30 @@ func createClientAndSharedInformers(options *options.YurtHubOptions) (kubernetes
 	}
 
 	dynamicInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 24*time.Hour)
-	if len(options.NodePoolName) != 0 {
-		if options.EnablePoolServiceTopology {
-			dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 24*time.Hour, metav1.NamespaceAll, func(opts *metav1.ListOptions) {
-				opts.LabelSelector = labels.Set{initializer.LabelNodePoolName: options.NodePoolName}.String()
-			})
-		} else if options.EnableNodePool {
-			dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 24*time.Hour, metav1.NamespaceAll, func(opts *metav1.ListOptions) {
-				opts.FieldSelector = fields.Set{"metadata.name": options.NodePoolName}.String()
-			})
-		}
+	if len(nodePoolName) != 0 {
+		dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 24*time.Hour, metav1.NamespaceAll, func(opts *metav1.ListOptions) {
+			opts.LabelSelector = labels.Set{initializer.LabelNodePoolName: nodePoolName}.String()
+		})
 	}
 
 	return client, informers.NewSharedInformerFactory(client, 24*time.Hour), dynamicInformerFactory, nil
 }
 
-// registerInformers reconstruct configmap/secret/pod/endpoints informers
-func registerInformers(options *options.YurtHubOptions,
+// registerInformers reconstruct configmap/secret/pod/service informers on cloud and edge working mode.
+func registerInformers(
 	informerFactory informers.SharedInformerFactory,
-	workingMode util.WorkingMode,
+	namespace string,
+	nodeName string,
+	enablePodInformer bool,
 	tenantNs string) {
 
-	// configmap informer is used by Yurthub filter approver/cache manager
+	// configmap informer is used for list/watching yurt-hub-cfg configmap which includes configurations about cache agents and filters.
+	// and is used by approver in filter and cache manager on cloud and edge working mode.
 	newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.Set{"metadata.name": util.YurthubConfigMapName}.String()
 		}
-		informer := coreinformers.NewFilteredConfigMapInformer(client, options.YurtHubNamespace, resyncPeriod, nil, tweakListOptions)
+		informer := coreinformers.NewFilteredConfigMapInformer(client, namespace, resyncPeriod, nil, tweakListOptions)
 		informer.SetTransform(pkgutil.TransformStripManagedFields())
 		return informer
 	}
@@ -306,11 +310,11 @@ func registerInformers(options *options.YurtHubOptions,
 		informerFactory.InformerFor(&corev1.Secret{}, newSecretInformer)
 	}
 
-	// pod informer is used by OTA updater on cloud working mode
-	if workingMode == util.WorkingModeCloud {
+	// pod informer is used for list/watching pods of specified node and used by OTA updater on cloud working mode.
+	if enablePodInformer {
 		newPodInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 			listOptions := func(ops *metav1.ListOptions) {
-				ops.FieldSelector = fields.Set{"spec.nodeName": options.NodeName}.String()
+				ops.FieldSelector = fields.Set{"spec.nodeName": nodeName}.String()
 			}
 			informer := coreinformers.NewFilteredPodInformer(client, "", resyncPeriod, nil, listOptions)
 			informer.SetTransform(pkgutil.TransformStripManagedFields())
@@ -319,21 +323,13 @@ func registerInformers(options *options.YurtHubOptions,
 		informerFactory.InformerFor(&corev1.Pod{}, newPodInformer)
 	}
 
-	// service informer is used by serviceTopologyFilter
+	// service informer is used for list/watch all services in the cluster, and used by serviceTopology Filter on cloud and edge mode.
 	newServiceInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		informer := coreinformers.NewFilteredServiceInformer(client, "", resyncPeriod, nil, nil)
 		informer.SetTransform(pkgutil.TransformStripManagedFields())
 		return informer
 	}
 	informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
-
-	// endpoints informer is used in local working mode
-	if workingMode == util.WorkingModeLocal {
-		newEndpointsInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-			return coreinformers.NewFilteredEndpointsInformer(client, "kube-public", resyncPeriod, nil, nil)
-		}
-		informerFactory.InformerFor(&corev1.Endpoints{}, newEndpointsInformer)
-	}
 }
 
 func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
@@ -403,16 +399,22 @@ func newRequestMultiplexerManager(options *options.YurtHubOptions, restMapperMan
 }
 
 func ReadinessCheck(cfg *YurtHubConfiguration) error {
-	if ready := cfg.CertManager.Ready(); !ready {
-		return fmt.Errorf("certificates are not ready")
+	if cfg.CertManager != nil {
+		if ready := cfg.CertManager.Ready(); !ready {
+			return fmt.Errorf("certificates are not ready")
+		}
 	}
 
-	if ready := cfg.ConfigManager.HasSynced(); !ready {
-		return fmt.Errorf("yurt-hub-cfg configmap is not synced")
+	if cfg.ConfigManager != nil {
+		if ready := cfg.ConfigManager.HasSynced(); !ready {
+			return fmt.Errorf("yurt-hub-cfg configmap is not synced")
+		}
 	}
 
-	if synced := cfg.FilterFinder.HasSynced(); !synced {
-		return fmt.Errorf("resources needed by filters are not synced")
+	if cfg.FilterFinder != nil {
+		if synced := cfg.FilterFinder.HasSynced(); !synced {
+			return fmt.Errorf("resources needed by filters are not synced")
+		}
 	}
 
 	return nil

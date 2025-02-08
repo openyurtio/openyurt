@@ -20,10 +20,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/util/certmanager"
@@ -47,19 +50,26 @@ type Interface interface {
 	BearerTransport() http.RoundTripper
 	// Close all net connections that specified by address
 	Close(address string)
+	// GetDirectClientset returns clientset specified by url
+	GetDirectClientset(url *url.URL) kubernetes.Interface
+	// GetDirectClientsetAtRandom returns a clientset at random
+	GetDirectClientsetAtRandom() kubernetes.Interface
+	// ListDirectClientset returns all clientsets
+	ListDirectClientset() map[string]kubernetes.Interface
 }
 
-type transportManager struct {
-	currentTransport *http.Transport
-	bearerTransport  *http.Transport
-	certGetter       CertGetter
-	closeAll         func()
-	close            func(string)
-	stopCh           <-chan struct{}
+type transportAndClientManager struct {
+	currentTransport  *http.Transport
+	bearerTransport   *http.Transport
+	certGetter        CertGetter
+	closeAll          func()
+	close             func(string)
+	stopCh            <-chan struct{}
+	serverToClientset map[string]kubernetes.Interface
 }
 
 // NewTransportManager create a transport interface object.
-func NewTransportManager(certGetter CertGetter, stopCh <-chan struct{}) (Interface, error) {
+func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter CertGetter, stopCh <-chan struct{}) (Interface, error) {
 	caData := certGetter.GetCAData()
 	if len(caData) == 0 {
 		return nil, fmt.Errorf("ca cert data was not prepared when new transport")
@@ -94,43 +104,82 @@ func NewTransportManager(certGetter CertGetter, stopCh <-chan struct{}) (Interfa
 		DialContext:         d.DialContext,
 	})
 
-	tm := &transportManager{
-		currentTransport: t,
-		bearerTransport:  bt,
-		certGetter:       certGetter,
-		closeAll:         d.CloseAll,
-		close:            d.Close,
-		stopCh:           stopCh,
+	tcm := &transportAndClientManager{
+		currentTransport:  t,
+		bearerTransport:   bt,
+		certGetter:        certGetter,
+		closeAll:          d.CloseAll,
+		close:             d.Close,
+		stopCh:            stopCh,
+		serverToClientset: make(map[string]kubernetes.Interface),
 	}
-	tm.start()
 
-	return tm, nil
+	for i := range servers {
+		config := &rest.Config{
+			Host:      servers[i].String(),
+			Transport: t,
+			Timeout:   time.Duration(timeout) * time.Second,
+		}
+
+		clientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(servers[i].String()) != 0 {
+			tcm.serverToClientset[servers[i].String()] = clientset
+		}
+	}
+
+	tcm.start()
+
+	return tcm, nil
 }
 
-func (tm *transportManager) CurrentTransport() http.RoundTripper {
-	return tm.currentTransport
+func (tcm *transportAndClientManager) CurrentTransport() http.RoundTripper {
+	return tcm.currentTransport
 }
 
-func (tm *transportManager) BearerTransport() http.RoundTripper {
-	return tm.bearerTransport
+func (tcm *transportAndClientManager) BearerTransport() http.RoundTripper {
+	return tcm.bearerTransport
 }
 
-func (tm *transportManager) Close(address string) {
-	tm.close(address)
+func (tcm *transportAndClientManager) Close(address string) {
+	tcm.close(address)
 }
 
-func (tm *transportManager) start() {
-	lastCert := tm.certGetter.GetAPIServerClientCert()
+func (tcm *transportAndClientManager) GetDirectClientset(url *url.URL) kubernetes.Interface {
+	if url != nil {
+		return tcm.serverToClientset[url.String()]
+	}
+	return nil
+}
+
+func (tcm *transportAndClientManager) GetDirectClientsetAtRandom() kubernetes.Interface {
+	// iterating map uses random order
+	for server := range tcm.serverToClientset {
+		return tcm.serverToClientset[server]
+	}
+
+	return nil
+}
+
+func (tcm *transportAndClientManager) ListDirectClientset() map[string]kubernetes.Interface {
+	return tcm.serverToClientset
+}
+
+func (tcm *transportAndClientManager) start() {
+	lastCert := tcm.certGetter.GetAPIServerClientCert()
 
 	go wait.Until(func() {
-		curr := tm.certGetter.GetAPIServerClientCert()
+		curr := tcm.certGetter.GetAPIServerClientCert()
 
 		if lastCert == nil && curr == nil {
 			// maybe at yurthub startup, just wait for cert generated, do nothing
 		} else if lastCert == nil && curr != nil {
 			// cert generated, close all client connections for load new cert
 			klog.Infof("new cert generated, so close all client connections for loading new cert")
-			tm.closeAll()
+			tcm.closeAll()
 			lastCert = curr
 		} else if lastCert != nil && curr != nil {
 			if lastCert == curr {
@@ -139,7 +188,7 @@ func (tm *transportManager) start() {
 			} else {
 				// cert rotated
 				klog.Infof("cert rotated, so close all client connections for loading new cert")
-				tm.closeAll()
+				tcm.closeAll()
 				lastCert = curr
 			}
 		} else {
@@ -147,7 +196,7 @@ func (tm *transportManager) start() {
 			// certificate expired or deleted unintentionally, just wait for cert updated by bootstrap config, do nothing
 			klog.Warningf("certificate expired or deleted unintentionally")
 		}
-	}, 10*time.Second, tm.stopCh)
+	}, 10*time.Second, tcm.stopCh)
 }
 
 func tlsConfig(current func() *tls.Certificate, caData []byte) (*tls.Config, error) {

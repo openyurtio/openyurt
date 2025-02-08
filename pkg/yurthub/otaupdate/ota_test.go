@@ -37,7 +37,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/directclient"
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
@@ -148,14 +147,9 @@ func TestHealthyCheck(t *testing.T) {
 		t.Errorf("certificates are not ready, %v", err)
 	}
 
-	transportManager, err := transport.NewTransportManager(certManager, context.Background().Done())
+	clientManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager, context.Background().Done())
 	if err != nil {
 		t.Fatalf("could not new transport manager, %v", err)
-	}
-
-	rcm, err := directclient.NewRestClientManager(remoteServers, transportManager, fakeHealthchecker)
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	req, err := http.NewRequest("POST", "", nil)
@@ -165,7 +159,7 @@ func TestHealthyCheck(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	HealthyCheck(rcm, "", UpdatePod).ServeHTTP(rr, req)
+	HealthyCheck(fakeHealthchecker, clientManager, "", UpdatePod).ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
 

@@ -47,10 +47,8 @@ type HubMetrics struct {
 	serversHealthyCollector              *prometheus.GaugeVec
 	inFlightRequestsCollector            *prometheus.GaugeVec
 	inFlightRequestsGauge                prometheus.Gauge
-	rejectedRequestsCounter              prometheus.Counter
 	inFlightMultiplexerRequestsCollector *prometheus.GaugeVec
 	inFlightMultiplexerRequestsGauge     prometheus.Gauge
-	rejectedMultiplexerRequestsCounter   prometheus.Counter
 	closableConnsCollector               *prometheus.GaugeVec
 	proxyTrafficCollector                *prometheus.CounterVec
 	errorKeysPersistencyStatusCollector  prometheus.Gauge
@@ -81,13 +79,6 @@ func newHubMetrics() *HubMetrics {
 			Name:      "in_flight_requests_total",
 			Help:      "total of in flight requests handling by hub agent",
 		})
-	rejectedRequestsCounter := prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "rejected_requests_counter",
-			Help:      "counter of rejected requests for exceeding in flight limit in hub agent",
-		})
 	inFlightMultiplexerRequestsCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -102,13 +93,6 @@ func newHubMetrics() *HubMetrics {
 			Subsystem: subsystem,
 			Name:      "in_flight_multiplexer_requests_total",
 			Help:      "total of in flight requests handling by multiplexer manager",
-		})
-	rejectedMultiplexerRequestsCounter := prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "rejected_multiplexer_requests_counter",
-			Help:      "counter of rejected multiplexer requests for exceeding in flight limit in hub agent",
 		})
 	closableConnsCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -143,10 +127,8 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
-	prometheus.MustRegister(rejectedRequestsCounter)
 	prometheus.MustRegister(inFlightMultiplexerRequestsCollector)
 	prometheus.MustRegister(inFlightMultiplexerRequestsGauge)
-	prometheus.MustRegister(rejectedMultiplexerRequestsCounter)
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
 	prometheus.MustRegister(errorKeysPersistencyStatusCollector)
@@ -155,10 +137,8 @@ func newHubMetrics() *HubMetrics {
 		serversHealthyCollector:              serversHealthyCollector,
 		inFlightRequestsCollector:            inFlightRequestsCollector,
 		inFlightRequestsGauge:                inFlightRequestsGauge,
-		rejectedRequestsCounter:              rejectedRequestsCounter,
 		inFlightMultiplexerRequestsCollector: inFlightMultiplexerRequestsCollector,
 		inFlightMultiplexerRequestsGauge:     inFlightMultiplexerRequestsGauge,
-		rejectedMultiplexerRequestsCounter:   rejectedMultiplexerRequestsCounter,
 		closableConnsCollector:               closableConnsCollector,
 		proxyTrafficCollector:                proxyTrafficCollector,
 		errorKeysPersistencyStatusCollector:  errorKeysPersistencyStatusCollector,
@@ -200,14 +180,6 @@ func (hm *HubMetrics) IncInFlightMultiplexerRequests(verb, resource, subresource
 func (hm *HubMetrics) DecInFlightMultiplexerRequests(verb, resource, subresource, client string) {
 	hm.inFlightMultiplexerRequestsCollector.WithLabelValues(verb, resource, subresource, client).Dec()
 	hm.inFlightMultiplexerRequestsGauge.Dec()
-}
-
-func (hm *HubMetrics) IncRejectedRequestCounter() {
-	hm.rejectedRequestsCounter.Inc()
-}
-
-func (hm *HubMetrics) IncRejectedMultiplexerRequestCounter() {
-	hm.rejectedMultiplexerRequestsCounter.Inc()
 }
 
 func (hm *HubMetrics) IncClosableConns(server string) {

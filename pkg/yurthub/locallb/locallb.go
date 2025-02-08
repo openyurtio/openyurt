@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-
-	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 )
 
 type locallbManager struct {
@@ -34,10 +32,10 @@ type locallbManager struct {
 	iptablesManager  *IptablesManager
 }
 
-func NewLocalLBManager(cfg *config.YurtHubConfiguration, informerFactory informers.SharedInformerFactory) (*locallbManager, error) {
+func NewLocalLBManager(tenantKasAddress string, informerFactory informers.SharedInformerFactory) (*locallbManager, error) {
 	m := &locallbManager{
-		tenantKasService: cfg.TenantKasService,
-		apiserverAddrs:   nil,
+		tenantKasService: tenantKasAddress,
+		apiserverAddrs:   []string{},
 		iptablesManager:  NewIptablesManager(),
 	}
 

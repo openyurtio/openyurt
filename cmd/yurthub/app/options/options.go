@@ -136,7 +136,16 @@ func (options *YurtHubOptions) Validate() error {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if options.WorkingMode != string(util.WorkingModeLocal) {
+	if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
+		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
+	}
+
+	switch options.WorkingMode {
+	case string(util.WorkingModeLocal):
+		if len(options.HostControlPlaneAddr) == 0 {
+			return fmt.Errorf("host-control-plane-address is empty")
+		}
+	default:
 		if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
 			if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
 				return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
@@ -145,10 +154,6 @@ func (options *YurtHubOptions) Validate() error {
 
 		if !util.IsSupportedLBMode(options.LBMode) {
 			return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
-		}
-
-		if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
-			return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
 		}
 
 		if err := options.verifyDummyIP(); err != nil {
@@ -161,10 +166,6 @@ func (options *YurtHubOptions) Validate() error {
 
 		if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
 			return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
-		}
-	} else {
-		if len(options.HostControlPlaneAddr) == 0 {
-			return fmt.Errorf("host-control-plane-address is empty")
 		}
 	}
 

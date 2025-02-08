@@ -17,6 +17,7 @@ limitations under the License.
 package healthchecker
 
 import (
+	"net/http"
 	"net/url"
 	"os"
 	"testing"
@@ -36,6 +37,7 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
 var (
@@ -240,8 +242,9 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 				cl.PrependReactor("get", "leases", tt.getReactor[i])
 				fakeClients[tt.remoteServers[i].String()] = cl
 			}
+			cfg.TransportAndDirectClientManager = transport.NewFakeTransportManager(http.StatusOK, fakeClients)
 
-			checker, _ := NewCloudAPIServerHealthChecker(cfg, fakeClients, stopCh)
+			checker, _ := NewCloudAPIServerHealthChecker(cfg, stopCh)
 
 			// wait for the probe completed
 			time.Sleep(time.Duration(5*len(tt.remoteServers)) * time.Second)
