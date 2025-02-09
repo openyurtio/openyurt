@@ -19,7 +19,8 @@ package hubleaderconfig
 import (
 	"context"
 	"fmt"
-	"slices"
+	"maps"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -41,7 +42,9 @@ import (
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig/config"
+	nodepoolutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/nodepool"
 )
 
 var (
@@ -74,13 +77,8 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 
 	poolPredicate := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			newPool, ok := e.Object.(*appsv1beta2.NodePool)
-			if !ok {
-				return false
-			}
-
-			return newPool.Spec.InterConnectivity &&
-				len(newPool.Status.LeaderEndpoints) > 0
+			_, ok := e.Object.(*appsv1beta2.NodePool)
+			return ok
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return true
@@ -96,18 +94,12 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			}
 
 			// Only update if the leader has changed or the pool scope metadata has changed
-			return !slices.EqualFunc(
+			return nodepoolutil.HasLeadersChanged(
 				oldPool.Status.LeaderEndpoints,
 				newPool.Status.LeaderEndpoints,
-				func(s1, s2 appsv1beta2.Leader) bool {
-					return s1.NodeName == s2.NodeName && s1.Address == s2.Address
-				},
-			) || !slices.EqualFunc(
+			) || nodepoolutil.HasPoolScopedMetadataChanged(
 				oldPool.Spec.PoolScopeMetadata,
 				newPool.Spec.PoolScopeMetadata,
-				func(s1, s2 metav1.GroupVersionKind) bool {
-					return s1.Group == s2.Group && s1.Version == s2.Version && s1.Kind == s2.Kind
-				},
 			)
 		},
 	}
@@ -169,11 +161,6 @@ func (r *ReconcileHubLeaderConfig) Reconcile(
 		return reconcile.Result{}, nil
 	}
 
-	if !nodepool.Spec.InterConnectivity {
-		// If the NodePool is not using interconnectivity, it should not reconcile
-		return reconcile.Result{}, nil
-	}
-
 	// Reconcile the hub leader config
 	if err := r.reconcileHubLeaderConfig(ctx, nodepool); err != nil {
 		r.recorder.Eventf(nodepool, v1.EventTypeWarning, "ReconcileError", "Failed to reconcile NodePool: %v", err)
@@ -187,12 +174,7 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 	ctx context.Context,
 	nodepool *appsv1beta2.NodePool,
 ) error {
-	if len(nodepool.Status.LeaderEndpoints) == 0 {
-		return nil
-	}
-
-	// Define the name and namespace for the ConfigMap
-	configMapName := fmt.Sprintf("leader-hub-%s", nodepool.Name)
+	configMapName := projectinfo.GetHubleaderConfigMapName(nodepool.Name)
 
 	// Get the leader ConfigMap for the nodepool
 	leaderConfigMap := &v1.ConfigMap{}
@@ -221,6 +203,7 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 	data := map[string]string{
 		"leaders":              strings.Join(leaders, ","),
 		"pool-scoped-metadata": strings.Join(poolScopedMetadata, ","),
+		"interconnectivity":    strconv.FormatBool(nodepool.Spec.InterConnectivity),
 	}
 
 	// If the ConfigMap does not exist, create it
@@ -229,6 +212,9 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      configMapName,
 				Namespace: r.Configuration.HubLeaderNamespace,
+				Labels: map[string]string{
+					projectinfo.GetHubLeaderConfigMapLabel(): configMapName,
+				},
 			},
 			Data: data,
 		}
@@ -237,11 +223,13 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 		return r.Create(ctx, leaderConfigMap)
 	}
 
-	// If the ConfigMap exists, update it with the new data
-	leaderConfigMap.Data = data
+	if !maps.Equal(leaderConfigMap.Data, data) {
+		// Update the ConfigMap resource
+		leaderConfigMap.Data = data
+		return r.Update(ctx, leaderConfigMap)
+	}
 
-	// Update the ConfigMap resource
-	return r.Update(ctx, leaderConfigMap)
+	return nil
 }
 
 // getGVKString	returns a string representation of the GroupVersionKind

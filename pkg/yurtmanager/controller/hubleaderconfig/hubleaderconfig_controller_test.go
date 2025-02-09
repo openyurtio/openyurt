@@ -33,6 +33,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig/config"
 )
 
@@ -90,10 +91,14 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-hub-hangzhou",
 					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-hangzhou",
+					},
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1",
 					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":    "true",
 				},
 			},
 			expectErr: false,
@@ -142,10 +147,14 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-hub-shanghai",
 					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-shanghai",
+					},
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
 					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":    "true",
 				},
 			},
 			expectErr: false,
@@ -193,20 +202,28 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-hub-shanghai",
 					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-shanghai",
+					},
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1",
 					"pool-scoped-metadata": "core/v1/Service",
+					"interconnectivity":    "true",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-hub-shanghai",
 					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-shanghai",
+					},
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
 					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":    "true",
 				},
 			},
 			expectErr: false,
@@ -242,8 +259,21 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			existingConfigMap: nil,
-			expectedConfigMap: nil,
-			expectErr:         false,
+			expectedConfigMap: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "leader-hub-beijing",
+					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-beijing",
+					},
+				},
+				Data: map[string]string{
+					"leaders":              "",
+					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":    "true",
+				},
+			},
+			expectErr: false,
 		},
 		"no pool scope metadata": {
 			pool: &appsv1beta2.NodePool{
@@ -277,10 +307,14 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-hub-beijing",
 					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-beijing",
+					},
 				},
 				Data: map[string]string{
 					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
 					"pool-scoped-metadata": "",
+					"interconnectivity":    "true",
 				},
 			},
 			expectErr: false,
@@ -313,8 +347,21 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			existingConfigMap: nil,
-			expectedConfigMap: nil,
-			expectErr:         false,
+			expectedConfigMap: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "leader-hub-beijing",
+					Namespace: metav1.NamespaceSystem,
+					Labels: map[string]string{
+						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-beijing",
+					},
+				},
+				Data: map[string]string{
+					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
+					"pool-scoped-metadata": "",
+					"interconnectivity":    "false",
+				},
+			},
+			expectErr: false,
 		},
 	}
 
