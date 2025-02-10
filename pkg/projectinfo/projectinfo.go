@@ -128,6 +128,16 @@ func GetNodePoolLabel() string {
 	return nodePoolLabelKey
 }
 
+// GetHubleaderConfigMapName returns the name of the leader ConfigMap for the nodepool
+func GetHubleaderConfigMapName(nodepoolName string) string {
+	return fmt.Sprintf("leader-hub-%s", nodepoolName)
+}
+
+// GetHubLeaderConfigMapLabel returns the label of the leader ConfigMap for the nodepool
+func GetHubLeaderConfigMapLabel() string {
+	return fmt.Sprintf("%s/configmap-name", labelPrefix)
+}
+
 // Info contains version information.
 type Info struct {
 	GitVersion       string   `json:"gitVersion"`

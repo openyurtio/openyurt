@@ -41,6 +41,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader/config"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
+	nodepoolutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/nodepool"
 )
 
 var (
@@ -131,8 +132,8 @@ type ReconcileHubLeader struct {
 	Configuration config.HubLeaderControllerConfiguration
 }
 
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool,verbs=get;update;patch
-// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepool/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get;update;patch
 
 // Reconcile reads that state of the cluster for a HubLeader object and makes changes based on the state read
 // and what is in the HubLeader.Spec
@@ -235,7 +236,7 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 
 	updatedNodePool.Status.LeaderEndpoints = updatedLeaders
 
-	if !hasLeadersChanged(nodepool.Status.LeaderEndpoints, updatedNodePool.Status.LeaderEndpoints) {
+	if !nodepoolutil.HasSliceContentChanged(nodepool.Status.LeaderEndpoints, updatedNodePool.Status.LeaderEndpoints) {
 		return nil
 	}
 
@@ -246,27 +247,6 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 	}
 
 	return nil
-}
-
-// hasLeadersChanged checks if the leader endpoints have changed
-func hasLeadersChanged(old, new []appsv1beta2.Leader) bool {
-	if len(old) != len(new) {
-		return true
-	}
-
-	oldSet := make(map[appsv1beta2.Leader]struct{}, len(old))
-
-	for i := range old {
-		oldSet[old[i]] = struct{}{}
-	}
-
-	for i := range new {
-		if _, ok := oldSet[new[i]]; !ok {
-			return true
-		}
-	}
-
-	return false
 }
 
 // electNLeaders elects N leaders from the candidates based on the strategy
