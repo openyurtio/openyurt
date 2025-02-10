@@ -21,12 +21,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: yurt-manager-delegate-lease-controller
-  namespace: {{ .Release.Namespace }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: yurt-manager-gateway-dns-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -328,25 +322,6 @@ rules:
   verbs:
   - get
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: yurt-manager-delegate-lease-controller
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - update
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -988,19 +963,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager-daemon-pod-updater-controller
-  namespace: {{ .Release.Namespace }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: yurt-manager-delegate-lease-controller-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: yurt-manager-delegate-lease-controller
-subjects:
-- kind: ServiceAccount
-  name: yurt-manager-delegate-lease-controller
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
