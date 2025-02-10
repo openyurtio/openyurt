@@ -67,27 +67,22 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 	}
 
 	// Set default PoolScopeMetadata
-	defaultPoolScopeMetadata := []v1.GroupVersionKind{
+	defaultPoolScopeMetadata := []v1.GroupVersionResource{
 		{
-			Group:   "core",
-			Version: "v1",
-			Kind:    "Service",
+			Group:    "core",
+			Version:  "v1",
+			Resource: "Service",
 		},
 		{
-			Group:   "discovery.k8s.io",
-			Version: "v1",
-			Kind:    "EndpointSlice",
+			Group:    "discovery.k8s.io",
+			Version:  "v1",
+			Resource: "EndpointSlice",
 		},
-	}
-
-	if np.Spec.PoolScopeMetadata == nil {
-		np.Spec.PoolScopeMetadata = defaultPoolScopeMetadata
-		return nil
 	}
 
 	// Ensure defaultPoolScopeMetadata
 	// Hash existing PoolScopeMetadata
-	gvkMap := make(map[v1.GroupVersionKind]struct{})
+	gvkMap := make(map[v1.GroupVersionResource]struct{})
 	for _, m := range np.Spec.PoolScopeMetadata {
 		gvkMap[m] = struct{}{}
 	}
@@ -98,5 +93,14 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 			np.Spec.PoolScopeMetadata = append(np.Spec.PoolScopeMetadata, m)
 		}
 	}
+
+	if np.Spec.PoolScopeMetadata == nil {
+		np.Spec.PoolScopeMetadata = defaultPoolScopeMetadata
+		return nil
+	}
+
+	// Set default enable pool scope metadata
+	np.Spec.EnablePoolScopeMetadata = false
+
 	return nil
 }

@@ -337,6 +337,11 @@ spec:
                     If specified, the Annotations will be added to all nodes.
                     NOTE: existing labels with samy keys on the nodes will be overwritten.
                   type: object
+                enablePoolScopeMetadata:
+                  description: |-
+                    EnablePoolScopeMetadata is used for specifying whether to enable pool scope metadata
+                    for the nodepool. If the field is not specified, the default value is false.
+                  type: boolean
                 hostNetwork:
                   description: |-
                     HostNetwork is used to specify that cni components(like flannel)
@@ -385,18 +390,18 @@ spec:
                     And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
                   items:
                     description: |-
-                      GroupVersionKind unambiguously identifies a kind.  It doesn't anonymously include GroupVersion
+                      GroupVersionResource unambiguously identifies a resource.  It doesn't anonymously include GroupVersion
                       to avoid automatic coercion.  It doesn't use a GroupVersion to avoid custom marshalling
                     properties:
                       group:
                         type: string
-                      kind:
+                      resource:
                         type: string
                       version:
                         type: string
                     required:
                       - group
-                      - kind
+                      - resource
                       - version
                     type: object
                   type: array

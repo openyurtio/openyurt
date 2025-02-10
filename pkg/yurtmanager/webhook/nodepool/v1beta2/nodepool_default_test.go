@@ -61,16 +61,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Edge,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -108,16 +108,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -156,16 +156,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -204,16 +204,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -252,16 +252,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -285,11 +285,11 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "Endpoints",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
 						},
 					},
 				},
@@ -307,21 +307,21 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "Endpoints",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
 						},
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -345,11 +345,11 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 					},
 				},
@@ -367,16 +367,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -400,11 +400,11 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -422,16 +422,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         3,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 					},
 				},
@@ -470,16 +470,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         2,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -503,16 +503,16 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         0,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 					},
 				},
@@ -530,16 +530,78 @@ func TestDefault(t *testing.T) {
 					Type:                   v1beta2.Cloud,
 					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
 					LeaderReplicas:         1,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
+		"nodepool doesn't have enable scope metadata": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:             true,
+					Type:                    v1beta2.Cloud,
+					LeaderElectionStrategy:  string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:          3,
+					EnablePoolScopeMetadata: false,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
+						},
+					},
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:             true,
+					Type:                    v1beta2.Cloud,
+					LeaderElectionStrategy:  string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:          3,
+					EnablePoolScopeMetadata: false,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
+						},
+						{
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
+						},
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},

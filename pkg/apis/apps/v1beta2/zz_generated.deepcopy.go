@@ -149,7 +149,7 @@ func (in *NodePoolSpec) DeepCopyInto(out *NodePoolSpec) {
 	}
 	if in.PoolScopeMetadata != nil {
 		in, out := &in.PoolScopeMetadata, &out.PoolScopeMetadata
-		*out = make([]metav1.GroupVersionKind, len(*in))
+		*out = make([]metav1.GroupVersionResource, len(*in))
 		copy(*out, *in)
 	}
 }
