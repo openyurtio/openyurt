@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/util/slice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -94,10 +95,10 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			}
 
 			// Only update if the leader has changed or the pool scope metadata has changed
-			return nodepoolutil.HasLeadersChanged(
+			return nodepoolutil.HasSliceContentChanged(
 				oldPool.Status.LeaderEndpoints,
 				newPool.Status.LeaderEndpoints,
-			) || nodepoolutil.HasPoolScopedMetadataChanged(
+			) || nodepoolutil.HasSliceContentChanged(
 				oldPool.Spec.PoolScopeMetadata,
 				newPool.Spec.PoolScopeMetadata,
 			)
@@ -201,8 +202,8 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 
 	// Prepare data
 	data := map[string]string{
-		"leaders":              strings.Join(leaders, ","),
-		"pool-scoped-metadata": strings.Join(poolScopedMetadata, ","),
+		"leaders":              strings.Join(slice.SortStrings(leaders), ","),
+		"pool-scoped-metadata": strings.Join(slice.SortStrings(poolScopedMetadata), ","),
 		"interconnectivity":    strconv.FormatBool(nodepool.Spec.InterConnectivity),
 	}
 

@@ -16,49 +16,19 @@ limitations under the License.
 
 package nodepool
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
-)
-
-// HasLeadersChanged checks if the leader endpoints have changed
-// between the old and new leader slices.
-// It returns true if the leaders have changed, otherwise false irrespective of the order of the leaders.
-func HasLeadersChanged(old, new []v1beta2.Leader) bool {
+// HasSliceContentChanged checks if the content of the old and new slices has changed.
+func HasSliceContentChanged[T comparable](old, new []T) bool {
 	if len(old) != len(new) {
 		return true
 	}
 
-	oldSet := make(map[v1beta2.Leader]struct{}, len(old))
-	for i := range old {
-		oldSet[old[i]] = struct{}{}
+	oldSet := make(map[T]struct{}, len(old))
+	for _, v := range old {
+		oldSet[v] = struct{}{}
 	}
 
-	for i := range new {
-		if _, ok := oldSet[new[i]]; !ok {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasPoolScopedMetadataChanged checks if the metadata has changed
-// between the old and new.
-// It returns true if the metadata has changed, otherwise false irrespective of the order of the metadata.
-func HasPoolScopedMetadataChanged(old, new []metav1.GroupVersionKind) bool {
-	if len(old) != len(new) {
-		return true
-	}
-
-	oldSet := make(map[metav1.GroupVersionKind]struct{}, len(old))
-	for i := range old {
-		oldSet[old[i]] = struct{}{}
-	}
-
-	for i := range new {
-		if _, ok := oldSet[new[i]]; !ok {
+	for _, v := range new {
+		if _, ok := oldSet[v]; !ok {
 			return true
 		}
 	}

@@ -236,7 +236,7 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 
 	updatedNodePool.Status.LeaderEndpoints = updatedLeaders
 
-	if !nodepoolutil.HasLeadersChanged(nodepool.Status.LeaderEndpoints, updatedNodePool.Status.LeaderEndpoints) {
+	if !nodepoolutil.HasSliceContentChanged(nodepool.Status.LeaderEndpoints, updatedNodePool.Status.LeaderEndpoints) {
 		return nil
 	}
 

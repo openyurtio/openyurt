@@ -20,13 +20,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/nodepool"
 )
 
-func TestHasLeadersChanged(t *testing.T) {
+func TestHasSliceChanged(t *testing.T) {
 	tests := []struct {
 		name     string
 		old      []v1beta2.Leader
@@ -180,190 +179,9 @@ func TestHasLeadersChanged(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := nodepool.HasLeadersChanged(tc.old, tc.new)
+			actual := nodepool.HasSliceContentChanged(tc.old, tc.new)
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
 
-}
-
-func TestHasPoolScopedMetadataChanged(t *testing.T) {
-	tests := []struct {
-		name     string
-		old      []metav1.GroupVersionKind
-		new      []metav1.GroupVersionKind
-		expected bool
-	}{
-		{
-			name: "old and new are the same",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "old and new are the same but in different order",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-			},
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "old has extra elements",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "new has extra elements",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "pld is nil",
-			old:  nil,
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "new is nil",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			new:      nil,
-			expected: true,
-		},
-		{
-			name: "old and new are the different",
-			old: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v1",
-					Kind:    "StatefulSet",
-				},
-			},
-			new: []metav1.GroupVersionKind{
-				{
-					Group:   "apps",
-					Version: "v2",
-					Kind:    "Deployment",
-				},
-				{
-					Group:   "apps",
-					Version: "v3",
-					Kind:    "StatefulSet",
-				},
-			},
-			expected: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			actual := nodepool.HasPoolScopedMetadataChanged(tc.old, tc.new)
-			assert.Equal(t, tc.expected, actual)
-		})
-	}
 }
