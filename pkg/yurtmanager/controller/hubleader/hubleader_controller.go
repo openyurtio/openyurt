@@ -146,8 +146,8 @@ func (r *ReconcileHubLeader) Reconcile(ctx context.Context, request reconcile.Re
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !nodepool.Spec.InterConnectivity {
-		// If the NodePool is not interconnectivity, it should not reconcile
+	if !nodepool.Spec.EnablePoolScopeMetadata {
+		// If the NodePool doesn't have pool scope metadata enabled, it should not reconcile
 		return reconcile.Result{}, nil
 	}
 

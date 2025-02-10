@@ -197,14 +197,15 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 	// Add pool scope metadata
 	poolScopedMetadata := make([]string, 0, len(nodepool.Spec.PoolScopeMetadata))
 	for _, metadata := range nodepool.Spec.PoolScopeMetadata {
-		poolScopedMetadata = append(poolScopedMetadata, getGVKString(metadata))
+		poolScopedMetadata = append(poolScopedMetadata, getGVRString(metadata))
 	}
 
 	// Prepare data
 	data := map[string]string{
-		"leaders":              strings.Join(slice.SortStrings(leaders), ","),
-		"pool-scoped-metadata": strings.Join(slice.SortStrings(poolScopedMetadata), ","),
-		"interconnectivity":    strconv.FormatBool(nodepool.Spec.InterConnectivity),
+		"leaders":                     strings.Join(slice.SortStrings(leaders), ","),
+		"pool-scoped-metadata":        strings.Join(slice.SortStrings(poolScopedMetadata), ","),
+		"interconnectivity":           strconv.FormatBool(nodepool.Spec.InterConnectivity),
+		"enable-pool-scoped-metadata": strconv.FormatBool(nodepool.Spec.EnablePoolScopeMetadata),
 	}
 
 	// If the ConfigMap does not exist, create it
@@ -233,7 +234,7 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 	return nil
 }
 
-// getGVKString	returns a string representation of the GroupVersionKind
-func getGVKString(gvk metav1.GroupVersionKind) string {
-	return fmt.Sprintf("%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind)
+// getGVRString	returns a string representation of the GroupVersionResource
+func getGVRString(gvr metav1.GroupVersionResource) string {
+	return fmt.Sprintf("%s/%s/%s", gvr.Group, gvr.Version, gvr.Resource)
 }

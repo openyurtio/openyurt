@@ -61,19 +61,20 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      true,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -96,9 +97,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1",
-					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
-					"interconnectivity":    "true",
+					"leaders":                     "node1/10.0.0.1",
+					"pool-scoped-metadata":        "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "true",
 				},
 			},
 			expectErr: false,
@@ -113,19 +115,20 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "shanghai",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      true,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -152,9 +155,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
-					"interconnectivity":    "true",
+					"leaders":                     "node1/10.0.0.1,node2/10.0.0.2",
+					"pool-scoped-metadata":        "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "true",
 				},
 			},
 			expectErr: false,
@@ -169,19 +173,20 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "shanghai",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      true,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -207,9 +212,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1",
-					"pool-scoped-metadata": "core/v1/Service",
-					"interconnectivity":    "true",
+					"leaders":                     "node1/10.0.0.1",
+					"pool-scoped-metadata":        "core/v1/Service",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "false",
 				},
 			},
 			expectedConfigMap: &v1.ConfigMap{
@@ -221,9 +227,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
-					"interconnectivity":    "true",
+					"leaders":                     "node1/10.0.0.1,node2/10.0.0.2",
+					"pool-scoped-metadata":        "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "true",
 				},
 			},
 			expectErr: false,
@@ -238,19 +245,20 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "beijing",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      true,
-					PoolScopeMetadata: []metav1.GroupVersionKind{
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:   "core",
-							Version: "v1",
-							Kind:    "Service",
+							Group:    "core",
+							Version:  "v1",
+							Resource: "Service",
 						},
 						{
-							Group:   "discovery.k8s.io",
-							Version: "v1",
-							Kind:    "EndpointSlice",
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "EndpointSlice",
 						},
 					},
 				},
@@ -268,9 +276,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "",
-					"pool-scoped-metadata": "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
-					"interconnectivity":    "true",
+					"leaders":                     "",
+					"pool-scoped-metadata":        "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "true",
 				},
 			},
 			expectErr: false,
@@ -285,9 +294,10 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "beijing",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      true,
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -312,14 +322,15 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata": "",
-					"interconnectivity":    "true",
+					"leaders":                     "node1/10.0.0.1,node2/10.0.0.2",
+					"pool-scoped-metadata":        "",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "true",
 				},
 			},
 			expectErr: false,
 		},
-		"no interconnectivity": {
+		"no enable pool scope metadata": {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "beijing",
@@ -329,9 +340,10 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "beijing",
 					},
-					LeaderReplicas:         1,
-					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
-					InterConnectivity:      false,
+					LeaderReplicas:          1,
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
+					InterConnectivity:       true,
+					EnablePoolScopeMetadata: false,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -356,9 +368,10 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"leaders":              "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata": "",
-					"interconnectivity":    "false",
+					"leaders":                     "node1/10.0.0.1,node2/10.0.0.2",
+					"pool-scoped-metadata":        "",
+					"interconnectivity":           "true",
+					"enable-pool-scoped-metadata": "false",
 				},
 			},
 			expectErr: false,

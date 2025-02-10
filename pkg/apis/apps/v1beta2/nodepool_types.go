@@ -81,9 +81,13 @@ type NodePoolSpec struct {
 	// elected from nodes that filtered by this label selector.
 	LeaderNodeLabelSelector map[string]string `json:"leaderNodeLabelSelector,omitempty"`
 
+	// EnablePoolScopeMetadata is used for specifying whether to enable pool scope metadata
+	// for the nodepool. If the field is not specified, the default value is false.
+	EnablePoolScopeMetadata bool `json:"enablePoolScopeMetadata,omitempty"`
+
 	// PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
 	// And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
-	PoolScopeMetadata []metav1.GroupVersionKind `json:"poolScopeMetadata,omitempty"`
+	PoolScopeMetadata []metav1.GroupVersionResource `json:"poolScopeMetadata,omitempty"`
 
 	// LeaderReplicas is used for specifying the number of leader replicas in the nodepool.
 	// If the field is not specified, the default value is 1.
