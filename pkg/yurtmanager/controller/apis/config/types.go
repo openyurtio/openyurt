@@ -38,7 +38,6 @@ import (
 	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	coordinatorcertconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert/config"
-	delegateleaseconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/delegatelease/config"
 	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 )
@@ -47,9 +46,6 @@ import (
 type YurtManagerConfiguration struct {
 	metav1.TypeMeta
 	Generic GenericConfiguration
-
-	// DelegateLeaseControllerConfiguration holds configuration for DelegateLeaseController related features.
-	DelegateLeaseController delegateleaseconfig.DelegateLeaseControllerConfiguration
 
 	// PodBindingControllerConfiguration holds configuration for PodBindingController related features.
 	PodBindingController podbindingconfig.PodBindingControllerConfiguration

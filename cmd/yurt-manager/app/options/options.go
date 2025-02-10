@@ -26,7 +26,6 @@ import (
 // YurtManagerOptions is the main context object for the yurt-manager.
 type YurtManagerOptions struct {
 	Generic                       *GenericOptions
-	DelegateLeaseController       *DelegateLeaseControllerOptions
 	PodBindingController          *PodBindingControllerOptions
 	DaemonPodUpdaterController    *DaemonPodUpdaterControllerOptions
 	CsrApproverController         *CsrApproverControllerOptions
@@ -54,7 +53,6 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 	genericOptions := NewGenericOptions()
 	s := YurtManagerOptions{
 		Generic:                       genericOptions,
-		DelegateLeaseController:       NewDelegateLeaseControllerOptions(),
 		PodBindingController:          NewPodBindingControllerOptions(),
 		DaemonPodUpdaterController:    NewDaemonPodUpdaterControllerOptions(),
 		CsrApproverController:         NewCsrApproverControllerOptions(),
@@ -83,7 +81,6 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers []string) cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	y.Generic.AddFlags(fss.FlagSet("generic"), allControllers, disabledByDefaultControllers)
-	y.DelegateLeaseController.AddFlags(fss.FlagSet("delegatelease controller"))
 	y.PodBindingController.AddFlags(fss.FlagSet("podbinding controller"))
 	y.DaemonPodUpdaterController.AddFlags(fss.FlagSet("daemonpodupdater controller"))
 	y.CsrApproverController.AddFlags(fss.FlagSet("csrapprover controller"))
@@ -111,7 +108,6 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases map[string]string) error {
 	var errs []error
 	errs = append(errs, y.Generic.Validate(allControllers, controllerAliases)...)
-	errs = append(errs, y.DelegateLeaseController.Validate()...)
 	errs = append(errs, y.PodBindingController.Validate()...)
 	errs = append(errs, y.DaemonPodUpdaterController.Validate()...)
 	errs = append(errs, y.CsrApproverController.Validate()...)
@@ -138,9 +134,6 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 // ApplyTo fills up yurt manager config with options.
 func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[string]string) error {
 	if err := y.Generic.ApplyTo(&c.ComponentConfig.Generic, controllerAliases); err != nil {
-		return err
-	}
-	if err := y.DelegateLeaseController.ApplyTo(&c.ComponentConfig.DelegateLeaseController); err != nil {
 		return err
 	}
 	if err := y.PodBindingController.ApplyTo(&c.ComponentConfig.PodBindingController); err != nil {
