@@ -51,13 +51,13 @@ var (
 
 type AutonomyProxy struct {
 	cacheMgr         cachemanager.CacheManager
-	healthChecker    healthchecker.MultipleBackendsHealthChecker
+	healthChecker    healthchecker.Interface
 	clientManager    transport.Interface
 	cacheFailedCount *int32
 }
 
 func NewAutonomyProxy(
-	healthChecker healthchecker.MultipleBackendsHealthChecker,
+	healthChecker healthchecker.Interface,
 	clientManager transport.Interface,
 	cacheMgr cachemanager.CacheManager,
 ) *AutonomyProxy {
@@ -125,7 +125,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		var client kubernetes.Interface
 		if yurtutil.IsNil(ap.healthChecker) {
 			return originalNode, ErrDirectClientMgr
-		} else if u, err := ap.healthChecker.PickHealthyServer(); u != nil && err == nil {
+		} else if u := ap.healthChecker.PickOneHealthyBackend(); u != nil {
 			client = ap.clientManager.GetDirectClientset(u)
 		}
 
@@ -158,7 +158,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 	var client kubernetes.Interface
 	if yurtutil.IsNil(ap.healthChecker) {
 		return originalNode, ErrDirectClientMgr
-	} else if u, err := ap.healthChecker.PickHealthyServer(); u != nil && err == nil {
+	} else if u := ap.healthChecker.PickOneHealthyBackend(); u != nil {
 		client = ap.clientManager.GetDirectClientset(u)
 	}
 

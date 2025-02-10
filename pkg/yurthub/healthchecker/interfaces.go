@@ -21,21 +21,16 @@ import (
 	"time"
 )
 
-// HealthChecker is an interface for checking healthy status of one server
-type HealthChecker interface {
+// Interface is an interface for checking healthy status of servers
+type Interface interface {
 	// RenewKubeletLeaseTime is used for notifying whether kubelet stopped or not,
 	// when kubelet lease renew time is stopped to report, health checker will stop check
 	// the healthy status of remote server and mark remote server as unhealthy.
 	RenewKubeletLeaseTime()
 	IsHealthy() bool
-}
-
-// MultipleBackendsHealthChecker is used for checking healthy status of multiple servers,
-// like there are several kube-apiserver instances on the cloud for high availability.
-type MultipleBackendsHealthChecker interface {
-	HealthChecker
-	BackendHealthyStatus(server *url.URL) bool
-	PickHealthyServer() (*url.URL, error)
+	BackendIsHealthy(server *url.URL) bool
+	PickOneHealthyBackend() *url.URL
+	UpdateServers(servers []*url.URL)
 }
 
 // BackendProber is used to send heartbeat to backend and verify backend

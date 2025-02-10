@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package healthchecker
+package cloudapiserver
 
 import (
 	"net/http"
@@ -250,8 +250,8 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 			time.Sleep(time.Duration(5*len(tt.remoteServers)) * time.Second)
 
 			for i := range tt.remoteServers {
-				if checker.BackendHealthyStatus(tt.remoteServers[i]) != tt.isHealthy[i] {
-					t.Errorf("expect server %s healthy status %v, but got %v", tt.remoteServers[i].String(), tt.isHealthy[i], checker.BackendHealthyStatus(tt.remoteServers[i]))
+				if checker.BackendIsHealthy(tt.remoteServers[i]) != tt.isHealthy[i] {
+					t.Errorf("expect server %s healthy status %v, but got %v", tt.remoteServers[i].String(), tt.isHealthy[i], checker.BackendIsHealthy(tt.remoteServers[i]))
 				}
 			}
 			if checker.IsHealthy() != tt.serverHealthy {

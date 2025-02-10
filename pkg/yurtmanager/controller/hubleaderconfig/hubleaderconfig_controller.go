@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/util/slice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -200,10 +200,15 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 		poolScopedMetadata = append(poolScopedMetadata, getGVRString(metadata))
 	}
 
+	// sort leaders and poolScopedMetadata in order to exclude the effects of differences
+	// in the order of the elements.
+	slices.Sort(leaders)
+	slices.Sort(poolScopedMetadata)
+
 	// Prepare data
 	data := map[string]string{
-		"leaders":                     strings.Join(slice.SortStrings(leaders), ","),
-		"pool-scoped-metadata":        strings.Join(slice.SortStrings(poolScopedMetadata), ","),
+		"leaders":                     strings.Join(leaders, ","),
+		"pool-scoped-metadata":        strings.Join(poolScopedMetadata, ","),
 		"interconnectivity":           strconv.FormatBool(nodepool.Spec.InterConnectivity),
 		"enable-pool-scoped-metadata": strconv.FormatBool(nodepool.Spec.EnablePoolScopeMetadata),
 	}

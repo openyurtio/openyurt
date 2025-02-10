@@ -46,7 +46,7 @@ import (
 
 type yurtReverseProxy struct {
 	cfg                  *config.YurtHubConfiguration
-	cloudHealthChecker   healthchecker.MultipleBackendsHealthChecker
+	cloudHealthChecker   healthchecker.Interface
 	resolver             apirequest.RequestInfoResolver
 	loadBalancer         http.Handler
 	localProxy           http.Handler
@@ -63,7 +63,7 @@ type yurtReverseProxy struct {
 func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
-	cloudHealthChecker healthchecker.MultipleBackendsHealthChecker,
+	cloudHealthChecker healthchecker.Interface,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),

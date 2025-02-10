@@ -45,7 +45,7 @@ var nonResourceReqPaths = map[string]storage.ClusterInfoType{
 
 type NonResourceHandler func(kubeClient *kubernetes.Clientset, sw cachemanager.StorageWrapper, path string) http.Handler
 
-func WrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, healthChecker healthchecker.MultipleBackendsHealthChecker) http.Handler {
+func WrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubConfiguration, healthChecker healthchecker.Interface) http.Handler {
 	wrapMux := mux.NewRouter()
 
 	// register handler for non resource requests
@@ -60,12 +60,12 @@ func WrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.MultipleBackendsHealthChecker, clientManager transport.Interface, sw cachemanager.StorageWrapper, path string) http.Handler {
+func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.Interface, clientManager transport.Interface, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// if cloud kube-apiserver is healthy, forward non resource request to cloud kube-apiserver
 		// otherwise serve non resource request by local cache.
-		u, err := healthChecker.PickHealthyServer()
-		if err == nil && u != nil {
+		u := healthChecker.PickOneHealthyBackend()
+		if u != nil {
 			kubeClient := clientManager.GetDirectClientset(u)
 			if kubeClient != nil {
 				clientset, ok := kubeClient.(*kubernetes.Clientset)

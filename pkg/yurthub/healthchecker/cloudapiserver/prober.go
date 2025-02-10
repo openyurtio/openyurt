@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package healthchecker
+package cloudapiserver
 
 import (
 	"sync"
@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 )
 
@@ -54,7 +55,7 @@ func newProber(
 	healthCheckGracePeriod time.Duration,
 	setLastNodeLease setNodeLease,
 	getLastNodeLease getNodeLease,
-) BackendProber {
+) healthchecker.BackendProber {
 	nl := NewNodeLease(kubeClient, nodeName, int32(healthCheckGracePeriod.Seconds()), heartbeatFailedRetry)
 	p := &prober{
 		nodeLease:              nl,
