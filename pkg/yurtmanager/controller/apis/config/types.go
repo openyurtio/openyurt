@@ -35,7 +35,6 @@ import (
 	gatewaypublicsvcconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypublicservice/config"
 	endpointsconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints/config"
 	endpointsliceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice/config"
-	yurtappdaemonconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappdaemon/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	coordinatorcertconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert/config"
 	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
@@ -64,9 +63,6 @@ type YurtManagerConfiguration struct {
 
 	// YurtStaticSetControllerConfiguration holds configuration for YurtStaticSetController related features.
 	YurtStaticSetController yurtstaticsetconfig.YurtStaticSetControllerConfiguration
-
-	// YurtAppDaemonControllerConfiguration holds configuration for YurtAppDaemonController related features.
-	YurtAppDaemonController yurtappdaemonconfig.YurtAppDaemonControllerConfiguration
 
 	// PlatformAdminControllerConfiguration holds configuration for PlatformAdminController related features.
 	PlatformAdminController platformadminconfig.PlatformAdminControllerConfiguration
