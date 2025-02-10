@@ -65,12 +65,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -112,12 +112,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -160,12 +160,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -208,12 +208,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -256,12 +256,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -316,12 +316,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -349,7 +349,7 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 					},
 				},
@@ -371,12 +371,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -387,7 +387,7 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
-		"nodepool has v1.EndpointSlice pool scope metadata": {
+		"nodepool has v1.endpointslices pool scope metadata": {
 			obj: &v1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -404,7 +404,7 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -426,12 +426,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 					},
 				},
@@ -474,12 +474,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -507,12 +507,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 					},
 				},
@@ -534,12 +534,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 					},
 				},
@@ -596,12 +596,12 @@ func TestDefault(t *testing.T) {
 						{
 							Group:    "core",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
