@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package healthchecker
+package cloudapiserver
 
 import (
 	"net/url"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 )
 
 type fakeChecker struct {
@@ -26,7 +28,7 @@ type fakeChecker struct {
 }
 
 // BackendHealthyStatus returns healthy status of server
-func (fc *fakeChecker) BackendHealthyStatus(server *url.URL) bool {
+func (fc *fakeChecker) BackendIsHealthy(server *url.URL) bool {
 	s := server.String()
 	if _, ok := fc.settings[s]; !ok {
 		return fc.healthy
@@ -51,18 +53,24 @@ func (fc *fakeChecker) IsHealthy() bool {
 func (fc *fakeChecker) RenewKubeletLeaseTime() {
 }
 
-func (fc *fakeChecker) PickHealthyServer() (*url.URL, error) {
+func (fc *fakeChecker) PickOneHealthyBackend() *url.URL {
 	for server := range fc.settings {
 		if fc.healthy {
-			return url.Parse(server)
+			if u, err := url.Parse(server); err == nil {
+				return u
+			}
 		}
 	}
 
-	return nil, nil
+	return nil
+}
+
+func (fc *fakeChecker) UpdateServers(servers []*url.URL) {
+	// do nothing
 }
 
 // NewFakeChecker creates a fake checker
-func NewFakeChecker(healthy bool, settings map[string]int) MultipleBackendsHealthChecker {
+func NewFakeChecker(healthy bool, settings map[string]int) healthchecker.Interface {
 	return &fakeChecker{
 		settings: settings,
 		healthy:  healthy,

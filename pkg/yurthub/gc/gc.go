@@ -44,7 +44,7 @@ var (
 // GCManager is responsible for cleanup garbage of yurthub
 type GCManager struct {
 	store             cachemanager.StorageWrapper
-	healthChecker     healthchecker.MultipleBackendsHealthChecker
+	healthChecker     healthchecker.Interface
 	clientManager     transport.Interface
 	nodeName          string
 	eventsGCFrequency time.Duration
@@ -53,7 +53,7 @@ type GCManager struct {
 }
 
 // NewGCManager creates a *GCManager object
-func NewGCManager(cfg *config.YurtHubConfiguration, healthChecker healthchecker.MultipleBackendsHealthChecker, stopCh <-chan struct{}) (*GCManager, error) {
+func NewGCManager(cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface, stopCh <-chan struct{}) (*GCManager, error) {
 	gcFrequency := cfg.GCFrequency
 	if gcFrequency == 0 {
 		gcFrequency = defaultEventGcInterval
@@ -78,8 +78,8 @@ func (m *GCManager) Run() {
 	go wait.JitterUntil(func() {
 		klog.V(2).Infof("start gc events after waiting %v from previous gc", time.Since(m.lastTime))
 		m.lastTime = time.Now()
-		u, err := m.healthChecker.PickHealthyServer()
-		if err != nil || u == nil {
+		u := m.healthChecker.PickOneHealthyBackend()
+		if u == nil {
 			klog.Warningf("all remote servers are unhealthy, skip gc events")
 			return
 		}
@@ -114,8 +114,8 @@ func (m *GCManager) gcPodsWhenRestart() {
 	}
 
 	// get a clientset of a healthy kube-apiserver
-	u, err := m.healthChecker.PickHealthyServer()
-	if err != nil || u == nil {
+	u := m.healthChecker.PickOneHealthyBackend()
+	if u == nil {
 		klog.Warningf("all remote servers are unhealthy, skip gc pods")
 		return
 	}

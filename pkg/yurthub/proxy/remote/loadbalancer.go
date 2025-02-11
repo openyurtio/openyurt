@@ -45,7 +45,7 @@ type loadBalancerAlgo interface {
 
 type rrLoadBalancerAlgo struct {
 	sync.Mutex
-	checker  healthchecker.MultipleBackendsHealthChecker
+	checker  healthchecker.Interface
 	backends []*util.RemoteProxy
 	next     int
 }
@@ -59,7 +59,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 		return nil
 	} else if len(rr.backends) == 1 {
 		if !yurtutil.IsNil(rr.checker) {
-			if !rr.checker.BackendHealthyStatus(rr.backends[0].RemoteServer()) {
+			if !rr.checker.BackendIsHealthy(rr.backends[0].RemoteServer()) {
 				return nil
 			}
 		}
@@ -73,7 +73,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 		for i := 0; i < len(rr.backends); i++ {
 			selected = (rr.next + i) % len(rr.backends)
 			if !yurtutil.IsNil(rr.checker) {
-				if !rr.checker.BackendHealthyStatus(rr.backends[selected].RemoteServer()) {
+				if !rr.checker.BackendIsHealthy(rr.backends[selected].RemoteServer()) {
 					// use checker until get a healthy backend
 					continue
 				}
@@ -93,7 +93,7 @@ func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 
 type priorityLoadBalancerAlgo struct {
 	sync.Mutex
-	checker  healthchecker.MultipleBackendsHealthChecker
+	checker  healthchecker.Interface
 	backends []*util.RemoteProxy
 }
 
@@ -106,7 +106,7 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 		return nil
 	} else if len(prio.backends) == 1 {
 		if !yurtutil.IsNil(prio.checker) {
-			if !prio.checker.BackendHealthyStatus(prio.backends[0].RemoteServer()) {
+			if !prio.checker.BackendIsHealthy(prio.backends[0].RemoteServer()) {
 				return nil
 			}
 		}
@@ -116,7 +116,7 @@ func (prio *priorityLoadBalancerAlgo) PickOne() *util.RemoteProxy {
 		defer prio.Unlock()
 		for i := 0; i < len(prio.backends); i++ {
 			if !yurtutil.IsNil(prio.checker) {
-				if prio.checker.BackendHealthyStatus(prio.backends[i].RemoteServer()) {
+				if prio.checker.BackendIsHealthy(prio.backends[i].RemoteServer()) {
 					return prio.backends[i]
 				}
 			} else {
@@ -147,7 +147,7 @@ func NewLoadBalancer(
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
 	transportMgr transport.Interface,
-	healthChecker healthchecker.MultipleBackendsHealthChecker,
+	healthChecker healthchecker.Interface,
 	filterFinder filter.FilterFinder,
 	stopCh <-chan struct{}) (LoadBalancer, error) {
 	lb := &loadBalancer{

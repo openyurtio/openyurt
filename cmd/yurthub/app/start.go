@@ -31,6 +31,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/gc"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
 	"github.com/openyurtio/openyurt/pkg/yurthub/locallb"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy"
 	"github.com/openyurtio/openyurt/pkg/yurthub/server"
@@ -104,7 +105,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 		// 1. cache manager: used for caching response on local disk.
 		// 2. health checker: periodically check the health status of cloud kube-apiserver
 		// 3. gc: used for garbaging collect unused cache on local disk.
-		var cloudHealthChecker healthchecker.MultipleBackendsHealthChecker
+		var cloudHealthChecker healthchecker.Interface
 		var storageWrapper cachemanager.StorageWrapper
 		var cacheManager cachemanager.CacheManager
 		var err error
@@ -121,7 +122,7 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			trace++
 
 			klog.Infof("%d. create health checkers for remote servers", trace)
-			cloudHealthChecker, err = healthchecker.NewCloudAPIServerHealthChecker(cfg, ctx.Done())
+			cloudHealthChecker, err = cloudapiserver.NewCloudAPIServerHealthChecker(cfg, ctx.Done())
 			if err != nil {
 				return fmt.Errorf("could not new health checker for cloud kube-apiserver, %w", err)
 			}

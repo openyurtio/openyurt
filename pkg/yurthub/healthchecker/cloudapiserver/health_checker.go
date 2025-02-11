@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package healthchecker
+package cloudapiserver
 
 import (
 	"fmt"
@@ -29,6 +29,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
@@ -42,7 +43,7 @@ type getNodeLease func() *coordinationv1.Lease
 type cloudAPIServerHealthChecker struct {
 	sync.RWMutex
 	remoteServers     []*url.URL
-	probers           map[string]BackendProber
+	probers           map[string]healthchecker.BackendProber
 	latestLease       *coordinationv1.Lease
 	sw                cachemanager.StorageWrapper
 	remoteServerIndex int
@@ -50,9 +51,9 @@ type cloudAPIServerHealthChecker struct {
 }
 
 // NewCloudAPIServerHealthChecker returns a health checker for verifying cloud kube-apiserver status.
-func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) (MultipleBackendsHealthChecker, error) {
+func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) (healthchecker.Interface, error) {
 	hc := &cloudAPIServerHealthChecker{
-		probers:           make(map[string]BackendProber),
+		probers:           make(map[string]healthchecker.BackendProber),
 		remoteServers:     cfg.RemoteServers,
 		remoteServerIndex: 0,
 		sw:                cfg.StorageWrapper,
@@ -92,23 +93,27 @@ func (hc *cloudAPIServerHealthChecker) IsHealthy() bool {
 	return false
 }
 
-func (hc *cloudAPIServerHealthChecker) PickHealthyServer() (*url.URL, error) {
-	for server, prober := range hc.probers {
-		if prober.IsHealthy() {
-			return url.Parse(server)
+func (hc *cloudAPIServerHealthChecker) PickOneHealthyBackend() *url.URL {
+	for i := range hc.remoteServers {
+		if hc.BackendIsHealthy(hc.remoteServers[i]) {
+			return hc.remoteServers[i]
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 // BackendHealthyStatus returns the healthy stats of specified server
-func (hc *cloudAPIServerHealthChecker) BackendHealthyStatus(server *url.URL) bool {
+func (hc *cloudAPIServerHealthChecker) BackendIsHealthy(server *url.URL) bool {
 	if prober, ok := hc.probers[server.String()]; ok {
 		return prober.IsHealthy()
 	}
 	// If there is no checker for server, default unhealthy.
 	return false
+}
+
+func (hc *cloudAPIServerHealthChecker) UpdateServers(servers []*url.URL) {
+	// do nothing
 }
 
 func (hc *cloudAPIServerHealthChecker) run(stopCh <-chan struct{}) {
@@ -176,7 +181,7 @@ func (hc *cloudAPIServerHealthChecker) getLastNodeLease() *coordinationv1.Lease 
 	return hc.latestLease
 }
 
-func (hc *cloudAPIServerHealthChecker) getProber() BackendProber {
+func (hc *cloudAPIServerHealthChecker) getProber() healthchecker.BackendProber {
 	prober := hc.probers[hc.remoteServers[hc.remoteServerIndex].String()]
 	hc.remoteServerIndex = (hc.remoteServerIndex + 1) % len(hc.remoteServers)
 	return prober

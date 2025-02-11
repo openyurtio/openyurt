@@ -38,7 +38,7 @@ import (
 // RunYurtHubServers is used to start up all servers for yurthub
 func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
-	healthChecker healthchecker.MultipleBackendsHealthChecker,
+	healthChecker healthchecker.Interface,
 	stopCh <-chan struct{}) error {
 
 	hubServerHandler := mux.NewRouter()
@@ -73,7 +73,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChecker healthchecker.MultipleBackendsHealthChecker) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(cfg.CertManager)).Methods("POST", "PUT")
 

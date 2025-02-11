@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
@@ -75,7 +75,7 @@ func TestRrLoadBalancerAlgo(t *testing.T) {
 		},
 	}
 
-	checker := healthchecker.NewFakeChecker(true, map[string]int{})
+	checker := cloudapiserver.NewFakeChecker(true, map[string]int{})
 	for k, tc := range testcases {
 		backends := make([]*util.RemoteProxy, len(tc.Servers))
 		for i := range tc.Servers {
@@ -135,7 +135,7 @@ func TestRrLoadBalancerAlgoWithReverseHealthy(t *testing.T) {
 		},
 	}
 
-	checker := healthchecker.NewFakeChecker(true, map[string]int{
+	checker := cloudapiserver.NewFakeChecker(true, map[string]int{
 		"http://127.0.0.1:8080": 1,
 		"http://127.0.0.1:8081": 2,
 	})
@@ -212,7 +212,7 @@ func TestPriorityLoadBalancerAlgo(t *testing.T) {
 		},
 	}
 
-	checker := healthchecker.NewFakeChecker(true, map[string]int{})
+	checker := cloudapiserver.NewFakeChecker(true, map[string]int{})
 	for k, tc := range testcases {
 		backends := make([]*util.RemoteProxy, len(tc.Servers))
 		for i := range tc.Servers {
@@ -271,7 +271,7 @@ func TestPriorityLoadBalancerAlgoWithReverseHealthy(t *testing.T) {
 		},
 	}
 
-	checker := healthchecker.NewFakeChecker(true, map[string]int{
+	checker := cloudapiserver.NewFakeChecker(true, map[string]int{
 		"http://127.0.0.1:8080": 2,
 		"http://127.0.0.1:8081": 3})
 	for k, tc := range testcases {
