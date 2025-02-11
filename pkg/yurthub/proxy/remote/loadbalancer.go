@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -38,106 +39,141 @@ import (
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-type loadBalancerAlgo interface {
-	PickOne() *util.RemoteProxy
+// Backend defines the interface of proxy for a remote backend server.
+type Backend interface {
 	Name() string
+	RemoteServer() *url.URL
+	ServeHTTP(rw http.ResponseWriter, req *http.Request)
 }
 
-type rrLoadBalancerAlgo struct {
-	sync.Mutex
+// LoadBalancingStrategy defines the interface for different load balancing strategies.
+type LoadBalancingStrategy interface {
+	Name() string
+	PickOne() Backend
+	UpdateBackends(backends []Backend)
+}
+
+// BaseLoadBalancingStrategy provides common logic for load balancing strategies.
+type BaseLoadBalancingStrategy struct {
+	sync.RWMutex
 	checker  healthchecker.Interface
-	backends []*util.RemoteProxy
-	next     int
+	backends []Backend
 }
 
-func (rr *rrLoadBalancerAlgo) Name() string {
-	return "rr algorithm"
+// UpdateBackends updates the list of backends in a thread-safe manner.
+func (b *BaseLoadBalancingStrategy) UpdateBackends(backends []Backend) {
+	b.Lock()
+	defer b.Unlock()
+	b.backends = backends
 }
 
-func (rr *rrLoadBalancerAlgo) PickOne() *util.RemoteProxy {
+// checkAndReturnHealthyBackend checks if a backend is healthy before returning it.
+func (b *BaseLoadBalancingStrategy) checkAndReturnHealthyBackend(index int) Backend {
+	if len(b.backends) == 0 {
+		return nil
+	}
+
+	backend := b.backends[index]
+	if !yurtutil.IsNil(b.checker) && !b.checker.BackendIsHealthy(backend.RemoteServer()) {
+		return nil
+	}
+	return backend
+}
+
+// RoundRobinStrategy implements round-robin load balancing.
+type RoundRobinStrategy struct {
+	BaseLoadBalancingStrategy
+	next uint64
+}
+
+// Name returns the name of the strategy.
+func (rr *RoundRobinStrategy) Name() string {
+	return "round-robin"
+}
+
+// PickOne selects a backend using a round-robin approach.
+func (rr *RoundRobinStrategy) PickOne() Backend {
+	rr.RLock()
+	defer rr.RUnlock()
+
 	if len(rr.backends) == 0 {
 		return nil
-	} else if len(rr.backends) == 1 {
-		if !yurtutil.IsNil(rr.checker) {
-			if !rr.checker.BackendIsHealthy(rr.backends[0].RemoteServer()) {
-				return nil
-			}
-		}
-		return rr.backends[0]
-	} else {
-		// round robin
-		rr.Lock()
-		defer rr.Unlock()
-		hasFound := false
-		selected := rr.next
-		for i := 0; i < len(rr.backends); i++ {
-			selected = (rr.next + i) % len(rr.backends)
-			if !yurtutil.IsNil(rr.checker) {
-				if !rr.checker.BackendIsHealthy(rr.backends[selected].RemoteServer()) {
-					// use checker until get a healthy backend
-					continue
+	}
+
+	totalBackends := len(rr.backends)
+	// Infinite loop to handle CAS failures and ensure fair selection under high concurrency.
+	for {
+		// load the current round-robin index.
+		startIndex := int(atomic.LoadUint64(&rr.next))
+		for i := 0; i < totalBackends; i++ {
+			index := (startIndex + i) % totalBackends
+			if backend := rr.checkAndReturnHealthyBackend(index); backend != nil {
+				// attempt to update next atomically using CAS(Compare-And-Swap)
+				// if another go routine has already updated next, CAS operation will fail.
+				// if successful, next is updated to index+1 to maintain round-robin fairness.
+				if atomic.CompareAndSwapUint64(&rr.next, uint64(startIndex), uint64(index+1)) {
+					return backend
 				}
+				// CAS operation failed, meaning another go routine modified next, so break to retry the selection process.
+				break
 			}
-			hasFound = true
-			break
 		}
 
-		if hasFound {
-			rr.next = (selected + 1) % len(rr.backends)
-			return rr.backends[selected]
+		// if no healthy backend is found, exit the loop and return nil.
+		if !rr.hasHealthyBackend() {
+			return nil
+		}
+	}
+}
+
+// hasHealthyBackend checks if there is at least one healthy backend available.
+func (rr *RoundRobinStrategy) hasHealthyBackend() bool {
+	for i := range rr.backends {
+		if rr.checkAndReturnHealthyBackend(i) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// PriorityStrategy implements priority-based load balancing.
+type PriorityStrategy struct {
+	BaseLoadBalancingStrategy
+}
+
+// Name returns the name of the strategy.
+func (prio *PriorityStrategy) Name() string {
+	return "priority"
+}
+
+// PickOne selects the first available healthy backend.
+func (prio *PriorityStrategy) PickOne() Backend {
+	prio.RLock()
+	defer prio.RUnlock()
+	for i := 0; i < len(prio.backends); i++ {
+		if backend := prio.checkAndReturnHealthyBackend(i); backend != nil {
+			return backend
 		}
 	}
 
 	return nil
 }
 
-type priorityLoadBalancerAlgo struct {
-	sync.Mutex
-	checker  healthchecker.Interface
-	backends []*util.RemoteProxy
-}
-
-func (prio *priorityLoadBalancerAlgo) Name() string {
-	return "priority algorithm"
-}
-
-func (prio *priorityLoadBalancerAlgo) PickOne() *util.RemoteProxy {
-	if len(prio.backends) == 0 {
-		return nil
-	} else if len(prio.backends) == 1 {
-		if !yurtutil.IsNil(prio.checker) {
-			if !prio.checker.BackendIsHealthy(prio.backends[0].RemoteServer()) {
-				return nil
-			}
-		}
-		return prio.backends[0]
-	} else {
-		prio.Lock()
-		defer prio.Unlock()
-		for i := 0; i < len(prio.backends); i++ {
-			if !yurtutil.IsNil(prio.checker) {
-				if prio.checker.BackendIsHealthy(prio.backends[i].RemoteServer()) {
-					return prio.backends[i]
-				}
-			} else {
-				return prio.backends[i]
-			}
-		}
-		return nil
-	}
-}
-
 // LoadBalancer is an interface for proxying http request to remote server
 // based on the load balance mode(round-robin or priority)
 type LoadBalancer interface {
 	ServeHTTP(rw http.ResponseWriter, req *http.Request)
+	UpdateBackends(remoteServers []*url.URL)
+	CurrentStrategy() LoadBalancingStrategy
 }
 
 type loadBalancer struct {
-	backends      []*util.RemoteProxy
-	algo          loadBalancerAlgo
+	strategy      LoadBalancingStrategy
 	localCacheMgr cachemanager.CacheManager
 	filterFinder  filter.FilterFinder
+	transportMgr  transport.Interface
+	healthChecker healthchecker.Interface
+	mode          string
 	stopCh        <-chan struct{}
 }
 
@@ -149,55 +185,64 @@ func NewLoadBalancer(
 	transportMgr transport.Interface,
 	healthChecker healthchecker.Interface,
 	filterFinder filter.FilterFinder,
-	stopCh <-chan struct{}) (LoadBalancer, error) {
+	stopCh <-chan struct{}) LoadBalancer {
 	lb := &loadBalancer{
+		mode:          lbMode,
 		localCacheMgr: localCacheMgr,
 		filterFinder:  filterFinder,
+		transportMgr:  transportMgr,
+		healthChecker: healthChecker,
 		stopCh:        stopCh,
 	}
-	backends := make([]*util.RemoteProxy, 0, len(remoteServers))
-	for i := range remoteServers {
-		b, err := util.NewRemoteProxy(remoteServers[i], lb.modifyResponse, lb.errorHandler, transportMgr, stopCh)
-		if err != nil {
-			klog.Errorf("could not new proxy backend(%s), %v", remoteServers[i].String(), err)
-			continue
-		}
-		backends = append(backends, b)
-	}
-	if len(backends) == 0 {
-		return nil, fmt.Errorf("no backends can be used by lb")
-	}
 
-	var algo loadBalancerAlgo
-	switch lbMode {
-	case "rr":
-		algo = &rrLoadBalancerAlgo{backends: backends, checker: healthChecker}
-	case "priority":
-		algo = &priorityLoadBalancerAlgo{backends: backends, checker: healthChecker}
-	default:
-		algo = &rrLoadBalancerAlgo{backends: backends, checker: healthChecker}
-	}
+	// initialize backends
+	lb.UpdateBackends(remoteServers)
 
-	lb.backends = backends
-	lb.algo = algo
-
-	return lb, nil
+	return lb
 }
 
+// UpdateBackends dynamically updates the list of remote servers.
+func (lb *loadBalancer) UpdateBackends(remoteServers []*url.URL) {
+	newBackends := make([]Backend, 0, len(remoteServers))
+	for _, server := range remoteServers {
+		proxy, err := util.NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr, lb.stopCh)
+		if err != nil {
+			klog.Errorf("could not create proxy for backend %s, %v", server.String(), err)
+			continue
+		}
+		newBackends = append(newBackends, proxy)
+	}
+
+	if lb.strategy == nil {
+		switch lb.mode {
+		case "priority":
+			lb.strategy = &PriorityStrategy{BaseLoadBalancingStrategy{checker: lb.healthChecker}}
+		default:
+			lb.strategy = &RoundRobinStrategy{BaseLoadBalancingStrategy{checker: lb.healthChecker}, 0}
+		}
+	}
+
+	lb.strategy.UpdateBackends(newBackends)
+}
+
+func (lb *loadBalancer) CurrentStrategy() LoadBalancingStrategy {
+	return lb.strategy
+}
+
+// ServeHTTP forwards the request to a backend.
 func (lb *loadBalancer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// pick a remote proxy based on the load balancing algorithm.
-	rp := lb.algo.PickOne()
+	rp := lb.strategy.PickOne()
 	if rp == nil {
-		// exceptional case
-		klog.Errorf("could not pick one healthy backends by %s for request %s", lb.algo.Name(), hubutil.ReqString(req))
-		http.Error(rw, "could not pick one healthy backends, try again to go through local proxy.", http.StatusInternalServerError)
+		klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
+		http.Error(rw, "no healthy backends available.", http.StatusBadGateway)
 		return
 	}
-	klog.V(3).Infof("picked backend %s by %s for request %s", rp.Name(), lb.algo.Name(), hubutil.ReqString(req))
+	klog.V(3).Infof("forwarding request %s to backend %s", hubutil.ReqString(req), rp.Name())
 
 	rp.ServeHTTP(rw, req)
 }
 
+// errorHandler handles errors and tries to serve from local cache.
 func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 	klog.Errorf("remote proxy error handler: %s, %v", hubutil.ReqString(req), err)
 	if lb.localCacheMgr == nil || !lb.localCacheMgr.CanCacheFor(req) {

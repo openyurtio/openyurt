@@ -111,10 +111,12 @@ func TestHealthyCheck(t *testing.T) {
 		t.Fatalf("failed to make temp dir, %v", err)
 	}
 	nodeName := "foo"
-	servers := map[string]int{"https://10.10.10.113:6443": 2}
+	servers := map[*url.URL]bool{
+		{Host: "10.10.10.113:6443"}: false,
+	}
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
-	fakeHealthchecker := cloudapiserver.NewFakeChecker(false, servers)
+	fakeHealthchecker := cloudapiserver.NewFakeChecker(servers)
 
 	client, err := testdata.CreateCertFakeClient("../certificate/testdata")
 	if err != nil {

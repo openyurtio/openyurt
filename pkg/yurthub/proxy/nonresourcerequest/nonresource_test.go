@@ -64,7 +64,10 @@ func TestLocalCacheHandler(t *testing.T) {
 
 	sw := cachemanager.NewStorageWrapper(dStorage)
 	//u, _ := url.Parse("https://10.10.10.113:6443")
-	fakeHealthChecker := cloudapiserver.NewFakeChecker(false, nil)
+	servers := map[*url.URL]bool{
+		{Host: "10.10.10.113:6443"}: false,
+	}
+	fakeHealthChecker := cloudapiserver.NewFakeChecker(servers)
 
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}

@@ -70,7 +70,7 @@ func NewYurtReverseProxyHandler(
 	}
 	resolver := server.NewRequestInfoResolver(cfg)
 
-	lb, err := remote.NewLoadBalancer(
+	lb := remote.NewLoadBalancer(
 		yurtHubCfg.LBMode,
 		yurtHubCfg.RemoteServers,
 		localCacheMgr,
@@ -78,9 +78,6 @@ func NewYurtReverseProxyHandler(
 		cloudHealthChecker,
 		yurtHubCfg.FilterFinder,
 		stopCh)
-	if err != nil {
-		return nil, err
-	}
 
 	var localProxy, autonomyProxy http.Handler
 	if !yurtutil.IsNil(cloudHealthChecker) && !yurtutil.IsNil(localCacheMgr) {
