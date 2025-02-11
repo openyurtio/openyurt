@@ -729,6 +729,58 @@ func TestReconcile(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		"enable pool scope metadata changed": {
+			pool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "shanghai",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
+					Labels: map[string]string{
+						"region": "shanghai",
+					},
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyMark),
+					LeaderReplicas:         2,
+					LeaderNodeLabelSelector: map[string]string{
+						"apps.openyurt.io/leader": "true",
+					},
+					EnablePoolScopeMetadata: false, // leaders should be dropped
+				},
+				Status: appsv1beta2.NodePoolStatus{
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP and marked as leader",
+							Address:  "10.0.0.2",
+						},
+						{
+							NodeName: "ready with internal IP and marked as 2nd leader",
+							Address:  "10.0.0.5",
+						},
+					},
+				},
+			},
+			expectedNodePool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "shanghai",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
+					Labels: map[string]string{
+						"region": "shanghai",
+					},
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyMark),
+					LeaderReplicas:         2,
+					LeaderNodeLabelSelector: map[string]string{
+						"apps.openyurt.io/leader": "true",
+					},
+					EnablePoolScopeMetadata: false,
+				},
+				Status: appsv1beta2.NodePoolStatus{
+					LeaderEndpoints: nil,
+				},
+			},
+			expectErr: false,
+		},
 	}
 
 	ctx := context.TODO()

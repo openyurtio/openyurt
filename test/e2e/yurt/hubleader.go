@@ -134,6 +134,21 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		return configMap.Data
 	}
 
+	resetNodePool := func() error {
+		pool := &v1beta2.NodePool{}
+		err := k8sClient.Get(
+			ctx,
+			client.ObjectKey{Name: nodePoolName},
+			pool,
+		)
+		if err != nil {
+			return err
+		}
+
+		pool.Spec.EnablePoolScopeMetadata = false
+		return k8sClient.Update(ctx, pool)
+	}
+
 	BeforeEach(func() {
 		By("Place workers 3 and 4 in the same node pool")
 		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
@@ -146,7 +161,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 				Spec: v1beta2.NodePoolSpec{
 					Type:                    v1beta2.Edge,
 					InterConnectivity:       true,
-					EnablePoolScopeMetadata: true,
+					EnablePoolScopeMetadata: false,
 				},
 			},
 			Nodes: sets.New("openyurt-e2e-test-worker3", "openyurt-e2e-test-worker4"),
@@ -156,12 +171,16 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			func() error {
 				return util.InitTestNodePool(ctx, k8sClient, pools)
 			},
-			time.Second*90, time.Millisecond*500).Should(BeNil())
+			time.Second*30, time.Millisecond*500).Should(BeNil())
 	})
 
-	AfterEach(func() {})
+	AfterEach(func() {
+		Eventually(
+			resetNodePool(),
+			time.Second*30, time.Millisecond*500).Should(BeNil())
+	})
 
-	Context("random Strategy", func() {
+	Context("Random strategy", func() {
 		It("should elect 2 desired hub leaders correctly", Serial, func() {
 			By("Update the node pool spec with random election strategy and 2 desired leader replicas")
 			Eventually(
@@ -177,7 +196,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 						},
 					),
 				),
-				time.Second*90, time.Millisecond*500).Should(BeNil())
+				time.Second*30, time.Millisecond*500).Should(BeNil())
 
 			expectedLeaders := getExpectedLeaders(pools)
 
@@ -185,17 +204,17 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			By("Check leader endpoints have been set correctly in the nodepool")
 			Eventually(
 				getActualLeaders(),
-				time.Second*90, time.Millisecond*500).Should(Equal(expectedLeaders))
+				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
 
 			// Check leader config map
 			By("Check leader config map contains the correct leader information")
 			Eventually(
 				getActualLeaderConfig(),
-				time.Second*90, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
+				time.Second*30, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
 		})
 	})
 
-	Context("mark Strategy", func() {
+	Context("Mark strategy", func() {
 		It("should elect the marked node correctly", Serial, func() {
 			By("Update the node pool spec with mark election strategy and worker 3 as the marked leader")
 			Eventually(
@@ -214,7 +233,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 						},
 					),
 				),
-				time.Second*90, time.Millisecond*500).Should(BeNil())
+				time.Second*30, time.Millisecond*500).Should(BeNil())
 
 			// Remove worker 4 from the test pool and generate expected leaders
 			pools.Nodes.Delete("openyurt-e2e-test-worker4")
@@ -224,12 +243,12 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			By("Check leader endpoints have been set to worker 3")
 			Eventually(
 				getActualLeaders(),
-				time.Second*90, time.Millisecond*500).Should(Equal(expectedLeaders))
+				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
 
 			By("Check leader config map contains worker 3 as the leader")
 			Eventually(
 				getActualLeaderConfig(),
-				time.Second*90, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
+				time.Second*30, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
 		})
 	})
 })

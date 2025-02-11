@@ -93,10 +93,7 @@ func InitTestNodePool(
 	pool TestNodePool,
 ) error {
 	err := k8sClient.Create(ctx, &pool.NodePool)
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			return nil
-		}
+	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
