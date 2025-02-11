@@ -85,9 +85,13 @@ func (c *ClusterConverter) Run() error {
 		return err
 	}
 
-	klog.Info("Running jobs for convert. Job running may take a long time, and job failure will not affect the execution of the next stage")
+	klog.Info(
+		"Running jobs for convert. Job running may take a long time, and job failure will not affect the execution of the next stage",
+	)
 
-	klog.Info("Running node-servant-convert jobs to deploy the yurt-hub and reset the kubelet service on edge and cloud nodes")
+	klog.Info(
+		"Running node-servant-convert jobs to deploy the yurt-hub and reset the kubelet service on edge and cloud nodes",
+	)
 	if err := c.installYurthubByHelm(); err != nil {
 		klog.Errorf("error occurs when deploying Yurthub, %v", err)
 		c.dumpYurtManagerLog()
@@ -104,7 +108,7 @@ func (c *ClusterConverter) labelEdgeNodes() error {
 	for _, node := range nodeLst.Items {
 		isEdge := strutil.IsInStringLst(c.EdgeNodes, node.Name)
 		if _, err = kubeutil.AddEdgeWorkerLabelAndAutonomyAnnotation(
-			c.ClientSet, &node, strconv.FormatBool(isEdge), "false"); err != nil {
+			c.ClientSet, &node, strconv.FormatBool(isEdge), "0"); err != nil {
 			return fmt.Errorf("failed to add label to edge node %s, %w", node.Name, err)
 		}
 	}
@@ -120,7 +124,16 @@ func (c *ClusterConverter) installYurthubByHelm() error {
 	tag := imageTagParts[1]
 
 	// create the yurthub-cloud and yurthub yss
-	cmd := exec.Command(helmPath, "install", "yurthub", yurthubChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("kubernetesServerAddr=KUBERNETES_SERVER_ADDRESS,image.tag=%s", tag))
+	cmd := exec.Command(
+		helmPath,
+		"install",
+		"yurthub",
+		yurthubChartPath,
+		"--namespace",
+		"kube-system",
+		"--set",
+		fmt.Sprintf("kubernetesServerAddr=KUBERNETES_SERVER_ADDRESS,image.tag=%s", tag),
+	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("couldn't install yurthub, %v, %s", err, string(output))
@@ -148,7 +161,9 @@ func (c *ClusterConverter) installYurthubByHelm() error {
 			// print logs of yurthub
 			for i := range c.EdgeNodes {
 				hubPodName := fmt.Sprintf("yurt-hub-%s", c.EdgeNodes[i])
-				pod, logErr := c.ClientSet.CoreV1().Pods("kube-system").Get(context.TODO(), hubPodName, metav1.GetOptions{})
+				pod, logErr := c.ClientSet.CoreV1().
+					Pods("kube-system").
+					Get(context.TODO(), hubPodName, metav1.GetOptions{})
 				if logErr == nil {
 					kubeutil.DumpPod(c.ClientSet, pod, os.Stderr)
 				}
@@ -188,7 +203,9 @@ func prepareYurthubStart(cliSet kubeclientset.Interface, kcfg string) (string, e
 
 // prepareClusterInfoConfigMap will create cluster-info configmap in kube-public namespace if it does not exist
 func prepareClusterInfoConfigMap(client kubeclientset.Interface, file string) error {
-	info, err := client.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
+	info, err := client.CoreV1().
+		ConfigMaps(metav1.NamespacePublic).
+		Get(context.Background(), bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// Create the cluster-info ConfigMap with the associated RBAC rules
 		if err := kubeadmapi.CreateBootstrapConfigMapIfNotExists(client, file); err != nil {
@@ -213,7 +230,18 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 	imageTagParts := strings.Split(parts[len(parts)-1], ":")
 	tag := imageTagParts[1]
 
-	cmd := exec.Command(helmPath, "install", "yurt-manager", yurtManagerChartPath, "--namespace", "kube-system", "--set", fmt.Sprintf("image.tag=%s", tag), "--set", "log.level=5")
+	cmd := exec.Command(
+		helmPath,
+		"install",
+		"yurt-manager",
+		yurtManagerChartPath,
+		"--namespace",
+		"kube-system",
+		"--set",
+		fmt.Sprintf("image.tag=%s", tag),
+		"--set",
+		"log.level=5",
+	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		klog.Errorf("couldn't install yurt-manager, %v", err)
