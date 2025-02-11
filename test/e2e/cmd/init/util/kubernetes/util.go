@@ -56,9 +56,13 @@ var (
 	CheckServantJobPeriod = time.Second * 10
 )
 
-func AddEdgeWorkerLabelAndAutonomyAnnotation(cliSet kubeclientset.Interface, node *corev1.Node, lVal, aVal string) (*corev1.Node, error) {
+func AddEdgeWorkerLabelAndAutonomyAnnotation(
+	cliSet kubeclientset.Interface,
+	node *corev1.Node,
+	lVal, aVal string,
+) (*corev1.Node, error) {
 	node.Labels[projectinfo.GetEdgeWorkerLabelKey()] = lVal
-	node.Annotations[projectinfo.GetAutonomyAnnotation()] = aVal
+	node.Annotations[projectinfo.GetNodeAutonomyDurationAnnotation()] = aVal
 	newNode, err := cliSet.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, err
@@ -86,7 +90,9 @@ func RunJobAndCleanup(cliSet kubeclientset.Interface, job *batchv1.Job, timeout,
 
 func jobIsCompleted(clientset kubeclientset.Interface, job *batchv1.Job) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
-		newJob, err := clientset.BatchV1().Jobs(job.GetNamespace()).Get(context.Background(), job.GetName(), metav1.GetOptions{})
+		newJob, err := clientset.BatchV1().
+			Jobs(job.GetNamespace()).
+			Get(context.Background(), job.GetName(), metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, err
@@ -131,7 +137,15 @@ func DumpPod(client kubeclientset.Interface, pod *corev1.Pod, w io.Writer) error
 	}
 
 	for _, event := range eventList.Items {
-		klog.Infof("Pod(%s/%s) Event: %v, Type: %v, Reason: %v, Message: %v", pod.Namespace, pod.Name, event.Name, event.Type, event.Reason, event.Message)
+		klog.Infof(
+			"Pod(%s/%s) Event: %v, Type: %v, Reason: %v, Message: %v",
+			pod.Namespace,
+			pod.Name,
+			event.Name,
+			event.Type,
+			event.Reason,
+			event.Message,
+		)
 	}
 
 	return nil
@@ -258,5 +272,6 @@ func usagesAndGroupsAreValid(token *bootstraptokenv1.BootstrapToken) bool {
 		return true
 	}
 
-	return sliceEqual(token.Usages, kubeadmconstants.DefaultTokenUsages) && sliceEqual(token.Groups, kubeadmconstants.DefaultTokenGroups)
+	return sliceEqual(token.Usages, kubeadmconstants.DefaultTokenUsages) &&
+		sliceEqual(token.Groups, kubeadmconstants.DefaultTokenGroups)
 }
