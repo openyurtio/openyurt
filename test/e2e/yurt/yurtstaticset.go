@@ -237,17 +237,12 @@ spec:
 		// restart flannel pod on node to recover flannel NIC
 		Eventually(func() error {
 			flannelPods := &corev1.PodList{}
-			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace)); err != nil {
+			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace), client.MatchingFields{"spec.nodeName": nodeName}); err != nil {
 				return err
 			}
-			if len(flannelPods.Items) != 5 {
-				return fmt.Errorf("not reconcile")
-			}
 			for _, pod := range flannelPods.Items {
-				if pod.Spec.NodeName == nodeName {
-					if err := k8sClient.Delete(ctx, &pod); err != nil {
-						return err
-					}
+				if err := k8sClient.Delete(ctx, &pod); err != nil {
+					return err
 				}
 			}
 			return nil

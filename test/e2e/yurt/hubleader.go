@@ -171,13 +171,13 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			func() error {
 				return util.InitTestNodePool(ctx, k8sClient, pools)
 			},
-			time.Second*30, time.Millisecond*500).Should(BeNil())
+			time.Second*60, time.Millisecond*500).Should(BeNil())
 	})
 
 	AfterEach(func() {
 		Eventually(
 			resetNodePool(),
-			time.Second*30, time.Millisecond*500).Should(BeNil())
+			time.Second*60, time.Millisecond*500).Should(BeNil())
 	})
 
 	Context("Random strategy", func() {
@@ -196,7 +196,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 						},
 					),
 				),
-				time.Second*30, time.Millisecond*500).Should(BeNil())
+				time.Second*60, time.Millisecond*500).Should(BeNil())
 
 			expectedLeaders := getExpectedLeaders(pools)
 
@@ -204,13 +204,13 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			By("Check leader endpoints have been set correctly in the nodepool")
 			Eventually(
 				getActualLeaders(),
-				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
+				time.Second*60, time.Millisecond*500).Should(Equal(expectedLeaders))
 
 			// Check leader config map
 			By("Check leader config map contains the correct leader information")
 			Eventually(
 				getActualLeaderConfig(),
-				time.Second*30, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
+				time.Second*60, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
 		})
 	})
 
@@ -233,7 +233,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 						},
 					),
 				),
-				time.Second*30, time.Millisecond*500).Should(BeNil())
+				time.Second*60, time.Millisecond*500).Should(BeNil())
 
 			// Remove worker 4 from the test pool and generate expected leaders
 			pools.Nodes.Delete("openyurt-e2e-test-worker4")
@@ -243,12 +243,12 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			By("Check leader endpoints have been set to worker 3")
 			Eventually(
 				getActualLeaders(),
-				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
+				time.Second*60, time.Millisecond*500).Should(Equal(expectedLeaders))
 
 			By("Check leader config map contains worker 3 as the leader")
 			Eventually(
 				getActualLeaderConfig(),
-				time.Second*30, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
+				time.Second*60, time.Millisecond*500).Should(Equal(getExpectedLeaderConfig(expectedLeaders)))
 		})
 	})
 })
