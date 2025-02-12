@@ -103,7 +103,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		expectedLeaderConfig["leaders"] = strings.Join(leaderEndpoints, ",")
 		expectedLeaderConfig["pool-scoped-metadata"] = "core/v1/services,discovery.k8s.io/v1/endpointslices"
 		expectedLeaderConfig["interconnectivity"] = "true"
-		expectedLeaderConfig["enable-pool-scoped-metadata"] = "true"
+		expectedLeaderConfig["enable-leader-election"] = "true"
 
 		return expectedLeaderConfig
 	}
@@ -144,7 +144,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		if err != nil {
 			return err
 		}
-		pool.Spec.EnablePoolScopeMetadata = false
+		pool.Spec.EnableLeaderElection = false
 
 		return k8sClient.Update(ctx, pool)
 	}
@@ -159,9 +159,9 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 					Name: nodePoolName,
 				},
 				Spec: v1beta2.NodePoolSpec{
-					Type:                    v1beta2.Edge,
-					InterConnectivity:       true,
-					EnablePoolScopeMetadata: false,
+					Type:                 v1beta2.Edge,
+					InterConnectivity:    true,
+					EnableLeaderElection: false,
 				},
 			},
 			Nodes: sets.New("openyurt-e2e-test-worker3", "openyurt-e2e-test-worker4"),
@@ -189,11 +189,11 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 					updateNodePoolSpec(
 						k8sClient,
 						v1beta2.NodePoolSpec{
-							LeaderElectionStrategy:  string(v1beta2.ElectionStrategyRandom),
-							LeaderReplicas:          2,
-							Type:                    v1beta2.Edge,
-							InterConnectivity:       true,
-							EnablePoolScopeMetadata: true,
+							LeaderElectionStrategy: string(v1beta2.ElectionStrategyRandom),
+							LeaderReplicas:         2,
+							Type:                   v1beta2.Edge,
+							InterConnectivity:      true,
+							EnableLeaderElection:   true,
 						},
 					),
 				),
@@ -229,9 +229,9 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 							LeaderNodeLabelSelector: map[string]string{
 								"kubernetes.io/hostname": "openyurt-e2e-test-worker3", // Mark
 							},
-							Type:                    v1beta2.Edge,
-							InterConnectivity:       true,
-							EnablePoolScopeMetadata: true,
+							Type:                 v1beta2.Edge,
+							InterConnectivity:    true,
+							EnableLeaderElection: true,
 						},
 					),
 				),

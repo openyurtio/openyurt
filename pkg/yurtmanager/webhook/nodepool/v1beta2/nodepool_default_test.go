@@ -550,7 +550,7 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
-		"nodepool doesn't have enable scope metadata": {
+		"nodepool doesn't have enable leader election enabled": {
 			obj: &v1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -559,11 +559,11 @@ func TestDefault(t *testing.T) {
 					},
 				},
 				Spec: v1beta2.NodePoolSpec{
-					HostNetwork:             true,
-					Type:                    v1beta2.Cloud,
-					LeaderElectionStrategy:  string(v1beta2.ElectionStrategyMark),
-					LeaderReplicas:          3,
-					EnablePoolScopeMetadata: false,
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
+					EnableLeaderElection:   false,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
 							Group:    "discovery.k8s.io",
@@ -582,11 +582,11 @@ func TestDefault(t *testing.T) {
 					},
 				},
 				Spec: v1beta2.NodePoolSpec{
-					HostNetwork:             true,
-					Type:                    v1beta2.Cloud,
-					LeaderElectionStrategy:  string(v1beta2.ElectionStrategyMark),
-					LeaderReplicas:          3,
-					EnablePoolScopeMetadata: false,
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
+					EnableLeaderElection:   false,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
 							Group:    "discovery.k8s.io",

@@ -248,9 +248,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
-					LeaderReplicas:          1,
-					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:         1,
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
+					EnableLeaderElection:   true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -262,9 +262,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
-					LeaderReplicas:          1,
-					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:         1,
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
+					EnableLeaderElection:   true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -291,8 +291,8 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					LeaderReplicas:          2,
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:       2,
+					EnableLeaderElection: true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -308,8 +308,8 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
-					LeaderReplicas:          2,
+					EnableLeaderElection: true,
+					LeaderReplicas:       2,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -340,7 +340,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -356,12 +356,12 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 			},
 			expectErr: false,
 		},
-		"enable pool scope metadata false with mark strategy": {
+		"enable leader election is false with mark strategy": {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
@@ -375,7 +375,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false, // should not change nodepool
+					EnableLeaderElection: false, // should not change nodepool
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -391,12 +391,12 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false,
+					EnableLeaderElection: false,
 				},
 			},
 			expectErr: false,
 		},
-		"enable pool scope metadata false with random strategy": {
+		"enable leader election is false with random strategy": {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "hangzhou",
@@ -410,7 +410,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false, // should not change nodepool
+					EnableLeaderElection: false, // should not change nodepool
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -426,7 +426,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false,
+					EnableLeaderElection: false,
 				},
 			},
 			expectErr: false,
@@ -441,9 +441,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
-					LeaderReplicas:          1,
-					LeaderElectionStrategy:  "", // invalid strategy
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:         1,
+					LeaderElectionStrategy: "", // invalid strategy
+					EnableLeaderElection:   true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -455,9 +455,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "hangzhou",
 					},
-					LeaderReplicas:          1,
-					LeaderElectionStrategy:  "",
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:         1,
+					LeaderElectionStrategy: "",
+					EnableLeaderElection:   true,
 				},
 			},
 			expectErr: true,
@@ -476,8 +476,8 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					LeaderReplicas:          1, // set to 1 as there's 2 possible leaders in pool
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:       1, // set to 1 as there's 2 possible leaders in pool
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -501,8 +501,8 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					LeaderReplicas:          1,
-					EnablePoolScopeMetadata: true,
+					LeaderReplicas:       1,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -530,7 +530,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -559,7 +559,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -591,7 +591,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -608,7 +608,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -635,9 +635,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "shanghai",
 					},
-					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
-					LeaderReplicas:          3, // higher than number of available leaders
-					EnablePoolScopeMetadata: true,
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
+					LeaderReplicas:         3, // higher than number of available leaders
+					EnableLeaderElection:   true,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -649,9 +649,9 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						"region": "shanghai",
 					},
-					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyRandom),
-					LeaderReplicas:          3,
-					EnablePoolScopeMetadata: true,
+					LeaderElectionStrategy: string(appsv1beta2.ElectionStrategyRandom),
+					LeaderReplicas:         3,
+					EnableLeaderElection:   true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -687,7 +687,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -716,7 +716,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: true,
+					EnableLeaderElection: true,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -729,7 +729,7 @@ func TestReconcile(t *testing.T) {
 			},
 			expectErr: false,
 		},
-		"enable pool scope metadata changed": {
+		"enable leader election changed": {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shanghai",
@@ -744,7 +744,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false, // leaders should be dropped
+					EnableLeaderElection: false, // leaders should be dropped
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: []appsv1beta2.Leader{
@@ -773,7 +773,7 @@ func TestReconcile(t *testing.T) {
 					LeaderNodeLabelSelector: map[string]string{
 						"apps.openyurt.io/leader": "true",
 					},
-					EnablePoolScopeMetadata: false,
+					EnableLeaderElection: false,
 				},
 				Status: appsv1beta2.NodePoolStatus{
 					LeaderEndpoints: nil,

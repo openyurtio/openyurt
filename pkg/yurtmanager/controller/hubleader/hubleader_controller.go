@@ -93,13 +93,13 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			// 1. Leader election strategy has changed
 			// 2. Leader replicas has changed
 			// 3. Node readiness count has changed
-			// 4. Enable Pool Scope Metadata has changed
+			// 4. Enable leader elections has changed
 			// 5. Leader node label selector has changed (if mark strategy)
 			if oldPool.Spec.LeaderElectionStrategy != newPool.Spec.LeaderElectionStrategy ||
 				oldPool.Spec.LeaderReplicas != newPool.Spec.LeaderReplicas ||
 				oldPool.Status.ReadyNodeNum != newPool.Status.ReadyNodeNum ||
 				oldPool.Status.UnreadyNodeNum != newPool.Status.UnreadyNodeNum ||
-				oldPool.Spec.EnablePoolScopeMetadata != newPool.Spec.EnablePoolScopeMetadata ||
+				oldPool.Spec.EnableLeaderElection != newPool.Spec.EnableLeaderElection ||
 				(oldPool.Spec.LeaderElectionStrategy == string(appsv1beta2.ElectionStrategyMark) &&
 					!maps.Equal(oldPool.Spec.LeaderNodeLabelSelector, newPool.Spec.LeaderNodeLabelSelector)) {
 				return true
@@ -158,7 +158,7 @@ func (r *ReconcileHubLeader) Reconcile(ctx context.Context, request reconcile.Re
 }
 
 func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *appsv1beta2.NodePool) error {
-	if !nodepool.Spec.EnablePoolScopeMetadata {
+	if !nodepool.Spec.EnableLeaderElection {
 		if len(nodepool.Status.LeaderEndpoints) == 0 {
 			return nil
 		}

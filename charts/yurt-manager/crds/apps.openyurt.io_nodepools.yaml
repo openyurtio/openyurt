@@ -337,10 +337,12 @@ spec:
                     If specified, the Annotations will be added to all nodes.
                     NOTE: existing labels with samy keys on the nodes will be overwritten.
                   type: object
-                enablePoolScopeMetadata:
+                enableLeaderElection:
                   description: |-
-                    EnablePoolScopeMetadata is used for specifying whether to enable pool scope metadata
-                    for the nodepool. If the field is not specified, the default value is false.
+                    EnableLeaderElection is used for specifying whether to enable a leader elections
+                    for the nodepool. Leaders within the nodepool are elected using the election strategy and leader replicas.
+                    LeaderNodeLabelSelector, LeaderElectionStrategy and LeaderReplicas are only valid when this is true.
+                    If the field is not specified, the default value is false.
                   type: boolean
                 hostNetwork:
                   description: |-
@@ -386,8 +388,9 @@ spec:
                   type: integer
                 poolScopeMetadata:
                   description: |-
-                    PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
-                    And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
+                    PoolScopeMetadata is used for defining requests for pool scoped metadata which will be aggregated
+                    by each node or leader in nodepool (when EnableLeaderElection is set true).
+                    This field can be modified. The default value is v1.services and discovery.endpointslices.
                   items:
                     description: |-
                       GroupVersionResource unambiguously identifies a resource.  It doesn't anonymously include GroupVersion

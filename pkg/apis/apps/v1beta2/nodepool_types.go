@@ -81,12 +81,15 @@ type NodePoolSpec struct {
 	// elected from nodes that filtered by this label selector.
 	LeaderNodeLabelSelector map[string]string `json:"leaderNodeLabelSelector,omitempty"`
 
-	// EnablePoolScopeMetadata is used for specifying whether to enable pool scope metadata
-	// for the nodepool. If the field is not specified, the default value is false.
-	EnablePoolScopeMetadata bool `json:"enablePoolScopeMetadata,omitempty"`
+	// EnableLeaderElection is used for specifying whether to enable a leader elections
+	// for the nodepool. Leaders within the nodepool are elected using the election strategy and leader replicas.
+	// LeaderNodeLabelSelector, LeaderElectionStrategy and LeaderReplicas are only valid when this is true.
+	// If the field is not specified, the default value is false.
+	EnableLeaderElection bool `json:"enableLeaderElection,omitempty"`
 
-	// PoolScopeMetadata is used for specifying resources which will be shared in the nodepool.
-	// And it is supported to modify dynamically. and the default value is v1.Service and discovery.Endpointslice.
+	// PoolScopeMetadata is used for defining requests for pool scoped metadata which will be aggregated
+	// by each node or leader in nodepool (when EnableLeaderElection is set true).
+	// This field can be modified. The default value is v1.services and discovery.endpointslices.
 	PoolScopeMetadata []metav1.GroupVersionResource `json:"poolScopeMetadata,omitempty"`
 
 	// LeaderReplicas is used for specifying the number of leader replicas in the nodepool.
