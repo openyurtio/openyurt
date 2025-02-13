@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package yurtappset
+package fuzz
 
 import (
 	"context"
@@ -34,8 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
-	appsv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1alpha1"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/adapter"
+	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/workloadmanager"
 )
 
 var (
@@ -45,7 +46,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(fakeSchemeForFuzzing)
-	_ = appsv1alpha1.AddToScheme(fakeSchemeForFuzzing)
+	_ = appsv1beta1.AddToScheme(fakeSchemeForFuzzing)
 	_ = corev1.AddToScheme(fakeSchemeForFuzzing)
 }
 
@@ -90,7 +91,7 @@ func FuzzAppSetReconcile(data []byte) int {
 		return 0
 	}
 
-	appset := &appsv1alpha1.YurtAppSet{}
+	appset := &appsv1beta1.YurtAppSet{}
 	if err := f.GenerateStruct(appset); err != nil {
 		return 0
 	}
@@ -99,15 +100,13 @@ func FuzzAppSetReconcile(data []byte) int {
 		appset,
 	).Build()
 
-	r := &ReconcileYurtAppSet{
+	r := &yurtappset.ReconcileYurtAppSet{
 		Client:   clientFake,
 		scheme:   fakeSchemeForFuzzing,
 		recorder: record.NewFakeRecorder(10000),
-		poolControls: map[appsv1alpha1.TemplateType]ControlInterface{
-			appsv1alpha1.StatefulSetTemplateType: &PoolControl{Client: clientFake, scheme: fakeSchemeForFuzzing,
-				adapter: &adapter.StatefulSetAdapter{Client: clientFake, Scheme: fakeSchemeForFuzzing}},
-			appsv1alpha1.DeploymentTemplateType: &PoolControl{Client: clientFake, scheme: fakeSchemeForFuzzing,
-				adapter: &adapter.DeploymentAdapter{Client: clientFake, Scheme: fakeSchemeForFuzzing}},
+		workloadmanager: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
+			workloadmanager.StatefulSetTemplateType: &workloadmanager.StatefulSetManager{Client: clientFake, scheme: fakeSchemeForFuzzing},
+			workloadmanager.DeploymentTemplateType:  &workloadmanager.DeploymentManager{Client: clientFake, scheme: fakeSchemeForFuzzing},
 		},
 	}
 
