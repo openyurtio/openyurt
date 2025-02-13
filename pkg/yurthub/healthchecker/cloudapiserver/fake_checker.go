@@ -23,42 +23,37 @@ import (
 )
 
 type fakeChecker struct {
-	healthy  bool
-	settings map[string]int
+	servers map[*url.URL]bool
 }
 
 // BackendHealthyStatus returns healthy status of server
 func (fc *fakeChecker) BackendIsHealthy(server *url.URL) bool {
-	s := server.String()
-	if _, ok := fc.settings[s]; !ok {
-		return fc.healthy
+	if server != nil {
+		for s, healthy := range fc.servers {
+			if s.Host == server.Host {
+				return healthy
+			}
+		}
 	}
-
-	if fc.settings[s] < 0 {
-		return fc.healthy
-	}
-
-	if fc.settings[s] == 0 {
-		return !fc.healthy
-	}
-
-	fc.settings[s] = fc.settings[s] - 1
-	return fc.healthy
+	return false
 }
 
 func (fc *fakeChecker) IsHealthy() bool {
-	return fc.healthy
+	for _, isHealthy := range fc.servers {
+		if isHealthy {
+			return true
+		}
+	}
+	return false
 }
 
 func (fc *fakeChecker) RenewKubeletLeaseTime() {
 }
 
 func (fc *fakeChecker) PickOneHealthyBackend() *url.URL {
-	for server := range fc.settings {
-		if fc.healthy {
-			if u, err := url.Parse(server); err == nil {
-				return u
-			}
+	for u, isHealthy := range fc.servers {
+		if isHealthy {
+			return u
 		}
 	}
 
@@ -70,9 +65,8 @@ func (fc *fakeChecker) UpdateServers(servers []*url.URL) {
 }
 
 // NewFakeChecker creates a fake checker
-func NewFakeChecker(healthy bool, settings map[string]int) healthchecker.Interface {
+func NewFakeChecker(servers map[*url.URL]bool) healthchecker.Interface {
 	return &fakeChecker{
-		settings: settings,
-		healthy:  healthy,
+		servers: servers,
 	}
 }
