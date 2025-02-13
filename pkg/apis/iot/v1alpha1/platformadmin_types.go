@@ -103,7 +103,7 @@ type PlatformAdminCondition struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,path=platformadmins,shortName=pa,categories=all
+// +kubebuilder:resource:scope=Namespaced,path=platformadmins,shortName=pa,categories=yurt
 // +kubebuilder:printcolumn:name="READY",type="boolean",JSONPath=".status.ready",description="The platform ready status"
 // +kubebuilder:printcolumn:name="Service",type="integer",JSONPath=".status.serviceReplicas",description="The Service Replica."
 // +kubebuilder:printcolumn:name="ReadyService",type="integer",JSONPath=".status.serviceReadyReplicas",description="The Ready Service Replica."

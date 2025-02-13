@@ -8,7 +8,7 @@ spec:
   group: apps.openyurt.io
   names:
     categories:
-      - all
+      - yurt
     kind: NodePool
     listKind: NodePoolList
     plural: nodepools

@@ -8,7 +8,7 @@ spec:
   group: iot.openyurt.io
   names:
     categories:
-    - all
+    - yurt
     kind: PlatformAdmin
     listKind: PlatformAdminList
     plural: platformadmins

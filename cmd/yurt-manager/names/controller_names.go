@@ -24,7 +24,6 @@ const (
 	ServiceTopologyEndpointsController     = "service-topology-endpoints-controller"
 	ServiceTopologyEndpointSliceController = "service-topology-endpointslice-controller"
 	YurtAppSetController                   = "yurt-app-set-controller"
-	YurtAppDaemonController                = "yurt-app-daemon-controller"
 	YurtStaticSetController                = "yurt-static-set-controller"
 	YurtCoordinatorCertController          = "yurt-coordinator-cert-controller"
 	DelegateLeaseController                = "delegate-lease-controller"
@@ -50,7 +49,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"servicetopologyendpoints":      ServiceTopologyEndpointsController,
 		"servicetopologyendpointslices": ServiceTopologyEndpointSliceController,
 		"yurtappset":                    YurtAppSetController,
-		"yurtappdaemon":                 YurtAppDaemonController,
 		"yurtstaticset":                 YurtStaticSetController,
 		"yurtcoordinatorcert":           YurtCoordinatorCertController,
 		"delegatelease":                 DelegateLeaseController,

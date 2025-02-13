@@ -223,28 +223,6 @@ func SetDefaultsYurtStaticSet(obj *YurtStaticSet) {
 	obj.Spec.Template.Namespace = obj.Namespace
 }
 
-// SetDefaultsYurtAppDaemon set default values for YurtAppDaemon.
-func SetDefaultsYurtAppDaemon(obj *YurtAppDaemon) {
-
-	if obj.Spec.RevisionHistoryLimit == nil {
-		obj.Spec.RevisionHistoryLimit = utilpointer.To[int32](10)
-	}
-
-	if obj.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
-		SetDefaultPodSpec(&obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Template.Spec)
-		for i := range obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.VolumeClaimTemplates {
-			a := &obj.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.VolumeClaimTemplates[i]
-			v1.SetDefaults_PersistentVolumeClaim(a)
-			v1.SetDefaults_ResourceList(&a.Spec.Resources.Limits)
-			v1.SetDefaults_ResourceList(&a.Spec.Resources.Requests)
-			v1.SetDefaults_ResourceList(&a.Status.Capacity)
-		}
-	}
-	if obj.Spec.WorkloadTemplate.DeploymentTemplate != nil {
-		SetDefaultPodSpec(&obj.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Template.Spec)
-	}
-}
-
 // SetDefaultsNodeBucket set default values for NodeBucket.
 func SetDefaultsNodeBucket(obj *NodeBucket) {
 	// example for set default value for NodeBucket

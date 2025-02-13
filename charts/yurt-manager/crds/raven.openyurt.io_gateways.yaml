@@ -8,7 +8,7 @@ spec:
   group: raven.openyurt.io
   names:
     categories:
-      - all
+      - yurt
     kind: Gateway
     listKind: GatewayList
     plural: gateways

@@ -117,7 +117,7 @@ type GatewayStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,path=gateways,shortName=gw,categories=all
+// +kubebuilder:resource:scope=Cluster,path=gateways,shortName=gw,categories=yurt
 // +kubebuilder:storageversion
 
 // Gateway is the Schema for the gateways API

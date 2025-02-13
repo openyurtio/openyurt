@@ -8,7 +8,7 @@ spec:
   group: apps.openyurt.io
   names:
     categories:
-    - all
+    - yurt
     kind: YurtAppDaemon
     listKind: YurtAppDaemonList
     plural: yurtappdaemons
