@@ -67,14 +67,14 @@ func TestReconcile(t *testing.T) {
 					EnableLeaderElection:   true,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -98,7 +98,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Data: map[string]string{
 					"leaders":                "node1/10.0.0.1",
-					"pool-scoped-metadata":   "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"pool-scoped-metadata":   "/v1/services,discovery.k8s.io/v1/endpointslices",
 					"interconnectivity":      "true",
 					"enable-leader-election": "true",
 				},
@@ -121,14 +121,14 @@ func TestReconcile(t *testing.T) {
 					EnableLeaderElection:   true,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -156,7 +156,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Data: map[string]string{
 					"leaders":                "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata":   "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"pool-scoped-metadata":   "/v1/services,discovery.k8s.io/v1/endpointslices",
 					"interconnectivity":      "true",
 					"enable-leader-election": "true",
 				},
@@ -179,14 +179,14 @@ func TestReconcile(t *testing.T) {
 					EnableLeaderElection:   true,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -213,7 +213,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Data: map[string]string{
 					"leaders":                "node1/10.0.0.1",
-					"pool-scoped-metadata":   "core/v1/Service",
+					"pool-scoped-metadata":   "/v1/services",
 					"interconnectivity":      "true",
 					"enable-leader-election": "false",
 				},
@@ -228,7 +228,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Data: map[string]string{
 					"leaders":                "node1/10.0.0.1,node2/10.0.0.2",
-					"pool-scoped-metadata":   "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"pool-scoped-metadata":   "/v1/services,discovery.k8s.io/v1/endpointslices",
 					"interconnectivity":      "true",
 					"enable-leader-election": "true",
 				},
@@ -251,14 +251,14 @@ func TestReconcile(t *testing.T) {
 					EnableLeaderElection:   true,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
-							Resource: "Service",
+							Resource: "services",
 						},
 						{
 							Group:    "discovery.k8s.io",
 							Version:  "v1",
-							Resource: "EndpointSlice",
+							Resource: "endpointslices",
 						},
 					},
 				},
@@ -277,7 +277,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Data: map[string]string{
 					"leaders":                "",
-					"pool-scoped-metadata":   "core/v1/Service,discovery.k8s.io/v1/EndpointSlice",
+					"pool-scoped-metadata":   "/v1/services,discovery.k8s.io/v1/endpointslices",
 					"interconnectivity":      "true",
 					"enable-leader-election": "true",
 				},
