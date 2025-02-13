@@ -237,17 +237,12 @@ spec:
 		// restart flannel pod on node to recover flannel NIC
 		Eventually(func() error {
 			flannelPods := &corev1.PodList{}
-			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace)); err != nil {
+			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace), client.MatchingFields{"spec.nodeName": nodeName}); err != nil {
 				return err
 			}
-			if len(flannelPods.Items) != 3 {
-				return fmt.Errorf("not reconcile")
-			}
 			for _, pod := range flannelPods.Items {
-				if pod.Spec.NodeName == nodeName {
-					if err := k8sClient.Delete(ctx, &pod); err != nil {
-						return err
-					}
+				if err := k8sClient.Delete(ctx, &pod); err != nil {
+					return err
 				}
 			}
 			return nil
@@ -268,7 +263,13 @@ spec:
 		deleteStaticPod("openyurt-e2e-test-worker2")
 
 		By(fmt.Sprintf("Delete the entire namespaceName %s", namespaceName))
-		Expect(k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}, client.PropagationPolicy(metav1.DeletePropagationForeground))).Should(BeNil())
+		Expect(
+			k8sClient.Delete(
+				ctx,
+				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}},
+				client.PropagationPolicy(metav1.DeletePropagationForeground),
+			),
+		).Should(BeNil())
 	})
 
 	Describe("Test YurtStaticSet AdvancedRollingUpdate upgrade model", func() {
@@ -277,7 +278,9 @@ spec:
 			// disconnect openyurt-e2e-test-worker2 node
 			cmd := exec.Command("/bin/bash", "-c", "docker network disconnect kind openyurt-e2e-test-worker2")
 			err := cmd.Run()
-			Expect(err).NotTo(HaveOccurred(), "fail to disconnect openyurt-e2e-test-worker2 node to kind bridge: docker network disconnect kind %s")
+			Expect(
+				err,
+			).NotTo(HaveOccurred(), "fail to disconnect openyurt-e2e-test-worker2 node to kind bridge: docker network disconnect kind %s")
 			Eventually(func() error {
 				return checkNodeStatus("openyurt-e2e-test-worker2")
 			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(SatisfyAll(HaveOccurred(), Not(&util.NotFoundMatcher{})))
@@ -290,21 +293,27 @@ spec:
 			// check image version
 			Eventually(func() error {
 				checkPodStatusAndUpdate()
-				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg2 && nodeToImageMap["openyurt-e2e-test-worker2"] == testImg1 {
+				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg2 &&
+					nodeToImageMap["openyurt-e2e-test-worker2"] == testImg1 {
 					return nil
 				}
 				return fmt.Errorf("error image update")
 			}).WithTimeout(timeout * 2).WithPolling(time.Millisecond * 1000).Should(Succeed())
-			By("pod on node openyurt-e2e-test-worker is updated, then start to reconnect the node openyurt-e2e-test-worker2")
+			By(
+				"pod on node openyurt-e2e-test-worker is updated, then start to reconnect the node openyurt-e2e-test-worker2",
+			)
 
 			// recover network environment
 			reconnectNode("openyurt-e2e-test-worker2")
-			By("node openyurt-e2e-test-worker2 is reconnected, and start to wait pod upgrade on node openyurt-e2e-test-worker2")
+			By(
+				"node openyurt-e2e-test-worker2 is reconnected, and start to wait pod upgrade on node openyurt-e2e-test-worker2",
+			)
 
 			// check image version
 			Eventually(func() error {
 				checkPodStatusAndUpdate()
-				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg2 && nodeToImageMap["openyurt-e2e-test-worker2"] == testImg2 {
+				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg2 &&
+					nodeToImageMap["openyurt-e2e-test-worker2"] == testImg2 {
 					return nil
 				}
 				return fmt.Errorf("error image update")
@@ -385,8 +394,15 @@ spec:
 
 			// ota update for openyurt-e2e-test-worker2 node
 			Eventually(func() string {
-				curlCmd := fmt.Sprintf("curl -X POST %s:%s/openyurt.io/v1/namespaces/%s/pods/%s/upgrade", ServerName, ServerPort, namespaceName, pN2)
-				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker2 /bin/bash -c '"+curlCmd+"'").CombinedOutput()
+				curlCmd := fmt.Sprintf(
+					"curl -X POST %s:%s/openyurt.io/v1/namespaces/%s/pods/%s/upgrade",
+					ServerName,
+					ServerPort,
+					namespaceName,
+					pN2,
+				)
+				opBytes, err := exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker2 /bin/bash -c '"+curlCmd+"'").
+					CombinedOutput()
 
 				if err != nil {
 					return ""
@@ -397,7 +413,8 @@ spec:
 			// check image version
 			Eventually(func() error {
 				checkPodStatusAndUpdate()
-				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg1 && nodeToImageMap["openyurt-e2e-test-worker2"] == testImg2 {
+				if nodeToImageMap["openyurt-e2e-test-worker"] == testImg1 &&
+					nodeToImageMap["openyurt-e2e-test-worker2"] == testImg2 {
 					return nil
 				}
 				return fmt.Errorf("error image update")

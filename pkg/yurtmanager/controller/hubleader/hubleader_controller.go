@@ -84,7 +84,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			if !ok {
 				return false
 			}
-			newNode, ok := e.ObjectNew.(*appsv1beta2.NodePool)
+			newPool, ok := e.ObjectNew.(*appsv1beta2.NodePool)
 			if !ok {
 				return false
 			}
@@ -93,13 +93,15 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			// 1. Leader election strategy has changed
 			// 2. Leader replicas has changed
 			// 3. Node readiness count has changed
-			// 4. Leader node label selector has changed (if mark strategy)
-			if oldPool.Spec.LeaderElectionStrategy != newNode.Spec.LeaderElectionStrategy ||
-				oldPool.Spec.LeaderReplicas != newNode.Spec.LeaderReplicas ||
-				oldPool.Status.ReadyNodeNum != newNode.Status.ReadyNodeNum ||
-				oldPool.Status.UnreadyNodeNum != newNode.Status.UnreadyNodeNum ||
+			// 4. Enable Pool Scope Metadata has changed
+			// 5. Leader node label selector has changed (if mark strategy)
+			if oldPool.Spec.LeaderElectionStrategy != newPool.Spec.LeaderElectionStrategy ||
+				oldPool.Spec.LeaderReplicas != newPool.Spec.LeaderReplicas ||
+				oldPool.Status.ReadyNodeNum != newPool.Status.ReadyNodeNum ||
+				oldPool.Status.UnreadyNodeNum != newPool.Status.UnreadyNodeNum ||
+				oldPool.Spec.EnablePoolScopeMetadata != newPool.Spec.EnablePoolScopeMetadata ||
 				(oldPool.Spec.LeaderElectionStrategy == string(appsv1beta2.ElectionStrategyMark) &&
-					!maps.Equal(oldPool.Spec.LeaderNodeLabelSelector, newNode.Spec.LeaderNodeLabelSelector)) {
+					!maps.Equal(oldPool.Spec.LeaderNodeLabelSelector, newPool.Spec.LeaderNodeLabelSelector)) {
 				return true
 
 			}
@@ -146,11 +148,6 @@ func (r *ReconcileHubLeader) Reconcile(ctx context.Context, request reconcile.Re
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !nodepool.Spec.EnablePoolScopeMetadata {
-		// If the NodePool doesn't have pool scope metadata enabled, it should not reconcile
-		return reconcile.Result{}, nil
-	}
-
 	// Reconcile the NodePool
 	if err := r.reconcileHubLeader(ctx, nodepool); err != nil {
 		r.recorder.Eventf(nodepool, corev1.EventTypeWarning, "ReconcileError", "Failed to reconcile NodePool: %v", err)
@@ -161,6 +158,15 @@ func (r *ReconcileHubLeader) Reconcile(ctx context.Context, request reconcile.Re
 }
 
 func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *appsv1beta2.NodePool) error {
+	if !nodepool.Spec.EnablePoolScopeMetadata {
+		if len(nodepool.Status.LeaderEndpoints) == 0 {
+			return nil
+		}
+		// If the NodePool doesn't have pool scope metadata enabled, it should drop leaders (if any)
+		nodepool.Status.LeaderEndpoints = nil
+		return r.Status().Update(ctx, nodepool)
+	}
+
 	// Get all nodes that belong to the nodepool
 	var currentNodeList corev1.NodeList
 

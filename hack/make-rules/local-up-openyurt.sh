@@ -63,7 +63,7 @@ readonly LOCAL_ARCH=$(go env GOHOSTARCH)
 readonly LOCAL_OS=$(go env GOHOSTOS)
 readonly CLUSTER_NAME="openyurt-e2e-test"
 readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.30"}
-readonly NODES_NUM=${NODES_NUM:-3}
+readonly NODES_NUM=${NODES_NUM:-5}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 readonly DISABLE_DEFAULT_CNI=${DISABLE_DEFAULT_CNI:-"false"}
 
@@ -103,7 +103,7 @@ function preflight {
 
 # install gingko
 function get_ginkgo() {
-    go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.2
 }
 
 function build_e2e_binary() {
