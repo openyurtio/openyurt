@@ -159,7 +159,10 @@ func (r *ReconcileHubLeader) Reconcile(ctx context.Context, request reconcile.Re
 
 func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *appsv1beta2.NodePool) error {
 	if !nodepool.Spec.EnablePoolScopeMetadata {
-		// If the NodePool doesn't have pool scope metadata enabled, it should drop leaders
+		if len(nodepool.Status.LeaderEndpoints) == 0 {
+			return nil
+		}
+		// If the NodePool doesn't have pool scope metadata enabled, it should drop leaders (if any)
 		nodepool.Status.LeaderEndpoints = nil
 		return r.Status().Update(ctx, nodepool)
 	}

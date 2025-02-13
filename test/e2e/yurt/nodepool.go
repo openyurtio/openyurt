@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/test/e2e/util"
@@ -35,12 +35,12 @@ import (
 
 var _ = Describe("nodepool test", func() {
 	ctx := context.Background()
-	var k8sClient runtimeclient.Client
+	var k8sClient client.Client
 
 	// checkNodePoolStatus checks the status of the nodepool in poolToNodesMap
 	// The nodepool is fetched from the k8sClient and the ready node number is checked
 	// with the number of nodes expected in the pool
-	checkNodePoolStatus := func(pool util.TestNodePool) error {
+	checkNodePoolStatus := func(k8sClient client.Client, pool util.TestNodePool) error {
 		// Get the node pool
 		actualPool, err := util.GetNodepool(ctx, k8sClient, pool.NodePool.Name)
 		if err != nil {
@@ -85,7 +85,7 @@ var _ = Describe("nodepool test", func() {
 
 		Eventually(
 			func() error {
-				return checkNodePoolStatus(pool)
+				return checkNodePoolStatus(k8sClient, pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 
@@ -119,7 +119,7 @@ var _ = Describe("nodepool test", func() {
 
 		Eventually(
 			func() error {
-				return checkNodePoolStatus(pool)
+				return checkNodePoolStatus(k8sClient, pool)
 			},
 			time.Second*5, time.Millisecond*500).Should(BeNil())
 	})
