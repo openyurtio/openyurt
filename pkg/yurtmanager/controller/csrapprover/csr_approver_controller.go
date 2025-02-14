@@ -42,7 +42,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/token"
-	yurtcoorrdinatorCert "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
@@ -77,10 +76,6 @@ var (
 		{
 			recognize:  isYurtTunnelAgentCert,
 			successMsg: "Auto approving tunnel-agent client certificate",
-		},
-		{
-			recognize:  isYurtCoordinatorClientCert,
-			successMsg: "Auto approving yurtcoordinator-apiserver client certificate",
 		},
 	}
 )
@@ -404,23 +399,6 @@ func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr
 	}
 
 	if x509cr.Subject.CommonName != constants.YurtTunnelAgentCSRCN {
-		return false
-	}
-
-	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
-		return false
-	}
-
-	return true
-}
-
-// isYurtTunnelProxyClientCert is used to recognize csr from yurtcoordinator client certificate .
-func isYurtCoordinatorClientCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName {
-		return false
-	}
-
-	if len(x509cr.Subject.Organization) != 1 || x509cr.Subject.Organization[0] != yurtcoorrdinatorCert.YurtCoordinatorOrg {
 		return false
 	}
 
