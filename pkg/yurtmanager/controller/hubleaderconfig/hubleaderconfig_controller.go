@@ -207,10 +207,10 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 
 	// Prepare data
 	data := map[string]string{
-		"leaders":                     strings.Join(leaders, ","),
-		"pool-scoped-metadata":        strings.Join(poolScopedMetadata, ","),
-		"interconnectivity":           strconv.FormatBool(nodepool.Spec.InterConnectivity),
-		"enable-pool-scoped-metadata": strconv.FormatBool(nodepool.Spec.EnablePoolScopeMetadata),
+		"leaders":                strings.Join(leaders, ","),
+		"pool-scoped-metadata":   strings.Join(poolScopedMetadata, ","),
+		"interconnectivity":      strconv.FormatBool(nodepool.Spec.InterConnectivity),
+		"enable-leader-election": strconv.FormatBool(nodepool.Spec.EnableLeaderElection),
 	}
 
 	// If the ConfigMap does not exist, create it

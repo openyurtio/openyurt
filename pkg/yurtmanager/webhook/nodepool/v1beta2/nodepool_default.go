@@ -94,8 +94,8 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 		}
 	}
 
-	// Set default enable pool scope metadata
-	np.Spec.EnablePoolScopeMetadata = false
+	// Set default enable leader election to false
+	np.Spec.EnableLeaderElection = false
 
 	return nil
 }
