@@ -82,7 +82,8 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return ok
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return true
+			_, ok := e.Object.(*appsv1beta2.NodePool)
+			return ok
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldPool, ok := e.ObjectOld.(*appsv1beta2.NodePool)
@@ -147,18 +148,7 @@ func (r *ReconcileHubLeaderConfig) Reconcile(
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !nodepool.ObjectMeta.DeletionTimestamp.IsZero() {
-		// If the NodePool is being deleted, delete the leader configmap
-		configMapName := fmt.Sprintf("leader-hub-%s", nodepool.Name)
-		err := r.Client.Delete(ctx, &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      configMapName,
-				Namespace: r.Configuration.HubLeaderNamespace,
-			},
-		})
-		if err != nil && !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
+	if nodepool.ObjectMeta.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -221,6 +211,14 @@ func (r *ReconcileHubLeaderConfig) reconcileHubLeaderConfig(
 				Namespace: r.Configuration.HubLeaderNamespace,
 				Labels: map[string]string{
 					projectinfo.GetHubLeaderConfigMapLabel(): configMapName,
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: nodepool.APIVersion,
+						Kind:       nodepool.Kind,
+						Name:       nodepool.Name,
+						UID:        nodepool.UID,
+					},
 				},
 			},
 			Data: data,

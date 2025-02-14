@@ -19,6 +19,7 @@ package yurt
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -89,23 +90,6 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		})
 
 		return expectedLeaders
-	}
-
-	// getExpectedLeaderConfig returns the expected leader config map data
-	getExpectedLeaderConfig := func(leaders []v1beta2.Leader) map[string]string {
-		expectedLeaderConfig := make(map[string]string)
-
-		leaderEndpoints := make([]string, 0, len(leaders))
-		for _, leader := range leaders {
-			leaderEndpoints = append(leaderEndpoints, leader.NodeName+"/"+leader.Address)
-		}
-
-		expectedLeaderConfig["leaders"] = strings.Join(leaderEndpoints, ",")
-		expectedLeaderConfig["pool-scoped-metadata"] = "/v1/services,discovery.k8s.io/v1/endpointslices"
-		expectedLeaderConfig["interconnectivity"] = "true"
-		expectedLeaderConfig["enable-leader-election"] = "true"
-
-		return expectedLeaderConfig
 	}
 
 	getActualLeaders := func() []v1beta2.Leader {
@@ -254,3 +238,108 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		})
 	})
 })
+
+var _ = Describe("Hub leader config owner cleanup", func() {
+	ctx := context.Background()
+	var k8sClient client.Client
+
+	BeforeEach(func() {
+		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
+	})
+
+	AfterEach(func() {})
+
+	It("Should delete hub leader config when nodepool is deleted", func() {
+		npName := fmt.Sprintf("test-%d", time.Now().Unix())
+		pool := util.TestNodePool{
+			NodePool: v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: npName,
+				},
+				Spec: v1beta2.NodePoolSpec{
+					EnableLeaderElection: true,
+					InterConnectivity:    true,
+					Type:                 v1beta2.Edge,
+				},
+			},
+		}
+
+		By("Creating a new empty nodepool")
+		Eventually(
+			func() error {
+				return util.InitTestNodePool(ctx, k8sClient, pool)
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+
+		By("Nodepool should be created")
+		Eventually(
+			func() error {
+				_, err := util.GetNodepool(ctx, k8sClient, pool.NodePool.Name)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+
+		By("Leader config map should be created")
+		Eventually(
+			getActualLeaderConfig,
+			time.Second*5,
+			time.Millisecond*500,
+		).WithArguments(ctx, k8sClient, npName).Should(Equal(getExpectedLeaderConfig([]v1beta2.Leader{})))
+
+		By("Delete the nodepool")
+		Eventually(
+			func() error {
+				return util.DeleteNodePool(ctx, k8sClient, npName)
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+
+		By("Leader config map should be not found")
+		Eventually(
+			func() error {
+				err := k8sClient.Get(
+					ctx,
+					client.ObjectKey{Name: "leader-hub-" + npName, Namespace: metav1.NamespaceSystem},
+					&v1.ConfigMap{},
+				)
+				if err != nil && client.IgnoreNotFound(err) != nil {
+					return err
+				}
+				return nil
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+	})
+})
+
+// getActualLeaderConfig returns the actual leader config map data
+func getActualLeaderConfig(ctx context.Context, k8sClient client.Client, nodePoolName string) map[string]string {
+	configMap := v1.ConfigMap{}
+	err := k8sClient.Get(
+		ctx,
+		client.ObjectKey{Name: "leader-hub-" + nodePoolName, Namespace: metav1.NamespaceSystem},
+		&configMap,
+	)
+	if err != nil {
+		return nil
+	}
+	return configMap.Data
+}
+
+// getExpectedLeaderConfig returns the expected leader config map data
+func getExpectedLeaderConfig(leaders []v1beta2.Leader) map[string]string {
+	expectedLeaderConfig := make(map[string]string)
+
+	leaderEndpoints := make([]string, 0, len(leaders))
+	for _, leader := range leaders {
+		leaderEndpoints = append(leaderEndpoints, leader.NodeName+"/"+leader.Address)
+	}
+
+	expectedLeaderConfig["leaders"] = strings.Join(leaderEndpoints, ",")
+	expectedLeaderConfig["pool-scoped-metadata"] = "/v1/services,discovery.k8s.io/v1/endpointslices"
+	expectedLeaderConfig["interconnectivity"] = "true"
+	expectedLeaderConfig["enable-leader-election"] = "true"
+
+	return expectedLeaderConfig
+}

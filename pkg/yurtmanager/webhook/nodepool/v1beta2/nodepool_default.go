@@ -94,8 +94,5 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 		}
 	}
 
-	// Set default enable leader election to false
-	np.Spec.EnableLeaderElection = false
-
 	return nil
 }
