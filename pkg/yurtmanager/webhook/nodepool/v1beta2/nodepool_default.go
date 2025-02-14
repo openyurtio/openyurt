@@ -69,7 +69,7 @@ func (webhook *NodePoolHandler) Default(ctx context.Context, obj runtime.Object)
 	// Set default PoolScopeMetadata
 	defaultPoolScopeMetadata := []v1.GroupVersionResource{
 		{
-			Group:    "core",
+			Group:    "",
 			Version:  "v1",
 			Resource: "services",
 		},

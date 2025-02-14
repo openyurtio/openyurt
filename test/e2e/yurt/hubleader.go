@@ -101,7 +101,7 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		}
 
 		expectedLeaderConfig["leaders"] = strings.Join(leaderEndpoints, ",")
-		expectedLeaderConfig["pool-scoped-metadata"] = "core/v1/services,discovery.k8s.io/v1/endpointslices"
+		expectedLeaderConfig["pool-scoped-metadata"] = "/v1/services,discovery.k8s.io/v1/endpointslices"
 		expectedLeaderConfig["interconnectivity"] = "true"
 		expectedLeaderConfig["enable-leader-election"] = "true"
 

@@ -63,7 +63,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -110,7 +110,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -158,7 +158,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -206,7 +206,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -254,7 +254,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -314,7 +314,7 @@ func TestDefault(t *testing.T) {
 							Resource: "Endpoints",
 						},
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -347,7 +347,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -369,7 +369,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         3,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -429,7 +429,7 @@ func TestDefault(t *testing.T) {
 							Resource: "endpointslices",
 						},
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -472,7 +472,7 @@ func TestDefault(t *testing.T) {
 					LeaderReplicas:         2,
 					PoolScopeMetadata: []metav1.GroupVersionResource{
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -510,7 +510,7 @@ func TestDefault(t *testing.T) {
 							Resource: "endpointslices",
 						},
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -537,7 +537,7 @@ func TestDefault(t *testing.T) {
 							Resource: "endpointslices",
 						},
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
@@ -594,7 +594,7 @@ func TestDefault(t *testing.T) {
 							Resource: "Endpoints",
 						},
 						{
-							Group:    "core",
+							Group:    "",
 							Version:  "v1",
 							Resource: "services",
 						},
