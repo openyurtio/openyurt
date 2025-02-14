@@ -46,7 +46,6 @@ import (
 	servicetopologyendpoints "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpoints"
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
-	yurtcoordinatorcert "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/cert"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset"
 )
@@ -82,7 +81,6 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.DaemonPodUpdaterController, daemonpodupdater.Add)
 	register(names.PodBindingController, podbinding.Add)
 	register(names.NodePoolController, nodepool.Add)
-	register(names.YurtCoordinatorCertController, yurtcoordinatorcert.Add)
 	register(names.ServiceTopologyEndpointsController, servicetopologyendpoints.Add)
 	register(names.ServiceTopologyEndpointSliceController, servicetopologyendpointslice.Add)
 	register(names.YurtStaticSetController, yurtstaticset.Add)
