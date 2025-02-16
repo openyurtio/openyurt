@@ -220,6 +220,11 @@ func TestReconcile(t *testing.T) {
 					Labels: map[string]string{
 						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-shanghai",
 					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Name: "shanghai",
+						},
+					},
 				},
 				Data: map[string]string{
 					"leaders":                "node1/10.0.0.1",
@@ -234,6 +239,11 @@ func TestReconcile(t *testing.T) {
 					Namespace: metav1.NamespaceSystem,
 					Labels: map[string]string{
 						projectinfo.GetHubLeaderConfigMapLabel(): "leader-hub-shanghai",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Name: "shanghai",
+						},
 					},
 				},
 				Data: map[string]string{
