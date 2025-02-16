@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
@@ -304,12 +305,15 @@ var _ = Describe("Hub leader config owner cleanup", func() {
 					client.ObjectKey{Name: "leader-hub-" + npName, Namespace: metav1.NamespaceSystem},
 					&v1.ConfigMap{},
 				)
-				if err != nil && client.IgnoreNotFound(err) != nil {
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return nil
+					}
 					return err
 				}
-				return nil
+				return fmt.Errorf("leader config map still exists")
 			},
-			time.Second*5, time.Millisecond*500).Should(BeNil())
+			time.Second*30, time.Millisecond*500).Should(BeNil())
 	})
 })
 

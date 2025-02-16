@@ -82,8 +82,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 			return ok
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			_, ok := e.Object.(*appsv1beta2.NodePool)
-			return ok
+			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldPool, ok := e.ObjectOld.(*appsv1beta2.NodePool)
