@@ -29,7 +29,7 @@ type HubLeaderRBACControllerOptions struct {
 func NewHubLeaderRBACControllerOptions() *HubLeaderRBACControllerOptions {
 	return &HubLeaderRBACControllerOptions{
 		&config.HubLeaderRBACControllerConfiguration{
-			ConcurrentHubLeaderRBACWorkers: 3,
+			ConcurrentHubLeaderRBACWorkers: 1,
 		},
 	}
 }
