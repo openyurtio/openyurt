@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -314,6 +315,144 @@ var _ = Describe("Hub leader config owner cleanup", func() {
 				return fmt.Errorf("leader config map still exists")
 			},
 			time.Second*30, time.Millisecond*500).Should(BeNil())
+	})
+})
+
+var _ = Describe("Hub leader rbac", func() {
+	ctx := context.Background()
+	var k8sClient client.Client
+	var pools []util.TestNodePool
+
+	getActualClusterRoleRules := func(ctx context.Context, k8sClient client.Client) []rbacv1.PolicyRule {
+		clusterRole := rbacv1.ClusterRole{}
+		err := k8sClient.Get(
+			ctx,
+			client.ObjectKey{Name: "yurt-hub-multiplexer"},
+			&clusterRole,
+		)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return nil
+		}
+		return clusterRole.Rules
+	}
+
+	BeforeEach(func() {
+		k8sClient = ycfg.YurtE2eCfg.RuntimeClient
+
+		pools = []util.TestNodePool{
+			{
+				NodePool: v1beta2.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("test-%d", time.Now().Unix()),
+					},
+					Spec: v1beta2.NodePoolSpec{
+						EnableLeaderElection: true,
+						InterConnectivity:    true,
+						Type:                 v1beta2.Edge,
+						PoolScopeMetadata: []metav1.GroupVersionResource{
+							{
+								Group:    "",
+								Version:  "v1",
+								Resource: "services",
+							},
+							{
+								Group:    "discovery.k8s.io",
+								Version:  "v1",
+								Resource: "endpointslices",
+							},
+						},
+					},
+				},
+			},
+			{
+				NodePool: v1beta2.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("test1-%d", time.Now().Unix()),
+					},
+					Spec: v1beta2.NodePoolSpec{
+						EnableLeaderElection: true,
+						InterConnectivity:    true,
+						Type:                 v1beta2.Edge,
+						PoolScopeMetadata: []metav1.GroupVersionResource{
+							{
+								Group:    "",
+								Version:  "v1",
+								Resource: "services",
+							},
+							{
+								Group:    "discovery.k8s.io",
+								Version:  "v1",
+								Resource: "endpoints",
+							},
+						},
+					},
+				},
+			},
+		}
+	})
+
+	AfterEach(func() {
+		for _, p := range pools {
+			err := util.DeleteNodePool(ctx, k8sClient, p.NodePool.Name)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	})
+
+	It("Should create hub leader cluster role when nodepool is created", func() {
+		By("Creating all new nodepools")
+		Eventually(
+			func() error {
+				for _, p := range pools {
+					err := util.InitTestNodePool(ctx, k8sClient, p)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+
+		By("Nodepools should be created")
+		Eventually(
+			func() error {
+				for _, p := range pools {
+					_, err := util.GetNodepool(ctx, k8sClient, p.NodePool.Name)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			time.Second*5, time.Millisecond*500).Should(BeNil())
+
+		By("Cluster role should be created")
+		Eventually(
+			getActualClusterRoleRules,
+			time.Second*5,
+			time.Millisecond*500,
+		).WithArguments(ctx, k8sClient).Should(
+			Equal(
+				[]rbacv1.PolicyRule{
+					{
+						Verbs:     []string{"list", "watch"},
+						APIGroups: []string{""},
+						Resources: []string{"services"},
+					},
+					{
+						Verbs:     []string{"list", "watch"},
+						APIGroups: []string{"discovery.k8s.io"},
+						Resources: []string{"endpointslices"},
+					},
+					{
+						Verbs:     []string{"list", "watch"},
+						APIGroups: []string{"discovery.k8s.io"},
+						Resources: []string{"endpoints"},
+					},
+				},
+			))
 	})
 })
 
