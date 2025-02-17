@@ -612,6 +612,68 @@ func TestDefault(t *testing.T) {
 				},
 			},
 		},
+		"nodepool has enable leader election enabled": {
+			obj: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
+					EnableLeaderElection:   true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
+						},
+					},
+				},
+			},
+			wantedNodePool: &v1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"nodepool.openyurt.io/type": "cloud",
+					},
+				},
+				Spec: v1beta2.NodePoolSpec{
+					HostNetwork:            true,
+					Type:                   v1beta2.Cloud,
+					LeaderElectionStrategy: string(v1beta2.ElectionStrategyMark),
+					LeaderReplicas:         3,
+					EnableLeaderElection:   true,
+					PoolScopeMetadata: []metav1.GroupVersionResource{
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "Endpoints",
+						},
+						{
+							Group:    "",
+							Version:  "v1",
+							Resource: "services",
+						},
+						{
+							Group:    "discovery.k8s.io",
+							Version:  "v1",
+							Resource: "endpointslices",
+						},
+					},
+				},
+				Status: v1beta2.NodePoolStatus{
+					ReadyNodeNum:   0,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{},
+				},
+			},
+		},
 	}
 
 	for k, tc := range testcases {
