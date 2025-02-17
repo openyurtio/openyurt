@@ -42,7 +42,7 @@ func (h *HubLeaderRBACControllerOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.Int32Var(
 		&h.ConcurrentHubLeaderRBACWorkers,
-		"concurrent-hubleaderconfig-workers",
+		"concurrent-hubleaderrbac-workers",
 		h.ConcurrentHubLeaderRBACWorkers,
 		"The number of nodepool objects that are allowed to reconcile concurrently.",
 	)
