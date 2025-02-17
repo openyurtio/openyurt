@@ -132,7 +132,7 @@ type ReconcileHubLeaderConfig struct {
 
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools/status,verbs=get
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;update;patch;create;
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;update;patch;create
 
 // Reconcile reads that state of the cluster nodepool leader status and updates the leader configmap object
 func (r *ReconcileHubLeaderConfig) Reconcile(
