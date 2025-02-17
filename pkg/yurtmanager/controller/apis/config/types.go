@@ -25,6 +25,7 @@ import (
 	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
 	hubleaderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader/config"
 	hubleadercfgconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig/config"
+	hubleaderrbacconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderrbac/config"
 	loadbalancersetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset/config"
 	nodebucketconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket/config"
 	nodepoolconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodepool/config"
@@ -98,6 +99,9 @@ type YurtManagerConfiguration struct {
 
 	// HubLeaderConfigController holds configuration for HubLeaderController related features.
 	HubLeaderConfigController hubleadercfgconfig.HubLeaderConfigControllerConfiguration
+
+	// HubLeaderRBACController holds configuration for HubLeaderRBAC related features.
+	HubLeaderRBACController hubleaderrbacconfig.HubLeaderRBACControllerConfiguration
 }
 
 type GenericConfiguration struct {

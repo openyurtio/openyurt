@@ -34,6 +34,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderrbac"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/loadbalancerset/loadbalancerset"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodebucket"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodelifecycle"
@@ -95,6 +96,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.LoadBalancerSetController, loadbalancerset.Add)
 	register(names.HubLeaderController, hubleader.Add)
 	register(names.HubLeaderConfigController, hubleaderconfig.Add)
+	register(names.HubLeaderRBACController, hubleaderrbac.Add)
 
 	return controllers
 }
@@ -129,6 +131,7 @@ func NewControllerInitializers() map[string]InitFunc {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=list;watch
 // +kubebuilder:rbac:groups=crd.projectcalico.org,resources=blockaffinities,verbs=list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=list;watch
 
 func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.Manager) error {
 	for controllerName, fn := range NewControllerInitializers() {
