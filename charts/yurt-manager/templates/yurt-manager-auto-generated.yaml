@@ -476,7 +476,6 @@ rules:
   - configmaps
   verbs:
   - create
-  - escalate
   - get
   - patch
   - update
