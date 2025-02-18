@@ -57,6 +57,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: yurt-manager-hubleaderrbac-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: yurt-manager-load-balancer-set-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -250,6 +256,13 @@ rules:
   - raven.openyurt.io
   resources:
   - gateways
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
   verbs:
   - list
   - watch
@@ -473,6 +486,27 @@ rules:
   - nodepools/status
   verbs:
   - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-manager-hubleaderrbac-controller
+rules:
+- apiGroups:
+  - apps.openyurt.io
+  resources:
+  - nodepools
+  verbs:
+  - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - create
+  - escalate
+  - get
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -958,6 +992,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager-hubleaderconfig-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-hubleaderrbac-controller-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-hubleaderrbac-controller
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager-hubleaderrbac-controller
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

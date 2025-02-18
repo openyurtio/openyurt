@@ -37,6 +37,7 @@ const (
 	LoadBalancerSetController              = "load-balancer-set-controller"
 	HubLeaderController                    = "hubleader-controller"
 	HubLeaderConfigController              = "hubleaderconfig-controller"
+	HubLeaderRBACController                = "hubleaderrbac-controller"
 )
 
 func YurtManagerControllerAliases() map[string]string {
@@ -62,5 +63,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"loadbalancerset":               LoadBalancerSetController,
 		"hubleader":                     HubLeaderController,
 		"hubleaderconfig":               HubLeaderConfigController,
+		"hubleaderrbac":                 HubLeaderRBACController,
 	}
 }
