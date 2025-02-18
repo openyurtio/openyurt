@@ -24,7 +24,6 @@ cd "${GO_SRC}"
 
 # Move fuzzer to their respective directories.
 # This removes dependency noises from the modules' go.mod and go.sum files.
-cp "${PROJECT_PATH}/test/fuzz/yurtappdaemon_fuzzer.go" "${PROJECT_PATH}/pkg/yurtmanager/controller/yurtappdaemon/yurtappdaemon_fuzzer.go"
 cp "${PROJECT_PATH}/test/fuzz/yurtappset_fuzzer.go" "${PROJECT_PATH}/pkg/yurtmanager/controller/yurtappset/yurtappset_fuzzer.go"
 
 # compile fuzz test for the runtime module
@@ -33,7 +32,6 @@ pushd "${PROJECT_PATH}"
 go get -d github.com/AdaLogics/go-fuzz-headers
 go mod vendor
 go mod tidy
-compile_go_fuzzer "${PROJECT_PATH}/pkg/yurtmanager/controller/yurtappdaemon/" FuzzAppDaemonReconcile fuzz_yurtappdaemon_controller
 compile_go_fuzzer "${PROJECT_PATH}/pkg/yurtmanager/controller/yurtappset/" FuzzAppSetReconcile fuzz_yurtappset_controller
 
 popd
