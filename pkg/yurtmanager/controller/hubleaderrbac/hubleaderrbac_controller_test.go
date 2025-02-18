@@ -50,6 +50,46 @@ func TestReconcile(t *testing.T) {
 		expectedClusterRole *v1.ClusterRole
 		expectErr           bool
 	}{
+		"no pools": {
+			pools: &appsv1beta2.NodePoolList{
+				Items: []appsv1beta2.NodePool{},
+			},
+			existingClusterRole: nil,
+			expectedClusterRole: &v1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: leaderRoleName,
+				},
+				Rules: []v1.PolicyRule{},
+			},
+		},
+		"no pools but existing rules": {
+			pools: &appsv1beta2.NodePoolList{
+				Items: []appsv1beta2.NodePool{},
+			},
+			existingClusterRole: &v1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: leaderRoleName,
+				},
+				Rules: []v1.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"services"},
+						Verbs:     []string{"list", "watch"},
+					},
+					{
+						APIGroups: []string{"discovery.k8s.io"},
+						Resources: []string{"endpointslices"},
+						Verbs:     []string{"list", "watch"},
+					},
+				},
+			},
+			expectedClusterRole: &v1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: leaderRoleName,
+				},
+				Rules: []v1.PolicyRule{},
+			},
+		},
 		"no pool scoped metadata": {
 			pools: &appsv1beta2.NodePoolList{
 				Items: []appsv1beta2.NodePool{
@@ -185,7 +225,7 @@ func TestReconcile(t *testing.T) {
 					},
 					{
 						APIGroups: []string{"discovery.k8s.io"},
-						Resources: []string{"endpointslices", "endpoints"},
+						Resources: []string{"endpoints", "endpointslices"},
 						Verbs:     []string{"list", "watch"},
 					},
 				},
@@ -268,7 +308,11 @@ func TestReconcile(t *testing.T) {
 				Client:        c.Build(),
 				Configuration: config.HubLeaderRBACControllerConfiguration{},
 			}
-			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: tc.pools.Items[0].Name}}
+
+			req := reconcile.Request{}
+			if len(tc.pools.Items) != 0 {
+				req = reconcile.Request{NamespacedName: types.NamespacedName{Name: tc.pools.Items[0].Name}}
+			}
 			_, err := r.Reconcile(ctx, req)
 			if tc.expectErr {
 				require.Error(t, err)

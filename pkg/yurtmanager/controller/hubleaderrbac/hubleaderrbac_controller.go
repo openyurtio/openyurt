@@ -146,10 +146,6 @@ func (r *ReconcileHubLeaderRBAC) reconcileHubLeaderRBAC(
 	ctx context.Context,
 	nodepools *appsv1beta2.NodePoolList,
 ) error {
-	if len(nodepools.Items) == 0 {
-		return nil
-	}
-
 	// Get pool scoped metadata from all nodepools
 	// when groups are the same, merge resources
 	// use a set to achieve this
@@ -167,9 +163,12 @@ func (r *ReconcileHubLeaderRBAC) reconcileHubLeaderRBAC(
 
 	// Rebuild merged resources into policy rules
 	for g, resources := range processedGVR {
+		resourceList := resources.UnsortedList()
+		slices.Sort(resourceList)
+
 		rules = append(rules, v1.PolicyRule{
 			APIGroups: []string{g},
-			Resources: resources.UnsortedList(),
+			Resources: resourceList,
 			Verbs:     []string{"list", "watch"},
 		})
 	}
