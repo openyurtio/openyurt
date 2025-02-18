@@ -30,7 +30,7 @@ type Node struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,path=nodebuckets,shortName=nb,categories=all
+// +kubebuilder:resource:scope=Cluster,path=nodebuckets,shortName=nb,categories=yurt
 // +kubebuilder:printcolumn:name="NUM-NODES",type="integer",JSONPath=".numNodes",description="NumNodes represents the number of nodes in the NodeBucket."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 

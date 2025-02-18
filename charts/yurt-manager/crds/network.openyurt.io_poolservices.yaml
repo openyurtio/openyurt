@@ -8,7 +8,7 @@ spec:
   group: network.openyurt.io
   names:
     categories:
-    - all
+    - yurt
     kind: PoolService
     listKind: PoolServiceList
     plural: poolservices

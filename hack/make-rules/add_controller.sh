@@ -319,7 +319,7 @@ type ${KIND_FIRST_UPPER}Status struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=${SCOPE},path=${KIND_PLURAL},shortName=${SHORTNAME},categories=all
+// +kubebuilder:resource:scope=${SCOPE},path=${KIND_PLURAL},shortName=${SHORTNAME},categories=yurt
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 
 // ${KIND_FIRST_UPPER} is the Schema for the samples API

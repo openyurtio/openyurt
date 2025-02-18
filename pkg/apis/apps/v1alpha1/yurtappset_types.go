@@ -211,7 +211,7 @@ type YurtAppSetCondition struct {
 
 // +genclient
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=yas,categories=all
+// +kubebuilder:resource:shortName=yas,categories=yurt
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="READY",type="integer",JSONPath=".status.readyReplicas",description="The number of pods ready."
 // +kubebuilder:printcolumn:name="WorkloadTemplate",type="string",JSONPath=".status.templateType",description="The WorkloadTemplate Type."

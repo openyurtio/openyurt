@@ -70,7 +70,7 @@ type NodePoolStatus struct {
 
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,path=nodepools,shortName=np,categories=all
+// +kubebuilder:resource:scope=Cluster,path=nodepools,shortName=np,categories=yurt
 // +kubebuilder:subresource:status
 // +kubebuilder:deprecatedversion:warning="apps.openyurt.io/v1alpha1 NodePool is deprecated in v1.0.0+; use apps.openyurt.io/v1beta1 NodePool"
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of nodepool"
