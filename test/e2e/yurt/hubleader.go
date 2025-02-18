@@ -444,12 +444,7 @@ var _ = Describe("Hub leader rbac", func() {
 					{
 						Verbs:     []string{"list", "watch"},
 						APIGroups: []string{"discovery.k8s.io"},
-						Resources: []string{"endpointslices"},
-					},
-					{
-						Verbs:     []string{"list", "watch"},
-						APIGroups: []string{"discovery.k8s.io"},
-						Resources: []string{"endpoints"},
+						Resources: []string{"endpointslices", "endpoints"},
 					},
 				},
 			))

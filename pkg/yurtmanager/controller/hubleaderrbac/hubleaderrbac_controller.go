@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -149,27 +150,36 @@ func (r *ReconcileHubLeaderRBAC) reconcileHubLeaderRBAC(
 		return nil
 	}
 
-	// Get pool scoped metadata
-	processedGVR := make(map[metav1.GroupVersionResource]struct{})
+	// Get pool scoped metadata from all nodepools
+	// when groups are the same, merge resources
+	// use a set to achieve this
+	processedGVR := make(map[string]sets.Set[string])
 	rules := make([]v1.PolicyRule, 0, len(nodepools.Items))
 	for _, np := range nodepools.Items {
 		for _, gvr := range np.Spec.PoolScopeMetadata {
-			if _, ok := processedGVR[gvr]; ok {
+			if _, ok := processedGVR[gvr.Group]; ok {
+				processedGVR[gvr.Group].Insert(gvr.Resource)
 				continue
 			}
-			processedGVR[gvr] = struct{}{}
-
-			rules = append(rules, v1.PolicyRule{
-				APIGroups: []string{gvr.Group},
-				Resources: []string{gvr.Resource},
-				Verbs:     []string{"list", "watch"},
-			})
+			processedGVR[gvr.Group] = sets.New(gvr.Resource)
 		}
+	}
+
+	// Rebuild merged resources into policy rules
+	for g, resources := range processedGVR {
+		rules = append(rules, v1.PolicyRule{
+			APIGroups: []string{g},
+			Resources: resources.UnsortedList(),
+			Verbs:     []string{"list", "watch"},
+		})
 	}
 
 	// Sort the rules to ensure the order is deterministic
 	slices.SortFunc(rules, func(a, b v1.PolicyRule) int {
-		return slices.Compare(a.APIGroups, b.APIGroups)
+		if cmp := slices.Compare(a.APIGroups, b.APIGroups); cmp != 0 {
+			return cmp
+		}
+		return slices.Compare(a.Resources, b.Resources)
 	})
 
 	clusterRole := &v1.ClusterRole{}
@@ -189,10 +199,7 @@ func (r *ReconcileHubLeaderRBAC) reconcileHubLeaderRBAC(
 			},
 			Rules: rules,
 		}
-		if err := r.Create(ctx, clusterRole); err != nil {
-			return err
-		}
-		return nil
+		return r.Create(ctx, clusterRole)
 	}
 
 	// Update the clusterrole if it exists and changed
@@ -212,11 +219,17 @@ func hasPolicyChanged(old, new []v1.PolicyRule) bool {
 
 	// Sort both old and new
 	slices.SortFunc(old, func(a, b v1.PolicyRule) int {
-		return slices.Compare(a.APIGroups, b.APIGroups)
+		if cmp := slices.Compare(a.APIGroups, b.APIGroups); cmp != 0 {
+			return cmp
+		}
+		return slices.Compare(a.Resources, b.Resources)
 	})
 
 	slices.SortFunc(new, func(a, b v1.PolicyRule) int {
-		return slices.Compare(a.APIGroups, b.APIGroups)
+		if cmp := slices.Compare(a.APIGroups, b.APIGroups); cmp != 0 {
+			return cmp
+		}
+		return slices.Compare(a.Resources, b.Resources)
 	})
 
 	return !slices.EqualFunc(old, new, func(a, b v1.PolicyRule) bool {

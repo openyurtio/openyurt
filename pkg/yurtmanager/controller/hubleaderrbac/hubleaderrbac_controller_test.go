@@ -185,12 +185,7 @@ func TestReconcile(t *testing.T) {
 					},
 					{
 						APIGroups: []string{"discovery.k8s.io"},
-						Resources: []string{"endpointslices"},
-						Verbs:     []string{"list", "watch"},
-					},
-					{
-						APIGroups: []string{"discovery.k8s.io"},
-						Resources: []string{"endpoints"},
+						Resources: []string{"endpointslices", "endpoints"},
 						Verbs:     []string{"list", "watch"},
 					},
 				},
