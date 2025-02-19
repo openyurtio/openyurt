@@ -116,6 +116,12 @@ type NodePoolStatus struct {
 	// +optional
 	LeaderEndpoints []Leader `json:"leaderEndpoints,omitempty"`
 
+	// LeaderNum is used for storing the number of leader yurthubs in the nodepool.
+	LeaderNum int32 `json:"leaderNum,omitempty"`
+
+	// LeaderLastElectedTime is used for storing the time when the leader yurthub was elected.
+	LeaderLastElectedTime metav1.Time `json:"leaderLastElectedTime,omitempty"`
+
 	// Conditions represents the latest available observations of a NodePool's
 	// current state that includes LeaderHubElection status.
 	// +optional
@@ -157,6 +163,8 @@ type NodePoolCondition struct {
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of nodepool"
 // +kubebuilder:printcolumn:name="ReadyNodes",type="integer",JSONPath=".status.readyNodeNum",description="The number of ready nodes in the pool"
 // +kubebuilder:printcolumn:name="NotReadyNodes",type="integer",JSONPath=".status.unreadyNodeNum"
+// +kubebuilder:printcolumn:name="LeaderNodes",type="integer",JSONPath=".status.leaderNum",description="The leader node of the nodepool"
+// +kubebuilder:printcolumn:name="LeaderElectionAge",type="date",JSONPath=".status.leaderElectionTime",description="The time when the leader yurthub is elected"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +genclient:nonNamespaced

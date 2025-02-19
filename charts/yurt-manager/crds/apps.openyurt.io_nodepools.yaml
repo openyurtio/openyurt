@@ -302,6 +302,14 @@ spec:
         - jsonPath: .status.unreadyNodeNum
           name: NotReadyNodes
           type: integer
+        - description: The leader node of the nodepool
+          jsonPath: .status.leaderNum
+          name: LeaderNodes
+          type: integer
+        - description: The time when the leader yurthub is elected
+          jsonPath: .status.leaderElectionTime
+          name: LeaderElectionAge
+          type: date
         - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
@@ -485,6 +493,14 @@ spec:
                       - nodeName
                     type: object
                   type: array
+                leaderLastElectedTime:
+                  description: LeaderLastElectedTime is used for storing the time when the leader yurthub was elected.
+                  format: date-time
+                  type: string
+                leaderNum:
+                  description: LeaderNum is used for storing the number of leader yurthubs in the nodepool.
+                  format: int32
+                  type: integer
                 nodes:
                   description: The list of nodes' names in the pool
                   items:
