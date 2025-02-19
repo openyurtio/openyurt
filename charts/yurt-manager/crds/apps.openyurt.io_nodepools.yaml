@@ -307,7 +307,7 @@ spec:
           name: LeaderNodes
           type: integer
         - description: The time when the leader yurthub is elected
-          jsonPath: .status.leaderElectionTime
+          jsonPath: .status.leaderLastElectedTime
           name: LeaderElectionAge
           type: date
         - jsonPath: .metadata.creationTimestamp

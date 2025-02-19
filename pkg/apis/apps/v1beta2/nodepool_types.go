@@ -164,7 +164,7 @@ type NodePoolCondition struct {
 // +kubebuilder:printcolumn:name="ReadyNodes",type="integer",JSONPath=".status.readyNodeNum",description="The number of ready nodes in the pool"
 // +kubebuilder:printcolumn:name="NotReadyNodes",type="integer",JSONPath=".status.unreadyNodeNum"
 // +kubebuilder:printcolumn:name="LeaderNodes",type="integer",JSONPath=".status.leaderNum",description="The leader node of the nodepool"
-// +kubebuilder:printcolumn:name="LeaderElectionAge",type="date",JSONPath=".status.leaderElectionTime",description="The time when the leader yurthub is elected"
+// +kubebuilder:printcolumn:name="LeaderElectionAge",type="date",JSONPath=".status.leaderLastElectedTime",description="The time when the leader yurthub is elected"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +genclient:nonNamespaced
