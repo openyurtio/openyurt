@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"testing"
@@ -33,10 +34,15 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	kstorage "k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -78,6 +84,9 @@ func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
 
 	resolver := newTestRequestInfoResolver()
 
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			req, _ := http.NewRequest(tc.verb, tc.path, nil)
@@ -102,7 +111,15 @@ func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
 				{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
 			}
 
-			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
+			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			cfg := &config.YurtHubConfiguration{
+				PoolScopeResources:       poolScopeResources,
+				RESTMapperManager:        restMapperManager,
+				SharedFactory:            factory,
+				LoadBalancerForLeaderHub: loadBalancer,
+			}
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
 
 			var isRequestForPoolScopeMetadata bool
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -110,7 +127,7 @@ func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
 				isRequestForPoolScopeMetadata, _ = util.IsRequestForPoolScopeMetadataFrom(ctx)
 			})
 
-			handler = WithIsRequestForPoolScopeMetadata(handler, rmm, "test-agent")
+			handler = WithIsRequestForPoolScopeMetadata(handler, rmm.IsRequestForPoolScopeMetadata)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 

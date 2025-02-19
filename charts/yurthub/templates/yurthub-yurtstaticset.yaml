@@ -36,6 +36,7 @@ spec:
             - --bind-address={{ .Values.yurthubBindingAddr }}
             - --server-addr={{ .Values.kubernetesServerAddr }}
             - --node-name=$(NODE_NAME)
+            - --nodepool-name={{ .Values.nodePoolName }}
             - --bootstrap-file={{ .Values.bootstrapFile }}
             - --working-mode=edge
             - --namespace={{ .Release.Namespace }}

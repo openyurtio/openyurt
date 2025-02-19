@@ -19,9 +19,11 @@ package multiplexer
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"sort"
 	"testing"
@@ -36,14 +38,19 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
+	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	multiplexerstorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	ctesting "github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer/testing"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 )
 
 var (
@@ -111,6 +118,9 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	}
 	restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
 
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
 	poolScopeResources := []schema.GroupVersionResource{
 		{Group: "", Version: "v1", Resource: "services"},
 		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
@@ -150,8 +160,16 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 				Body: &bytes.Buffer{},
 			}
 
+			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
-			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
+			cfg := &config.YurtHubConfiguration{
+				PoolScopeResources:       poolScopeResources,
+				RESTMapperManager:        restMapperManager,
+				SharedFactory:            factory,
+				LoadBalancerForLeaderHub: loadBalancer,
+			}
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
 
 			informerSynced := func() bool {
 				return rmm.Ready(&schema.GroupVersionResource{
@@ -293,6 +311,9 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
 	}
 
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
 	for k, tc := range map[string]struct {
 		filterFinder       filter.FilterFinder
 		url                string
@@ -315,8 +336,17 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 		},
 	} {
 		t.Run(k, func(t *testing.T) {
+			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
-			rmm := multiplexer.NewRequestMultiplexerManager(dsm, restMapperManager, poolScopeResources)
+			cfg := &config.YurtHubConfiguration{
+				PoolScopeResources:       poolScopeResources,
+				RESTMapperManager:        restMapperManager,
+				SharedFactory:            factory,
+				LoadBalancerForLeaderHub: loadBalancer,
+			}
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
 
 			informerSynced := func() bool {
 				return rmm.Ready(&schema.GroupVersionResource{

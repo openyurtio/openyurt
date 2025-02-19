@@ -90,7 +90,7 @@ func (sp *multiplexerProxy) listObject(r *http.Request, gvr *schema.GroupVersion
 	}
 
 	if err := rc.GetList(r.Context(), key, *storageOpts, obj); err != nil {
-		return nil, errors.Wrapf(err, "failed to get list from cache")
+		return nil, err
 	}
 
 	if objectFilter, exists := sp.filterFinder.FindObjectFilter(r); exists {

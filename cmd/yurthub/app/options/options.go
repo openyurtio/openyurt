@@ -17,6 +17,7 @@ limitations under the License.
 package options
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
@@ -83,6 +85,8 @@ type YurtHubOptions struct {
 	ClientForTest             kubernetes.Interface
 	EnablePoolServiceTopology bool
 	PoolScopeResources        PoolScopeMetadatas
+	PortForMultiplexer        int
+	NodeIP                    string
 }
 
 // NewYurtHubOptions creates a new YurtHubOptions with a default config.
@@ -93,6 +97,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		YurtHubProxyPort:          util.YurtHubProxyPort,
 		YurtHubPort:               util.YurtHubPort,
 		YurtHubProxySecurePort:    util.YurtHubProxySecurePort,
+		PortForMultiplexer:        util.YurtHubMultiplexerPort,
 		YurtHubNamespace:          util.YurtHubNamespace,
 		GCFrequency:               120,
 		YurtHubCertOrganizations:  make([]string, 0),
@@ -167,6 +172,19 @@ func (options *YurtHubOptions) Validate() error {
 		if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
 			return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
 		}
+
+		if len(options.NodePoolName) == 0 {
+			return errors.New("node-pool-name is empty")
+		}
+
+		if len(options.NodeIP) == 0 {
+			ipAddr, err := apinet.ResolveBindAddress(nil)
+			if err != nil {
+				return fmt.Errorf("couldn't get the node ip, %v", err)
+			}
+			options.NodeIP = ipAddr.String()
+			klog.Infof("node ip is configured as %s", options.NodeIP)
+		}
 	}
 
 	return nil
@@ -179,11 +197,13 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.YurtHubProxyHost, "bind-proxy-address", o.YurtHubProxyHost, "the IP address of YurtHub Proxy Server")
 	fs.IntVar(&o.YurtHubProxyPort, "proxy-port", o.YurtHubProxyPort, "the port on which to proxy HTTP requests to kube-apiserver")
 	fs.IntVar(&o.YurtHubProxySecurePort, "proxy-secure-port", o.YurtHubProxySecurePort, "the port on which to proxy HTTPS requests to kube-apiserver")
+	fs.IntVar(&o.PortForMultiplexer, "multiplexer-port", o.PortForMultiplexer, "the port on which to proxy HTTPS requests to multiplexer in yurthub")
 	fs.StringVar(&o.YurtHubNamespace, "namespace", o.YurtHubNamespace, "the namespace of YurtHub Server")
 	fs.StringVar(&o.ServerAddr, "server-addr", o.ServerAddr, "the address of Kubernetes kube-apiserver, the format is: \"server1,server2,...\"; when yurthub is in local mode, server-addr represents the service address of apiservers, the format is: \"ip:port\".")
 	fs.StringSliceVar(&o.YurtHubCertOrganizations, "hub-cert-organizations", o.YurtHubCertOrganizations, "Organizations that will be added into hub's apiserver client certificate, the format is: certOrg1,certOrg2,...")
 	fs.IntVar(&o.GCFrequency, "gc-frequency", o.GCFrequency, "the frequency to gc cache in storage(unit: minute).")
 	fs.StringVar(&o.NodeName, "node-name", o.NodeName, "the name of node that runs hub agent")
+	fs.StringVar(&o.NodeIP, "node-ip", o.NodeIP, "the same IP address of the node which used by kubelet. if unset, node's default IPv4 address will be used.")
 	fs.StringVar(&o.LBMode, "lb-mode", o.LBMode, "the mode of load balancer to connect remote servers(round-robin, priority)")
 	fs.IntVar(&o.HeartbeatFailedRetry, "heartbeat-failed-retry", o.HeartbeatFailedRetry, "number of heartbeat request retry after having failed.")
 	fs.IntVar(&o.HeartbeatHealthyThreshold, "heartbeat-healthy-threshold", o.HeartbeatHealthyThreshold, "minimum consecutive successes for the heartbeat to be considered healthy after having failed.")

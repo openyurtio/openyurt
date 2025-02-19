@@ -92,6 +92,7 @@ func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url
 		net.ParseIP(options.HubAgentDummyIfIP),
 		net.ParseIP(options.YurtHubHost),
 		net.ParseIP(options.YurtHubProxyHost),
+		net.ParseIP(options.NodeIP),
 	})
 	serverCertManager, err := hubServerCert.NewHubServerCertificateManager(options.ClientForTest, clientCertManager, options.NodeName, filepath.Join(workDir, "pki"), certIPs)
 	if err != nil {

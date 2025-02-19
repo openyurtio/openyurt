@@ -51,14 +51,16 @@ const (
 type yurtHubOperator struct {
 	apiServerAddr             string
 	joinToken                 string
+	nodePoolName              string
 	yurthubHealthCheckTimeout time.Duration
 }
 
 // NewYurthubOperator new yurtHubOperator struct
-func NewYurthubOperator(apiServerAddr string, joinToken string, yurthubHealthCheckTimeout time.Duration) *yurtHubOperator {
+func NewYurthubOperator(apiServerAddr string, joinToken, nodePoolName string, yurthubHealthCheckTimeout time.Duration) *yurtHubOperator {
 	return &yurtHubOperator{
 		apiServerAddr:             apiServerAddr,
 		joinToken:                 joinToken,
+		nodePoolName:              nodePoolName,
 		yurthubHealthCheckTimeout: yurthubHealthCheckTimeout,
 	}
 }
@@ -91,6 +93,8 @@ func (op *yurtHubOperator) Install() error {
 	}
 	klog.Infof("yurt-hub.yaml apiServerAddr: %+v", op.apiServerAddr)
 	yssYurtHub := strings.ReplaceAll(string(content), "KUBERNETES_SERVER_ADDRESS", op.apiServerAddr)
+	klog.Infof("yurt-hub.yaml nodePoolName: %s", op.nodePoolName)
+	yssYurtHub = strings.ReplaceAll(string(yssYurtHub), "NODE_POOL_NAME", op.nodePoolName)
 	if err = os.WriteFile(getYurthubYaml(podManifestPath), []byte(yssYurtHub), fileMode); err != nil {
 		return err
 	}

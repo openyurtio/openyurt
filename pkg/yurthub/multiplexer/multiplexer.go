@@ -18,9 +18,14 @@ package multiplexer
 
 import (
 	"fmt"
+	"maps"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/fields"
@@ -28,85 +33,251 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	ystorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
+	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-var KeyFunc = func(obj runtime.Object) (string, error) {
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		return "", err
-	}
+const (
+	PoolScopeMetadataKey = "pool-scoped-metadata"
+	LeaderEndpointsKey   = "leaders"
+	EnableLeaderElection = "enable-leader-election"
 
-	name := accessor.GetName()
-	if len(name) == 0 {
-		return "", apierrors.NewBadRequest("Name parameter required.")
-	}
+	PoolSourceForPoolScopeMetadata      = "pool"
+	APIServerSourceForPoolScopeMetadata = "api"
+)
 
-	ns := accessor.GetNamespace()
-	if len(ns) == 0 {
-		return "/" + name, nil
-	}
-	return "/" + ns + "/" + name, nil
-}
-
-var AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
-	metadata, err := meta.Accessor(obj)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var fieldSet fields.Set
-	if len(metadata.GetNamespace()) > 0 {
-		fieldSet = fields.Set{
-			"metadata.name":      metadata.GetName(),
-			"metadata.namespace": metadata.GetNamespace(),
+var (
+	KeyFunc = func(obj runtime.Object) (string, error) {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return "", err
 		}
-	} else {
-		fieldSet = fields.Set{
-			"metadata.name": metadata.GetName(),
+
+		name := accessor.GetName()
+		if len(name) == 0 {
+			return "", apierrors.NewBadRequest("Name parameter required.")
 		}
+
+		ns := accessor.GetNamespace()
+		if len(ns) == 0 {
+			return "/" + name, nil
+		}
+		return "/" + ns + "/" + name, nil
 	}
 
-	return labels.Set(metadata.GetLabels()), fieldSet, nil
-}
+	AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
+		metadata, err := meta.Accessor(obj)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var fieldSet fields.Set
+		if len(metadata.GetNamespace()) > 0 {
+			fieldSet = fields.Set{
+				"metadata.name":      metadata.GetName(),
+				"metadata.namespace": metadata.GetNamespace(),
+			}
+		} else {
+			fieldSet = fields.Set{
+				"metadata.name": metadata.GetName(),
+			}
+		}
+
+		return labels.Set(metadata.GetLabels()), fieldSet, nil
+	}
+)
 
 type MultiplexerManager struct {
-	restStoreProvider  ystorage.StorageProvider
-	restMapper         *hubmeta.RESTMapperManager
-	poolScopeMetadatas sets.Set[string]
+	restStoreProvider       ystorage.StorageProvider
+	restMapper              *hubmeta.RESTMapperManager
+	healthCheckerForLeaders healthchecker.Interface
+	loadBalancerForLeaders  remote.LoadBalancer
+	portForLeaderHub        int
+	nodeName                string
+	multiplexerUserAgent    string
 
-	cacheLock                     sync.RWMutex
+	sync.RWMutex
 	lazyLoadedGVRCache            map[string]Interface
 	lazyLoadedGVRCacheDestroyFunc map[string]func()
+	sourceForPoolScopeMetadata    string
+	poolScopeMetadata             sets.Set[string]
+	leaderAddresses               sets.Set[string]
+	configMapSynced               cache.InformerSynced
 }
 
 func NewRequestMultiplexerManager(
+	cfg *config.YurtHubConfiguration,
 	restStoreProvider ystorage.StorageProvider,
-	restMapperMgr *hubmeta.RESTMapperManager,
-	poolScopeResources []schema.GroupVersionResource) *MultiplexerManager {
-
-	poolScopeMetadatas := sets.New[string]()
-	for i := range poolScopeResources {
-		poolScopeMetadatas.Insert(poolScopeResources[i].String())
+	healthCheckerForLeaders healthchecker.Interface) *MultiplexerManager {
+	configmapInformer := cfg.SharedFactory.Core().V1().ConfigMaps().Informer()
+	poolScopeMetadata := sets.New[string]()
+	for i := range cfg.PoolScopeResources {
+		poolScopeMetadata.Insert(cfg.PoolScopeResources[i].String())
 	}
-	klog.Infof("pool scope resources: %v", poolScopeMetadatas)
+	klog.Infof("pool scope resources: %v", poolScopeMetadata)
 
-	return &MultiplexerManager{
+	m := &MultiplexerManager{
 		restStoreProvider:             restStoreProvider,
-		restMapper:                    restMapperMgr,
-		poolScopeMetadatas:            poolScopeMetadatas,
+		restMapper:                    cfg.RESTMapperManager,
+		healthCheckerForLeaders:       healthCheckerForLeaders,
+		loadBalancerForLeaders:        cfg.LoadBalancerForLeaderHub,
+		poolScopeMetadata:             poolScopeMetadata,
 		lazyLoadedGVRCache:            make(map[string]Interface),
 		lazyLoadedGVRCacheDestroyFunc: make(map[string]func()),
-		cacheLock:                     sync.RWMutex{},
+		leaderAddresses:               sets.New[string](),
+		portForLeaderHub:              cfg.PortForMultiplexer,
+		nodeName:                      cfg.NodeName,
+		multiplexerUserAgent:          hubutil.MultiplexerProxyClientUserAgentPrefix + cfg.NodeName,
+		configMapSynced:               configmapInformer.HasSynced,
+	}
+
+	// prepare leader-hub-{pool-name} configmap event handler
+	leaderHubConfigMapName := fmt.Sprintf("leader-hub-%s", cfg.NodePoolName)
+	configmapInformer.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			cfg, ok := obj.(*corev1.ConfigMap)
+			if ok && cfg.Name == leaderHubConfigMapName {
+				return true
+			}
+			return false
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    m.addConfigmap,
+			UpdateFunc: m.updateConfigmap,
+			// skip DeleteFunc, because only NodePool deletion will cause to delete this configmap.
+		},
+	})
+	return m
+}
+
+func (m *MultiplexerManager) addConfigmap(obj interface{}) {
+	cm, _ := obj.(*corev1.ConfigMap)
+
+	m.updateLeaderHubConfiguration(cm)
+	klog.Infof("after added configmap, source for pool scope metadata: %s, pool scope metadata: %v", m.sourceForPoolScopeMetadata, m.poolScopeMetadata)
+}
+
+func (m *MultiplexerManager) updateConfigmap(oldObj, newObj interface{}) {
+	oldCM, _ := oldObj.(*corev1.ConfigMap)
+	newCM, _ := newObj.(*corev1.ConfigMap)
+
+	if maps.Equal(oldCM.Data, newCM.Data) {
+		return
+	}
+
+	m.updateLeaderHubConfiguration(newCM)
+	klog.Infof("after updated configmap, source for pool scope metadata: %s, pool scope metadata: %v", m.sourceForPoolScopeMetadata, m.poolScopeMetadata)
+}
+
+func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) {
+	newPoolScopeMetadata := sets.New[string]()
+	if len(cm.Data[PoolScopeMetadataKey]) != 0 {
+		for _, part := range strings.Split(cm.Data[PoolScopeMetadataKey], ",") {
+			subParts := strings.Split(part, "/")
+			if len(subParts) == 3 {
+				gvr := schema.GroupVersionResource{
+					Group:    subParts[0],
+					Version:  subParts[1],
+					Resource: subParts[2],
+				}
+				newPoolScopeMetadata.Insert(gvr.String())
+			}
+		}
+	}
+
+	newLeaderNames := sets.New[string]()
+	newLeaderAddresses := sets.New[string]()
+	if len(cm.Data[LeaderEndpointsKey]) != 0 {
+		for _, part := range strings.Split(cm.Data[LeaderEndpointsKey], ",") {
+			subParts := strings.Split(part, "/")
+			if len(subParts) == 2 {
+				newLeaderNames.Insert(subParts[0])
+				newLeaderAddresses.Insert(subParts[1])
+			}
+		}
+	}
+
+	newSource := APIServerSourceForPoolScopeMetadata
+	// enable-leader-election is enabled and node is not elected as leader hub,
+	// multiplexer will list/watch pool scope metadata from leader yurthub.
+	// otherwise, multiplexer will list/watch pool scope metadata from cloud kube-apiserver.
+	if cm.Data[EnableLeaderElection] == "true" && len(newLeaderAddresses) != 0 && !newLeaderNames.Has(m.nodeName) {
+		newSource = PoolSourceForPoolScopeMetadata
+	}
+
+	// LeaderHubEndpoints are changed, related health checker and load balancer are need to be updated.
+	if !m.leaderAddresses.Equal(newLeaderAddresses) {
+		servers := m.resolveLeaderHubServers(newLeaderAddresses)
+		m.healthCheckerForLeaders.UpdateBackends(servers)
+		m.loadBalancerForLeaders.UpdateBackends(servers)
+		m.leaderAddresses = newLeaderAddresses
+	}
+
+	if m.sourceForPoolScopeMetadata == newSource &&
+		m.poolScopeMetadata.Equal(newPoolScopeMetadata) {
+		return
+	}
+
+	// if pool scope metadata are removed, related GVR cache should be destroyed.
+	deletedPoolScopeMetadata := m.poolScopeMetadata.Difference(newPoolScopeMetadata)
+
+	m.Lock()
+	defer m.Unlock()
+	m.sourceForPoolScopeMetadata = newSource
+	m.poolScopeMetadata = newPoolScopeMetadata
+	for _, gvrStr := range deletedPoolScopeMetadata.UnsortedList() {
+		if destroyFunc, ok := m.lazyLoadedGVRCacheDestroyFunc[gvrStr]; ok {
+			destroyFunc()
+		}
+		delete(m.lazyLoadedGVRCacheDestroyFunc, gvrStr)
+		delete(m.lazyLoadedGVRCache, gvrStr)
 	}
 }
 
-func (m *MultiplexerManager) IsPoolScopeMetadata(gvr *schema.GroupVersionResource) bool {
-	return m.poolScopeMetadatas.Has(gvr.String())
+func (m *MultiplexerManager) HasSynced() bool {
+	return m.configMapSynced()
+}
+
+func (m *MultiplexerManager) SourceForPoolScopeMetadata() string {
+	m.RLock()
+	defer m.RUnlock()
+	return m.sourceForPoolScopeMetadata
+}
+
+func (m *MultiplexerManager) IsRequestForPoolScopeMetadata(req *http.Request) bool {
+	// the requests from multiplexer manager, recongnize it as not multiplexer request.
+	if req.UserAgent() == m.multiplexerUserAgent {
+		return false
+	}
+
+	info, ok := apirequest.RequestInfoFrom(req.Context())
+	if !ok {
+		return false
+	}
+
+	// list/watch requests
+	if info.Verb != "list" && info.Verb != "watch" {
+		return false
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	}
+
+	m.RLock()
+	defer m.RUnlock()
+	return m.poolScopeMetadata.Has(gvr.String())
 }
 
 func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {
@@ -123,10 +294,23 @@ func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {
 // The cache is loaded in a lazy mode, this means cache will not be loaded when yurthub initializes,
 // and cache will only be loaded when corresponding request is received.
 func (m *MultiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), error) {
-	m.cacheLock.Lock()
-	defer m.cacheLock.Unlock()
+	// use read lock to get resource cache, so requests can not be blocked.
+	m.RLock()
+	rc, exists := m.lazyLoadedGVRCache[gvr.String()]
+	destroyFunc := m.lazyLoadedGVRCacheDestroyFunc[gvr.String()]
+	m.RUnlock()
 
-	if rc, ok := m.lazyLoadedGVRCache[gvr.String()]; ok {
+	if exists {
+		return rc, destroyFunc, nil
+	}
+
+	// resource cache doesn't exist, initialize multiplexer cache for gvr
+	m.Lock()
+	defer m.Unlock()
+
+	// maybe multiple requests are served to initialize multiplexer cache at the same time,
+	// so we need to check the cache another time before initializing cache.
+	if rc, exists := m.lazyLoadedGVRCache[gvr.String()]; exists {
 		return rc, m.lazyLoadedGVRCacheDestroyFunc[gvr.String()], nil
 	}
 
@@ -190,4 +374,17 @@ func (m *MultiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 		KeyFunc:      KeyFunc,
 		GetAttrsFunc: AttrsFunc,
 	}
+}
+
+func (m *MultiplexerManager) resolveLeaderHubServers(leaderAddresses sets.Set[string]) []*url.URL {
+	servers := make([]*url.URL, 0, leaderAddresses.Len())
+	for _, internalIP := range leaderAddresses.UnsortedList() {
+		u, err := url.Parse(fmt.Sprintf("https://%s:%d", internalIP, m.portForLeaderHub))
+		if err != nil {
+			klog.Errorf("couldn't parse url(%s), %v", fmt.Sprintf("https://%s:%d", internalIP, m.portForLeaderHub), err)
+			continue
+		}
+		servers = append(servers, u)
+	}
+	return servers
 }

@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
+	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
@@ -159,7 +159,7 @@ func TestLoadBalancingStrategy(t *testing.T) {
 
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			checker := cloudapiserver.NewFakeChecker(tc.servers)
+			checker := fakeHealthChecker.NewFakeChecker(tc.servers)
 			servers := make([]*url.URL, 0, len(tc.servers))
 			for server := range tc.servers {
 				servers = append(servers, server)

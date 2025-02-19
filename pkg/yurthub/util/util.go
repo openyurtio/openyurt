@@ -79,6 +79,7 @@ const (
 	YurtHubProxyPort       = 10261
 	YurtHubPort            = 10267
 	YurtHubProxySecurePort = 10268
+	YurtHubMultiplexerPort = 10269
 )
 
 var (
