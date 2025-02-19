@@ -273,6 +273,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.1",
 						},
 					},
+					LeaderNum: 1,
 				},
 			},
 			expectErr: false,
@@ -322,6 +323,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.5",
 						},
 					},
+					LeaderNum: 2,
 				},
 			},
 			expectErr: false,
@@ -543,6 +545,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.4", // .4 was leader (node not ready)
 						},
 					},
+					LeaderNum: 2,
 				},
 			},
 			expectedNodePool: &appsv1beta2.NodePool{
@@ -572,6 +575,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.5", // new leader is .5
 						},
 					},
+					LeaderNum: 2,
 				},
 			},
 			expectErr: false,
@@ -621,6 +625,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.5",
 						}, // multiple marked leaders
 					},
+					LeaderNum: 2,
 				},
 			},
 			expectErr: false,
@@ -668,6 +673,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.5",
 						}, // multiple marked leaders,
 					},
+					LeaderNum: 3,
 				},
 			},
 			expectErr: false,
@@ -725,6 +731,7 @@ func TestReconcile(t *testing.T) {
 							Address:  "10.0.0.2",
 						},
 					},
+					LeaderNum: 1,
 				},
 			},
 			expectErr: false,
@@ -811,7 +818,9 @@ func TestReconcile(t *testing.T) {
 			require.NoError(t, err)
 
 			// Reset resource version - it's not important for the test
+			// Reset leader last election time - it's not important for the test
 			actualPool.ResourceVersion = ""
+			actualPool.Status.LeaderLastElectedTime = metav1.Time{}
 			// Sort leader endpoints for comparison - it is not important for the order
 			slices.SortStableFunc(actualPool.Status.LeaderEndpoints, func(a, b appsv1beta2.Leader) int {
 				return cmp.Compare(
