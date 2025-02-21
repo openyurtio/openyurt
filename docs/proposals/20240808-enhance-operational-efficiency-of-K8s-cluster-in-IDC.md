@@ -106,7 +106,7 @@ In tenant-K8s, the designed details are as follows:
 We compare above mentioned solutions and proposed scheme, shown in the table:
 |  | Solution1 | Solution2 | Solution3 | Proposed |
 | --- | --- | --- | --- | --- |
-| Architecture | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution1.png" width="273"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution2.png" width="274"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution3.png" width="268"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig2.png" width="303"> |
+| Architecture | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution1.png" width="273"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution2.png" width="274"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution3.png" width="268"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig2.png" width="303"> |
 | Operational Efficiency | poor | moderate | good | good |
 | Security | poor | poor | good | good |
 | Support Multi-tenant | poor | moderate | poor | moderate |
