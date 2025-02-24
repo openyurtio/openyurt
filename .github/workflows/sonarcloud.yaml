@@ -41,10 +41,10 @@ jobs:
           publish_results: true
 
       - name: "Upload artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: SARIF file
-          path: results.sarif
+          name: my-artifact-${{ matrix.runs-on }}
+          path: file-${{ matrix.runs-on }}.txt
           retention-days: 5
 
       - name: "Upload to code-scanning"
