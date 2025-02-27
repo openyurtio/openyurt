@@ -17,7 +17,6 @@ limitations under the License.
 package proxy
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -134,7 +133,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	}
 	handler = util.WithRequestClientComponent(handler)
 	handler = util.WithPartialObjectMetadataRequest(handler)
-	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager.IsRequestForPoolScopeMetadata)
+	handler = util.WithRequestForPoolScopeMetadata(handler, p.multiplexerManager.ResolveRequestForPoolScopeMetadata)
 
 	if !yurtutil.IsNil(p.tenantMgr) && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
@@ -158,85 +157,97 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		}
 	}
 
-	// pool scope metadata requests should be handled by multiplexer for both cloud and edge mode.
-	isRequestForPoolScopeMetadata, ok := hubutil.IsRequestForPoolScopeMetadataFrom(req.Context())
-	if ok && isRequestForPoolScopeMetadata {
-		p.multiplexerProxy.ServeHTTP(rw, req)
-		return
-	}
-
 	switch {
-	case yurtutil.IsNil(p.localProxy): // cloud mode
-		// requests from local multiplexer of yurthub and the source of pool scope metadata is leader hub
-		if p.IsMultiplexerRequestFromHubSelft(req) &&
-			p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
-			// list/watch pool scope metadata from leader yurthub
-			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+	case IsRequestForPoolScopeMetadata(req):
+		// requests for list/watching pool scope metadata should be served by following rules:
+		// 1. requests from outside of yurthub(like kubelet, kube-proxy, other yurthubs, etc.) should be served by multiplexer proxy.(shouldBeForwarded=false)
+		// 2. requests from multiplexer of local yurthub, requests should be forwarded to leader hub or kube-apiserver.(shouldBeForwarded=true)
+		// 2.1: if yurthub which emit this request is a follower yurthub, request is forwarded to a leader hub by loadBalancerForLeaderHub(SourceForPoolScopeMetadata()==pool)
+		// 2.2: otherwise request is forwarded to kube-apiserver by load balancer.
+		shouldBeForwarded, _ := hubutil.ForwardRequestForPoolScopeMetadataFrom(req.Context())
+		if shouldBeForwarded {
+			// request for pool scope metadata should be forwarded to leader hub or kube-apiserver.
+			if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
+				// list/watch pool scope metadata from leader yurthub
+				if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+					backend.ServeHTTP(rw, req)
+					return
+				}
+			}
+
+			// otherwise, list/watch pool scope metadata from cloud kube-apiserver or local cache.
+			if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
 				backend.ServeHTTP(rw, req)
 				return
+			} else if !yurtutil.IsNil(p.localProxy) {
+				p.localProxy.ServeHTTP(rw, req)
+				return
 			}
-		}
-
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
-			backend.ServeHTTP(rw, req)
 		} else {
-			klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
-			http.Error(rw, "no healthy backends available.", http.StatusBadGateway)
+			// request for pool scope metadata should be served by multiplexer manager.
+			p.multiplexerProxy.ServeHTTP(rw, req)
+			return
 		}
+		// if the request have not been served, fall into failure serve.
 	case util.IsKubeletLeaseReq(req):
-		p.handleKubeletLease(rw, req)
-	case util.IsKubeletGetNodeReq(req):
-		p.autonomyProxy.ServeHTTP(rw, req)
-	case util.IsEventCreateRequest(req):
-		p.eventHandler(rw, req)
-	case util.IsSubjectAccessReviewCreateGetRequest(req):
-		p.subjectAccessReviewHandler(rw, req)
-	case p.IsMultiplexerRequestFromHubSelft(req):
-		// requests from multiplexer of local yurthub should be forwarded to cloud kube-apiserver or leader yurthub
-		// depends on leader election information.
-		if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
-			// list/watch pool scope metadata from leader yurthub
-			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
-				backend.ServeHTTP(rw, req)
-				return
-			}
+		if isServed := p.handleKubeletLease(rw, req); isServed {
+			return
 		}
-		// otherwise, list/watch pool scope metadata from cloud kube-apiserver or local cache, so fall through
-		fallthrough
-	default:
-		// handling the request with cloud apiserver or local cache.
+		// if the request have not been served, fall into failure serve.
+	case util.IsKubeletGetNodeReq(req):
+		if isServed := p.handleKubeletGetNode(rw, req); isServed {
+			return
+		}
+		// if the request have not been served, fall into failure serve.
+	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
-		} else {
-			p.localProxy.ServeHTTP(rw, req)
+			return
 		}
+		// if the request have not been served, fall into failure serve.
+	default:
+		// handling the request with cloud apiserver or local cache, otherwise fail to serve
+		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+			backend.ServeHTTP(rw, req)
+			return
+		} else if !yurtutil.IsNil(p.localProxy) {
+			p.localProxy.ServeHTTP(rw, req)
+			return
+		}
+		// if the request have not been served, fall into failure serve.
 	}
+
+	klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
+	http.Error(rw, "no healthy backends available.", http.StatusBadGateway)
 }
 
-func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) {
-	p.cloudHealthChecker.RenewKubeletLeaseTime()
-
-	if p.localProxy != nil {
+func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.Request) bool {
+	// node lease request should be served by local handler if local proxy is enabled.
+	// otherwise, forward node lease request by load balancer.
+	isServed := false
+	if !yurtutil.IsNil(p.localProxy) {
+		p.cloudHealthChecker.RenewKubeletLeaseTime()
 		p.localProxy.ServeHTTP(rw, req)
+		isServed = true
+	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		backend.ServeHTTP(rw, req)
+		isServed = true
 	}
+	return isServed
 }
 
-func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Request) {
-	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+func (p *yurtReverseProxy) handleKubeletGetNode(rw http.ResponseWriter, req *http.Request) bool {
+	// kubelet get node request should be served by autonomy handler if autonomy proxy is enabled.
+	// otherwise, forward kubelet get node request by load balancer.
+	isServed := false
+	if !yurtutil.IsNil(p.autonomyProxy) {
+		p.autonomyProxy.ServeHTTP(rw, req)
+		isServed = true
+	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
-	} else {
-		p.localProxy.ServeHTTP(rw, req)
+		isServed = true
 	}
-}
-
-func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
-	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
-		backend.ServeHTTP(rw, req)
-	} else {
-		err := errors.New("request is from cloud APIServer but it's currently not healthy")
-		klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
-		hubutil.Err(err, rw, req)
-	}
+	return isServed
 }
 
 func (p *yurtReverseProxy) IsRequestFromHubSelf(req *http.Request) bool {
@@ -252,10 +263,9 @@ func (p *yurtReverseProxy) IsRequestFromHubSelf(req *http.Request) bool {
 	return false
 }
 
-func (p *yurtReverseProxy) IsMultiplexerRequestFromHubSelft(req *http.Request) bool {
-	userAgent := req.UserAgent()
-
-	if userAgent == p.multiplexerUserAgent {
+func IsRequestForPoolScopeMetadata(req *http.Request) bool {
+	isRequestForPoolScopeMetadata, ok := hubutil.IsRequestForPoolScopeMetadataFrom(req.Context())
+	if ok && isRequestForPoolScopeMetadata {
 		return true
 	}
 

@@ -253,20 +253,25 @@ func (m *MultiplexerManager) SourceForPoolScopeMetadata() string {
 	return m.sourceForPoolScopeMetadata
 }
 
-func (m *MultiplexerManager) IsRequestForPoolScopeMetadata(req *http.Request) bool {
-	// the requests from multiplexer manager, recognize it as not multiplexer request.
-	if req.UserAgent() == m.multiplexerUserAgent {
-		return false
-	}
-
+// ResolveRequestForPoolScopeMetadata is used for resolving requests for list/watching pool scope metadata.
+// there are two return values:
+// isRequestForPoolScopeMetadata: specify whether the request list/watch pool scope metadata or not. if true, it is a request for pool scope metadata, otherwise, it's not.
+// forwardRequestForPoolScopeMetadata: specify whether the request for pool scope metadata should be forwarded or can be served by multiplexer.
+// if true, it means request should be forwarded, otherwise, request should be served by multiplexer.
+// by the way, return value: forwardRequestForPoolScopeMetadata  can be used when return value: isRequestForPoolScopeMetadata is true.
+func (m *MultiplexerManager) ResolveRequestForPoolScopeMetadata(req *http.Request) (isRequestForPoolScopeMetadata bool, forwardRequestForPoolScopeMetadata bool) {
 	info, ok := apirequest.RequestInfoFrom(req.Context())
 	if !ok {
-		return false
+		isRequestForPoolScopeMetadata = false
+		forwardRequestForPoolScopeMetadata = false
+		return
 	}
 
 	// list/watch requests
 	if info.Verb != "list" && info.Verb != "watch" {
-		return false
+		isRequestForPoolScopeMetadata = false
+		forwardRequestForPoolScopeMetadata = false
+		return
 	}
 
 	gvr := schema.GroupVersionResource{
@@ -276,8 +281,16 @@ func (m *MultiplexerManager) IsRequestForPoolScopeMetadata(req *http.Request) bo
 	}
 
 	m.RLock()
-	defer m.RUnlock()
-	return m.poolScopeMetadata.Has(gvr.String())
+	isRequestForPoolScopeMetadata = m.poolScopeMetadata.Has(gvr.String())
+	m.RUnlock()
+
+	// the request comes from multiplexer manager, so the request should be forwarded instead of serving by local multiplexer.
+	if req.UserAgent() == m.multiplexerUserAgent {
+		forwardRequestForPoolScopeMetadata = true
+	} else {
+		forwardRequestForPoolScopeMetadata = false
+	}
+	return
 }
 
 func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {

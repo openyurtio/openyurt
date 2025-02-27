@@ -44,15 +44,16 @@ var (
 )
 
 type HubMetrics struct {
-	serversHealthyCollector              *prometheus.GaugeVec
-	inFlightRequestsCollector            *prometheus.GaugeVec
-	inFlightRequestsGauge                prometheus.Gauge
-	inFlightMultiplexerRequestsCollector *prometheus.GaugeVec
-	inFlightMultiplexerRequestsGauge     prometheus.Gauge
-	closableConnsCollector               *prometheus.GaugeVec
-	proxyTrafficCollector                *prometheus.CounterVec
-	errorKeysPersistencyStatusCollector  prometheus.Gauge
-	errorKeysCountCollector              prometheus.Gauge
+	serversHealthyCollector               *prometheus.GaugeVec
+	inFlightRequestsCollector             *prometheus.GaugeVec
+	inFlightRequestsGauge                 prometheus.Gauge
+	aggregatedInFlightRequestsCollector   *prometheus.GaugeVec
+	aggregatedInFlightRequestsGauge       prometheus.Gauge
+	targetForMultiplexerRequestsCollector *prometheus.GaugeVec
+	closableConnsCollector                *prometheus.GaugeVec
+	proxyTrafficCollector                 *prometheus.CounterVec
+	errorKeysPersistencyStatusCollector   prometheus.Gauge
+	errorKeysCountCollector               prometheus.Gauge
 }
 
 func newHubMetrics() *HubMetrics {
@@ -69,7 +70,7 @@ func newHubMetrics() *HubMetrics {
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "in_flight_requests_collector",
-			Help:      "collector of in flight requests handling by hub agent",
+			Help:      "collector of in flight requests handling by hub agent(exclude aggregated in flight requests)",
 		},
 		[]string{"verb", "resource", "subresources", "client"})
 	inFlightRequestsGauge := prometheus.NewGauge(
@@ -77,23 +78,31 @@ func newHubMetrics() *HubMetrics {
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "in_flight_requests_total",
-			Help:      "total of in flight requests handling by hub agent",
+			Help:      "total of in flight requests handling by hub agent(exclude aggregated in flight requests)",
 		})
-	inFlightMultiplexerRequestsCollector := prometheus.NewGaugeVec(
+	aggregatedInFlightRequestsCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "in_flight_multiplexer_requests_collector",
-			Help:      "collector of in flight requests handling by multiplexer manager",
+			Name:      "aggregated_in_flight_requests_collector",
+			Help:      "collector of in flight requests aggregated by multiplexer manager",
 		},
 		[]string{"verb", "resource", "subresources", "client"})
-	inFlightMultiplexerRequestsGauge := prometheus.NewGauge(
+	aggregatedInFlightRequestsGauge := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "in_flight_multiplexer_requests_total",
-			Help:      "total of in flight requests handling by multiplexer manager",
+			Name:      "aggregated_in_flight_requests_total",
+			Help:      "total of in flight requests aggregated by multiplexer manager",
 		})
+	targetForMultiplexerRequestsCollector := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "target_for_multiplexer_requests_collector",
+			Help:      "collector of requests for pool scope metadata with which server are forwarded",
+		},
+		[]string{"verb", "resource", "subresources", "client", "server"})
 	closableConnsCollector := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -127,22 +136,24 @@ func newHubMetrics() *HubMetrics {
 	prometheus.MustRegister(serversHealthyCollector)
 	prometheus.MustRegister(inFlightRequestsCollector)
 	prometheus.MustRegister(inFlightRequestsGauge)
-	prometheus.MustRegister(inFlightMultiplexerRequestsCollector)
-	prometheus.MustRegister(inFlightMultiplexerRequestsGauge)
+	prometheus.MustRegister(aggregatedInFlightRequestsCollector)
+	prometheus.MustRegister(aggregatedInFlightRequestsGauge)
+	prometheus.MustRegister(targetForMultiplexerRequestsCollector)
 	prometheus.MustRegister(closableConnsCollector)
 	prometheus.MustRegister(proxyTrafficCollector)
 	prometheus.MustRegister(errorKeysPersistencyStatusCollector)
 	prometheus.MustRegister(errorKeysCountCollector)
 	return &HubMetrics{
-		serversHealthyCollector:              serversHealthyCollector,
-		inFlightRequestsCollector:            inFlightRequestsCollector,
-		inFlightRequestsGauge:                inFlightRequestsGauge,
-		inFlightMultiplexerRequestsCollector: inFlightMultiplexerRequestsCollector,
-		inFlightMultiplexerRequestsGauge:     inFlightMultiplexerRequestsGauge,
-		closableConnsCollector:               closableConnsCollector,
-		proxyTrafficCollector:                proxyTrafficCollector,
-		errorKeysPersistencyStatusCollector:  errorKeysPersistencyStatusCollector,
-		errorKeysCountCollector:              errorKeysCountCollector,
+		serversHealthyCollector:               serversHealthyCollector,
+		inFlightRequestsCollector:             inFlightRequestsCollector,
+		inFlightRequestsGauge:                 inFlightRequestsGauge,
+		aggregatedInFlightRequestsCollector:   aggregatedInFlightRequestsCollector,
+		aggregatedInFlightRequestsGauge:       aggregatedInFlightRequestsGauge,
+		targetForMultiplexerRequestsCollector: targetForMultiplexerRequestsCollector,
+		closableConnsCollector:                closableConnsCollector,
+		proxyTrafficCollector:                 proxyTrafficCollector,
+		errorKeysPersistencyStatusCollector:   errorKeysPersistencyStatusCollector,
+		errorKeysCountCollector:               errorKeysCountCollector,
 	}
 }
 
@@ -150,8 +161,9 @@ func (hm *HubMetrics) Reset() {
 	hm.serversHealthyCollector.Reset()
 	hm.inFlightRequestsCollector.Reset()
 	hm.inFlightRequestsGauge.Set(float64(0))
-	hm.inFlightMultiplexerRequestsCollector.Reset()
-	hm.inFlightMultiplexerRequestsGauge.Set(float64(0))
+	hm.aggregatedInFlightRequestsCollector.Reset()
+	hm.aggregatedInFlightRequestsGauge.Set(float64(0))
+	hm.targetForMultiplexerRequestsCollector.Reset()
 	hm.closableConnsCollector.Reset()
 	hm.proxyTrafficCollector.Reset()
 	hm.errorKeysPersistencyStatusCollector.Set(float64(0))
@@ -172,14 +184,22 @@ func (hm *HubMetrics) DecInFlightRequests(verb, resource, subresource, client st
 	hm.inFlightRequestsGauge.Dec()
 }
 
-func (hm *HubMetrics) IncInFlightMultiplexerRequests(verb, resource, subresource, client string) {
-	hm.inFlightMultiplexerRequestsCollector.WithLabelValues(verb, resource, subresource, client).Inc()
-	hm.inFlightMultiplexerRequestsGauge.Inc()
+func (hm *HubMetrics) IncAggregatedInFlightRequests(verb, resource, subresource, client string) {
+	hm.aggregatedInFlightRequestsCollector.WithLabelValues(verb, resource, subresource, client).Inc()
+	hm.aggregatedInFlightRequestsGauge.Inc()
 }
 
-func (hm *HubMetrics) DecInFlightMultiplexerRequests(verb, resource, subresource, client string) {
-	hm.inFlightMultiplexerRequestsCollector.WithLabelValues(verb, resource, subresource, client).Dec()
-	hm.inFlightMultiplexerRequestsGauge.Dec()
+func (hm *HubMetrics) DecAggregatedInFlightRequests(verb, resource, subresource, client string) {
+	hm.aggregatedInFlightRequestsCollector.WithLabelValues(verb, resource, subresource, client).Dec()
+	hm.aggregatedInFlightRequestsGauge.Dec()
+}
+
+func (hm *HubMetrics) IncTargetForMultiplexerRequests(verb, resource, subresource, client, server string) {
+	hm.targetForMultiplexerRequestsCollector.WithLabelValues(verb, resource, subresource, client, server).Inc()
+}
+
+func (hm *HubMetrics) DecTargetForMultiplexerRequests(verb, resource, subresource, client, server string) {
+	hm.targetForMultiplexerRequestsCollector.WithLabelValues(verb, resource, subresource, client, server).Dec()
 }
 
 func (hm *HubMetrics) IncClosableConns(server string) {
