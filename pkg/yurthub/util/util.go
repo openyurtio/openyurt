@@ -69,6 +69,8 @@ const (
 	ProxyConvertGVK
 	// ProxyPoolScopeMetadata represents a request is going to list/watch pool scope metadata or not.
 	ProxyPoolScopeMetadata
+	// ProxyForwardPoolScopeMetadata represents forward a request for pool scope metadata or not.
+	ProxyForwardPoolScopeMetadata
 
 	YurtHubNamespace      = "kube-system"
 	CacheUserAgentsKey    = "cache_agents"
@@ -169,6 +171,17 @@ func WithIsRequestForPoolScopeMetadata(parent context.Context, isRequestForPoolS
 // IsRequestForPoolScopeMetadataFrom returns the value of the request for pool scope metadata on the ctx
 func IsRequestForPoolScopeMetadataFrom(ctx context.Context) (bool, bool) {
 	info, ok := ctx.Value(ProxyPoolScopeMetadata).(bool)
+	return info, ok
+}
+
+// WithForwardRequestForPoolScopeMetadata returns a copy of parent in which forward request for pool scope metadata value is set
+func WithForwardRequestForPoolScopeMetadata(parent context.Context, forwardRequestForPoolScopeMetadata bool) context.Context {
+	return WithValue(parent, ProxyForwardPoolScopeMetadata, forwardRequestForPoolScopeMetadata)
+}
+
+// ForwardRequestForPoolScopeMetadataFrom returns the value of the request for pool scope metadata on the ctx
+func ForwardRequestForPoolScopeMetadataFrom(ctx context.Context) (bool, bool) {
+	info, ok := ctx.Value(ProxyForwardPoolScopeMetadata).(bool)
 	return info, ok
 }
 
