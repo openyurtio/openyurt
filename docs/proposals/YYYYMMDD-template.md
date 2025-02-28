@@ -24,7 +24,7 @@ superseded-by:
 <!-- BEGIN Remove before PR -->
 To get started with this template:
 1. **Make a copy of this template.**
-  Copy this template into `docs/enhacements` and name it `YYYYMMDD-my-title.md`, where `YYYYMMDD` is the date the proposal was first drafted.
+  Copy this template into `docs/enhancements` and name it `YYYYMMDD-my-title.md`, where `YYYYMMDD` is the date the proposal was first drafted.
 1. **Fill out the required sections.**
 1. **Create a PR.**
   Aim for single topic PRs to keep discussions focused.
@@ -67,7 +67,7 @@ any additional information provided beyond the standard proposal template.
   - [Alternatives](#alternatives)
   - [Upgrade Strategy](#upgrade-strategy)
   - [Additional Details](#additional-details)
-    - [Test Plan [optional]](#test-plan-optional)
+    - [Test Plan \[optional\]](#test-plan-optional)
   - [Implementation History](#implementation-history)
 
 ## Glossary
@@ -156,7 +156,7 @@ considerations for performance, reliability and security.
 - What are some important details that didn't come across above.
 - What are the caveats to the implementation?
 - Go in to as much detail as necessary here.
-- Talk about core concepts and how they releate.
+- Talk about core concepts and how they relate.
 
 ### Risks and Mitigations
 

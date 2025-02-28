@@ -254,7 +254,7 @@ func (m *MultiplexerManager) SourceForPoolScopeMetadata() string {
 }
 
 func (m *MultiplexerManager) IsRequestForPoolScopeMetadata(req *http.Request) bool {
-	// the requests from multiplexer manager, recongnize it as not multiplexer request.
+	// the requests from multiplexer manager, recognize it as not multiplexer request.
 	if req.UserAgent() == m.multiplexerUserAgent {
 		return false
 	}

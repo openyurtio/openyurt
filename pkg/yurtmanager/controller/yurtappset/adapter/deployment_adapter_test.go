@@ -181,7 +181,7 @@ func TestDeploymentAdapter_ApplyPoolTemplate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := da.ApplyPoolTemplate(tt.yas, tt.poolName, tt.revision, tt.replicas, tt.obj)
 			if err != nil {
-				t.Logf("failed to appply pool template")
+				t.Logf("failed to apply pool template")
 			}
 			if err = controllerutil.SetControllerReference(tt.yas, tt.wantDeploy, scheme); err != nil {
 				panic(err)

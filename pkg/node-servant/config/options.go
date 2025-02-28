@@ -54,7 +54,7 @@ func (o *ControlPlaneOptions) Validate() error {
 	if info, err := os.Stat(o.PodManifestsPath); err != nil {
 		return err
 	} else if !info.IsDir() {
-		return fmt.Errorf("pod mainifests path(%s) should be a directory", o.PodManifestsPath)
+		return fmt.Errorf("pod manifests path(%s) should be a directory", o.PodManifestsPath)
 	}
 
 	return nil
