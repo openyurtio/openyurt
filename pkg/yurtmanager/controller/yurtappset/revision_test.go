@@ -476,7 +476,7 @@ func TestCleanRevisions(t *testing.T) {
 }
 
 func TestControlledHistories(t *testing.T) {
-	// cr_should_adopt is a cr has owner label but doesnot has owner reference
+	// cr_should_adopt is a cr has owner label but does not has owner reference
 	cr_should_adopt := apps.ControllerRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-yurtappset-1",

@@ -303,7 +303,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		o.IgnoreError = v.ignoreErr
 		err := o.Validate()
 		if (v.wantErr && err == nil) || (!v.wantErr && err != nil) {
-			t.Errorf("failed vaildate")
+			t.Errorf("failed validate")
 		}
 	}
 
@@ -314,7 +314,7 @@ func TestKindOptions_Validate(t *testing.T) {
 		o.IgnoreError = v.ignoreErr
 		err := o.Validate()
 		if (v.wantErr && err == nil) || (!v.wantErr && err != nil) {
-			t.Errorf("failed vaildate")
+			t.Errorf("failed validate")
 		}
 	}
 }
