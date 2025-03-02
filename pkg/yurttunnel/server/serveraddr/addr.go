@@ -109,7 +109,7 @@ func GetYurttunelServerDNSandIP(
 	return extractTunnelServerDNSandIPs(svc, []*corev1.Endpoints{eps}, NodeListToNodes(nodeLst))
 }
 
-// YurttunelServerAddrManager list the latest tunnel server resources, extract ips and dnsNames from them
+// YurttunnelServerAddrManager list the latest tunnel server resources, extract ips and dnsNames from them
 func YurttunnelServerAddrManager(factory informers.SharedInformerFactory) ([]string, []net.IP, error) {
 	var (
 		ips              = make([]net.IP, 0)
@@ -303,7 +303,7 @@ func getDNSandIPFromAnnotations(svc *corev1.Service) ([]string, []net.IP, error)
 	return dnsNames, ips, nil
 }
 
-// getClusterIPDNSandIP gets the DNS names and IPs from the NodePort service
+// getNodePortDNSandIP gets the DNS names and IPs from the NodePort service
 func getNodePortDNSandIP(nodes []*corev1.Node) ([]string, []net.IP, error) {
 	var (
 		dnsNames = make([]string, 0)
@@ -335,7 +335,7 @@ func getNodePortDNSandIP(nodes []*corev1.Node) ([]string, []net.IP, error) {
 	return dnsNames, ips, nil
 }
 
-// getDefaultDomainsForSvc get default domains for specified service
+// GetDefaultDomainsForSvc get default domains for specified service
 func GetDefaultDomainsForSvc(ns, name string) []string {
 	domains := make([]string, 0)
 	if len(ns) == 0 || len(name) == 0 {
