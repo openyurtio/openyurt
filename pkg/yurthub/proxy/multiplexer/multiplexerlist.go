@@ -49,7 +49,7 @@ func (sp *multiplexerProxy) multiplexerList(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	storageOpts, err := sp.storageOpts(listOpts)
+	storageOpts, err := sp.storageOpts(listOpts, gvr)
 	if err != nil {
 		util.Err(err, w, r)
 		return

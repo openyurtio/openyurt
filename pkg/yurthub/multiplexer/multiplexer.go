@@ -26,10 +26,6 @@ import (
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -53,47 +49,6 @@ const (
 
 	PoolSourceForPoolScopeMetadata      = "pool"
 	APIServerSourceForPoolScopeMetadata = "api"
-)
-
-var (
-	KeyFunc = func(obj runtime.Object) (string, error) {
-		accessor, err := meta.Accessor(obj)
-		if err != nil {
-			return "", err
-		}
-
-		name := accessor.GetName()
-		if len(name) == 0 {
-			return "", apierrors.NewBadRequest("Name parameter required.")
-		}
-
-		ns := accessor.GetNamespace()
-		if len(ns) == 0 {
-			return "/" + name, nil
-		}
-		return "/" + ns + "/" + name, nil
-	}
-
-	AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
-		metadata, err := meta.Accessor(obj)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var fieldSet fields.Set
-		if len(metadata.GetNamespace()) > 0 {
-			fieldSet = fields.Set{
-				"metadata.name":      metadata.GetName(),
-				"metadata.namespace": metadata.GetNamespace(),
-			}
-		} else {
-			fieldSet = fields.Set{
-				"metadata.name": metadata.GetName(),
-			}
-		}
-
-		return labels.Set(metadata.GetLabels()), fieldSet, nil
-	}
 )
 
 type MultiplexerManager struct {
@@ -341,8 +296,14 @@ func (m *MultiplexerManager) resourceCacheConfig(gvr *schema.GroupVersionResourc
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to convert to gvk from gvr %s", gvr.String())
 	}
+	newFunc, newListFunc := m.getNewFunc(gvk, listGVK)
 
-	return m.newResourceCacheConfig(gvk, listGVK), nil
+	return &ResourceCacheConfig{
+		KeyFunc:      KeyFunc,
+		NewFunc:      newFunc,
+		NewListFunc:  newListFunc,
+		GetAttrsFunc: GetAttrsFunc(gvr),
+	}, nil
 }
 
 func (m *MultiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
@@ -360,20 +321,15 @@ func (m *MultiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (sch
 	return gvk, listGvk, nil
 }
 
-func (m *MultiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
-	listGVK schema.GroupVersionKind) *ResourceCacheConfig {
-	return &ResourceCacheConfig{
-		NewFunc: func() runtime.Object {
+func (m *MultiplexerManager) getNewFunc(gvk, listGvk schema.GroupVersionKind) (func() runtime.Object, func() runtime.Object) {
+	return func() runtime.Object {
 			obj, _ := scheme.Scheme.New(gvk)
 			return obj
 		},
-		NewListFunc: func() (object runtime.Object) {
-			objList, _ := scheme.Scheme.New(listGVK)
+		func() (object runtime.Object) {
+			objList, _ := scheme.Scheme.New(listGvk)
 			return objList
-		},
-		KeyFunc:      KeyFunc,
-		GetAttrsFunc: AttrsFunc,
-	}
+		}
 }
 
 func (m *MultiplexerManager) resolveLeaderHubServers(leaderAddresses sets.Set[string]) []*url.URL {

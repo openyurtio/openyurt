@@ -163,8 +163,8 @@ func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers
 	return opts, nil
 }
 
-func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions) (*kstorage.ListOptions, error) {
-	p := sp.selectionPredicate(listOpts)
+func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions, gvr *schema.GroupVersionResource) (*kstorage.ListOptions, error) {
+	p := sp.selectionPredicate(listOpts, gvr)
 
 	return &kstorage.ListOptions{
 		ResourceVersion:      getResourceVersion(listOpts),
@@ -175,7 +175,7 @@ func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions
 	}, nil
 }
 
-func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.ListOptions) kstorage.SelectionPredicate {
+func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.ListOptions, gvr *schema.GroupVersionResource) kstorage.SelectionPredicate {
 	label := labels.Everything()
 	if listOpts.LabelSelector != nil {
 		label = listOpts.LabelSelector
@@ -191,7 +191,7 @@ func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.List
 		Field:               field,
 		Limit:               listOpts.Limit,
 		Continue:            listOpts.Continue,
-		GetAttrs:            multiplexer.AttrsFunc,
+		GetAttrs:            multiplexer.GetAttrsFunc(gvr),
 		AllowWatchBookmarks: listOpts.AllowWatchBookmarks,
 	}
 }

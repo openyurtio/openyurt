@@ -82,10 +82,9 @@ func (rs *apiServerStorage) Create(ctx context.Context, key string, obj, out run
 
 func (rs *apiServerStorage) Delete(
 	ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions,
-	validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object) error {
+	validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
 	return ErrNoSupport
 }
-
 func (rs *apiServerStorage) Get(ctx context.Context, key string, opts storage.GetOptions, objPtr runtime.Object) error {
 	return ErrNoSupport
 }

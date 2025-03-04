@@ -63,7 +63,7 @@ func TestResourceCache_GetList(t *testing.T) {
 			KeyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			AttrsFunc,
+			GetAttrsFunc(serviceGVR),
 		},
 	)
 	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
@@ -132,7 +132,7 @@ func TestResourceCache_Watch(t *testing.T) {
 			KeyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			AttrsFunc,
+			GetAttrsFunc(serviceGVR),
 		},
 	)
 	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
