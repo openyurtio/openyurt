@@ -12,35 +12,35 @@ status:
 
 # Proposal for Multi-region workloads configuration rendering engine
 <!-- TOC -->
-* [Proposal for Multi-region workloads configuration rendering engine](#proposal-for-multi-region-workloads-configuration-rendering-engine)
-  * [Glossary](#glossary)
-    * [YurtAppOverrider](#yurtappoverrider)
-  * [Summary](#summary)
-  * [Motivation](#motivation)
-    * [Goals](#goals)
-    * [Non-Goals/Future Work](#non-goalsfuture-work)
-  * [Proposal](#proposal)
-    * [Inspiration](#inspiration)
-    * [YurtAppOverrider API](#yurtappoverrider-api)
-    * [Architecture](#architecture)
-    * [Implementation Details](#implementation-details)
-      * [Deployment Mutating Webhook](#deployment-mutating-webhook)
-        * [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
-        * [Workflow of mutating webhook](#workflow-of-mutating-webhook)
-      * [YurtAppOverrider Validating Webhook](#yurtappoverrider-validating-webhook)
-      * [YurtAppOverrider Controller](#yurtappoverrider-controller)
-        * [Task 1](#task-1)
-        * [Task 2](#task-2)
-    * [User Stories](#user-stories)
-      * [Story 1 (General)](#story-1-general)
-      * [Story 2 (Specific)](#story-2-specific)
-      * [Story 3 (Gray Release)](#story-3-gray-release)
-      * [Story 4 (Specify Registry)](#story-4-specify-registry)
-      * [Story 5 (Customize hostPath)](#story-5-customize-hostpath)
-    * [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
-      * [Open Cluster Management](#open-cluster-management)
-      * [KubeVela](#kubevela)
-  * [Implementation History](#implementation-history)
+- [Proposal for Multi-region workloads configuration rendering engine](#proposal-for-multi-region-workloads-configuration-rendering-engine)
+  - [Glossary](#glossary)
+    - [YurtAppOverrider](#yurtappoverrider)
+  - [Summary](#summary)
+  - [Motivation](#motivation)
+    - [Goals](#goals)
+    - [Non-Goals/Future Work](#non-goalsfuture-work)
+  - [Proposal](#proposal)
+    - [Inspiration](#inspiration)
+    - [YurtAppOverrider API](#yurtappoverrider-api)
+    - [Architecture](#architecture)
+    - [Implementation Details](#implementation-details)
+      - [Deployment Mutating Webhook](#deployment-mutating-webhook)
+        - [Prerequisites for webhook (Resolving circular dependency)](#prerequisites-for-webhook-resolving-circular-dependency)
+        - [Workflow of mutating webhook](#workflow-of-mutating-webhook)
+      - [YurtAppOverrider Validating Webhook](#yurtappoverrider-validating-webhook)
+      - [YurtAppOverrider Controller](#yurtappoverrider-controller)
+        - [Task 1](#task-1)
+        - [Task 2](#task-2)
+    - [User Stories](#user-stories)
+      - [Story 1 (General)](#story-1-general)
+      - [Story 2 (Specific)](#story-2-specific)
+      - [Story 3 (Gray Release)](#story-3-gray-release)
+      - [Story 4 (Specify Registry)](#story-4-specify-registry)
+      - [Story 5 (Customize hostPath)](#story-5-customize-hostpath)
+    - [Comparison with existing open source projects](#comparison-with-existing-open-source-projects)
+      - [Open Cluster Management](#open-cluster-management)
+      - [KubeVela](#kubevela)
+  - [Implementation History](#implementation-history)
 <!-- TOC -->
 ## Glossary
 ### YurtAppOverrider
@@ -165,7 +165,7 @@ Solutions:
 
 Attention Points:
 1. Note that injection is implemented by recalculating the final configuration according to the YurtAppSet workload template and the watching YurtAppOverrider
-2. The latter configuration always relpace the former. So the last configuration will really work
+2. The latter configuration always replace the former. So the last configuration will really work
 #### YurtAppOverrider Validating Webhook
 1. Verify that only one YurtAppOverrider can be bound to YurtAppSet/YurtAppDaemon
 2. Verify that value is empty when operation is REMOVE

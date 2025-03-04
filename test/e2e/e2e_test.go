@@ -74,8 +74,8 @@ var _ = ginkgo.BeforeSuite(func() {
 	_, err = ns.CreateNameSpace(c, constants.YurtE2ENamespaceName)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create namespace")
 
-	err = util.PrepareNodePoolWithNode(context.TODO(), yurtconfig.YurtE2eCfg.RuntimeClient, "openyurt-e2e-test-worker")
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create a nodepool with node")
+	// err = util.PrepareNodePoolWithNode(context.TODO(), yurtconfig.YurtE2eCfg.RuntimeClient, "openyurt-e2e-test-worker")
+	// gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to create a nodepool with node")
 
 	if labelFilter([]string{"edge-autonomy"}) {
 		// get nginx podIP on edge node worker2

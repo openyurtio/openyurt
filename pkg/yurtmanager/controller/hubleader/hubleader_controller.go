@@ -23,6 +23,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,6 +165,8 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 		}
 		// If the NodePool doesn't have pool scope metadata enabled, it should drop leaders (if any)
 		nodepool.Status.LeaderEndpoints = nil
+		nodepool.Status.LeaderNum = 0
+		nodepool.Status.LeaderLastElectedTime = metav1.Now()
 		return r.Status().Update(ctx, nodepool)
 	}
 
@@ -247,6 +250,8 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 	}
 
 	// Update Status since changed
+	updatedNodePool.Status.LeaderLastElectedTime = metav1.Now()
+	updatedNodePool.Status.LeaderNum = int32(len(updatedLeaders))
 	if err = r.Status().Update(ctx, updatedNodePool); err != nil {
 		klog.ErrorS(err, "Update NodePool status error", "nodepool", updatedNodePool.Name)
 		return err

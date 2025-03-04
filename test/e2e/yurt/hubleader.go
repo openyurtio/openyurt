@@ -45,7 +45,7 @@ import (
 // conflicts. This is intentional to avoid creating more nodes than necessary in Kind cluster.
 var _ = Describe("Test hubleader elections", Serial, func() {
 	ctx := context.Background()
-	nodePoolName := "hubleadere2e"
+	nodePoolName := "yurt-pool3"
 
 	var k8sClient client.Client
 	var pools util.TestNodePool
@@ -107,6 +107,15 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 		return pool.Status.LeaderEndpoints
 	}
 
+	getActualLeadersNum := func() int32 {
+		pool, err := util.GetNodepool(ctx, k8sClient, nodePoolName)
+		if err != nil {
+			return 0
+		}
+
+		return pool.Status.LeaderNum
+	}
+
 	getActualLeaderConfig := func() map[string]string {
 		configMap := v1.ConfigMap{}
 		err := k8sClient.Get(
@@ -152,12 +161,6 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			},
 			Nodes: sets.New("openyurt-e2e-test-worker3", "openyurt-e2e-test-worker4"),
 		}
-
-		Eventually(
-			func() error {
-				return util.InitTestNodePool(ctx, k8sClient, pools)
-			},
-			time.Second*30, time.Millisecond*500).Should(BeNil())
 	})
 
 	AfterEach(func() {
@@ -192,6 +195,10 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			Eventually(
 				getActualLeaders,
 				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
+
+			Eventually(
+				getActualLeadersNum,
+				time.Second*30, time.Millisecond*500).Should(Equal(int32(2)))
 
 			// Check leader config map
 			By("Check leader config map contains the correct leader information")
@@ -232,6 +239,10 @@ var _ = Describe("Test hubleader elections", Serial, func() {
 			Eventually(
 				getActualLeaders,
 				time.Second*30, time.Millisecond*500).Should(Equal(expectedLeaders))
+
+			Eventually(
+				getActualLeadersNum,
+				time.Second*30, time.Millisecond*500).Should(Equal(int32(1)))
 
 			By("Check leader config map contains worker 3 as the leader")
 			Eventually(

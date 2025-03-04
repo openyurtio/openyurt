@@ -39,6 +39,7 @@ type Options struct {
 	kubeadmConfPaths          string
 	openyurtDir               string
 	Version                   bool
+	nodePoolName              string
 }
 
 // NewConvertOptions creates a new Options
@@ -56,6 +57,10 @@ func (o *Options) Validate() error {
 		return fmt.Errorf("join token(bootstrap token) is empty")
 	}
 
+	if len(o.nodePoolName) == 0 {
+		return fmt.Errorf("nodepool name is empty")
+	}
+
 	return nil
 }
 
@@ -64,5 +69,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.yurthubHealthCheckTimeout, "yurthub-healthcheck-timeout", o.yurthubHealthCheckTimeout, "The timeout for yurthub health check.")
 	fs.StringVarP(&o.kubeadmConfPaths, "kubeadm-conf-path", "k", o.kubeadmConfPaths, "The path to kubelet service conf that is used by kubelet component to join the cluster on the work node. Support multiple values, will search in order until get the file.(e.g -k kbcfg1,kbcfg2)")
 	fs.StringVar(&o.joinToken, "join-token", o.joinToken, "The token used by yurthub for joining the cluster.")
+	fs.StringVar(&o.nodePoolName, "nodepool-name", o.nodePoolName, "The nodepool name which the node will be added")
 	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")
 }

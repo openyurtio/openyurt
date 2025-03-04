@@ -135,7 +135,7 @@ func TestLeaderHubHealthChecker(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			stopCh := make(chan struct{})
 			hc := NewLeaderHubHealthChecker(2*time.Second, tc.pingFunc, stopCh)
-			hc.UpdateServers(tc.servers)
+			hc.UpdateBackends(tc.servers)
 
 			assert.Equal(t, hc.IsHealthy(), tc.expectedIsHealthy, "IsHealthy result is not equal")
 			assert.Equal(t, hc.PickOneHealthyBackend() != nil, tc.healthyServerFound, "PickOneHealthyBackend result is not equal")
@@ -145,7 +145,7 @@ func TestLeaderHubHealthChecker(t *testing.T) {
 
 			if len(tc.updatedServers) != 0 {
 				time.Sleep(5 * time.Second)
-				hc.UpdateServers(tc.updatedServers)
+				hc.UpdateBackends(tc.updatedServers)
 				for u, isHealthy := range tc.expectedBackendIsHealthyAfterUpdated {
 					assert.Equal(t, hc.BackendIsHealthy(u), isHealthy, "BackendIsHealthy result is not equal after updated")
 				}

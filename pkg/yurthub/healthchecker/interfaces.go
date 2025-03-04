@@ -30,7 +30,7 @@ type Interface interface {
 	IsHealthy() bool
 	BackendIsHealthy(server *url.URL) bool
 	PickOneHealthyBackend() *url.URL
-	UpdateServers(servers []*url.URL)
+	UpdateBackends(servers []*url.URL)
 }
 
 // BackendProber is used to send heartbeat to backend and verify backend

@@ -123,7 +123,7 @@ func InitTestNodePool(
 }
 
 const (
-	NodePoolName = "nodepool-with-node"
+	NodePoolName = "yurt-pool2"
 )
 
 // PrepareNodePoolWithNode will create a edge nodepool named "nodepool-with-node" and add the "openyurt-e2e-test-worker" node to this nodepool.

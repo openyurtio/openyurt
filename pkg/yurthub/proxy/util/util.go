@@ -37,7 +37,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -56,39 +55,16 @@ var needModifyTimeoutVerb = map[string]bool{
 
 // WithIsRequestForPoolScopeMetadata add a mark in context for specifying whether a request is used for list/watching pool scope metadata or not,
 // request for pool scope metadata will be handled by multiplexer manager instead forwarding to cloud kube-apiserver.
-func WithIsRequestForPoolScopeMetadata(handler http.Handler, multiplexerManager *multiplexer.MultiplexerManager, multiplexerUserAgent string) http.Handler {
+func WithIsRequestForPoolScopeMetadata(handler http.Handler, isRequestForPoolScopeMetadata func(req *http.Request) bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		if isMultiplexerRequest(req, multiplexerManager, multiplexerUserAgent) {
+		if isRequestForPoolScopeMetadata(req) {
 			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, true)
 		} else {
 			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, false)
 		}
 		req = req.WithContext(ctx)
 		handler.ServeHTTP(w, req)
-	})
-}
-
-func isMultiplexerRequest(req *http.Request, multiplexerManager *multiplexer.MultiplexerManager, multiplexerUserAgent string) bool {
-	// the requests from multiplexer manager, recongnize it as not multiplexer request.
-	if req.UserAgent() == multiplexerUserAgent {
-		return false
-	}
-
-	info, ok := apirequest.RequestInfoFrom(req.Context())
-	if !ok {
-		return false
-	}
-
-	// list/watch requests
-	if info.Verb != "list" && info.Verb != "watch" {
-		return false
-	}
-
-	return multiplexerManager.IsPoolScopeMetadata(&schema.GroupVersionResource{
-		Group:    info.APIGroup,
-		Version:  info.APIVersion,
-		Resource: info.Resource,
 	})
 }
 

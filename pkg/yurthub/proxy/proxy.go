@@ -45,17 +45,18 @@ import (
 )
 
 type yurtReverseProxy struct {
-	cfg                  *config.YurtHubConfiguration
-	cloudHealthChecker   healthchecker.Interface
-	resolver             apirequest.RequestInfoResolver
-	loadBalancer         http.Handler
-	localProxy           http.Handler
-	autonomyProxy        http.Handler
-	multiplexerProxy     http.Handler
-	multiplexerManager   *basemultiplexer.MultiplexerManager
-	tenantMgr            tenant.Interface
-	nodeName             string
-	multiplexerUserAgent string
+	cfg                      *config.YurtHubConfiguration
+	cloudHealthChecker       healthchecker.Interface
+	resolver                 apirequest.RequestInfoResolver
+	loadBalancer             remote.LoadBalancer
+	loadBalancerForLeaderHub remote.LoadBalancer
+	localProxy               http.Handler
+	autonomyProxy            http.Handler
+	multiplexerProxy         http.Handler
+	multiplexerManager       *basemultiplexer.MultiplexerManager
+	tenantMgr                tenant.Interface
+	nodeName                 string
+	multiplexerUserAgent     string
 }
 
 // NewYurtReverseProxyHandler creates a http handler for proxying
@@ -64,6 +65,7 @@ func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
 	cloudHealthChecker healthchecker.Interface,
+	requestMultiplexerManager *basemultiplexer.MultiplexerManager,
 	stopCh <-chan struct{}) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
@@ -97,22 +99,23 @@ func NewYurtReverseProxyHandler(
 	}
 
 	multiplexerProxy := multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterFinder,
-		yurtHubCfg.RequestMultiplexerManager,
+		requestMultiplexerManager,
 		yurtHubCfg.RESTMapperManager,
 		stopCh)
 
 	yurtProxy := &yurtReverseProxy{
-		cfg:                  yurtHubCfg,
-		resolver:             resolver,
-		loadBalancer:         lb,
-		cloudHealthChecker:   cloudHealthChecker,
-		localProxy:           localProxy,
-		autonomyProxy:        autonomyProxy,
-		multiplexerProxy:     multiplexerProxy,
-		multiplexerManager:   yurtHubCfg.RequestMultiplexerManager,
-		tenantMgr:            yurtHubCfg.TenantManager,
-		nodeName:             yurtHubCfg.NodeName,
-		multiplexerUserAgent: hubutil.MultiplexerProxyClientUserAgentPrefix + yurtHubCfg.NodeName,
+		cfg:                      yurtHubCfg,
+		resolver:                 resolver,
+		loadBalancer:             lb,
+		loadBalancerForLeaderHub: yurtHubCfg.LoadBalancerForLeaderHub,
+		cloudHealthChecker:       cloudHealthChecker,
+		localProxy:               localProxy,
+		autonomyProxy:            autonomyProxy,
+		multiplexerProxy:         multiplexerProxy,
+		multiplexerManager:       requestMultiplexerManager,
+		tenantMgr:                yurtHubCfg.TenantManager,
+		nodeName:                 yurtHubCfg.NodeName,
+		multiplexerUserAgent:     hubutil.MultiplexerProxyClientUserAgentPrefix + yurtHubCfg.NodeName,
 	}
 
 	// warp non resource proxy handler
@@ -131,7 +134,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	}
 	handler = util.WithRequestClientComponent(handler)
 	handler = util.WithPartialObjectMetadataRequest(handler)
-	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager, p.multiplexerUserAgent)
+	handler = util.WithIsRequestForPoolScopeMetadata(handler, p.multiplexerManager.IsRequestForPoolScopeMetadata)
 
 	if !yurtutil.IsNil(p.tenantMgr) && p.tenantMgr.GetTenantNs() != "" {
 		handler = util.WithSaTokenSubstitute(handler, p.tenantMgr)
@@ -145,8 +148,8 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 }
 
 func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing,
-	// and reject all requests from outside of yurthub when yurthub is not ready.
+	// reject all requests from outside of yurthub when yurthub is not ready.
+	// and allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing.
 	if !p.IsRequestFromHubSelf(req) {
 		if err := config.ReadinessCheck(p.cfg); err != nil {
 			klog.Errorf("could not handle request(%s) because hub is not ready for %s", hubutil.ReqString(req), err.Error())
@@ -162,14 +165,24 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	// requests should be forwarded to cloud kube-apiserver for cloud mode(cloudHealthChecker==nil)
-	if yurtutil.IsNil(p.cloudHealthChecker) {
-		p.loadBalancer.ServeHTTP(rw, req)
-		return
-	}
-
-	// handle requests for edge mode
 	switch {
+	case yurtutil.IsNil(p.localProxy): // cloud mode
+		// requests from local multiplexer of yurthub and the source of pool scope metadata is leader hub
+		if p.IsMultiplexerRequestFromHubSelft(req) &&
+			p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
+			// list/watch pool scope metadata from leader yurthub
+			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+				backend.ServeHTTP(rw, req)
+				return
+			}
+		}
+
+		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+			backend.ServeHTTP(rw, req)
+		} else {
+			klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
+			http.Error(rw, "no healthy backends available.", http.StatusBadGateway)
+		}
 	case util.IsKubeletLeaseReq(req):
 		p.handleKubeletLease(rw, req)
 	case util.IsKubeletGetNodeReq(req):
@@ -178,10 +191,22 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		p.eventHandler(rw, req)
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
 		p.subjectAccessReviewHandler(rw, req)
+	case p.IsMultiplexerRequestFromHubSelft(req):
+		// requests from multiplexer of local yurthub should be forwarded to cloud kube-apiserver or leader yurthub
+		// depends on leader election information.
+		if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
+			// list/watch pool scope metadata from leader yurthub
+			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+				backend.ServeHTTP(rw, req)
+				return
+			}
+		}
+		// otherwise, list/watch pool scope metadata from cloud kube-apiserver or local cache, so fall through
+		fallthrough
 	default:
 		// handling the request with cloud apiserver or local cache.
-		if p.cloudHealthChecker.IsHealthy() {
-			p.loadBalancer.ServeHTTP(rw, req)
+		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+			backend.ServeHTTP(rw, req)
 		} else {
 			p.localProxy.ServeHTTP(rw, req)
 		}
@@ -197,16 +222,16 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 }
 
 func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Request) {
-	if p.cloudHealthChecker.IsHealthy() {
-		p.loadBalancer.ServeHTTP(rw, req)
+	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		backend.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
 	}
 }
 
 func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
-	if p.cloudHealthChecker.IsHealthy() {
-		p.loadBalancer.ServeHTTP(rw, req)
+	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		backend.ServeHTTP(rw, req)
 	} else {
 		err := errors.New("request is from cloud APIServer but it's currently not healthy")
 		klog.Errorf("could not handle SubjectAccessReview req %s, %v", hubutil.ReqString(req), err)
@@ -217,13 +242,22 @@ func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, re
 func (p *yurtReverseProxy) IsRequestFromHubSelf(req *http.Request) bool {
 	userAgent := req.UserAgent()
 
-	if userAgent == p.multiplexerUserAgent {
-		// requests from multiplexer manager in yurthub
+	// yurthub emits the following two kinds of requests
+	// 1. requests with User-Agent=multiplexe-proxy-{nodeName} from multiplexer manager in yurthub
+	// 2. requests with User-Agent=projectinfo.GetHubName() from sharedInformer for filter and configuration manager in yurthub
+	if userAgent == p.multiplexerUserAgent || strings.HasPrefix(userAgent, projectinfo.GetHubName()) {
 		return true
-	} else if strings.HasPrefix(userAgent, projectinfo.GetHubName()) {
-		// requests from sharedInformer for filter and configuration manager in yurthub
-		return true
-	} else {
-		return false
 	}
+
+	return false
+}
+
+func (p *yurtReverseProxy) IsMultiplexerRequestFromHubSelft(req *http.Request) bool {
+	userAgent := req.UserAgent()
+
+	if userAgent == p.multiplexerUserAgent {
+		return true
+	}
+
+	return false
 }

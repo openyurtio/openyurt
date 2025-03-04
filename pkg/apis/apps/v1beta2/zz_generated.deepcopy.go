@@ -177,6 +177,7 @@ func (in *NodePoolStatus) DeepCopyInto(out *NodePoolStatus) {
 		*out = make([]Leader, len(*in))
 		copy(*out, *in)
 	}
+	in.LeaderLastElectedTime.DeepCopyInto(&out.LeaderLastElectedTime)
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]NodePoolCondition, len(*in))

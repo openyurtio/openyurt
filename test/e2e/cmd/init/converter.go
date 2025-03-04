@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -35,8 +36,11 @@ import (
 	kubeclientset "k8s.io/client-go/kubernetes"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	kubeadmapi "github.com/openyurtio/openyurt/pkg/util/kubernetes/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	strutil "github.com/openyurtio/openyurt/pkg/util/strings"
 	"github.com/openyurtio/openyurt/test/e2e/cmd/init/lock"
@@ -53,6 +57,7 @@ const (
 type ClusterConverter struct {
 	RootDir                   string
 	ClientSet                 kubeclientset.Interface
+	RuntimeClient             client.Client
 	CloudNodes                []string
 	EdgeNodes                 []string
 	WaitServantJobTimeout     time.Duration
@@ -83,6 +88,48 @@ func (c *ClusterConverter) Run() error {
 	if err := c.installYurtManagerByHelm(); err != nil {
 		klog.Errorf("failed to deploy yurt-manager with image %s, %s", c.YurtManagerImage, err)
 		return err
+	}
+
+	klog.Infof("Start to initialize node pools and label nodes: %+v", DefaultPools)
+	for name, leaderInfo := range DefaultPools {
+		np := &appsv1beta2.NodePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: appsv1beta2.NodePoolSpec{
+				Type:                 leaderInfo.Kind,
+				EnableLeaderElection: leaderInfo.EnableLeaderElection,
+				LeaderReplicas:       int32(leaderInfo.LeaderReplicas),
+				InterConnectivity:    true,
+			},
+		}
+		if err := c.RuntimeClient.Create(context.Background(), np); err != nil {
+			klog.Errorf("failed to create nodepool %s, %v", name, err)
+			return err
+		}
+	}
+
+	for nodeName, poolName := range NodeNameToPool {
+		node := &corev1.Node{}
+		if err := c.RuntimeClient.Get(context.Background(), client.ObjectKey{Name: nodeName}, node); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+
+		newNode := node.DeepCopy()
+		nodeLabels := newNode.Labels
+		if nodeLabels == nil {
+			nodeLabels = map[string]string{}
+		}
+
+		nodeLabels[projectinfo.GetNodePoolLabel()] = poolName
+		if !reflect.DeepEqual(newNode, node) {
+			if err := c.RuntimeClient.Patch(context.Background(), newNode, client.MergeFrom(node)); err != nil {
+				return err
+			}
+		}
 	}
 
 	klog.Info(
@@ -132,7 +179,7 @@ func (c *ClusterConverter) installYurthubByHelm() error {
 		"--namespace",
 		"kube-system",
 		"--set",
-		fmt.Sprintf("kubernetesServerAddr=KUBERNETES_SERVER_ADDRESS,image.tag=%s", tag),
+		fmt.Sprintf("kubernetesServerAddr=KUBERNETES_SERVER_ADDRESS,nodePoolName=NODE_POOL_NAME,image.tag=%s", tag),
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -156,6 +203,7 @@ func (c *ClusterConverter) installYurthubByHelm() error {
 	if len(c.EdgeNodes) != 0 {
 		convertCtx["configmap_name"] = yssYurtHubName
 		if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
+			convertCtx["nodePoolName"] = NodeNameToPool[nodeName]
 			return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 		}, c.EdgeNodes, os.Stderr); err != nil {
 			// print logs of yurthub
@@ -176,6 +224,7 @@ func (c *ClusterConverter) installYurthubByHelm() error {
 	convertCtx["configmap_name"] = yssYurtHubCloudName
 	klog.Infof("convert context for cloud nodes(%q): %#+v", c.CloudNodes, convertCtx)
 	if err = kubeutil.RunServantJobs(c.ClientSet, c.WaitServantJobTimeout, func(nodeName string) (*batchv1.Job, error) {
+		convertCtx["nodePoolName"] = NodeNameToPool[nodeName]
 		return nodeservant.RenderNodeServantJob("convert", convertCtx, nodeName)
 	}, c.CloudNodes, os.Stderr); err != nil {
 		return err

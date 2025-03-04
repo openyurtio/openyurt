@@ -60,7 +60,7 @@ func (n *nodeReverter) revertKubelet() error {
 }
 
 func (n *nodeReverter) unInstallYurtHub() error {
-	op := components.NewYurthubOperator("", "", time.Duration(1)) // params is not important here
+	op := components.NewYurthubOperator("", "", "", time.Duration(1)) // params is not important here
 	return op.UnInstall()
 }
 

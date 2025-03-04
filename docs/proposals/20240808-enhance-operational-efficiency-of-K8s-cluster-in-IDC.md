@@ -46,7 +46,7 @@ For K8s clutesrs in user's IDC, it is difficult to operate, manage and upgrade t
 - More and more users only access their IDC machines to cloud service providers as worker nodes, utilizing the abilities of cloud-edge collaboration provided by OpenYurt. But there are some users needs continuous deployment for offline tasks, depending on strong stability of cloud-edge communication, in this case, they tend to maintain a K8s cluster in their IDC.
 
 We conclude above three solutions in Fig.1. The first and the second solution both face the challenge of operating and upgrading the control plane components, the difference is that the former is difficult to manage the control plane of K8s cluster in IDC, while the latter is difficult to manage the control plane of host-K8s. The third solution is the most popular, users adopt the abilities of cloud-edge collaboration afforded by OpenYurt, easily achieve large-scale application operation, and management on massive edge resources, however, some users prefer to maintain a K8s in their IDC for their needs.
-![img.png](../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig1.png)
+![img.png](../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig1.png)
 
 This proposal solves the pain points mentioned above, which automates the operation and maintenance of control plane components of tenant-K8s to replace manual user operations, and affords users who needs continuous deployment for offline tasks a efficient operation scheme to manage their IDC K8s cluster.
 ### Goals
@@ -75,14 +75,14 @@ This proposal provides a new scheme based on KOK architecture shown as Fig.2, wh
 3. Deploy control plane components of tenant-K8s on worker nodes of host-K8s. All components are deployed in form of `pod` and in `HostNetwork` mode.
 4. Access the remaining machines in user's IDC to tenant-K8s, as worker nodes of tenant-K8s.
 <div align="center">
-<img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig2.png" width=40% />
+<img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig2.png" width=40% />
 </div>
 
 ### Architecture
 
 We demonstrate the design of tenant-K8s in Fig.3.
 <div align="center">
-<img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig3.png" width=90% />
+<img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig3.png" width=90% />
 </div>
 
 In tenant-K8s, the designed details are as follows:
@@ -97,7 +97,7 @@ In tenant-K8s, the designed details are as follows:
 
 `local` mode YurtHub gets pod's ip in host-K8s's apiserver, and maintains the loadbalance rule to afford load balancing access to APIServer-pods, which is shown in Fig.4.
 <div align="center">
-<img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig4.png" width=90% />
+<img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig4.png" width=90% />
 </div>
 
 ### User stories
@@ -106,7 +106,7 @@ In tenant-K8s, the designed details are as follows:
 We compare above mentioned solutions and proposed scheme, shown in the table:
 |  | Solution1 | Solution2 | Solution3 | Proposed |
 | --- | --- | --- | --- | --- |
-| Architecture | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution1.png" width="273"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution2.png" width="274"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/solution3.png" width="268"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-user's-IDC/fig2.png" width="303"> |
+| Architecture | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution1.png" width="273"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution2.png" width="274"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/solution3.png" width="268"> | <img src="../img/enhance-efficiency-of-K8s-cluster-in-IDC/fig2.png" width="303"> |
 | Operational Efficiency | poor | moderate | good | good |
 | Security | poor | poor | good | good |
 | Support Multi-tenant | poor | moderate | poor | moderate |

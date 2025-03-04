@@ -43,7 +43,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/manager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/certificate/testdata"
-	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/cloudapiserver"
+	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
@@ -67,7 +67,7 @@ func TestLocalCacheHandler(t *testing.T) {
 	servers := map[*url.URL]bool{
 		{Host: "10.10.10.113:6443"}: false,
 	}
-	fakeHealthChecker := cloudapiserver.NewFakeChecker(servers)
+	fakeHealthChecker := fakeHealthChecker.NewFakeChecker(servers)
 
 	u, _ := url.Parse("https://10.10.10.113:6443")
 	remoteServers := []*url.URL{u}
