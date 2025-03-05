@@ -38,36 +38,29 @@ import (
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
-// Backend defines the interface of proxy for a remote backend server.
-type Backend interface {
-	Name() string
-	RemoteServer() *url.URL
-	ServeHTTP(rw http.ResponseWriter, req *http.Request)
-}
-
 // LoadBalancingStrategy defines the interface for different load balancing strategies.
 type LoadBalancingStrategy interface {
 	Name() string
-	PickOne() Backend
-	UpdateBackends(backends []Backend)
+	PickOne() *RemoteProxy
+	UpdateBackends(backends []*RemoteProxy)
 }
 
 // BaseLoadBalancingStrategy provides common logic for load balancing strategies.
 type BaseLoadBalancingStrategy struct {
 	sync.RWMutex
 	checker  healthchecker.Interface
-	backends []Backend
+	backends []*RemoteProxy
 }
 
 // UpdateBackends updates the list of backends in a thread-safe manner.
-func (b *BaseLoadBalancingStrategy) UpdateBackends(backends []Backend) {
+func (b *BaseLoadBalancingStrategy) UpdateBackends(backends []*RemoteProxy) {
 	b.Lock()
 	defer b.Unlock()
 	b.backends = backends
 }
 
 // checkAndReturnHealthyBackend checks if a backend is healthy before returning it.
-func (b *BaseLoadBalancingStrategy) checkAndReturnHealthyBackend(index int) Backend {
+func (b *BaseLoadBalancingStrategy) checkAndReturnHealthyBackend(index int) *RemoteProxy {
 	if len(b.backends) == 0 {
 		return nil
 	}
@@ -91,7 +84,7 @@ func (rr *RoundRobinStrategy) Name() string {
 }
 
 // PickOne selects a backend using a round-robin approach.
-func (rr *RoundRobinStrategy) PickOne() Backend {
+func (rr *RoundRobinStrategy) PickOne() *RemoteProxy {
 	rr.RLock()
 	defer rr.RUnlock()
 
@@ -146,7 +139,7 @@ func (prio *PriorityStrategy) Name() string {
 }
 
 // PickOne selects the first available healthy backend.
-func (prio *PriorityStrategy) PickOne() Backend {
+func (prio *PriorityStrategy) PickOne() *RemoteProxy {
 	prio.RLock()
 	defer prio.RUnlock()
 	for i := 0; i < len(prio.backends); i++ {
@@ -158,15 +151,31 @@ func (prio *PriorityStrategy) PickOne() Backend {
 	return nil
 }
 
-// LoadBalancer is an interface for proxying http request to remote server
+// ConsistentHashingStrategy implements consistent hashing load balancing.
+type ConsistentHashingStrategy struct {
+	BaseLoadBalancingStrategy
+}
+
+// Name returns the name of the strategy.
+func (ch *ConsistentHashingStrategy) Name() string {
+	return "consistent-hashing"
+}
+
+// PickOne selects a backend using consistent hashing.
+func (ch *ConsistentHashingStrategy) PickOne() *RemoteProxy {
+	return nil
+}
+
+// Server is an interface for proxying http request to remote server
 // based on the load balance mode(round-robin or priority)
-type LoadBalancer interface {
+type Server interface {
 	UpdateBackends(remoteServers []*url.URL)
-	PickOne() Backend
+	PickOne() *RemoteProxy
 	CurrentStrategy() LoadBalancingStrategy
 }
 
-type loadBalancer struct {
+// LoadBalancer is a struct that holds the load balancing strategy and backends.
+type LoadBalancer struct {
 	strategy      LoadBalancingStrategy
 	localCacheMgr cachemanager.CacheManager
 	filterFinder  filter.FilterFinder
@@ -184,8 +193,8 @@ func NewLoadBalancer(
 	transportMgr transport.Interface,
 	healthChecker healthchecker.Interface,
 	filterFinder filter.FilterFinder,
-	stopCh <-chan struct{}) LoadBalancer {
-	lb := &loadBalancer{
+	stopCh <-chan struct{}) *LoadBalancer {
+	lb := &LoadBalancer{
 		mode:          lbMode,
 		localCacheMgr: localCacheMgr,
 		filterFinder:  filterFinder,
@@ -201,8 +210,8 @@ func NewLoadBalancer(
 }
 
 // UpdateBackends dynamically updates the list of remote servers.
-func (lb *loadBalancer) UpdateBackends(remoteServers []*url.URL) {
-	newBackends := make([]Backend, 0, len(remoteServers))
+func (lb *LoadBalancer) UpdateBackends(remoteServers []*url.URL) {
+	newBackends := make([]*RemoteProxy, 0, len(remoteServers))
 	for _, server := range remoteServers {
 		proxy, err := NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr, lb.stopCh)
 		if err != nil {
@@ -224,16 +233,16 @@ func (lb *loadBalancer) UpdateBackends(remoteServers []*url.URL) {
 	lb.strategy.UpdateBackends(newBackends)
 }
 
-func (lb *loadBalancer) PickOne() Backend {
+func (lb *LoadBalancer) PickOne() *RemoteProxy {
 	return lb.strategy.PickOne()
 }
 
-func (lb *loadBalancer) CurrentStrategy() LoadBalancingStrategy {
+func (lb *LoadBalancer) CurrentStrategy() LoadBalancingStrategy {
 	return lb.strategy
 }
 
 // errorHandler handles errors and tries to serve from local cache.
-func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
+func (lb *LoadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 	klog.Errorf("remote proxy error handler: %s, %v", hubutil.ReqString(req), err)
 	if lb.localCacheMgr == nil || !lb.localCacheMgr.CanCacheFor(req) {
 		rw.WriteHeader(http.StatusBadGateway)
@@ -252,7 +261,7 @@ func (lb *loadBalancer) errorHandler(rw http.ResponseWriter, req *http.Request, 
 	rw.WriteHeader(http.StatusBadGateway)
 }
 
-func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
+func (lb *LoadBalancer) modifyResponse(resp *http.Response) error {
 	if resp == nil || resp.Request == nil {
 		klog.Infof("no request info in response, skip cache response")
 		return nil
@@ -331,7 +340,7 @@ func (lb *loadBalancer) modifyResponse(resp *http.Response) error {
 	return nil
 }
 
-func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
+func (lb *LoadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 	if lb.localCacheMgr.CanCacheFor(req) {
 		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
 		// after gunzip in filter, the header content encoding should be removed.
@@ -344,7 +353,8 @@ func (lb *loadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 		// cache the response at local.
 		rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) &&
+				!errors.Is(err, context.Canceled) {
 				klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
 			}
 		}(req, prc, req.Context().Done())

@@ -94,7 +94,7 @@ type YurtHubConfiguration struct {
 	ConfigManager                   *configuration.Manager
 	TenantManager                   tenant.Interface
 	TransportAndDirectClientManager transport.Interface
-	LoadBalancerForLeaderHub        remote.LoadBalancer
+	LoadBalancerForLeaderHub        remote.Server
 	PoolScopeResources              []schema.GroupVersionResource
 	PortForMultiplexer              int
 	NodePoolName                    string
@@ -149,29 +149,50 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 			return nil, err
 		}
 
-		proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformerFactories(fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort), options.NodePoolName)
+		proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformerFactories(
+			fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
+			options.NodePoolName,
+		)
 		if err != nil {
 			return nil, err
 		}
-		registerInformers(sharedFactory, options.YurtHubNamespace, options.NodePoolName, options.NodeName, (cfg.WorkingMode == util.WorkingModeCloud), tenantNamespce)
+		registerInformers(
+			sharedFactory,
+			options.YurtHubNamespace,
+			options.NodePoolName,
+			options.NodeName,
+			(cfg.WorkingMode == util.WorkingModeCloud),
+			tenantNamespce,
+		)
 
 		certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
 		if err != nil {
 			return nil, err
 		}
 		certMgr.Start()
-		err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 4*time.Minute, true, func(ctx context.Context) (bool, error) {
-			isReady := certMgr.Ready()
-			if isReady {
-				return true, nil
-			}
-			return false, nil
-		})
+		err = wait.PollUntilContextTimeout(
+			context.Background(),
+			5*time.Second,
+			4*time.Minute,
+			true,
+			func(ctx context.Context) (bool, error) {
+				isReady := certMgr.Ready()
+				if isReady {
+					return true, nil
+				}
+				return false, nil
+			},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("hub certificates preparation failed, %v", err)
 		}
 
-		transportAndClientManager, err := transport.NewTransportAndClientManager(us, options.HeartbeatTimeoutSeconds, certMgr, stopCh)
+		transportAndClientManager, err := transport.NewTransportAndClientManager(
+			us,
+			options.HeartbeatTimeoutSeconds,
+			certMgr,
+			stopCh,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("could not new transport manager, %w", err)
 		}
@@ -191,7 +212,14 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		// - network manager: ensuring a dummy interface in order to serve tls requests on the node.
 		// - others: prepare server servings.
 		configManager := configuration.NewConfigurationManager(options.NodeName, sharedFactory)
-		filterFinder, err := manager.NewFilterManager(options, sharedFactory, dynamicSharedFactory, proxiedClient, cfg.SerializerManager, configManager)
+		filterFinder, err := manager.NewFilterManager(
+			options,
+			sharedFactory,
+			dynamicSharedFactory,
+			proxiedClient,
+			cfg.SerializerManager,
+			configManager,
+		)
 		if err != nil {
 			klog.Errorf("could not create filter manager, %v", err)
 			return nil, err
@@ -201,7 +229,8 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		cfg.FilterFinder = filterFinder
 
 		if options.EnableDummyIf {
-			klog.V(2).Infof("create dummy network interface %s(%s)", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
+			klog.V(2).
+				Infof("create dummy network interface %s(%s)", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)
 			networkMgr, err := network.NewNetworkManager(options)
 			if err != nil {
 				return nil, fmt.Errorf("could not create network manager, %w", err)
@@ -260,7 +289,9 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 }
 
 // createClientAndSharedInformerFactories create client and sharedInformers from the given proxyAddr.
-func createClientAndSharedInformerFactories(serverAddr, nodePoolName string) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
+func createClientAndSharedInformerFactories(
+	serverAddr, nodePoolName string,
+) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
 	kubeConfig, err := clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", serverAddr), "")
 	if err != nil {
 		return nil, nil, nil, err
@@ -279,9 +310,14 @@ func createClientAndSharedInformerFactories(serverAddr, nodePoolName string) (ku
 
 	dynamicInformerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 24*time.Hour)
 	if len(nodePoolName) != 0 {
-		dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 24*time.Hour, metav1.NamespaceAll, func(opts *metav1.ListOptions) {
-			opts.LabelSelector = labels.Set{initializer.LabelNodePoolName: nodePoolName}.String()
-		})
+		dynamicInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+			dynamicClient,
+			24*time.Hour,
+			metav1.NamespaceAll,
+			func(opts *metav1.ListOptions) {
+				opts.LabelSelector = labels.Set{initializer.LabelNodePoolName: nodePoolName}.String()
+			},
+		)
 	}
 
 	return client, informers.NewSharedInformerFactory(client, 24*time.Hour), dynamicInformerFactory, nil
@@ -301,7 +337,11 @@ func registerInformers(
 	// leader-hub-{nodePoolName} configmap includes leader election configurations which are used by multiplexer manager.
 	newConfigmapInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 		tweakListOptions := func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("openyurt.io/configmap-name in (%s, %s)", util.YurthubConfigMapName, "leader-hub-"+poolName)
+			options.LabelSelector = fmt.Sprintf(
+				"openyurt.io/configmap-name in (%s, %s)",
+				util.YurthubConfigMapName,
+				"leader-hub-"+poolName,
+			)
 		}
 		informer := coreinformers.NewFilteredConfigMapInformer(client, namespace, resyncPeriod, nil, tweakListOptions)
 		informer.SetTransform(pkgutil.TransformStripManagedFields())
@@ -341,7 +381,11 @@ func registerInformers(
 	informerFactory.InformerFor(&corev1.Service{}, newServiceInformer)
 }
 
-func prepareServerServing(options *options.YurtHubOptions, certMgr certificate.YurtCertificateManager, cfg *YurtHubConfiguration) error {
+func prepareServerServing(
+	options *options.YurtHubOptions,
+	certMgr certificate.YurtCertificateManager,
+	cfg *YurtHubConfiguration,
+) error {
 	if err := (&utiloptions.InsecureServingOptions{
 		BindAddress: net.ParseIP(options.YurtHubHost),
 		BindPort:    options.YurtHubPort,

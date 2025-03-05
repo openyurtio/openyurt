@@ -47,8 +47,8 @@ type yurtReverseProxy struct {
 	cfg                      *config.YurtHubConfiguration
 	cloudHealthChecker       healthchecker.Interface
 	resolver                 apirequest.RequestInfoResolver
-	loadBalancer             remote.LoadBalancer
-	loadBalancerForLeaderHub remote.LoadBalancer
+	loadBalancer             remote.Server
+	loadBalancerForLeaderHub remote.Server
 	localProxy               http.Handler
 	autonomyProxy            http.Handler
 	multiplexerProxy         http.Handler
@@ -118,7 +118,9 @@ func NewYurtReverseProxyHandler(
 	}
 
 	// warp non resource proxy handler
-	return yurtProxy.buildHandlerChain(nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker)), nil
+	return yurtProxy.buildHandlerChain(
+		nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker),
+	), nil
 }
 
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
@@ -151,7 +153,11 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	// and allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing.
 	if !p.IsRequestFromHubSelf(req) {
 		if err := config.ReadinessCheck(p.cfg); err != nil {
-			klog.Errorf("could not handle request(%s) because hub is not ready for %s", hubutil.ReqString(req), err.Error())
+			klog.Errorf(
+				"could not handle request(%s) because hub is not ready for %s",
+				hubutil.ReqString(req),
+				err.Error(),
+			)
 			hubutil.Err(apierrors.NewServiceUnavailable(err.Error()), rw, req)
 			return
 		}
