@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
 const minWatchTimeout = 5 * time.Minute
@@ -47,6 +48,8 @@ func NewStorage(restClient rest.Interface, resource string) storage.Interface {
 }
 
 func (rs *apiServerStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	klog.Warningf("list options: %++v", opts)
+
 	listOpts := &metav1.ListOptions{
 		Limit:                opts.Predicate.Limit,
 		Continue:             opts.Predicate.Continue,
@@ -54,7 +57,10 @@ func (rs *apiServerStorage) GetList(ctx context.Context, key string, opts storag
 		ResourceVersion:      opts.ResourceVersion,
 	}
 
-	return rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Do(ctx).Into(listObj)
+	err := rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Do(ctx).Into(listObj)
+
+	klog.Warningf("get list obj: %++v, errors: %v", listObj, err)
+	return err
 }
 
 func (rs *apiServerStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
