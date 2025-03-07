@@ -75,7 +75,7 @@ func (sp *multiplexerProxy) multiplexerWatch(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	storageOpts, err := sp.storageOpts(listOpts)
+	storageOpts, err := sp.storageOpts(listOpts, gvr)
 	if err != nil {
 		util.Err(err, w, r)
 	}

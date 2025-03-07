@@ -9,8 +9,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  GO_VERSION: '1.22.3'
-  GOLANGCI_VERSION: 'v1.55.2'
+  GO_VERSION: '1.23.0'
+  GOLANGCI_VERSION: 'v1.60.1'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
   # a step 'if env.AWS_USR' != ""', so we copy these to succinctly test whether
@@ -132,8 +132,8 @@ jobs:
 #          restore-keys: ${{ runner.os }}-go-
       - name: Install Required Commands
         run: |
-          go install sigs.k8s.io/kind@v0.25.0
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.30.1/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go install sigs.k8s.io/kind@v0.26.0
+          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.32.0/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind

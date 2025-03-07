@@ -40,9 +40,9 @@ func (fs *CommonFakeStorage) Create(ctx context.Context, key string, obj, out ru
 	return nil
 }
 
-func (fs *CommonFakeStorage) Delete(
+func (rs *CommonFakeStorage) Delete(
 	ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions,
-	validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object) error {
+	validateDeletion storage.ValidateObjectFunc, cachedExistingObject runtime.Object, opts storage.DeleteOptions) error {
 	return nil
 }
 
