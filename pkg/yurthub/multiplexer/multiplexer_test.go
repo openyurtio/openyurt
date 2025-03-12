@@ -88,7 +88,15 @@ func TestShareCacheManager_ResourceCache(t *testing.T) {
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 
 	healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-	loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+	loadBalancer := remote.NewLoadBalancer(
+		"round-robin",
+		[]*url.URL{},
+		nil,
+		nil,
+		healthChecher,
+		nil,
+		context.Background().Done(),
+	)
 	cfg := &config.YurtHubConfiguration{
 		PoolScopeResources:       poolScopeResources,
 		RESTMapperManager:        restMapperManager,
@@ -98,12 +106,17 @@ func TestShareCacheManager_ResourceCache(t *testing.T) {
 
 	scm := NewRequestMultiplexerManager(cfg, dsm, healthChecher)
 	cache, _, _ := scm.ResourceCache(serviceGVR)
-	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
-		if cache.ReadinessCheck() == nil {
-			return true, nil
-		}
-		return false, nil
-	})
+	wait.PollUntilContextCancel(
+		context.Background(),
+		100*time.Millisecond,
+		true,
+		func(context.Context) (done bool, err error) {
+			if cache.ReadinessCheck() == nil {
+				return true, nil
+			}
+			return false, nil
+		},
+	)
 
 	serviceList := &v1.ServiceList{}
 	err = cache.GetList(context.Background(), "", mockListOptions(), serviceList)
@@ -363,7 +376,9 @@ func TestSyncConfigMap(t *testing.T) {
 			}
 
 			if tc.addCM != nil {
-				_, err := client.CoreV1().ConfigMaps("kube-system").Create(context.Background(), tc.addCM, metav1.CreateOptions{})
+				_, err := client.CoreV1().
+					ConfigMaps("kube-system").
+					Create(context.Background(), tc.addCM, metav1.CreateOptions{})
 				if err != nil {
 					t.Errorf("couldn't create configmap, %v", err)
 					return
@@ -372,7 +387,11 @@ func TestSyncConfigMap(t *testing.T) {
 				time.Sleep(1 * time.Second)
 				sourceForPoolScopeMetadata := m.SourceForPoolScopeMetadata()
 				if tc.resultSource != sourceForPoolScopeMetadata {
-					t.Errorf("expect sourceForPoolScopeMetadata %s, but got %s", tc.resultSource, sourceForPoolScopeMetadata)
+					t.Errorf(
+						"expect sourceForPoolScopeMetadata %s, but got %s",
+						tc.resultSource,
+						sourceForPoolScopeMetadata,
+					)
 					return
 				}
 
@@ -389,7 +408,12 @@ func TestSyncConfigMap(t *testing.T) {
 					handler.ServeHTTP(recorder, req)
 
 					if m.IsRequestForPoolScopeMetadata(capturedRequest) != isRequestForPoolScopeMetadata {
-						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, m.IsRequestForPoolScopeMetadata(capturedRequest))
+						t.Errorf(
+							"path(%s): expect isRequestForPoolScopeMetadata %v, but got %v",
+							path,
+							isRequestForPoolScopeMetadata,
+							m.IsRequestForPoolScopeMetadata(capturedRequest),
+						)
 						return
 					}
 				}
@@ -401,7 +425,9 @@ func TestSyncConfigMap(t *testing.T) {
 			}
 
 			if tc.updateCM != nil {
-				_, err := client.CoreV1().ConfigMaps("kube-system").Update(context.Background(), tc.updateCM, metav1.UpdateOptions{})
+				_, err := client.CoreV1().
+					ConfigMaps("kube-system").
+					Update(context.Background(), tc.updateCM, metav1.UpdateOptions{})
 				if err != nil {
 					t.Errorf("couldn't update configmap, %v", err)
 					return
@@ -410,7 +436,11 @@ func TestSyncConfigMap(t *testing.T) {
 				time.Sleep(1 * time.Second)
 				sourceForPoolScopeMetadata := m.SourceForPoolScopeMetadata()
 				if tc.updatedResultSource != sourceForPoolScopeMetadata {
-					t.Errorf("expect sourceForPoolScopeMetadata %s, but got %s", tc.updatedResultSource, sourceForPoolScopeMetadata)
+					t.Errorf(
+						"expect sourceForPoolScopeMetadata %s, but got %s",
+						tc.updatedResultSource,
+						sourceForPoolScopeMetadata,
+					)
 					return
 				}
 
@@ -427,7 +457,12 @@ func TestSyncConfigMap(t *testing.T) {
 					handler.ServeHTTP(recorder, req)
 
 					if m.IsRequestForPoolScopeMetadata(updatedCapturedRequest) != isRequestForPoolScopeMetadata {
-						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, m.IsRequestForPoolScopeMetadata(updatedCapturedRequest))
+						t.Errorf(
+							"path(%s): expect isRequestForPoolScopeMetadata %v, but got %v",
+							path,
+							isRequestForPoolScopeMetadata,
+							m.IsRequestForPoolScopeMetadata(updatedCapturedRequest),
+						)
 						return
 					}
 				}
