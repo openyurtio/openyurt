@@ -20,9 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -38,10 +41,16 @@ import (
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
+const (
+	roundRobinStrategy        = "round-robin"
+	priorityStrategy          = "priority"
+	consistentHashingStrategy = "consistent-hashing"
+)
+
 // LoadBalancingStrategy defines the interface for different load balancing strategies.
 type LoadBalancingStrategy interface {
 	Name() string
-	PickOne() *RemoteProxy
+	PickOne(req *http.Request) *RemoteProxy
 	UpdateBackends(backends []*RemoteProxy)
 }
 
@@ -80,11 +89,11 @@ type RoundRobinStrategy struct {
 
 // Name returns the name of the strategy.
 func (rr *RoundRobinStrategy) Name() string {
-	return "round-robin"
+	return roundRobinStrategy
 }
 
 // PickOne selects a backend using a round-robin approach.
-func (rr *RoundRobinStrategy) PickOne() *RemoteProxy {
+func (rr *RoundRobinStrategy) PickOne(_ *http.Request) *RemoteProxy {
 	rr.RLock()
 	defer rr.RUnlock()
 
@@ -135,11 +144,11 @@ type PriorityStrategy struct {
 
 // Name returns the name of the strategy.
 func (prio *PriorityStrategy) Name() string {
-	return "priority"
+	return priorityStrategy
 }
 
 // PickOne selects the first available healthy backend.
-func (prio *PriorityStrategy) PickOne() *RemoteProxy {
+func (prio *PriorityStrategy) PickOne(_ *http.Request) *RemoteProxy {
 	prio.RLock()
 	defer prio.RUnlock()
 	for i := 0; i < len(prio.backends); i++ {
@@ -154,23 +163,90 @@ func (prio *PriorityStrategy) PickOne() *RemoteProxy {
 // ConsistentHashingStrategy implements consistent hashing load balancing.
 type ConsistentHashingStrategy struct {
 	BaseLoadBalancingStrategy
+	nodes  map[uint32]*RemoteProxy
+	hashes []uint32
 }
 
 // Name returns the name of the strategy.
 func (ch *ConsistentHashingStrategy) Name() string {
-	return "consistent-hashing"
+	return consistentHashingStrategy
+}
+
+func (ch *ConsistentHashingStrategy) checkAndReturnHealthyBackend(i int) *RemoteProxy {
+	if len(ch.hashes) == 0 {
+		return nil
+	}
+
+	backend := ch.nodes[ch.hashes[i]]
+	if !yurtutil.IsNil(ch.BaseLoadBalancingStrategy.checker) &&
+		!ch.BaseLoadBalancingStrategy.checker.BackendIsHealthy(backend.RemoteServer()) {
+		return nil
+	}
+	return backend
 }
 
 // PickOne selects a backend using consistent hashing.
-func (ch *ConsistentHashingStrategy) PickOne() *RemoteProxy {
-	return nil
+func (ch *ConsistentHashingStrategy) PickOne(req *http.Request) *RemoteProxy {
+	ch.RLock()
+	defer ch.RUnlock()
+
+	if len(ch.hashes) == 0 {
+		return nil
+	}
+
+	// Calculate the hash of the request
+	hash := getHash(req.UserAgent() + req.RequestURI)
+	for i, h := range ch.hashes {
+		// Find the nearest backend with a hash greater than or equal to the request hash
+		// return the first healthy backend found
+		if h >= hash {
+			if backend := ch.checkAndReturnHealthyBackend(i); backend != nil {
+				return backend
+			}
+		}
+	}
+
+	// Wrap around
+	return ch.nodes[ch.hashes[0]]
+}
+
+func (ch *ConsistentHashingStrategy) UpdateBackends(backends []*RemoteProxy) {
+	ch.Lock()
+	defer ch.Unlock()
+
+	updatedNodes := make(map[uint32]*RemoteProxy)
+
+	for _, b := range backends {
+		nodeHash := getHash(b.Name())
+		if _, ok := ch.nodes[nodeHash]; ok {
+			// Node already exists
+			updatedNodes[nodeHash] = ch.nodes[nodeHash]
+			delete(ch.nodes, nodeHash)
+			continue
+		}
+
+		// New node added
+		updatedNodes[nodeHash] = b
+	}
+
+	// Sort hash keys
+	ch.nodes = updatedNodes
+	ch.hashes = slices.Sorted(maps.Keys(updatedNodes))
+}
+
+// getHash returns the hash of a string key.
+// It uses the FNV-1a algorithm to calculate the hash.
+func getHash(key string) uint32 {
+	fnvHash := fnv.New32()
+	fnvHash.Write([]byte(key))
+	return fnvHash.Sum32()
 }
 
 // Server is an interface for proxying http request to remote server
 // based on the load balance mode(round-robin or priority)
 type Server interface {
 	UpdateBackends(remoteServers []*url.URL)
-	PickOne() *RemoteProxy
+	PickOne(req *http.Request) *RemoteProxy
 	CurrentStrategy() LoadBalancingStrategy
 }
 
@@ -223,6 +299,12 @@ func (lb *LoadBalancer) UpdateBackends(remoteServers []*url.URL) {
 
 	if lb.strategy == nil {
 		switch lb.mode {
+		case "consistent-hashing":
+			lb.strategy = &ConsistentHashingStrategy{
+				BaseLoadBalancingStrategy: BaseLoadBalancingStrategy{checker: lb.healthChecker},
+				nodes:                     make(map[uint32]*RemoteProxy),
+				hashes:                    make([]uint32, 0, len(newBackends)),
+			}
 		case "priority":
 			lb.strategy = &PriorityStrategy{BaseLoadBalancingStrategy{checker: lb.healthChecker}}
 		default:
@@ -233,8 +315,8 @@ func (lb *LoadBalancer) UpdateBackends(remoteServers []*url.URL) {
 	lb.strategy.UpdateBackends(newBackends)
 }
 
-func (lb *LoadBalancer) PickOne() *RemoteProxy {
-	return lb.strategy.PickOne()
+func (lb *LoadBalancer) PickOne(req *http.Request) *RemoteProxy {
+	return lb.strategy.PickOne(req)
 }
 
 func (lb *LoadBalancer) CurrentStrategy() LoadBalancingStrategy {
