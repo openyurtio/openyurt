@@ -8,7 +8,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/edgexfoundry/go-mod-core-contracts/v3 v3.0.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
-	github.com/go-jose/go-jose/v3 v3.0.3
+	github.com/go-jose/go-jose/v3 v3.0.4
 	github.com/go-logr/logr v1.4.2
 	github.com/go-resty/resty/v2 v2.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
