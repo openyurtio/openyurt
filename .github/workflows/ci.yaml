@@ -52,7 +52,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Lint golang code
-        uses: golangci/golangci-lint-action@v6.0.1
+        uses: golangci/golangci-lint-action@v6.5.1
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           args: --verbose
