@@ -18,24 +18,26 @@ limitations under the License.
 package phases
 
 import (
-	"fmt"
 	"io"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 // RunJoinNode executes the node join process.
 func RunJoinNode(data joindata.YurtJoinData, out io.Writer, outErr io.Writer) error {
-	var kubeadmJoinConfigFilePath string
-	if data.CfgPath() != "" {
-		kubeadmJoinConfigFilePath = data.CfgPath()
-	} else {
-		kubeadmJoinConfigFilePath = filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
-	}
-	kubeadmCmd := exec.Command("kubeadm", "join", fmt.Sprintf("--config=%s", kubeadmJoinConfigFilePath))
+	// var kubeadmJoinConfigFilePath string
+	// if data.CfgPath() != "" {
+	// 	kubeadmJoinConfigFilePath = data.CfgPath()
+	// } else {
+	// 	kubeadmJoinConfigFilePath = filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
+	// }
+	// kubeadmCmd := exec.Command("kubeadm", "join ", fmt.Sprintf("--config=%s", kubeadmJoinConfigFilePath))
+	kubeadmCmd := exec.Command("kubeadm", "join", "192.168.24.179:6443",
+		"--token", "g3pqux.54hzlfue88ab3ovr",
+		"--discovery-token-unsafe-skip-ca-verification",
+		"--v=5",
+	)
 	kubeadmCmd.Stdout = out
 	kubeadmCmd.Stderr = outErr
 

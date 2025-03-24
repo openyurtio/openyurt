@@ -62,17 +62,19 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurtadmutil.EnableKubeletService(); err != nil {
 		return err
 	}
-	if err := yurtadmutil.SetKubeletUnitConfig(); err != nil {
-		return err
-	}
-	if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
-		return err
-	}
-	if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
-		return err
-	}
-	if err := yurthub.AddYurthubStaticYaml(data, constants.StaticPodPath); err != nil {
-		return err
+	if data.NodeRegistration().WorkingMode != constants.LocalNode {
+		if err := yurtadmutil.SetKubeletUnitConfig(); err != nil {
+			return err
+		}
+		if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
+			return err
+		}
+		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
+			return err
+		}
+		if err := yurthub.AddYurthubStaticYaml(data, constants.StaticPodPath); err != nil {
+			return err
+		}
 	}
 	if len(data.StaticPodTemplateList()) != 0 {
 		// deploy user specified static pods
@@ -80,13 +82,13 @@ func RunPrepare(data joindata.YurtJoinData) error {
 			return err
 		}
 	}
-	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
-		return err
-	}
-	if data.CfgPath() == "" {
-		if err := yurtadmutil.SetKubeadmJoinConfig(data); err != nil {
-			return err
-		}
-	}
+	// if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
+	// 	return err
+	// }
+	// if data.CfgPath() == "" {
+	// 	if err := yurtadmutil.SetKubeadmJoinConfig(data); err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
