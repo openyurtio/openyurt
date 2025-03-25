@@ -28,16 +28,6 @@ git config --global user.email "openyurt-bot@openyurt.io"
 git config --global user.name "openyurt-bot"
 git clone --single-branch --depth 1 git@github.com:openyurtio/charts.git charts
 
-echo "clear charts/yurt-coordinator in openyurtio/charts"
-
-if [ -d "charts/charts/yurt-coordinator" ]
-then
-    echo "charts yurt-coordinator exists, remove it"
-    rm -r charts/charts/yurt-coordinator/*
-else
-    mkdir -p charts/charts/yurt-coordinator
-fi
-
 echo "clear charts/yurt-manager in openyurtio/charts"
 
 if [ -d "charts/charts/yurt-manager" ]
