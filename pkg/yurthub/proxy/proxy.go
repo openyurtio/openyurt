@@ -48,8 +48,8 @@ type yurtReverseProxy struct {
 	cfg                      *config.YurtHubConfiguration
 	cloudHealthChecker       healthchecker.Interface
 	resolver                 apirequest.RequestInfoResolver
-	loadBalancer             remote.LoadBalancer
-	loadBalancerForLeaderHub remote.LoadBalancer
+	loadBalancer             remote.Server
+	loadBalancerForLeaderHub remote.Server
 	localProxy               http.Handler
 	autonomyProxy            http.Handler
 	multiplexerProxy         http.Handler
@@ -119,7 +119,9 @@ func NewYurtReverseProxyHandler(
 	}
 
 	// warp non resource proxy handler
-	return yurtProxy.buildHandlerChain(nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker)), nil
+	return yurtProxy.buildHandlerChain(
+		nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker),
+	), nil
 }
 
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
@@ -152,7 +154,11 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	// and allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing.
 	if !p.IsRequestFromHubSelf(req) {
 		if err := config.ReadinessCheck(p.cfg); err != nil {
-			klog.Errorf("could not handle request(%s) because hub is not ready for %s", hubutil.ReqString(req), err.Error())
+			klog.Errorf(
+				"could not handle request(%s) because hub is not ready for %s",
+				hubutil.ReqString(req),
+				err.Error(),
+			)
 			hubutil.Err(apierrors.NewServiceUnavailable(err.Error()), rw, req)
 			return
 		}
@@ -171,13 +177,13 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		if p.IsMultiplexerRequestFromHubSelft(req) &&
 			p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
 			// list/watch pool scope metadata from leader yurthub
-			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+			if backend := p.loadBalancerForLeaderHub.PickOne(req); !yurtutil.IsNil(backend) {
 				backend.ServeHTTP(rw, req)
 				return
 			}
 		}
 
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 		} else {
 			klog.Errorf("no healthy backend avialbale for request %s", hubutil.ReqString(req))
@@ -196,7 +202,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		// depends on leader election information.
 		if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
 			// list/watch pool scope metadata from leader yurthub
-			if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+			if backend := p.loadBalancerForLeaderHub.PickOne(req); !yurtutil.IsNil(backend) {
 				backend.ServeHTTP(rw, req)
 				return
 			}
@@ -205,7 +211,7 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		fallthrough
 	default:
 		// handling the request with cloud apiserver or local cache.
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 		} else {
 			p.localProxy.ServeHTTP(rw, req)
@@ -222,7 +228,7 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 }
 
 func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Request) {
-	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 	} else {
 		p.localProxy.ServeHTTP(rw, req)
@@ -230,7 +236,7 @@ func (p *yurtReverseProxy) eventHandler(rw http.ResponseWriter, req *http.Reques
 }
 
 func (p *yurtReverseProxy) subjectAccessReviewHandler(rw http.ResponseWriter, req *http.Request) {
-	if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 	} else {
 		err := errors.New("request is from cloud APIServer but it's currently not healthy")
