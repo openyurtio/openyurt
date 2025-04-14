@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -48,6 +49,14 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
 
+var (
+	fooGVR = schema.GroupVersionResource{
+		Group:    "samplecontroller.k8s.io",
+		Version:  "v1alpha1",
+		Resource: "foos",
+	}
+)
+
 func newService(namespace, name string) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -60,7 +69,81 @@ func newService(namespace, name string) *v1.Service {
 		},
 	}
 }
+func newFoo(namespace, name, version string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": version,
+			"kind":       "Foo",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"exampleField": "test-value",
+			},
+		},
+	}
+}
 
+func TestShareCacheManager_CRDResourceCache(t *testing.T) {
+	svcStorage := storage.NewFakeFooStorage(
+		[]unstructured.Unstructured{
+			*newFoo("default", "foo-1", "v1alpha1"),
+			*newFoo("kube-system", "foo-2", "v1alpha1"),
+		})
+
+	storageMap := map[string]kstorage.Interface{
+		fooGVR.String(): svcStorage,
+	}
+	dsm := storage.NewDummyStorageManager(storageMap)
+
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
+	restMapperManager.UpdateKind(schema.GroupVersionKind{
+		Group:   "samplecontroller.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "Foo",
+	})
+	poolScopeResources := []schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "services"},
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+		{Group: "samplecontroller.k8s.io", Version: "v1alpha1", Resource: "foos"},
+	}
+
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
+	healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+	loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+	cfg := &config.YurtHubConfiguration{
+		PoolScopeResources:       poolScopeResources,
+		RESTMapperManager:        restMapperManager,
+		SharedFactory:            factory,
+		LoadBalancerForLeaderHub: loadBalancer,
+	}
+
+	scm := NewRequestMultiplexerManager(cfg, dsm, healthChecher)
+	cache, _, _ := scm.ResourceCache(&fooGVR)
+	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
+		if cache.ReadinessCheck() == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+
+	fooList := &unstructured.UnstructuredList{}
+	err = cache.GetList(context.Background(), "", mockListOptions(), fooList)
+	unstructuredList := unstructured.UnstructuredList{}
+	unstructuredList.Items = []unstructured.Unstructured{
+		*newFoo("default", "foo-1", "v1alpha1"),
+		*newFoo("kube-system", "foo-2", "v1alpha1"),
+	}
+	assert.Nil(t, err)
+	assert.Equal(t, unstructuredList.Items, fooList.Items)
+}
 func TestShareCacheManager_ResourceCache(t *testing.T) {
 	svcStorage := storage.NewFakeServiceStorage(
 		[]v1.Service{
