@@ -33,7 +33,7 @@ func NewDummyStorageManager(storageMap map[string]storage.Interface) *DummyStora
 	}
 }
 
-func (dsm *DummyStorageManager) ResourceStorage(gvr *schema.GroupVersionResource) (storage.Interface, error) {
+func (dsm *DummyStorageManager) ResourceStorage(gvr *schema.GroupVersionResource, isCRD bool) (storage.Interface, error) {
 	if store, ok := dsm.StorageMap[gvr.String()]; ok {
 		return store, dsm.Err
 	}

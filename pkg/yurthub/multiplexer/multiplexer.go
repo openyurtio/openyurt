@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -313,9 +314,18 @@ func (m *MultiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (In
 	if rc, exists := m.lazyLoadedGVRCache[gvr.String()]; exists {
 		return rc, m.lazyLoadedGVRCacheDestroyFunc[gvr.String()], nil
 	}
-
+	var isCRD bool
+	// Since  cacheManager and MultiplexerManager use the same restMapper,
+	// in the process of cacheManager, the restMapper may be updated for the CRD,
+	// so we can use restMapper to get gvk from gvr.
+	ok, gvk := m.restMapper.KindFor(*gvr)
+	if !ok && !gvk.Empty() {
+		isCRD = true
+	} else {
+		isCRD = false
+	}
 	klog.Infof("start initializing multiplexer cache for gvr: %s", gvr.String())
-	restStore, err := m.restStoreProvider.ResourceStorage(gvr)
+	restStore, err := m.restStoreProvider.ResourceStorage(gvr, isCRD)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to get rest store")
 	}
@@ -325,7 +335,7 @@ func (m *MultiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (In
 		return nil, nil, errors.Wrapf(err, "failed to generate resource cache config")
 	}
 
-	rc, destroy, err := NewResourceCache(restStore, gvr, resourceCacheConfig)
+	rc, destroy, err := NewResourceCache(restStore, gvr, resourceCacheConfig, isCRD)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to new resource cache")
 	}
@@ -362,17 +372,36 @@ func (m *MultiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (sch
 
 func (m *MultiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
 	listGVK schema.GroupVersionKind) *ResourceCacheConfig {
-	return &ResourceCacheConfig{
-		NewFunc: func() runtime.Object {
-			obj, _ := scheme.Scheme.New(gvk)
-			return obj
-		},
-		NewListFunc: func() (object runtime.Object) {
-			objList, _ := scheme.Scheme.New(listGVK)
-			return objList
-		},
-		KeyFunc:      KeyFunc,
-		GetAttrsFunc: AttrsFunc,
+
+	if scheme.Scheme.Recognizes(gvk) {
+		return &ResourceCacheConfig{
+			NewFunc: func() runtime.Object {
+				obj, _ := scheme.Scheme.New(gvk)
+				return obj
+			},
+			NewListFunc: func() (object runtime.Object) {
+				objList, _ := scheme.Scheme.New(listGVK)
+				return objList
+			},
+			KeyFunc:      KeyFunc,
+			GetAttrsFunc: AttrsFunc,
+		}
+	} else {
+		return &ResourceCacheConfig{
+			NewFunc: func() runtime.Object {
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(gvk)
+
+				return obj
+			},
+			NewListFunc: func() (object runtime.Object) {
+				objList := &unstructured.UnstructuredList{}
+				objList.SetGroupVersionKind(listGVK)
+				return objList
+			},
+			KeyFunc:      KeyFunc,
+			GetAttrsFunc: AttrsFunc,
+		}
 	}
 }
 

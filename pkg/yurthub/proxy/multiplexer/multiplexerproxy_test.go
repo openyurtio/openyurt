@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -100,6 +101,46 @@ func newEndpointSlice(namespace string, name string, resourceVersion string, end
 	}
 }
 
+var (
+	fooGVR = schema.GroupVersionResource{
+		Group:    "samplecontroller.k8s.io",
+		Version:  "v1alpha1",
+		Resource: "foos",
+	}
+	fooGV = schema.GroupVersion{
+		Group:   "samplecontroller.k8s.io",
+		Version: "v1alpha1",
+	}
+	mockFoos = []unstructured.Unstructured{
+		*newFoo("default", "foo-1", "v1alpha1"),
+		*newFoo("kube-system", "foo-2", "v1alpha1"),
+	}
+)
+
+func mockFooStorage() map[string]storage.Interface {
+	return map[string]storage.Interface{
+		fooGVR.String(): multiplexerstorage.NewFakeFooStorage(
+			mockFoos,
+		),
+	}
+}
+
+func newFoo(namespace, name, version string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": version,
+			"kind":       "Foo",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"exampleField": "test-value",
+			},
+		},
+	}
+}
+
 type wrapResponse struct {
 	Done chan struct{}
 	*httptest.ResponseRecorder
@@ -110,7 +151,92 @@ func (wr *wrapResponse) Write(buf []byte) (int, error) {
 	wr.Done <- struct{}{}
 	return l, err
 }
+func TestShareProxy_CRD_ServeHTTP_LIST(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	restMapperManager, _ := meta.NewRESTMapperManager(tmpDir)
 
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
+	poolScopeResources := []schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "services"},
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+		{Group: "samplecontroller.k8s.io", Version: "v1alpha1", Resource: "foos"},
+	}
+
+	for k, tc := range map[string]struct {
+		filterFinder    filter.FilterFinder
+		url             string
+		expectedFooList *unstructured.UnstructuredList
+		err             error
+	}{
+		"test list endpoint slices no filter": {
+			filterFinder:    &ctesting.EmptyFilterManager{},
+			url:             "/apis/samplecontroller.k8s.io/v1alpha1/foos",
+			expectedFooList: expectFooListNoFilter(),
+			err:             nil,
+		},
+		"test list endpoint slice with namespace": {
+			filterFinder:    &ctesting.EmptyFilterManager{},
+			url:             "/apis/samplecontroller.k8s.io/v1alpha1/namespaces/default/foos",
+			expectedFooList: expectFooListWithNamespace(),
+			err:             nil,
+		},
+	} {
+		t.Run(k, func(t *testing.T) {
+			w := &httptest.ResponseRecorder{
+				Body: &bytes.Buffer{},
+			}
+
+			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			dsm := multiplexerstorage.NewDummyStorageManager(mockFooStorage())
+			cfg := &config.YurtHubConfiguration{
+				PoolScopeResources:       poolScopeResources,
+				RESTMapperManager:        restMapperManager,
+				SharedFactory:            factory,
+				LoadBalancerForLeaderHub: loadBalancer,
+			}
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
+
+			restMapperManager.UpdateKind(schema.GroupVersionKind{
+				Group:   "samplecontroller.k8s.io",
+				Version: "v1alpha1",
+				Kind:    "Foo",
+			})
+			informerSynced := func() bool {
+				return rmm.Ready(&schema.GroupVersionResource{
+					Group:    "samplecontroller.k8s.io",
+					Version:  "v1alpha1",
+					Resource: "foos",
+				})
+			}
+			stopCh := make(chan struct{})
+			if ok := cache.WaitForCacheSync(stopCh, informerSynced); !ok {
+				t.Errorf("configuration manager is not ready")
+				return
+			}
+			sp := NewMultiplexerProxy(tc.filterFinder,
+				rmm,
+				restMapperManager,
+				make(<-chan struct{}))
+
+			sp.ServeHTTP(w, newEndpointSliceListRequest(tc.url))
+
+			result := DeepEqualUnstructured(tc.expectedFooList, decodeUnstructedSliceList(w.Body.Bytes()))
+			assert.True(t, result, w.Body.String())
+		})
+	}
+}
+func DeepEqualUnstructured(a, b *unstructured.UnstructuredList) bool {
+	if len(a.Items) != len(b.Items) {
+		return false
+	}
+	return true
+}
 func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "test")
 	if err != nil {
@@ -124,6 +250,7 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	poolScopeResources := []schema.GroupVersionResource{
 		{Group: "", Version: "v1", Resource: "services"},
 		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+		{Group: "samplecontroller.k8s.io", Version: "v1alpha1", Resource: "foos"},
 	}
 
 	for k, tc := range map[string]struct {
@@ -197,6 +324,23 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	}
 }
 
+func expectFooListNoFilter() *unstructured.UnstructuredList {
+	unstructuredList := &unstructured.UnstructuredList{}
+	unstructuredList.Items = []unstructured.Unstructured{
+		*newFoo("default", "foo-1", "v1alpha1"),
+		*newFoo("kube-system", "foo-2", "v1alpha1"),
+	}
+	unstructuredList.SetResourceVersion("100")
+	return unstructuredList
+}
+func expectFooListWithNamespace() *unstructured.UnstructuredList {
+	unstructuredList := &unstructured.UnstructuredList{}
+	unstructuredList.Items = []unstructured.Unstructured{
+		*newFoo("default", "foo-1", "v1alpha1"),
+	}
+	unstructuredList.SetResourceVersion("100")
+	return unstructuredList
+}
 func expectEndpointSliceListNoFilter() *discovery.EndpointSliceList {
 	return &discovery.EndpointSliceList{
 		TypeMeta: metav1.TypeMeta{
@@ -290,9 +434,19 @@ func resolverRequestInfo(req *http.Request) *request.RequestInfo {
 
 func decodeEndpointSliceList(b []byte) *discovery.EndpointSliceList {
 	discoveryv1Codec := scheme.Codecs.CodecForVersions(scheme.Codecs.LegacyCodec(discoveryGV), scheme.Codecs.UniversalDecoder(discoveryGV), discoveryGV, discoveryGV)
-
 	epsList := &discovery.EndpointSliceList{}
 	err := runtime.DecodeInto(discoveryv1Codec, b, epsList)
+	if err != nil {
+		return nil
+	}
+	return epsList
+}
+
+func decodeUnstructedSliceList(b []byte) *unstructured.UnstructuredList {
+
+	epsList := &unstructured.UnstructuredList{}
+	codec := unstructured.UnstructuredJSONScheme
+	err := runtime.DecodeInto(codec, b, epsList)
 	if err != nil {
 		return nil
 	}
@@ -428,7 +582,7 @@ func newWatchResponse() *wrapResponse {
 }
 
 func generateWatchEvent(sp multiplexerstorage.StorageProvider) {
-	fs, err := sp.ResourceStorage(&endpointSliceGVR)
+	fs, err := sp.ResourceStorage(&endpointSliceGVR, false)
 	if err != nil {
 		return
 	}

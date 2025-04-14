@@ -36,6 +36,11 @@ var endpointSlicesGVR = &schema.GroupVersionResource{
 	Version:  "v1",
 	Resource: "endpointslices",
 }
+var fooGVR = &schema.GroupVersionResource{
+	Group:    "samplecontroller.k8s.io",
+	Version:  "v1alpha1",
+	Resource: "foos",
+}
 
 func TestStorageManager_ResourceStorage(t *testing.T) {
 	sm := NewStorageProvider(&rest.Config{
@@ -44,32 +49,50 @@ func TestStorageManager_ResourceStorage(t *testing.T) {
 	})
 
 	for k, tc := range map[string]struct {
-		gvr *schema.GroupVersionResource
-		err error
+		gvr   *schema.GroupVersionResource
+		err   error
+		isCRD bool
 	}{
 		"get resource storage for services": {
-			gvr: serviceGVR,
-			err: nil,
+			gvr:   serviceGVR,
+			err:   nil,
+			isCRD: false,
 		},
 		"get resource storage for endpouintslices": {
-			gvr: endpointSlicesGVR,
-			err: nil,
+			gvr:   endpointSlicesGVR,
+			err:   nil,
+			isCRD: false,
+		},
+		"get resource storage for foos": {
+			gvr:   fooGVR,
+			err:   nil,
+			isCRD: true,
 		},
 	} {
 		t.Run(k, func(t *testing.T) {
-			restore, err := sm.ResourceStorage(tc.gvr)
+			restore, err := sm.ResourceStorage(tc.gvr, tc.isCRD)
 
 			assert.Nil(t, err)
-			assertResourceStore(t, tc.gvr, restore)
+			assertResourceStore(t, tc.gvr, restore, tc.isCRD)
 		})
 	}
 }
 
-func assertResourceStore(t testing.TB, gvr *schema.GroupVersionResource, getRestStore storage.Interface) {
+func assertResourceStore(t testing.TB, gvr *schema.GroupVersionResource, getRestStore storage.Interface, isCRD bool) {
+
 	t.Helper()
 
-	store, ok := getRestStore.(*apiServerStorage)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, gvr.Resource, store.resource)
-	assert.Equal(t, gvr.GroupVersion(), store.restClient.APIVersion())
+	if !isCRD {
+		store, ok := getRestStore.(*apiServerStorage)
+		assert.Equal(t, true, ok)
+		assert.Equal(t, gvr.Resource, store.resource)
+		assert.Equal(t, gvr.GroupVersion(), store.restClient.APIVersion())
+	} else {
+
+		store, ok := getRestStore.(*dynamicStorage)
+		assert.Equal(t, true, ok)
+		assert.Equal(t, gvr.Resource, store.resource)
+		assert.Equal(t, gvr.GroupVersion(), store.client.APIVersion())
+	}
+
 }
