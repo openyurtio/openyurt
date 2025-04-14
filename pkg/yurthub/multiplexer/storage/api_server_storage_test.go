@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"testing"
 
+	serializer "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -138,7 +139,7 @@ func newFakeClient(gv schema.GroupVersion, body []byte, header http.Header, isCR
 		}),
 	}
 	if isCRD {
-		client.NegotiatedSerializer = basicNegotiatedSerializer{}
+		client.NegotiatedSerializer = serializer.NewUnstructuredNegotiatedSerializer()
 	} else {
 
 		client.NegotiatedSerializer = scheme.Codecs.WithoutConversion()

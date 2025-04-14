@@ -17,12 +17,11 @@ limitations under the License.
 package storage
 
 import (
+	serializer "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -84,7 +83,8 @@ func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResour
 
 func (sm *apiServerStorageProvider) getDynamicClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
 	configCopy := *sm.config
-	config := ConfigFor(&configCopy)
+	// config := ConfigFor(&configCopy)
+	config := dynamic.ConfigFor(&configCopy)
 	gv := gvr.GroupVersion()
 	config.GroupVersion = &gv
 	config.APIPath = getAPIPath(gvr)
@@ -121,74 +121,10 @@ func ConfigFor(inConfig *rest.Config) *rest.Config {
 	config := rest.CopyConfig(inConfig)
 	config.AcceptContentTypes = "application/json"
 	config.ContentType = "application/json"
-	config.NegotiatedSerializer = basicNegotiatedSerializer{} // this gets used for discovery and error handling types
+	config.NegotiatedSerializer = serializer.NewUnstructuredNegotiatedSerializer()
+
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 	return config
-}
-
-type basicNegotiatedSerializer struct{}
-
-func (s basicNegotiatedSerializer) SupportedMediaTypes() []runtime.SerializerInfo {
-	return []runtime.SerializerInfo{
-		{
-			MediaType:        "application/json",
-			MediaTypeType:    "application",
-			MediaTypeSubType: "json",
-			EncodesAsText:    true,
-			Serializer:       json.NewSerializer(json.DefaultMetaFactory, unstructuredCreater{scheme.Scheme}, unstructuredTyper{scheme.Scheme}, false),
-			PrettySerializer: json.NewSerializer(json.DefaultMetaFactory, unstructuredCreater{scheme.Scheme}, unstructuredTyper{scheme.Scheme}, true),
-			StreamSerializer: &runtime.StreamSerializerInfo{
-				EncodesAsText: true,
-				Serializer:    json.NewSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, false),
-				Framer:        json.Framer,
-			},
-		},
-	}
-}
-
-func (s basicNegotiatedSerializer) EncoderForVersion(encoder runtime.Encoder, gv runtime.GroupVersioner) runtime.Encoder {
-	return runtime.WithVersionEncoder{
-		Version:     gv,
-		Encoder:     encoder,
-		ObjectTyper: unstructuredTyper{scheme.Scheme},
-	}
-}
-
-func (s basicNegotiatedSerializer) DecoderToVersion(decoder runtime.Decoder, gv runtime.GroupVersioner) runtime.Decoder {
-	return decoder
-}
-
-type unstructuredCreater struct {
-	nested runtime.ObjectCreater
-}
-
-func (c unstructuredCreater) New(kind schema.GroupVersionKind) (runtime.Object, error) {
-	out, err := c.nested.New(kind)
-	if err == nil {
-		return out, nil
-	}
-	out = &unstructured.Unstructured{}
-	out.GetObjectKind().SetGroupVersionKind(kind)
-	return out, nil
-}
-
-type unstructuredTyper struct {
-	nested runtime.ObjectTyper
-}
-
-func (t unstructuredTyper) ObjectKinds(obj runtime.Object) ([]schema.GroupVersionKind, bool, error) {
-	kinds, unversioned, err := t.nested.ObjectKinds(obj)
-	if err == nil {
-		return kinds, unversioned, nil
-	}
-	if _, ok := obj.(runtime.Unstructured); ok && !obj.GetObjectKind().GroupVersionKind().Empty() {
-		return []schema.GroupVersionKind{obj.GetObjectKind().GroupVersionKind()}, false, nil
-	}
-	return nil, false, err
-}
-
-func (t unstructuredTyper) Recognizes(gvk schema.GroupVersionKind) bool {
-	return true
 }

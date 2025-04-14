@@ -107,10 +107,7 @@ var (
 		Version:  "v1alpha1",
 		Resource: "foos",
 	}
-	fooGV = schema.GroupVersion{
-		Group:   "samplecontroller.k8s.io",
-		Version: "v1alpha1",
-	}
+
 	mockFoos = []unstructured.Unstructured{
 		*newFoo("default", "foo-1", "v1alpha1"),
 		*newFoo("kube-system", "foo-2", "v1alpha1"),

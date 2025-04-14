@@ -55,10 +55,6 @@ var (
 		Version:  "v1alpha1",
 		Resource: "foos",
 	}
-	fooGV = schema.GroupVersion{
-		Group:   "samplecontroller.k8s.io",
-		Version: "v1alpha1",
-	}
 )
 
 func newService(namespace, name string) *v1.Service {
