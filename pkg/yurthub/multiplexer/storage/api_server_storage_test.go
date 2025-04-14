@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -36,6 +35,8 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest/fake"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 var (

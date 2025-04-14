@@ -17,7 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage"
@@ -25,6 +24,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 type StorageProvider interface {
