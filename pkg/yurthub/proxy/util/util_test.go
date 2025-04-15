@@ -60,25 +60,35 @@ func newTestRequestInfoResolver() *request.RequestInfoFactory {
 	}
 }
 
-func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
+func TestWithRequestForPoolScopeMetadata(t *testing.T) {
+	nodeName := "foo"
 	testcases := map[string]struct {
 		userAgent                     string
 		verb                          string
 		path                          string
 		isRequestForPoolScopeMetadata bool
+		shouldBeForwarded             bool
 	}{
 		"list service resource": {
 			userAgent:                     "kubelet",
 			verb:                          "GET",
 			path:                          "/api/v1/services",
 			isRequestForPoolScopeMetadata: true,
+			shouldBeForwarded:             false,
 		},
-
 		"get node resource": {
 			userAgent:                     "flanneld/0.11.0",
 			verb:                          "GET",
 			path:                          "/api/v1/nodes/mynode",
 			isRequestForPoolScopeMetadata: false,
+			shouldBeForwarded:             false,
+		},
+		"list service resource by local multiplexer": {
+			userAgent:                     util.MultiplexerProxyClientUserAgentPrefix + nodeName,
+			verb:                          "GET",
+			path:                          "/api/v1/services",
+			isRequestForPoolScopeMetadata: true,
+			shouldBeForwarded:             true,
 		},
 	}
 
@@ -118,21 +128,27 @@ func TestWithIsRequestForPoolScopeMetadata(t *testing.T) {
 				RESTMapperManager:        restMapperManager,
 				SharedFactory:            factory,
 				LoadBalancerForLeaderHub: loadBalancer,
+				NodeName:                 nodeName,
 			}
 			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
 
-			var isRequestForPoolScopeMetadata bool
+			var isRequestForPoolScopeMetadata, shouldBeForwarded bool
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				ctx := req.Context()
 				isRequestForPoolScopeMetadata, _ = util.IsRequestForPoolScopeMetadataFrom(ctx)
+				shouldBeForwarded, _ = util.ForwardRequestForPoolScopeMetadataFrom(ctx)
 			})
 
-			handler = WithIsRequestForPoolScopeMetadata(handler, rmm.IsRequestForPoolScopeMetadata)
+			handler = WithRequestForPoolScopeMetadata(handler, rmm.ResolveRequestForPoolScopeMetadata)
 			handler = filters.WithRequestInfo(handler, resolver)
 			handler.ServeHTTP(httptest.NewRecorder(), req)
 
 			if isRequestForPoolScopeMetadata != tc.isRequestForPoolScopeMetadata {
 				t.Errorf("%s: expect isRequestForPoolScopeMetadata %v, but got %v", k, tc.isRequestForPoolScopeMetadata, isRequestForPoolScopeMetadata)
+			}
+
+			if shouldBeForwarded != tc.shouldBeForwarded {
+				t.Errorf("%s: expect shouldBeForwarded %v, but got %v", k, tc.shouldBeForwarded, shouldBeForwarded)
 			}
 		})
 	}

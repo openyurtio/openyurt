@@ -25,8 +25,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/proxy"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -97,6 +99,18 @@ func (rp *RemoteProxy) RemoteServer() *url.URL {
 }
 
 func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	isRequestForPoolScopeMetadata, ok := hubutil.IsRequestForPoolScopeMetadataFrom(ctx)
+	shouldBeForwarded, _ := hubutil.ForwardRequestForPoolScopeMetadataFrom(ctx)
+	if ok && isRequestForPoolScopeMetadata && shouldBeForwarded {
+		client, _ := hubutil.ClientComponentFrom(ctx)
+		info, ok := apirequest.RequestInfoFrom(ctx)
+		if ok && info != nil {
+			metrics.Metrics.IncTargetForMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client, rp.remoteServer.String())
+			defer metrics.Metrics.DecTargetForMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client, rp.remoteServer.String())
+		}
+	}
+
 	if httpstream.IsUpgradeRequest(req) {
 		klog.V(5).Infof("get upgrade request %s", req.URL)
 		if isBearerRequest(req) {

@@ -53,16 +53,15 @@ var needModifyTimeoutVerb = map[string]bool{
 	"watch": true,
 }
 
-// WithIsRequestForPoolScopeMetadata add a mark in context for specifying whether a request is used for list/watching pool scope metadata or not,
-// request for pool scope metadata will be handled by multiplexer manager instead forwarding to cloud kube-apiserver.
-func WithIsRequestForPoolScopeMetadata(handler http.Handler, isRequestForPoolScopeMetadata func(req *http.Request) bool) http.Handler {
+// WithRequestForPoolScopeMetadata add marks in context for specifying whether a request is used for list/watching pool scope metadata or not,
+// moreover, request for pool scope metadata should be served by multiplexer manager or forwarded to outside.
+func WithRequestForPoolScopeMetadata(handler http.Handler, resolveRequestForPoolScopeMetadata func(req *http.Request) (bool, bool)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		isRequestForPoolScopeMetadata, forwardRequestForPoolScopeMetadata := resolveRequestForPoolScopeMetadata(req)
 		ctx := req.Context()
-		if isRequestForPoolScopeMetadata(req) {
-			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, true)
-		} else {
-			ctx = util.WithIsRequestForPoolScopeMetadata(ctx, false)
-		}
+		ctx = util.WithIsRequestForPoolScopeMetadata(ctx, isRequestForPoolScopeMetadata)
+		ctx = util.WithForwardRequestForPoolScopeMetadata(ctx, forwardRequestForPoolScopeMetadata)
+
 		req = req.WithContext(ctx)
 		handler.ServeHTTP(w, req)
 	})
@@ -253,6 +252,7 @@ func WithRequestTrace(handler http.Handler) http.Handler {
 		ctx := req.Context()
 		client, _ := util.ClientComponentFrom(ctx)
 		isRequestForPoolScopeMetadata, _ := util.IsRequestForPoolScopeMetadataFrom(ctx)
+		shouldBeForward, _ := util.ForwardRequestForPoolScopeMetadataFrom(ctx)
 		info, ok := apirequest.RequestInfoFrom(ctx)
 		if !ok {
 			info = &apirequest.RequestInfo{}
@@ -260,8 +260,8 @@ func WithRequestTrace(handler http.Handler) http.Handler {
 
 		// inc metrics for recording request
 		if info.IsResourceRequest {
-			if isRequestForPoolScopeMetadata {
-				metrics.Metrics.IncInFlightMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client)
+			if isRequestForPoolScopeMetadata && !shouldBeForward {
+				metrics.Metrics.IncAggregatedInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
 			} else {
 				metrics.Metrics.IncInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
 			}
@@ -282,8 +282,8 @@ func WithRequestTrace(handler http.Handler) http.Handler {
 			duration := time.Since(start)
 			// dec metrics for recording request
 			if info.IsResourceRequest {
-				if isRequestForPoolScopeMetadata {
-					metrics.Metrics.DecInFlightMultiplexerRequests(info.Verb, info.Resource, info.Subresource, client)
+				if isRequestForPoolScopeMetadata && !shouldBeForward {
+					metrics.Metrics.DecAggregatedInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
 				} else {
 					metrics.Metrics.DecInFlightRequests(info.Verb, info.Resource, info.Subresource, client)
 				}
@@ -442,16 +442,4 @@ func IsSubjectAccessReviewCreateGetRequest(req *http.Request) bool {
 		comp == "kubelet" &&
 		info.Resource == "subjectaccessreviews" &&
 		(info.Verb == "create" || info.Verb == "get")
-}
-
-func IsEventCreateRequest(req *http.Request) bool {
-	ctx := req.Context()
-	info, ok := apirequest.RequestInfoFrom(ctx)
-	if !ok {
-		return false
-	}
-
-	return info.IsResourceRequest &&
-		info.Resource == "events" &&
-		info.Verb == "create"
 }

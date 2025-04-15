@@ -388,8 +388,9 @@ func TestSyncConfigMap(t *testing.T) {
 
 					handler.ServeHTTP(recorder, req)
 
-					if m.IsRequestForPoolScopeMetadata(capturedRequest) != isRequestForPoolScopeMetadata {
-						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, m.IsRequestForPoolScopeMetadata(capturedRequest))
+					isReqForPoolScopeMetadata, _ := m.ResolveRequestForPoolScopeMetadata(capturedRequest)
+					if isReqForPoolScopeMetadata != isRequestForPoolScopeMetadata {
+						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, isReqForPoolScopeMetadata)
 						return
 					}
 				}
@@ -426,8 +427,9 @@ func TestSyncConfigMap(t *testing.T) {
 
 					handler.ServeHTTP(recorder, req)
 
-					if m.IsRequestForPoolScopeMetadata(updatedCapturedRequest) != isRequestForPoolScopeMetadata {
-						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, m.IsRequestForPoolScopeMetadata(updatedCapturedRequest))
+					isUpdatedReqForPoolScopeMetadata, _ := m.ResolveRequestForPoolScopeMetadata(updatedCapturedRequest)
+					if isUpdatedReqForPoolScopeMetadata != isRequestForPoolScopeMetadata {
+						t.Errorf("path(%s): expect isRequestForPoolScopeMetadata %v, but got %v", path, isRequestForPoolScopeMetadata, isUpdatedReqForPoolScopeMetadata)
 						return
 					}
 				}
