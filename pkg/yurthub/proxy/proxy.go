@@ -175,14 +175,14 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 			// request for pool scope metadata should be forwarded to leader hub or kube-apiserver.
 			if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
 				// list/watch pool scope metadata from leader yurthub
-				if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+				if backend := p.loadBalancerForLeaderHub.PickOne(req); !yurtutil.IsNil(backend) {
 					backend.ServeHTTP(rw, req)
 					return
 				}
 			}
 
 			// otherwise, list/watch pool scope metadata from cloud kube-apiserver or local cache.
-			if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+			if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 				backend.ServeHTTP(rw, req)
 				return
 			} else if !yurtutil.IsNil(p.localProxy) {
@@ -206,14 +206,14 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		}
 		// if the request have not been served, fall into failure serve.
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 			return
 		}
 		// if the request have not been served, fall into failure serve.
 	default:
 		// handling the request with cloud apiserver or local cache, otherwise fail to serve
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 			return
 		} else if !yurtutil.IsNil(p.localProxy) {
@@ -235,7 +235,7 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 		p.cloudHealthChecker.RenewKubeletLeaseTime()
 		p.localProxy.ServeHTTP(rw, req)
 		isServed = true
-	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	} else if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 		isServed = true
 	}
@@ -249,7 +249,7 @@ func (p *yurtReverseProxy) handleKubeletGetNode(rw http.ResponseWriter, req *htt
 	if !yurtutil.IsNil(p.autonomyProxy) {
 		p.autonomyProxy.ServeHTTP(rw, req)
 		isServed = true
-	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	} else if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 		isServed = true
 	}

@@ -195,6 +195,7 @@ func (ch *ConsistentHashingStrategy) PickOne(req *http.Request) *RemoteProxy {
 	}
 
 	// Calculate the hash of the request
+	var firstHealthyBackend *RemoteProxy
 	hash := getHash(req.UserAgent() + req.RequestURI)
 	for i, h := range ch.hashes {
 		// Find the nearest backend with a hash greater than or equal to the request hash
@@ -204,10 +205,16 @@ func (ch *ConsistentHashingStrategy) PickOne(req *http.Request) *RemoteProxy {
 				return backend
 			}
 		}
+		// If no backend is found, set the first healthy backend if healthy
+		if firstHealthyBackend == nil {
+			if backend := ch.checkAndReturnHealthyBackend(i); backend != nil {
+				firstHealthyBackend = backend
+			}
+		}
 	}
 
 	// Wrap around
-	return ch.nodes[ch.hashes[0]]
+	return firstHealthyBackend
 }
 
 func (ch *ConsistentHashingStrategy) UpdateBackends(backends []*RemoteProxy) {
@@ -221,7 +228,6 @@ func (ch *ConsistentHashingStrategy) UpdateBackends(backends []*RemoteProxy) {
 		if _, ok := ch.nodes[nodeHash]; ok {
 			// Node already exists
 			updatedNodes[nodeHash] = ch.nodes[nodeHash]
-			delete(ch.nodes, nodeHash)
 			continue
 		}
 
