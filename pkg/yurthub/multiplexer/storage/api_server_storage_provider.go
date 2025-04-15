@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-
-	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 type StorageProvider interface {
@@ -84,7 +82,6 @@ func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResour
 
 func (sm *apiServerStorageProvider) getDynamicClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
 	configCopy := *sm.config
-	// config := ConfigFor(&configCopy)
 	config := dynamic.ConfigFor(&configCopy)
 	gv := gvr.GroupVersion()
 	config.GroupVersion = &gv
@@ -117,15 +114,4 @@ func getAPIPath(gvr *schema.GroupVersionResource) string {
 		return "/api"
 	}
 	return "/apis"
-}
-func ConfigFor(inConfig *rest.Config) *rest.Config {
-	config := rest.CopyConfig(inConfig)
-	config.AcceptContentTypes = "application/json"
-	config.ContentType = "application/json"
-	config.NegotiatedSerializer = serializer.NewUnstructuredNegotiatedSerializer()
-
-	if config.UserAgent == "" {
-		config.UserAgent = rest.DefaultKubernetesUserAgent()
-	}
-	return config
 }
