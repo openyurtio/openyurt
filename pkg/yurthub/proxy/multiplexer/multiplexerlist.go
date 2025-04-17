@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -70,16 +71,26 @@ func (sp *multiplexerProxy) listObject(r *http.Request, gvr *schema.GroupVersion
 		return nil, errors.Wrap(err, "failed to get resource cache")
 	}
 
-	_, gvk := sp.restMapperManager.KindFor(*gvr)
+	ok, gvk := sp.restMapperManager.KindFor(*gvr)
 	if gvk.Empty() {
 		return nil, fmt.Errorf("list object: failed to get gvk for gvr %v", gvr)
 	}
+	var obj runtime.Object
+	if !ok {
+		obj = &unstructured.UnstructuredList{
+			Object: map[string]interface{}{
+				"apiVersion": gvr.GroupVersion().String(),
+				"kind":       gvr.Resource + "List",
+			},
+		}
 
-	obj, err := scheme.Scheme.New(schema.GroupVersionKind{
-		Group:   gvk.Group,
-		Version: gvk.Version,
-		Kind:    gvk.Kind + "List",
-	})
+	} else {
+		obj, err = scheme.Scheme.New(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind + "List",
+		})
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to new list object")
 	}

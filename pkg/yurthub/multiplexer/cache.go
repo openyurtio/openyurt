@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
@@ -45,8 +46,7 @@ type ResourceCacheConfig struct {
 func NewResourceCache(
 	s kstorage.Interface,
 	resource *schema.GroupVersionResource,
-	config *ResourceCacheConfig) (Interface, func(), error) {
-
+	config *ResourceCacheConfig, isCRD bool) (Interface, func(), error) {
 	cacheConfig := cacher.Config{
 		Storage:       s,
 		Versioner:     kstorage.APIObjectVersioner{},
@@ -55,9 +55,16 @@ func NewResourceCache(
 		NewFunc:       config.NewFunc,
 		NewListFunc:   config.NewListFunc,
 		GetAttrsFunc:  config.GetAttrsFunc,
-		Codec:         scheme.Codecs.LegacyCodec(resource.GroupVersion()),
 	}
+	gv := resource.GroupVersion()
+	var codec runtime.Codec
+	if !isCRD {
+		codec = scheme.Codecs.LegacyCodec(gv)
+	} else {
+		codec = unstructured.UnstructuredJSONScheme
 
+	}
+	cacheConfig.Codec = codec
 	cacher, err := cacher.NewCacherFromConfig(cacheConfig)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("failed to new cacher from config, error: %v", err)

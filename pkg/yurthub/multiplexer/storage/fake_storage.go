@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
@@ -136,4 +138,57 @@ func (fs *FakeEndpointSliceStorage) Watch(ctx context.Context, key string, opts 
 func (fs *FakeEndpointSliceStorage) AddWatchObject(eps *discovery.EndpointSlice) {
 	eps.ResourceVersion = "101"
 	fs.watcher.Add(eps)
+}
+
+type FakeFooStorage struct {
+	*CommonFakeStorage
+	items   []unstructured.Unstructured
+	watcher *watch.FakeWatcher
+	lock    sync.Mutex
+}
+
+func NewFakeFooStorage(items []unstructured.Unstructured) *FakeFooStorage {
+	return &FakeFooStorage{
+		CommonFakeStorage: &CommonFakeStorage{},
+		items:             items,
+		watcher:           watch.NewFake(),
+	}
+}
+
+func (f *FakeFooStorage) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	list, ok := listObj.(*unstructured.UnstructuredList)
+	list.SetResourceVersion("100")
+	if !ok {
+		return fmt.Errorf("unexpected list type: %T", listObj)
+	}
+	list.Object["metadata"] = map[string]interface{}{
+		"resourceVersion": "100",
+	}
+	for _, item := range f.items {
+		itemKey := f.getResourceKey(item)
+		if strings.HasPrefix(itemKey, key) {
+			list.Items = append(list.Items, item)
+		}
+	}
+	return nil
+}
+
+func (f *FakeFooStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	return f.watcher, nil
+}
+
+func (f *FakeFooStorage) AddWatchObject(foo *unstructured.Unstructured) {
+	foo.SetResourceVersion("101")
+	f.watcher.Add(foo)
+}
+
+func (f *FakeFooStorage) getResourceKey(foo unstructured.Unstructured) string {
+	namespace := foo.GetNamespace()
+	name := foo.GetName()
+	if namespace == "" {
+		namespace = "default"
+	}
+	return fmt.Sprintf("%s/%s", namespace, name)
 }
