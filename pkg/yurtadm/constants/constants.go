@@ -35,6 +35,8 @@ const (
 	PauseImagePath                = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 	DefaultCertificatesDir        = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket        = "/var/run/dockershim.sock"
+	YurthubServiceFilepath        = "/etc/systemd/system/yurthub.service"
+	YurthubEnvironmentFilePath    = "/etc/systemd/system/yurthub.default"
 	YurthubYamlName               = "yurthub.yaml"
 	YurthubStaticPodManifest      = "yurthub"
 	YurthubNamespace              = "kube-system"
@@ -72,6 +74,7 @@ const (
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
+	LocalNode = "local"
 
 	// CertificatesDir
 	CertificatesDir = "cert-dir"
@@ -107,6 +110,10 @@ const (
 	Namespace = "namespace"
 	// YurtHubImage flag sets the yurthub image for worker node.
 	YurtHubImage = "yurthub-image"
+	// YurtHubBinary flag sets the yurthub Binary for worker node.
+	YurtHubBinary = "yurthub-binary"
+	// HostControlPlaneAddr flag sets the address of host kubernetes cluster
+	HostControlPlaneAddr = "host-control-plane-addr"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
 	// ServerAddr flag set the address of kubernetes kube-apiserver
@@ -272,5 +279,21 @@ spec:
   hostNetwork: true
   priorityClassName: system-node-critical
   priority: 2000001000
+`
+
+	YurthubSyetmdServiceContent = `
+[Unit]
+Description=local mode yurthub is deployed in systemd
+Documentation=https://github.com/openyurtio/openyurt/pull/2124
+
+[Service]
+EnvironmentFile=/etc/systemd/system/yurthub.default
+ExecStart=/usr/bin/yurthub --working-mode ${WORKINGMODE} --node-name ${NODENAME} --server-addr ${SERVERADDR} --host-control-plane-address ${HOSTCONTROLPLANEADDRESS}
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
 `
 )
