@@ -47,8 +47,8 @@ type yurtReverseProxy struct {
 	cfg                      *config.YurtHubConfiguration
 	cloudHealthChecker       healthchecker.Interface
 	resolver                 apirequest.RequestInfoResolver
-	loadBalancer             remote.LoadBalancer
-	loadBalancerForLeaderHub remote.LoadBalancer
+	loadBalancer             remote.Server
+	loadBalancerForLeaderHub remote.Server
 	localProxy               http.Handler
 	autonomyProxy            http.Handler
 	multiplexerProxy         http.Handler
@@ -118,7 +118,9 @@ func NewYurtReverseProxyHandler(
 	}
 
 	// warp non resource proxy handler
-	return yurtProxy.buildHandlerChain(nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker)), nil
+	return yurtProxy.buildHandlerChain(
+		nonresourcerequest.WrapNonResourceHandler(yurtProxy, yurtHubCfg, cloudHealthChecker),
+	), nil
 }
 
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
@@ -151,7 +153,11 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	// and allow requests from yurthub itself because yurthub need to get resource from cloud kube-apiserver for initializing.
 	if !p.IsRequestFromHubSelf(req) {
 		if err := config.ReadinessCheck(p.cfg); err != nil {
-			klog.Errorf("could not handle request(%s) because hub is not ready for %s", hubutil.ReqString(req), err.Error())
+			klog.Errorf(
+				"could not handle request(%s) because hub is not ready for %s",
+				hubutil.ReqString(req),
+				err.Error(),
+			)
 			hubutil.Err(apierrors.NewServiceUnavailable(err.Error()), rw, req)
 			return
 		}
@@ -169,14 +175,14 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 			// request for pool scope metadata should be forwarded to leader hub or kube-apiserver.
 			if p.multiplexerManager.SourceForPoolScopeMetadata() == basemultiplexer.PoolSourceForPoolScopeMetadata {
 				// list/watch pool scope metadata from leader yurthub
-				if backend := p.loadBalancerForLeaderHub.PickOne(); !yurtutil.IsNil(backend) {
+				if backend := p.loadBalancerForLeaderHub.PickOne(req); !yurtutil.IsNil(backend) {
 					backend.ServeHTTP(rw, req)
 					return
 				}
 			}
 
 			// otherwise, list/watch pool scope metadata from cloud kube-apiserver or local cache.
-			if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+			if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 				backend.ServeHTTP(rw, req)
 				return
 			} else if !yurtutil.IsNil(p.localProxy) {
@@ -200,14 +206,14 @@ func (p *yurtReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		}
 		// if the request have not been served, fall into failure serve.
 	case util.IsSubjectAccessReviewCreateGetRequest(req):
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 			return
 		}
 		// if the request have not been served, fall into failure serve.
 	default:
 		// handling the request with cloud apiserver or local cache, otherwise fail to serve
-		if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+		if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 			backend.ServeHTTP(rw, req)
 			return
 		} else if !yurtutil.IsNil(p.localProxy) {
@@ -229,7 +235,7 @@ func (p *yurtReverseProxy) handleKubeletLease(rw http.ResponseWriter, req *http.
 		p.cloudHealthChecker.RenewKubeletLeaseTime()
 		p.localProxy.ServeHTTP(rw, req)
 		isServed = true
-	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	} else if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 		isServed = true
 	}
@@ -243,7 +249,7 @@ func (p *yurtReverseProxy) handleKubeletGetNode(rw http.ResponseWriter, req *htt
 	if !yurtutil.IsNil(p.autonomyProxy) {
 		p.autonomyProxy.ServeHTTP(rw, req)
 		isServed = true
-	} else if backend := p.loadBalancer.PickOne(); !yurtutil.IsNil(backend) {
+	} else if backend := p.loadBalancer.PickOne(req); !yurtutil.IsNil(backend) {
 		backend.ServeHTTP(rw, req)
 		isServed = true
 	}

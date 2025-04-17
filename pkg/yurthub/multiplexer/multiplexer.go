@@ -100,7 +100,7 @@ type MultiplexerManager struct {
 	restStoreProvider       ystorage.StorageProvider
 	restMapper              *hubmeta.RESTMapperManager
 	healthCheckerForLeaders healthchecker.Interface
-	loadBalancerForLeaders  remote.LoadBalancer
+	loadBalancerForLeaders  remote.Server
 	portForLeaderHub        int
 	nodeName                string
 	multiplexerUserAgent    string
@@ -163,7 +163,11 @@ func (m *MultiplexerManager) addConfigmap(obj interface{}) {
 	cm, _ := obj.(*corev1.ConfigMap)
 
 	m.updateLeaderHubConfiguration(cm)
-	klog.Infof("after added configmap, source for pool scope metadata: %s, pool scope metadata: %v", m.sourceForPoolScopeMetadata, m.poolScopeMetadata)
+	klog.Infof(
+		"after added configmap, source for pool scope metadata: %s, pool scope metadata: %v",
+		m.sourceForPoolScopeMetadata,
+		m.poolScopeMetadata,
+	)
 }
 
 func (m *MultiplexerManager) updateConfigmap(oldObj, newObj interface{}) {
@@ -175,7 +179,11 @@ func (m *MultiplexerManager) updateConfigmap(oldObj, newObj interface{}) {
 	}
 
 	m.updateLeaderHubConfiguration(newCM)
-	klog.Infof("after updated configmap, source for pool scope metadata: %s, pool scope metadata: %v", m.sourceForPoolScopeMetadata, m.poolScopeMetadata)
+	klog.Infof(
+		"after updated configmap, source for pool scope metadata: %s, pool scope metadata: %v",
+		m.sourceForPoolScopeMetadata,
+		m.poolScopeMetadata,
+	)
 }
 
 func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) {
@@ -358,10 +366,15 @@ func (m *MultiplexerManager) resourceCacheConfig(gvr *schema.GroupVersionResourc
 	return m.newResourceCacheConfig(gvk, listGVK), nil
 }
 
-func (m *MultiplexerManager) convertToGVK(gvr *schema.GroupVersionResource) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
+func (m *MultiplexerManager) convertToGVK(
+	gvr *schema.GroupVersionResource,
+) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
 	_, gvk := m.restMapper.KindFor(*gvr)
 	if gvk.Empty() {
-		return schema.GroupVersionKind{}, schema.GroupVersionKind{}, fmt.Errorf("failed to convert gvk from gvr %s", gvr.String())
+		return schema.GroupVersionKind{}, schema.GroupVersionKind{}, fmt.Errorf(
+			"failed to convert gvk from gvr %s",
+			gvr.String(),
+		)
 	}
 
 	listGvk := schema.GroupVersionKind{
