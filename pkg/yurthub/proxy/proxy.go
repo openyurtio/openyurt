@@ -97,10 +97,7 @@ func NewYurtReverseProxyHandler(
 		)
 	}
 
-	multiplexerProxy := multiplexer.NewMultiplexerProxy(yurtHubCfg.FilterFinder,
-		requestMultiplexerManager,
-		yurtHubCfg.RESTMapperManager,
-		stopCh)
+	multiplexerProxy := multiplexer.NewMultiplexerProxy(requestMultiplexerManager, yurtHubCfg.RESTMapperManager, stopCh)
 
 	yurtProxy := &yurtReverseProxy{
 		cfg:                      yurtHubCfg,
@@ -124,6 +121,7 @@ func NewYurtReverseProxyHandler(
 }
 
 func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler {
+	handler = util.WithObjectFilter(handler, p.cfg.FilterFinder)
 	handler = util.WithRequestTrace(handler)
 	handler = util.WithRequestContentType(handler)
 	handler = util.WithRequestTimeout(handler)

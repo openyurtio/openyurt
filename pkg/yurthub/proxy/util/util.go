@@ -36,6 +36,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -376,6 +377,18 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 				}
 			}
 
+		}
+
+		handler.ServeHTTP(w, req)
+	})
+}
+
+func WithObjectFilter(handler http.Handler, filterFinder filter.FilterFinder) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		objectFilter, ok := filterFinder.FindObjectFilter(req)
+		if ok {
+			ctx := util.WithObjectFilter(req.Context(), objectFilter)
+			req = req.WithContext(ctx)
 		}
 
 		handler.ServeHTTP(w, req)

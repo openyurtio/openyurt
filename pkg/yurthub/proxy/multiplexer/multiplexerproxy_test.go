@@ -51,6 +51,7 @@ import (
 	multiplexerstorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	ctesting "github.com/openyurtio/openyurt/pkg/yurthub/proxy/multiplexer/testing"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
+	util2 "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
@@ -127,28 +128,28 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	}
 
 	for k, tc := range map[string]struct {
-		filterFinder              filter.FilterFinder
+		objectFilter              filter.ObjectFilter
 		url                       string
 		expectedEndPointSliceList *discovery.EndpointSliceList
 		err                       error
 	}{
 		"test list endpoint slices no filter": {
-			filterFinder:              &ctesting.EmptyFilterManager{},
+			objectFilter:              nil,
 			url:                       "/apis/discovery.k8s.io/v1/endpointslices",
 			expectedEndPointSliceList: expectEndpointSliceListNoFilter(),
 			err:                       nil,
 		},
 		"test list endpoint slice with filter": {
-			filterFinder: &ctesting.FakeEndpointSliceFilter{
-				NodeName: "node1",
+			objectFilter: &ctesting.IgnoreEndpointslicesWithNodeName{
+				IgnoreNodeName: "node1",
 			},
 			url:                       "/apis/discovery.k8s.io/v1/endpointslices",
 			expectedEndPointSliceList: expectEndpointSliceListWithFilter(),
 			err:                       nil,
 		},
 		"test list endpoint slice with namespace": {
-			filterFinder: &ctesting.FakeEndpointSliceFilter{
-				NodeName: "node1",
+			objectFilter: &ctesting.IgnoreEndpointslicesWithNodeName{
+				IgnoreNodeName: "node1",
 			},
 			url:                       "/apis/discovery.k8s.io/v1/namespaces/default/endpointslices",
 			expectedEndPointSliceList: expectEndpointSliceListWithNamespace(),
@@ -184,12 +185,9 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 				return
 			}
 
-			sp := NewMultiplexerProxy(tc.filterFinder,
-				rmm,
-				restMapperManager,
-				make(<-chan struct{}))
+			sp := NewMultiplexerProxy(rmm, restMapperManager, make(<-chan struct{}))
 
-			sp.ServeHTTP(w, newEndpointSliceListRequest(tc.url))
+			sp.ServeHTTP(w, newEndpointSliceListRequest(tc.url, tc.objectFilter))
 
 			result := equalEndpointSliceLists(tc.expectedEndPointSliceList, decodeEndpointSliceList(w.Body.Bytes()))
 			assert.True(t, result, w.Body.String())
@@ -270,11 +268,16 @@ func expectEndpointSliceListWithNamespace() *discovery.EndpointSliceList {
 	}
 }
 
-func newEndpointSliceListRequest(url string) *http.Request {
+func newEndpointSliceListRequest(url string, objectFilter filter.ObjectFilter) *http.Request {
 	req := httptest.NewRequest("GET", url, &bytes.Buffer{})
-
 	ctx := req.Context()
-	req = req.WithContext(request.WithRequestInfo(ctx, resolverRequestInfo(req)))
+
+	ctx = request.WithRequestInfo(ctx, resolverRequestInfo(req))
+	if objectFilter != nil {
+		ctx = util2.WithObjectFilter(ctx, objectFilter)
+	}
+
+	req = req.WithContext(ctx)
 
 	return req
 }
@@ -315,20 +318,20 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 
 	for k, tc := range map[string]struct {
-		filterFinder       filter.FilterFinder
+		objectFilter       filter.ObjectFilter
 		url                string
 		expectedWatchEvent *metav1.WatchEvent
 		err                error
 	}{
 		"test watch endpointslice no filter": {
-			filterFinder:       &ctesting.EmptyFilterManager{},
+			objectFilter:       nil,
 			url:                "/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=100&&timeoutSeconds=3",
 			expectedWatchEvent: expectedWatchEventNoFilter(),
 			err:                nil,
 		},
 		"test watch endpointslice with filter": {
-			filterFinder: &ctesting.FakeEndpointSliceFilter{
-				NodeName: "node1",
+			objectFilter: &ctesting.IgnoreEndpointslicesWithNodeName{
+				IgnoreNodeName: "node1",
 			},
 			url:                "/apis/discovery.k8s.io/v1/endpointslices?watch=true&&resourceVersion=100&&timeoutSeconds=3",
 			expectedWatchEvent: expectedWatchEventWithFilter(),
@@ -361,14 +364,9 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 				return
 			}
 
-			sp := NewMultiplexerProxy(
-				tc.filterFinder,
-				rmm,
-				restMapperManager,
-				make(<-chan struct{}),
-			)
+			sp := NewMultiplexerProxy(rmm, restMapperManager, make(<-chan struct{}))
 
-			req := newWatchEndpointSliceRequest(tc.url)
+			req := newWatchEndpointSliceRequest(tc.url, tc.objectFilter)
 			w := newWatchResponse()
 
 			go func() {
@@ -409,11 +407,16 @@ func expectedWatchEventWithFilter() *metav1.WatchEvent {
 	}
 }
 
-func newWatchEndpointSliceRequest(url string) *http.Request {
+func newWatchEndpointSliceRequest(url string, objectFilter filter.ObjectFilter) *http.Request {
 	req := httptest.NewRequest("GET", url, &bytes.Buffer{})
 
 	ctx := req.Context()
-	req = req.WithContext(request.WithRequestInfo(ctx, resolverRequestInfo(req)))
+	ctx = request.WithRequestInfo(ctx, resolverRequestInfo(req))
+	if objectFilter != nil {
+		ctx = util2.WithObjectFilter(ctx, objectFilter)
+	}
+
+	req = req.WithContext(ctx)
 
 	return req
 }

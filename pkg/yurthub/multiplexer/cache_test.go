@@ -56,14 +56,14 @@ func TestResourceCache_GetList(t *testing.T) {
 			*newService(metav1.NamespaceDefault, "nginx"),
 		})
 
-	cache, _, _ := NewResourceCache(
+	cache, _, _ := newResourceCache(
 		storage,
 		serviceGVR,
-		&ResourceCacheConfig{
-			KeyFunc,
+		&resourceCacheConfig{
+			keyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			AttrsFunc,
+			GetAttrsFunc(serviceGVR),
 		},
 	)
 	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
@@ -125,14 +125,14 @@ func mockListOptions() storage.ListOptions {
 func TestResourceCache_Watch(t *testing.T) {
 	fakeStorage := ystorage.NewFakeServiceStorage([]v1.Service{*newService(metav1.NamespaceSystem, "coredns")})
 
-	cache, _, err := NewResourceCache(
+	cache, _, err := newResourceCache(
 		fakeStorage,
 		serviceGVR,
-		&ResourceCacheConfig{
-			KeyFunc,
+		&resourceCacheConfig{
+			keyFunc,
 			newServiceFunc,
 			newServiceListFunc,
-			AttrsFunc,
+			GetAttrsFunc(serviceGVR),
 		},
 	)
 	wait.PollUntilContextCancel(context.Background(), 100*time.Millisecond, true, func(context.Context) (done bool, err error) {
@@ -170,4 +170,17 @@ func assertCacheWatch(t testing.TB, cache Interface, fs *ystorage.FakeServiceSto
 	assert.Nil(t, err)
 	event := <-receive.ResultChan()
 	assert.Equal(t, watch.Added, event.Type)
+}
+
+func newService(namespace, name string) *v1.Service {
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
 }

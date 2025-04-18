@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 )
@@ -71,6 +72,8 @@ const (
 	ProxyPoolScopeMetadata
 	// ProxyForwardPoolScopeMetadata represents forward a request for pool scope metadata or not.
 	ProxyForwardPoolScopeMetadata
+	// ObjectFilter represents a request has filter.
+	ObjectFilter
 
 	YurtHubNamespace      = "kube-system"
 	CacheUserAgentsKey    = "cache_agents"
@@ -161,6 +164,15 @@ func WithConvertGVK(parent context.Context, gvk *schema.GroupVersionKind) contex
 func ConvertGVKFrom(ctx context.Context) (*schema.GroupVersionKind, bool) {
 	info, ok := ctx.Value(ProxyConvertGVK).(*schema.GroupVersionKind)
 	return info, ok
+}
+
+func WithObjectFilter(parent context.Context, filters filter.ObjectFilter) context.Context {
+	return WithValue(parent, ObjectFilter, filters)
+}
+
+func ObjectFilterFrom(ctx context.Context) (filter.ObjectFilter, bool) {
+	filters, ok := ctx.Value(ObjectFilter).(filter.ObjectFilter)
+	return filters, ok
 }
 
 // WithIsRequestForPoolScopeMetadata returns a copy of parent in which request for pool scope metadata value is set
