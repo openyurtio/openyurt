@@ -35,17 +35,17 @@ type Interface interface {
 	ReadinessCheck() error
 }
 
-type ResourceCacheConfig struct {
+type resourceCacheConfig struct {
 	KeyFunc      func(runtime.Object) (string, error)
 	NewFunc      func() runtime.Object
 	NewListFunc  func() runtime.Object
 	GetAttrsFunc kstorage.AttrFunc
 }
 
-func NewResourceCache(
+func newResourceCache(
 	s kstorage.Interface,
 	resource *schema.GroupVersionResource,
-	config *ResourceCacheConfig) (Interface, func(), error) {
+	config *resourceCacheConfig) (*cacher.Cacher, func(), error) {
 
 	cacheConfig := cacher.Config{
 		Storage:       s,

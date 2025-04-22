@@ -20,46 +20,39 @@ package multiplexer
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
-	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
-	"k8s.io/apimachinery/pkg/apis/meta/internalversion/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
-	kstorage "k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
+const (
+	minRequestTimeout = 300 * time.Second
+)
+
 type multiplexerProxy struct {
 	requestsMultiplexerManager *multiplexer.MultiplexerManager
-	filterFinder               filter.FilterFinder
 	restMapperManager          *hubmeta.RESTMapperManager
 	stop                       <-chan struct{}
 }
 
-func NewMultiplexerProxy(filterFinder filter.FilterFinder,
-	multiplexerManager *multiplexer.MultiplexerManager,
-	restMapperMgr *hubmeta.RESTMapperManager,
-	stop <-chan struct{}) http.Handler {
+func NewMultiplexerProxy(multiplexerManager *multiplexer.MultiplexerManager, restMapperMgr *hubmeta.RESTMapperManager, stop <-chan struct{}) http.Handler {
 	return &multiplexerProxy{
 		stop:                       stop,
 		requestsMultiplexerManager: multiplexerManager,
-		filterFinder:               filterFinder,
 		restMapperManager:          restMapperMgr,
 	}
 }
@@ -78,14 +71,20 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch reqInfo.Verb {
-	case "list":
-		sp.multiplexerList(w, r, gvr)
-	case "watch":
-		sp.multiplexerWatch(w, r, gvr)
-	default:
-		util.Err(errors.Errorf("Multiplexer proxy does not support the request method %s", reqInfo.Verb), w, r)
+	restStore, err := sp.requestsMultiplexerManager.ResourceStore(gvr)
+	if err != nil {
+		util.Err(errors.Wrapf(err, "failed to get rest storage"), w, r)
 	}
+
+	reqScope, err := sp.getReqScope(gvr)
+	if err != nil {
+		util.Err(errors.Wrapf(err, "failed tp get req scope"), w, r)
+	}
+
+	lister := restStore.(rest.Lister)
+	watcher := restStore.(rest.Watcher)
+	forceWatch := reqInfo.Verb == "watch"
+	handlers.ListResource(lister, watcher, reqScope, forceWatch, minRequestTimeout).ServeHTTP(w, r)
 }
 
 func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*handlers.RequestScope, error) {
@@ -121,91 +120,4 @@ func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*hand
 			Namer: runtime.Namer(meta.NewAccessor()),
 		},
 	}, nil
-}
-
-func (sp *multiplexerProxy) decodeListOptions(req *http.Request, scope *handlers.RequestScope) (opts metainternalversion.ListOptions, err error) {
-	if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
-		return opts, err
-	}
-
-	if errs := validation.ValidateListOptions(&opts, false); len(errs) > 0 {
-		err := apierrors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "ListOptions"}, "", errs)
-		return opts, err
-	}
-
-	if opts.FieldSelector != nil {
-		fn := func(label, value string) (newLabel, newValue string, err error) {
-			return scope.Convertor.ConvertFieldLabel(scope.Kind, label, value)
-		}
-		if opts.FieldSelector, err = opts.FieldSelector.Transform(fn); err != nil {
-			return opts, apierrors.NewBadRequest(err.Error())
-		}
-	}
-
-	hasName := true
-	_, name, err := scope.Namer.Name(req)
-	if err != nil {
-		hasName = false
-	}
-
-	if hasName {
-		nameSelector := fields.OneTermEqualSelector("metadata.name", name)
-		if opts.FieldSelector != nil && !opts.FieldSelector.Empty() {
-			selectedName, ok := opts.FieldSelector.RequiresExactMatch("metadata.name")
-			if !ok || name != selectedName {
-				return opts, apierrors.NewBadRequest("fieldSelector metadata.name doesn't match requested name")
-			}
-		} else {
-			opts.FieldSelector = nameSelector
-		}
-	}
-
-	return opts, nil
-}
-
-func (sp *multiplexerProxy) storageOpts(listOpts metainternalversion.ListOptions) (*kstorage.ListOptions, error) {
-	p := sp.selectionPredicate(listOpts)
-
-	return &kstorage.ListOptions{
-		ResourceVersion:      getResourceVersion(listOpts),
-		ResourceVersionMatch: listOpts.ResourceVersionMatch,
-		Recursive:            isRecursive(p),
-		Predicate:            p,
-		SendInitialEvents:    listOpts.SendInitialEvents,
-	}, nil
-}
-
-func (sp *multiplexerProxy) selectionPredicate(listOpts metainternalversion.ListOptions) kstorage.SelectionPredicate {
-	label := labels.Everything()
-	if listOpts.LabelSelector != nil {
-		label = listOpts.LabelSelector
-	}
-
-	field := fields.Everything()
-	if listOpts.FieldSelector != nil {
-		field = listOpts.FieldSelector
-	}
-
-	return kstorage.SelectionPredicate{
-		Label:               label,
-		Field:               field,
-		Limit:               listOpts.Limit,
-		Continue:            listOpts.Continue,
-		GetAttrs:            multiplexer.AttrsFunc,
-		AllowWatchBookmarks: listOpts.AllowWatchBookmarks,
-	}
-}
-
-func getResourceVersion(opts metainternalversion.ListOptions) string {
-	if opts.ResourceVersion == "" {
-		return "0"
-	}
-	return opts.ResourceVersion
-}
-
-func isRecursive(p kstorage.SelectionPredicate) bool {
-	if _, ok := p.MatchesSingle(); ok {
-		return false
-	}
-	return true
 }

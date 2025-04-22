@@ -24,23 +24,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
-	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	ystorage "github.com/openyurtio/openyurt/pkg/yurthub/multiplexer/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/proxy/remote"
 	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
@@ -55,50 +48,8 @@ const (
 	APIServerSourceForPoolScopeMetadata = "api"
 )
 
-var (
-	KeyFunc = func(obj runtime.Object) (string, error) {
-		accessor, err := meta.Accessor(obj)
-		if err != nil {
-			return "", err
-		}
-
-		name := accessor.GetName()
-		if len(name) == 0 {
-			return "", apierrors.NewBadRequest("Name parameter required.")
-		}
-
-		ns := accessor.GetNamespace()
-		if len(ns) == 0 {
-			return "/" + name, nil
-		}
-		return "/" + ns + "/" + name, nil
-	}
-
-	AttrsFunc = func(obj runtime.Object) (labels.Set, fields.Set, error) {
-		metadata, err := meta.Accessor(obj)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var fieldSet fields.Set
-		if len(metadata.GetNamespace()) > 0 {
-			fieldSet = fields.Set{
-				"metadata.name":      metadata.GetName(),
-				"metadata.namespace": metadata.GetNamespace(),
-			}
-		} else {
-			fieldSet = fields.Set{
-				"metadata.name": metadata.GetName(),
-			}
-		}
-
-		return labels.Set(metadata.GetLabels()), fieldSet, nil
-	}
-)
-
 type MultiplexerManager struct {
-	restStoreProvider       ystorage.StorageProvider
-	restMapper              *hubmeta.RESTMapperManager
+	filterStoreManager      *filterStoreManager
 	healthCheckerForLeaders healthchecker.Interface
 	loadBalancerForLeaders  remote.Server
 	portForLeaderHub        int
@@ -116,7 +67,7 @@ type MultiplexerManager struct {
 
 func NewRequestMultiplexerManager(
 	cfg *config.YurtHubConfiguration,
-	restStoreProvider ystorage.StorageProvider,
+	storageProvider ystorage.StorageProvider,
 	healthCheckerForLeaders healthchecker.Interface) *MultiplexerManager {
 	configmapInformer := cfg.SharedFactory.Core().V1().ConfigMaps().Informer()
 	poolScopeMetadata := sets.New[string]()
@@ -126,8 +77,7 @@ func NewRequestMultiplexerManager(
 	klog.Infof("pool scope resources: %v", poolScopeMetadata)
 
 	m := &MultiplexerManager{
-		restStoreProvider:             restStoreProvider,
-		restMapper:                    cfg.RESTMapperManager,
+		filterStoreManager:            newFilterStoreManager(cfg, storageProvider),
 		healthCheckerForLeaders:       healthCheckerForLeaders,
 		loadBalancerForLeaders:        cfg.LoadBalancerForLeaderHub,
 		poolScopeMetadata:             poolScopeMetadata,
@@ -301,107 +251,6 @@ func (m *MultiplexerManager) ResolveRequestForPoolScopeMetadata(req *http.Reques
 	return
 }
 
-func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {
-	rc, _, err := m.ResourceCache(gvr)
-	if err != nil {
-		klog.Errorf("failed to get resource cache for gvr %s, %v", gvr.String(), err)
-		return false
-	}
-
-	return rc.ReadinessCheck() == nil
-}
-
-// ResourceCache is used for preparing cache for specified gvr.
-// The cache is loaded in a lazy mode, this means cache will not be loaded when yurthub initializes,
-// and cache will only be loaded when corresponding request is received.
-func (m *MultiplexerManager) ResourceCache(gvr *schema.GroupVersionResource) (Interface, func(), error) {
-	// use read lock to get resource cache, so requests can not be blocked.
-	m.RLock()
-	rc, exists := m.lazyLoadedGVRCache[gvr.String()]
-	destroyFunc := m.lazyLoadedGVRCacheDestroyFunc[gvr.String()]
-	m.RUnlock()
-
-	if exists {
-		return rc, destroyFunc, nil
-	}
-
-	// resource cache doesn't exist, initialize multiplexer cache for gvr
-	m.Lock()
-	defer m.Unlock()
-
-	// maybe multiple requests are served to initialize multiplexer cache at the same time,
-	// so we need to check the cache another time before initializing cache.
-	if rc, exists := m.lazyLoadedGVRCache[gvr.String()]; exists {
-		return rc, m.lazyLoadedGVRCacheDestroyFunc[gvr.String()], nil
-	}
-
-	klog.Infof("start initializing multiplexer cache for gvr: %s", gvr.String())
-	restStore, err := m.restStoreProvider.ResourceStorage(gvr)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to get rest store")
-	}
-
-	resourceCacheConfig, err := m.resourceCacheConfig(gvr)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to generate resource cache config")
-	}
-
-	rc, destroy, err := NewResourceCache(restStore, gvr, resourceCacheConfig)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to new resource cache")
-	}
-
-	m.lazyLoadedGVRCache[gvr.String()] = rc
-	m.lazyLoadedGVRCacheDestroyFunc[gvr.String()] = destroy
-
-	return rc, destroy, nil
-}
-
-func (m *MultiplexerManager) resourceCacheConfig(gvr *schema.GroupVersionResource) (*ResourceCacheConfig, error) {
-	gvk, listGVK, err := m.convertToGVK(gvr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert to gvk from gvr %s", gvr.String())
-	}
-
-	return m.newResourceCacheConfig(gvk, listGVK), nil
-}
-
-func (m *MultiplexerManager) convertToGVK(
-	gvr *schema.GroupVersionResource,
-) (schema.GroupVersionKind, schema.GroupVersionKind, error) {
-	_, gvk := m.restMapper.KindFor(*gvr)
-	if gvk.Empty() {
-		return schema.GroupVersionKind{}, schema.GroupVersionKind{}, fmt.Errorf(
-			"failed to convert gvk from gvr %s",
-			gvr.String(),
-		)
-	}
-
-	listGvk := schema.GroupVersionKind{
-		Group:   gvr.Group,
-		Version: gvr.Version,
-		Kind:    gvk.Kind + "List",
-	}
-
-	return gvk, listGvk, nil
-}
-
-func (m *MultiplexerManager) newResourceCacheConfig(gvk schema.GroupVersionKind,
-	listGVK schema.GroupVersionKind) *ResourceCacheConfig {
-	return &ResourceCacheConfig{
-		NewFunc: func() runtime.Object {
-			obj, _ := scheme.Scheme.New(gvk)
-			return obj
-		},
-		NewListFunc: func() (object runtime.Object) {
-			objList, _ := scheme.Scheme.New(listGVK)
-			return objList
-		},
-		KeyFunc:      KeyFunc,
-		GetAttrsFunc: AttrsFunc,
-	}
-}
-
 func (m *MultiplexerManager) resolveLeaderHubServers(leaderAddresses sets.Set[string]) []*url.URL {
 	servers := make([]*url.URL, 0, leaderAddresses.Len())
 	for _, internalIP := range leaderAddresses.UnsortedList() {
@@ -413,4 +262,18 @@ func (m *MultiplexerManager) resolveLeaderHubServers(leaderAddresses sets.Set[st
 		servers = append(servers, u)
 	}
 	return servers
+}
+
+func (m *MultiplexerManager) Ready(gvr *schema.GroupVersionResource) bool {
+	fs, err := m.filterStoreManager.FilterStore(gvr)
+	if err != nil {
+		klog.Errorf("failed to get resource cache for gvr %s, %v", gvr.String(), err)
+		return false
+	}
+
+	return fs.ReadinessCheck() == nil
+}
+
+func (m *MultiplexerManager) ResourceStore(gvr *schema.GroupVersionResource) (rest.Storage, error) {
+	return m.filterStoreManager.FilterStore(gvr)
 }
