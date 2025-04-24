@@ -74,12 +74,15 @@ var (
 		"v1.28",
 		"v1.29",
 		"v1.30",
+		"v1.31",
+		"v1.32",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
 		"v0.12.0",
 		"v0.22.0",
 		"v0.25.0",
+		"v0.26.0",
 	}
 	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
@@ -116,6 +119,10 @@ var (
 			"v1.28": "kindest/node:v1.28.15@sha256:a7c05c7ae043a0b8c818f5a06188bc2c4098f6cb59ca7d1856df00375d839251",
 			"v1.27": "kindest/node:v1.27.16@sha256:2d21a61643eafc439905e18705b8186f3296384750a835ad7a005dceb9546d20",
 			"v1.26": "kindest/node:v1.26.15@sha256:c79602a44b4056d7e48dc20f7504350f1e87530fe953428b792def00bc1076dd",
+		},
+		"v0.26.0": {
+			"v1.32": "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
+			"v1.30": "kindest/node:v1.30.8@sha256:17cd608b3971338d9180b00776cb766c50d0a0b6b904ab4ff52fd3fc5c6369bf",
 		},
 	}
 
@@ -540,7 +547,7 @@ func allNodesReady(clientset kubeclientset.Interface) wait.ConditionWithContextF
 			if !isNodeReady {
 				url := clientset.CoreV1().RESTClient().Get().Resource("nodes").Name(node.Name).URL()
 				nodeRequest := clientset.CoreV1().RESTClient().Get().AbsPath(url.Path)
-				if err := kubectllogs.DefaultConsumeRequest(nodeRequest, os.Stderr); err != nil {
+				if err := kubectllogs.DefaultConsumeRequest(context.TODO(), nodeRequest, os.Stderr); err != nil {
 					klog.Errorf("failed to print node(%s) info, %v", node.Name, err)
 				}
 				return false, nil

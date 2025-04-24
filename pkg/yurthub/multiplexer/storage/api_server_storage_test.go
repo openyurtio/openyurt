@@ -217,7 +217,7 @@ func TestRestStore_Create(t *testing.T) {
 
 func TestRestStore_Delete(t *testing.T) {
 	rs := &apiServerStorage{}
-	err := rs.Delete(context.TODO(), "", newService(), nil, nil, nil)
+	err := rs.Delete(context.TODO(), "", newService(), nil, nil, nil, storage.DeleteOptions{})
 
 	assert.Equal(t, ErrNoSupport, err)
 }

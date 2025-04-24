@@ -62,14 +62,14 @@ readonly REQUIRED_IMAGES=(
 readonly LOCAL_ARCH=$(go env GOHOSTARCH)
 readonly LOCAL_OS=$(go env GOHOSTOS)
 readonly CLUSTER_NAME="openyurt-e2e-test"
-readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.30"}
+readonly KUBERNETESVERSION=${KUBERNETESVERSION:-"v1.32"}
 readonly NODES_NUM=${NODES_NUM:-5}
 readonly KIND_KUBECONFIG=${KIND_KUBECONFIG:-${HOME}/.kube/config}
 readonly DISABLE_DEFAULT_CNI=${DISABLE_DEFAULT_CNI:-"false"}
 
 function install_kind {
     echo "Begin to install kind"
-    GO111MODULE="on" go install sigs.k8s.io/kind@v0.25.0
+    GO111MODULE="on" go install sigs.k8s.io/kind@v0.26.0
 }
 
 function install_docker {

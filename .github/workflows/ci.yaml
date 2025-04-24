@@ -132,8 +132,8 @@ jobs:
 #          restore-keys: ${{ runner.os }}-go-
       - name: Install Required Commands
         run: |
-          go install sigs.k8s.io/kind@v0.25.0
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.30.1/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go install sigs.k8s.io/kind@v0.26.0
+          curl -LO https://dl.k8s.io/release/v1.32.1/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind
