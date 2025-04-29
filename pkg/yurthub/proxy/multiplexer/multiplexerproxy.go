@@ -33,6 +33,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/kubernetes/scheme"
+	v1 "k8s.io/kubernetes/pkg/apis/core/v1"
 
 	hubmeta "github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/meta"
 	"github.com/openyurtio/openyurt/pkg/yurthub/multiplexer"
@@ -47,6 +48,12 @@ type multiplexerProxy struct {
 	requestsMultiplexerManager *multiplexer.MultiplexerManager
 	restMapperManager          *hubmeta.RESTMapperManager
 	stop                       <-chan struct{}
+}
+
+func init() {
+	// When parsing the FieldSelector in list/watch requests, the corresponding resource's conversion functions need to be used.
+	// Here, the primary action is to introduce the conversion functions registered in the core/v1 resources into the scheme.
+	v1.AddToScheme(scheme.Scheme)
 }
 
 func NewMultiplexerProxy(multiplexerManager *multiplexer.MultiplexerManager, restMapperMgr *hubmeta.RESTMapperManager, stop <-chan struct{}) http.Handler {

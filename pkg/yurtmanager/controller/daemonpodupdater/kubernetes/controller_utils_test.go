@@ -166,7 +166,7 @@ func TestCreatePods(t *testing.T) {
 	}
 	testServer := httptest.NewServer(&fakeHandler)
 	defer testServer.Close()
-	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{ContentType: runtime.ContentTypeJSON, GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
 
 	podControl := RealPodControl{
 		KubeClient: clientset,
@@ -204,7 +204,7 @@ func TestCreatePodsWithGenerateName(t *testing.T) {
 	}
 	testServer := httptest.NewServer(&fakeHandler)
 	defer testServer.Close()
-	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{ContentType: runtime.ContentTypeJSON, GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
 
 	podControl := RealPodControl{
 		KubeClient: clientset,

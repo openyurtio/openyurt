@@ -114,14 +114,14 @@ func DumpPod(client kubeclientset.Interface, pod *corev1.Pod, w io.Writer) error
 	klog.Infof("dump pod(%s/%s) info:", pod.Namespace, pod.Name)
 	url := client.CoreV1().RESTClient().Get().Resource("pods").Namespace(pod.Namespace).Name(pod.Name).URL()
 	podRequest := client.CoreV1().RESTClient().Get().AbsPath(url.Path)
-	if err := kubectllogs.DefaultConsumeRequest(podRequest, w); err != nil {
+	if err := kubectllogs.DefaultConsumeRequest(context.TODO(), podRequest, w); err != nil {
 		klog.Errorf("failed to print pod(%s/%s) info, %v", pod.Namespace, pod.Name, err)
 		return err
 	}
 
 	klog.Infof("start to print logs for pod(%s/%s):", pod.Namespace, pod.Name)
 	req := client.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.Name, &corev1.PodLogOptions{})
-	if err := kubectllogs.DefaultConsumeRequest(req, w); err != nil {
+	if err := kubectllogs.DefaultConsumeRequest(context.TODO(), req, w); err != nil {
 		klog.Errorf("failed to print logs for pod(%s/%s), %v", pod.Namespace, pod.Name, err)
 		return err
 	}

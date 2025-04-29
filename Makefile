@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-KUBERNETESVERSION ?=v1.30
+KUBERNETESVERSION ?=v1.32
 GOLANGCILINT_VERSION ?= v1.64.7
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
