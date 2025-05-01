@@ -290,6 +290,19 @@ func EnableKubeletService() error {
 	return nil
 }
 
+// RestartKubeletService restart kubelet service
+func RestartKubeletService() error {
+	initSystem, err := initsystem.GetInitSystem()
+	if err != nil {
+		return err
+	}
+
+	if err = initSystem.ServiceRestart("kubelet"); err != nil {
+		return fmt.Errorf("restart yurthub service failed")
+	}
+	return nil
+}
+
 // SetKubeletUnitConfig configure kubelet startup parameters.
 func SetKubeletUnitConfig() error {
 	kubeletUnitDir := filepath.Dir(constants.KubeletServiceConfPath)
@@ -328,6 +341,38 @@ func SetKubeletConfigForNode() error {
 		}
 	}
 	if err := os.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetKubeletConfigForLocalNode modifies kubelet.conf for loadbalancing the traffic from kubelet to APIServers
+func SetKubeletConfigForLocalNode(serverAddr string) error {
+	kubeconfigFilePath := filepath.Join(constants.KubeletConfigureDir, constants.KubeletKubeConfigFileName)
+	kubeletConfigDir := filepath.Dir(kubeconfigFilePath)
+	if _, err := os.Stat(kubeletConfigDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(kubeletConfigDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", kubeletConfigDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", kubeletConfigDir, err)
+			return err
+		}
+	}
+
+	// replace server address in kubelet.config
+	content, err := os.ReadFile(kubeconfigFilePath)
+	if err != nil {
+		klog.Errorf("ReadFile %s fail: %v", kubeconfigFilePath, err)
+		return err
+	}
+	replacePattern := regexp.MustCompile(`server:\s+(https?://[\w\.:-]+)`)
+	newServer := serverAddr
+	modified := replacePattern.ReplaceAllString(string(content), "server: https://"+newServer)
+
+	if err := os.WriteFile(kubeconfigFilePath, []byte(modified), constants.DirMode); err != nil {
 		return err
 	}
 	return nil
