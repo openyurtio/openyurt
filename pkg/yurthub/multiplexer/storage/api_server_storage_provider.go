@@ -66,16 +66,8 @@ func (sm *apiServerStorageProvider) ResourceStorage(gvr *schema.GroupVersionReso
 	}
 
 	var rs storage.Interface
-	if isCRD {
-		rs = newDynamicStorage(client, gvr.Resource)
-	} else {
-		rs = NewStorage(client.(rest.Interface), gvr.Resource)
-	}
-
+	rs = NewStorage(client.(rest.Interface), gvr.Resource, isCRD)
 	sm.gvrToStorage[cacheKey] = rs
-	if isCRD {
-		sm.dynamicStorage[cacheKey] = rs
-	}
 	return rs, nil
 }
 func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
@@ -84,7 +76,6 @@ func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResour
 
 func (sm *apiServerStorageProvider) getDynamicClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
 	configCopy := *sm.config
-	// config := ConfigFor(&configCopy)
 	config := dynamic.ConfigFor(&configCopy)
 	gv := gvr.GroupVersion()
 	config.GroupVersion = &gv

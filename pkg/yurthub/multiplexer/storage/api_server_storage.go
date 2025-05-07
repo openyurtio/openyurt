@@ -23,7 +23,9 @@ import (
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,16 +35,25 @@ import (
 const minWatchTimeout = 5 * time.Minute
 
 var ErrNoSupport = errors.New("Don't Support Method ")
+var versionV1 = schema.GroupVersion{Version: "v1"}
+var parameterScheme = runtime.NewScheme()
+var dynamicParameterCodec = runtime.NewParameterCodec(parameterScheme)
+
+func init() {
+	metav1.AddToGroupVersion(parameterScheme, versionV1)
+}
 
 type apiServerStorage struct {
 	restClient rest.Interface
 	resource   string
+	isCRD      bool
 }
 
-func NewStorage(restClient rest.Interface, resource string) storage.Interface {
+func NewStorage(restClient rest.Interface, resource string, isCRD bool) storage.Interface {
 	return &apiServerStorage{
 		restClient: restClient,
 		resource:   resource,
+		isCRD:      isCRD,
 	}
 }
 
@@ -53,8 +64,28 @@ func (rs *apiServerStorage) GetList(ctx context.Context, key string, opts storag
 		ResourceVersionMatch: opts.ResourceVersionMatch,
 		ResourceVersion:      opts.ResourceVersion,
 	}
+	if !rs.isCRD {
+		return rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Do(ctx).Into(listObj)
+	} else {
 
-	return rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Do(ctx).Into(listObj)
+		result := rs.restClient.Get().Resource(rs.resource).SpecificallyVersionedParams(listOpts, dynamicParameterCodec, versionV1).Do(ctx)
+		if err := result.Error(); err != nil {
+			return err
+		}
+		retBytes, err := result.Raw()
+		if err != nil {
+			return err
+		}
+		listObj, ok := listObj.(*unstructured.UnstructuredList)
+		if !ok {
+			return errors.New("listObj is not of type *unstructured.UnstructuredList")
+		}
+		if err := runtime.DecodeInto(unstructured.UnstructuredJSONScheme, retBytes, listObj); err != nil {
+			return err
+		}
+
+		return nil
+	}
 }
 
 func (rs *apiServerStorage) Watch(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
@@ -66,10 +97,11 @@ func (rs *apiServerStorage) Watch(ctx context.Context, key string, opts storage.
 		TimeoutSeconds:      &timeoutSeconds,
 		AllowWatchBookmarks: true,
 	}
-
-	w, err := rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Watch(ctx)
-
-	return w, err
+	if !rs.isCRD {
+		return rs.restClient.Get().Resource(rs.resource).VersionedParams(listOpts, scheme.ParameterCodec).Watch(ctx)
+	} else {
+		return rs.restClient.Get().Resource(rs.resource).SpecificallyVersionedParams(listOpts, dynamicParameterCodec, versionV1).Watch(ctx)
+	}
 }
 
 func (rs *apiServerStorage) Versioner() storage.Versioner {
