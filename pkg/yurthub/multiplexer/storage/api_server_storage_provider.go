@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
 type StorageProvider interface {
@@ -53,65 +55,55 @@ func (sm *apiServerStorageProvider) ResourceStorage(gvr *schema.GroupVersionReso
 
 	var err error
 	var client rest.Interface
-	if isCRD {
-		client, err = sm.getDynamicClient(gvr)
-	} else {
-		client, err = sm.getRESTClient(gvr)
-	}
+	client, err = sm.createRESTClient(gvr, isCRD)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create client for %v", gvr)
 	}
 
 	var rs storage.Interface
-	if isCRD {
-		rs = newDynamicStorage(client, gvr.Resource)
-	} else {
-		rs = NewStorage(client.(rest.Interface), gvr.Resource)
-	}
-
+	rs = NewStorage(client.(rest.Interface), gvr.Resource, isCRD)
 	sm.gvrToStorage[cacheKey] = rs
-	if isCRD {
-		sm.dynamicStorage[cacheKey] = rs
-	}
 	return rs, nil
 }
-func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
-	return sm.restClient(gvr)
-}
-
-func (sm *apiServerStorageProvider) getDynamicClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
+func (sm *apiServerStorageProvider) createRESTClient(gvr *schema.GroupVersionResource, useDynamicConfig bool) (rest.Interface, error) {
 	configCopy := *sm.config
-	config := dynamic.ConfigFor(&configCopy)
-	gv := gvr.GroupVersion()
-	config.GroupVersion = &gv
-	config.APIPath = getAPIPath(gvr)
-	h, err := rest.HTTPClientFor(sm.config)
-	if err != nil {
-		klog.Errorf("failed to get http client for %v", gvr)
-		return nil, err
+
+	if useDynamicConfig {
+		dynamicConfig := dynamic.ConfigFor(&configCopy)
+		configCopy = *dynamicConfig
 	}
-	restClient, err := rest.RESTClientForConfigAndClient(config, h)
-	return restClient, err
-}
-func (sm *apiServerStorageProvider) restClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
+
+	gv := gvr.GroupVersion()
+	configCopy.GroupVersion = &gv
+	configCopy.APIPath = getAPIPath(gvr)
+
 	httpClient, err := rest.HTTPClientFor(sm.config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get reset http client")
+		if useDynamicConfig {
+			klog.Errorf("failed to get http client for %v", gvr)
+		} else {
+			err = errors.Wrapf(err, "failed to get rest http client")
+		}
+		return nil, err
 	}
 
-	configShallowCopy := *sm.config
-	configShallowCopy.APIPath = getAPIPath(gvr)
-
-	gv := gvr.GroupVersion()
-	configShallowCopy.GroupVersion = &gv
-
-	return rest.RESTClientForConfigAndClient(&configShallowCopy, httpClient)
+	return rest.RESTClientForConfigAndClient(&configCopy, httpClient)
 }
-
 func getAPIPath(gvr *schema.GroupVersionResource) string {
 	if gvr.Group == "" {
 		return "/api"
 	}
 	return "/apis"
+}
+func ConfigFor(inConfig *rest.Config) *rest.Config {
+	config := rest.CopyConfig(inConfig)
+	config.AcceptContentTypes = "application/json"
+	config.ContentType = "application/json"
+	config.NegotiatedSerializer = serializer.NewUnstructuredNegotiatedSerializer()
+
+	if config.UserAgent == "" {
+		config.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
+	return config
 }
