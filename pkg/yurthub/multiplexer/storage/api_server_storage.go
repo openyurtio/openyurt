@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -34,6 +35,9 @@ import (
 const minWatchTimeout = 5 * time.Minute
 
 var ErrNoSupport = errors.New("Don't Support Method ")
+var versionV1 = schema.GroupVersion{Version: "v1"}
+var parameterScheme = runtime.NewScheme()
+var dynamicParameterCodec = runtime.NewParameterCodec(parameterScheme)
 
 func init() {
 	metav1.AddToGroupVersion(parameterScheme, versionV1)
