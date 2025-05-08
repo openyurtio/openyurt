@@ -65,6 +65,7 @@ func TestRestStore_GetList(t *testing.T) {
 	t.Run("list endpointslices", func(t *testing.T) {
 		rs := &apiServerStorage{
 			restClient: newFakeClient(corev1GV, mockEndpointSlicesListBody(), newListHeader(), false),
+			isCRD:      false,
 		}
 
 		getListObj := &discovery.EndpointSliceList{}
@@ -76,6 +77,7 @@ func TestRestStore_GetList(t *testing.T) {
 	t.Run("list foo", func(t *testing.T) {
 		rs := &apiServerStorage{
 			restClient: newFakeClient(fooGV, mockFooListBody(), newListHeader(), true),
+			isCRD:      true,
 		}
 
 		getListObj := &unstructured.UnstructuredList{}
@@ -206,6 +208,7 @@ func TestRestStore_Watch(t *testing.T) {
 func TestCRDRestStore_Watch(t *testing.T) {
 	rs := &apiServerStorage{
 		restClient: newFakeClient(fooGV, mockFooWatchBody(), newWatchHeader(), false),
+		isCRD:      true,
 	}
 
 	resultCh, err := rs.Watch(context.Background(), "", storage.ListOptions{})

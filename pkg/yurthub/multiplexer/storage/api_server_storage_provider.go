@@ -33,17 +33,15 @@ type StorageProvider interface {
 }
 
 type apiServerStorageProvider struct {
-	config         *rest.Config
-	gvrToStorage   map[string]storage.Interface
-	dynamicStorage map[string]storage.Interface
+	config       *rest.Config
+	gvrToStorage map[string]storage.Interface
 }
 
 func NewStorageProvider(config *rest.Config) StorageProvider {
 	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	return &apiServerStorageProvider{
-		config:         config,
-		gvrToStorage:   make(map[string]storage.Interface),
-		dynamicStorage: make(map[string]storage.Interface),
+		config:       config,
+		gvrToStorage: make(map[string]storage.Interface),
 	}
 }
 
@@ -55,11 +53,7 @@ func (sm *apiServerStorageProvider) ResourceStorage(gvr *schema.GroupVersionReso
 
 	var err error
 	var client rest.Interface
-	if isCRD {
-		client, err = sm.getDynamicClient(gvr)
-	} else {
-		client, err = sm.getRESTClient(gvr)
-	}
+	client, err = sm.createRESTClient(gvr, isCRD)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create client for %v", gvr)
@@ -70,39 +64,31 @@ func (sm *apiServerStorageProvider) ResourceStorage(gvr *schema.GroupVersionReso
 	sm.gvrToStorage[cacheKey] = rs
 	return rs, nil
 }
-func (sm *apiServerStorageProvider) getRESTClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
-	return sm.restClient(gvr)
-}
 
-func (sm *apiServerStorageProvider) getDynamicClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
+func (sm *apiServerStorageProvider) createRESTClient(gvr *schema.GroupVersionResource, useDynamicConfig bool) (rest.Interface, error) {
 	configCopy := *sm.config
-	config := dynamic.ConfigFor(&configCopy)
-	gv := gvr.GroupVersion()
-	config.GroupVersion = &gv
-	config.APIPath = getAPIPath(gvr)
-	h, err := rest.HTTPClientFor(sm.config)
-	if err != nil {
-		klog.Errorf("failed to get http client for %v", gvr)
-		return nil, err
+
+	if useDynamicConfig {
+		dynamicConfig := dynamic.ConfigFor(&configCopy)
+		configCopy = *dynamicConfig
 	}
-	restClient, err := rest.RESTClientForConfigAndClient(config, h)
-	return restClient, err
-}
-func (sm *apiServerStorageProvider) restClient(gvr *schema.GroupVersionResource) (rest.Interface, error) {
+
+	gv := gvr.GroupVersion()
+	configCopy.GroupVersion = &gv
+	configCopy.APIPath = getAPIPath(gvr)
+
 	httpClient, err := rest.HTTPClientFor(sm.config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get reset http client")
+		if useDynamicConfig {
+			klog.Errorf("failed to get http client for %v", gvr)
+		} else {
+			err = errors.Wrapf(err, "failed to get rest http client")
+		}
+		return nil, err
 	}
 
-	configShallowCopy := *sm.config
-	configShallowCopy.APIPath = getAPIPath(gvr)
-
-	gv := gvr.GroupVersion()
-	configShallowCopy.GroupVersion = &gv
-
-	return rest.RESTClientForConfigAndClient(&configShallowCopy, httpClient)
+	return rest.RESTClientForConfigAndClient(&configCopy, httpClient)
 }
-
 func getAPIPath(gvr *schema.GroupVersionResource) string {
 	if gvr.Group == "" {
 		return "/api"
