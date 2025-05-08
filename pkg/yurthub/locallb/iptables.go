@@ -69,6 +69,12 @@ func (im *IptablesManager) addIptablesRules(tenantKasService string, apiserverAd
 			klog.Errorf("could not append LBCHAIN, %v", err)
 			return err
 		}
+		// append LBCHAIN to PREROUTING in nat
+		err = im.ipt.Append("nat", "PREROUTING", "-j", LBCHAIN)
+		if err != nil {
+			klog.Errorf("could not append LBCHAIN, %v", err)
+			return err
+		}
 	}
 
 	svcIP, svcPort, err := net.SplitHostPort(tenantKasService)
@@ -107,6 +113,11 @@ func (im *IptablesManager) cleanIptablesRules() error {
 		if err != nil {
 			klog.Errorf("error removing LBCHAIN from OUTPUT: %v", err)
 			return err
+		}
+		// remove LBCHAIN from PREROUTING
+		err = im.ipt.Delete("nat", "PREROUTING", "-j", LBCHAIN)
+		if err != nil {
+			klog.Errorf("error removing LBCHAIN from PREROUTING: %v", err)
 		}
 		// delete LBCHAIN
 		err = im.ipt.DeleteChain("nat", LBCHAIN)
