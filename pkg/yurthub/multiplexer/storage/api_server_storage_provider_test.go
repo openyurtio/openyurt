@@ -82,17 +82,8 @@ func assertResourceStore(t testing.TB, gvr *schema.GroupVersionResource, getRest
 
 	t.Helper()
 
-	if !isCRD {
-		store, ok := getRestStore.(*apiServerStorage)
-		assert.Equal(t, true, ok)
-		assert.Equal(t, gvr.Resource, store.resource)
-		assert.Equal(t, gvr.GroupVersion(), store.restClient.APIVersion())
-	} else {
-
-		store, ok := getRestStore.(*dynamicStorage)
-		assert.Equal(t, true, ok)
-		assert.Equal(t, gvr.Resource, store.resource)
-		assert.Equal(t, gvr.GroupVersion(), store.client.APIVersion())
-	}
-
+	store, ok := getRestStore.(*apiServerStorage)
+	assert.Equal(t, true, ok)
+	assert.Equal(t, gvr.Resource, store.resource)
+	assert.Equal(t, gvr.GroupVersion(), store.restClient.APIVersion())
 }

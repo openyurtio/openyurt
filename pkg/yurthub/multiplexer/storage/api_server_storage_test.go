@@ -315,54 +315,6 @@ func TestRestStore_RequestWatchProgress(t *testing.T) {
 	assert.Equal(t, ErrNoSupport, err)
 }
 
-func TestCRDRestStore_Versioner(t *testing.T) {
-	rs := &dynamicStorage{}
-
-	assert.Nil(t, rs.Versioner())
-}
-
-func TestCRDRestStore_Create(t *testing.T) {
-	rs := &dynamicStorage{}
-	err := rs.Create(context.TODO(), "", newService(), newService(), 1)
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
-func TestCRDRestStore_Delete(t *testing.T) {
-	rs := &dynamicStorage{}
-	err := rs.Delete(context.TODO(), "", newService(), nil, nil, nil)
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
-func TestCRDRestStore_Get(t *testing.T) {
-	rs := &dynamicStorage{}
-	err := rs.Get(context.TODO(), "", storage.GetOptions{}, nil)
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
-func TestCRDRestStore_GuaranteedUpdate(t *testing.T) {
-	rs := &dynamicStorage{}
-	err := rs.GuaranteedUpdate(context.TODO(), "", newService(), false, nil, nil, nil)
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
-func TestCRDRestStore_Count(t *testing.T) {
-	rs := &dynamicStorage{}
-	_, err := rs.Count("")
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
-func TestCRDRestStore_RequestWatchProgress(t *testing.T) {
-	rs := &dynamicStorage{}
-	err := rs.RequestWatchProgress(context.TODO())
-
-	assert.Equal(t, ErrNoSupport, err)
-}
-
 func newService() *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
