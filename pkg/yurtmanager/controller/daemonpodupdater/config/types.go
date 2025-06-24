@@ -20,3 +20,11 @@ package config
 type DaemonPodUpdaterControllerConfiguration struct {
 	ConcurrentDaemonPodUpdaterWorkers int32
 }
+
+// DaemonsetUpdateImageInfo contains elements describing images of updated daemonset.
+// This is used to prepull image for OTA users
+type DaemonsetUpdateImageInfo struct {
+	ImageList          []string `json:"imageList,omitempty"`
+	ImagePullSecrets   []string `json:"imagePullSecrets,omitempty"`
+	ServiceAccountName string   `json:"serviceAccountName,omitempty"`
+}
