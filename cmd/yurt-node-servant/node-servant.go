@@ -18,9 +18,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -35,9 +33,6 @@ import (
 // running on specific node, do convert/revert job
 // node-servant convert/revert join/reset, yurtcluster operator shall start a k8s job to run this.
 func main() {
-	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	newRand.Seed(time.Now().UnixNano())
-
 	version := fmt.Sprintf("%#v", projectinfo.Get())
 	rootCmd := &cobra.Command{
 		Use:     "node-servant",
