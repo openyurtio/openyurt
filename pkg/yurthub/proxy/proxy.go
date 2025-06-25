@@ -64,8 +64,7 @@ func NewYurtReverseProxyHandler(
 	yurtHubCfg *config.YurtHubConfiguration,
 	localCacheMgr cachemanager.CacheManager,
 	cloudHealthChecker healthchecker.Interface,
-	requestMultiplexerManager *basemultiplexer.MultiplexerManager,
-	stopCh <-chan struct{}) (http.Handler, error) {
+	requestMultiplexerManager *basemultiplexer.MultiplexerManager) (http.Handler, error) {
 	cfg := &server.Config{
 		LegacyAPIGroupPrefixes: sets.NewString(server.DefaultLegacyAPIPrefix),
 	}
@@ -77,8 +76,7 @@ func NewYurtReverseProxyHandler(
 		localCacheMgr,
 		yurtHubCfg.TransportAndDirectClientManager,
 		cloudHealthChecker,
-		yurtHubCfg.FilterFinder,
-		stopCh)
+		yurtHubCfg.FilterFinder)
 
 	var localProxy, autonomyProxy http.Handler
 	if !yurtutil.IsNil(cloudHealthChecker) && !yurtutil.IsNil(localCacheMgr) {
@@ -97,7 +95,7 @@ func NewYurtReverseProxyHandler(
 		)
 	}
 
-	multiplexerProxy := multiplexer.NewMultiplexerProxy(requestMultiplexerManager, yurtHubCfg.RESTMapperManager, stopCh)
+	multiplexerProxy := multiplexer.NewMultiplexerProxy(requestMultiplexerManager, yurtHubCfg.RESTMapperManager)
 
 	yurtProxy := &yurtReverseProxy{
 		cfg:                      yurtHubCfg,

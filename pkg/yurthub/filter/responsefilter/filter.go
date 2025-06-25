@@ -45,7 +45,6 @@ type filterReadCloser struct {
 	isWatch      bool
 	isList       bool
 	ownerName    string
-	stopCh       <-chan struct{}
 }
 
 // newFilterReadCloser create an filterReadCloser object
@@ -54,8 +53,7 @@ func newFilterReadCloser(
 	sm *serializer.SerializerManager,
 	rc io.ReadCloser,
 	objectFilter filter.ObjectFilter,
-	ownerName string,
-	stopCh <-chan struct{}) (int, io.ReadCloser, error) {
+	ownerName string) (int, io.ReadCloser, error) {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
@@ -74,7 +72,6 @@ func newFilterReadCloser(
 		isWatch:      info.Verb == "watch",
 		isList:       info.Verb == "list",
 		ownerName:    ownerName,
-		stopCh:       stopCh,
 	}
 
 	if frc.isWatch {
@@ -134,11 +131,11 @@ func (frc *filterReadCloser) objectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 	if frc.isList {
 		items, err := meta.ExtractList(obj)
 		if err != nil || len(items) == 0 {
-			obj = frc.objectFilter.Filter(obj, frc.stopCh)
+			obj = frc.objectFilter.Filter(obj)
 		} else {
 			list := make([]runtime.Object, 0)
 			for i := range items {
-				newObj := frc.objectFilter.Filter(items[i], frc.stopCh)
+				newObj := frc.objectFilter.Filter(items[i])
 				if !yurtutil.IsNil(newObj) {
 					list = append(list, newObj)
 				}
@@ -149,7 +146,7 @@ func (frc *filterReadCloser) objectResponseFilter(rc io.ReadCloser) (*bytes.Buff
 			}
 		}
 	} else {
-		obj = frc.objectFilter.Filter(obj, frc.stopCh)
+		obj = frc.objectFilter.Filter(obj)
 	}
 	if yurtutil.IsNil(obj) {
 		klog.Warningf("filter %s doesn't work correctly, response is discarded completely in list request.", frc.ownerName)
@@ -178,7 +175,7 @@ func (frc *filterReadCloser) streamResponseFilter(rc io.ReadCloser, ch chan *byt
 		newObj := obj
 		// BOOKMARK and ERROR response are unnecessary to filter
 		if !(watchType == watch.Bookmark || watchType == watch.Error) {
-			if newObj = frc.objectFilter.Filter(obj, frc.stopCh); yurtutil.IsNil(newObj) {
+			if newObj = frc.objectFilter.Filter(obj); yurtutil.IsNil(newObj) {
 				// if an object is removed in the filter chain, it means that this object is not needed
 				// to return back to clients(like kube-proxy). but in order to update the client's local cache,
 				// it's a good idea to return a watch.Deleted event to clients and make clients to remove this object in local cache.
@@ -226,6 +223,6 @@ func (rf *responseFilter) Name() string {
 	return rf.objectFilter.Name()
 }
 
-func (rf *responseFilter) Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error) {
-	return newFilterReadCloser(req, rf.serializerManager, rc, rf.objectFilter, rf.objectFilter.Name(), stopCh)
+func (rf *responseFilter) Filter(req *http.Request, rc io.ReadCloser) (int, io.ReadCloser, error) {
+	return newFilterReadCloser(req, rf.serializerManager, rc, rf.objectFilter, rf.objectFilter.Name())
 }

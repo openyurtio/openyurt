@@ -184,11 +184,9 @@ func TestManager(t *testing.T) {
 			informerfactory := informers.NewSharedInformerFactory(client, 0)
 			manager := NewConfigurationManager(tc.nodeName, informerfactory)
 
-			stopCh := make(chan struct{})
-			informerfactory.Start(stopCh)
-			defer close(stopCh)
+			informerfactory.Start(t.Context().Done())
 
-			if ok := cache.WaitForCacheSync(stopCh, manager.HasSynced); !ok {
+			if ok := cache.WaitForCacheSync(t.Context().Done(), manager.HasSynced); !ok {
 				t.Errorf("configuration manager is not ready")
 				return
 			}

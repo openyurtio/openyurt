@@ -52,13 +52,13 @@ var (
 type AutonomyProxy struct {
 	cacheMgr         cachemanager.CacheManager
 	healthChecker    healthchecker.Interface
-	clientManager    transport.Interface
+	clientManager    transport.TransportManager
 	cacheFailedCount *int32
 }
 
 func NewAutonomyProxy(
 	healthChecker healthchecker.Interface,
-	clientManager transport.Interface,
+	clientManager transport.TransportManager,
 	cacheMgr cachemanager.CacheManager,
 ) *AutonomyProxy {
 	return &AutonomyProxy{

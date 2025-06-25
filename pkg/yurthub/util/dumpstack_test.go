@@ -29,10 +29,8 @@ import (
 
 func TestSetupDumpStackTrap(t *testing.T) {
 	logDir := "/tmp"
-	stopCh := make(chan struct{})
-	defer close(stopCh)
 
-	SetupDumpStackTrap(logDir, stopCh)
+	SetupDumpStackTrap(t.Context(), logDir)
 
 	proc, err := os.FindProcess(os.Getpid())
 	assert.NoError(t, err)

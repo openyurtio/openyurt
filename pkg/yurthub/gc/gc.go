@@ -45,15 +45,14 @@ var (
 type GCManager struct {
 	store             cachemanager.StorageWrapper
 	healthChecker     healthchecker.Interface
-	clientManager     transport.Interface
+	clientManager     transport.TransportManager
 	nodeName          string
 	eventsGCFrequency time.Duration
 	lastTime          time.Time
-	stopCh            <-chan struct{}
 }
 
 // NewGCManager creates a *GCManager object
-func NewGCManager(cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface, stopCh <-chan struct{}) (*GCManager, error) {
+func NewGCManager(cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface) (*GCManager, error) {
 	gcFrequency := cfg.GCFrequency
 	if gcFrequency == 0 {
 		gcFrequency = defaultEventGcInterval
@@ -65,14 +64,13 @@ func NewGCManager(cfg *config.YurtHubConfiguration, healthChecker healthchecker.
 		healthChecker:     healthChecker,
 		clientManager:     cfg.TransportAndDirectClientManager,
 		eventsGCFrequency: time.Duration(gcFrequency) * time.Minute,
-		stopCh:            stopCh,
 	}
 	mgr.gcPodsWhenRestart()
 	return mgr, nil
 }
 
 // Run starts GCManager
-func (m *GCManager) Run() {
+func (m *GCManager) Run(ctx context.Context) {
 	// run gc events after a time duration between eventsGCFrequency and 3 * eventsGCFrequency
 	m.lastTime = time.Now()
 	go wait.JitterUntil(func() {
@@ -91,7 +89,7 @@ func (m *GCManager) Run() {
 
 		m.gcEvents(kubeClient, "kubelet")
 		m.gcEvents(kubeClient, "kube-proxy")
-	}, m.eventsGCFrequency, 2, true, m.stopCh)
+	}, m.eventsGCFrequency, 2, true, ctx.Done())
 }
 
 func (m *GCManager) gcPodsWhenRestart() {

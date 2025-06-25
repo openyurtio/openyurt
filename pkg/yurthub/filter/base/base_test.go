@@ -46,12 +46,12 @@ func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.Set[str
 	return map[string]sets.Set[string]{}
 }
 
-func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (noh *nopObjectHandler) Filter(obj runtime.Object) runtime.Object {
 	return obj
 }
 
 var (
-	nodesNameErr = errors.New("nodes name error")
+	errNodesName = errors.New("nodes name error")
 )
 
 type nopNodesErrHandler struct {
@@ -61,7 +61,7 @@ type nopNodesErrHandler struct {
 
 func NewNopNodesErrHandler() filter.ObjectFilter {
 	return &nopNodesErrHandler{
-		err: nodesNameErr,
+		err: errNodesName,
 	}
 }
 
@@ -193,7 +193,7 @@ func TestInitializers(t *testing.T) {
 		},
 		"initialize error": {
 			filter:    NewNopNodesErrHandler(),
-			resultErr: nodesNameErr,
+			resultErr: errNodesName,
 		},
 	}
 

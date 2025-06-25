@@ -17,6 +17,7 @@ limitations under the License.
 package transport
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
@@ -39,7 +40,7 @@ type fakeTransportManager struct {
 	serverToClientset map[string]kubernetes.Interface
 }
 
-func NewFakeTransportManager(code int, fakeClients map[string]kubernetes.Interface) Interface {
+func NewFakeTransportManager(code int, fakeClients map[string]kubernetes.Interface) TransportManager {
 	return &fakeTransportManager{
 		nop:               &nopRoundTrip{code: code},
 		serverToClientset: fakeClients,
@@ -75,3 +76,5 @@ func (f *fakeTransportManager) GetDirectClientsetAtRandom() kubernetes.Interface
 func (f *fakeTransportManager) ListDirectClientset() map[string]kubernetes.Interface {
 	return f.serverToClientset
 }
+
+func (f *fakeTransportManager) Start(_ context.Context) {}

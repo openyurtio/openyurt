@@ -17,6 +17,7 @@ limitations under the License.
 package transport
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -41,8 +42,8 @@ type CertGetter interface {
 	GetCAData() []byte
 }
 
-// Interface is an transport interface for managing clients that used to connecting kube-apiserver
-type Interface interface {
+// TransportManager is an interface for managing clients that used to connecting kube-apiserver
+type TransportManager interface {
 	// CurrentTransport get transport that used by load balancer
 	// and can be used by multiple goroutines concurrently.
 	CurrentTransport() http.RoundTripper
@@ -56,6 +57,9 @@ type Interface interface {
 	GetDirectClientsetAtRandom() kubernetes.Interface
 	// ListDirectClientset returns all clientsets
 	ListDirectClientset() map[string]kubernetes.Interface
+
+	// Start manager internal work.
+	Start(context.Context)
 }
 
 type transportAndClientManager struct {
@@ -64,12 +68,11 @@ type transportAndClientManager struct {
 	certGetter        CertGetter
 	closeAll          func()
 	close             func(string)
-	stopCh            <-chan struct{}
 	serverToClientset map[string]kubernetes.Interface
 }
 
 // NewTransportManager create a transport interface object.
-func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter CertGetter, stopCh <-chan struct{}) (Interface, error) {
+func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter CertGetter) (TransportManager, error) {
 	caData := certGetter.GetCAData()
 	if len(caData) == 0 {
 		return nil, fmt.Errorf("ca cert data was not prepared when new transport")
@@ -110,7 +113,6 @@ func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter Ce
 		certGetter:        certGetter,
 		closeAll:          d.CloseAll,
 		close:             d.Close,
-		stopCh:            stopCh,
 		serverToClientset: make(map[string]kubernetes.Interface),
 	}
 
@@ -130,8 +132,6 @@ func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter Ce
 			tcm.serverToClientset[servers[i].String()] = clientset
 		}
 	}
-
-	tcm.start()
 
 	return tcm, nil
 }
@@ -168,7 +168,7 @@ func (tcm *transportAndClientManager) ListDirectClientset() map[string]kubernete
 	return tcm.serverToClientset
 }
 
-func (tcm *transportAndClientManager) start() {
+func (tcm *transportAndClientManager) Start(ctx context.Context) {
 	lastCert := tcm.certGetter.GetAPIServerClientCert()
 
 	go wait.Until(func() {
@@ -196,7 +196,7 @@ func (tcm *transportAndClientManager) start() {
 			// certificate expired or deleted unintentionally, just wait for cert updated by bootstrap config, do nothing
 			klog.Warningf("certificate expired or deleted unintentionally")
 		}
-	}, 10*time.Second, tcm.stopCh)
+	}, 10*time.Second, ctx.Done())
 }
 
 func tlsConfig(current func() *tls.Certificate, caData []byte) (*tls.Config, error) {

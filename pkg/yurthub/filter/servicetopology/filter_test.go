@@ -3339,8 +3339,7 @@ func TestFilter(t *testing.T) {
 			yurtFactory.Start(stopper2)
 			yurtFactory.WaitForCacheSync(stopper2)
 
-			stopCh := make(<-chan struct{})
-			newObj := stf.Filter(tt.responseObject, stopCh)
+			newObj := stf.Filter(tt.responseObject)
 			if util.IsNil(newObj) {
 				t.Errorf("empty object is returned")
 			}

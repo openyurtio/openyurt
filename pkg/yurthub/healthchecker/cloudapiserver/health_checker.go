@@ -17,6 +17,7 @@ limitations under the License.
 package cloudapiserver
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -51,7 +52,7 @@ type cloudAPIServerHealthChecker struct {
 }
 
 // NewCloudAPIServerHealthChecker returns a health checker for verifying cloud kube-apiserver status.
-func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, stopCh <-chan struct{}) (healthchecker.Interface, error) {
+func NewCloudAPIServerHealthChecker(ctx context.Context, cfg *config.YurtHubConfiguration) (healthchecker.Interface, error) {
 	hc := &cloudAPIServerHealthChecker{
 		probers:           make(map[string]healthchecker.BackendProber),
 		remoteServers:     cfg.RemoteServers,
@@ -71,7 +72,7 @@ func NewCloudAPIServerHealthChecker(cfg *config.YurtHubConfiguration, stopCh <-c
 			hc.getLastNodeLease)
 	}
 	if len(hc.probers) != 0 {
-		go hc.run(stopCh)
+		go hc.run(ctx)
 	}
 	return hc, nil
 }
@@ -116,13 +117,13 @@ func (hc *cloudAPIServerHealthChecker) UpdateBackends(servers []*url.URL) {
 	// do nothing
 }
 
-func (hc *cloudAPIServerHealthChecker) run(stopCh <-chan struct{}) {
+func (hc *cloudAPIServerHealthChecker) run(ctx context.Context) {
 	intervalTicker := time.NewTicker(time.Duration(hc.heartbeatInterval) * time.Second)
 	defer intervalTicker.Stop()
 
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			klog.Infof("exit normally in health check loop.")
 			return
 		case <-intervalTicker.C:

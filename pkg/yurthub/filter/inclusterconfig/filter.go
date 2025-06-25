@@ -56,7 +56,7 @@ func (iccf *inClusterConfigFilter) Name() string {
 	return FilterName
 }
 
-func (iccf *inClusterConfigFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+func (iccf *inClusterConfigFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.ConfigMap:
 		return mutateKubeProxyConfigMap(v)

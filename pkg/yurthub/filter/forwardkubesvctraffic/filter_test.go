@@ -213,13 +213,12 @@ func TestFilter(t *testing.T) {
 		},
 	}
 
-	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			fkst, _ := NewForwardKubeSVCTrafficFilter()
 			fkst.SetMasterServiceHost(tt.host)
 			fkst.SetMasterServicePort(tt.port)
-			newObj := fkst.Filter(tt.responseObject, stopCh)
+			newObj := fkst.Filter(tt.responseObject)
 			if tt.expectObject == nil {
 				if !util.IsNil(newObj) {
 					t.Errorf("Filter expect nil obj, but got %v", newObj)

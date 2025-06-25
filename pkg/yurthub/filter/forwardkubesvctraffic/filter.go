@@ -77,7 +77,7 @@ func (fkst *forwardKubeSVCTrafficFilter) SetMasterServicePort(portStr string) er
 	return nil
 }
 
-func (fkst *forwardKubeSVCTrafficFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (fkst *forwardKubeSVCTrafficFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *discovery.EndpointSlice:
 		fkst.mutateDefaultKubernetesEps(v)

@@ -261,10 +261,9 @@ type LoadBalancer struct {
 	strategy      LoadBalancingStrategy
 	localCacheMgr cachemanager.CacheManager
 	filterFinder  filter.FilterFinder
-	transportMgr  transport.Interface
+	transportMgr  transport.TransportManager
 	healthChecker healthchecker.Interface
 	mode          string
-	stopCh        <-chan struct{}
 }
 
 // NewLoadBalancer creates a loadbalancer for specified remote servers
@@ -272,17 +271,15 @@ func NewLoadBalancer(
 	lbMode string,
 	remoteServers []*url.URL,
 	localCacheMgr cachemanager.CacheManager,
-	transportMgr transport.Interface,
+	transportMgr transport.TransportManager,
 	healthChecker healthchecker.Interface,
-	filterFinder filter.FilterFinder,
-	stopCh <-chan struct{}) *LoadBalancer {
+	filterFinder filter.FilterFinder) *LoadBalancer {
 	lb := &LoadBalancer{
 		mode:          lbMode,
 		localCacheMgr: localCacheMgr,
 		filterFinder:  filterFinder,
 		transportMgr:  transportMgr,
 		healthChecker: healthChecker,
-		stopCh:        stopCh,
 	}
 
 	// initialize backends
@@ -295,7 +292,7 @@ func NewLoadBalancer(
 func (lb *LoadBalancer) UpdateBackends(remoteServers []*url.URL) {
 	newBackends := make([]*RemoteProxy, 0, len(remoteServers))
 	for _, server := range remoteServers {
-		proxy, err := NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr, lb.stopCh)
+		proxy, err := NewRemoteProxy(server, lb.modifyResponse, lb.errorHandler, lb.transportMgr)
 		if err != nil {
 			klog.Errorf("could not create proxy for backend %s, %v", server.String(), err)
 			continue
@@ -387,7 +384,7 @@ func (lb *LoadBalancer) modifyResponse(resp *http.Response) error {
 		if !yurtutil.IsNil(lb.filterFinder) {
 			if responseFilter, ok := lb.filterFinder.FindResponseFilter(req); ok {
 				wrapBody, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "filter")
-				size, filterRc, err := responseFilter.Filter(req, wrapBody, lb.stopCh)
+				size, filterRc, err := responseFilter.Filter(req, wrapBody)
 				if err != nil {
 					klog.Errorf("could not filter response for %s, %v", hubutil.ReqString(req), err)
 					return err
@@ -440,12 +437,12 @@ func (lb *LoadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 
 		// cache the response at local.
 		rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
-		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) &&
+		go func(req *http.Request, prc io.ReadCloser) {
+			if err := lb.localCacheMgr.CacheResponse(req, prc); err != nil && !errors.Is(err, io.EOF) &&
 				!errors.Is(err, context.Canceled) {
 				klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
 			}
-		}(req, prc, req.Context().Done())
+		}(req, prc)
 		resp.Body = rc
 	}
 }

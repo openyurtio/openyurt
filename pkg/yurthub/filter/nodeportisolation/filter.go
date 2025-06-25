@@ -77,7 +77,7 @@ func (nif *nodePortIsolationFilter) SetKubeClient(client kubernetes.Interface) e
 	return nil
 }
 
-func (nif *nodePortIsolationFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (nif *nodePortIsolationFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.Service:
 		return nif.isolateNodePortService(v)

@@ -60,7 +60,7 @@ func WrapNonResourceHandler(proxyHandler http.Handler, config *config.YurtHubCon
 	return wrapMux
 }
 
-func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.Interface, clientManager transport.Interface, sw cachemanager.StorageWrapper, path string) http.Handler {
+func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.Interface, clientManager transport.TransportManager, sw cachemanager.StorageWrapper, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// if cloud kube-apiserver is healthy, forward non resource request to cloud kube-apiserver
 		// otherwise serve non resource request by local cache.

@@ -17,6 +17,7 @@ limitations under the License.
 package leaderhub
 
 import (
+	"context"
 	"net"
 	"net/url"
 	"sync"
@@ -34,7 +35,7 @@ type leaderHubHealthChecker struct {
 	pingFunc      func(*url.URL) bool
 }
 
-func NewLeaderHubHealthChecker(checkerInterval time.Duration, pingFunc func(*url.URL) bool, stopCh <-chan struct{}) healthchecker.Interface {
+func NewLeaderHubHealthChecker(ctx context.Context, checkerInterval time.Duration, pingFunc func(*url.URL) bool) healthchecker.Interface {
 	if pingFunc == nil {
 		pingFunc = pingServer
 	}
@@ -45,7 +46,7 @@ func NewLeaderHubHealthChecker(checkerInterval time.Duration, pingFunc func(*url
 		checkInterval: checkerInterval,
 		pingFunc:      pingFunc,
 	}
-	go hc.startHealthCheck(stopCh)
+	go hc.startHealthCheck(ctx.Done())
 
 	return hc
 }

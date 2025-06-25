@@ -41,7 +41,6 @@ type RemoteProxy struct {
 	bearerTransport      http.RoundTripper
 	upgradeHandler       *proxy.UpgradeAwareHandler
 	bearerUpgradeHandler *proxy.UpgradeAwareHandler
-	stopCh               <-chan struct{}
 }
 
 type responder struct{}
@@ -55,8 +54,7 @@ func (r *responder) Error(w http.ResponseWriter, req *http.Request, err error) {
 func NewRemoteProxy(remoteServer *url.URL,
 	modifyResponse func(*http.Response) error,
 	errhandler func(http.ResponseWriter, *http.Request, error),
-	transportMgr transport.Interface,
-	stopCh <-chan struct{}) (*RemoteProxy, error) {
+	transportMgr transport.TransportManager) (*RemoteProxy, error) {
 	currentTransport := transportMgr.CurrentTransport()
 	if currentTransport == nil {
 		return nil, fmt.Errorf("could not get current transport when init proxy backend(%s)", remoteServer.String())
@@ -78,7 +76,6 @@ func NewRemoteProxy(remoteServer *url.URL,
 		bearerTransport:      bearerTransport,
 		upgradeHandler:       upgradeAwareHandler,
 		bearerUpgradeHandler: bearerUpgradeAwareHandler,
-		stopCh:               stopCh,
 	}
 
 	proxyBackend.reverseProxy.Transport = proxyBackend

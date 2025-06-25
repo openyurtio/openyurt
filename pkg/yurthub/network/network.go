@@ -17,6 +17,7 @@ limitations under the License.
 package network
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -49,14 +50,14 @@ func NewNetworkManager(options *options.YurtHubOptions) (*NetworkManager, error)
 	return m, nil
 }
 
-func (m *NetworkManager) Run(stopCh <-chan struct{}) {
+func (m *NetworkManager) Run(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(SyncNetworkPeriod * time.Second)
 		defer ticker.Stop()
 
 		for {
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				klog.Infof("exit network manager run goroutine normally")
 				err := m.ifController.DeleteDummyInterface(m.dummyIfName)
 				if err != nil {

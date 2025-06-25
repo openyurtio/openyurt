@@ -122,7 +122,7 @@ func TestWithRequestForPoolScopeMetadata(t *testing.T) {
 			}
 
 			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil)
 			cfg := &config.YurtHubConfiguration{
 				PoolScopeResources:       poolScopeResources,
 				RESTMapperManager:        restMapperManager,
@@ -580,8 +580,7 @@ func TestWithSaTokenSubstitute(t *testing.T) {
 
 	resolver := newTestRequestInfoResolver()
 
-	stopCh := make(<-chan struct{})
-	tenantMgr := tenant.New("myspace", nil, stopCh)
+	tenantMgr := tenant.New("myspace", nil)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)
@@ -670,8 +669,7 @@ func TestWithSaTokenSubstituteTenantTokenEmpty(t *testing.T) {
 
 	resolver := newTestRequestInfoResolver()
 
-	stopCh := make(<-chan struct{})
-	tenantMgr := tenant.New("myspace", nil, stopCh)
+	tenantMgr := tenant.New("myspace", nil)
 
 	data := make(map[string][]byte)
 	data["token"] = []byte(tenantToken)

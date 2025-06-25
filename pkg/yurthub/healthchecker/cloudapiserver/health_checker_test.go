@@ -223,7 +223,6 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
-			stopCh := make(chan struct{})
 			cfg := &config.YurtHubConfiguration{
 				RemoteServers:             tt.remoteServers,
 				StorageWrapper:            cachemanager.NewStorageWrapper(store),
@@ -242,9 +241,11 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 				cl.PrependReactor("get", "leases", tt.getReactor[i])
 				fakeClients[tt.remoteServers[i].String()] = cl
 			}
-			cfg.TransportAndDirectClientManager = transport.NewFakeTransportManager(http.StatusOK, fakeClients)
 
-			checker, _ := NewCloudAPIServerHealthChecker(cfg, stopCh)
+			cfg.TransportAndDirectClientManager = transport.NewFakeTransportManager(http.StatusOK, fakeClients)
+			cfg.TransportAndDirectClientManager.Start(t.Context())
+
+			checker, _ := NewCloudAPIServerHealthChecker(t.Context(), cfg)
 
 			// wait for the probe completed
 			time.Sleep(time.Duration(5*len(tt.remoteServers)) * time.Second)
@@ -257,8 +258,6 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 			if checker.IsHealthy() != tt.serverHealthy {
 				t.Errorf("expect all servers healthy status %v, but got %v", tt.serverHealthy, checker.IsHealthy())
 			}
-
-			close(stopCh)
 		})
 	}
 

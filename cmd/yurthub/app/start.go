@@ -70,13 +70,13 @@ func NewCmdStartYurtHub(ctx context.Context) *cobra.Command {
 				klog.Fatalf("validate options: %v", err)
 			}
 
-			yurtHubCfg, err := config.Complete(yurtHubOptions, ctx.Done())
+			yurtHubCfg, err := config.Complete(ctx, yurtHubOptions)
 			if err != nil {
 				klog.Fatalf("complete %s configuration error, %v", projectinfo.GetHubName(), err)
 			}
 			klog.Infof("%s cfg: %#+v", projectinfo.GetHubName(), yurtHubCfg)
 
-			util.SetupDumpStackTrap(yurtHubOptions.RootDir, ctx.Done())
+			util.SetupDumpStackTrap(ctx, yurtHubOptions.RootDir)
 			klog.Infof("start watch SIGUSR1 signal")
 
 			if err := Run(ctx, yurtHubCfg); err != nil {
@@ -130,36 +130,38 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			trace++
 
 			klog.Infof("%d. create health checkers for remote servers", trace)
-			cloudHealthChecker, err = cloudapiserver.NewCloudAPIServerHealthChecker(cfg, ctx.Done())
+			cloudHealthChecker, err = cloudapiserver.NewCloudAPIServerHealthChecker(ctx, cfg)
 			if err != nil {
 				return fmt.Errorf("could not new health checker for cloud kube-apiserver, %w", err)
 			}
 			trace++
 
 			klog.Infof("%d. new gc manager for node %s, and gc frequency is a random time between %d min and %d min", trace, cfg.NodeName, cfg.GCFrequency, 3*cfg.GCFrequency)
-			gcMgr, err := gc.NewGCManager(cfg, cloudHealthChecker, ctx.Done())
+			gcMgr, err := gc.NewGCManager(cfg, cloudHealthChecker)
 			if err != nil {
 				return fmt.Errorf("could not new gc manager, %w", err)
 			}
-			gcMgr.Run()
+			gcMgr.Run(ctx)
 			trace++
 		}
 
 		// no leader hub servers for transport manager at startup time.
 		// and don't filter response of request for pool scope metadata from leader hub.
-		transportManagerForLeaderHub, err := transport.NewTransportAndClientManager([]*url.URL{}, 2, cfg.CertManager, ctx.Done())
+		transportManagerForLeaderHub, err := transport.NewTransportAndClientManager([]*url.URL{}, 2, cfg.CertManager)
 		if err != nil {
 			return fmt.Errorf("could not new transport manager for leader hub, %w", err)
 		}
-		healthCheckerForLeaderHub := leaderhub.NewLeaderHubHealthChecker(20*time.Second, nil, ctx.Done())
-		loadBalancerForLeaderHub := remote.NewLoadBalancer("round-robin", []*url.URL{}, cacheManager, transportManagerForLeaderHub, healthCheckerForLeaderHub, nil, ctx.Done())
+		transportManagerForLeaderHub.Start(ctx)
+
+		healthCheckerForLeaderHub := leaderhub.NewLeaderHubHealthChecker(ctx, 20*time.Second, nil)
+		loadBalancerForLeaderHub := remote.NewLoadBalancer("round-robin", []*url.URL{}, cacheManager, transportManagerForLeaderHub, healthCheckerForLeaderHub, nil)
 
 		cfg.LoadBalancerForLeaderHub = loadBalancerForLeaderHub
 		requestMultiplexerManager := newRequestMultiplexerManager(cfg, healthCheckerForLeaderHub)
 
 		if cfg.NetworkMgr != nil {
 			klog.Infof("%d. start network manager for ensuing dummy interface", trace)
-			cfg.NetworkMgr.Run(ctx.Done())
+			cfg.NetworkMgr.Run(ctx)
 			trace++
 		}
 
@@ -173,15 +175,14 @@ func Run(ctx context.Context, cfg *config.YurtHubConfiguration) error {
 			cfg,
 			cacheManager,
 			cloudHealthChecker,
-			requestMultiplexerManager,
-			ctx.Done())
+			requestMultiplexerManager)
 		if err != nil {
 			return fmt.Errorf("could not create reverse proxy handler, %w", err)
 		}
 		trace++
 
 		klog.Infof("%d. new %s server and begin to serve", trace, projectinfo.GetHubName())
-		if err := server.RunYurtHubServers(cfg, yurtProxyHandler, cloudHealthChecker, ctx.Done()); err != nil {
+		if err := server.RunYurtHubServers(ctx, cfg, yurtProxyHandler, cloudHealthChecker); err != nil {
 			return fmt.Errorf("could not run hub servers, %w", err)
 		}
 	default:

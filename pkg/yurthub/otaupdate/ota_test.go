@@ -149,10 +149,11 @@ func TestHealthyCheck(t *testing.T) {
 		t.Errorf("certificates are not ready, %v", err)
 	}
 
-	clientManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager, context.Background().Done())
+	clientManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager)
 	if err != nil {
 		t.Fatalf("could not new transport manager, %v", err)
 	}
+	clientManager.Start(t.Context())
 
 	req, err := http.NewRequest("POST", "", nil)
 	if err != nil {

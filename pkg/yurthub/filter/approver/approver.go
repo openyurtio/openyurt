@@ -30,14 +30,12 @@ import (
 type approver struct {
 	skipRequestUserAgentList sets.Set[string]
 	configManager            *configuration.Manager
-	stopCh                   chan struct{}
 }
 
 func NewApprover(nodeName string, configManager *configuration.Manager) filter.Approver {
 	na := &approver{
 		skipRequestUserAgentList: sets.New[string](projectinfo.GetHubName(), util.MultiplexerProxyClientUserAgentPrefix+nodeName),
 		configManager:            configManager,
-		stopCh:                   make(chan struct{}),
 	}
 	return na
 }

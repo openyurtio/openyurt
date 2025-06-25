@@ -16,6 +16,7 @@ limitations under the License.
 package tenant
 
 import (
+	"context"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ type Interface interface {
 
 	GetTenantToken() string
 
-	WaitForCacheSync() bool
+	WaitForCacheSync(context.Context) bool
 
 	SetSecret(sec *v1.Secret)
 }
@@ -41,14 +42,12 @@ type tenantManager struct {
 
 	TenantNs string
 
-	StopCh <-chan struct{}
-
 	IsSynced bool
 
 	mutex sync.Mutex
 }
 
-func (mgr *tenantManager) WaitForCacheSync() bool {
+func (mgr *tenantManager) WaitForCacheSync(ctx context.Context) bool {
 
 	if mgr.IsSynced || mgr.TenantSecret != nil { //try to do sync for just one time， fast return
 		return true
@@ -57,18 +56,18 @@ func (mgr *tenantManager) WaitForCacheSync() bool {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	mgr.IsSynced = cache.WaitForCacheSync(mgr.StopCh, mgr.secretSynced)
+	mgr.IsSynced = cache.WaitForCacheSync(ctx.Done(), mgr.secretSynced)
 
 	return mgr.IsSynced
 }
 
-func New(tenantNs string, factory informers.SharedInformerFactory, stopCh <-chan struct{}) Interface {
+func New(tenantNs string, factory informers.SharedInformerFactory) Interface {
 	klog.Infof("parse tenant ns: %s", tenantNs)
 	if tenantNs == "" {
 		return nil
 	}
 
-	tenantMgr := &tenantManager{TenantNs: tenantNs, StopCh: stopCh}
+	tenantMgr := &tenantManager{TenantNs: tenantNs}
 
 	if factory != nil {
 		informer := factory.InformerFor(&v1.Secret{}, nil) //get registered secret informer
