@@ -249,14 +249,13 @@ func TestFilterServiceEnvUpdater(t *testing.T) {
 			},
 		},
 	}
-	stopCh := make(<-chan struct{})
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			pef, _ := NewServiceEnvUpdaterFilter()
 			pef.SetMasterServiceHost(masterHost)
 			pef.SetMasterServicePort(masterPort)
-			newObj := pef.Filter(tc.requestObj, stopCh)
+			newObj := pef.Filter(tc.requestObj)
 
 			if tc.expectedObj == nil {
 				if !util.IsNil(newObj) {
@@ -281,7 +280,7 @@ func TestFilterNonPodReq(t *testing.T) {
 		},
 	}
 	pef, _ := NewServiceEnvUpdaterFilter()
-	newObj := pef.Filter(serviceReq, make(<-chan struct{}))
+	newObj := pef.Filter(serviceReq)
 
 	if !reflect.DeepEqual(newObj, serviceReq) {
 		t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", serviceReq, newObj)

@@ -42,7 +42,7 @@ type Approver interface {
 type ResponseFilter interface {
 	Name() string
 	// Filter is used to filter data returned from the cloud.
-	Filter(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
+	Filter(req *http.Request, rc io.ReadCloser) (int, io.ReadCloser, error)
 }
 
 // ObjectFilter is used for filtering runtime object.
@@ -52,7 +52,7 @@ type ObjectFilter interface {
 	Name() string
 	// Filter is used for filtering runtime object
 	// all filter logic should be located in it.
-	Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object
+	Filter(obj runtime.Object) runtime.Object
 }
 
 type FilterFinder interface {

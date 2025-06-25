@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -27,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func SetupDumpStackTrap(logDir string, stopCh <-chan struct{}) {
+func SetupDumpStackTrap(ctx context.Context, logDir string) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGUSR1)
 
@@ -36,7 +37,7 @@ func SetupDumpStackTrap(logDir string, stopCh <-chan struct{}) {
 			select {
 			case <-c:
 				dumpStacks(true, logDir)
-			case <-stopCh:
+			case <-ctx.Done():
 				return
 			}
 		}

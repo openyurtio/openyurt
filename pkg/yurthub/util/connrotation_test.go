@@ -29,9 +29,6 @@ func TestNewDialer(t *testing.T) {
 	notExistLocalAddress := ":13998"
 	network := "tcp"
 	requestMessage := []byte("some message")
-	stopCh := make(chan struct{})
-
-	defer close(stopCh)
 
 	go func(stopCh <-chan struct{}) {
 		l, err := net.Listen(network, localAddress)
@@ -60,7 +57,7 @@ func TestNewDialer(t *testing.T) {
 			}
 
 		}
-	}(stopCh)
+	}(t.Context().Done())
 
 	time.Sleep(time.Second)
 

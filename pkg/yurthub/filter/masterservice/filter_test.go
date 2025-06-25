@@ -161,13 +161,12 @@ func TestFilter(t *testing.T) {
 		},
 	}
 
-	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			msf := &masterServiceFilter{}
 			msf.SetMasterServiceHost(masterServiceHost)
 			msf.SetMasterServicePort(masterServicePortStr)
-			newObj := msf.Filter(tt.responseObject, stopCh)
+			newObj := msf.Filter(tt.responseObject)
 			if tt.expectObject == nil {
 				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)

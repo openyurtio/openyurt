@@ -108,10 +108,11 @@ func TestLocalCacheHandler(t *testing.T) {
 		t.Errorf("certificates are not ready, %v", err)
 	}
 
-	transportManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager, context.Background().Done())
+	transportManager, err := transport.NewTransportAndClientManager(remoteServers, 10, certManager)
 	if err != nil {
 		t.Fatalf("could not new transport manager, %v", err)
 	}
+	transportManager.Start(t.Context())
 
 	testcases := map[string]struct {
 		path             string

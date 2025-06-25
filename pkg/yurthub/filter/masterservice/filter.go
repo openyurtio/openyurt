@@ -71,7 +71,7 @@ func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {
 	return nil
 }
 
-func (msf *masterServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+func (msf *masterServiceFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.Service:
 		msf.mutateMasterService(v)

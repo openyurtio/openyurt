@@ -128,7 +128,7 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 	return stf.nodePoolName
 }
 
-func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (stf *serviceTopologyFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discoveryv1.EndpointSlice:
 		return stf.serviceTopologyHandler(v)

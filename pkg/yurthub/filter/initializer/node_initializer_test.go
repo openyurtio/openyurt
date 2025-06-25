@@ -49,7 +49,7 @@ func (nop *nopNodeHandler) SupportedResourceAndVerbs() map[string]sets.Set[strin
 	return map[string]sets.Set[string]{}
 }
 
-func (nop *nopNodeHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (nop *nopNodeHandler) Filter(obj runtime.Object) runtime.Object {
 	return obj
 }
 

@@ -356,8 +356,6 @@ func TestFilter(t *testing.T) {
 		},
 	}
 
-	stopCh := make(<-chan struct{})
-
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
 			nif := &nodePortIsolationFilter{}
@@ -371,7 +369,7 @@ func TestFilter(t *testing.T) {
 				nif.client = client
 			}
 
-			newObj := nif.Filter(tc.responseObj, stopCh)
+			newObj := nif.Filter(tc.responseObj)
 			if tc.expectObj == nil {
 				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)

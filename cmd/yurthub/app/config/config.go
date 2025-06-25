@@ -93,7 +93,7 @@ type YurtHubConfiguration struct {
 	DiskCachePath                   string
 	ConfigManager                   *configuration.Manager
 	TenantManager                   tenant.Interface
-	TransportAndDirectClientManager transport.Interface
+	TransportAndDirectClientManager transport.TransportManager
 	LoadBalancerForLeaderHub        remote.Server
 	PoolScopeResources              []schema.GroupVersionResource
 	PortForMultiplexer              int
@@ -101,7 +101,7 @@ type YurtHubConfiguration struct {
 }
 
 // Complete converts *options.YurtHubOptions to *YurtHubConfiguration
-func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHubConfiguration, error) {
+func Complete(ctx context.Context, options *options.YurtHubOptions) (*YurtHubConfiguration, error) {
 	cfg := &YurtHubConfiguration{
 		NodeName:        options.NodeName,
 		WorkingMode:     util.WorkingMode(options.WorkingMode),
@@ -191,11 +191,11 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 			us,
 			options.HeartbeatTimeoutSeconds,
 			certMgr,
-			stopCh,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("could not new transport manager, %w", err)
 		}
+		transportAndClientManager.Start(ctx)
 
 		cfg.SerializerManager = serializer.NewSerializerManager()
 		cfg.RESTMapperManager = restMapperManager
@@ -203,7 +203,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		cfg.DynamicSharedFactory = dynamicSharedFactory
 		cfg.CertManager = certMgr
 		cfg.TransportAndDirectClientManager = transportAndClientManager
-		cfg.TenantManager = tenant.New(tenantNamespce, sharedFactory, stopCh)
+		cfg.TenantManager = tenant.New(tenantNamespce, sharedFactory)
 
 		// create feature configurations for both cloud and edge working mode as following:
 		// - configuration manager: monitor yurt-hub-cfg configmap and adopting changes dynamically.

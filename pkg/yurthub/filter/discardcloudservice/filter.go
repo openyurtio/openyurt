@@ -61,7 +61,7 @@ func (sf *discardCloudServiceFilter) Name() string {
 	return FilterName
 }
 
-func (sf *discardCloudServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+func (sf *discardCloudServiceFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.Service:
 		return discardCloudService(v)

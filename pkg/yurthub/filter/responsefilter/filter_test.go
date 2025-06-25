@@ -77,7 +77,7 @@ func (noh *nopObjectHandler) SupportedResourceAndVerbs() map[string]sets.Set[str
 	return map[string]sets.Set[string]{}
 }
 
-func (noh *nopObjectHandler) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (noh *nopObjectHandler) Filter(obj runtime.Object) runtime.Object {
 	return obj
 }
 
@@ -85,7 +85,6 @@ func TestFilterReadCloser_Read_List(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	sm := serializer.NewSerializerManager()
 	handler := &nopObjectHandler{}
-	stopCh := make(chan struct{})
 
 	testcases := map[string]struct {
 		path      string
@@ -229,7 +228,7 @@ func TestFilterReadCloser_Read_List(t *testing.T) {
 				buf := bytes.NewBuffer(listBytes)
 				rc := io.NopCloser(buf)
 
-				size, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
+				size, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo")
 				if err != nil {
 					t.Errorf("failed new filter readcloser, %v", err)
 				}
@@ -269,7 +268,6 @@ func TestFilterReadCloser_Read_Watch(t *testing.T) {
 	resolver := newTestRequestInfoResolver()
 	sm := serializer.NewSerializerManager()
 	handler := &nopObjectHandler{}
-	stopCh := make(chan struct{})
 
 	testcases := map[string]struct {
 		path        string
@@ -367,7 +365,7 @@ func TestFilterReadCloser_Read_Watch(t *testing.T) {
 				}
 				rc := io.NopCloser(&buf)
 
-				_, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo", stopCh)
+				_, newRc, err := newFilterReadCloser(req, sm, rc, handler, "foo")
 				if err != nil {
 					t.Errorf("failed new filter readcloser, %v", err)
 				}
@@ -2671,7 +2669,7 @@ func TestResponseFilterForListRequest(t *testing.T) {
 				ctx = hubutil.WithRespContentType(ctx, tc.accept)
 				req = req.WithContext(ctx)
 				rc := io.NopCloser(buf)
-				_, newReadCloser, filterErr = responseFilter.Filter(req, rc, nil)
+				_, newReadCloser, filterErr = responseFilter.Filter(req, rc)
 			})
 
 			handler = util.WithRequestClientComponent(handler)
@@ -2886,7 +2884,7 @@ func TestResponseFilterForWatchRequest(t *testing.T) {
 				ctx = hubutil.WithRespContentType(ctx, tc.accept)
 				req = req.WithContext(ctx)
 				rc := io.NopCloser(buf)
-				_, newReadCloser, filterErr = responseFilter.Filter(req, rc, nil)
+				_, newReadCloser, filterErr = responseFilter.Filter(req, rc)
 			})
 
 			handler = util.WithRequestClientComponent(handler)

@@ -47,9 +47,9 @@ func (chain filterChain) SupportedResourceAndVerbs() map[string]sets.Set[string]
 	return map[string]sets.Set[string]{}
 }
 
-func (chain filterChain) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (chain filterChain) Filter(obj runtime.Object) runtime.Object {
 	for i := range chain {
-		obj = chain[i].Filter(obj, stopCh)
+		obj = chain[i].Filter(obj)
 		if yurtutil.IsNil(obj) {
 			break
 		}

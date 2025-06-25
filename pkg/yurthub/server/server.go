@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -36,42 +37,41 @@ import (
 )
 
 // RunYurtHubServers is used to start up all servers for yurthub
-func RunYurtHubServers(cfg *config.YurtHubConfiguration,
+func RunYurtHubServers(ctx context.Context, cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
-	healthChecker healthchecker.Interface,
-	stopCh <-chan struct{}) error {
+	healthChecker healthchecker.Interface) error {
 
 	hubServerHandler := mux.NewRouter()
 	registerHandlers(hubServerHandler, cfg, healthChecker)
 
 	// start yurthub http server for serving metrics, pprof.
 	if cfg.YurtHubServerServing != nil {
-		if err := cfg.YurtHubServerServing.Serve(hubServerHandler, 0, stopCh); err != nil {
+		if err := cfg.YurtHubServerServing.Serve(hubServerHandler, 0, ctx.Done()); err != nil {
 			return err
 		}
 	}
 
 	// start yurthub proxy servers for forwarding requests to cloud kube-apiserver
 	if cfg.YurtHubProxyServerServing != nil {
-		if err := cfg.YurtHubProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if err := cfg.YurtHubProxyServerServing.Serve(proxyHandler, 0, ctx.Done()); err != nil {
 			return err
 		}
 	}
 
 	if cfg.YurtHubDummyProxyServerServing != nil {
-		if err := cfg.YurtHubDummyProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if err := cfg.YurtHubDummyProxyServerServing.Serve(proxyHandler, 0, ctx.Done()); err != nil {
 			return err
 		}
 	}
 
 	if cfg.YurtHubSecureProxyServerServing != nil {
-		if _, _, err := cfg.YurtHubSecureProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if _, _, err := cfg.YurtHubSecureProxyServerServing.Serve(proxyHandler, 0, ctx.Done()); err != nil {
 			return err
 		}
 	}
 
 	if cfg.YurtHubMultiplexerServerServing != nil {
-		if _, _, err := cfg.YurtHubMultiplexerServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if _, _, err := cfg.YurtHubMultiplexerServerServing.Serve(proxyHandler, 0, ctx.Done()); err != nil {
 			return err
 		}
 	}

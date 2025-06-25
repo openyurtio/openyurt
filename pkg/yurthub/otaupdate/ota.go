@@ -177,7 +177,7 @@ func preCheck(clientset kubernetes.Interface, namespace, podName, nodeName strin
 }
 
 // HealthyCheck checks if cloud-edge is disconnected before ota update handle, ota update is not allowed when disconnected
-func HealthyCheck(healthChecker healthchecker.Interface, clientManager transport.Interface, nodeName string, handler OTAHandler) http.Handler {
+func HealthyCheck(healthChecker healthchecker.Interface, clientManager transport.TransportManager, nodeName string, handler OTAHandler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var kubeClient kubernetes.Interface
 		if yurtutil.IsNil(healthChecker) {

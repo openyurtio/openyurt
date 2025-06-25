@@ -130,10 +130,9 @@ func TestRuntimeObjectFilter(t *testing.T) {
 		},
 	}
 
-	stopCh := make(<-chan struct{})
 	for k, tc := range testcases {
 		t.Run(k, func(t *testing.T) {
-			newObj := iccf.Filter(tc.responseObject, stopCh)
+			newObj := iccf.Filter(tc.responseObject)
 			if tc.expectObject == nil {
 				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)

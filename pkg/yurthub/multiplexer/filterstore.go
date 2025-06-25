@@ -78,7 +78,7 @@ func (fs *filterStore) List(ctx context.Context, options *metainternalversion.Li
 	return result, nil
 }
 
-func (fs *filterStore) filterListObject(ctx context.Context, obj runtime.Object, filter filter.ObjectFilter) (runtime.Object, error) {
+func (fs *filterStore) filterListObject(_ context.Context, obj runtime.Object, filter filter.ObjectFilter) (runtime.Object, error) {
 	if yurtutil.IsNil(filter) {
 		return obj, nil
 	}
@@ -86,12 +86,12 @@ func (fs *filterStore) filterListObject(ctx context.Context, obj runtime.Object,
 	items, err := meta.ExtractList(obj)
 
 	if err != nil || len(items) == 0 {
-		return filter.Filter(obj, ctx.Done()), nil
+		return filter.Filter(obj), nil
 	}
 
 	list := make([]runtime.Object, 0)
 	for _, item := range items {
-		newObj := filter.Filter(item, ctx.Done())
+		newObj := filter.Filter(item)
 		if !yurtutil.IsNil(newObj) {
 			list = append(list, newObj)
 		}

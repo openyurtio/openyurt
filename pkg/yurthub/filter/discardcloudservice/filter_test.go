@@ -139,12 +139,11 @@ func TestFilter(t *testing.T) {
 		},
 	}
 
-	stopCh := make(<-chan struct{})
 	for k, tt := range testcases {
 		t.Run(k, func(t *testing.T) {
 			dcsf, _ := NewDiscardCloudServiceFilter()
 
-			newObj := dcsf.Filter(tt.responseObj, stopCh)
+			newObj := dcsf.Filter(tt.responseObj)
 			if tt.expectObj == nil {
 				if !util.IsNil(newObj) {
 					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)

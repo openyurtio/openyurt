@@ -31,7 +31,7 @@ func (ie *IgnoreEndpointslicesWithNodeName) Name() string {
 
 // Filter is used for filtering runtime object
 // all filter logic should be located in it.
-func (ie *IgnoreEndpointslicesWithNodeName) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
+func (ie *IgnoreEndpointslicesWithNodeName) Filter(obj runtime.Object) runtime.Object {
 	endpointslice, ok := obj.(*discovery.EndpointSlice)
 	if !ok {
 		return obj

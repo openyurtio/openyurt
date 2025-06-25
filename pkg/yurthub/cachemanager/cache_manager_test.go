@@ -503,7 +503,7 @@ func TestCacheGetResponse(t *testing.T) {
 					}
 				}
 				prc := io.NopCloser(buf)
-				cacheErr = yurtCM.CacheResponse(req, prc, nil)
+				cacheErr = yurtCM.CacheResponse(req, prc)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
@@ -953,7 +953,7 @@ func TestCacheWatchResponse(t *testing.T) {
 					pw.Close()
 				}(pw)
 				rc := io.NopCloser(pr)
-				err = yurtCM.CacheResponse(req, rc, nil)
+				err = yurtCM.CacheResponse(req, rc)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)
@@ -1544,7 +1544,7 @@ func TestCacheListResponse(t *testing.T) {
 				}
 				prc := io.NopCloser(buf)
 				// call cache response
-				cacheErr = yurtCM.CacheResponse(req, prc, nil)
+				cacheErr = yurtCM.CacheResponse(req, prc)
 			})
 
 			handler = proxyutil.WithRequestContentType(handler)

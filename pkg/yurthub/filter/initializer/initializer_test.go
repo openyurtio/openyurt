@@ -134,7 +134,7 @@ func (bef *baseErrFilter) SupportedResourceAndVerbs() map[string]sets.Set[string
 	return map[string]sets.Set[string]{}
 }
 
-func (bef *baseErrFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+func (bef *baseErrFilter) Filter(obj runtime.Object) runtime.Object {
 	return obj
 }
 

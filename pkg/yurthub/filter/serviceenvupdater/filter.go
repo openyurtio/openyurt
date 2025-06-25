@@ -63,7 +63,7 @@ func (sef *serviceEnvUpdaterFilter) SetMasterServicePort(port string) error {
 	return nil
 }
 
-func (sef *serviceEnvUpdaterFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
+func (sef *serviceEnvUpdaterFilter) Filter(obj runtime.Object) runtime.Object {
 	switch v := obj.(type) {
 	case *corev1.Pod:
 		return sef.mutatePodEnv(v)

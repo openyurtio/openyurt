@@ -19,7 +19,6 @@ package multiplexer
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -162,7 +161,7 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 			}
 
 			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil)
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
 			cfg := &config.YurtHubConfiguration{
 				PoolScopeResources:       poolScopeResources,
@@ -179,13 +178,12 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 					Resource: "endpointslices",
 				})
 			}
-			stopCh := make(chan struct{})
-			if ok := cache.WaitForCacheSync(stopCh, informerSynced); !ok {
+			if ok := cache.WaitForCacheSync(t.Context().Done(), informerSynced); !ok {
 				t.Errorf("configuration manager is not ready")
 				return
 			}
 
-			sp := NewMultiplexerProxy(rmm, restMapperManager, make(<-chan struct{}))
+			sp := NewMultiplexerProxy(rmm, restMapperManager)
 
 			sp.ServeHTTP(w, newEndpointSliceListRequest(tc.url, tc.objectFilter))
 
@@ -340,7 +338,7 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 	} {
 		t.Run(k, func(t *testing.T) {
 			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil)
 
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
 			cfg := &config.YurtHubConfiguration{
@@ -358,13 +356,12 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 					Resource: "endpointslices",
 				})
 			}
-			stopCh := make(chan struct{})
-			if ok := cache.WaitForCacheSync(stopCh, informerSynced); !ok {
+			if ok := cache.WaitForCacheSync(t.Context().Done(), informerSynced); !ok {
 				t.Errorf("configuration manager is not ready")
 				return
 			}
 
-			sp := NewMultiplexerProxy(rmm, restMapperManager, make(<-chan struct{}))
+			sp := NewMultiplexerProxy(rmm, restMapperManager)
 
 			req := newWatchEndpointSliceRequest(tc.url, tc.objectFilter)
 			w := newWatchResponse()

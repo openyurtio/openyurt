@@ -47,7 +47,6 @@ const (
 type multiplexerProxy struct {
 	requestsMultiplexerManager *multiplexer.MultiplexerManager
 	restMapperManager          *hubmeta.RESTMapperManager
-	stop                       <-chan struct{}
 }
 
 func init() {
@@ -56,9 +55,8 @@ func init() {
 	v1.AddToScheme(scheme.Scheme)
 }
 
-func NewMultiplexerProxy(multiplexerManager *multiplexer.MultiplexerManager, restMapperMgr *hubmeta.RESTMapperManager, stop <-chan struct{}) http.Handler {
+func NewMultiplexerProxy(multiplexerManager *multiplexer.MultiplexerManager, restMapperMgr *hubmeta.RESTMapperManager) http.Handler {
 	return &multiplexerProxy{
-		stop:                       stop,
 		requestsMultiplexerManager: multiplexerManager,
 		restMapperManager:          restMapperMgr,
 	}

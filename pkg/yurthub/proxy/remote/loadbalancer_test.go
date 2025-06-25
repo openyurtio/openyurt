@@ -17,7 +17,6 @@ limitations under the License.
 package remote
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"sort"
@@ -28,14 +27,6 @@ import (
 
 	fakeHealthChecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
-)
-
-var (
-	neverStop    <-chan struct{}     = context.Background().Done()
-	transportMgr transport.Interface = transport.NewFakeTransportManager(
-		http.StatusOK,
-		map[string]kubernetes.Interface{},
-	)
 )
 
 func sortURLs(urls []*url.URL) {
@@ -255,7 +246,13 @@ func TestLoadBalancingStrategy(t *testing.T) {
 			sortURLs(servers)
 			klog.Infof("servers: %+v", servers)
 
-			lb := NewLoadBalancer(tc.lbMode, servers, nil, transportMgr, checker, nil, neverStop)
+			var transportMgr transport.TransportManager = transport.NewFakeTransportManager(
+				http.StatusOK,
+				map[string]kubernetes.Interface{},
+			)
+
+			transportMgr.Start(t.Context())
+			lb := NewLoadBalancer(tc.lbMode, servers, nil, transportMgr, checker, nil)
 
 			for i, host := range tc.results {
 				strategy := lb.CurrentStrategy()

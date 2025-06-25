@@ -60,7 +60,7 @@ var (
 
 // CacheManager is an adaptor to cache runtime object data into backend storage
 type CacheManager interface {
-	CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error
+	CacheResponse(req *http.Request, prc io.ReadCloser) error
 	QueryCache(req *http.Request) (runtime.Object, error)
 	CanCacheFor(req *http.Request) bool
 	DeleteKindFor(gvr schema.GroupVersionResource) error
@@ -109,11 +109,11 @@ func (cm *cacheManager) QueryCacheResult() CacheResult {
 }
 
 // CacheResponse cache response of request into backend storage
-func (cm *cacheManager) CacheResponse(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) error {
+func (cm *cacheManager) CacheResponse(req *http.Request, prc io.ReadCloser) error {
 	ctx := req.Context()
 	info, _ := apirequest.RequestInfoFrom(ctx)
 	if isWatch(ctx) {
-		return cm.saveWatchObject(ctx, info, prc, stopCh)
+		return cm.saveWatchObject(ctx, info, prc)
 	}
 
 	var buf bytes.Buffer
@@ -359,7 +359,7 @@ func generateEmptyListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object,
 	return listObj, nil
 }
 
-func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser, _ <-chan struct{}) error {
+func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.RequestInfo, r io.ReadCloser) error {
 	delObjCnt := 0
 	updateObjCnt := 0
 	addObjCnt := 0
