@@ -34,9 +34,16 @@ const (
 	NodeLifeCycleController                = "node-life-cycle-controller"
 	NodeBucketController                   = "node-bucket-controller"
 	LoadBalancerSetController              = "load-balancer-set-controller"
+<<<<<<< HEAD
 	HubLeaderController                    = "hubleader-controller"
 	HubLeaderConfigController              = "hubleaderconfig-controller"
 	HubLeaderRBACController                = "hubleaderrbac-controller"
+=======
+	EnsLoadBalancerController              = "elb-controller"
+	EdgeRouteController                    = "edge-route-controller"
+	CloudServiceMirroringController        = "cloud-service-mirroring-controller"
+	ImagePullJobController                 = "image-pull-job-controller"
+>>>>>>> 2a83b527 (Adds image pre-pull API for pods via OTA update)
 )
 
 func YurtManagerControllerAliases() map[string]string {
@@ -59,8 +66,14 @@ func YurtManagerControllerAliases() map[string]string {
 		"nodelifecycle":                 NodeLifeCycleController,
 		"nodebucket":                    NodeBucketController,
 		"loadbalancerset":               LoadBalancerSetController,
+<<<<<<< HEAD
 		"hubleader":                     HubLeaderController,
 		"hubleaderconfig":               HubLeaderConfigController,
 		"hubleaderrbac":                 HubLeaderRBACController,
+=======
+		"edgeroute":                     EdgeRouteController,
+		"cloudservicemirroring":         CloudServiceMirroringController,
+		"imagepulljob":                  ImagePullJobController,
+>>>>>>> 2a83b527 (Adds image pre-pull API for pods via OTA update)
 	}
 }

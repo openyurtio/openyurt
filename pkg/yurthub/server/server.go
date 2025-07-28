@@ -103,7 +103,10 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChe
 		c.Handle("/pods", getPodList(cfg.SharedFactory)).Methods("GET")
 	}
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
-		ota.HealthyCheck(healthChecker, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
+		ota.HealthyCheck(rest, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
+
+	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/imagepull",
+		ota.HealthyCheck(rest, cfg.NodeName, ota.ImagePullPod)).Methods("POST")
 }
 
 // healthz returns ok for healthz request

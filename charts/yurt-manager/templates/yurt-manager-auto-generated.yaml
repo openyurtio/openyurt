@@ -316,6 +316,27 @@ rules:
   - get
   - patch
   - update
+<<<<<<< HEAD
+=======
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-manager-delegate-lease-controller
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+>>>>>>> 2a83b527 (Adds image pre-pull API for pods via OTA update)
 - apiGroups:
   - ""
   resources:

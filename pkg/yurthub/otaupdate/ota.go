@@ -18,6 +18,8 @@ package otaupdate
 
 import (
 	"context"
+	"encoding/json"
+
 	"fmt"
 	"net/http"
 
@@ -36,6 +38,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 const (
@@ -195,5 +198,60 @@ func HealthyCheck(healthChecker healthchecker.Interface, clientManager transport
 
 		klog.Infof("OTA upgrade is not allowed when node(%s) is disconnected to cloud", nodeName)
 		util.WriteErr(w, "OTA upgrade is not allowed when node is disconnected to cloud", http.StatusServiceUnavailable)
+	})
+}
+
+// ImagePullPod handles image pre-pull requests for a specific pod
+func ImagePullPod(clientset kubernetes.Interface, nodeName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		namespace := params["ns"]
+		podName := params["podname"]
+
+		pod, ok := preCheck(clientset, namespace, podName, nodeName)
+		if !ok {
+			util.WriteErr(w, "Pod is not-updatable", http.StatusForbidden)
+			return
+		}
+
+		cond := corev1.PodCondition{
+			Type:    daemonpodupdater.PodImageReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  "imagepull start",
+			Message: "Image pre-pull requested by user",
+		}
+		podutil.UpdatePodCondition(&pod.Status, &cond)
+
+		patchBody := struct {
+			Status struct {
+				Conditions []corev1.PodCondition `json:"conditions"`
+			} `json:"status"`
+		}{}
+		patchBody.Status.Conditions = pod.Status.Conditions
+
+		patchBytes, err := json.Marshal(patchBody)
+		if err != nil {
+			klog.Errorf("Marshal patch body failed, %v", err)
+			util.WriteErr(w, "Marshal patch body failed", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = clientset.CoreV1().Pods(namespace).Patch(
+			context.TODO(),
+			podName,
+			types.MergePatchType,
+			patchBytes,
+			metav1.PatchOptions{
+				FieldManager: "yurthub-ota",
+			},
+			"status",
+		)
+		if err != nil {
+			klog.Errorf("Patch pod status for imagepull failed, %v", err)
+			util.WriteErr(w, "Patch pod status for imagepull failed", http.StatusInternalServerError)
+			return
+		}
+
+		util.WriteJSONResponse(w, []byte(fmt.Sprintf("Image pre-pull requested for pod %v/%v", namespace, podName)))
 	})
 }

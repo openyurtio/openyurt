@@ -116,11 +116,11 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 
 // SetPodUpgradeCondition calculate and set pod condition "PodNeedUpgrade"
 func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
-	isUpdatable := IsDaemonsetPodLatest(ds, pod)
+	isPodLatest := IsDaemonsetPodLatest(ds, pod)
 
 	// Comply with K8s, use constant ConditionTrue and ConditionFalse
 	var status corev1.ConditionStatus
-	switch isUpdatable {
+	switch isPodLatest {
 	case true:
 		status = corev1.ConditionFalse
 	case false:
@@ -129,30 +129,29 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 
 	// construct updated ds info according to the pod image & imagepullsecret & servcie account
 	var dsInfoBytes []byte
-	if isUpdatable {
-		dsInfo := &config.DaemonsetUpdateImageInfo{
-			ImageList:          []string{},
-			ImagePullSecrets:   []string{},
-			ServiceAccountName: pod.Spec.ServiceAccountName,
-		}
-
-		containers := slices.Clone(pod.Spec.InitContainers)
-		containers = append(containers, pod.Spec.Containers...)
-		for _, container := range containers {
-			// exclude imagepullpolicy=Always images
-			if container.ImagePullPolicy == corev1.PullAlways {
-				continue
-			}
-			dsInfo.ImageList = append(dsInfo.ImageList, container.Image)
-		}
-		for _, imagePullSecret := range pod.Spec.ImagePullSecrets {
-			dsInfo.ImagePullSecrets = append(dsInfo.ImagePullSecrets, imagePullSecret.Name)
-		}
-		if dsInfo.ServiceAccountName == "" {
-			dsInfo.ServiceAccountName = "default"
-		}
-		dsInfoBytes, _ = json.Marshal(dsInfo)
+	dsInfo := &config.DaemonsetUpdateImageInfo{
+		ImageList:          []string{},
+		ImagePullSecrets:   []string{},
+		ServiceAccountName: pod.Spec.ServiceAccountName,
 	}
+
+	containers := slices.Clone(pod.Spec.InitContainers)
+	containers = append(containers, pod.Spec.Containers...)
+	for _, container := range containers {
+		// exclude imagepullpolicy=Always images
+		if container.ImagePullPolicy == corev1.PullAlways {
+			continue
+		}
+		dsInfo.ImageList = append(dsInfo.ImageList, container.Image)
+	}
+	for _, imagePullSecret := range pod.Spec.ImagePullSecrets {
+		dsInfo.ImagePullSecrets = append(dsInfo.ImagePullSecrets, imagePullSecret.Name)
+	}
+	if dsInfo.ServiceAccountName == "" {
+		dsInfo.ServiceAccountName = "default"
+	}
+	dsInfoBytes, _ = json.Marshal(dsInfo)
+	klog.V(5).Infof("set pod %q condition PodNeedUpgrade message with dsInfo: %s", pod.Name, dsInfoBytes)
 
 	cond := &corev1.PodCondition{
 		Type:    PodNeedUpgrade,
@@ -163,7 +162,7 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 		if err := c.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
-		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isUpdatable)
+		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isPodLatest)
 	}
 
 	return nil

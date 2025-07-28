@@ -1,0 +1,23 @@
+# multi-arch image building for yurt-manager
+
+FROM --platform=${BUILDPLATFORM} golang:1.24.1 as builder
+ADD . /build
+ARG TARGETOS TARGETARCH IMAGE_TAG
+WORKDIR /build/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} LABEL_PREFIX=alibabacloud.com NODEPOOL_LABEL_KEY=alibabacloud.com/nodepool-id IMAGE_TAG=${IMAGE_TAG} make build WHAT=cmd/yurt-manager
+
+FROM --platform=${BUILDPLATFORM} golang:1.24.1 as crd-builder
+ADD . /build
+ARG TARGETOS TARGETARCH GIT_VERSION
+WORKDIR /build/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GIT_VERSION=${GIT_VERSION} make build WHAT=cmd/yurt-guard
+
+FROM --platform=${TARGETPLATFORM} registry.cn-hangzhou.aliyuncs.com/acs/alpine:3.16-update
+ARG TARGETOS TARGETARCH
+RUN apk add ca-certificates bash libc6-compat iptables ip6tables conntrack-tools curl && update-ca-certificates && rm /var/cache/apk/*
+COPY ./charts/yurt-manager/crds/apps.openyurt.io_yurtappsets.yaml /etc/kubernetes/crds/
+COPY ./charts/yurt-manager/crds/apps.openyurt.io_yurtstaticsets.yaml /etc/kubernetes/crds/
+COPY ./charts/yurt-manager/crds/raven.openyurt.io_gateways.yaml /etc/kubernetes/crds/
+COPY --from=builder /build/_output/local/bin/${TARGETOS}/${TARGETARCH}/yurt-manager /usr/local/bin/yurt-manager
+COPY --from=crd-builder /build/_output/local/bin/${TARGETOS}/${TARGETARCH}/yurt-guard /usr/local/bin/yurt-guard
+ENTRYPOINT ["/usr/local/bin/yurt-manager"]
