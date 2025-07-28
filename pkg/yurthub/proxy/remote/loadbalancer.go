@@ -430,22 +430,15 @@ func (lb *LoadBalancer) modifyResponse(resp *http.Response) error {
 
 func (lb *LoadBalancer) cacheResponse(req *http.Request, resp *http.Response) {
 	if lb.localCacheMgr.CanCacheFor(req) {
-		wrapPrc, needUncompressed := hubutil.NewGZipReaderCloser(resp.Header, resp.Body, req, "cache-manager")
-		// after gunzip in filter, the header content encoding should be removed.
-		// because there's no need to gunzip response.body again.
-		if needUncompressed {
-			resp.Header.Del("Content-Encoding")
-		}
-		resp.Body = wrapPrc
-
-		// cache the response at local.
 		rc, prc := hubutil.NewDualReadCloser(req, resp.Body, true)
+		resp.Body = rc
+
+		wrapPrc, _ := hubutil.NewGZipReaderCloser(resp.Header, prc, req, "cache-manager")
 		go func(req *http.Request, prc io.ReadCloser, stopCh <-chan struct{}) {
-			if err := lb.localCacheMgr.CacheResponse(req, prc, stopCh); err != nil && !errors.Is(err, io.EOF) &&
+			if err := lb.localCacheMgr.CacheResponse(req, wrapPrc, stopCh); err != nil && !errors.Is(err, io.EOF) &&
 				!errors.Is(err, context.Canceled) {
 				klog.Errorf("lb could not cache req %s in local cache, %v", hubutil.ReqString(req), err)
 			}
-		}(req, prc, req.Context().Done())
-		resp.Body = rc
+		}(req, wrapPrc, req.Context().Done())
 	}
 }
