@@ -39,7 +39,7 @@ while IFS= read -r role_name; do
     controller_file_path=$(find $YURT_ROOT -type f -name $controller_file_name)
     # Assuming file_path variable assignment from above
     if [ -n "$controller_file_path" ]; then
-        echo "Generate RBAC for $role_name"
+        echo "Generate RBAC for $role_name with file $controller_file_path"
         $CONTROLLER_GEN rbac:roleName="${role_name}" paths=$controller_file_path/.. output:rbac:artifacts:config=${OUTPUT_DIR}/rbac && mv ${OUTPUT_DIR}/rbac/role.yaml ${OUTPUT_DIR}/rbac/${role_name}.yaml
     else
         echo "File $controller_file_name not found."

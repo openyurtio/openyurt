@@ -79,7 +79,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *rest.RestConfigManager) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(cfg.CertManager)).Methods("POST", "PUT")
 
