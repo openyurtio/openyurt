@@ -54,7 +54,7 @@ import (
 )
 
 const (
-	flannelYAMLURL    = "https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"
+	flannelYAMLURL    = "https://raw.githubusercontent.com/flannel-io/flannel/v0.25.0/Documentation/kube-flannel.yml"
 	cniPluginsBaseURL = "https://github.com/containernetworking/plugins/releases/download/v1.4.1"
 )
 
