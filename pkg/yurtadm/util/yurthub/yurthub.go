@@ -41,6 +41,88 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
+// createYurthubSystemdService 创建 YurtHub 的 systemd service 配置
+func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
+	nodePoolName := data.NodeRegistration().NodePoolName
+	// 如果 nodePoolName 为空，则使用默认值 "default"
+	if nodePoolName == "" {
+		nodePoolName = "default"
+	}
+
+	// 构建 service 内容
+	// 	serviceContent := fmt.Sprintf(`
+	// [Unit]
+	// Description=YurtHub Service
+	// After=network.target
+
+	// [Service]
+	// Type=simple
+	// Environment="NODE_NAME=${HOSTNAME}"
+	// ExecStart=%s \
+	//     --v=2 \
+	//     --bind-address=127.0.0.1 \
+	//     --server-addr=https://%s \
+	//     --node-name=%s \
+	//     --nodepool-name=%s \
+	//     --bootstrap-file=%s \
+	//     --working-mode=%s \
+	//     --namespace=%s \
+	// Restart=always
+
+	// // [Install]
+	// // WantedBy=multi-user.target
+	// // `,
+	// 		constants.YurthubExecStart,
+	// 		data.ServerAddr(),
+	// 		data.NodeRegistration().Name,
+	// 		nodePoolName,
+	// 		constants.YurtHubBootstrapConfig,
+	// 		data.NodeRegistration().WorkingMode,
+	// 		data.Namespace(),
+	// 	)
+
+	ctx := map[string]string{
+		"execStart":     constants.YurthubExecStart,
+		"bindAddress":   "127.0.0.1",
+		"serverAddr":    fmt.Sprintf("https://%s", data.ServerAddr()),
+		"nodeName":      data.NodeRegistration().Name,
+		"nodePoolName":  nodePoolName,
+		"bootstrapFile": constants.YurtHubBootstrapConfig,
+		"workingMode":   data.NodeRegistration().WorkingMode,
+		"namespace":     data.Namespace(),
+	}
+
+	serviceContent, err := templates.SubstituteTemplate(constants.YurtHubSystemServiceTemplate, ctx)
+	if err != nil {
+		return err
+	}
+
+	// 写入 systemd service 文件
+	serviceFile := "/etc/systemd/system/yurthub.service"
+	if err := os.WriteFile(serviceFile, []byte(serviceContent), 0644); err != nil {
+		return err
+	}
+
+	// 启用并启动服务. // 在写一个函数
+	cmd := exec.Command("systemctl", "daemon-reload")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = exec.Command("systemctl", "enable", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = exec.Command("systemctl", "start", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
 // AddYurthubStaticYaml generate YurtHub static yaml for worker node.
 func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
 	klog.Info("[join-node] Adding edge hub static yaml")
@@ -112,9 +194,32 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 			clusterInfo.CertificateAuthorityData,
 			joinToken,
 		)
+
+		// make sure the parent directory of YurtHubBootstrapConfig exists
+		if err := os.MkdirAll(filepath.Dir(constants.YurtHubBootstrapConfig), os.ModePerm); err != nil {
+			return err
+		}
+
 		if err = kubeconfigutil.WriteToDisk(constants.YurtHubBootstrapConfig, tlsBootstrapCfg); err != nil {
 			return errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
 		}
+	}
+
+	return nil
+}
+
+// 新增
+// CheckYurthubServiceHealth 检查 YurtHub 服务的健康状态
+func CheckYurthubServiceHealth(yurthubServer string) error {
+	// 检查 systemd 服务状态
+	cmd := exec.Command("systemctl", "is-active", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("yurthub service is not active: %v", err)
+	}
+
+	// 检查 YurtHub 健康端点
+	if err := CheckYurthubHealthz(yurthubServer); err != nil { // 这里是之前的 CheckYurthubHealthz，在postcheck.go中调用
+		return err
 	}
 
 	return nil
