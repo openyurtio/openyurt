@@ -18,7 +18,9 @@ package daemonpodupdater
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -30,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
@@ -124,12 +127,39 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 		status = corev1.ConditionTrue
 	}
 
+	// construct updated ds info according to the pod image & imagepullsecret & servcie account
+	var dsInfoBytes []byte
+	if isUpdatable {
+		dsInfo := &config.DaemonsetUpdateImageInfo{
+			ImageList:          []string{},
+			ImagePullSecrets:   []string{},
+			ServiceAccountName: pod.Spec.ServiceAccountName,
+		}
+
+		containers := slices.Clone(pod.Spec.InitContainers)
+		containers = append(containers, pod.Spec.Containers...)
+		for _, container := range containers {
+			// exclude imagepullpolicy=Always images
+			if container.ImagePullPolicy == corev1.PullAlways {
+				continue
+			}
+			dsInfo.ImageList = append(dsInfo.ImageList, container.Image)
+		}
+		for _, imagePullSecret := range pod.Spec.ImagePullSecrets {
+			dsInfo.ImagePullSecrets = append(dsInfo.ImagePullSecrets, imagePullSecret.Name)
+		}
+		if dsInfo.ServiceAccountName == "" {
+			dsInfo.ServiceAccountName = "default"
+		}
+		dsInfoBytes, _ = json.Marshal(dsInfo)
+	}
+
 	cond := &corev1.PodCondition{
-		Type:   PodNeedUpgrade,
-		Status: status,
+		Type:    PodNeedUpgrade,
+		Status:  status,
+		Message: string(dsInfoBytes),
 	}
 	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
-
 		if err := c.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
