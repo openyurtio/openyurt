@@ -39,48 +39,52 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/token"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+
+	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
-// createYurthubSystemdService 创建 YurtHub 的 systemd service 配置
+// CheckAndInstallYurthub install yurthub binary, skip install if it exists.
+// func CheckAndInstallYurthub(yurthubResourceServer, yurthubVersion string) error {
+func CheckAndInstallYurthub() error {
+	// klog.Infof("Check and install yurthub %s", yurthubVersion)
+	// if yurthubVersion == "" {
+	// 	return ErrClusterVersionEmpty
+	// }
+
+	yurthubExist := false
+	if _, err := exec.LookPath(constants.YurthubExecStart); err == nil {
+		// yurthub binary already exists
+		klog.Infof("Yurthub binary already exists, skip install.")
+		yurthubExist = true
+	}
+
+	if !yurthubExist {
+		// Download and install yurthub
+		// packageUrl := fmt.Sprintf("%s/yurthub/%s/%s/yurthub", yurthubResourceServer, yurthubVersion, runtime.GOARCH)
+		packageUrl := constants.YurtHubExecInstallUrlFormat
+		savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
+		klog.V(1).Infof("Download yurthub from: %s", packageUrl)
+		if err := yurtadmutil.DownloadFile(packageUrl, savePath, 3); err != nil {
+			return fmt.Errorf("download yurthub fail: %w", err)
+		}
+		// copy to /usr/bin/yurthub and set executable permission
+		if err := edgenode.CopyFile(savePath, constants.YurthubExecStart, 0755); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// creates the systemd service configuration of YurtHub
 func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
 	nodePoolName := data.NodeRegistration().NodePoolName
-	// 如果 nodePoolName 为空，则使用默认值 "default"
+	// If nodePoolName is empty, use the default value "default"
 	if nodePoolName == "" {
 		nodePoolName = "default"
 	}
-
-	// 构建 service 内容
-	// 	serviceContent := fmt.Sprintf(`
-	// [Unit]
-	// Description=YurtHub Service
-	// After=network.target
-
-	// [Service]
-	// Type=simple
-	// Environment="NODE_NAME=${HOSTNAME}"
-	// ExecStart=%s \
-	//     --v=2 \
-	//     --bind-address=127.0.0.1 \
-	//     --server-addr=https://%s \
-	//     --node-name=%s \
-	//     --nodepool-name=%s \
-	//     --bootstrap-file=%s \
-	//     --working-mode=%s \
-	//     --namespace=%s \
-	// Restart=always
-
-	// // [Install]
-	// // WantedBy=multi-user.target
-	// // `,
-	// 		constants.YurthubExecStart,
-	// 		data.ServerAddr(),
-	// 		data.NodeRegistration().Name,
-	// 		nodePoolName,
-	// 		constants.YurtHubBootstrapConfig,
-	// 		data.NodeRegistration().WorkingMode,
-	// 		data.Namespace(),
-	// 	)
-
+	// generate systemd service content
 	ctx := map[string]string{
 		"execStart":     constants.YurthubExecStart,
 		"bindAddress":   "127.0.0.1",
@@ -97,13 +101,11 @@ func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
 		return err
 	}
 
-	// 写入 systemd service 文件
 	serviceFile := "/etc/systemd/system/yurthub.service"
 	if err := os.WriteFile(serviceFile, []byte(serviceContent), 0644); err != nil {
 		return err
 	}
 
-	// 启用并启动服务. // 在写一个函数
 	cmd := exec.Command("systemctl", "daemon-reload")
 	if err := cmd.Run(); err != nil {
 		return err
@@ -208,17 +210,16 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 	return nil
 }
 
-// 新增
-// CheckYurthubServiceHealth 检查 YurtHub 服务的健康状态
+// Check the health status of the YurtHub service
 func CheckYurthubServiceHealth(yurthubServer string) error {
-	// 检查 systemd 服务状态
+	// Checking the systemd service status
 	cmd := exec.Command("systemctl", "is-active", "yurthub.service")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("yurthub service is not active: %v", err)
 	}
 
-	// 检查 YurtHub 健康端点
-	if err := CheckYurthubHealthz(yurthubServer); err != nil { // 这里是之前的 CheckYurthubHealthz，在postcheck.go中调用
+	// Check the YurtHub health endpoint
+	if err := CheckYurthubHealthz(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
 		return err
 	}
 

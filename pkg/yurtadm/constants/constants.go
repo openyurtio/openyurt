@@ -76,6 +76,10 @@ const (
 	TmpDownloadDir                  = "/tmp"
 	KubeadmInstallUrl               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
 
+	// Yurthub Exec download url, Will be modified later, After the entire download method is determined
+	YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
+
+
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
 

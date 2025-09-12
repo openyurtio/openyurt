@@ -75,7 +75,10 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	// 	return err
 	// }
 
-	// Before this function, need to download and place the yurthub executable file
+	if err := yurthub.CheckAndInstallYurthub(); err != nil {
+		return err
+	} // download yurthub exec file
+	
 	// need to create the systemd service of yurthub
 	if err := yurthub.CreateYurthubSystemdService(data); err != nil {
 		return err
