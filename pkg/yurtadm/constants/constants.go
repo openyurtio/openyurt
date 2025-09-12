@@ -40,6 +40,12 @@ const (
 	YurthubNamespace              = "kube-system"
 	YurthubYurtStaticSetName      = "yurt-hub"
 	YurthubCloudYurtStaticSetName = "yurt-hub-cloud"
+
+	// additional constants for yurthub systemd service
+	YurtHubServiceName = "yurthub.service"
+	YurtHubServiceDir  = "/etc/systemd/system/"
+	YurthubExecStart   = "/usr/local/bin/yurthub"
+
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking
@@ -69,6 +75,10 @@ const (
 	KubeletUrlFormat                = "https://%s/release/%s/bin/linux/%s/kubelet"
 	TmpDownloadDir                  = "/tmp"
 	KubeadmInstallUrl               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
+
+	// Yurthub Exec download url, Will be modified later, After the entire download method is determined
+	YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
+
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
@@ -273,4 +283,28 @@ spec:
   priorityClassName: system-node-critical
   priority: 2000001000
 `
+// YurthubSystemServiceTemplate is the template of yurthub systemd service
+	YurtHubSystemServiceTemplate = `
+[Unit]
+Description=YurtHub Service
+After=network.target
+
+[Service]
+Type=simple
+Environment="NODE_NAME=${HOSTNAME}"
+ExecStart={{.execStart}} \
+    --v=2 \
+    --bind-address={{.bindAddress}} \
+    --server-addr={{.serverAddr}} \
+    --node-name={{.nodeName}} \
+    --nodepool-name={{.nodePoolName}} \
+    --bootstrap-file={{.bootstrapFile}} \
+    --working-mode={{.workingMode}} \
+    --namespace={{.namespace}}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+`
+
 )

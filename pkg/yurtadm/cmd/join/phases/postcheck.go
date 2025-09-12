@@ -33,9 +33,12 @@ func RunPostCheck(data joindata.YurtJoinData) error {
 	klog.V(1).Infof("kubelet service is active")
 
 	klog.V(1).Infof("waiting hub agent ready.")
-	if err := yurthub.CheckYurthubHealthz(data.YurtHubServer()); err != nil {
+	// if err := yurthub.CheckYurthubHealthz(data.YurtHubServer()); err != nil {
+	// 	return err
+	// }
+	if err := yurthub.CheckYurthubServiceHealth(data.YurtHubServer()); err != nil {
 		return err
-	}
+	} // Here need to modify it to check systemd service status
 	klog.V(1).Infof("hub agent is ready")
 
 	if err := yurthub.CleanHubBootstrapConfig(); err != nil {

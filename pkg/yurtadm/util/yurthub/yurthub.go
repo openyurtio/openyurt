@@ -39,7 +39,91 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/token"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+
+	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
+
+// CheckAndInstallYurthub install yurthub binary, skip install if it exists.
+// func CheckAndInstallYurthub(yurthubResourceServer, yurthubVersion string) error {
+func CheckAndInstallYurthub() error {
+	// klog.Infof("Check and install yurthub %s", yurthubVersion)
+	// if yurthubVersion == "" {
+	// 	return ErrClusterVersionEmpty
+	// }
+
+	yurthubExist := false
+	if _, err := exec.LookPath(constants.YurthubExecStart); err == nil {
+		// yurthub binary already exists
+		klog.Infof("Yurthub binary already exists, skip install.")
+		yurthubExist = true
+	}
+
+	if !yurthubExist {
+		// Download and install yurthub
+		// packageUrl := fmt.Sprintf("%s/yurthub/%s/%s/yurthub", yurthubResourceServer, yurthubVersion, runtime.GOARCH)
+		packageUrl := constants.YurtHubExecInstallUrlFormat
+		savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
+		klog.V(1).Infof("Download yurthub from: %s", packageUrl)
+		if err := yurtadmutil.DownloadFile(packageUrl, savePath, 3); err != nil {
+			return fmt.Errorf("download yurthub fail: %w", err)
+		}
+		// copy to /usr/bin/yurthub and set executable permission
+		if err := edgenode.CopyFile(savePath, constants.YurthubExecStart, 0755); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// creates the systemd service configuration of YurtHub
+func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
+	nodePoolName := data.NodeRegistration().NodePoolName
+	// If nodePoolName is empty, use the default value "default"
+	if nodePoolName == "" {
+		nodePoolName = "default"
+	}
+	// generate systemd service content
+	ctx := map[string]string{
+		"execStart":     constants.YurthubExecStart,
+		"bindAddress":   "127.0.0.1",
+		"serverAddr":    fmt.Sprintf("https://%s", data.ServerAddr()),
+		"nodeName":      data.NodeRegistration().Name,
+		"nodePoolName":  nodePoolName,
+		"bootstrapFile": constants.YurtHubBootstrapConfig,
+		"workingMode":   data.NodeRegistration().WorkingMode,
+		"namespace":     data.Namespace(),
+	}
+
+	serviceContent, err := templates.SubstituteTemplate(constants.YurtHubSystemServiceTemplate, ctx)
+	if err != nil {
+		return err
+	}
+
+	serviceFile := "/etc/systemd/system/yurthub.service"
+	if err := os.WriteFile(serviceFile, []byte(serviceContent), 0644); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("systemctl", "daemon-reload")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = exec.Command("systemctl", "enable", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = exec.Command("systemctl", "start", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 
 // AddYurthubStaticYaml generate YurtHub static yaml for worker node.
 func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
@@ -112,9 +196,31 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 			clusterInfo.CertificateAuthorityData,
 			joinToken,
 		)
+
+		// make sure the parent directory of YurtHubBootstrapConfig exists
+		if err := os.MkdirAll(filepath.Dir(constants.YurtHubBootstrapConfig), os.ModePerm); err != nil {
+			return err
+		}
+
 		if err = kubeconfigutil.WriteToDisk(constants.YurtHubBootstrapConfig, tlsBootstrapCfg); err != nil {
 			return errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
 		}
+	}
+
+	return nil
+}
+
+// Check the health status of the YurtHub service
+func CheckYurthubServiceHealth(yurthubServer string) error {
+	// Checking the systemd service status
+	cmd := exec.Command("systemctl", "is-active", "yurthub.service")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("yurthub service is not active: %v", err)
+	}
+
+	// Check the YurtHub health endpoint
+	if err := CheckYurthubHealthz(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
+		return err
 	}
 
 	return nil
